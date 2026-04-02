@@ -539,8 +539,8 @@ function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: Anal
   ];
 
   const getCellValue = (entity: AnalysisResult, row: typeof rows[number]): number => {
-    if (row.key === "score") return entity.company.score;
-    if (row.catIndex !== undefined) return entity.company.categories[row.catIndex]?.score ?? 0;
+    if ('key' in row && row.key === "score") return entity.company.score;
+    if ('catIndex' in row && row.catIndex !== undefined) return entity.company.categories[row.catIndex]?.score ?? 0;
     return 0;
   };
 
