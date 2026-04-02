@@ -256,7 +256,7 @@ function LandingView({ c, theme, setTheme, onAnalyze }: {
       {/* Card */}
       <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "32px 36px", width: "100%", maxWidth: 520, boxShadow: c.shadowLg }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: c.textPrimary, margin: "0 0 6px" }}>
-          Проанализируйте любой сайт
+          Проанализируйте любой сайт — TEST
         </h1>
         <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 24px" }}>
           Введите URL — мы оценим SEO, соцсети, контент и дадим конкретные рекомендации
