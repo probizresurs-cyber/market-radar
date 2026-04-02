@@ -19,10 +19,23 @@ interface ClaudeResponse {
 }
 
 function extractJson(text: string): ClaudeResponse {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  // Strip markdown fences if present
+  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
   if (start === -1 || end === -1) throw new Error("No JSON object found in Claude response");
-  return JSON.parse(text.slice(start, end + 1));
+  const jsonStr = stripped.slice(start, end + 1);
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    // Last resort: try to recover by truncating at last complete array/object
+    const lastComma = jsonStr.lastIndexOf("},");
+    if (lastComma > 0) {
+      const recovered = jsonStr.slice(0, lastComma + 1) + "]}]}";
+      return JSON.parse(recovered);
+    }
+    throw new Error("Failed to parse Claude JSON response");
+  }
 }
 
 function clamp(n: number): number {
@@ -95,7 +108,7 @@ HR-бренд: страница вакансий (+40), упоминания к�
 
   const message = await client.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 1500,
+    max_tokens: 2500,
     messages: [{ role: "user", content: prompt }],
   });
 
