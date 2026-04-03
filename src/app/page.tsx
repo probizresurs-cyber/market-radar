@@ -3009,7 +3009,7 @@ export default function MarketRadarDashboard() {
     const user = authGetCurrentUser();
     if (user) {
       setCurrentUser(user);
-      // Restore saved company analysis
+      // Restore saved company analysis + competitors
       try {
         const saved = localStorage.getItem(`mr_company_${user.id}`);
         if (saved) {
@@ -3017,6 +3017,13 @@ export default function MarketRadarDashboard() {
           setMyCompany(parsed);
           setStatus("done");
           setActiveNav("dashboard");
+        }
+        const savedComps = localStorage.getItem(`mr_competitors_${user.id}`);
+        if (savedComps) {
+          const parsedComps: AnalysisResult[] = JSON.parse(savedComps);
+          if (Array.isArray(parsedComps) && parsedComps.length > 0) {
+            setCompetitors(parsedComps);
+          }
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -3050,6 +3057,9 @@ export default function MarketRadarDashboard() {
       const result = await analyzeUrl(url);
       saveMyCompany(result);
       setCompetitors([]);
+      if (currentUser?.id) {
+        try { localStorage.removeItem(`mr_competitors_${currentUser.id}`); } catch { /* ignore */ }
+      }
       setSelectedCompetitor(null);
       setActiveNav("dashboard");
       if (currentUser?.tgChatId && currentUser.tgNotifyAnalysis !== false) {
@@ -3068,7 +3078,13 @@ export default function MarketRadarDashboard() {
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
-      setCompetitors(prev => [...prev, result]);
+      setCompetitors(prev => {
+        const updated = [...prev, result];
+        if (currentUser?.id) {
+          try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
+        }
+        return updated;
+      });
       if (currentUser?.tgChatId && currentUser.tgNotifyCompetitors !== false) {
         await sendTgNotification(
           currentUser.tgChatId,
@@ -3090,10 +3106,15 @@ export default function MarketRadarDashboard() {
     try {
       const result = await analyzeUrl(companyUrl);
       saveMyCompany(result, updatedUser.id);
+      const compResults: AnalysisResult[] = [];
       for (const url of competitorUrls) {
         setCurrentUrl(url);
         const comp = await analyzeUrl(url);
-        setCompetitors(prev => [...prev, comp]);
+        compResults.push(comp);
+        setCompetitors([...compResults]);
+      }
+      if (compResults.length > 0 && updatedUser.id) {
+        try { localStorage.setItem(`mr_competitors_${updatedUser.id}`, JSON.stringify(compResults)); } catch { /* ignore */ }
       }
       setActiveNav("dashboard");
     } catch {
