@@ -422,7 +422,7 @@ function OnboardingView({ c, user, onComplete }: {
   ];
 
   const suggestions = niche ? (NICHE_COMPETITORS[niche] ?? []) : [];
-  const MAX_COMPETITORS = 3;
+  const MAX_COMPETITORS = 30;
 
   const toggleCompetitor = (url: string) => {
     setSelectedCompetitors(prev => {
@@ -849,7 +849,7 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>AI-рекомендации</div>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 28 }}>
         {recommendations.map((rec, i) => {
           const dotColor = rec.priority === "high" ? c.accentRed : rec.priority === "medium" ? c.accentYellow : c.accentGreen;
           return (
@@ -861,6 +861,243 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           );
         })}
       </div>
+
+      {/* ── Ключевые слова ── */}
+      {(data.seo?.positions ?? []).length > 0 && (<>
+        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Ключевые слова и позиции</div>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ background: c.bg }}>
+              {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {data.seo.positions.map((pos, i) => (
+                <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                  <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
+                  <td style={{ padding: "10px 16px" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
+                  </td>
+                  <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                  <td style={{ padding: "10px 16px" }}>
+                    <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>)}
+
+      {/* ── SEO-детали + Бизнес-профиль ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
+          {[
+            { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
+            { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
+            { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+              <span style={{ color: c.textSecondary }}>{label}</span>
+              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+            </div>
+          ))}
+          {(data.seo?.issues ?? []).length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
+              {data.seo.issues.map((issue, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
+                  <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+          {[
+            { label: "Сотрудников", value: data.business?.employees ?? "—" },
+            { label: "Выручка / год", value: data.business?.revenue ?? "—" },
+            { label: "Основана", value: data.business?.founded ?? "—" },
+            { label: "Форма", value: data.business?.legalForm ?? "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+              <span style={{ color: c.textSecondary }}>{label}</span>
+              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+            </div>
+          ))}
+          {company.description && (
+            <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{company.description}</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Технологии + Найм ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
+          {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
+              <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
+            </div>
+          )}
+          {(data.techStack?.analytics ?? []).length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+              </div>
+            </div>
+          )}
+          {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
+              <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
+            </div>
+          )}
+          {(data.techStack?.other ?? []).length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
+            {data.hiring?.trend && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
+                color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted }}>
+                {data.hiring.trend === "growing" ? "▲ Растёт" : data.hiring.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
+              </span>
+            )}
+          </div>
+          {[
+            { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? "—") },
+            { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
+            { label: "Диапазон", value: data.hiring?.salaryRange ?? "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+              <span style={{ color: c.textSecondary }}>{label}</span>
+              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+            </div>
+          ))}
+          {(data.hiring?.topRoles ?? []).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ИЩУТ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.hiring.topRoles.map(r => <span key={r} style={{ background: c.bg, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 11, border: `1px solid ${c.border}` }}>{r}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Соцсети и рейтинги ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📱 Соцсети и рейтинги</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+          {data.social?.vk ? (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#2787F5", marginBottom: 8 }}>ВКонтакте</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
+              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
+              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.posts30d} постов/мес</div>
+              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.engagement} вовлечённость</div>
+            </div>
+          ) : (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>ВКонтакте</div>
+              <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
+            </div>
+          )}
+          {data.social?.telegram ? (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#229ED9", marginBottom: 8 }}>Telegram</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
+              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
+              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.telegram.posts30d} постов/мес</div>
+            </div>
+          ) : (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>Telegram</div>
+              <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
+            </div>
+          )}
+          {[
+            { label: "Яндекс.Карты", rating: data.social?.yandexRating ?? 0, reviews: data.social?.yandexReviews ?? 0, color: "#FC3F1D" },
+            { label: "2ГИС", rating: data.social?.gisRating ?? 0, reviews: data.social?.gisReviews ?? 0, color: "#04AE30" },
+          ].map(({ label, rating, reviews, color }) => (
+            <div key={label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{rating > 0 ? rating.toFixed(1) : "—"}</div>
+              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>рейтинг</div>
+              {rating > 0 && (
+                <div style={{ display: "flex", gap: 1, marginBottom: 4 }}>
+                  {[1,2,3,4,5].map(s => <span key={s} style={{ fontSize: 12, color: s <= Math.round(rating) ? "#f59e0b" : c.borderLight }}>★</span>)}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: c.textSecondary }}>{reviews > 0 ? `${reviews} отзывов` : "нет данных"}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Прогноз ниши ── */}
+      {data.nicheForecast && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>
+            📈 Прогноз ниши — {data.nicheForecast.timeframe}
+          </div>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>Рост рынка / год</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm }}>
+                    {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%
+                  </span>
+                </div>
+                <div style={{ height: 10, borderRadius: 5, background: c.borderLight, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, Math.abs(data.nicheForecast.trendPercent) * 5)}%`, background: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm, borderRadius: 5, transition: "width 1.2s ease" }} />
+                </div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, whiteSpace: "nowrap",
+                background: data.nicheForecast.trend === "growing" ? c.accentGreen + "18" : data.nicheForecast.trend === "declining" ? c.accentRed + "18" : c.accentYellow + "18",
+                color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentYellow }}>
+                {data.nicheForecast.trend === "growing" ? "▲ Растёт" : data.nicheForecast.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
+              </span>
+            </div>
+            <p style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.65, marginBottom: 14 }}>{data.nicheForecast.forecast}</p>
+            <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>Куда движется рынок:</div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, marginBottom: 20 }}>{data.nicheForecast.direction}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 10 }}>✓ Возможности</div>
+                {(data.nicheForecast.opportunities ?? []).map((o, i) => (
+                  <div key={i} style={{ fontSize: 13, color: c.textSecondary, padding: "6px 0", borderBottom: i < (data.nicheForecast.opportunities.length - 1) ? `1px solid ${c.borderLight}` : "none" }}>{o}</div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 10 }}>⚠ Угрозы</div>
+                {(data.nicheForecast.threats ?? []).map((t, i) => (
+                  <div key={i} style={{ fontSize: 13, color: c.textSecondary, padding: "6px 0", borderBottom: i < (data.nicheForecast.threats.length - 1) ? `1px solid ${c.borderLight}` : "none" }}>{t}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1241,17 +1478,163 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
 // Reports View
 // ============================================================
 
-function ReportsView({ c }: { c: Colors }) {
+function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (!data) {
+    return (
+      <div style={{ maxWidth: 700 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>Отчёты</h1>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 40, textAlign: "center", boxShadow: c.shadow }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>Сначала запустите анализ</div>
+          <div style={{ fontSize: 13, color: c.textSecondary }}>Перейдите в «Новый анализ» и введите URL сайта</div>
+        </div>
+      </div>
+    );
+  }
+
+  const today = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  const scoreColor = data.company.score >= 75 ? "#22a06b" : data.company.score >= 50 ? "#d4894e" : "#e34935";
+
   return (
-    <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>Отчёты</h1>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 32, textAlign: "center", boxShadow: c.shadow }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>PDF-отчёты доступны на тарифе Starter</div>
-        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>Получите полный PDF с аудитом, сравнением конкурентов и AI-рекомендациями</div>
-        <button style={{ background: c.accentWarm, color: "#fff", border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-          Перейти на Starter — ₽2 990/мес
+    <div style={{ maxWidth: 860 }}>
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #mr-report, #mr-report * { visibility: visible !important; }
+          #mr-report { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 24px !important; background: #fff !important; }
+          .no-print { display: none !important; }
+          @page { margin: 20mm; }
+        }
+      `}</style>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: c.textPrimary }}>Отчёты</h1>
+        <button className="no-print" onClick={handlePrint}
+          style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 22px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+          ↓ Скачать PDF
         </button>
+      </div>
+
+      <div id="mr-report" style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadowLg }}>
+        {/* Header */}
+        <div style={{ padding: "28px 32px", borderBottom: `1px solid ${c.border}`, background: `linear-gradient(135deg, ${c.accent}0f, ${c.bgCard})` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, letterSpacing: "0.08em", marginBottom: 6 }}>MARKETRADAR · ОТЧЁТ ПО АНАЛИЗУ</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: c.textPrimary, marginBottom: 4 }}>{data.company.name}</div>
+              <div style={{ fontSize: 13, color: c.textMuted }}>{data.company.url} · {today}</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{data.company.score}</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>Общий score</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>ОЦЕНКИ ПО КАТЕГОРИЯМ</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              {["Категория", "Вес", "Оценка", "Уровень"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {data.company.categories.map((cat, i) => {
+                const col = cat.score >= 75 ? "#22a06b" : cat.score >= 50 ? "#d4894e" : "#e34935";
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: c.textPrimary, fontWeight: 500 }}>{cat.icon} {cat.name}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: c.textSecondary }}>{cat.weight}%</td>
+                    <td style={{ padding: "10px 12px", fontSize: 16, fontWeight: 800, color: col }}>{cat.score}</td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <div style={{ width: 120, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${cat.score}%`, background: col, borderRadius: 3 }} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Keywords */}
+        {(data.seo?.positions ?? []).length > 0 && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 КЛЮЧЕВЫЕ СЛОВА</div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                {["Ключевое слово", "Позиция", "Объём/мес"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {data.seo.positions.map((pos, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                    <td style={{ padding: "8px 12px", fontSize: 13, color: c.textPrimary }}>{pos.keyword}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 14, fontWeight: 700, color: pos.position <= 10 ? "#22a06b" : pos.position <= 30 ? "#d4894e" : c.textSecondary }}>#{pos.position}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 13, color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Business + SEO summary */}
+        <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🏢 БИЗНЕС-ПРОФИЛЬ</div>
+            {[
+              { l: "Сотрудников", v: data.business?.employees },
+              { l: "Выручка/год", v: data.business?.revenue },
+              { l: "Основана", v: data.business?.founded },
+              { l: "Трафик/мес", v: data.seo?.estimatedTraffic },
+              { l: "Возраст домена", v: data.seo?.domainAge },
+            ].map(({ l, v }) => v && v !== "—" ? (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 12 }}>
+                <span style={{ color: c.textSecondary }}>{l}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{v}</span>
+              </div>
+            ) : null)}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 ПРОГНОЗ НИШИ</div>
+            {data.nicheForecast && <>
+              <div style={{ fontSize: 20, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? "#22a06b" : data.nicheForecast.trend === "declining" ? "#e34935" : "#d4894e", marginBottom: 6 }}>
+                {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
+              </div>
+              <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 8px" }}>{data.nicheForecast.forecast}</p>
+            </>}
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        <div style={{ padding: "24px 32px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 AI-РЕКОМЕНДАЦИИ</div>
+          {data.recommendations.map((rec, i) => {
+            const col = rec.priority === "high" ? "#e34935" : rec.priority === "medium" ? "#e6a817" : "#22a06b";
+            return (
+              <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: i < data.recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: col, marginTop: 5, flexShrink: 0 }} />
+                <div style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#22a06b", background: "#22a06b12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap", alignSelf: "center" }}>{rec.effect}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 32px", borderTop: `1px solid ${c.border}`, background: c.bg, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: c.textMuted }}>MarketRadar · company24.pro</span>
+          <span style={{ fontSize: 11, color: c.textMuted }}>Сгенерировано {today}</span>
+        </div>
       </div>
     </div>
   );
@@ -1504,11 +1887,21 @@ export default function MarketRadarDashboard() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<number | null>(null);
   const c = COLORS[theme];
 
-  // Check for existing session on mount
+  // Check for existing session + restore saved company data on mount
   useEffect(() => {
     const user = authGetCurrentUser();
     if (user) {
       setCurrentUser(user);
+      // Restore saved company analysis
+      try {
+        const saved = localStorage.getItem(`mr_company_${user.id}`);
+        if (saved) {
+          const parsed: AnalysisResult = JSON.parse(saved);
+          setMyCompany(parsed);
+          setStatus("done");
+          setActiveNav("dashboard");
+        }
+      } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     }
   }, []);
@@ -1524,12 +1917,21 @@ export default function MarketRadarDashboard() {
     return json.data;
   };
 
+  // Save company to localStorage and state
+  const saveMyCompany = (result: AnalysisResult, userId?: string) => {
+    setMyCompany(result);
+    const uid = userId ?? currentUser?.id;
+    if (uid) {
+      try { localStorage.setItem(`mr_company_${uid}`, JSON.stringify(result)); } catch { /* ignore */ }
+    }
+  };
+
   // New analysis from within dashboard
   const handleNewAnalysis = async (url: string) => {
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
-      setMyCompany(result);
+      saveMyCompany(result);
       setCompetitors([]);
       setSelectedCompetitor(null);
       setActiveNav("dashboard");
@@ -1558,7 +1960,7 @@ export default function MarketRadarDashboard() {
     setStatus("loading");
     try {
       const result = await analyzeUrl(companyUrl);
-      setMyCompany(result);
+      saveMyCompany(result, updatedUser.id);
       for (const url of competitorUrls) {
         setCurrentUrl(url);
         const comp = await analyzeUrl(url);
@@ -1566,20 +1968,19 @@ export default function MarketRadarDashboard() {
       }
       setActiveNav("dashboard");
     } catch {
-      // If analysis fails, go to new-analysis so user can try again
       setActiveNav("new-analysis");
     } finally {
       setStatus("done");
     }
   };
 
-  // Logout
+  // Logout — НЕ сбрасываем данные компании (они в localStorage)
   const handleLogout = () => {
     authSetCurrentUser(null);
     setCurrentUser(null);
     setAppScreen("landing");
-    setMyCompany(null);
-    setCompetitors([]);
+    // Не сбрасываем myCompany/competitors — пусть остаются в памяти для UX
+    // При следующем входе они восстановятся из localStorage
     setStatus("idle");
     setActiveNav("new-analysis");
     setSelectedCompetitor(null);
@@ -1638,7 +2039,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "reports" && <ReportsView c={c} />}
+        {activeNav === "reports" && <ReportsView c={c} data={myCompany} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
       </main>

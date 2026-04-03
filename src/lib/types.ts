@@ -19,6 +19,12 @@ export interface Insight {
   text: string;
 }
 
+export interface SeoPosition {
+  keyword: string;
+  position: number;
+  volume: number;
+}
+
 export interface ScrapedData {
   url: string;
   title: string;
@@ -50,7 +56,55 @@ export interface AnalysisResult {
     avgNiche: number;
     top10: number;
     categories: CategoryScore[];
+    description?: string;
   };
   recommendations: Recommendation[];
   insights: Insight[];
+  seo: {
+    title: string;
+    metaDescription: string;
+    keywords: string[];
+    pageCount: number;
+    domainAge: string;
+    estimatedTraffic: string;
+    positions: SeoPosition[];
+    issues: string[];
+  };
+  techStack: {
+    cms: string;
+    analytics: string[];
+    chat: string;
+    hosting: string;
+    other: string[];
+  };
+  social: {
+    vk: { subscribers: number; posts30d: number; engagement: string; trend: string } | null;
+    telegram: { subscribers: number; posts30d: number } | null;
+    yandexRating: number;
+    yandexReviews: number;
+    gisRating: number;
+    gisReviews: number;
+  };
+  hiring: {
+    openVacancies: number;
+    avgSalary: string;
+    topRoles: string[];
+    trend: "growing" | "stable" | "declining";
+    salaryRange: string;
+  };
+  business: {
+    employees: string;
+    revenue: string;
+    founded: string;
+    legalForm: string;
+  };
+  nicheForecast: {
+    trend: "growing" | "stable" | "declining";
+    trendPercent: number;
+    forecast: string;
+    opportunities: string[];
+    threats: string[];
+    direction: string;
+    timeframe: string;
+  };
 }
