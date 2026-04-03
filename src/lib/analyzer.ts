@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice } from "./types";
+import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice, AiPerception } from "./types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -66,6 +66,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 - Для copyImprovements: анализируй реальный текст сайта (title, h1, h2, фрагмент текста) и давай КОНКРЕТНЫЕ переформулировки с примерами.
 - Для keywordGaps: давай ключевые слова, которые конкуренты в нише используют, а этот сайт — нет. Реалистичные объёмы.
 - Для offerAnalysis: опиши текущий оффер как он есть, найди слабые места, предложи конкретную переформулировку УТП.
+- Для aiPerception: представь, что ты ChatGPT/Claude/Gemini, и пользователь спрашивает тебя об этой компании. Как ты ответишь? Что знаешь о ней? Насколько хорошо она представлена в информационном пространстве, которое используют LLM для обучения? E-E-A-T — это Google-стандарт оценки контента (Expertise, Experience, Authority, Trust), оцени по нему.
 - Все текстовые поля — на русском языке.
 
 === ТРЕБУЕМЫЙ JSON (строго такая структура) ===
@@ -155,6 +156,15 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     "threats": ["string", "string", "string"],
     "direction": "string (1-2 предложения куда движется рынок)",
     "timeframe": "string (например: 2025–2027)"
+  },
+  "aiPerception": {
+    "knowledgePresence": "strong|moderate|weak|minimal",
+    "persona": "string (1 предложение — каким видят компанию нейросети: 'Региональный производитель металлоконструкций среднего размера без выраженного цифрового присутствия')",
+    "sampleAnswer": "string (3-5 предложений — симуляция того, что ответит ChatGPT/Claude на вопрос 'Что такое [компания]?' — реалистично, на основе доступных данных)",
+    "associatedKeywords": ["string", "string", "string", "string", "string"],
+    "eeat": { "expertise": 0-100, "authority": 0-100, "trust": 0-100, "experience": 0-100 },
+    "contentSignals": ["string (сигнал, который формирует мнение нейросети)", "string", "string"],
+    "improvementTips": ["string (конкретный совет по улучшению AI-видимости)", "string", "string", "string"]
   }
 }
 
@@ -165,6 +175,8 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 - ровно 3 copyImprovements (H1/title, meta description, и ещё один элемент страницы)
 - ровно 4 keywordGaps — реальные незанятые запросы в нише
 - ровно 4 contentIdeas и 4 seoActions
+- ровно 3 contentSignals и 4 improvementTips в aiPerception
+- ровно 5 associatedKeywords в aiPerception
 - Если VK не найден — vk должен быть null (не объект). Если Telegram не найден — telegram должен быть null.`;
 
   const message = await client.messages.create({
@@ -339,6 +351,28 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     timeframe: safeStr(nfRaw.timeframe, "2025–2027"),
   };
 
+  // AI Perception
+  const apRaw = p.aiPerception ?? {};
+  const eeatRaw = apRaw.eeat ?? {};
+  const aiPerception: AiPerception = {
+    knowledgePresence: (["strong", "moderate", "weak", "minimal"].includes(apRaw.knowledgePresence)
+      ? apRaw.knowledgePresence : "weak") as AiPerception["knowledgePresence"],
+    persona: safeStr(apRaw.persona, "—"),
+    sampleAnswer: safeStr(apRaw.sampleAnswer, "—"),
+    associatedKeywords: Array.isArray(apRaw.associatedKeywords)
+      ? apRaw.associatedKeywords.slice(0, 5).map((k: unknown) => String(k)) : [],
+    eeat: {
+      expertise: clamp(safeNum(eeatRaw.expertise, 40)),
+      authority: clamp(safeNum(eeatRaw.authority, 30)),
+      trust: clamp(safeNum(eeatRaw.trust, 40)),
+      experience: clamp(safeNum(eeatRaw.experience, 35)),
+    },
+    contentSignals: Array.isArray(apRaw.contentSignals)
+      ? apRaw.contentSignals.slice(0, 3).map((s: unknown) => String(s)) : [],
+    improvementTips: Array.isArray(apRaw.improvementTips)
+      ? apRaw.improvementTips.slice(0, 4).map((t: unknown) => String(t)) : [],
+  };
+
   return {
     company: {
       name: companyName,
@@ -358,5 +392,6 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     hiring,
     business,
     nicheForecast,
+    aiPerception,
   };
 }

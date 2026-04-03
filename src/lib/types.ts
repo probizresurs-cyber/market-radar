@@ -54,6 +54,23 @@ export interface PracticalAdvice {
   seoActions: string[];
 }
 
+export interface EeatScore {
+  expertise: number;
+  authority: number;
+  trust: number;
+  experience: number;
+}
+
+export interface AiPerception {
+  knowledgePresence: "strong" | "moderate" | "weak" | "minimal";
+  persona: string;
+  sampleAnswer: string;
+  associatedKeywords: string[];
+  eeat: EeatScore;
+  contentSignals: string[];
+  improvementTips: string[];
+}
+
 export interface ScrapedData {
   url: string;
   title: string;
@@ -137,4 +154,5 @@ export interface AnalysisResult {
     direction: string;
     timeframe: string;
   };
+  aiPerception: AiPerception;
 }
