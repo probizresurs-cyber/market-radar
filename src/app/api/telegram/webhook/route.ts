@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { saveChatId } from "@/lib/tgStore";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG = `https://api.telegram.org/bot${TOKEN}`;
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
         `📋 Затем отправьте его сюда в формате <code>MR-XXXXXX</code>`
       );
     } else if (/^MR-[A-Z0-9]{6}$/i.test(text)) {
+      // Save code → chatId so the connect endpoint can find it
+      saveChatId(text, chatId);
+
       await sendMessage(chatId,
         `✅ <b>Готово!</b>\n\n` +
         `Вы подписались на уведомления Market Radar.\n` +
