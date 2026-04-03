@@ -2265,6 +2265,238 @@ function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
           })}
         </div>
 
+        {/* AI Insights */}
+        {data.insights.length > 0 && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🧠 AI-ИНСАЙТЫ</div>
+            {(() => {
+              const typeCfg: Record<string, { icon: string; label: string }> = {
+                niche:  { icon: "🔭", label: "Пустая ниша" },
+                action: { icon: "🚀", label: "Топ-действие" },
+                battle: { icon: "⚔️", label: "Battle Card" },
+                copy:   { icon: "✍️", label: "Копирайтинг" },
+                seo:    { icon: "🔍", label: "SEO" },
+                offer:  { icon: "🎯", label: "Оффер" },
+              };
+              return data.insights.map((ins, i) => {
+                const cfg = typeCfg[ins.type] ?? typeCfg.action;
+                const col = ins.type === "niche" ? c.accent : ins.type === "battle" ? "#ef4444" : ins.type === "copy" ? "#f59e0b" : ins.type === "offer" ? "#9b59b6" : "#10b981";
+                return (
+                  <div key={i} style={{ padding: "10px 0", borderBottom: i < data.insights.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14 }}>{cfg.icon}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{cfg.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{ins.title}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, paddingLeft: 22 }}>{ins.text}</div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {/* Copy improvements */}
+        {(data.practicalAdvice?.copyImprovements ?? []).length > 0 && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>✍️ ПРАВКИ ТЕКСТА САЙТА</div>
+            {data.practicalAdvice.copyImprovements.map((ci, i) => (
+              <div key={i} style={{ marginBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, paddingBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, borderBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", background: "#f59e0b18", padding: "2px 8px", borderRadius: 5 }}>{ci.element}</span>
+                  <span style={{ fontSize: 11, color: c.textMuted }}>{ci.reason}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ padding: "8px 12px", background: "#ef444408", borderRadius: 8, border: "1px solid #ef444420" }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#ef4444", marginBottom: 4, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
+                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
+                  </div>
+                  <div style={{ padding: "8px 12px", background: "#10b98108", borderRadius: 8, border: "1px solid #10b98120" }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4, letterSpacing: "0.06em" }}>ЗАМЕНИТЬ НА</div>
+                    <div style={{ fontSize: 12, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Offer analysis */}
+        {data.practicalAdvice?.offerAnalysis?.currentOffer && data.practicalAdvice.offerAnalysis.currentOffer !== "—" && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🎯 ОФФЕР И ПОЗИЦИОНИРОВАНИЕ</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.06em" }}>ТЕКУЩИЙ ОФФЕР</div>
+              <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", padding: "8px 12px", background: c.bg, borderRadius: 7, border: `1px solid ${c.borderLight}` }}>{data.practicalAdvice.offerAnalysis.currentOffer}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", marginBottom: 6, letterSpacing: "0.06em" }}>СЛАБЫЕ МЕСТА</div>
+                {data.practicalAdvice.offerAnalysis.weaknesses.map((w, i) => (
+                  <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#ef4444" }}>✗</span>{w}</div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#10b981", marginBottom: 6, letterSpacing: "0.06em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
+                {data.practicalAdvice.offerAnalysis.differentiators.map((d, i) => (
+                  <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#10b981" }}>✓</span>{d}</div>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#6366f108", borderRadius: 8, border: "1px solid #6366f120" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 5, letterSpacing: "0.06em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{data.practicalAdvice.offerAnalysis.suggestedOffer}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Keyword gaps */}
+        {(data.practicalAdvice?.keywordGaps ?? []).length > 0 && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 НЕЗАНЯТЫЕ КЛЮЧЕВЫЕ СЛОВА</div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "7px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 10, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {data.practicalAdvice.keywordGaps.map((kg, i) => {
+                  const diffCol = kg.difficulty === "low" ? "#10b981" : kg.difficulty === "medium" ? "#f59e0b" : "#ef4444";
+                  const diffLabel = kg.difficulty === "low" ? "Лёгкий" : kg.difficulty === "medium" ? "Средний" : "Сложный";
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                      <td style={{ padding: "8px 12px", fontSize: 12, color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
+                      <td style={{ padding: "8px 12px", fontSize: 12, color: c.textSecondary }}>{kg.volume.toLocaleString("ru")}</td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: diffCol, background: diffCol + "18", padding: "2px 7px", borderRadius: 5 }}>{diffLabel}</span>
+                      </td>
+                      <td style={{ padding: "8px 12px", fontSize: 11, color: c.textSecondary }}>{kg.opportunity}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* AI Perception */}
+        {data.aiPerception && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🤖 ВОСПРИЯТИЕ НЕЙРОСЕТЯМИ</div>
+
+            {/* Presence + persona row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              {(() => {
+                const presenceCfg = {
+                  strong:   { label: "Хорошо известна",    col: "#10b981" },
+                  moderate: { label: "Частично известна",  col: "#f59e0b" },
+                  weak:     { label: "Слабо известна",     col: "#f59e0b" },
+                  minimal:  { label: "Почти не известна",  col: "#ef4444" },
+                }[data.aiPerception.knowledgePresence] ?? { label: "—", col: c.textMuted };
+                return (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: presenceCfg.col, background: presenceCfg.col + "18", padding: "3px 12px", borderRadius: 20 }}>
+                    AI-видимость: {presenceCfg.label}
+                  </span>
+                );
+              })()}
+              <span style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic" }}>{data.aiPerception.persona}</span>
+            </div>
+
+            {/* Sample answer */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 6, letterSpacing: "0.06em" }}>СИМУЛЯЦИЯ ОТВЕТА НЕЙРОСЕТИ</div>
+              <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.65, fontStyle: "italic", padding: "10px 14px", background: "#6366f106", borderRadius: 8, border: "1px solid #6366f115" }}>
+                {data.aiPerception.sampleAnswer}
+              </div>
+            </div>
+
+            {/* E-E-A-T + signals */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>E-E-A-T ОЦЕНКА</div>
+                {([
+                  { key: "expertise" as const,  label: "Экспертиза" },
+                  { key: "experience" as const, label: "Опыт" },
+                  { key: "authority" as const,  label: "Авторитет" },
+                  { key: "trust" as const,      label: "Доверие" },
+                ]).map(({ key, label }) => {
+                  const val = data.aiPerception.eeat[key];
+                  const col = val >= 70 ? "#10b981" : val >= 45 ? "#f59e0b" : "#ef4444";
+                  return (
+                    <div key={key} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, color: c.textSecondary }}>{label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: col }}>{val}</span>
+                      </div>
+                      <div style={{ height: 4, borderRadius: 2, background: c.borderLight }}>
+                        <div style={{ height: "100%", width: `${val}%`, background: col, borderRadius: 2 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>АССОЦИАЦИИ</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                  {data.aiPerception.associatedKeywords.map((kw, i) => (
+                    <span key={i} style={{ fontSize: 11, color: "#818cf8", background: "#6366f112", padding: "3px 10px", borderRadius: 20, border: "1px solid #6366f120" }}>{kw}</span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.06em" }}>СИГНАЛЫ</div>
+                {data.aiPerception.contentSignals.map((s, i) => (
+                  <div key={i} style={{ fontSize: 11, color: c.textSecondary, marginBottom: 5, display: "flex", gap: 6 }}>
+                    <span style={{ color: "#f59e0b", flexShrink: 0 }}>◆</span>{s}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Improvement tips */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>КАК УЛУЧШИТЬ AI-ВИДИМОСТЬ</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {data.aiPerception.improvementTips.map((tip, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{tip}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SEO actions + Content ideas */}
+        {((data.practicalAdvice?.seoActions ?? []).length > 0 || (data.practicalAdvice?.contentIdeas ?? []).length > 0) && (
+          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              {(data.practicalAdvice?.seoActions ?? []).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚡ БЫСТРЫЕ SEO-ПОБЕДЫ</div>
+                  {data.practicalAdvice.seoActions.map((a, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{a}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(data.practicalAdvice?.contentIdeas ?? []).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>💡 ИДЕИ КОНТЕНТА</div>
+                  {data.practicalAdvice.contentIdeas.map((idea, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, background: "#10b98115", color: "#10b981", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{idea}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{ padding: "16px 32px", borderTop: `1px solid ${c.border}`, background: c.bg, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: c.textMuted }}>MarketRadar · company24.pro</span>
