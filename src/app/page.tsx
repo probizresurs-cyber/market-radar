@@ -57,6 +57,512 @@ const SOURCES_FREE = [
 ];
 
 // ============================================================
+// Authentication Types & Helpers
+// ============================================================
+
+interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  niche?: string;
+  companyName?: string;
+  companyUrl?: string;
+  onboardingDone: boolean;
+}
+
+function authGetUsers(): UserAccount[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem("mr_users") || "[]"); } catch { return []; }
+}
+function authSaveUser(user: UserAccount): void {
+  const users = authGetUsers();
+  const idx = users.findIndex(u => u.id === user.id);
+  if (idx >= 0) users[idx] = user; else users.push(user);
+  localStorage.setItem("mr_users", JSON.stringify(users));
+}
+function authGetCurrentUser(): UserAccount | null {
+  if (typeof window === "undefined") return null;
+  const id = localStorage.getItem("mr_current_user");
+  if (!id) return null;
+  return authGetUsers().find(u => u.id === id) ?? null;
+}
+function authSetCurrentUser(id: string | null): void {
+  if (id) localStorage.setItem("mr_current_user", id);
+  else localStorage.removeItem("mr_current_user");
+}
+
+const NICHE_COMPETITORS: Record<string, Array<{ name: string; url: string }>> = {
+  digital: [
+    { name: "Kokoc Group", url: "kokoc.com" },
+    { name: "iConText Group", url: "icontext.ru" },
+    { name: "i-Media", url: "i-media.ru" },
+    { name: "Nimax", url: "nimax.ru" },
+    { name: "WebCanape", url: "webcanape.ru" },
+  ],
+  clinic: [
+    { name: "СМ-Клиника", url: "sm-clinic.ru" },
+    { name: "Медицина.ру", url: "medicina.ru" },
+    { name: "К+31", url: "klinika31.ru" },
+    { name: "МедСи", url: "medsi.ru" },
+    { name: "Hadassah", url: "hmc.ru" },
+  ],
+  b2b: [
+    { name: "Контур", url: "kontur.ru" },
+    { name: "МойСклад", url: "moysklad.ru" },
+    { name: "amoCRM", url: "amocrm.ru" },
+    { name: "Битрикс24", url: "bitrix24.ru" },
+    { name: "1С-Битрикс", url: "1c-bitrix.ru" },
+  ],
+  other: [
+    { name: "Авито", url: "avito.ru" },
+    { name: "Яндекс Маркет", url: "market.yandex.ru" },
+    { name: "Озон", url: "ozon.ru" },
+    { name: "ВКонтакте", url: "vk.com" },
+    { name: "Тинькофф", url: "tinkoff.ru" },
+  ],
+};
+
+// ============================================================
+// Landing Page View (full marketing page)
+// ============================================================
+
+function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
+  c: Colors; theme: Theme; setTheme: (t: Theme) => void;
+  onRegister: () => void; onLogin: () => void;
+}) {
+  return (
+    <div style={{ fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, minHeight: "100vh" }}>
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 40px", borderBottom: `1px solid ${c.border}`, background: c.bgCard, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
+          <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: "none", cursor: "pointer", color: c.textMuted, fontSize: 18, fontFamily: "inherit" }}>
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
+          <button onClick={onLogin} style={{ background: "none", border: `1px solid ${c.border}`, borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", color: c.textSecondary, fontFamily: "inherit" }}>
+            Войти
+          </button>
+          <button onClick={onRegister} style={{ background: c.accent, border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "#fff", fontFamily: "inherit" }}>
+            Попробовать бесплатно
+          </button>
+        </div>
+      </nav>
+
+      <section style={{ textAlign: "center", padding: "72px 20px 56px", background: `linear-gradient(180deg, ${c.accent}0a 0%, ${c.bg} 100%)` }}>
+        <div style={{ display: "inline-block", background: c.accentWarm + "20", color: c.accentWarm, borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 700, marginBottom: 20 }}>
+          ИИ-анализ конкурентов для малого бизнеса
+        </div>
+        <h1 style={{ fontSize: "clamp(26px, 5vw, 50px)", fontWeight: 900, lineHeight: 1.15, margin: "0 auto 20px", maxWidth: 700, color: c.textPrimary }}>
+          Узнайте всё о конкурентах<br />
+          <span style={{ color: c.accent }}>за 10 минут</span>
+        </h1>
+        <p style={{ fontSize: 16, color: c.textSecondary, maxWidth: 520, margin: "0 auto 32px", lineHeight: 1.65 }}>
+          MarketRadar анализирует сайты конкурентов с помощью Claude AI — SEO, соцсети, контент, HR-бренд — и даёт конкретные рекомендации
+        </p>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={onRegister} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 32px", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 14px ${c.accent}40` }}>
+            Начать бесплатно →
+          </button>
+          <button onClick={onLogin} style={{ background: c.bgCard, color: c.textPrimary, border: `1px solid ${c.border}`, borderRadius: 12, padding: "14px 28px", fontWeight: 600, fontSize: 15, cursor: "pointer", fontFamily: "inherit" }}>
+            Уже есть аккаунт
+          </button>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 12, color: c.textMuted }}>Бесплатно · Без кредитной карты · 3 анализа в месяц</div>
+      </section>
+
+      <section style={{ padding: "0 20px 60px", maxWidth: 960, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: c.textPrimary, textAlign: "center", marginBottom: 32 }}>Три инструмента в одном</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 18 }}>
+          {[
+            { icon: "🔍", title: "Самоанализ", desc: "Введите свой сайт — получите полный аудит: SEO, соцсети, контент, HR-бренд и стек технологий. Сравнение со средним по нише." },
+            { icon: "🎯", title: "Мониторинг конкурентов", desc: "Добавьте до 10 конкурентов и видите их сильные и слабые стороны. Battle Cards помогут подготовиться к встрече с клиентом." },
+            { icon: "💡", title: "AI-рекомендации", desc: "Claude AI анализирует данные и даёт конкретные советы: что добавить на сайт, какие слова написать, какие каналы развить." },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: "26px 22px", boxShadow: c.shadow }}>
+              <div style={{ fontSize: 36, marginBottom: 14 }}>{icon}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>{title}</div>
+              <div style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.6 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ padding: "0 20px 60px", maxWidth: 960, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <h2 style={{ fontSize: 26, fontWeight: 800, color: c.textPrimary, margin: "0 0 8px" }}>Тарифы</h2>
+          <p style={{ fontSize: 14, color: c.textSecondary, margin: 0 }}>Начните бесплатно, масштабируйтесь по мере роста</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
+          {[
+            { name: "Free", price: "₽0", period: "", features: ["1 компания", "3 конкурента", "2 анализа/мес", "Базовые рекомендации"], highlight: false, cta: "Начать бесплатно" },
+            { name: "Starter", price: "₽2 990", period: "/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "PDF-отчёты", "Telegram-уведомления"], highlight: false, cta: "Попробовать" },
+            { name: "Pro", price: "₽7 990", period: "/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "API-доступ", "White-label отчёты"], highlight: true, cta: "Выбрать Pro" },
+            { name: "Agency", price: "₽14 990", period: "/мес", features: ["10 компаний", "100 конкурентов", "Real-time обновление", "5 мест", "Брендированные отчёты"], highlight: false, cta: "Для агентств" },
+          ].map(plan => (
+            <div key={plan.name} style={{ background: plan.highlight ? c.accent : c.bgCard, borderRadius: 16, border: `2px solid ${plan.highlight ? c.accent : c.border}`, padding: "22px 18px", position: "relative", boxShadow: plan.highlight ? `0 8px 20px ${c.accent}30` : c.shadow }}>
+              {plan.highlight && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: c.accentWarm, color: "#fff", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>Популярный</div>}
+              <div style={{ fontSize: 14, fontWeight: 700, color: plan.highlight ? "#fff" : c.textPrimary, marginBottom: 4 }}>{plan.name}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginBottom: 14 }}>
+                <span style={{ fontSize: 26, fontWeight: 900, color: plan.highlight ? "#fff" : c.textPrimary }}>{plan.price}</span>
+                <span style={{ fontSize: 12, color: plan.highlight ? "rgba(255,255,255,0.7)" : c.textMuted }}>{plan.period}</span>
+              </div>
+              <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 5 }}>
+                {plan.features.map(f => (
+                  <div key={f} style={{ fontSize: 12, color: plan.highlight ? "rgba(255,255,255,0.9)" : c.textSecondary, display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ color: plan.highlight ? "#fff" : c.accentGreen, fontWeight: 700 }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <button onClick={onRegister} style={{ width: "100%", background: plan.highlight ? "#fff" : c.accent, color: plan.highlight ? c.accent : "#fff", border: "none", borderRadius: 10, padding: "10px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                {plan.cta}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ padding: "0 20px 60px", maxWidth: 960, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: c.textPrimary, textAlign: "center", marginBottom: 28 }}>Отзывы</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 16 }}>
+          {[
+            { name: "Алексей М.", role: "Директор digital-агентства", text: "За час нашёл 3 слабых места у главного конкурента и обновил предложение. Клиент оценил — закрыли сделку." },
+            { name: "Ирина Соколова", role: "Маркетолог клиники", text: "Наконец понятно, почему конкурент в ТОП-3 Яндекса. Оказалось, schema.org — добавили за 2 дня, трафик вырос." },
+            { name: "Дмитрий К.", role: "Владелец B2B компании", text: "Онбординг за 10 минут. Система сама предложила конкурентов по нише — не нужно ничего гуглить." },
+          ].map(({ name, role, text }) => (
+            <div key={name} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 22, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>"{text}"</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary }}>{name}</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>{role}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ textAlign: "center", padding: "56px 20px", background: `linear-gradient(135deg, ${c.accent}12, ${c.accentWarm}12)` }}>
+        <h2 style={{ fontSize: 28, fontWeight: 900, color: c.textPrimary, margin: "0 0 10px" }}>Начните анализировать сейчас</h2>
+        <p style={{ fontSize: 14, color: c.textSecondary, margin: "0 0 24px" }}>Первые 3 анализа — бесплатно, без кредитной карты</p>
+        <button onClick={onRegister} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 36px", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "inherit" }}>
+          Создать аккаунт →
+        </button>
+      </section>
+
+      <footer style={{ textAlign: "center", padding: "20px", borderTop: `1px solid ${c.border}`, fontSize: 12, color: c.textMuted }}>
+        © 2025 MarketRadar · Продукт Company24.pro
+      </footer>
+    </div>
+  );
+}
+
+// ============================================================
+// Register View
+// ============================================================
+
+function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: UserAccount) => void; onLogin: () => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!name.trim()) { setError("Введите имя"); return; }
+    if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
+    if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
+    const users = authGetUsers();
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase().trim())) {
+      setError("Аккаунт с таким email уже существует");
+      return;
+    }
+    const user: UserAccount = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,
+      phone: phone.trim() || undefined,
+      onboardingDone: false,
+    };
+    authSaveUser(user);
+    authSetCurrentUser(user.id);
+    onSuccess(user);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
+      <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "36px 40px", width: "100%", maxWidth: 440, boxShadow: c.shadowLg }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
+          <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px", color: c.textPrimary }}>Создать аккаунт</h1>
+        <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 22px" }}>Бесплатно · Без кредитной карты</p>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Имя *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Иван Иванов"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Email *</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Пароль * (мин. 6 символов)</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Телефон</label>
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (999) 123-45-67"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
+          <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+            Создать аккаунт →
+          </button>
+        </form>
+        <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: c.textSecondary }}>
+          Уже есть аккаунт?{" "}
+          <span onClick={onLogin} style={{ color: c.accent, fontWeight: 600, cursor: "pointer" }}>Войти</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Login View
+// ============================================================
+
+function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: UserAccount) => void; onRegister: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const users = authGetUsers();
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === password);
+    if (!user) { setError("Неверный email или пароль"); return; }
+    authSetCurrentUser(user.id);
+    onSuccess(user);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
+      <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "36px 40px", width: "100%", maxWidth: 400, boxShadow: c.shadowLg }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
+          <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px", color: c.textPrimary }}>Войти</h1>
+        <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 22px" }}>Добро пожаловать обратно</p>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Пароль</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
+          <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+            Войти →
+          </button>
+        </form>
+        <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: c.textSecondary }}>
+          Нет аккаунта?{" "}
+          <span onClick={onRegister} style={{ color: c.accent, fontWeight: 600, cursor: "pointer" }}>Зарегистрироваться</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Onboarding View (3 steps)
+// ============================================================
+
+function OnboardingView({ c, user, onComplete }: {
+  c: Colors;
+  user: UserAccount;
+  onComplete: (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [niche, setNiche] = useState(user.niche || "");
+  const [companyName, setCompanyName] = useState(user.companyName || "");
+  const [companyUrl, setCompanyUrl] = useState(user.companyUrl || "");
+  const [vk, setVk] = useState("");
+  const [tg, setTg] = useState("");
+  const [hh, setHh] = useState("");
+  const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
+  const [customUrl, setCustomUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const niches = [
+    { id: "digital", icon: "💻", label: "Digital-агентство", desc: "SEO, контекст, SMM, разработка" },
+    { id: "clinic", icon: "🏥", label: "Клиника или салон", desc: "Медицина, красота, здоровье" },
+    { id: "b2b", icon: "🤝", label: "B2B-торговля или SaaS", desc: "Программное обеспечение, услуги" },
+    { id: "other", icon: "🏢", label: "Другое", desc: "Другая ниша или тип бизнеса" },
+  ];
+
+  const suggestions = niche ? (NICHE_COMPETITORS[niche] ?? []) : [];
+  const MAX_COMPETITORS = 3;
+
+  const toggleCompetitor = (url: string) => {
+    setSelectedCompetitors(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) { next.delete(url); return next; }
+      if (next.size >= MAX_COMPETITORS) return prev;
+      next.add(url);
+      return next;
+    });
+  };
+
+  const addCustom = () => {
+    if (!customUrl.trim()) return;
+    if (selectedCompetitors.size >= MAX_COMPETITORS) { setError(`Максимум ${MAX_COMPETITORS} на тарифе Free`); return; }
+    setSelectedCompetitors(prev => new Set([...prev, customUrl.trim()]));
+    setCustomUrl("");
+    setError(null);
+  };
+
+  const handleFinish = () => {
+    const updatedUser: UserAccount = { ...user, niche, companyName: companyName.trim(), companyUrl: companyUrl.trim(), onboardingDone: true };
+    authSaveUser(updatedUser);
+    onComplete(updatedUser, companyUrl.trim(), Array.from(selectedCompetitors));
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: c.bg, fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px" }}>
+      <div style={{ width: "100%", maxWidth: 560, marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>MR</div>
+            <span style={{ fontWeight: 700, color: c.textPrimary, fontSize: 15 }}>MarketRadar</span>
+          </div>
+          <span style={{ fontSize: 12, color: c.textMuted }}>Шаг {step} из 3</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 2, background: c.borderLight, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${(step / 3) * 100}%`, background: c.accent, borderRadius: 2, transition: "width 0.4s" }} />
+        </div>
+      </div>
+
+      <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "30px 36px", width: "100%", maxWidth: 560, boxShadow: c.shadowLg }}>
+        {step === 1 && (
+          <>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: c.textPrimary }}>Выберите вашу нишу</h2>
+            <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 22px" }}>Мы подберём конкурентов и настроим анализ под вашу отрасль</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {niches.map(n => (
+                <div key={n.id} onClick={() => setNiche(n.id)} style={{ border: `2px solid ${niche === n.id ? c.accent : c.border}`, borderRadius: 12, padding: 16, cursor: "pointer", background: niche === n.id ? c.accent + "0c" : "transparent", transition: "all 0.15s" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{n.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, marginBottom: 3 }}>{n.label}</div>
+                  <div style={{ fontSize: 11, color: c.textSecondary }}>{n.desc}</div>
+                </div>
+              ))}
+            </div>
+            <button disabled={!niche} onClick={() => setStep(2)} style={{ marginTop: 20, width: "100%", background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: niche ? "pointer" : "not-allowed", opacity: niche ? 1 : 0.5, fontFamily: "inherit" }}>
+              Далее →
+            </button>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: c.textPrimary }}>Расскажите о компании</h2>
+            <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 20px" }}>Обязательные поля помогут нам запустить анализ</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {([
+                { label: "Название компании *", value: companyName, setter: setCompanyName, placeholder: "ООО Ромашка" },
+                { label: "Сайт компании *", value: companyUrl, setter: setCompanyUrl, placeholder: "example.ru" },
+                { label: "VK-группа", value: vk, setter: (v: string) => setVk(v), placeholder: "vk.com/company" },
+                { label: "Telegram-канал", value: tg, setter: (v: string) => setTg(v), placeholder: "t.me/company" },
+                { label: "Профиль на hh.ru", value: hh, setter: (v: string) => setHh(v), placeholder: "hh.ru/employer/123" },
+              ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string }>).map(field => (
+                <div key={field.label}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{field.label}</label>
+                  <input type="text" value={field.value} onChange={e => field.setter(e.target.value)} placeholder={field.placeholder}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+            {error && <div style={{ marginTop: 10, color: c.accentRed, fontSize: 13 }}>{error}</div>}
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button onClick={() => { setError(null); setStep(1); }} style={{ flex: 1, background: "none", border: `1px solid ${c.border}`, borderRadius: 10, padding: 12, fontWeight: 600, fontSize: 14, cursor: "pointer", color: c.textSecondary, fontFamily: "inherit" }}>← Назад</button>
+              <button onClick={() => { setError(null); if (!companyName.trim()) { setError("Введите название компании"); return; } if (!companyUrl.trim()) { setError("Введите URL сайта"); return; } setStep(3); }}
+                style={{ flex: 2, background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+                Далее →
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px", color: c.textPrimary }}>Выберите конкурентов</h2>
+            <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 4px" }}>Выберите до {MAX_COMPETITORS} конкурентов (тариф Free)</p>
+            <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 14 }}>Выбрано: {selectedCompetitors.size} из {MAX_COMPETITORS}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+              {suggestions.map(s => {
+                const selected = selectedCompetitors.has(s.url);
+                const disabled = !selected && selectedCompetitors.size >= MAX_COMPETITORS;
+                return (
+                  <div key={s.url} onClick={() => !disabled && toggleCompetitor(s.url)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selected ? c.accent : c.border}`, background: selected ? c.accent + "0c" : "transparent", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, transition: "all 0.15s" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${selected ? c.accent : c.border}`, background: selected ? c.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {selected && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: c.textPrimary }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: c.textMuted }}>{s.url}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Добавить своего конкурента</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="text" value={customUrl} onChange={e => setCustomUrl(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }} placeholder="competitor.ru"
+                  style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={addCustom} disabled={!customUrl.trim() || selectedCompetitors.size >= MAX_COMPETITORS}
+                  style={{ background: c.accent + "20", color: c.accent, border: "none", borderRadius: 10, padding: "9px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: !customUrl.trim() || selectedCompetitors.size >= MAX_COMPETITORS ? 0.5 : 1 }}>
+                  + Добавить
+                </button>
+              </div>
+              {error && <div style={{ marginTop: 5, color: c.accentRed, fontSize: 12 }}>{error}</div>}
+            </div>
+            {Array.from(selectedCompetitors).filter(url => !suggestions.find(s => s.url === url)).map(url => (
+              <div key={url} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${c.accent}`, background: c.accent + "0c", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: c.textPrimary }}>{url}</span>
+                <span onClick={() => toggleCompetitor(url)} style={{ fontSize: 13, color: c.accentRed, cursor: "pointer", fontWeight: 600 }}>✕</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={() => setStep(2)} style={{ flex: 1, background: "none", border: `1px solid ${c.border}`, borderRadius: 10, padding: 12, fontWeight: 600, fontSize: 13, cursor: "pointer", color: c.textSecondary, fontFamily: "inherit" }}>← Назад</button>
+              <button onClick={handleFinish} style={{ flex: 2, background: c.accentGreen, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                {selectedCompetitors.size > 0 ? `Запустить анализ (${1 + selectedCompetitors.size} сайта) →` : "Пропустить и продолжить →"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Reusable UI Components
 // ============================================================
 
@@ -893,7 +1399,9 @@ const NAV_SECTIONS = [
 
 export default function MarketRadarDashboard() {
   const [theme, setTheme] = useState<Theme>("light");
-  const [activeNav, setActiveNav] = useState("dashboard");
+  const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [activeNav, setActiveNav] = useState("new-analysis");
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [myCompany, setMyCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
@@ -901,6 +1409,15 @@ export default function MarketRadarDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedCompetitor, setSelectedCompetitor] = useState<number | null>(null);
   const c = COLORS[theme];
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const user = authGetCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setAppScreen(user.onboardingDone ? "app" : "onboarding");
+    }
+  }, []);
 
   const analyzeUrl = async (url: string): Promise<AnalysisResult> => {
     const res = await fetch("/api/analyze", {
@@ -911,16 +1428,6 @@ export default function MarketRadarDashboard() {
     const json = await res.json();
     if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
     return json.data;
-  };
-
-  // First analysis (from landing)
-  const handleFirstAnalyze = async (url: string) => {
-    setCurrentUrl(url);
-    setStatus("loading");
-    const result = await analyzeUrl(url);
-    setMyCompany(result);
-    setActiveNav("dashboard");
-    setStatus("done");
   };
 
   // New analysis from within dashboard
@@ -948,6 +1455,42 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  // Onboarding complete: run initial analysis
+  const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {
+    setCurrentUser(updatedUser);
+    setAppScreen("app");
+    if (!companyUrl) { setStatus("done"); setActiveNav("new-analysis"); return; }
+    setCurrentUrl(companyUrl);
+    setStatus("loading");
+    try {
+      const result = await analyzeUrl(companyUrl);
+      setMyCompany(result);
+      for (const url of competitorUrls) {
+        setCurrentUrl(url);
+        const comp = await analyzeUrl(url);
+        setCompetitors(prev => [...prev, comp]);
+      }
+      setActiveNav("dashboard");
+    } catch {
+      // If analysis fails, go to new-analysis so user can try again
+      setActiveNav("new-analysis");
+    } finally {
+      setStatus("done");
+    }
+  };
+
+  // Logout
+  const handleLogout = () => {
+    authSetCurrentUser(null);
+    setCurrentUser(null);
+    setAppScreen("landing");
+    setMyCompany(null);
+    setCompetitors([]);
+    setStatus("idle");
+    setActiveNav("new-analysis");
+    setSelectedCompetitor(null);
+  };
+
   // Update nav counts dynamically
   const navSections = NAV_SECTIONS.map(section => ({
     ...section,
@@ -958,19 +1501,30 @@ export default function MarketRadarDashboard() {
     })),
   }));
 
-  // Landing
-  if (status === "idle") {
-    return <LandingView c={c} theme={theme} setTheme={setTheme} onAnalyze={handleFirstAnalyze} />;
+  // Screen routing
+  if (appScreen === "landing") {
+    return <LandingPageView c={c} theme={theme} setTheme={setTheme} onRegister={() => setAppScreen("register")} onLogin={() => setAppScreen("login")} />;
   }
+  if (appScreen === "register") {
+    return <RegisterView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen("onboarding"); }} onLogin={() => setAppScreen("login")} />;
+  }
+  if (appScreen === "login") {
+    return <LoginView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} />;
+  }
+  if (appScreen === "onboarding" && currentUser) {
+    return <OnboardingView c={c} user={currentUser} onComplete={handleOnboardingComplete} />;
+  }
+
+  // App: loading state (initial analysis)
   if (status === "loading") {
     return <LoadingView c={c} url={currentUrl} />;
   }
 
-  // Competitor profile sub-view
+  // App: competitor profile sub-view
   if (selectedCompetitor !== null && competitors[selectedCompetitor]) {
     return (
       <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
-        <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} />
+        <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
         <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
           <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
         </main>
@@ -978,13 +1532,13 @@ export default function MarketRadarDashboard() {
     );
   }
 
-  // Main dashboard layout
+  // App: main dashboard layout
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
-      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} />
+      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
       <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
-        {activeNav === "dashboard" && myCompany && <DashboardView c={c} data={myCompany} competitors={competitors} />}
+        {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
@@ -1000,10 +1554,11 @@ export default function MarketRadarDashboard() {
 // Sidebar Component
 // ============================================================
 
-function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl }: {
+function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl, user, onLogout }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
   navSections: typeof NAV_SECTIONS; companyUrl: string;
+  user?: UserAccount | null; onLogout?: () => void;
 }) {
   return (
     <aside style={{ width: 220, minWidth: 220, background: c.bgSidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", overflow: "auto" }}>
@@ -1046,9 +1601,16 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
           <span style={{ fontSize: 15 }}>{theme === "light" ? "🌙" : "☀️"}</span>
           <span>{theme === "light" ? "Тёмная тема" : "Светлая тема"}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", fontSize: 11, color: c.textMuted }}>
-          Powered by company24.pro
-        </div>
+        {user && (
+          <div style={{ padding: "8px 10px", borderTop: `1px solid ${c.borderLight}`, marginTop: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, marginBottom: 1 }}>{user.name}</div>
+            <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 8 }}>{user.email}</div>
+            <div onClick={onLogout}
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: c.accentRed, cursor: "pointer", padding: "4px 0" }}>
+              <span>↩</span><span>Выйти</span>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
