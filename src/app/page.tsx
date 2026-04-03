@@ -2726,7 +2726,7 @@ function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAcco
     if (typeof window !== "undefined") sessionStorage.setItem("mr_tg_code", c2);
     return c2;
   });
-  const [botUsername, setBotUsername] = useState<string>("");
+  const [botUsername, setBotUsername] = useState<string>("marketraradr_bot");
   const [polling, setPolling] = useState(false);
   const [pollError, setPollError] = useState("");
   const [prefs, setPrefs] = useState({
