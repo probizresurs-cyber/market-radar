@@ -8,10 +8,10 @@ export async function GET() {
   try {
     const res = await fetch(`${TG}/getMe`);
     const data = await res.json();
-    if (!data.ok) return NextResponse.json({ error: "Bot not found" }, { status: 500 });
+    if (!data.ok) return NextResponse.json({ error: "Bot not found", detail: data }, { status: 500 });
     return NextResponse.json({ username: data.result.username });
-  } catch {
-    return NextResponse.json({ error: "Failed to reach Telegram" }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: "Failed to reach Telegram", detail: String(e) }, { status: 500 });
   }
 }
 
@@ -22,18 +22,29 @@ export async function POST(req: NextRequest) {
     const { code } = await req.json();
     if (!code) return NextResponse.json({ error: "No code" }, { status: 400 });
 
-    const res = await fetch(`${TG}/getUpdates?limit=100&allowed_updates=["message"]`);
+    // First delete any existing webhook so getUpdates works
+    await fetch(`${TG}/deleteWebhook`);
+
+    const res = await fetch(`${TG}/getUpdates?limit=100&allowed_updates=%5B%22message%22%5D`);
     const data = await res.json();
-    if (!data.ok) return NextResponse.json({ error: "getUpdates failed" }, { status: 500 });
+
+    if (!data.ok) {
+      return NextResponse.json({ chatId: null, error: "getUpdates failed", detail: data });
+    }
 
     const updates: { message?: { text?: string; chat?: { id: number; first_name?: string } } }[] = data.result ?? [];
-    for (const upd of updates.reverse()) {
-      if (upd.message?.text?.trim() === code && upd.message?.chat?.id) {
+    const normalizedCode = code.trim().toUpperCase();
+
+    for (const upd of [...updates].reverse()) {
+      const msgText = upd.message?.text?.trim().toUpperCase() ?? "";
+      if (msgText === normalizedCode && upd.message?.chat?.id) {
         return NextResponse.json({ chatId: upd.message.chat.id, firstName: upd.message.chat.first_name ?? "" });
       }
     }
-    return NextResponse.json({ chatId: null });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+
+    // Debug: return how many updates we saw
+    return NextResponse.json({ chatId: null, updatesCount: updates.length, searched: normalizedCode });
+  } catch (e) {
+    return NextResponse.json({ error: "Server error", detail: String(e) }, { status: 500 });
   }
 }
