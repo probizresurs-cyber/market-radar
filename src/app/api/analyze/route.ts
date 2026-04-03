@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
+import { enrichWithRealData } from "@/lib/enricher";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -36,7 +37,33 @@ export async function POST(request: NextRequest) {
 
   try {
     const scraped = await scrapeWebsite(url);
+
+    // 1. AI analysis (Claude)
     const result = await analyzeWithClaude(scraped);
+
+    // 2. Enrich with real data from open APIs (parallel, non-blocking)
+    const real = await enrichWithRealData(result.company.name, result.company.url, scraped.socialLinks);
+
+    // 3. Overwrite AI-guessed fields with real data where available
+    if (real.domainAge) {
+      result.seo.domainAge = real.domainAge;
+    }
+    if (real.hh) {
+      result.hiring = {
+        openVacancies: real.hh.openVacancies,
+        avgSalary: real.hh.avgSalary,
+        salaryRange: real.hh.salaryRange,
+        topRoles: real.hh.topRoles.length > 0 ? real.hh.topRoles : result.hiring.topRoles,
+        trend: real.hh.trend,
+      };
+    }
+    if (real.telegram) {
+      result.social.telegram = real.telegram;
+    }
+    if (real.vk) {
+      result.social.vk = real.vk;
+    }
+
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);
