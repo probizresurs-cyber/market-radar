@@ -1603,79 +1603,236 @@ function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: Anal
 }
 
 // ============================================================
-// Insights View — 4 blocks per document
+// Insights View
 // ============================================================
 
 function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
-    niche: { icon: "🔭", label: "Пустая ниша", color: c.accent },
-    action: { icon: "🚀", label: "Топ-действие", color: c.accentGreen },
-    battle: { icon: "⚔️", label: "Battle Card", color: c.accentRed },
+    niche:  { icon: "🔭", label: "Пустая ниша",       color: c.accent },
+    action: { icon: "🚀", label: "Топ-действие",       color: c.accentGreen },
+    battle: { icon: "⚔️", label: "Battle Card",        color: c.accentRed },
+    copy:   { icon: "✍️", label: "Копирайтинг",        color: c.accentWarm },
+    seo:    { icon: "🔍", label: "SEO-возможность",    color: c.accent },
+    offer:  { icon: "🎯", label: "Оффер",              color: "#9b59b6" },
   };
 
-  // Clichés block: detect common phrases across competitors
-  const cliches = [
-    "«Индивидуальный подход» — используют все. Замените на конкретные цифры и кейсы.",
-    "«Команда профессионалов» — расскажите о реальном опыте и результатах.",
-    "«Комплексные решения» — опишите конкретный стек и методологию.",
-  ];
+  const pa = data.practicalAdvice;
+  const difficultyConfig: Record<string, { label: string; color: string }> = {
+    low:    { label: "Лёгкий",   color: c.accentGreen },
+    medium: { label: "Средний",  color: c.accentWarm },
+    high:   { label: "Сложный",  color: c.accentRed },
+  };
 
   return (
-    <div style={{ maxWidth: 800 }}>
+    <div style={{ maxWidth: 860 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>AI-инсайты</h1>
 
-      {/* Main insights from analysis */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+      {/* ── Инсайты ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 28 }}>
         {data.insights.map((ins, i) => {
           const cfg = typeConfig[ins.type] ?? typeConfig.action;
           return (
-            <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, borderLeft: `4px solid ${cfg.color}` }}>
+            <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow, borderLeft: `4px solid ${cfg.color}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 18 }}>{cfg.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.color + "15", padding: "3px 10px", borderRadius: 6 }}>{cfg.label}</span>
+                <span style={{ fontSize: 16 }}>{cfg.icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.color + "15", padding: "2px 9px", borderRadius: 6 }}>{cfg.label}</span>
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>{ins.title}</div>
-              <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{ins.text}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, marginBottom: 5 }}>{ins.title}</div>
+              <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55 }}>{ins.text}</div>
             </div>
           );
         })}
       </div>
 
-      {/* Battle Cards for each competitor */}
-      {competitors.length > 0 && (
-        <>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚔️ Battle Cards</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
-            {competitors.map((comp, i) => {
-              const strengths = comp.company.categories.filter(c2 => c2.score >= 60);
-              const weaknesses = comp.company.categories.filter(c2 => c2.score < 40);
-              return (
-                <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>
-                    Вы vs {comp.company.name}
+      {/* ── Копирайтинг: до / после ── */}
+      {(pa?.copyImprovements ?? []).length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>✍️ Текст сайта: конкретные правки</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {pa.copyImprovements.map((ci, i) => (
+              <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+                <div style={{ padding: "10px 16px", background: c.accentWarm + "10", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, background: c.accentWarm + "20", padding: "2px 9px", borderRadius: 6 }}>{ci.element}</span>
+                  <span style={{ fontSize: 12, color: c.textSecondary }}>{ci.reason}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+                  <div style={{ padding: "14px 16px", borderRight: `1px solid ${c.borderLight}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentRed, marginBottom: 6, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
+                    <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
-                    <div>
-                      <div style={{ color: c.accentGreen, fontWeight: 600, marginBottom: 4 }}>Их сильные стороны</div>
-                      {strengths.length > 0 ? strengths.map(s => <div key={s.name} style={{ color: c.textSecondary }}>{s.icon} {s.name}: {s.score}</div>) :
-                        <div style={{ color: c.textMuted }}>Нет явных сильных сторон</div>}
+                  <div style={{ padding: "14px 16px", background: c.accentGreen + "05" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentGreen, marginBottom: 6, letterSpacing: "0.06em" }}>ЗАМЕНИТЬ НА</div>
+                    <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Оффер и позиционирование ── */}
+      {pa?.offerAnalysis && pa.offerAnalysis.currentOffer !== "—" && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🎯 Оффер и позиционирование</div>
+          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕКУЩИЙ ОФФЕР</div>
+              <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, padding: "10px 14px", background: c.bg, borderRadius: 8, border: `1px solid ${c.borderLight}`, fontStyle: "italic" }}>
+                {pa.offerAnalysis.currentOffer}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>СЛАБЫЕ МЕСТА</div>
+                {pa.offerAnalysis.weaknesses.map((w, i) => (
+                  <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
+                    <span style={{ color: c.accentRed, flexShrink: 0, marginTop: 1 }}>✗</span>{w}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
+                {pa.offerAnalysis.differentiators.map((d, i) => (
+                  <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
+                    <span style={{ color: c.accentGreen, flexShrink: 0, marginTop: 1 }}>✓</span>{d}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: `linear-gradient(135deg, ${"#9b59b6"}0f, ${c.accent}08)`, borderRadius: 10, padding: "14px 16px", border: `1px solid ${"#9b59b6"}30` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#9b59b6", marginBottom: 8, letterSpacing: "0.05em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{pa.offerAnalysis.suggestedOffer}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Незанятые ключевые слова ── */}
+      {(pa?.keywordGaps ?? []).length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Незанятые ключевые слова</div>
+          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: c.bg }}>
+                {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {pa.keywordGaps.map((kg, i) => {
+                  const diff = difficultyConfig[kg.difficulty] ?? difficultyConfig.medium;
+                  return (
+                    <tr key={i} style={{ borderBottom: i < pa.keywordGaps.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                      <td style={{ padding: "11px 16px", color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
+                      <td style={{ padding: "11px 16px", color: c.textSecondary, fontWeight: 600 }}>{kg.volume.toLocaleString("ru")}</td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: diff.color, background: diff.color + "18", padding: "2px 8px", borderRadius: 5 }}>{diff.label}</span>
+                      </td>
+                      <td style={{ padding: "11px 16px", color: c.textSecondary, fontSize: 12 }}>{kg.opportunity}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── SEO-действия + Идеи контента ── */}
+      {((pa?.seoActions ?? []).length > 0 || (pa?.contentIdeas ?? []).length > 0) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
+          {(pa?.seoActions ?? []).length > 0 && (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚡ Быстрые SEO-победы</div>
+              {pa.seoActions.map((action, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, background: c.accent + "15", color: c.accent, fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                  <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{action}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {(pa?.contentIdeas ?? []).length > 0 && (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 Идеи контента</div>
+              {pa.contentIdeas.map((idea, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, background: c.accentGreen + "15", color: c.accentGreen, fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                  <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{idea}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Battle Cards ── */}
+      {competitors.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚔️ Battle Cards — сравнение с конкурентами</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {competitors.map((comp, i) => {
+              const myScores = data.company.categories;
+              const theirScores = comp.company.categories;
+              const gaps = myScores.map((cat, ci) => ({
+                name: cat.name, icon: cat.icon,
+                me: cat.score, them: theirScores[ci]?.score ?? 0,
+                diff: cat.score - (theirScores[ci]?.score ?? 0),
+              }));
+              const iWin = gaps.filter(g => g.diff > 0);
+              const iLose = gaps.filter(g => g.diff < 0);
+              return (
+                <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+                  <div style={{ padding: "12px 20px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>Вы vs {comp.company.name}</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Вы: {data.company.score}</span>
+                      <span style={{ fontSize: 12, color: c.textMuted }}>/</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.textSecondary }}>Они: {comp.company.score}</span>
                     </div>
-                    <div>
-                      <div style={{ color: c.accentRed, fontWeight: 600, marginBottom: 4 }}>Их слабости</div>
-                      {weaknesses.length > 0 ? weaknesses.map(w => <div key={w.name} style={{ color: c.textSecondary }}>{w.icon} {w.name}: {w.score}</div>) :
-                        <div style={{ color: c.textMuted }}>Нет явных слабостей</div>}
+                  </div>
+                  <div style={{ padding: 16 }}>
+                    {/* Category bars comparison */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                      {gaps.map(g => (
+                        <div key={g.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ width: 80, fontSize: 12, color: c.textSecondary, flexShrink: 0 }}>{g.icon} {g.name}</div>
+                          <div style={{ flex: 1, position: "relative", height: 8, background: c.borderLight, borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.me}%`, background: c.accent + "80", borderRadius: 4 }} />
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.them}%`, background: c.accentRed + "50", borderRadius: 4, mixBlendMode: "multiply" as const }} />
+                          </div>
+                          <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 700, color: g.diff > 0 ? c.accentGreen : g.diff < 0 ? c.accentRed : c.textMuted, flexShrink: 0 }}>
+                            {g.diff > 0 ? `+${g.diff}` : g.diff}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+                      <div>
+                        <div style={{ color: c.accentGreen, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>ВЫ ВПЕРЕДИ</div>
+                        {iWin.length > 0 ? iWin.map(g => (
+                          <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentGreen }}>+{g.diff}</strong></div>
+                        )) : <div style={{ color: c.textMuted }}>Нет преимуществ</div>}
+                      </div>
+                      <div>
+                        <div style={{ color: c.accentRed, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>НУЖНО ДОГНАТЬ</div>
+                        {iLose.length > 0 ? iLose.map(g => (
+                          <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentRed }}>{g.diff}</strong></div>
+                        )) : <div style={{ color: c.textMuted }}>Нет отставаний</div>}
+                      </div>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-        </>
+        </div>
       )}
 
-      {/* Niche Forecast */}
+      {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 Прогноз ниши</div>
           <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
@@ -1713,14 +1870,19 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
         </div>
       )}
 
-      {/* Clichés */}
-      <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🗣 Заезженные формулировки</div>
+      {/* ── Заезженные формулировки ── */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🗣 Заезженные формулировки в нише</div>
       <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
         <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>
-          Фразы, которые используют все — замените их, чтобы выделиться:
+          Фразы, которые используют все — замените их конкретикой:
         </div>
-        {cliches.map((cl, i) => (
-          <div key={i} style={{ fontSize: 13, color: c.textPrimary, padding: "8px 0", borderBottom: i < cliches.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+        {[
+          "«Индивидуальный подход» — используют все. Замените на конкретные цифры и кейсы.",
+          "«Команда профессионалов» — расскажите о реальном опыте, сертификатах и результатах.",
+          "«Комплексные решения» — опишите конкретный стек, сроки и методологию.",
+          "«Гарантия качества» — покажите цифры: SLA, процент повторных клиентов, отзывы.",
+        ].map((cl, i, arr) => (
+          <div key={i} style={{ fontSize: 13, color: c.textPrimary, padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${c.borderLight}` : "none", lineHeight: 1.45 }}>
             {cl}
           </div>
         ))}

@@ -14,7 +14,7 @@ export interface Recommendation {
 }
 
 export interface Insight {
-  type: "niche" | "action" | "battle";
+  type: "niche" | "action" | "battle" | "copy" | "seo" | "offer";
   title: string;
   text: string;
 }
@@ -23,6 +23,35 @@ export interface SeoPosition {
   keyword: string;
   position: number;
   volume: number;
+}
+
+export interface CopyImprovement {
+  element: string;
+  current: string;
+  suggested: string;
+  reason: string;
+}
+
+export interface KeywordGap {
+  keyword: string;
+  volume: number;
+  difficulty: "low" | "medium" | "high";
+  opportunity: string;
+}
+
+export interface OfferAnalysis {
+  currentOffer: string;
+  weaknesses: string[];
+  differentiators: string[];
+  suggestedOffer: string;
+}
+
+export interface PracticalAdvice {
+  copyImprovements: CopyImprovement[];
+  keywordGaps: KeywordGap[];
+  offerAnalysis: OfferAnalysis;
+  contentIdeas: string[];
+  seoActions: string[];
 }
 
 export interface ScrapedData {
@@ -60,6 +89,7 @@ export interface AnalysisResult {
   };
   recommendations: Recommendation[];
   insights: Insight[];
+  practicalAdvice: PracticalAdvice;
   seo: {
     title: string;
     metaDescription: string;

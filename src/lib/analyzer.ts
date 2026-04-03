@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight } from "./types";
+import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice } from "./types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -63,6 +63,9 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 - Для соцсетей: если ссылка есть в списке — дай реалистичные цифры, иначе null.
 - Для найма, бизнеса — оцени по типу компании и нише.
 - Для прогноза — анализируй рыночные тренды именно в нише этого сайта.
+- Для copyImprovements: анализируй реальный текст сайта (title, h1, h2, фрагмент текста) и давай КОНКРЕТНЫЕ переформулировки с примерами.
+- Для keywordGaps: давай ключевые слова, которые конкуренты в нише используют, а этот сайт — нет. Реалистичные объёмы.
+- Для offerAnalysis: опиши текущий оффер как он есть, найди слабые места, предложи конкретную переформулировку УТП.
 - Все текстовые поля — на русском языке.
 
 === ТРЕБУЕМЫЙ JSON (строго такая структура) ===
@@ -76,8 +79,29 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     { "priority": "high|medium|low", "text": "string", "effect": "string", "category": "string" }
   ],
   "insights": [
-    { "type": "niche|action|battle", "title": "string", "text": "string" }
+    { "type": "niche|action|battle|copy|seo|offer", "title": "string", "text": "string" }
   ],
+  "practicalAdvice": {
+    "copyImprovements": [
+      {
+        "element": "string (например: H1, Meta Description, Заголовок услуги, CTA-кнопка, Блок About)",
+        "current": "string (текущий текст или описание проблемы)",
+        "suggested": "string (конкретный новый вариант текста — готовый к использованию)",
+        "reason": "string (почему это важно для SEO и конверсии)"
+      }
+    ],
+    "keywordGaps": [
+      { "keyword": "string", "volume": 0, "difficulty": "low|medium|high", "opportunity": "string (почему стоит продвигаться)" }
+    ],
+    "offerAnalysis": {
+      "currentOffer": "string (как звучит оффер сейчас — по тексту сайта)",
+      "weaknesses": ["string", "string"],
+      "differentiators": ["string", "string", "string"],
+      "suggestedOffer": "string (готовое переформулированное УТП, 1-2 предложения)"
+    },
+    "contentIdeas": ["string", "string", "string", "string"],
+    "seoActions": ["string", "string", "string", "string"]
+  },
   "seo": {
     "title": "string",
     "metaDescription": "string",
@@ -134,12 +158,18 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
   }
 }
 
-Важно: ровно 5 рекомендаций (2 high, 2 medium, 1 low), ровно 3 инсайта, ровно 6 позиций в seo.positions.
-Если VK не найден — vk должен быть null (не объект). Если Telegram не найден — telegram должен быть null.`;
+Важно:
+- ровно 5 рекомендаций (2 high, 2 medium, 1 low)
+- ровно 7 инсайтов: 1 niche, 2 action, 1 battle, 1 copy, 1 seo, 1 offer
+- ровно 6 позиций в seo.positions
+- ровно 3 copyImprovements (H1/title, meta description, и ещё один элемент страницы)
+- ровно 4 keywordGaps — реальные незанятые запросы в нише
+- ровно 4 contentIdeas и 4 seoActions
+- Если VK не найден — vk должен быть null (не объект). Если Telegram не найден — telegram должен быть null.`;
 
   const message = await client.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 5000,
+    max_tokens: 7000,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -179,14 +209,54 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     })
   );
 
-  const insights: Insight[] = (Array.isArray(p.insights) ? p.insights : []).slice(0, 3).map(
+  const VALID_INSIGHT_TYPES = ["niche", "action", "battle", "copy", "seo", "offer"];
+  const insights: Insight[] = (Array.isArray(p.insights) ? p.insights : []).slice(0, 7).map(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (ins: any) => ({
-      type: (["niche", "action", "battle"].includes(ins.type) ? ins.type : "action") as "niche" | "action" | "battle",
+      type: (VALID_INSIGHT_TYPES.includes(ins.type) ? ins.type : "action") as Insight["type"],
       title: safeStr(ins.title),
       text: safeStr(ins.text),
     })
   );
+
+  // Practical advice
+  const paRaw = p.practicalAdvice ?? {};
+
+  const copyImprovements: CopyImprovement[] = (Array.isArray(paRaw.copyImprovements) ? paRaw.copyImprovements : []).slice(0, 3).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ci: any) => ({
+      element: safeStr(ci.element, "Элемент страницы"),
+      current: safeStr(ci.current, "—"),
+      suggested: safeStr(ci.suggested, "—"),
+      reason: safeStr(ci.reason, "—"),
+    })
+  );
+
+  const keywordGaps: KeywordGap[] = (Array.isArray(paRaw.keywordGaps) ? paRaw.keywordGaps : []).slice(0, 4).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (kg: any) => ({
+      keyword: safeStr(kg.keyword, "—"),
+      volume: safeNum(kg.volume, 0),
+      difficulty: (["low", "medium", "high"].includes(kg.difficulty) ? kg.difficulty : "medium") as "low" | "medium" | "high",
+      opportunity: safeStr(kg.opportunity, "—"),
+    })
+  );
+
+  const ofRaw = paRaw.offerAnalysis ?? {};
+  const offerAnalysis = {
+    currentOffer: safeStr(ofRaw.currentOffer, "—"),
+    weaknesses: Array.isArray(ofRaw.weaknesses) ? ofRaw.weaknesses.slice(0, 3).map((w: unknown) => String(w)) : [],
+    differentiators: Array.isArray(ofRaw.differentiators) ? ofRaw.differentiators.slice(0, 4).map((d: unknown) => String(d)) : [],
+    suggestedOffer: safeStr(ofRaw.suggestedOffer, "—"),
+  };
+
+  const practicalAdvice: PracticalAdvice = {
+    copyImprovements,
+    keywordGaps,
+    offerAnalysis,
+    contentIdeas: Array.isArray(paRaw.contentIdeas) ? paRaw.contentIdeas.slice(0, 4).map((i: unknown) => String(i)) : [],
+    seoActions: Array.isArray(paRaw.seoActions) ? paRaw.seoActions.slice(0, 4).map((i: unknown) => String(i)) : [],
+  };
 
   // SEO block
   const seoRaw = p.seo ?? {};
@@ -281,6 +351,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     },
     recommendations,
     insights,
+    practicalAdvice,
     seo,
     techStack,
     social,
