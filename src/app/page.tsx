@@ -1292,7 +1292,7 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
       {insights.length > 0 && (
         <>
           <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Инсайты</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
             {insights.map((ins, i) => (
               <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, marginBottom: 4 }}>{ins.title}</div>
@@ -1301,6 +1301,202 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
             ))}
           </div>
         </>
+      )}
+
+      {/* ── Ключевые слова ── */}
+      {(data.seo?.positions ?? []).length > 0 && (<>
+        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Ключевые слова и позиции</div>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ background: c.bg }}>
+              {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {data.seo.positions.map((pos, i) => (
+                <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                  <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
+                  <td style={{ padding: "10px 16px" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
+                  </td>
+                  <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                  <td style={{ padding: "10px 16px" }}>
+                    <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>)}
+
+      {/* ── SEO-детали + Бизнес-профиль ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
+          {[
+            { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
+            { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
+            { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+              <span style={{ color: c.textSecondary }}>{label}</span>
+              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+            </div>
+          ))}
+          {(data.seo?.issues ?? []).length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
+              {data.seo.issues.map((issue, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
+                  <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+          {(() => {
+            const descLines = (data.company.description ?? "").split("\n");
+            const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
+            const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
+            const legalFields: { label: string; value: string }[] = [];
+            if (legalLine) {
+              legalLine.split(" · ").forEach((part: string) => {
+                const colonIdx = part.indexOf(": ");
+                if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
+              });
+            }
+            const mainRows = [
+              { label: "Сотрудников", value: data.business?.employees ?? "—" },
+              { label: "Выручка / год", value: data.business?.revenue ?? "—" },
+              { label: "Основана", value: data.business?.founded ?? "—" },
+              { label: "Форма", value: data.business?.legalForm ?? "—" },
+              ...legalFields,
+            ];
+            return (
+              <>
+                {mainRows.map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                    <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+                  </div>
+                ))}
+                {cleanDesc && (
+                  <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* ── Технологии + Найм ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
+          {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
+              <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
+            </div>
+          )}
+          {(data.techStack?.analytics ?? []).length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+              </div>
+            </div>
+          )}
+          {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
+              <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
+            </div>
+          )}
+          {(data.techStack?.other ?? []).length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
+            {data.hiring?.trend && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
+                color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted }}>
+                {data.hiring.trend === "growing" ? "↑ растёт" : data.hiring.trend === "declining" ? "↓ снижается" : "→ стабильно"}
+              </span>
+            )}
+          </div>
+          {[
+            { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? 0) },
+            { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
+            { label: "Вилка зарплат", value: data.hiring?.salaryRange ?? "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+              <span style={{ color: c.textSecondary }}>{label}</span>
+              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+            </div>
+          ))}
+          {(data.hiring?.topRoles ?? []).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ТОП ВАКАНСИИ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.hiring.topRoles.map(role => <span key={role} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{role}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Соцсети ── */}
+      {(data.social?.vk || data.social?.telegram || data.social?.yandexRating || data.social?.gisRating) && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>📱 Соцсети и отзывы</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            {data.social?.vk && (
+              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>ВКонтакте</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
+                <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
+              </div>
+            )}
+            {data.social?.telegram && (
+              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Telegram</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
+                <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
+              </div>
+            )}
+            {(data.social?.yandexRating ?? 0) > 0 && (
+              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Яндекс.Карты</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.yandexRating.toFixed(1)}</div>
+                <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.yandexReviews} отзывов</div>
+              </div>
+            )}
+            {(data.social?.gisRating ?? 0) > 0 && (
+              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>2ГИС</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.gisRating.toFixed(1)}</div>
+                <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.gisReviews} отзывов</div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1477,6 +1673,46 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
         </>
       )}
 
+      {/* Niche Forecast */}
+      {data.nicheForecast && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 Прогноз ниши</div>
+          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm }}>
+                {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{data.nicheForecast.timeframe}</div>
+                <div style={{ fontSize: 12, color: c.textSecondary }}>{data.nicheForecast.direction}</div>
+              </div>
+            </div>
+            <div style={{ width: "100%", height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ height: "100%", width: `${Math.min(100, Math.abs(data.nicheForecast.trendPercent) * 5)}%`, background: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm, borderRadius: 3 }} />
+            </div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 14px" }}>{data.nicheForecast.forecast}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ВОЗМОЖНОСТИ</div>
+                {data.nicheForecast.opportunities.map((o, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
+                    <span style={{ color: c.accentGreen, flexShrink: 0 }}>✓</span>{o}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>УГРОЗЫ</div>
+                {data.nicheForecast.threats.map((t, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
+                    <span style={{ color: c.accentRed, flexShrink: 0 }}>✗</span>{t}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Clichés */}
       <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🗣 Заезженные формулировки</div>
       <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
@@ -1548,7 +1784,7 @@ function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
               <div style={{ fontSize: 13, color: c.textMuted }}>{data.company.url} · {today}</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{data.company.score}</div>
+              <div style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{data.company.score} <span style={{ fontSize: 18, fontWeight: 500, color: c.textMuted }}>из 100</span></div>
               <div style={{ fontSize: 12, color: c.textMuted }}>Общий score</div>
             </div>
           </div>
@@ -1639,11 +1875,18 @@ function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 AI-РЕКОМЕНДАЦИИ</div>
           {data.recommendations.map((rec, i) => {
             const col = rec.priority === "high" ? "#e34935" : rec.priority === "medium" ? "#e6a817" : "#22a06b";
+            const priorityLabel = rec.priority === "high" ? "Высокий" : rec.priority === "medium" ? "Средний" : "Низкий";
             return (
-              <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: i < data.recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: col, marginTop: 5, flexShrink: 0 }} />
-                <div style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#22a06b", background: "#22a06b12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap", alignSelf: "center" }}>{rec.effect}</div>
+              <div key={i} style={{ padding: "14px 0", borderBottom: i < data.recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{priorityLabel}</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: c.textMuted }}>{rec.category}</span>
+                </div>
+                <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, paddingLeft: 16, marginBottom: 6 }}>{rec.text}</div>
+                <div style={{ paddingLeft: 16 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#22a06b", background: "#22a06b12", padding: "3px 10px", borderRadius: 6 }}>Эффект: {rec.effect}</span>
+                </div>
               </div>
             );
           })}
