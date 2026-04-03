@@ -83,6 +83,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // PageSpeed Lighthouse scores
+    if (real.pageSpeed) {
+      result.seo.lighthouseScores = real.pageSpeed;
+    }
+
+    // Wayback Machine archive age
+    if (real.wayback) {
+      result.seo.firstArchiveDate = real.wayback.firstArchiveDate;
+      result.seo.archiveAgeYears = real.wayback.archiveAgeYears;
+    }
+
+    // Rusprofile financial data
+    if (real.rusprofile) {
+      if (real.rusprofile.revenue && result.business.revenue === "—") {
+        result.business.revenue = real.rusprofile.revenue;
+      }
+      if (real.rusprofile.courtCases !== undefined) {
+        result.business.courtCases = real.rusprofile.courtCases;
+      }
+      if (real.rusprofile.profileUrl) {
+        result.business.rusprofileUrl = real.rusprofile.profileUrl;
+      }
+    }
+
+    // Yandex Maps rating (overwrite AI-guessed)
+    if (real.yandexRating && real.yandexRating.rating > 0) {
+      result.social.yandexRating = real.yandexRating.rating;
+      result.social.yandexReviews = real.yandexRating.reviews;
+    }
+
+    // 2GIS rating
+    if (real.gisRating && real.gisRating.rating > 0) {
+      result.social.gisRating = real.gisRating.rating;
+      result.social.gisReviews = real.gisRating.reviews;
+    }
+
+    // Government contracts
+    if (real.govContracts) {
+      result.governmentContracts = real.govContracts;
+    }
+
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);

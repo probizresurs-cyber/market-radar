@@ -363,6 +363,209 @@ export async function getRealDaData(companyName: string, domain: string): Promis
   }
 }
 
+// ─── Google PageSpeed Insights — real Lighthouse scores ─────────────────────
+
+export interface PageSpeedResult {
+  performance: number;
+  seo: number;
+  accessibility: number;
+}
+
+export async function getPageSpeedScores(url: string): Promise<PageSpeedResult | null> {
+  try {
+    const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility`;
+    const data = await fetchJson(apiUrl, FETCH_HEADERS, 25000) as Record<string, unknown>;
+    const cats = (data?.lighthouseResult as Record<string, unknown>)?.categories as Record<string, { score?: number }> | undefined;
+    if (!cats) return null;
+    return {
+      performance: Math.round((cats.performance?.score ?? 0) * 100),
+      seo: Math.round((cats.seo?.score ?? 0) * 100),
+      accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Wayback Machine — real first archive date ──────────────────────────────
+
+export interface WaybackResult {
+  firstArchiveDate: string;
+  archiveAgeYears: number;
+}
+
+export async function getFirstArchiveDate(domain: string): Promise<WaybackResult | null> {
+  try {
+    const cleanDomain = domain.replace(/^www\./, "");
+    const apiUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(cleanDomain)}&fl=timestamp&output=json&limit=1&sort=asc`;
+    const data = await fetchJson(apiUrl, FETCH_HEADERS, 10000) as string[][];
+    if (!data || data.length < 2 || !data[1]?.[0]) return null;
+    const ts = data[1][0]; // "20150312143022"
+    const dateStr = `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`;
+    const date = new Date(dateStr);
+    const now = new Date();
+    const years = Math.max(0, now.getFullYear() - date.getFullYear());
+    return { firstArchiveDate: dateStr, archiveAgeYears: years };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Rusprofile.ru — financial data and court cases ─────────────────────────
+
+export interface RusprofileResult {
+  revenue?: string;
+  courtCases?: number;
+  profileUrl: string;
+}
+
+export async function getRusprofileData(companyName: string): Promise<RusprofileResult | null> {
+  try {
+    const searchUrl = `https://www.rusprofile.ru/search?query=${encodeURIComponent(companyName)}&type=ul`;
+    const html = await fetchHtml(searchUrl, 10000);
+    if (html.length < 500 || html.includes("captcha") || html.includes("Captcha")) return null;
+
+    // Extract first result profile URL
+    const urlMatch = html.match(/href="(\/id\/\d+)"/);
+    const profileUrl = urlMatch ? `https://www.rusprofile.ru${urlMatch[1]}` : "";
+    if (!profileUrl) return null;
+
+    // Try to extract revenue from search results
+    let revenue: string | undefined;
+    const revMatch = html.match(/Выручка[^<]*<[^>]*>([^<]+)/i);
+    if (revMatch) revenue = revMatch[1].trim();
+
+    // Try to extract court cases count
+    let courtCases: number | undefined;
+    const courtMatch = html.match(/(?:Арбитраж|дел[ао])[^<]*?(\d+)/i);
+    if (courtMatch) courtCases = parseInt(courtMatch[1], 10);
+
+    return { revenue, courtCases, profileUrl };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Yandex Maps — rating from search snippets ─────────────────────────────
+
+export interface YandexRatingResult {
+  rating: number;
+  reviews: number;
+}
+
+export async function getYandexRating(companyName: string, domain: string): Promise<YandexRatingResult | null> {
+  try {
+    // Try Yandex search for structured rating snippet
+    const query = `${companyName} ${domain} отзывы`;
+    const html = await fetchHtml(`https://yandex.ru/search/?text=${encodeURIComponent(query)}&lr=213`, 6000);
+
+    // Look for schema.org rating in snippets
+    const patterns = [
+      /"ratingValue"[:\s]*"?([\d.]+)"?.*?"reviewCount"[:\s]*"?(\d+)"?/,
+      /"aggregateRating"[^}]*"ratingValue"[:\s]*"?([\d.]+)"?[^}]*"ratingCount"[:\s]*"?(\d+)"?/,
+      /rating.*?(\d\.\d).*?(\d+)\s*отзыв/i,
+    ];
+    for (const p of patterns) {
+      const m = html.match(p);
+      if (m) {
+        const rating = parseFloat(m[1]);
+        const reviews = parseInt(m[2], 10);
+        if (rating > 0 && rating <= 5 && reviews > 0) return { rating, reviews };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── 2GIS — rating from catalog API ────────────────────────────────────────
+
+export interface GisRatingResult {
+  rating: number;
+  reviews: number;
+}
+
+export async function get2GisRating(companyName: string): Promise<GisRatingResult | null> {
+  try {
+    // Try the public catalog API with the web key
+    const apiUrl = `https://catalog.api.2gis.com/3.0/items?q=${encodeURIComponent(companyName)}&key=rubnkm&fields=items.reviews&page_size=5`;
+    const data = await fetchJson(apiUrl, FETCH_HEADERS, 8000) as {
+      result?: { items?: Array<{ reviews?: { rating?: number; review_count?: number } }> };
+    };
+    const items = data?.result?.items ?? [];
+    for (const item of items) {
+      if (item.reviews?.rating && item.reviews.rating > 0) {
+        return { rating: item.reviews.rating, reviews: item.reviews.review_count ?? 0 };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── zakupki.gov.ru — government contracts ──────────────────────────────────
+
+export interface GovContractsResult {
+  totalContracts: number;
+  totalAmount: string;
+  recentContracts: Array<{
+    date: string;
+    amount: string;
+    customer: string;
+    subject: string;
+  }>;
+}
+
+export async function getGovContracts(companyName: string, inn?: string): Promise<GovContractsResult | null> {
+  try {
+    const query = inn && inn !== "—" ? inn : companyName;
+    const searchUrl = `https://zakupki.gov.ru/epz/contract/search/results.html?searchString=${encodeURIComponent(query)}&morphology=on&pageNumber=1&sortDirection=false&recordsPerPage=5`;
+    const html = await fetchHtml(searchUrl, 12000);
+    if (html.length < 500 || html.includes("captcha")) return null;
+
+    // Parse total count
+    const totalMatch = html.match(/Найдено.*?(\d[\d\s]*)/i);
+    const totalContracts = totalMatch ? parseInt(totalMatch[1].replace(/\s/g, ""), 10) : 0;
+    if (totalContracts === 0) return null;
+
+    // Parse contract rows
+    const recentContracts: GovContractsResult["recentContracts"] = [];
+    const contractBlocks = html.split(/registry-entry__header/i).slice(1, 6);
+    let totalSum = 0;
+
+    for (const block of contractBlocks) {
+      const dateMatch = block.match(/(\d{2}\.\d{2}\.\d{4})/);
+      const amountMatch = block.match(/([\d\s,]+[.,]\d{2})\s*₽?/);
+      const subjectMatch = block.match(/registry-entry__body-value[^>]*>([^<]{5,80})/);
+      const customerMatch = block.match(/(?:Заказчик|customer)[^>]*>([^<]+)/i);
+
+      const amount = amountMatch ? amountMatch[1].replace(/\s/g, "") : "0";
+      const numAmount = parseFloat(amount.replace(",", "."));
+      if (numAmount > 0) totalSum += numAmount;
+
+      recentContracts.push({
+        date: dateMatch?.[1] ?? "—",
+        amount: amountMatch ? `${amountMatch[1].trim()} ₽` : "—",
+        customer: customerMatch?.[1]?.trim().slice(0, 60) ?? "—",
+        subject: subjectMatch?.[1]?.trim().slice(0, 80) ?? "—",
+      });
+    }
+
+    let totalAmount: string;
+    if (totalSum >= 1_000_000_000) totalAmount = `${(totalSum / 1_000_000_000).toFixed(1)} млрд ₽`;
+    else if (totalSum >= 1_000_000) totalAmount = `${Math.round(totalSum / 1_000_000)} млн ₽`;
+    else if (totalSum >= 1_000) totalAmount = `${Math.round(totalSum / 1_000)} тыс. ₽`;
+    else totalAmount = `${Math.round(totalSum)} ₽`;
+
+    return { totalContracts, totalAmount, recentContracts };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Main enrichment function ─────────────────────────────────────────────────
 
 export interface RealData {
@@ -371,6 +574,12 @@ export interface RealData {
   telegram: { subscribers: number; posts30d: number } | null;
   vk: { subscribers: number; posts30d: number; engagement: string; trend: string } | null;
   dadata: DaDataResult | null;
+  pageSpeed: PageSpeedResult | null;
+  wayback: WaybackResult | null;
+  rusprofile: RusprofileResult | null;
+  yandexRating: YandexRatingResult | null;
+  gisRating: GisRatingResult | null;
+  govContracts: GovContractsResult | null;
 }
 
 export async function enrichWithRealData(
@@ -380,15 +589,26 @@ export async function enrichWithRealData(
 ): Promise<RealData> {
   const tgUrl = socialLinks.telegram ?? socialLinks.tg ?? null;
   const vkUrl = socialLinks.vk ?? null;
+  const fullUrl = `https://${domain}`;
 
-  // All API calls in parallel, graceful fallbacks on any failure
-  const [domainAge, hh, telegram, vk, dadata] = await Promise.all([
-    getRealDomainAge(domain).catch(() => null),
-    getRealHHData(companyName, domain).catch(() => null),
-    tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
-    vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
-    getRealDaData(companyName, domain).catch(() => null),
-  ]);
+  // Phase 1: all parallel
+  const [domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating] =
+    await Promise.all([
+      getRealDomainAge(domain).catch(() => null),
+      getRealHHData(companyName, domain).catch(() => null),
+      tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
+      vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
+      getRealDaData(companyName, domain).catch(() => null),
+      getPageSpeedScores(fullUrl).catch(() => null),
+      getFirstArchiveDate(domain).catch(() => null),
+      getRusprofileData(companyName).catch(() => null),
+      getYandexRating(companyName, domain).catch(() => null),
+      get2GisRating(companyName).catch(() => null),
+    ]);
 
-  return { domainAge, hh, telegram, vk, dadata };
+  // Phase 2: zakupki benefits from INN from DaData
+  const inn = dadata?.inn !== "—" ? dadata?.inn : undefined;
+  const govContracts = await getGovContracts(companyName, inn).catch(() => null);
+
+  return { domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, govContracts };
 }

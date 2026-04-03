@@ -44,13 +44,15 @@ const SOURCES_FREE = [
   { name: "DaData", method: "dadata.ru API", price: "Бесплатно (10k/день)", phase: "MVP" },
   { name: "egrul.nalog.ru", method: "Через DaData", price: "Бесплатно", phase: "MVP" },
   { name: "hh.ru API", method: "api.hh.ru", price: "Бесплатно", phase: "MVP" },
+  { name: "Google PageSpeed", method: "PageSpeed Insights API", price: "Бесплатно", phase: "MVP" },
+  { name: "Wayback Machine", method: "web.archive.org CDX API", price: "Бесплатно", phase: "MVP" },
+  { name: "Rusprofile.ru", method: "HTML парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "Яндекс.Карты", method: "Поисковый парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "2ГИС", method: "Catalog API", price: "Бесплатно", phase: "MVP" },
+  { name: "zakupki.gov.ru", method: "HTML парсинг", price: "Бесплатно", phase: "MVP" },
   { name: "MegaIndex", method: "megaindex.ru API", price: "Бесплатно (базовый)", phase: "v2" },
   { name: "Яндекс.Wordstat", method: "wordstat.yandex.ru парсинг", price: "Бесплатно", phase: "v2" },
-  { name: "Яндекс.Карты", method: "Playwright парсинг", price: "Бесплатно", phase: "v2" },
-  { name: "2ГИС", method: "Playwright парсинг", price: "Бесплатно", phase: "v2" },
   { name: "YouTube / Social Blade", method: "YouTube Data API", price: "Бесплатно", phase: "v2" },
-  { name: "zakupki.gov.ru", method: "Парсинг / API", price: "Бесплатно", phase: "v2" },
-  { name: "Rusprofile.ru", method: "Парсинг", price: "Бесплатно (базовый)", phase: "v2" },
   { name: "SuperJob", method: "Парсинг", price: "Бесплатно", phase: "v3" },
   { name: "Авито Работа", method: "Парсинг", price: "Бесплатно", phase: "v3" },
   { name: "Отзовик / IRecommend", method: "Парсинг", price: "Бесплатно", phase: "v3" },
@@ -1019,12 +1021,33 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
             { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
             { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
             { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+            ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
           ].map(({ label, value }) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
               <span style={{ color: c.textSecondary }}>{label}</span>
               <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
             </div>
           ))}
+          {data.seo?.lighthouseScores && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                {([
+                  { label: "Скорость", value: data.seo.lighthouseScores.performance },
+                  { label: "SEO", value: data.seo.lighthouseScores.seo },
+                  { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
+                ] as { label: string; value: number }[]).map(s => {
+                  const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
+                  return (
+                    <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {(data.seo?.issues ?? []).length > 0 && (
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
@@ -1056,6 +1079,7 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
               { label: "Выручка / год", value: data.business?.revenue ?? "—" },
               { label: "Основана", value: data.business?.founded ?? "—" },
               { label: "Форма", value: data.business?.legalForm ?? "—" },
+              ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
               ...legalFields,
             ];
             return (
@@ -1066,6 +1090,9 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
                     <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
                   </div>
                 ))}
+                {data.business?.rusprofileUrl && (
+                  <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
+                )}
                 {cleanDesc && (
                   <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
                 )}
@@ -1074,6 +1101,37 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           })()}
         </div>
       </div>
+
+      {/* ── Госконтракты ── */}
+      {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
+          <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
+            Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
+          </div>
+          {data.governmentContracts.recentContracts.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
+                    <tr key={i}>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Технологии + Найм ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
@@ -1460,12 +1518,33 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
             { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
             { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
             { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+            ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
           ].map(({ label, value }) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
               <span style={{ color: c.textSecondary }}>{label}</span>
               <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
             </div>
           ))}
+          {data.seo?.lighthouseScores && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                {([
+                  { label: "Скорость", value: data.seo.lighthouseScores.performance },
+                  { label: "SEO", value: data.seo.lighthouseScores.seo },
+                  { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
+                ] as { label: string; value: number }[]).map(s => {
+                  const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
+                  return (
+                    <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {(data.seo?.issues ?? []).length > 0 && (
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
@@ -1496,6 +1575,7 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
               { label: "Выручка / год", value: data.business?.revenue ?? "—" },
               { label: "Основана", value: data.business?.founded ?? "—" },
               { label: "Форма", value: data.business?.legalForm ?? "—" },
+              ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
               ...legalFields,
             ];
             return (
@@ -1506,6 +1586,9 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
                     <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
                   </div>
                 ))}
+                {data.business?.rusprofileUrl && (
+                  <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
+                )}
                 {cleanDesc && (
                   <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
                 )}
@@ -1514,6 +1597,37 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
           })()}
         </div>
       </div>
+
+      {/* ── Госконтракты ── */}
+      {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
+          <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
+            Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
+          </div>
+          {data.governmentContracts.recentContracts.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
+                    <tr key={i}>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Технологии + Найм ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>

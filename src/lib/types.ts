@@ -116,6 +116,9 @@ export interface AnalysisResult {
     estimatedTraffic: string;
     positions: SeoPosition[];
     issues: string[];
+    lighthouseScores?: { performance: number; seo: number; accessibility: number };
+    firstArchiveDate?: string;
+    archiveAgeYears?: number;
   };
   techStack: {
     cms: string;
@@ -144,6 +147,18 @@ export interface AnalysisResult {
     revenue: string;
     founded: string;
     legalForm: string;
+    courtCases?: number;
+    rusprofileUrl?: string;
+  };
+  governmentContracts?: {
+    totalContracts: number;
+    totalAmount: string;
+    recentContracts: Array<{
+      date: string;
+      amount: string;
+      customer: string;
+      subject: string;
+    }>;
   };
   nicheForecast: {
     trend: "growing" | "stable" | "declining";
