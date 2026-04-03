@@ -7,18 +7,24 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 function extractJson(text: string): any {
   const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = stripped.indexOf("{");
+  if (start === -1) throw new Error("No JSON object found in AI response");
+
+  // Try full parse first
   const end = stripped.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new Error("No JSON object found in Claude response");
-  const jsonStr = stripped.slice(start, end + 1);
-  try {
-    return JSON.parse(jsonStr);
-  } catch {
-    const lastComma = jsonStr.lastIndexOf("},");
-    if (lastComma > 0) {
-      try { return JSON.parse(jsonStr.slice(0, lastComma + 1) + "]}]}"); } catch { /* fall through */ }
-    }
-    throw new Error("Failed to parse Claude JSON response");
+  if (end > start) {
+    try { return JSON.parse(stripped.slice(start, end + 1)); } catch { /* fall through */ }
   }
+
+  // Response was truncated — try to close it by finding the last complete field
+  const partial = stripped.slice(start);
+  // Walk from end to find last valid closing brace sequence
+  for (let i = partial.length - 1; i > 0; i--) {
+    if (partial[i] === "}") {
+      try { return JSON.parse(partial.slice(0, i + 1)); } catch { /* continue */ }
+    }
+  }
+
+  throw new Error("Failed to parse AI response as JSON");
 }
 
 function clamp(n: number): number {
@@ -181,11 +187,12 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 
   const message = await client.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 7000,
+    max_tokens: 10000,
     messages: [{ role: "user", content: prompt }],
   });
 
   const responseText = message.content[0].type === "text" ? message.content[0].text : "";
+  if (!responseText) throw new Error("Empty response from AI model");
   const p = extractJson(responseText);
 
   const scores = {

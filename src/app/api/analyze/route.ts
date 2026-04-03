@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (message.includes("API") || message.includes("anthropic") || message.includes("Claude")) {
+    if (message.includes("anthropic") || message.includes("authentication") || message.includes("api_key")) {
       return NextResponse.json(
-        { ok: false, error: "Ошибка AI-анализа. Попробуйте ещё раз." },
+        { ok: false, error: "Ошибка AI-анализа: проблема с API ключом." },
         { status: 502 }
       );
     }
