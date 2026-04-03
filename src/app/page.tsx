@@ -15,8 +15,8 @@ const COLORS = {
     accentRed: "#e34935", accentYellow: "#e6a817",
     textPrimary: "#1e293b", textSecondary: "#64748b", textMuted: "#94a3b8",
     border: "#e8dfd5", borderLight: "#f0ebe4",
-    shadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-    shadowLg: "0 4px 12px rgba(0,0,0,0.08)",
+    shadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)",
+    shadowLg: "0 4px 8px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02)",
   },
   dark: {
     bg: "#1a1a1f", bgCard: "#24242b", bgSidebar: "#1e1e24",
@@ -25,8 +25,8 @@ const COLORS = {
     accentRed: "#f06555", accentYellow: "#f0b830",
     textPrimary: "#e8e4df", textSecondary: "#9e9a94", textMuted: "#6b6860",
     border: "#35353d", borderLight: "#2c2c34",
-    shadow: "0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)",
-    shadowLg: "0 4px 12px rgba(0,0,0,0.4)",
+    shadow: "0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.25)",
+    shadowLg: "0 4px 8px rgba(0,0,0,0.25), 0 12px 32px rgba(0,0,0,0.4)",
   },
 } as const;
 
@@ -137,7 +137,8 @@ function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 }) {
   return (
     <div style={{ fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, minHeight: "100vh" }}>
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 40px", borderBottom: `1px solid ${c.border}`, background: c.bgCard, position: "sticky", top: 0, zIndex: 100 }}>
+      <style>{`* { box-sizing: border-box; } ::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 48px", borderBottom: `1px solid ${c.border}`, background: c.bgCard + "f5", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
           <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
@@ -155,11 +156,11 @@ function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
       </nav>
 
-      <section style={{ textAlign: "center", padding: "72px 20px 56px", background: `linear-gradient(180deg, ${c.accent}0a 0%, ${c.bg} 100%)` }}>
-        <div style={{ display: "inline-block", background: c.accentWarm + "20", color: c.accentWarm, borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 700, marginBottom: 20 }}>
-          ИИ-анализ конкурентов для малого бизнеса
+      <section style={{ textAlign: "center", padding: "80px 20px 64px", background: `linear-gradient(160deg, ${c.accent}0d 0%, ${c.accentWarm}08 50%, ${c.bg} 100%)` }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: c.accentWarm + "20", color: c.accentWarm, borderRadius: 20, padding: "5px 16px", fontSize: 12, fontWeight: 700, marginBottom: 22, border: `1px solid ${c.accentWarm}30` }}>
+          <span>✦</span><span>ИИ-анализ конкурентов для малого бизнеса</span>
         </div>
-        <h1 style={{ fontSize: "clamp(26px, 5vw, 50px)", fontWeight: 900, lineHeight: 1.15, margin: "0 auto 20px", maxWidth: 700, color: c.textPrimary }}>
+        <h1 style={{ fontSize: "clamp(30px, 5.5vw, 56px)", fontWeight: 900, lineHeight: 1.1, margin: "0 auto 22px", maxWidth: 740, color: c.textPrimary }}>
           Узнайте всё о конкурентах<br />
           <span style={{ color: c.accent }}>за 10 минут</span>
         </h1>
@@ -181,12 +182,12 @@ function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         <h2 style={{ fontSize: 26, fontWeight: 800, color: c.textPrimary, textAlign: "center", marginBottom: 32 }}>Три инструмента в одном</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 18 }}>
           {[
-            { icon: "🔍", title: "Самоанализ", desc: "Введите свой сайт — получите полный аудит: SEO, соцсети, контент, HR-бренд и стек технологий. Сравнение со средним по нише." },
-            { icon: "🎯", title: "Мониторинг конкурентов", desc: "Добавьте до 10 конкурентов и видите их сильные и слабые стороны. Battle Cards помогут подготовиться к встрече с клиентом." },
-            { icon: "💡", title: "AI-рекомендации", desc: "Claude AI анализирует данные и даёт конкретные советы: что добавить на сайт, какие слова написать, какие каналы развить." },
-          ].map(({ icon, title, desc }) => (
-            <div key={title} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: "26px 22px", boxShadow: c.shadow }}>
-              <div style={{ fontSize: 36, marginBottom: 14 }}>{icon}</div>
+            { icon: "🔍", title: "Самоанализ", desc: "Введите свой сайт — получите полный аудит: SEO, соцсети, контент, HR-бренд и стек технологий. Сравнение со средним по нише.", accent: c.accent },
+            { icon: "🎯", title: "Мониторинг конкурентов", desc: "Добавьте до 10 конкурентов и видите их сильные и слабые стороны. Battle Cards помогут подготовиться к встрече с клиентом.", accent: c.accentWarm },
+            { icon: "💡", title: "AI-рекомендации", desc: "Claude AI анализирует данные и даёт конкретные советы: что добавить на сайт, какие слова написать, какие каналы развить.", accent: c.accentGreen },
+          ].map(({ icon, title, desc, accent }) => (
+            <div key={title} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, borderTop: `3px solid ${accent}40`, padding: "26px 22px", boxShadow: c.shadow }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: accent + "15", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 16 }}>{icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>{title}</div>
               <div style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.6 }}>{desc}</div>
             </div>
@@ -206,7 +207,7 @@ function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             { name: "Pro", price: "₽7 990", period: "/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "API-доступ", "White-label отчёты"], highlight: true, cta: "Выбрать Pro" },
             { name: "Agency", price: "₽14 990", period: "/мес", features: ["10 компаний", "100 конкурентов", "Real-time обновление", "5 мест", "Брендированные отчёты"], highlight: false, cta: "Для агентств" },
           ].map(plan => (
-            <div key={plan.name} style={{ background: plan.highlight ? c.accent : c.bgCard, borderRadius: 16, border: `2px solid ${plan.highlight ? c.accent : c.border}`, padding: "22px 18px", position: "relative", boxShadow: plan.highlight ? `0 8px 20px ${c.accent}30` : c.shadow }}>
+            <div key={plan.name} style={{ background: plan.highlight ? `linear-gradient(135deg, ${c.accent}, ${c.accent}cc)` : c.bgCard, borderRadius: 16, border: `2px solid ${plan.highlight ? c.accent : c.border}`, padding: "22px 18px", position: "relative", boxShadow: plan.highlight ? `0 8px 28px ${c.accent}40, 0 0 0 1px ${c.accent}60` : c.shadow }}>
               {plan.highlight && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: c.accentWarm, color: "#fff", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>Популярный</div>}
               <div style={{ fontSize: 14, fontWeight: 700, color: plan.highlight ? "#fff" : c.textPrimary, marginBottom: 4 }}>{plan.name}</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginBottom: 14 }}>
@@ -236,7 +237,8 @@ function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             { name: "Ирина Соколова", role: "Маркетолог клиники", text: "Наконец понятно, почему конкурент в ТОП-3 Яндекса. Оказалось, schema.org — добавили за 2 дня, трафик вырос." },
             { name: "Дмитрий К.", role: "Владелец B2B компании", text: "Онбординг за 10 минут. Система сама предложила конкурентов по нише — не нужно ничего гуглить." },
           ].map(({ name, role, text }) => (
-            <div key={name} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 22, boxShadow: c.shadow }}>
+            <div key={name} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, borderLeft: `4px solid ${c.accent}60`, padding: 22, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 13, color: c.accentYellow, marginBottom: 8, letterSpacing: 2 }}>★★★★★</div>
               <div style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>"{text}"</div>
               <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary }}>{name}</div>
               <div style={{ fontSize: 12, color: c.textMuted }}>{role}</div>
@@ -270,6 +272,9 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const };
+  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px ${c.accent}20`; e.currentTarget.style.borderColor = c.accent; };
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = c.border; };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,8 +301,8 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
-      <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "36px 40px", width: "100%", maxWidth: 440, boxShadow: c.shadowLg }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: `${c.bg} radial-gradient(${c.accent}08 1px, transparent 1px)`, backgroundSize: "24px 24px", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
+      <div style={{ background: c.bgCard, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 20, border: `1px solid ${c.border}`, padding: "40px 44px", width: "100%", maxWidth: 440, boxShadow: c.shadowLg }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
           <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
@@ -307,23 +312,19 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Имя *</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Иван Иванов"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Иван Иванов" onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Email *</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com" onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Пароль * (мин. 6 символов)</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Телефон</label>
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (999) 123-45-67"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (999) 123-45-67" onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
           </div>
           {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
           <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
@@ -347,6 +348,9 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const loginInputStyle = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const };
+  const onFocusL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px ${c.accent}20`; e.currentTarget.style.borderColor = c.accent; };
+  const onBlurL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = c.border; };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,8 +363,8 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
-      <div style={{ background: c.bgCard, borderRadius: 20, border: `1px solid ${c.border}`, padding: "36px 40px", width: "100%", maxWidth: 400, boxShadow: c.shadowLg }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: `${c.bg} radial-gradient(${c.accent}08 1px, transparent 1px)`, backgroundSize: "24px 24px", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", padding: 20 }}>
+      <div style={{ background: c.bgCard, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 20, border: `1px solid ${c.border}`, padding: "40px 44px", width: "100%", maxWidth: 400, boxShadow: c.shadowLg }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
           <span style={{ fontWeight: 800, fontSize: 18, color: c.textPrimary }}>MarketRadar</span>
@@ -370,13 +374,11 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com" onFocus={onFocusL} onBlur={onBlurL} style={loginInputStyle} />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>Пароль</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onFocus={onFocusL} onBlur={onBlurL} style={loginInputStyle} />
           </div>
           {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
           <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
@@ -460,8 +462,8 @@ function OnboardingView({ c, user, onComplete }: {
           </div>
           <span style={{ fontSize: 12, color: c.textMuted }}>Шаг {step} из 3</span>
         </div>
-        <div style={{ height: 4, borderRadius: 2, background: c.borderLight, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(step / 3) * 100}%`, background: c.accent, borderRadius: 2, transition: "width 0.4s" }} />
+        <div style={{ height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${(step / 3) * 100}%`, background: c.accent, borderRadius: 3, transition: "width 0.4s" }} />
         </div>
       </div>
 
@@ -472,7 +474,15 @@ function OnboardingView({ c, user, onComplete }: {
             <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 22px" }}>Мы подберём конкурентов и настроим анализ под вашу отрасль</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {niches.map(n => (
-                <div key={n.id} onClick={() => setNiche(n.id)} style={{ border: `2px solid ${niche === n.id ? c.accent : c.border}`, borderRadius: 12, padding: 16, cursor: "pointer", background: niche === n.id ? c.accent + "0c" : "transparent", transition: "all 0.15s" }}>
+                <div key={n.id} onClick={() => setNiche(n.id)}
+                  style={{ border: `2px solid ${niche === n.id ? c.accent : c.border}`, borderRadius: 12, padding: 16, cursor: "pointer", background: niche === n.id ? c.accent + "0c" : "transparent", transition: "all 0.15s", position: "relative" }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.02)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}>
+                  {niche === n.id && (
+                    <div style={{ position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: "50%", background: c.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>✓</span>
+                    </div>
+                  )}
                   <div style={{ fontSize: 28, marginBottom: 8 }}>{n.icon}</div>
                   <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, marginBottom: 3 }}>{n.label}</div>
                   <div style={{ fontSize: 11, color: c.textSecondary }}>{n.desc}</div>
@@ -617,7 +627,7 @@ function PriorityBadge({ priority, c }: { priority: string; c: Colors }) {
 function CategoryCard({ cat, c }: { cat: AnalysisResult["company"]["categories"][number]; c: Colors }) {
   const color = cat.score >= 75 ? c.accentGreen : cat.score >= 50 ? c.accentWarm : c.accentRed;
   return (
-    <div style={{ background: c.bgCard, borderRadius: 12, padding: "16px 20px", border: `1px solid ${c.border}`, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ background: c.bgCard, borderRadius: 14, padding: "18px 22px", border: `1px solid ${c.border}`, borderTop: `3px solid ${color}`, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 18 }}>{cat.icon}</span>
@@ -809,7 +819,7 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
         <p style={{ fontSize: 13, color: c.textMuted, margin: "4px 0 0" }}>{company.name} · {company.url}</p>
       </div>
       <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, boxShadow: c.shadow }}>
+        <div style={{ background: `linear-gradient(160deg, ${c.bgCard} 60%, ${c.accent}06 100%)`, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, boxShadow: c.shadow }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 16, letterSpacing: "0.03em" }}>ОБЩИЙ SCORE</div>
           <ScoreRing score={company.score} c={c} />
           <div style={{ display: "flex", gap: 20, marginTop: 16, fontSize: 12, color: c.textSecondary }}>
@@ -835,18 +845,21 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
         </div>
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Категории оценки</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>AI-рекомендации</div>
       <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
-        {recommendations.map((rec, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-            <PriorityBadge priority={rec.priority} c={c} />
-            <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
-          </div>
-        ))}
+        {recommendations.map((rec, i) => {
+          const dotColor = rec.priority === "high" ? c.accentRed : rec.priority === "medium" ? c.accentYellow : c.accentGreen;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -923,7 +936,7 @@ function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddC
             const sc = comp.company.score;
             return (
               <div key={i} onClick={() => onSelectCompetitor(i)}
-                style={{ background: c.bgCard, borderRadius: 12, padding: 16, border: `1px solid ${c.border}`, cursor: "pointer", transition: "box-shadow 0.2s, transform 0.2s" }}
+                style={{ background: c.bgCard, borderRadius: 14, padding: 16, border: `1px solid ${c.border}`, cursor: "pointer", transition: "box-shadow 0.2s, transform 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = c.shadowLg; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -1605,6 +1618,7 @@ export default function MarketRadarDashboard() {
   if (selectedCompetitor !== null && competitors[selectedCompetitor]) {
     return (
       <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
+        <style>{`* { box-sizing: border-box; } ::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
         <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
         <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
           <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
@@ -1616,6 +1630,7 @@ export default function MarketRadarDashboard() {
   // App: main dashboard layout
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
+      <style>{`* { box-sizing: border-box; } ::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
       <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
@@ -1643,8 +1658,8 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
 }) {
   return (
     <aside style={{ width: 220, minWidth: 220, background: c.bgSidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", overflow: "auto" }}>
-      <div style={{ padding: "16px 16px 8px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>MR</div>
+      <div style={{ padding: "20px 16px 10px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, boxShadow: `0 2px 8px ${c.accent}40` }}>MR</div>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, lineHeight: 1.2 }}>MarketRadar</div>
           <div style={{ fontSize: 10, color: c.textMuted }}>{companyUrl || "company24.pro"}</div>
@@ -1659,7 +1674,7 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
               const isActive = activeNav === item.id;
               return (
                 <div key={item.id} onClick={() => setActiveNav(item.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, cursor: "pointer", background: isActive ? c.bgSidebarActive : "transparent", fontWeight: isActive ? 600 : 400, fontSize: 13, color: isActive ? c.textPrimary : c.textSecondary, transition: "background 0.15s", marginBottom: 2 }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: isActive ? "8px 10px 8px 7px" : "8px 10px", borderRadius: 10, cursor: "pointer", background: isActive ? c.bgSidebarActive : "transparent", fontWeight: isActive ? 600 : 400, fontSize: 13, color: isActive ? c.textPrimary : c.textSecondary, transition: "all 0.15s ease", marginBottom: 2, borderLeft: isActive ? `3px solid ${c.accent}` : "3px solid transparent" }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = c.bgSidebarHover; }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
                   <span style={{ fontSize: 15 }}>{item.icon}</span>
@@ -1684,8 +1699,15 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
         </div>
         {user && (
           <div style={{ padding: "8px 10px", borderTop: `1px solid ${c.borderLight}`, marginTop: 4 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, marginBottom: 1 }}>{user.name}</div>
-            <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 8 }}>{user.email}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: `linear-gradient(135deg, ${c.accent}80, ${c.accentWarm}80)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize: 10, color: c.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+              </div>
+            </div>
             <div onClick={onLogout}
               style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: c.accentRed, cursor: "pointer", padding: "4px 0" }}>
               <span>↩</span><span>Выйти</span>
