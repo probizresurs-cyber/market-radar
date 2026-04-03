@@ -69,6 +69,9 @@ interface UserAccount {
   niche?: string;
   companyName?: string;
   companyUrl?: string;
+  vk?: string;
+  tg?: string;
+  hhUrl?: string;
   onboardingDone: boolean;
 }
 
@@ -438,7 +441,11 @@ function OnboardingView({ c, user, onComplete }: {
   };
 
   const handleFinish = () => {
-    const updatedUser: UserAccount = { ...user, niche, companyName: companyName.trim(), companyUrl: companyUrl.trim(), onboardingDone: true };
+    const updatedUser: UserAccount = {
+      ...user, niche, companyName: companyName.trim(), companyUrl: companyUrl.trim(),
+      vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hh.trim() || undefined,
+      onboardingDone: true,
+    };
     authSaveUser(updatedUser);
     onComplete(updatedUser, companyUrl.trim(), Array.from(selectedCompetitors));
   };
@@ -1284,8 +1291,32 @@ function SourcesView({ c }: { c: Colors }) {
 // Settings View
 // ============================================================
 
-function SettingsView({ c }: { c: Colors }) {
+const NICHE_LABELS: Record<string, string> = {
+  digital: "Digital-агентство",
+  clinic: "Клиника или салон",
+  b2b: "B2B-торговля или SaaS",
+  other: "Другое",
+};
+
+function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: UserAccount | null; onUpdateUser?: (u: UserAccount) => void }) {
   const [tab, setTab] = useState<"profile" | "subscription" | "notifications">("profile");
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [companyName, setCompanyName] = useState(user?.companyName || "");
+  const [companyUrl, setCompanyUrl] = useState(user?.companyUrl || "");
+  const [vk, setVk] = useState(user?.vk || "");
+  const [tg, setTg] = useState(user?.tg || "");
+  const [hhUrl, setHhUrl] = useState(user?.hhUrl || "");
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    if (!user) return;
+    const updated: UserAccount = { ...user, name: name.trim(), phone: phone.trim() || undefined, companyName: companyName.trim() || undefined, companyUrl: companyUrl.trim() || undefined, vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hhUrl.trim() || undefined };
+    authSaveUser(updated);
+    onUpdateUser?.(updated);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   const tabs = [
     { id: "profile" as const, label: "Профиль" },
@@ -1307,14 +1338,64 @@ function SettingsView({ c }: { c: Colors }) {
 
       {tab === "profile" && (
         <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
-          {[{ label: "Имя", placeholder: "Ваше имя" }, { label: "Email", placeholder: "email@example.com" }, { label: "Телефон", placeholder: "+7 (999) 123-45-67" }].map(field => (
-            <div key={field.label} style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 6 }}>{field.label}</label>
-              <input type="text" placeholder={field.placeholder}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          {/* Read-only: email + niche */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20, padding: "14px 16px", borderRadius: 10, background: c.bg, border: `1px solid ${c.borderLight}` }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 3 }}>Email</div>
+              <div style={{ fontSize: 14, color: c.textPrimary }}>{user?.email || "—"}</div>
             </div>
-          ))}
-          <button style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 3 }}>Ниша</div>
+              <div style={{ fontSize: 14, color: c.textPrimary }}>{user?.niche ? NICHE_LABELS[user.niche] ?? user.niche : "—"}</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Personal */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em" }}>ЛИЧНЫЕ ДАННЫЕ</div>
+            {([
+              { label: "Имя", value: name, setter: (v: string) => setName(v), placeholder: "Иван Иванов", type: "text" },
+              { label: "Телефон", value: phone, setter: (v: string) => setPhone(v), placeholder: "+7 (999) 123-45-67", type: "tel" },
+            ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string; type: string }>).map(f => (
+              <div key={f.label}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <input type={f.type} value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            ))}
+
+            {/* Company */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginTop: 4 }}>КОМПАНИЯ</div>
+            {([
+              { label: "Название компании", value: companyName, setter: (v: string) => setCompanyName(v), placeholder: "ООО Ромашка" },
+              { label: "Сайт", value: companyUrl, setter: (v: string) => setCompanyUrl(v), placeholder: "example.ru" },
+            ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string }>).map(f => (
+              <div key={f.label}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <input type="text" value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            ))}
+
+            {/* Social */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginTop: 4 }}>СОЦСЕТИ</div>
+            {([
+              { label: "ВКонтакте", value: vk, setter: (v: string) => setVk(v), placeholder: "vk.com/company" },
+              { label: "Telegram", value: tg, setter: (v: string) => setTg(v), placeholder: "t.me/company" },
+              { label: "hh.ru", value: hhUrl, setter: (v: string) => setHhUrl(v), placeholder: "hh.ru/employer/123" },
+            ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string }>).map(f => (
+              <div key={f.label}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <input type="text" value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={handleSave} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+            {saved && <span style={{ fontSize: 13, color: c.accentGreen, fontWeight: 600 }}>✓ Сохранено</span>}
+          </div>
         </div>
       )}
 
@@ -1544,7 +1625,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "reports" && <ReportsView c={c} />}
         {activeNav === "sources" && <SourcesView c={c} />}
-        {activeNav === "settings" && <SettingsView c={c} />}
+        {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
       </main>
     </div>
   );
