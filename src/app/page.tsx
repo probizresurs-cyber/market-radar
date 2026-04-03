@@ -950,19 +950,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           </div>
         </div>
         <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, flex: 1, minWidth: 280, boxShadow: c.shadow, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 8, letterSpacing: "0.03em" }}>СРАВНЕНИЕ ПО КАТЕГОРИЯМ</div>
-          <RadarChart data={company} competitors={competitors.map(c2 => c2.company)} c={c} size={240} />
-          {competitors.length > 0 && (
-            <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11, flexWrap: "wrap", justifyContent: "center" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: c.accent }} /> Вы</span>
-              {competitors.map((comp, i) => (
-                <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, color: c.textSecondary }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: [c.accentRed, c.accentYellow, c.accentGreen, c.accentWarm, c.accent][i % 5] }} />
-                  {comp.company.name.length > 15 ? comp.company.name.slice(0, 15) + "…" : comp.company.name}
-                </span>
-              ))}
-            </div>
-          )}
+          <div style={{ fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 8, letterSpacing: "0.03em" }}>ОЦЕНКА ПО КАТЕГОРИЯМ</div>
+          <RadarChart data={company} competitors={[]} c={c} size={240} />
+          <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: c.accent }} /> {company.name.length > 20 ? company.name.slice(0, 20) + "…" : company.name}</span>
+          </div>
         </div>
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Категории оценки</div>
