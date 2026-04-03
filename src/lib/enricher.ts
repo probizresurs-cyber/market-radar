@@ -228,6 +228,141 @@ export async function getRealVKStats(vkUrl: string): Promise<{ subscribers: numb
   }
 }
 
+// ─── DaData — real company data (INN, OGRN, employees, revenue) ──────────────
+
+export interface DaDataResult {
+  inn: string;
+  ogrn: string;
+  legalForm: string;      // ООО / ИП / АО / ПАО
+  fullName: string;       // полное юридическое название
+  address: string;
+  registrationDate: string; // дата регистрации юрлица
+  employees: string;      // диапазон сотрудников
+  revenue: string;        // выручка
+  status: string;         // ACTIVE / LIQUIDATING / LIQUIDATED
+}
+
+async function fetchDaDataPost(url: string, body: unknown, token: string, ms = 8000): Promise<unknown> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Token ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`DaData HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+const EMPLOYEE_RANGES: Record<string, string> = {
+  "1": "до 15",
+  "2": "16–100",
+  "3": "101–250",
+  "4": "251–500",
+  "5": "501–1 000",
+  "6": "1 001–5 000",
+  "7": "5 001–10 000",
+  "8": "свыше 10 000",
+};
+
+export async function getRealDaData(companyName: string, domain: string): Promise<DaDataResult | null> {
+  const token = process.env.DADATA_API_KEY;
+  if (!token) return null;
+
+  try {
+    // Search by company name
+    const data = await fetchDaDataPost(
+      "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party",
+      { query: companyName, count: 10, status: ["ACTIVE"] },
+      token
+    ) as { suggestions?: Array<{ value: string; data: Record<string, unknown> }> };
+
+    const suggestions = data?.suggestions ?? [];
+    if (suggestions.length === 0) return null;
+
+    // Try to find best match: prefer domain match in address or name
+    let best = suggestions[0];
+    for (const s of suggestions) {
+      const name = String(s.value ?? "").toLowerCase();
+      const addr = String((s.data?.address as Record<string,unknown>)?.value ?? "").toLowerCase();
+      if (name.includes(companyName.toLowerCase().slice(0, 6)) ||
+          addr.includes(domain.replace(/\.[a-z]+$/, ""))) {
+        best = s;
+        break;
+      }
+    }
+
+    const d = best.data;
+
+    // Legal form
+    const opfShort = String((d?.opf as Record<string,unknown>)?.short ?? "");
+    const type = String(d?.type ?? "");
+    const legalForm = opfShort || (type === "INDIVIDUAL" ? "ИП" : type === "LEGAL" ? "ООО" : "—");
+
+    // Registration date
+    let registrationDate = "—";
+    const regDateMs = Number((d?.state as Record<string,unknown>)?.registration_date);
+    if (regDateMs) {
+      const year = new Date(regDateMs).getFullYear();
+      registrationDate = `${year}`;
+    }
+
+    // Employees (DaData employee_count is a range code)
+    const empCode = String(d?.employee_count ?? "");
+    const employees = empCode && EMPLOYEE_RANGES[empCode]
+      ? `${EMPLOYEE_RANGES[empCode]} чел.`
+      : "—";
+
+    // Revenue from finance block
+    let revenue = "—";
+    const finance = d?.finance as Record<string,unknown> | undefined;
+    if (finance?.revenue && Number(finance.revenue) > 0) {
+      const rev = Number(finance.revenue);
+      if (rev >= 1_000_000_000) {
+        revenue = `${(rev / 1_000_000_000).toFixed(1)} млрд ₽/год`;
+      } else if (rev >= 1_000_000) {
+        revenue = `${Math.round(rev / 1_000_000)} млн ₽/год`;
+      } else {
+        revenue = `${Math.round(rev / 1_000)} тыс. ₽/год`;
+      }
+    }
+
+    // Status
+    const statusRaw = String((d?.state as Record<string,unknown>)?.status ?? "");
+    const statusMap: Record<string, string> = {
+      ACTIVE: "Действующая",
+      LIQUIDATING: "В ликвидации",
+      LIQUIDATED: "Ликвидирована",
+      BANKRUPT: "Банкротство",
+      REORGANIZING: "Реорганизация",
+    };
+    const status = statusMap[statusRaw] ?? statusRaw;
+
+    return {
+      inn: String(d?.inn ?? "—"),
+      ogrn: String(d?.ogrn ?? "—"),
+      legalForm,
+      fullName: String(best.value ?? companyName),
+      address: String((d?.address as Record<string,unknown>)?.value ?? "—"),
+      registrationDate,
+      employees,
+      revenue,
+      status,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Main enrichment function ─────────────────────────────────────────────────
 
 export interface RealData {
@@ -235,6 +370,7 @@ export interface RealData {
   hh: HHResult | null;
   telegram: { subscribers: number; posts30d: number } | null;
   vk: { subscribers: number; posts30d: number; engagement: string; trend: string } | null;
+  dadata: DaDataResult | null;
 }
 
 export async function enrichWithRealData(
@@ -245,13 +381,14 @@ export async function enrichWithRealData(
   const tgUrl = socialLinks.telegram ?? socialLinks.tg ?? null;
   const vkUrl = socialLinks.vk ?? null;
 
-  // Run all API calls in parallel, all with graceful fallbacks
-  const [domainAge, hh, telegram, vk] = await Promise.all([
+  // All API calls in parallel, graceful fallbacks on any failure
+  const [domainAge, hh, telegram, vk, dadata] = await Promise.all([
     getRealDomainAge(domain).catch(() => null),
     getRealHHData(companyName, domain).catch(() => null),
     tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
     vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
+    getRealDaData(companyName, domain).catch(() => null),
   ]);
 
-  return { domainAge, hh, telegram, vk };
+  return { domainAge, hh, telegram, vk, dadata };
 }

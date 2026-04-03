@@ -63,6 +63,25 @@ export async function POST(request: NextRequest) {
     if (real.vk) {
       result.social.vk = real.vk;
     }
+    if (real.dadata) {
+      const d = real.dadata;
+      result.business = {
+        employees: d.employees !== "—" ? d.employees : result.business.employees,
+        revenue: d.revenue !== "—" ? d.revenue : result.business.revenue,
+        founded: d.registrationDate !== "—" ? `${d.registrationDate} г.` : result.business.founded,
+        legalForm: d.legalForm !== "—" ? d.legalForm : result.business.legalForm,
+      };
+      // Append INN/OGRN to company description
+      const extraInfo = [
+        d.inn !== "—" ? `ИНН: ${d.inn}` : "",
+        d.ogrn !== "—" ? `ОГРН: ${d.ogrn}` : "",
+        d.status && d.status !== "—" ? `Статус: ${d.status}` : "",
+        d.address && d.address !== "—" ? `Адрес: ${d.address}` : "",
+      ].filter(Boolean).join(" · ");
+      if (extraInfo) {
+        result.company.description = (result.company.description ? result.company.description + "\n" : "") + extraInfo;
+      }
+    }
 
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {

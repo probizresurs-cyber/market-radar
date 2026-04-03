@@ -920,20 +920,39 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
 
         <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
-          {[
-            { label: "Сотрудников", value: data.business?.employees ?? "—" },
-            { label: "Выручка / год", value: data.business?.revenue ?? "—" },
-            { label: "Основана", value: data.business?.founded ?? "—" },
-            { label: "Форма", value: data.business?.legalForm ?? "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-              <span style={{ color: c.textSecondary }}>{label}</span>
-              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
-            </div>
-          ))}
-          {company.description && (
-            <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{company.description}</p>
-          )}
+          {(() => {
+            // Split description: DaData legal line vs actual description
+            const descLines = (company.description ?? "").split("\n");
+            const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
+            const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
+            const legalFields: { label: string; value: string }[] = [];
+            if (legalLine) {
+              legalLine.split(" · ").forEach((part: string) => {
+                const colonIdx = part.indexOf(": ");
+                if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
+              });
+            }
+            const mainRows = [
+              { label: "Сотрудников", value: data.business?.employees ?? "—" },
+              { label: "Выручка / год", value: data.business?.revenue ?? "—" },
+              { label: "Основана", value: data.business?.founded ?? "—" },
+              { label: "Форма", value: data.business?.legalForm ?? "—" },
+              ...legalFields,
+            ];
+            return (
+              <>
+                {mainRows.map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                    <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+                  </div>
+                ))}
+                {cleanDesc && (
+                  <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
