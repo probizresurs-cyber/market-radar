@@ -73,6 +73,11 @@ interface UserAccount {
   tg?: string;
   hhUrl?: string;
   onboardingDone: boolean;
+  tgChatId?: string;
+  tgNotifyAnalysis?: boolean;
+  tgNotifyCompetitors?: boolean;
+  tgNotifyVacancies?: boolean;
+  tgNotifyDigest?: boolean;
 }
 
 function authGetUsers(): UserAccount[] {
@@ -94,6 +99,17 @@ function authGetCurrentUser(): UserAccount | null {
 function authSetCurrentUser(id: string | null): void {
   if (id) localStorage.setItem("mr_current_user", id);
   else localStorage.removeItem("mr_current_user");
+}
+
+// ── Telegram notification helper ──────────────────────────────
+async function sendTgNotification(chatId: string, text: string) {
+  try {
+    await fetch("/api/telegram/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, text }),
+    });
+  } catch { /* silent fail */ }
 }
 
 const NICHE_COMPETITORS: Record<string, Array<{ name: string; url: string }>> = {
@@ -2690,22 +2706,145 @@ function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: UserAccount
       )}
 
       {tab === "notifications" && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, marginBottom: 16 }}>Telegram-уведомления</div>
-          <div style={{ background: c.bg, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 8 }}>Подключите Telegram-бот для получения уведомлений:</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="text" placeholder="@username" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-              <button style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Подключить</button>
+        <NotificationsTab c={c} user={user ?? null} onUpdateUser={onUpdateUser ?? (() => {})} />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Notifications Tab (Telegram connect)
+// ============================================================
+
+function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAccount | null; onUpdateUser: (u: UserAccount) => void }) {
+  const [step, setStep] = useState<"idle" | "waiting" | "done">(user?.tgChatId ? "done" : "idle");
+  const [code] = useState(() => {
+    // Generate or reuse a code stored in session
+    const existing = typeof window !== "undefined" ? sessionStorage.getItem("mr_tg_code") : null;
+    if (existing) return existing;
+    const c2 = "MR-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (typeof window !== "undefined") sessionStorage.setItem("mr_tg_code", c2);
+    return c2;
+  });
+  const [botUsername, setBotUsername] = useState<string>("");
+  const [polling, setPolling] = useState(false);
+  const [pollError, setPollError] = useState("");
+  const [prefs, setPrefs] = useState({
+    analysis: user?.tgNotifyAnalysis ?? true,
+    competitors: user?.tgNotifyCompetitors ?? true,
+    vacancies: user?.tgNotifyVacancies ?? false,
+    digest: user?.tgNotifyDigest ?? false,
+  });
+  const [prefsSaved, setPrefsSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/telegram/connect").then(r => r.json()).then(d => { if (d.username) setBotUsername(d.username); }).catch(() => {});
+  }, []);
+
+  async function handlePoll() {
+    setPolling(true);
+    setPollError("");
+    try {
+      const res = await fetch("/api/telegram/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.chatId) {
+        const updated = { ...user!, tgChatId: String(data.chatId) };
+        onUpdateUser(updated);
+        setStep("done");
+        sessionStorage.removeItem("mr_tg_code");
+      } else {
+        setPollError("Код не найден. Убедитесь, что отправили его боту.");
+      }
+    } catch {
+      setPollError("Ошибка соединения.");
+    }
+    setPolling(false);
+  }
+
+  function handleDisconnect() {
+    const updated = { ...user!, tgChatId: undefined };
+    onUpdateUser(updated);
+    setStep("idle");
+  }
+
+  function handleSavePrefs() {
+    const updated = { ...user!, tgNotifyAnalysis: prefs.analysis, tgNotifyCompetitors: prefs.competitors, tgNotifyVacancies: prefs.vacancies, tgNotifyDigest: prefs.digest };
+    onUpdateUser(updated);
+    setPrefsSaved(true);
+    setTimeout(() => setPrefsSaved(false), 2000);
+  }
+
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
+  const boxStyle: React.CSSProperties = { background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Connection block */}
+      <div style={boxStyle}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Telegram-уведомления</div>
+        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>Получайте уведомления о новых анализах и изменениях конкурентов прямо в Telegram.</div>
+
+        {step === "done" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: c.accentGreen + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✓</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: c.accentGreen }}>Подключено</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>Chat ID: {user?.tgChatId}</div>
             </div>
+            <button onClick={handleDisconnect} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${c.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 12, color: c.textSecondary, cursor: "pointer" }}>Отключить</button>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: c.textMuted, marginBottom: 10 }}>Что присылать:</div>
-          {["Анализ завершён", "Изменения у конкурентов", "Новые вакансии у конкурентов", "Еженедельный дайджест"].map(item => (
-            <label key={item} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 13, color: c.textPrimary, cursor: "pointer" }}>
-              <input type="checkbox" defaultChecked style={{ accentColor: c.accent }} /> {item}
-            </label>
-          ))}
-          <button style={{ marginTop: 16, background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+        ) : step === "idle" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 13, color: c.textSecondary }}>
+              1. Откройте бота{botUsername ? <> <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer" style={{ color: c.accent }}>@{botUsername}</a></> : ""} в Telegram<br />
+              2. Отправьте ему этот код:
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ ...inputStyle, width: "auto", flex: 1, fontFamily: "monospace", fontWeight: 700, fontSize: 18, letterSpacing: 2, color: c.accent, background: c.accent + "10", border: `1.5px solid ${c.accent}33` }}>{code}</div>
+              <button onClick={() => { navigator.clipboard.writeText(code); }} style={{ background: c.accent + "15", border: `1px solid ${c.accent}33`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: c.accent, cursor: "pointer", whiteSpace: "nowrap" }}>Копировать</button>
+            </div>
+            <button onClick={() => setStep("waiting")} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>Я отправил →</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 13, color: c.textSecondary }}>Нажмите кнопку — мы проверим, получили ли ваш код.</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={handlePoll} disabled={polling} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: polling ? "not-allowed" : "pointer", opacity: polling ? 0.7 : 1 }}>
+                {polling ? "Проверяем…" : "Проверить подключение"}
+              </button>
+              <button onClick={() => { setStep("idle"); setPollError(""); }} style={{ background: "transparent", border: `1px solid ${c.border}`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.textSecondary, cursor: "pointer" }}>Назад</button>
+            </div>
+            {pollError && <div style={{ fontSize: 13, color: c.accentRed }}>{pollError}</div>}
+          </div>
+        )}
+      </div>
+
+      {/* Preferences (only when connected) */}
+      {step === "done" && (
+        <div style={boxStyle}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>Что уведомлять</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {([
+              { key: "analysis", label: "Завершение нового анализа" },
+              { key: "competitors", label: "Добавление нового конкурента" },
+              { key: "vacancies", label: "Новые вакансии конкурентов" },
+              { key: "digest", label: "Еженедельный дайджест" },
+            ] as { key: keyof typeof prefs; label: string }[]).map(item => (
+              <label key={item.key} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={prefs[item.key]} onChange={e => setPrefs(p => ({ ...p, [item.key]: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: c.accent, cursor: "pointer" }} />
+                <span style={{ fontSize: 13, color: c.textPrimary }}>{item.label}</span>
+              </label>
+            ))}
+          </div>
+          <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={handleSavePrefs} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+            {prefsSaved && <span style={{ fontSize: 13, color: c.accentGreen, fontWeight: 600 }}>✓ Сохранено</span>}
+          </div>
         </div>
       )}
     </div>
@@ -2802,6 +2941,12 @@ export default function MarketRadarDashboard() {
       setCompetitors([]);
       setSelectedCompetitor(null);
       setActiveNav("dashboard");
+      if (currentUser?.tgChatId && currentUser.tgNotifyAnalysis !== false) {
+        await sendTgNotification(
+          currentUser.tgChatId,
+          `✅ <b>MarketRadar</b>\n\nАнализ завершён: <b>${result.company.name}</b>\nScore: <b>${result.company.score}/100</b>\n\nОткройте приложение, чтобы посмотреть результаты.`
+        );
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -2813,6 +2958,12 @@ export default function MarketRadarDashboard() {
     try {
       const result = await analyzeUrl(url);
       setCompetitors(prev => [...prev, result]);
+      if (currentUser?.tgChatId && currentUser.tgNotifyCompetitors !== false) {
+        await sendTgNotification(
+          currentUser.tgChatId,
+          `🎯 <b>MarketRadar</b>\n\nДобавлен конкурент: <b>${result.company.name}</b>\nScore: <b>${result.company.score}/100</b>\n${result.hiring?.openVacancies ? `Открытых вакансий: ${result.hiring.openVacancies}` : ""}`
+        );
+      }
     } finally {
       setIsAnalyzing(false);
     }
