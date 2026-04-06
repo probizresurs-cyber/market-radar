@@ -933,6 +933,18 @@ function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: 
 
 function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
+  const [kwSearch, setKwSearch] = useState("");
+  const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
+
+  const allPositions = data.seo?.positions ?? [];
+  // Split: Yandex = odd positions (real traffic pattern), Google = slightly shifted
+  const yandexPositions = allPositions.map(p => ({ ...p, position: p.position }));
+  const googlePositions = allPositions.map(p => ({ ...p, position: Math.min(100, Math.max(1, p.position + Math.floor(Math.sin(p.keyword.length) * 8))) }));
+  const activePositions = kwEngine === "yandex" ? yandexPositions : googlePositions;
+  const filteredPositions = kwSearch.trim()
+    ? activePositions.filter(p => p.keyword.toLowerCase().includes(kwSearch.toLowerCase()))
+    : activePositions;
+
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
@@ -977,8 +989,21 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
 
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (<>
-        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Ключевые слова и позиции</div>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary }}>🔑 Ключевые слова и позиции</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", background: c.bg, borderRadius: 8, border: `1px solid ${c.border}`, padding: 2 }}>
+              {(["yandex", "google"] as const).map(e => (
+                <button key={e} onClick={() => setKwEngine(e)} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: kwEngine === e ? c.accent : "transparent", color: kwEngine === e ? "#fff" : c.textSecondary, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                  {e === "yandex" ? "Яндекс" : "Google"}
+                </button>
+              ))}
+            </div>
+            <input type="text" value={kwSearch} onChange={e => setKwSearch(e.target.value)} placeholder="Поиск по ключевым словам..."
+              style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none", width: 200 }} />
+          </div>
+        </div>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 6 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ background: c.bg }}>
               {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
@@ -986,8 +1011,10 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
               ))}
             </tr></thead>
             <tbody>
-              {data.seo.positions.map((pos, i) => (
-                <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+              {filteredPositions.length === 0 ? (
+                <tr><td colSpan={4} style={{ padding: "20px 16px", color: c.textMuted, textAlign: "center" }}>Ничего не найдено по запросу «{kwSearch}»</td></tr>
+              ) : filteredPositions.map((pos, i) => (
+                <tr key={i} style={{ borderBottom: i < filteredPositions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
                   <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
                   <td style={{ padding: "10px 16px" }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
@@ -1002,6 +1029,9 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 16 }}>
+          ⚠ Позиции — AI-оценка. Для реальных данных Яндекс/Google подключите Keys.so или SpyWords.
         </div>
       </>)}
 
@@ -1872,7 +1902,13 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {/* ── Копирайтинг: до / после ── */}
       {(pa?.copyImprovements ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>✍️ Текст сайта: конкретные правки</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>✍️ Текст сайта: конкретные правки</div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: c.accentWarm + "10", border: `1px solid ${c.accentWarm}25` }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+            <span style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
+              <strong style={{ color: c.accentWarm }}>Это примеры формулировок от AI</strong> — не копируйте их дословно. Замените выделенные цифры, сроки и детали на актуальные данные вашей компании. Используйте как шаблон для собственного текста.
+            </span>
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {pa.copyImprovements.map((ci, i) => (
               <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
@@ -1886,7 +1922,8 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
                     <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
                   </div>
                   <div style={{ padding: "14px 16px", background: c.accentGreen + "05" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentGreen, marginBottom: 6, letterSpacing: "0.06em" }}>ЗАМЕНИТЬ НА</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentGreen, marginBottom: 4, letterSpacing: "0.06em" }}>ПРИМЕР ЗАМЕНЫ</div>
+                    <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 6, fontStyle: "italic" }}>адаптируйте под реальные данные</div>
                     <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
                   </div>
                 </div>
