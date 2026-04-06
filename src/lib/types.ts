@@ -119,6 +119,8 @@ export interface AnalysisResult {
     lighthouseScores?: { performance: number; seo: number; accessibility: number };
     firstArchiveDate?: string;
     archiveAgeYears?: number;
+    googlePositions?: SeoPosition[];
+    keywordsSource?: "keyso" | "ai";
   };
   techStack: {
     cms: string;

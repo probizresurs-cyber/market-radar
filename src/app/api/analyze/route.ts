@@ -124,6 +124,17 @@ export async function POST(request: NextRequest) {
       result.governmentContracts = real.govContracts;
     }
 
+    // Keys.so — real keyword positions (Yandex + Google)
+    if (real.keyso) {
+      if (real.keyso.yandex.length > 0) {
+        result.seo.positions = real.keyso.yandex;
+        result.seo.keywordsSource = "keyso";
+      }
+      if (real.keyso.google.length > 0) {
+        result.seo.googlePositions = real.keyso.google;
+      }
+    }
+
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);

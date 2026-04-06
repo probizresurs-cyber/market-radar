@@ -566,6 +566,73 @@ export async function getGovContracts(companyName: string, inn?: string): Promis
   }
 }
 
+// ─── Keys.so — real keyword positions for Yandex and Google ─────────────────
+
+export interface KeysoPosition {
+  keyword: string;
+  position: number;
+  volume: number;
+}
+
+export interface KeysoKeywords {
+  yandex: KeysoPosition[];
+  google: KeysoPosition[];
+}
+
+export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | null> {
+  const token = process.env.KEYSO_API_TOKEN;
+  if (!token) return null;
+
+  try {
+    const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+    const headers = {
+      "X-Keyso-TOKEN": token,
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    };
+
+    // Fetch Yandex (msk) and Google (gru) domain dashboards in parallel
+    const [yandexDash, googleDash] = await Promise.all([
+      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=msk&domain=${encodeURIComponent(cleanDomain)}`, headers, 20000).catch(() => null),
+      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=gru&domain=${encodeURIComponent(cleanDomain)}`, headers, 20000).catch(() => null),
+    ]);
+
+    const yRid = (yandexDash as Record<string, unknown>)?.rid as string | undefined;
+    const gRid = (googleDash as Record<string, unknown>)?.rid as string | undefined;
+
+    if (!yRid && !gRid) return null;
+
+    // Fetch organic keyword lists using report IDs
+    const [yKeywords, gKeywords] = await Promise.all([
+      yRid ? fetchJson(`https://api.keys.so/report/group/organic/keywords/${yRid}`, headers, 20000).catch(() => null) : Promise.resolve(null),
+      gRid ? fetchJson(`https://api.keys.so/report/group/organic/keywords/${gRid}`, headers, 20000).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    const parseKeywords = (data: unknown): KeysoPosition[] => {
+      const items = Array.isArray(data)
+        ? data
+        : (data as Record<string, unknown>)?.data ?? (data as Record<string, unknown>)?.items ?? (data as Record<string, unknown>)?.keywords ?? [];
+      if (!Array.isArray(items)) return [];
+      return (items as Record<string, unknown>[])
+        .slice(0, 30)
+        .map(item => ({
+          keyword: String(item.keyword ?? item.phrase ?? item.key ?? item.query ?? ""),
+          position: parseInt(String(item.position ?? item.pos ?? item.rank ?? "0"), 10),
+          volume: parseInt(String(item.volume ?? item.freq ?? item.frequency ?? item.shows ?? "0"), 10),
+        }))
+        .filter(p => p.keyword.length > 0 && p.position > 0 && p.position <= 100)
+        .sort((a, b) => a.position - b.position);
+    };
+
+    return {
+      yandex: parseKeywords(yKeywords),
+      google: parseKeywords(gKeywords),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Main enrichment function ─────────────────────────────────────────────────
 
 export interface RealData {
@@ -580,6 +647,7 @@ export interface RealData {
   yandexRating: YandexRatingResult | null;
   gisRating: GisRatingResult | null;
   govContracts: GovContractsResult | null;
+  keyso: KeysoKeywords | null;
 }
 
 export async function enrichWithRealData(
@@ -592,7 +660,7 @@ export async function enrichWithRealData(
   const fullUrl = `https://${domain}`;
 
   // Phase 1: all parallel
-  const [domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating] =
+  const [domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, keyso] =
     await Promise.all([
       getRealDomainAge(domain).catch(() => null),
       getRealHHData(companyName, domain).catch(() => null),
@@ -604,11 +672,12 @@ export async function enrichWithRealData(
       getRusprofileData(companyName).catch(() => null),
       getYandexRating(companyName, domain).catch(() => null),
       get2GisRating(companyName).catch(() => null),
+      getKeysoKeywords(domain).catch(() => null),
     ]);
 
   // Phase 2: zakupki benefits from INN from DaData
   const inn = dadata?.inn !== "—" ? dadata?.inn : undefined;
   const govContracts = await getGovContracts(companyName, inn).catch(() => null);
 
-  return { domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, govContracts };
+  return { domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, govContracts, keyso };
 }

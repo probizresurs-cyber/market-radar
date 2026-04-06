@@ -936,10 +936,12 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
 
+  const isRealKeywords = data.seo?.keywordsSource === "keyso";
   const allPositions = data.seo?.positions ?? [];
-  // Split: Yandex = odd positions (real traffic pattern), Google = slightly shifted
-  const yandexPositions = allPositions.map(p => ({ ...p, position: p.position }));
-  const googlePositions = allPositions.map(p => ({ ...p, position: Math.min(100, Math.max(1, p.position + Math.floor(Math.sin(p.keyword.length) * 8))) }));
+  const yandexPositions = allPositions;
+  const googlePositions = data.seo?.googlePositions && data.seo.googlePositions.length > 0
+    ? data.seo.googlePositions
+    : allPositions.map(p => ({ ...p, position: Math.min(100, Math.max(1, p.position + Math.floor(Math.sin(p.keyword.length) * 8))) }));
   const activePositions = kwEngine === "yandex" ? yandexPositions : googlePositions;
   const filteredPositions = kwSearch.trim()
     ? activePositions.filter(p => p.keyword.toLowerCase().includes(kwSearch.toLowerCase()))
@@ -1031,7 +1033,9 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           </table>
         </div>
         <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 16 }}>
-          ⚠ Позиции — AI-оценка. Для реальных данных Яндекс/Google подключите Keys.so или SpyWords.
+          {isRealKeywords
+            ? <span style={{ color: c.accentGreen, fontWeight: 600 }}>✓ Реальные позиции из Keys.so · {activePositions.length} ключевых слов</span>
+            : "⚠ Позиции — AI-оценка. Подключён Keys.so, но данных по этому домену не найдено."}
         </div>
       </>)}
 
