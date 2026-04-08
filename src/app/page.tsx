@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import type { TAResult, TASegment } from "@/lib/ta-types";
 
 // ============================================================
 // MarketRadar — Конкурентный анализ для Company24.pro
@@ -2311,7 +2312,7 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
 // Reports View
 // ============================================================
 
-function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
+function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null }) {
   const handlePrint = () => {
     window.print();
   };
@@ -2351,6 +2352,26 @@ function ReportsView({ c, data }: { c: Colors; data: AnalysisResult | null }) {
           ↓ Скачать PDF
         </button>
       </div>
+
+      {taAnalysis && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>🧠 Анализ ЦА — {taAnalysis.companyName}</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>{taAnalysis.niche} · {new Date(taAnalysis.generatedAt).toLocaleDateString("ru-RU")}</div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px" }}>GPT-4o</span>
+          </div>
+          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 16px" }}>{taAnalysis.summary}</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {taAnalysis.segments.map((s, i) => (
+              <span key={i} style={{ fontSize: 12, background: s.isGolden ? "#f59e0b15" : c.borderLight, color: s.isGolden ? "#92400e" : c.textSecondary, borderRadius: 8, padding: "4px 12px", fontWeight: 600 }}>
+                {s.isGolden ? "⭐ " : ""}{s.segmentName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div id="mr-report" style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadowLg }}>
         {/* Header */}
@@ -3049,6 +3070,330 @@ function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAcco
 // Nav items
 // ============================================================
 
+// ============================================================
+// New TA Analysis View
+// ============================================================
+
+function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
+  c: Colors; myCompany: AnalysisResult | null;
+  isAnalyzing: boolean; onAnalyze: (niche: string, extra: string) => Promise<void>;
+}) {
+  const [niche, setNiche] = useState(myCompany?.company.description?.split("\n")[0]?.slice(0, 200) ?? "");
+  const [extra, setExtra] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!niche.trim()) { setError("Опишите нишу и продукт"); return; }
+    setError(null);
+    try { await onAnalyze(niche.trim(), extra.trim()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Ошибка"); }
+  };
+
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Анализ целевой аудитории</h1>
+      <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
+        GPT-4o проведёт глубокий психологический анализ ЦА: сегменты, боли, страхи, мотивы, возражения и триггеры покупки.
+      </p>
+
+      {myCompany && (
+        <div style={{ background: c.accent + "10", border: `1px solid ${c.accent}30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
+          <span style={{ color: c.textMuted }}>Компания: </span>
+          <span style={{ fontWeight: 600, color: c.textPrimary }}>{myCompany.company.name}</span>
+          <span style={{ color: c.textMuted }}> · {myCompany.company.url}</span>
+        </div>
+      )}
+
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+          Ниша, продукт / услуга <span style={{ color: c.accentRed }}>*</span>
+        </label>
+        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 10px" }}>
+          Опишите чем занимается компания, что продаёт, для кого, какая проблема решается
+        </p>
+        <textarea
+          value={niche}
+          onChange={e => setNiche(e.target.value)}
+          placeholder="Например: интернет-магазин спортивного питания для любителей фитнеса 25–40 лет. Продаём протеин, витамины, аминокислоты. Основная аудитория — люди которые хотят похудеть и набрать мышечную массу, но не знают с чего начать."
+          rows={5}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+        />
+      </div>
+
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+          Дополнительный контекст (необязательно)
+        </label>
+        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 10px" }}>
+          Уникальные особенности продукта, уже известные сегменты, конкуренты, ценовой сегмент
+        </p>
+        <textarea
+          value={extra}
+          onChange={e => setExtra(e.target.value)}
+          placeholder="Средний чек 3000–8000 ₽. Конкуренты: Protein.ru, iHerb. Основной канал — Instagram. Клиенты часто не верят в эффект без тренера..."
+          rows={3}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+        />
+      </div>
+
+      {error && (
+        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.accentRed, marginBottom: 16 }}>{error}</div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={isAnalyzing || !niche.trim()}
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing || !niche.trim() ? c.borderLight : "linear-gradient(135deg, #6366f1, #818cf8)", color: isAnalyzing || !niche.trim() ? c.textMuted : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing || !niche.trim() ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #6366f140" }}>
+        {isAnalyzing ? "⏳ Анализируем ЦА… (60–90 сек)" : "🧠 Провести анализ ЦА"}
+      </button>
+      {isAnalyzing && (
+        <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>GPT-4o проводит глубокий анализ. Не закрывайте страницу.</p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// TA Dashboard View
+// ============================================================
+
+function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
+  const [activeSegment, setActiveSegment] = useState(0);
+  const seg = data.segments[activeSegment];
+  if (!seg) return null;
+
+  const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, ...style }}>{children}</div>
+  );
+
+  const Tag = ({ text, color }: { text: string; color?: string }) => (
+    <span style={{ display: "inline-block", background: (color ?? c.accent) + "15", color: color ?? c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600, marginRight: 6, marginBottom: 6 }}>{text}</span>
+  );
+
+  const QuoteBlock = ({ text, from }: { text: string; from: string }) => (
+    <div style={{ borderLeft: `3px solid ${c.accent}`, paddingLeft: 12, marginBottom: 10 }}>
+      <div style={{ fontSize: 13, color: c.textPrimary, fontStyle: "italic", lineHeight: 1.55 }}>«{text}»</div>
+      <div style={{ fontSize: 11, color: c.textMuted, marginTop: 4, fontWeight: 600 }}>— {from}</div>
+    </div>
+  );
+
+  const ListItem = ({ text, color, icon }: { text: string; color?: string; icon?: string }) => (
+    <div style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+      <span style={{ flexShrink: 0, color: color ?? c.accent }}>{icon ?? "•"}</span>
+      <span style={{ color: c.textSecondary, lineHeight: 1.5 }}>{text}</span>
+    </div>
+  );
+
+  const generatedDate = new Date(data.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>Анализ ЦА — {data.companyName}</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{data.niche} · {generatedDate}</p>
+      </div>
+
+      {/* Summary */}
+      <Card style={{ marginBottom: 20, background: `linear-gradient(135deg, ${c.bgCard} 60%, ${c.accent}06 100%)` }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginBottom: 8 }}>ОБЩИЙ ВЫВОД</div>
+        <p style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{data.summary}</p>
+      </Card>
+
+      {/* Segment tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {data.segments.map((s, i) => (
+          <button key={i} onClick={() => setActiveSegment(i)} style={{
+            padding: "8px 18px", borderRadius: 10, border: `2px solid ${activeSegment === i ? c.accent : c.border}`,
+            background: activeSegment === i ? c.accent : "transparent",
+            color: activeSegment === i ? "#fff" : c.textSecondary,
+            fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+          }}>
+            {s.isGolden && <span>⭐</span>}
+            {s.segmentName}
+          </button>
+        ))}
+      </div>
+
+      {seg.isGolden && seg.goldenReason && (
+        <div style={{ background: "#f59e0b15", border: "1px solid #f59e0b30", borderRadius: 12, padding: "10px 16px", fontSize: 13, color: "#92400e", marginBottom: 16 }}>
+          ⭐ <strong>Золотой сегмент</strong> — {seg.goldenReason}
+        </div>
+      )}
+
+      {/* Demographics */}
+      <CollapsibleSection c={c} title="👤 Демография и образ жизни">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ПЕРСОНА</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.textPrimary, marginBottom: 12 }}>{seg.demographics.personaName}</div>
+            {[
+              { label: "Возраст", value: seg.demographics.age },
+              { label: "Пол", value: seg.demographics.genderRatio },
+              { label: "Доход", value: seg.demographics.income },
+            ].map(r => (
+              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                <span style={{ color: c.textSecondary }}>{r.label}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{r.value}</span>
+              </div>
+            ))}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>ОБРАЗ ЖИЗНИ</div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 14px" }}>{seg.demographics.lifestyle}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ЦЕННОСТИ</div>
+            <div>{seg.worldview.values.map((v, i) => <Tag key={i} text={v} />)}</div>
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ИДЕНТИЧНОСТЬ</div>
+            <p style={{ fontSize: 13, color: c.textPrimary, fontWeight: 600, lineHeight: 1.5, marginBottom: 12 }}>{seg.worldview.identity}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО ГОВОРИТ О СЕБЕ</div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>{seg.worldview.shortDescription}</p>
+          </Card>
+        </div>
+      </CollapsibleSection>
+
+      {/* Worldview */}
+      <CollapsibleSection c={c} title="🌍 Мировоззрение и убеждения">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          {[
+            { title: "Надежды и мечты", text: seg.worldview.hopesAndDreams },
+            { title: "Победы и неудачи", text: seg.worldview.winsAndLosses },
+            { title: "Ключевые убеждения", text: seg.worldview.coreBeliefs },
+          ].map(item => (
+            <Card key={item.title}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>{item.title.toUpperCase()}</div>
+              <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{item.text}</p>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* Problems & Emotions */}
+      <CollapsibleSection c={c} title="💥 Основные проблемы и эмоции">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ГЛАВНЫЕ ПРОБЛЕМЫ</div>
+            {seg.mainProblems.map((p, i) => <ListItem key={i} text={p} color={c.accentRed} icon="⚡" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentWarm, marginBottom: 12, letterSpacing: "0.05em" }}>ДОМИНИРУЮЩИЕ ЭМОЦИИ</div>
+            {seg.topEmotions.map((e, i) => <Tag key={i} text={e} color={c.accentWarm} />)}
+          </Card>
+        </div>
+      </CollapsibleSection>
+
+      {/* Fears */}
+      <CollapsibleSection c={c} title="😰 Страхи (те, что не признают вслух)">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ТОП-5 СТРАХОВ</div>
+            {seg.topFears.map((f, i) => <ListItem key={i} text={f} color={c.accentRed} icon={`${i + 1}.`} />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>КАК СТРАХИ ВЛИЯЮТ НА ОТНОШЕНИЯ</div>
+            {seg.fearRelationshipEffects.map((e, i) => <ListItem key={i} text={e} icon="→" />)}
+          </Card>
+        </div>
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>БОЛЕЗНЕННЫЕ ФРАЗЫ КОТОРЫЕ СЛЫШИТ КЛИЕНТ</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+            {seg.painfulPhrases.map((p, i) => <QuoteBlock key={i} text={p.text} from={p.from} />)}
+          </div>
+        </Card>
+      </CollapsibleSection>
+
+      {/* Pain situations */}
+      <CollapsibleSection c={c} title="🔥 Болевые ситуации">
+        <Card>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>КОНКРЕТНЫЕ МОМЕНТЫ КОГДА КЛИЕНТ ОСОЗНАЁТ ПРОБЛЕМУ</div>
+          <p style={{ fontSize: 12, color: c.textMuted, marginBottom: 16 }}>Ситуации которые вызывают желание немедленно решить проблему</p>
+          {seg.painSituations.map((s, i) => <ListItem key={i} text={s} color={c.accentRed} icon="→" />)}
+        </Card>
+      </CollapsibleSection>
+
+      {/* Obstacles & Myths */}
+      <CollapsibleSection c={c} title="🧱 Препятствия и мифы">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ПРЕПЯТСТВИЯ НА ПУТИ К РЕШЕНИЮ</div>
+            {seg.obstacles.map((o, i) => <ListItem key={i} text={o} color={c.accentRed} icon="✗" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentWarm, marginBottom: 12, letterSpacing: "0.05em" }}>МИФЫ И ЛОЖНЫЕ УБЕЖДЕНИЯ</div>
+            {seg.myths.map((m, i) => <ListItem key={i} text={m} color={c.accentWarm} icon="💭" />)}
+          </Card>
+        </div>
+      </CollapsibleSection>
+
+      {/* Past solutions */}
+      <CollapsibleSection c={c} title="🔄 Прошлый опыт решения проблемы">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+          {seg.pastSolutions.map((ps, i) => (
+            <Card key={i}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 10 }}>{ps.name}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 4 }}>👍 НРАВИЛОСЬ</div>
+              <p style={{ fontSize: 12, color: c.textSecondary, margin: "0 0 10px", lineHeight: 1.5 }}>{ps.liked}</p>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 4 }}>👎 НЕ НРАВИЛОСЬ</div>
+              <p style={{ fontSize: 12, color: c.textSecondary, margin: "0 0 10px", lineHeight: 1.5 }}>{ps.disliked}</p>
+              <div style={{ borderLeft: `3px solid ${c.accentRed}`, paddingLeft: 10 }}>
+                <p style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", margin: 0 }}>«{ps.quote}»</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ЧЕГО НЕ ХОЧЕТ ДЕЛАТЬ (ВНУТРЕННИЙ МОНОЛОГ)</div>
+          {seg.dontWantToDo.map((d, i) => (
+            <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < seg.dontWantToDo.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 4 }}>{d.text}</div>
+              <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic" }}>«{d.quote}»</div>
+            </div>
+          ))}
+        </Card>
+      </CollapsibleSection>
+
+      {/* Magic transformation */}
+      <CollapsibleSection c={c} title="✨ Волшебная трансформация">
+        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, ${c.bgCard} 60%, ${c.accentGreen}08 100%)` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 12, letterSpacing: "0.05em" }}>ИДЕАЛЬНЫЙ РЕЗУЛЬТАТ</div>
+          <p style={{ fontSize: 14, color: c.textSecondary, lineHeight: 1.7, margin: "0 0 16px" }}>{seg.magicTransformation}</p>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>КАК ТРАНСФОРМАЦИЯ ПОВЛИЯЕТ НА ЖИЗНЬ</div>
+          {seg.transformationImpact.map((t, i) => <ListItem key={i} text={t} color={c.accentGreen} icon="✓" />)}
+        </Card>
+        <Card>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ЧТО СКАЖУТ ДРУГИЕ ПОСЛЕ ТРАНСФОРМАЦИИ</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+            {seg.postTransformationQuotes.map((q, i) => <QuoteBlock key={i} text={q.text} from={q.from} />)}
+          </div>
+        </Card>
+      </CollapsibleSection>
+
+      {/* Market & Objections */}
+      <CollapsibleSection c={c} title="🎯 Рынок и возражения">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ЧТО ДОЛЖЕН УВИДЕТЬ РЫНОК</div>
+            {seg.marketSuccessConditions.map((m, i) => <ListItem key={i} text={m} icon="→" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>КОГО ВИНЯТ В ПРОБЛЕМЕ</div>
+            {seg.whoBlamedForProblem.map((w, i) => <ListItem key={i} text={w} color={c.accentWarm} icon="⚡" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ТОП-5 ВОЗРАЖЕНИЙ</div>
+            {seg.topObjections.map((o, i) => <ListItem key={i} text={o} color={c.accentRed} icon={`${i + 1}.`} />)}
+          </Card>
+        </div>
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО РЫНОК ДОЛЖЕН ОТПУСТИТЬ</div>
+          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{seg.mustLetGo}</p>
+        </Card>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
 interface NavItem {
   id: string;
   icon: string;
@@ -3074,6 +3419,13 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "competitors", icon: "🎯", label: "Конкуренты", count: null },
           { id: "compare", icon: "⚖️", label: "Сравнение", count: null },
           { id: "insights", icon: "💡", label: "AI-инсайты", count: null },
+        ],
+      },
+      {
+        id: "ta-analysis", icon: "🧠", label: "Анализ ЦА", count: null,
+        children: [
+          { id: "ta-new", icon: "✏️", label: "Новый анализ", count: null },
+          { id: "ta-dashboard", icon: "👥", label: "Дашборд ЦА", count: null },
         ],
       },
       { id: "reports", icon: "📄", label: "Отчёты", count: null },
@@ -3103,6 +3455,8 @@ export default function MarketRadarDashboard() {
   const [currentUrl, setCurrentUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedCompetitor, setSelectedCompetitor] = useState<number | null>(null);
+  const [taAnalysis, setTaAnalysis] = useState<TAResult | null>(null);
+  const [isTAAnalyzing, setIsTAAnalyzing] = useState(false);
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -3125,6 +3479,10 @@ export default function MarketRadarDashboard() {
           if (Array.isArray(parsedComps) && parsedComps.length > 0) {
             setCompetitors(parsedComps);
           }
+        }
+        const savedTA = localStorage.getItem(`mr_ta_${user.id}`);
+        if (savedTA) {
+          setTaAnalysis(JSON.parse(savedTA));
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -3197,6 +3555,31 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  const handleTAAnalysis = async (niche: string, extraContext: string) => {
+    setIsTAAnalyzing(true);
+    try {
+      const res = await fetch("/api/analyze-ta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? "",
+          companyUrl: myCompany?.company.url ?? "",
+          niche,
+          extraContext,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка анализа ЦА");
+      setTaAnalysis(json.data);
+      if (currentUser?.id) {
+        try { localStorage.setItem(`mr_ta_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+      }
+      setActiveNav("ta-dashboard");
+    } finally {
+      setIsTAAnalyzing(false);
+    }
+  };
+
   // Onboarding complete: run initial analysis
   const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {
     setCurrentUser(updatedUser);
@@ -3243,7 +3626,8 @@ export default function MarketRadarDashboard() {
       ...item,
       count: item.id === "competitors" ? (competitors.length > 0 ? competitors.length : null) :
              item.id === "insights" ? (myCompany?.insights?.length ?? null) :
-             item.id === "competitor-analysis" ? (myCompany ? 1 : null) : item.count,
+             item.id === "competitor-analysis" ? (myCompany ? 1 : null) :
+             item.id === "ta-analysis" ? (taAnalysis ? 1 : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
   const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
@@ -3291,9 +3675,11 @@ export default function MarketRadarDashboard() {
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "reports" && <ReportsView c={c} data={myCompany} />}
+        {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
+        {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}
+        {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />)}
       </main>
     </div>
   );
