@@ -713,8 +713,8 @@ function ScoreRing({ score, size = 160, strokeWidth = 10, c }: { score: number; 
             <stop offset="100%" stopColor={scoreColor} />
           </linearGradient>
         </defs>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={c.borderLight} strokeWidth={strokeWidth} />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`url(#${gradId})`} strokeWidth={strokeWidth}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.borderLight} strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`url(#${gradId})`} strokeWidth={strokeWidth}
           strokeDasharray={circ} strokeDashoffset={circ - progress} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)", filter: `drop-shadow(0 0 ${strokeWidth}px ${c.accent}60)` }} />
       </svg>
@@ -1067,246 +1067,248 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
       <CollapsibleSection c={c} title="🔍 SEO-детали и бизнес-профиль">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
-          {[
-            { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
-            { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
-            { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
-            ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-              <span style={{ color: c.textSecondary }}>{label}</span>
-              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
-            </div>
-          ))}
-          {data.seo?.lighthouseScores && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                {([
-                  { label: "Скорость", value: data.seo.lighthouseScores.performance },
-                  { label: "SEO", value: data.seo.lighthouseScores.seo },
-                  { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
-                ] as { label: string; value: number }[]).map(s => {
-                  const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
-                  return (
-                    <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
-                    </div>
-                  );
-                })}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
+            {[
+              { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
+              { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
+              { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+              ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                <span style={{ color: c.textSecondary }}>{label}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
               </div>
-            </div>
-          )}
-          {(data.seo?.issues ?? []).length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
-              {data.seo.issues.map((issue, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
-                  <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
+            ))}
+            {data.seo?.lighthouseScores && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {([
+                    { label: "Скорость", value: data.seo.lighthouseScores.performance },
+                    { label: "SEO", value: data.seo.lighthouseScores.seo },
+                    { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
+                  ] as { label: string; value: number }[]).map(s => {
+                    const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
+                    return (
+                      <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
-          {(() => {
-            // Split description: DaData legal line vs actual description
-            const descLines = (company.description ?? "").split("\n");
-            const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
-            const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
-            const legalFields: { label: string; value: string }[] = [];
-            if (legalLine) {
-              legalLine.split(" · ").forEach((part: string) => {
-                const colonIdx = part.indexOf(": ");
-                if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
-              });
-            }
-            const mainRows = [
-              { label: "Сотрудников", value: data.business?.employees ?? "—" },
-              { label: "Выручка / год", value: data.business?.revenue ?? "—" },
-              { label: "Основана", value: data.business?.founded ?? "—" },
-              { label: "Форма", value: data.business?.legalForm ?? "—" },
-              ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
-              ...legalFields,
-            ];
-            return (
-              <>
-                {mainRows.map(({ label, value }) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-                    <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+              </div>
+            )}
+            {(data.seo?.issues ?? []).length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
+                {data.seo.issues.map((issue, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
+                    <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
                   </div>
                 ))}
-                {data.business?.rusprofileUrl && (
-                  <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
-                )}
-                {cleanDesc && (
-                  <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
-                )}
-              </>
-            );
-          })()}
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+            {(() => {
+              // Split description: DaData legal line vs actual description
+              const descLines = (company.description ?? "").split("\n");
+              const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
+              const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
+              const legalFields: { label: string; value: string }[] = [];
+              if (legalLine) {
+                legalLine.split(" · ").forEach((part: string) => {
+                  const colonIdx = part.indexOf(": ");
+                  if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
+                });
+              }
+              const mainRows = [
+                { label: "Сотрудников", value: data.business?.employees ?? "—" },
+                { label: "Выручка / год", value: data.business?.revenue ?? "—" },
+                { label: "Основана", value: data.business?.founded ?? "—" },
+                { label: "Форма", value: data.business?.legalForm ?? "—" },
+                ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
+                ...legalFields,
+              ];
+              return (
+                <>
+                  {mainRows.map(({ label, value }) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                      <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+                    </div>
+                  ))}
+                  {data.business?.rusprofileUrl && (
+                    <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
+                  )}
+                  {cleanDesc && (
+                    <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
-      </div>
       </CollapsibleSection>
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
         <CollapsibleSection c={c} title="📋 Госконтракты (zakupki.gov.ru)">
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
-          <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
-            Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
-          </div>
-          {data.governmentContracts.recentContracts.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
-                    <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
-                    <tr key={i}>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
+            <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
+              Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
             </div>
-          )}
-        </div>
+            {data.governmentContracts.recentContracts.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
+                      <tr key={i}>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </CollapsibleSection>
       )}
 
       {/* ── Технологии + Найм ── */}
       <CollapsibleSection c={c} title="⚙️ Технологии и найм">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
-          {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
-              <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
-            </div>
-          )}
-          {(data.techStack?.analytics ?? []).length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
+            {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
+                <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
               </div>
-            </div>
-          )}
-          {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
-              <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
-            </div>
-          )}
-          {(data.techStack?.other ?? []).length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+            )}
+            {(data.techStack?.analytics ?? []).length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
-            {data.hiring?.trend && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
-                background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
-                color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted }}>
-                {data.hiring.trend === "growing" ? "▲ Растёт" : data.hiring.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
-              </span>
+            )}
+            {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
+                <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
+              </div>
+            )}
+            {(data.techStack?.other ?? []).length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+                </div>
+              </div>
             )}
           </div>
-          {[
-            { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? "—") },
-            { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
-            { label: "Диапазон", value: data.hiring?.salaryRange ?? "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-              <span style={{ color: c.textSecondary }}>{label}</span>
-              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
+              {data.hiring?.trend && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                  background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
+                  color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted
+                }}>
+                  {data.hiring.trend === "growing" ? "▲ Растёт" : data.hiring.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
+                </span>
+              )}
             </div>
-          ))}
-          {(data.hiring?.topRoles ?? []).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ИЩУТ</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.hiring.topRoles.map(r => <span key={r} style={{ background: c.bg, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 11, border: `1px solid ${c.border}` }}>{r}</span>)}
+            {[
+              { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? "—") },
+              { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
+              { label: "Диапазон", value: data.hiring?.salaryRange ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                <span style={{ color: c.textSecondary }}>{label}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
               </div>
-            </div>
-          )}
+            ))}
+            {(data.hiring?.topRoles ?? []).length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ИЩУТ</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.hiring.topRoles.map(r => <span key={r} style={{ background: c.bg, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 11, border: `1px solid ${c.border}` }}>{r}</span>)}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </CollapsibleSection>
 
       {/* ── Соцсети и рейтинги ── */}
       <CollapsibleSection c={c} title="📱 Соцсети и рейтинги">
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📱 Соцсети и рейтинги</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-          {data.social?.vk ? (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#2787F5", marginBottom: 8 }}>ВКонтакте</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
-              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
-              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.posts30d} постов/мес</div>
-              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.engagement} вовлечённость</div>
-            </div>
-          ) : (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>ВКонтакте</div>
-              <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
-            </div>
-          )}
-          {data.social?.telegram ? (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#229ED9", marginBottom: 8 }}>Telegram</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
-              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
-              <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.telegram.posts30d} постов/мес</div>
-            </div>
-          ) : (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>Telegram</div>
-              <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
-            </div>
-          )}
-          {[
-            { label: "Яндекс.Карты", rating: data.social?.yandexRating ?? 0, reviews: data.social?.yandexReviews ?? 0, color: "#FC3F1D" },
-            { label: "2ГИС", rating: data.social?.gisRating ?? 0, reviews: data.social?.gisReviews ?? 0, color: "#04AE30" },
-          ].map(({ label, rating, reviews, color }) => (
-            <div key={label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{rating > 0 ? rating.toFixed(1) : "—"}</div>
-              <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>рейтинг</div>
-              {rating > 0 && (
-                <div style={{ display: "flex", gap: 1, marginBottom: 4 }}>
-                  {[1,2,3,4,5].map(s => <span key={s} style={{ fontSize: 12, color: s <= Math.round(rating) ? "#f59e0b" : c.borderLight }}>★</span>)}
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: c.textSecondary }}>{reviews > 0 ? `${reviews} отзывов` : "нет данных"}</div>
-            </div>
-          ))}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📱 Соцсети и рейтинги</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+            {data.social?.vk ? (
+              <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#2787F5", marginBottom: 8 }}>ВКонтакте</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
+                <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.posts30d} постов/мес</div>
+                <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.vk.engagement} вовлечённость</div>
+              </div>
+            ) : (
+              <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>ВКонтакте</div>
+                <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
+              </div>
+            )}
+            {data.social?.telegram ? (
+              <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#229ED9", marginBottom: 8 }}>Telegram</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>подписчиков</div>
+                <div style={{ fontSize: 12, color: c.textSecondary }}>{data.social.telegram.posts30d} постов/мес</div>
+              </div>
+            ) : (
+              <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 16, opacity: 0.5 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8 }}>Telegram</div>
+                <div style={{ fontSize: 13, color: c.textMuted }}>Не найдено</div>
+              </div>
+            )}
+            {[
+              { label: "Яндекс.Карты", rating: data.social?.yandexRating ?? 0, reviews: data.social?.yandexReviews ?? 0, color: "#FC3F1D" },
+              { label: "2ГИС", rating: data.social?.gisRating ?? 0, reviews: data.social?.gisReviews ?? 0, color: "#04AE30" },
+            ].map(({ label, rating, reviews, color }) => (
+              <div key={label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{rating > 0 ? rating.toFixed(1) : "—"}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>рейтинг</div>
+                {rating > 0 && (
+                  <div style={{ display: "flex", gap: 1, marginBottom: 4 }}>
+                    {[1, 2, 3, 4, 5].map(s => <span key={s} style={{ fontSize: 12, color: s <= Math.round(rating) ? "#f59e0b" : c.borderLight }}>★</span>)}
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: c.textSecondary }}>{reviews > 0 ? `${reviews} отзывов` : "нет данных"}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
       </CollapsibleSection>
 
       {/* ── Прогноз ниши ── */}
@@ -1325,9 +1327,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
                   <div style={{ height: "100%", width: `${Math.min(100, Math.abs(data.nicheForecast.trendPercent) * 5)}%`, background: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm, borderRadius: 5, transition: "width 1.2s ease" }} />
                 </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, whiteSpace: "nowrap",
+              <span style={{
+                fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, whiteSpace: "nowrap",
                 background: data.nicheForecast.trend === "growing" ? c.accentGreen + "18" : data.nicheForecast.trend === "declining" ? c.accentRed + "18" : c.accentYellow + "18",
-                color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentYellow }}>
+                color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentYellow
+              }}>
                 {data.nicheForecast.trend === "growing" ? "▲ Растёт" : data.nicheForecast.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
               </span>
             </div>
@@ -1573,87 +1577,87 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
           <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
-          {[
-            { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
-            { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
-            { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
-            ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-              <span style={{ color: c.textSecondary }}>{label}</span>
-              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
-            </div>
-          ))}
-          {data.seo?.lighthouseScores && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                {([
-                  { label: "Скорость", value: data.seo.lighthouseScores.performance },
-                  { label: "SEO", value: data.seo.lighthouseScores.seo },
-                  { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
-                ] as { label: string; value: number }[]).map(s => {
-                  const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
-                  return (
-                    <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
-                    </div>
-                  );
-                })}
+            {[
+              { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
+              { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
+              { label: "Страниц на сайте", value: data.seo?.pageCount ? String(data.seo.pageCount) : "—" },
+              ...(data.seo?.firstArchiveDate ? [{ label: "В веб-архиве с", value: `${data.seo.firstArchiveDate} (${data.seo.archiveAgeYears ?? 0} лет)` }] : []),
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                <span style={{ color: c.textSecondary }}>{label}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
               </div>
-            </div>
-          )}
-          {(data.seo?.issues ?? []).length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
-              {data.seo.issues.map((issue, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
-                  <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
+            ))}
+            {data.seo?.lighthouseScores && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {([
+                    { label: "Скорость", value: data.seo.lighthouseScores.performance },
+                    { label: "SEO", value: data.seo.lighthouseScores.seo },
+                    { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
+                  ] as { label: string; value: number }[]).map(s => {
+                    const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
+                    return (
+                      <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, marginTop: 2 }}>{s.label}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
-          {(() => {
-            const descLines = (data.company.description ?? "").split("\n");
-            const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
-            const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
-            const legalFields: { label: string; value: string }[] = [];
-            if (legalLine) {
-              legalLine.split(" · ").forEach((part: string) => {
-                const colonIdx = part.indexOf(": ");
-                if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
-              });
-            }
-            const mainRows = [
-              { label: "Сотрудников", value: data.business?.employees ?? "—" },
-              { label: "Выручка / год", value: data.business?.revenue ?? "—" },
-              { label: "Основана", value: data.business?.founded ?? "—" },
-              { label: "Форма", value: data.business?.legalForm ?? "—" },
-              ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
-              ...legalFields,
-            ];
-            return (
-              <>
-                {mainRows.map(({ label, value }) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-                    <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+              </div>
+            )}
+            {(data.seo?.issues ?? []).length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
+                {data.seo.issues.map((issue, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: c.textSecondary }}>
+                    <span style={{ color: c.accentRed, marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
                   </div>
                 ))}
-                {data.business?.rusprofileUrl && (
-                  <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
-                )}
-                {cleanDesc && (
-                  <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
-                )}
-              </>
-            );
-          })()}
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+            {(() => {
+              const descLines = (data.company.description ?? "").split("\n");
+              const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
+              const cleanDesc = descLines.filter((l: string) => l !== legalLine).join("\n").trim();
+              const legalFields: { label: string; value: string }[] = [];
+              if (legalLine) {
+                legalLine.split(" · ").forEach((part: string) => {
+                  const colonIdx = part.indexOf(": ");
+                  if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
+                });
+              }
+              const mainRows = [
+                { label: "Сотрудников", value: data.business?.employees ?? "—" },
+                { label: "Выручка / год", value: data.business?.revenue ?? "—" },
+                { label: "Основана", value: data.business?.founded ?? "—" },
+                { label: "Форма", value: data.business?.legalForm ?? "—" },
+                ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
+                ...legalFields,
+              ];
+              return (
+                <>
+                  {mainRows.map(({ label, value }) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                      <span style={{ color: c.textSecondary, flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontWeight: 600, color: c.textPrimary, textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+                    </div>
+                  ))}
+                  {data.business?.rusprofileUrl && (
+                    <a href={data.business.rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: c.accent, textDecoration: "none" }}>Rusprofile →</a>
+                  )}
+                  {cleanDesc && (
+                    <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>{cleanDesc}</p>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </CollapsibleSection>
@@ -1695,65 +1699,67 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
           <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
-          {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
-              <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
-            </div>
-          )}
-          {(data.techStack?.analytics ?? []).length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+            {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
+                <span style={{ background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
               </div>
-            </div>
-          )}
-          {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
-              <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
-            </div>
-          )}
-          {(data.techStack?.other ?? []).length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+            )}
+            {(data.techStack?.analytics ?? []).length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.techStack.analytics.map(a => <span key={a} style={{ background: c.accentGreen + "15", color: c.accentGreen, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
-            {data.hiring?.trend && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
-                background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
-                color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted }}>
-                {data.hiring.trend === "growing" ? "↑ растёт" : data.hiring.trend === "declining" ? "↓ снижается" : "→ стабильно"}
-              </span>
+            )}
+            {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
+                <span style={{ background: c.accentWarm + "15", color: c.accentWarm, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
+              </div>
+            )}
+            {(data.techStack?.other ?? []).length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.techStack.other.map(o => <span key={o} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{o}</span>)}
+                </div>
+              </div>
             )}
           </div>
-          {[
-            { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? 0) },
-            { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
-            { label: "Вилка зарплат", value: data.hiring?.salaryRange ?? "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-              <span style={{ color: c.textSecondary }}>{label}</span>
-              <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
+
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary }}>👥 Найм (hh.ru)</div>
+              {data.hiring?.trend && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                  background: data.hiring.trend === "growing" ? c.accentGreen + "18" : data.hiring.trend === "declining" ? c.accentRed + "18" : c.borderLight,
+                  color: data.hiring.trend === "growing" ? c.accentGreen : data.hiring.trend === "declining" ? c.accentRed : c.textMuted
+                }}>
+                  {data.hiring.trend === "growing" ? "↑ растёт" : data.hiring.trend === "declining" ? "↓ снижается" : "→ стабильно"}
+                </span>
+              )}
             </div>
-          ))}
-          {(data.hiring?.topRoles ?? []).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ТОП ВАКАНСИИ</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {data.hiring.topRoles.map(role => <span key={role} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{role}</span>)}
+            {[
+              { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? 0) },
+              { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
+              { label: "Вилка зарплат", value: data.hiring?.salaryRange ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+                <span style={{ color: c.textSecondary }}>{label}</span>
+                <span style={{ fontWeight: 600, color: c.textPrimary }}>{value}</span>
               </div>
-            </div>
-          )}
+            ))}
+            {(data.hiring?.topRoles ?? []).length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ТОП ВАКАНСИИ</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {data.hiring.topRoles.map(role => <span key={role} style={{ background: c.borderLight, color: c.textSecondary, borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid ${c.border}` }}>{role}</span>)}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CollapsibleSection>
@@ -1905,19 +1911,19 @@ function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: Anal
 
 function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
-    niche:  { icon: "🔭", label: "Пустая ниша",       color: c.accent },
-    action: { icon: "🚀", label: "Топ-действие",       color: c.accentGreen },
-    battle: { icon: "⚔️", label: "Battle Card",        color: c.accentRed },
-    copy:   { icon: "✍️", label: "Копирайтинг",        color: c.accentWarm },
-    seo:    { icon: "🔍", label: "SEO-возможность",    color: c.accent },
-    offer:  { icon: "🎯", label: "Оффер",              color: "#9b59b6" },
+    niche: { icon: "🔭", label: "Пустая ниша", color: c.accent },
+    action: { icon: "🚀", label: "Топ-действие", color: c.accentGreen },
+    battle: { icon: "⚔️", label: "Battle Card", color: c.accentRed },
+    copy: { icon: "✍️", label: "Копирайтинг", color: c.accentWarm },
+    seo: { icon: "🔍", label: "SEO-возможность", color: c.accent },
+    offer: { icon: "🎯", label: "Оффер", color: "#9b59b6" },
   };
 
   const pa = data.practicalAdvice;
   const difficultyConfig: Record<string, { label: string; color: string }> = {
-    low:    { label: "Лёгкий",   color: c.accentGreen },
-    medium: { label: "Средний",  color: c.accentWarm },
-    high:   { label: "Сложный",  color: c.accentRed },
+    low: { label: "Лёгкий", color: c.accentGreen },
+    medium: { label: "Средний", color: c.accentWarm },
+    high: { label: "Сложный", color: c.accentRed },
   };
 
   return (
@@ -1945,33 +1951,33 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {(pa?.copyImprovements ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="✍️ Текст сайта: конкретные правки">
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: c.accentWarm + "10", border: `1px solid ${c.accentWarm}25` }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
-            <span style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
-              <strong style={{ color: c.accentWarm }}>Это примеры формулировок от AI</strong> — не копируйте их дословно. Замените выделенные цифры, сроки и детали на актуальные данные вашей компании. Используйте как шаблон для собственного текста.
-            </span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {pa.copyImprovements.map((ci, i) => (
-              <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
-                <div style={{ padding: "10px 16px", background: c.accentWarm + "10", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, background: c.accentWarm + "20", padding: "2px 9px", borderRadius: 6 }}>{ci.element}</span>
-                  <span style={{ fontSize: 12, color: c.textSecondary }}>{ci.reason}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                  <div style={{ padding: "14px 16px", borderRight: `1px solid ${c.borderLight}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentRed, marginBottom: 6, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
-                    <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: c.accentWarm + "10", border: `1px solid ${c.accentWarm}25` }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
+                <strong style={{ color: c.accentWarm }}>Это примеры формулировок от AI</strong> — не копируйте их дословно. Замените выделенные цифры, сроки и детали на актуальные данные вашей компании. Используйте как шаблон для собственного текста.
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {pa.copyImprovements.map((ci, i) => (
+                <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+                  <div style={{ padding: "10px 16px", background: c.accentWarm + "10", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, background: c.accentWarm + "20", padding: "2px 9px", borderRadius: 6 }}>{ci.element}</span>
+                    <span style={{ fontSize: 12, color: c.textSecondary }}>{ci.reason}</span>
                   </div>
-                  <div style={{ padding: "14px 16px", background: c.accentGreen + "05" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: c.accentGreen, marginBottom: 4, letterSpacing: "0.06em" }}>ПРИМЕР ЗАМЕНЫ</div>
-                    <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 6, fontStyle: "italic" }}>адаптируйте под реальные данные</div>
-                    <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+                    <div style={{ padding: "14px 16px", borderRight: `1px solid ${c.borderLight}` }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: c.accentRed, marginBottom: 6, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
+                      <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
+                    </div>
+                    <div style={{ padding: "14px 16px", background: c.accentGreen + "05" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: c.accentGreen, marginBottom: 4, letterSpacing: "0.06em" }}>ПРИМЕР ЗАМЕНЫ</div>
+                      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 6, fontStyle: "italic" }}>адаптируйте под реальные данные</div>
+                      <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           </CollapsibleSection>
         </div>
       )}
@@ -1980,36 +1986,36 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {pa?.offerAnalysis && pa.offerAnalysis.currentOffer !== "—" && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="🎯 Оффер и позиционирование">
-          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕКУЩИЙ ОФФЕР</div>
-              <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, padding: "10px 14px", background: c.bg, borderRadius: 8, border: `1px solid ${c.borderLight}`, fontStyle: "italic" }}>
-                {pa.offerAnalysis.currentOffer}
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕКУЩИЙ ОФФЕР</div>
+                <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5, padding: "10px 14px", background: c.bg, borderRadius: 8, border: `1px solid ${c.borderLight}`, fontStyle: "italic" }}>
+                  {pa.offerAnalysis.currentOffer}
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>СЛАБЫЕ МЕСТА</div>
+                  {pa.offerAnalysis.weaknesses.map((w, i) => (
+                    <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
+                      <span style={{ color: c.accentRed, flexShrink: 0, marginTop: 1 }}>✗</span>{w}
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
+                  {pa.offerAnalysis.differentiators.map((d, i) => (
+                    <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
+                      <span style={{ color: c.accentGreen, flexShrink: 0, marginTop: 1 }}>✓</span>{d}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ background: `linear-gradient(135deg, ${"#9b59b6"}0f, ${c.accent}08)`, borderRadius: 10, padding: "14px 16px", border: `1px solid ${"#9b59b6"}30` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#9b59b6", marginBottom: 8, letterSpacing: "0.05em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{pa.offerAnalysis.suggestedOffer}</div>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>СЛАБЫЕ МЕСТА</div>
-                {pa.offerAnalysis.weaknesses.map((w, i) => (
-                  <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
-                    <span style={{ color: c.accentRed, flexShrink: 0, marginTop: 1 }}>✗</span>{w}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
-                {pa.offerAnalysis.differentiators.map((d, i) => (
-                  <div key={i} style={{ display: "flex", gap: 7, fontSize: 13, color: c.textSecondary, marginBottom: 6, lineHeight: 1.4 }}>
-                    <span style={{ color: c.accentGreen, flexShrink: 0, marginTop: 1 }}>✓</span>{d}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ background: `linear-gradient(135deg, ${"#9b59b6"}0f, ${c.accent}08)`, borderRadius: 10, padding: "14px 16px", border: `1px solid ${"#9b59b6"}30` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#9b59b6", marginBottom: 8, letterSpacing: "0.05em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{pa.offerAnalysis.suggestedOffer}</div>
-            </div>
-          </div>
           </CollapsibleSection>
         </div>
       )}
@@ -2018,30 +2024,30 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {(pa?.keywordGaps ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="🔑 Незанятые ключевые слова">
-          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr style={{ background: c.bg }}>
-                {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {pa.keywordGaps.map((kg, i) => {
-                  const diff = difficultyConfig[kg.difficulty] ?? difficultyConfig.medium;
-                  return (
-                    <tr key={i} style={{ borderBottom: i < pa.keywordGaps.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                      <td style={{ padding: "11px 16px", color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
-                      <td style={{ padding: "11px 16px", color: c.textSecondary, fontWeight: 600 }}>{kg.volume.toLocaleString("ru")}</td>
-                      <td style={{ padding: "11px 16px" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: diff.color, background: diff.color + "18", padding: "2px 8px", borderRadius: 5 }}>{diff.label}</span>
-                      </td>
-                      <td style={{ padding: "11px 16px", color: c.textSecondary, fontSize: 12 }}>{kg.opportunity}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ background: c.bg }}>
+                  {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {pa.keywordGaps.map((kg, i) => {
+                    const diff = difficultyConfig[kg.difficulty] ?? difficultyConfig.medium;
+                    return (
+                      <tr key={i} style={{ borderBottom: i < pa.keywordGaps.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                        <td style={{ padding: "11px 16px", color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
+                        <td style={{ padding: "11px 16px", color: c.textSecondary, fontWeight: 600 }}>{kg.volume.toLocaleString("ru")}</td>
+                        <td style={{ padding: "11px 16px" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: diff.color, background: diff.color + "18", padding: "2px 8px", borderRadius: 5 }}>{diff.label}</span>
+                        </td>
+                        <td style={{ padding: "11px 16px", color: c.textSecondary, fontSize: 12 }}>{kg.opportunity}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </CollapsibleSection>
         </div>
       )}
@@ -2076,62 +2082,62 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {competitors.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="⚔️ Battle Cards — сравнение с конкурентами">
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {competitors.map((comp, i) => {
-              const myScores = data.company.categories;
-              const theirScores = comp.company.categories;
-              const gaps = myScores.map((cat, ci) => ({
-                name: cat.name, icon: cat.icon,
-                me: cat.score, them: theirScores[ci]?.score ?? 0,
-                diff: cat.score - (theirScores[ci]?.score ?? 0),
-              }));
-              const iWin = gaps.filter(g => g.diff > 0);
-              const iLose = gaps.filter(g => g.diff < 0);
-              return (
-                <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
-                  <div style={{ padding: "12px 20px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>Вы vs {comp.company.name}</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Вы: {data.company.score}</span>
-                      <span style={{ fontSize: 12, color: c.textMuted }}>/</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.textSecondary }}>Они: {comp.company.score}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {competitors.map((comp, i) => {
+                const myScores = data.company.categories;
+                const theirScores = comp.company.categories;
+                const gaps = myScores.map((cat, ci) => ({
+                  name: cat.name, icon: cat.icon,
+                  me: cat.score, them: theirScores[ci]?.score ?? 0,
+                  diff: cat.score - (theirScores[ci]?.score ?? 0),
+                }));
+                const iWin = gaps.filter(g => g.diff > 0);
+                const iLose = gaps.filter(g => g.diff < 0);
+                return (
+                  <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+                    <div style={{ padding: "12px 20px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>Вы vs {comp.company.name}</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Вы: {data.company.score}</span>
+                        <span style={{ fontSize: 12, color: c.textMuted }}>/</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: c.textSecondary }}>Они: {comp.company.score}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ padding: 16 }}>
-                    {/* Category bars comparison */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                      {gaps.map(g => (
-                        <div key={g.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 80, fontSize: 12, color: c.textSecondary, flexShrink: 0 }}>{g.icon} {g.name}</div>
-                          <div style={{ flex: 1, position: "relative", height: 8, background: c.borderLight, borderRadius: 4, overflow: "hidden" }}>
-                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.me}%`, background: c.accent + "80", borderRadius: 4 }} />
-                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.them}%`, background: c.accentRed + "50", borderRadius: 4, mixBlendMode: "multiply" as const }} />
+                    <div style={{ padding: 16 }}>
+                      {/* Category bars comparison */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                        {gaps.map(g => (
+                          <div key={g.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 80, fontSize: 12, color: c.textSecondary, flexShrink: 0 }}>{g.icon} {g.name}</div>
+                            <div style={{ flex: 1, position: "relative", height: 8, background: c.borderLight, borderRadius: 4, overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.me}%`, background: c.accent + "80", borderRadius: 4 }} />
+                              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.them}%`, background: c.accentRed + "50", borderRadius: 4, mixBlendMode: "multiply" as const }} />
+                            </div>
+                            <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 700, color: g.diff > 0 ? c.accentGreen : g.diff < 0 ? c.accentRed : c.textMuted, flexShrink: 0 }}>
+                              {g.diff > 0 ? `+${g.diff}` : g.diff}
+                            </div>
                           </div>
-                          <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 700, color: g.diff > 0 ? c.accentGreen : g.diff < 0 ? c.accentRed : c.textMuted, flexShrink: 0 }}>
-                            {g.diff > 0 ? `+${g.diff}` : g.diff}
-                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+                        <div>
+                          <div style={{ color: c.accentGreen, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>ВЫ ВПЕРЕДИ</div>
+                          {iWin.length > 0 ? iWin.map(g => (
+                            <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentGreen }}>+{g.diff}</strong></div>
+                          )) : <div style={{ color: c.textMuted }}>Нет преимуществ</div>}
                         </div>
-                      ))}
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                      <div>
-                        <div style={{ color: c.accentGreen, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>ВЫ ВПЕРЕДИ</div>
-                        {iWin.length > 0 ? iWin.map(g => (
-                          <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentGreen }}>+{g.diff}</strong></div>
-                        )) : <div style={{ color: c.textMuted }}>Нет преимуществ</div>}
-                      </div>
-                      <div>
-                        <div style={{ color: c.accentRed, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>НУЖНО ДОГНАТЬ</div>
-                        {iLose.length > 0 ? iLose.map(g => (
-                          <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentRed }}>{g.diff}</strong></div>
-                        )) : <div style={{ color: c.textMuted }}>Нет отставаний</div>}
+                        <div>
+                          <div style={{ color: c.accentRed, fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: "0.04em" }}>НУЖНО ДОГНАТЬ</div>
+                          {iLose.length > 0 ? iLose.map(g => (
+                            <div key={g.name} style={{ color: c.textSecondary, marginBottom: 3 }}>{g.icon} {g.name}: <strong style={{ color: c.accentRed }}>{g.diff}</strong></div>
+                          )) : <div style={{ color: c.textMuted }}>Нет отставаний</div>}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
           </CollapsibleSection>
         </div>
       )}
@@ -2140,39 +2146,39 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {data.nicheForecast && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="📈 Прогноз ниши">
-          <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm }}>
-                {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm }}>
+                  {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{data.nicheForecast.timeframe}</div>
+                  <div style={{ fontSize: 12, color: c.textSecondary }}>{data.nicheForecast.direction}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{data.nicheForecast.timeframe}</div>
-                <div style={{ fontSize: 12, color: c.textSecondary }}>{data.nicheForecast.direction}</div>
+              <div style={{ width: "100%", height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ height: "100%", width: `${Math.min(100, Math.abs(data.nicheForecast.trendPercent) * 5)}%`, background: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm, borderRadius: 3 }} />
+              </div>
+              <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 14px" }}>{data.nicheForecast.forecast}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ВОЗМОЖНОСТИ</div>
+                  {data.nicheForecast.opportunities.map((o, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
+                      <span style={{ color: c.accentGreen, flexShrink: 0 }}>✓</span>{o}
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>УГРОЗЫ</div>
+                  {data.nicheForecast.threats.map((t, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
+                      <span style={{ color: c.accentRed, flexShrink: 0 }}>✗</span>{t}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            <div style={{ width: "100%", height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden", marginBottom: 14 }}>
-              <div style={{ height: "100%", width: `${Math.min(100, Math.abs(data.nicheForecast.trendPercent) * 5)}%`, background: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm, borderRadius: 3 }} />
-            </div>
-            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 14px" }}>{data.nicheForecast.forecast}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8, letterSpacing: "0.05em" }}>ВОЗМОЖНОСТИ</div>
-                {data.nicheForecast.opportunities.map((o, i) => (
-                  <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
-                    <span style={{ color: c.accentGreen, flexShrink: 0 }}>✓</span>{o}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8, letterSpacing: "0.05em" }}>УГРОЗЫ</div>
-                {data.nicheForecast.threats.map((t, i) => (
-                  <div key={i} style={{ display: "flex", gap: 6, fontSize: 12, color: c.textSecondary, marginBottom: 5 }}>
-                    <span style={{ color: c.accentRed, flexShrink: 0 }}>✗</span>{t}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
           </CollapsibleSection>
         </div>
       )}
@@ -2181,107 +2187,107 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {data.aiPerception && (
         <div style={{ marginBottom: 28 }}>
           <CollapsibleSection c={c} title="🤖 Как нейросети видят вашу компанию">
-          <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 14 }}>Восприятие ChatGPT / Claude / Gemini на основе публичного информационного следа компании</div>
+            <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 14 }}>Восприятие ChatGPT / Claude / Gemini на основе публичного информационного следа компании</div>
 
-          {/* Presence badge + persona */}
-          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              {(() => {
-                const p2 = data.aiPerception.knowledgePresence;
-                const cfg = {
-                  strong:   { label: "Хорошо известна", color: c.accentGreen,  bg: c.accentGreen + "18",  icon: "●" },
-                  moderate: { label: "Частично известна", color: c.accentWarm, bg: c.accentWarm + "18",  icon: "◐" },
-                  weak:     { label: "Слабо известна",   color: c.accentYellow, bg: c.accentYellow + "18", icon: "◔" },
-                  minimal:  { label: "Почти не известна", color: c.accentRed,  bg: c.accentRed + "18",   icon: "○" },
-                }[p2] ?? { label: "Неизвестно", color: c.textMuted, bg: c.borderLight, icon: "?" };
-                return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 18, color: cfg.color }}>{cfg.icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: "4px 12px", borderRadius: 20 }}>
-                      AI-видимость: {cfg.label}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-            <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", marginBottom: 0 }}>
-              {data.aiPerception.persona}
-            </div>
-          </div>
-
-          {/* Simulated AI answer */}
-          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 12 }}>
-            <div style={{ padding: "12px 18px", borderBottom: `1px solid ${c.borderLight}`, display: "flex", alignItems: "center", gap: 10, background: c.accent + "08" }}>
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✦</div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Симуляция ответа нейросети</span>
-              <span style={{ fontSize: 11, color: c.textMuted }}>— «Расскажи о {data.company.name}»</span>
-            </div>
-            <div style={{ padding: "16px 18px" }}>
-              <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.7, background: c.bg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${c.borderLight}`, fontStyle: "italic" }}>
-                {data.aiPerception.sampleAnswer}
+            {/* Presence badge + persona */}
+            <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                {(() => {
+                  const p2 = data.aiPerception.knowledgePresence;
+                  const cfg = {
+                    strong: { label: "Хорошо известна", color: c.accentGreen, bg: c.accentGreen + "18", icon: "●" },
+                    moderate: { label: "Частично известна", color: c.accentWarm, bg: c.accentWarm + "18", icon: "◐" },
+                    weak: { label: "Слабо известна", color: c.accentYellow, bg: c.accentYellow + "18", icon: "◔" },
+                    minimal: { label: "Почти не известна", color: c.accentRed, bg: c.accentRed + "18", icon: "○" },
+                  }[p2] ?? { label: "Неизвестно", color: c.textMuted, bg: c.borderLight, icon: "?" };
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 18, color: cfg.color }}>{cfg.icon}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: "4px 12px", borderRadius: 20 }}>
+                        AI-видимость: {cfg.label}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", marginBottom: 0 }}>
+                {data.aiPerception.persona}
               </div>
             </div>
-          </div>
 
-          {/* E-E-A-T + Keywords side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
-            {/* E-E-A-T */}
-            <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 14, letterSpacing: "0.06em" }}>E-E-A-T ОЦЕНКА</div>
-              {([
-                { key: "expertise",  label: "Экспертиза",   desc: "Глубина и точность контента" },
-                { key: "experience", label: "Опыт",         desc: "Реальный опыт первого лица" },
-                { key: "authority",  label: "Авторитет",    desc: "Упоминания в внешних источниках" },
-                { key: "trust",      label: "Доверие",      desc: "Прозрачность и достоверность" },
-              ] as { key: keyof typeof data.aiPerception.eeat; label: string; desc: string }[]).map(({ key, label, desc }) => {
-                const val = data.aiPerception.eeat[key];
-                const col = val >= 70 ? c.accentGreen : val >= 45 ? c.accentWarm : c.accentRed;
-                return (
-                  <div key={key} style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                      <div>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{label}</span>
-                        <span style={{ fontSize: 11, color: c.textMuted, marginLeft: 6 }}>{desc}</span>
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{val}</span>
-                    </div>
-                    <div style={{ height: 5, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${val}%`, background: col, borderRadius: 3, transition: "width 0.8s ease" }} />
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Simulated AI answer */}
+            <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 12 }}>
+              <div style={{ padding: "12px 18px", borderBottom: `1px solid ${c.borderLight}`, display: "flex", alignItems: "center", gap: 10, background: c.accent + "08" }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✦</div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Симуляция ответа нейросети</span>
+                <span style={{ fontSize: 11, color: c.textMuted }}>— «Расскажи о {data.company.name}»</span>
+              </div>
+              <div style={{ padding: "16px 18px" }}>
+                <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.7, background: c.bg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${c.borderLight}`, fontStyle: "italic" }}>
+                  {data.aiPerception.sampleAnswer}
+                </div>
+              </div>
             </div>
 
-            {/* Associated keywords + content signals */}
-            <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>АССОЦИАЦИИ НЕЙРОСЕТЕЙ</div>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
-                {data.aiPerception.associatedKeywords.map((kw, i) => (
-                  <span key={i} style={{ fontSize: 12, fontWeight: 500, color: c.accent, background: c.accent + "12", padding: "4px 12px", borderRadius: 20, border: `1px solid ${c.accent}20` }}>{kw}</span>
+            {/* E-E-A-T + Keywords side by side */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
+              {/* E-E-A-T */}
+              <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 14, letterSpacing: "0.06em" }}>E-E-A-T ОЦЕНКА</div>
+                {([
+                  { key: "expertise", label: "Экспертиза", desc: "Глубина и точность контента" },
+                  { key: "experience", label: "Опыт", desc: "Реальный опыт первого лица" },
+                  { key: "authority", label: "Авторитет", desc: "Упоминания в внешних источниках" },
+                  { key: "trust", label: "Доверие", desc: "Прозрачность и достоверность" },
+                ] as { key: keyof typeof data.aiPerception.eeat; label: string; desc: string }[]).map(({ key, label, desc }) => {
+                  const val = data.aiPerception.eeat[key];
+                  const col = val >= 70 ? c.accentGreen : val >= 45 ? c.accentWarm : c.accentRed;
+                  return (
+                    <div key={key} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{label}</span>
+                          <span style={{ fontSize: 11, color: c.textMuted, marginLeft: 6 }}>{desc}</span>
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{val}</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${val}%`, background: col, borderRadius: 3, transition: "width 0.8s ease" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Associated keywords + content signals */}
+              <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>АССОЦИАЦИИ НЕЙРОСЕТЕЙ</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
+                  {data.aiPerception.associatedKeywords.map((kw, i) => (
+                    <span key={i} style={{ fontSize: 12, fontWeight: 500, color: c.accent, background: c.accent + "12", padding: "4px 12px", borderRadius: 20, border: `1px solid ${c.accent}20` }}>{kw}</span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>СИГНАЛЫ, ФОРМИРУЮЩИЕ МНЕНИЕ</div>
+                {data.aiPerception.contentSignals.map((sig, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, fontSize: 12, color: c.textSecondary, marginBottom: 7, lineHeight: 1.45 }}>
+                    <span style={{ color: c.accentYellow, flexShrink: 0, marginTop: 1 }}>◆</span>{sig}
+                  </div>
                 ))}
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>СИГНАЛЫ, ФОРМИРУЮЩИЕ МНЕНИЕ</div>
-              {data.aiPerception.contentSignals.map((sig, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, fontSize: 12, color: c.textSecondary, marginBottom: 7, lineHeight: 1.45 }}>
-                  <span style={{ color: c.accentYellow, flexShrink: 0, marginTop: 1 }}>◆</span>{sig}
-                </div>
-              ))}
             </div>
-          </div>
 
-          {/* Improvement tips */}
-          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.06em" }}>КАК УЛУЧШИТЬ AI-ВИДИМОСТЬ</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
-              {data.aiPerception.improvementTips.map((tip, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
-                  <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{tip}</div>
-                </div>
-              ))}
+            {/* Improvement tips */}
+            <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 18, boxShadow: c.shadow }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.06em" }}>КАК УЛУЧШИТЬ AI-ВИДИМОСТЬ</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+                {data.aiPerception.improvementTips.map((tip, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                    <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{tip}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
           </CollapsibleSection>
         </div>
       )}
@@ -2313,11 +2319,34 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
 // ============================================================
 
 function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null }) {
-  const handlePrint = () => {
+  const [taExpanded, setTaExpanded] = useState(false);
+  const [compExpanded, setCompExpanded] = useState(false);
+
+  const handlePrintTA = () => {
+    const win = window.open("", "_blank");
+    if (!win || !taAnalysis) return;
+    const segs = taAnalysis.segments.map(s => `
+      <div style="margin-bottom:24px; padding:16px; border:1px solid #e0e3ef; border-radius:10px;">
+        <h3 style="margin:0 0 8px;">${s.isGolden ? "⭐ " : ""}${s.segmentName}</h3>
+        <p><b>Persona:</b> ${s.demographics?.personaName ?? ""}, ${s.demographics?.age ?? ""}, ${s.demographics?.income ?? ""}</p>
+        <p><b>Образ жизни:</b> ${s.demographics?.lifestyle ?? ""}</p>
+        <p><b>Идентичность:</b> ${s.worldview?.identity ?? ""}</p>
+        <p><b>Главные проблемы:</b> ${(s.mainProblems ?? []).join("; ")}</p>
+        <p><b>Страхи:</b> ${(s.topFears ?? []).join("; ")}</p>
+        <p><b>Возражения:</b> ${(s.topObjections ?? []).join("; ")}</p>
+        <p><b>Идеальный результат:</b> ${s.magicTransformation ?? ""}</p>
+      </div>
+    `).join("");
+    win.document.write(`<html><head><title>Отчёт ЦА — ${taAnalysis.companyName}</title><style>body{font-family:sans-serif;padding:32px;max-width:900px;margin:0 auto;} h1,h2,h3{color:#1a1a2e;} p{line-height:1.6;color:#444;}</style></head><body><h1>Анализ ЦА — ${taAnalysis.companyName}</h1><p style="color:#888;">${taAnalysis.niche} · ${new Date(taAnalysis.generatedAt).toLocaleDateString("ru-RU")}</p><h2>Общий вывод</h2><p>${taAnalysis.summary}</p><h2>Сегменты</h2>${segs}</body></html>`);
+    win.document.close();
+    win.print();
+  };
+
+  const handlePrintComp = () => {
     window.print();
   };
 
-  if (!data) {
+  if (!data && !taAnalysis) {
     return (
       <div style={{ maxWidth: 700 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>Отчёты</h1>
@@ -2331,7 +2360,7 @@ function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult 
   }
 
   const today = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
-  const scoreColor = data.company.score >= 75 ? "#22a06b" : data.company.score >= 50 ? "#d4894e" : "#e34935";
+  const scoreColor = data ? (data.company.score >= 75 ? "#22a06b" : data.company.score >= 50 ? "#d4894e" : "#e34935") : "#e34935";
 
   return (
     <div style={{ maxWidth: 860 }}>
@@ -2345,393 +2374,513 @@ function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult 
         }
       `}</style>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: c.textPrimary }}>Отчёты</h1>
-        <button className="no-print" onClick={handlePrint}
-          style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 22px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-          ↓ Скачать PDF
-        </button>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>Отчёты</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>Нажмите на отчёт, чтобы развернуть. Каждый отчёт можно скачать отдельно.</p>
       </div>
 
       {taAnalysis && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow, marginBottom: 16, overflow: "hidden" }}>
+          {/* TA Report Header — click to expand */}
+          <div
+            onClick={() => setTaExpanded(v => !v)}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", cursor: "pointer", userSelect: "none" }}
+          >
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>🧠 Анализ ЦА — {taAnalysis.companyName}</div>
               <div style={{ fontSize: 12, color: c.textMuted }}>{taAnalysis.niche} · {new Date(taAnalysis.generatedAt).toLocaleDateString("ru-RU")}</div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "4px 12px" }}>GPT-4o</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={e => { e.stopPropagation(); handlePrintTA(); }}
+                className="no-print"
+                style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+              >
+                ↓ PDF
+              </button>
+              <span style={{ fontSize: 12, color: c.textMuted, transition: "transform 0.2s", display: "inline-block", transform: taExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </div>
           </div>
-          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 16px" }}>{taAnalysis.summary}</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {taAnalysis.segments.map((s, i) => (
-              <span key={i} style={{ fontSize: 12, background: s.isGolden ? "#f59e0b15" : c.borderLight, color: s.isGolden ? "#92400e" : c.textSecondary, borderRadius: 8, padding: "4px 12px", fontWeight: 600 }}>
-                {s.isGolden ? "⭐ " : ""}{s.segmentName}
-              </span>
-            ))}
-          </div>
+
+          {/* TA Report Body */}
+          {taExpanded && (
+            <div style={{ borderTop: `1px solid ${c.border}`, padding: "20px 24px" }}>
+              <div style={{ background: c.accent + "08", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginBottom: 6 }}>ОБЩИЙ ВЫВОД</div>
+                <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{taAnalysis.summary}</p>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 12 }}>СЕГМЕНТЫ АУДИТОРИИ</div>
+
+              {taAnalysis.segments.map((s, i) => (
+                <div key={i} style={{ marginBottom: 20, padding: "16px 20px", border: `1px solid ${s.isGolden ? "#f59e0b40" : c.border}`, borderRadius: 12, background: s.isGolden ? "#f59e0b06" : c.bg }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    {s.isGolden && <span style={{ fontSize: 14 }}>⭐</span>}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary }}>{s.segmentName}</div>
+                    {s.isGolden && <span style={{ fontSize: 11, fontWeight: 600, background: "#f59e0b20", color: "#92400e", borderRadius: 6, padding: "2px 8px" }}>Золотой сегмент</span>}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 12 }}>
+                    {s.demographics && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ПЕРСОНА</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>{s.demographics.personaName}</div>
+                        {[{ l: "Возраст", v: s.demographics.age }, { l: "Доход", v: s.demographics.income }, { l: "Пол", v: s.demographics.genderRatio }].map(r => (
+                          <div key={r.l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 12 }}>
+                            <span style={{ color: c.textMuted }}>{r.l}</span>
+                            <span style={{ fontWeight: 600, color: c.textPrimary }}>{r.v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {s.demographics?.lifestyle && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ОБРАЗ ЖИЗНИ</div>
+                        <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{s.demographics.lifestyle}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {s.worldview?.identity && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 4 }}>ИДЕНТИЧНОСТЬ</div>
+                      <p style={{ fontSize: 12, color: c.textPrimary, fontWeight: 600, lineHeight: 1.5, margin: 0 }}>{s.worldview.identity}</p>
+                    </div>
+                  )}
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                    {s.mainProblems?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e34935", letterSpacing: "0.05em", marginBottom: 6 }}>ГЛАВНЫЕ БОЛИ</div>
+                        {s.mainProblems.slice(0, 4).map((p, j) => (
+                          <div key={j} style={{ fontSize: 12, color: c.textSecondary, padding: "3px 0", borderBottom: `1px solid ${c.borderLight}`, display: "flex", gap: 6 }}>
+                            <span style={{ color: "#e34935", flexShrink: 0 }}>⚡</span>{p}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {s.topFears?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e34935", letterSpacing: "0.05em", marginBottom: 6 }}>СТРАХИ</div>
+                        {s.topFears.slice(0, 4).map((f, j) => (
+                          <div key={j} style={{ fontSize: 12, color: c.textSecondary, padding: "3px 0", borderBottom: `1px solid ${c.borderLight}`, display: "flex", gap: 6 }}>
+                            <span style={{ color: "#e34935", flexShrink: 0 }}>{j + 1}.</span>{f}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {s.topObjections?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, letterSpacing: "0.05em", marginBottom: 6 }}>ВОЗРАЖЕНИЯ</div>
+                        {s.topObjections.slice(0, 4).map((o, j) => (
+                          <div key={j} style={{ fontSize: 12, color: c.textSecondary, padding: "3px 0", borderBottom: `1px solid ${c.borderLight}`, display: "flex", gap: 6 }}>
+                            <span style={{ color: c.accentWarm, flexShrink: 0 }}>{j + 1}.</span>{o}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {s.magicTransformation && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, letterSpacing: "0.05em", marginBottom: 6 }}>ИДЕАЛЬНЫЙ РЕЗУЛЬТАТ</div>
+                        <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{s.magicTransformation}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {s.worldview?.values?.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ЦЕННОСТИ</div>
+                      <div>{s.worldview.values.map((v, j) => (
+                        <span key={j} style={{ display: "inline-block", background: c.accent + "15", color: c.accent, borderRadius: 8, padding: "3px 10px", fontSize: 11, fontWeight: 600, marginRight: 5, marginBottom: 5 }}>{v}</span>
+                      ))}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div id="mr-report" style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadowLg }}>
-        {/* Header */}
-        <div style={{ padding: "28px 32px", borderBottom: `1px solid ${c.border}`, background: `linear-gradient(135deg, ${c.accent}0f, ${c.bgCard})` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      {data && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadowLg, marginBottom: 16 }}>
+          {/* Competitor Report Header — click to expand */}
+          <div
+            onClick={() => setCompExpanded(v => !v)}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", cursor: "pointer", userSelect: "none", background: `linear-gradient(135deg, ${c.accent}0f, ${c.bgCard})` }}
+          >
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, letterSpacing: "0.08em", marginBottom: 6 }}>MARKETRADAR · ОТЧЁТ ПО АНАЛИЗУ</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: c.textPrimary, marginBottom: 4 }}>{data.company.name}</div>
-              <div style={{ fontSize: 13, color: c.textMuted }}>{data.company.url} · {today}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, letterSpacing: "0.08em", marginBottom: 4 }}>MARKETRADAR · ОТЧЁТ ПО АНАЛИЗУ</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 2 }}>{data.company.name}</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>{data.company.url} · {today}</div>
             </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{data.company.score} <span style={{ fontSize: 18, fontWeight: 500, color: c.textMuted }}>из 100</span></div>
-              <div style={{ fontSize: 12, color: c.textMuted }}>Общий score</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 32, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{data.company.score} <span style={{ fontSize: 14, fontWeight: 500, color: c.textMuted }}>из 100</span></div>
+                <div style={{ fontSize: 11, color: c.textMuted }}>Общий score</div>
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); handlePrintComp(); }}
+                className="no-print"
+                style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+              >
+                ↓ PDF
+              </button>
+              <span style={{ fontSize: 12, color: c.textMuted, transition: "transform 0.2s", display: "inline-block", transform: compExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
             </div>
           </div>
-        </div>
 
-        {/* Categories */}
-        <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>ОЦЕНКИ ПО КАТЕГОРИЯМ</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
-              {["Категория", "Вес", "Оценка", "Уровень"].map(h => (
-                <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {data.company.categories.map((cat, i) => {
-                const col = cat.score >= 75 ? "#22a06b" : cat.score >= 50 ? "#d4894e" : "#e34935";
-                return (
-                  <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
-                    <td style={{ padding: "10px 12px", fontSize: 13, color: c.textPrimary, fontWeight: 500 }}>{cat.icon} {cat.name}</td>
-                    <td style={{ padding: "10px 12px", fontSize: 13, color: c.textSecondary }}>{cat.weight}%</td>
-                    <td style={{ padding: "10px 12px", fontSize: 16, fontWeight: 800, color: col }}>{cat.score}</td>
-                    <td style={{ padding: "10px 12px" }}>
-                      <div style={{ width: 120, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${cat.score}%`, background: col, borderRadius: 3 }} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Keywords */}
-        {(data.seo?.positions ?? []).length > 0 && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 КЛЮЧЕВЫЕ СЛОВА</div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>
-                {["Ключевое слово", "Позиция", "Объём/мес"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {data.seo.positions.map((pos, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: c.textPrimary }}>{pos.keyword}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 14, fontWeight: 700, color: pos.position <= 10 ? "#22a06b" : pos.position <= 30 ? "#d4894e" : c.textSecondary }}>#{pos.position}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 13, color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Business + SEO summary */}
-        <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🏢 БИЗНЕС-ПРОФИЛЬ</div>
-            {[
-              { l: "Сотрудников", v: data.business?.employees },
-              { l: "Выручка/год", v: data.business?.revenue },
-              { l: "Основана", v: data.business?.founded },
-              { l: "Трафик/мес", v: data.seo?.estimatedTraffic },
-              { l: "Возраст домена", v: data.seo?.domainAge },
-            ].map(({ l, v }) => v && v !== "—" ? (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 12 }}>
-                <span style={{ color: c.textSecondary }}>{l}</span>
-                <span style={{ fontWeight: 600, color: c.textPrimary }}>{v}</span>
+          {/* Competitor Report Body */}
+          {compExpanded && (
+            <div id="mr-report">
+              {/* Categories */}
+              <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>ОЦЕНКИ ПО КАТЕГОРИЯМ</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    {["Категория", "Вес", "Оценка", "Уровень"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {data.company.categories.map((cat, i) => {
+                      const col = cat.score >= 75 ? "#22a06b" : cat.score >= 50 ? "#d4894e" : "#e34935";
+                      return (
+                        <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                          <td style={{ padding: "10px 12px", fontSize: 13, color: c.textPrimary, fontWeight: 500 }}>{cat.icon} {cat.name}</td>
+                          <td style={{ padding: "10px 12px", fontSize: 13, color: c.textSecondary }}>{cat.weight}%</td>
+                          <td style={{ padding: "10px 12px", fontSize: 16, fontWeight: 800, color: col }}>{cat.score}</td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <div style={{ width: 120, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${cat.score}%`, background: col, borderRadius: 3 }} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ) : null)}
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 ПРОГНОЗ НИШИ</div>
-            {data.nicheForecast && <>
-              <div style={{ fontSize: 20, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? "#22a06b" : data.nicheForecast.trend === "declining" ? "#e34935" : "#d4894e", marginBottom: 6 }}>
-                {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
-              </div>
-              <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 8px" }}>{data.nicheForecast.forecast}</p>
-            </>}
-          </div>
-        </div>
 
-        {/* Recommendations */}
-        <div style={{ padding: "24px 32px" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 AI-РЕКОМЕНДАЦИИ</div>
-          {data.recommendations.map((rec, i) => {
-            const col = rec.priority === "high" ? "#e34935" : rec.priority === "medium" ? "#e6a817" : "#22a06b";
-            const priorityLabel = rec.priority === "high" ? "Высокий" : rec.priority === "medium" ? "Средний" : "Низкий";
-            return (
-              <div key={i} style={{ padding: "14px 0", borderBottom: i < data.recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{priorityLabel}</span>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: c.textMuted }}>{rec.category}</span>
+              {/* Keywords */}
+              {(data.seo?.positions ?? []).length > 0 && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 КЛЮЧЕВЫЕ СЛОВА</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr>
+                      {["Ключевое слово", "Позиция", "Объём/мес"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {data.seo.positions.map((pos, i) => (
+                        <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                          <td style={{ padding: "8px 12px", fontSize: 13, color: c.textPrimary }}>{pos.keyword}</td>
+                          <td style={{ padding: "8px 12px", fontSize: 14, fontWeight: 700, color: pos.position <= 10 ? "#22a06b" : pos.position <= 30 ? "#d4894e" : c.textSecondary }}>#{pos.position}</td>
+                          <td style={{ padding: "8px 12px", fontSize: 13, color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, paddingLeft: 16, marginBottom: 6 }}>{rec.text}</div>
-                <div style={{ paddingLeft: 16 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#22a06b", background: "#22a06b12", padding: "3px 10px", borderRadius: 6 }}>Эффект: {rec.effect}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              )}
 
-        {/* AI Insights */}
-        {data.insights.length > 0 && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🧠 AI-ИНСАЙТЫ</div>
-            {(() => {
-              const typeCfg: Record<string, { icon: string; label: string }> = {
-                niche:  { icon: "🔭", label: "Пустая ниша" },
-                action: { icon: "🚀", label: "Топ-действие" },
-                battle: { icon: "⚔️", label: "Battle Card" },
-                copy:   { icon: "✍️", label: "Копирайтинг" },
-                seo:    { icon: "🔍", label: "SEO" },
-                offer:  { icon: "🎯", label: "Оффер" },
-              };
-              return data.insights.map((ins, i) => {
-                const cfg = typeCfg[ins.type] ?? typeCfg.action;
-                const col = ins.type === "niche" ? c.accent : ins.type === "battle" ? "#ef4444" : ins.type === "copy" ? "#f59e0b" : ins.type === "offer" ? "#9b59b6" : "#10b981";
-                return (
-                  <div key={i} style={{ padding: "10px 0", borderBottom: i < data.insights.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>{cfg.icon}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{cfg.label}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{ins.title}</span>
+              {/* Business + SEO summary */}
+              <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🏢 БИЗНЕС-ПРОФИЛЬ</div>
+                  {[
+                    { l: "Сотрудников", v: data.business?.employees },
+                    { l: "Выручка/год", v: data.business?.revenue },
+                    { l: "Основана", v: data.business?.founded },
+                    { l: "Трафик/мес", v: data.seo?.estimatedTraffic },
+                    { l: "Возраст домена", v: data.seo?.domainAge },
+                  ].map(({ l, v }) => v && v !== "—" ? (
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 12 }}>
+                      <span style={{ color: c.textSecondary }}>{l}</span>
+                      <span style={{ fontWeight: 600, color: c.textPrimary }}>{v}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, paddingLeft: 22 }}>{ins.text}</div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        )}
-
-        {/* Copy improvements */}
-        {(data.practicalAdvice?.copyImprovements ?? []).length > 0 && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>✍️ ПРАВКИ ТЕКСТА САЙТА</div>
-            {data.practicalAdvice.copyImprovements.map((ci, i) => (
-              <div key={i} style={{ marginBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, paddingBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, borderBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", background: "#f59e0b18", padding: "2px 8px", borderRadius: 5 }}>{ci.element}</span>
-                  <span style={{ fontSize: 11, color: c.textMuted }}>{ci.reason}</span>
+                  ) : null)}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div style={{ padding: "8px 12px", background: "#ef444408", borderRadius: 8, border: "1px solid #ef444420" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#ef4444", marginBottom: 4, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
-                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
-                  </div>
-                  <div style={{ padding: "8px 12px", background: "#10b98108", borderRadius: 8, border: "1px solid #10b98120" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4, letterSpacing: "0.06em" }}>ЗАМЕНИТЬ НА</div>
-                    <div style={{ fontSize: 12, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
-                  </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 ПРОГНОЗ НИШИ</div>
+                  {data.nicheForecast && <>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? "#22a06b" : data.nicheForecast.trend === "declining" ? "#e34935" : "#d4894e", marginBottom: 6 }}>
+                      {data.nicheForecast.trendPercent > 0 ? "+" : ""}{data.nicheForecast.trendPercent}%/год
+                    </div>
+                    <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 8px" }}>{data.nicheForecast.forecast}</p>
+                  </>}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* Offer analysis */}
-        {data.practicalAdvice?.offerAnalysis?.currentOffer && data.practicalAdvice.offerAnalysis.currentOffer !== "—" && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🎯 ОФФЕР И ПОЗИЦИОНИРОВАНИЕ</div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.06em" }}>ТЕКУЩИЙ ОФФЕР</div>
-              <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", padding: "8px 12px", background: c.bg, borderRadius: 7, border: `1px solid ${c.borderLight}` }}>{data.practicalAdvice.offerAnalysis.currentOffer}</div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", marginBottom: 6, letterSpacing: "0.06em" }}>СЛАБЫЕ МЕСТА</div>
-                {data.practicalAdvice.offerAnalysis.weaknesses.map((w, i) => (
-                  <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#ef4444" }}>✗</span>{w}</div>
-                ))}
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#10b981", marginBottom: 6, letterSpacing: "0.06em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
-                {data.practicalAdvice.offerAnalysis.differentiators.map((d, i) => (
-                  <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#10b981" }}>✓</span>{d}</div>
-                ))}
-              </div>
-            </div>
-            <div style={{ padding: "10px 14px", background: "#6366f108", borderRadius: 8, border: "1px solid #6366f120" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 5, letterSpacing: "0.06em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{data.practicalAdvice.offerAnalysis.suggestedOffer}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Keyword gaps */}
-        {(data.practicalAdvice?.keywordGaps ?? []).length > 0 && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 НЕЗАНЯТЫЕ КЛЮЧЕВЫЕ СЛОВА</div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>
-                {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "7px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 10, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {data.practicalAdvice.keywordGaps.map((kg, i) => {
-                  const diffCol = kg.difficulty === "low" ? "#10b981" : kg.difficulty === "medium" ? "#f59e0b" : "#ef4444";
-                  const diffLabel = kg.difficulty === "low" ? "Лёгкий" : kg.difficulty === "medium" ? "Средний" : "Сложный";
+              {/* Recommendations */}
+              <div style={{ padding: "24px 32px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 AI-РЕКОМЕНДАЦИИ</div>
+                {data.recommendations.map((rec, i) => {
+                  const col = rec.priority === "high" ? "#e34935" : rec.priority === "medium" ? "#e6a817" : "#22a06b";
+                  const priorityLabel = rec.priority === "high" ? "Высокий" : rec.priority === "medium" ? "Средний" : "Низкий";
                   return (
-                    <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
-                      <td style={{ padding: "8px 12px", fontSize: 12, color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
-                      <td style={{ padding: "8px 12px", fontSize: 12, color: c.textSecondary }}>{kg.volume.toLocaleString("ru")}</td>
-                      <td style={{ padding: "8px 12px" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: diffCol, background: diffCol + "18", padding: "2px 7px", borderRadius: 5 }}>{diffLabel}</span>
-                      </td>
-                      <td style={{ padding: "8px 12px", fontSize: 11, color: c.textSecondary }}>{kg.opportunity}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* AI Perception */}
-        {data.aiPerception && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🤖 ВОСПРИЯТИЕ НЕЙРОСЕТЯМИ</div>
-
-            {/* Presence + persona row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              {(() => {
-                const presenceCfg = {
-                  strong:   { label: "Хорошо известна",    col: "#10b981" },
-                  moderate: { label: "Частично известна",  col: "#f59e0b" },
-                  weak:     { label: "Слабо известна",     col: "#f59e0b" },
-                  minimal:  { label: "Почти не известна",  col: "#ef4444" },
-                }[data.aiPerception.knowledgePresence] ?? { label: "—", col: c.textMuted };
-                return (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: presenceCfg.col, background: presenceCfg.col + "18", padding: "3px 12px", borderRadius: 20 }}>
-                    AI-видимость: {presenceCfg.label}
-                  </span>
-                );
-              })()}
-              <span style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic" }}>{data.aiPerception.persona}</span>
-            </div>
-
-            {/* Sample answer */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 6, letterSpacing: "0.06em" }}>СИМУЛЯЦИЯ ОТВЕТА НЕЙРОСЕТИ</div>
-              <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.65, fontStyle: "italic", padding: "10px 14px", background: "#6366f106", borderRadius: 8, border: "1px solid #6366f115" }}>
-                {data.aiPerception.sampleAnswer}
-              </div>
-            </div>
-
-            {/* E-E-A-T + signals */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>E-E-A-T ОЦЕНКА</div>
-                {([
-                  { key: "expertise" as const,  label: "Экспертиза" },
-                  { key: "experience" as const, label: "Опыт" },
-                  { key: "authority" as const,  label: "Авторитет" },
-                  { key: "trust" as const,      label: "Доверие" },
-                ]).map(({ key, label }) => {
-                  const val = data.aiPerception.eeat[key];
-                  const col = val >= 70 ? "#10b981" : val >= 45 ? "#f59e0b" : "#ef4444";
-                  return (
-                    <div key={key} style={{ marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontSize: 12, color: c.textSecondary }}>{label}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: col }}>{val}</span>
+                    <div key={i} style={{ padding: "14px 0", borderBottom: i < data.recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{priorityLabel}</span>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: c.textMuted }}>{rec.category}</span>
                       </div>
-                      <div style={{ height: 4, borderRadius: 2, background: c.borderLight }}>
-                        <div style={{ height: "100%", width: `${val}%`, background: col, borderRadius: 2 }} />
+                      <div style={{ fontSize: 13, color: c.textPrimary, lineHeight: 1.5, paddingLeft: 16, marginBottom: 6 }}>{rec.text}</div>
+                      <div style={{ paddingLeft: 16 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "#22a06b", background: "#22a06b12", padding: "3px 10px", borderRadius: 6 }}>Эффект: {rec.effect}</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>АССОЦИАЦИИ</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                  {data.aiPerception.associatedKeywords.map((kw, i) => (
-                    <span key={i} style={{ fontSize: 11, color: "#818cf8", background: "#6366f112", padding: "3px 10px", borderRadius: 20, border: "1px solid #6366f120" }}>{kw}</span>
-                  ))}
+
+              {/* AI Insights */}
+              {data.insights.length > 0 && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🧠 AI-ИНСАЙТЫ</div>
+                  {(() => {
+                    const typeCfg: Record<string, { icon: string; label: string }> = {
+                      niche: { icon: "🔭", label: "Пустая ниша" },
+                      action: { icon: "🚀", label: "Топ-действие" },
+                      battle: { icon: "⚔️", label: "Battle Card" },
+                      copy: { icon: "✍️", label: "Копирайтинг" },
+                      seo: { icon: "🔍", label: "SEO" },
+                      offer: { icon: "🎯", label: "Оффер" },
+                    };
+                    return data.insights.map((ins, i) => {
+                      const cfg = typeCfg[ins.type] ?? typeCfg.action;
+                      const col = ins.type === "niche" ? c.accent : ins.type === "battle" ? "#ef4444" : ins.type === "copy" ? "#f59e0b" : ins.type === "offer" ? "#9b59b6" : "#10b981";
+                      return (
+                        <div key={i} style={{ padding: "10px 0", borderBottom: i < data.insights.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14 }}>{cfg.icon}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: col, background: col + "18", padding: "2px 8px", borderRadius: 5 }}>{cfg.label}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{ins.title}</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, paddingLeft: 22 }}>{ins.text}</div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.06em" }}>СИГНАЛЫ</div>
-                {data.aiPerception.contentSignals.map((s, i) => (
-                  <div key={i} style={{ fontSize: 11, color: c.textSecondary, marginBottom: 5, display: "flex", gap: 6 }}>
-                    <span style={{ color: "#f59e0b", flexShrink: 0 }}>◆</span>{s}
-                  </div>
-                ))}
-              </div>
-            </div>
+              )}
 
-            {/* Improvement tips */}
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>КАК УЛУЧШИТЬ AI-ВИДИМОСТЬ</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {data.aiPerception.improvementTips.map((tip, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
-                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{tip}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SEO actions + Content ideas */}
-        {((data.practicalAdvice?.seoActions ?? []).length > 0 || (data.practicalAdvice?.contentIdeas ?? []).length > 0) && (
-          <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              {(data.practicalAdvice?.seoActions ?? []).length > 0 && (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚡ БЫСТРЫЕ SEO-ПОБЕДЫ</div>
-                  {data.practicalAdvice.seoActions.map((a, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
-                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{a}</div>
+              {/* Copy improvements */}
+              {(data.practicalAdvice?.copyImprovements ?? []).length > 0 && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>✍️ ПРАВКИ ТЕКСТА САЙТА</div>
+                  {data.practicalAdvice.copyImprovements.map((ci, i) => (
+                    <div key={i} style={{ marginBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, paddingBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? 16 : 0, borderBottom: i < data.practicalAdvice.copyImprovements.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", background: "#f59e0b18", padding: "2px 8px", borderRadius: 5 }}>{ci.element}</span>
+                        <span style={{ fontSize: 11, color: c.textMuted }}>{ci.reason}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ padding: "8px 12px", background: "#ef444408", borderRadius: 8, border: "1px solid #ef444420" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#ef4444", marginBottom: 4, letterSpacing: "0.06em" }}>СЕЙЧАС</div>
+                          <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, fontStyle: "italic" }}>{ci.current}</div>
+                        </div>
+                        <div style={{ padding: "8px 12px", background: "#10b98108", borderRadius: 8, border: "1px solid #10b98120" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4, letterSpacing: "0.06em" }}>ЗАМЕНИТЬ НА</div>
+                          <div style={{ fontSize: 12, color: c.textPrimary, lineHeight: 1.5, fontWeight: 500 }}>{ci.suggested}</div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
-              {(data.practicalAdvice?.contentIdeas ?? []).length > 0 && (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>💡 ИДЕИ КОНТЕНТА</div>
-                  {data.practicalAdvice.contentIdeas.map((idea, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 5, background: "#10b98115", color: "#10b981", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
-                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{idea}</div>
+
+              {/* Offer analysis */}
+              {data.practicalAdvice?.offerAnalysis?.currentOffer && data.practicalAdvice.offerAnalysis.currentOffer !== "—" && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🎯 ОФФЕР И ПОЗИЦИОНИРОВАНИЕ</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.06em" }}>ТЕКУЩИЙ ОФФЕР</div>
+                    <div style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic", padding: "8px 12px", background: c.bg, borderRadius: 7, border: `1px solid ${c.borderLight}` }}>{data.practicalAdvice.offerAnalysis.currentOffer}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", marginBottom: 6, letterSpacing: "0.06em" }}>СЛАБЫЕ МЕСТА</div>
+                      {data.practicalAdvice.offerAnalysis.weaknesses.map((w, i) => (
+                        <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#ef4444" }}>✗</span>{w}</div>
+                      ))}
                     </div>
-                  ))}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#10b981", marginBottom: 6, letterSpacing: "0.06em" }}>ЧТО ПОДЧЕРКНУТЬ</div>
+                      {data.practicalAdvice.offerAnalysis.differentiators.map((d, i) => (
+                        <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#10b981" }}>✓</span>{d}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding: "10px 14px", background: "#6366f108", borderRadius: 8, border: "1px solid #6366f120" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 5, letterSpacing: "0.06em" }}>ПРЕДЛАГАЕМЫЙ ОФФЕР</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{data.practicalAdvice.offerAnalysis.suggestedOffer}</div>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* Footer */}
-        <div style={{ padding: "16px 32px", borderTop: `1px solid ${c.border}`, background: c.bg, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: c.textMuted }}>MarketRadar · company24.pro</span>
-          <span style={{ fontSize: 11, color: c.textMuted }}>Сгенерировано {today}</span>
+              {/* Keyword gaps */}
+              {(data.practicalAdvice?.keywordGaps ?? []).length > 0 && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔑 НЕЗАНЯТЫЕ КЛЮЧЕВЫЕ СЛОВА</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr>
+                      {["Ключевое слово", "Объём/мес", "Сложность", "Почему стоит занять"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "7px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 10, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {data.practicalAdvice.keywordGaps.map((kg, i) => {
+                        const diffCol = kg.difficulty === "low" ? "#10b981" : kg.difficulty === "medium" ? "#f59e0b" : "#ef4444";
+                        const diffLabel = kg.difficulty === "low" ? "Лёгкий" : kg.difficulty === "medium" ? "Средний" : "Сложный";
+                        return (
+                          <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                            <td style={{ padding: "8px 12px", fontSize: 12, color: c.textPrimary, fontWeight: 500 }}>{kg.keyword}</td>
+                            <td style={{ padding: "8px 12px", fontSize: 12, color: c.textSecondary }}>{kg.volume.toLocaleString("ru")}</td>
+                            <td style={{ padding: "8px 12px" }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: diffCol, background: diffCol + "18", padding: "2px 7px", borderRadius: 5 }}>{diffLabel}</span>
+                            </td>
+                            <td style={{ padding: "8px 12px", fontSize: 11, color: c.textSecondary }}>{kg.opportunity}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* AI Perception */}
+              {data.aiPerception && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🤖 ВОСПРИЯТИЕ НЕЙРОСЕТЯМИ</div>
+
+                  {/* Presence + persona row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                    {(() => {
+                      const presenceCfg = {
+                        strong: { label: "Хорошо известна", col: "#10b981" },
+                        moderate: { label: "Частично известна", col: "#f59e0b" },
+                        weak: { label: "Слабо известна", col: "#f59e0b" },
+                        minimal: { label: "Почти не известна", col: "#ef4444" },
+                      }[data.aiPerception.knowledgePresence] ?? { label: "—", col: c.textMuted };
+                      return (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: presenceCfg.col, background: presenceCfg.col + "18", padding: "3px 12px", borderRadius: 20 }}>
+                          AI-видимость: {presenceCfg.label}
+                        </span>
+                      );
+                    })()}
+                    <span style={{ fontSize: 12, color: c.textSecondary, fontStyle: "italic" }}>{data.aiPerception.persona}</span>
+                  </div>
+
+                  {/* Sample answer */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#818cf8", marginBottom: 6, letterSpacing: "0.06em" }}>СИМУЛЯЦИЯ ОТВЕТА НЕЙРОСЕТИ</div>
+                    <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.65, fontStyle: "italic", padding: "10px 14px", background: "#6366f106", borderRadius: 8, border: "1px solid #6366f115" }}>
+                      {data.aiPerception.sampleAnswer}
+                    </div>
+                  </div>
+
+                  {/* E-E-A-T + signals */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>E-E-A-T ОЦЕНКА</div>
+                      {([
+                        { key: "expertise" as const, label: "Экспертиза" },
+                        { key: "experience" as const, label: "Опыт" },
+                        { key: "authority" as const, label: "Авторитет" },
+                        { key: "trust" as const, label: "Доверие" },
+                      ]).map(({ key, label }) => {
+                        const val = data.aiPerception.eeat[key];
+                        const col = val >= 70 ? "#10b981" : val >= 45 ? "#f59e0b" : "#ef4444";
+                        return (
+                          <div key={key} style={{ marginBottom: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                              <span style={{ fontSize: 12, color: c.textSecondary }}>{label}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: col }}>{val}</span>
+                            </div>
+                            <div style={{ height: 4, borderRadius: 2, background: c.borderLight }}>
+                              <div style={{ height: "100%", width: `${val}%`, background: col, borderRadius: 2 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>АССОЦИАЦИИ</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                        {data.aiPerception.associatedKeywords.map((kw, i) => (
+                          <span key={i} style={{ fontSize: 11, color: "#818cf8", background: "#6366f112", padding: "3px 10px", borderRadius: 20, border: "1px solid #6366f120" }}>{kw}</span>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.06em" }}>СИГНАЛЫ</div>
+                      {data.aiPerception.contentSignals.map((s, i) => (
+                        <div key={i} style={{ fontSize: 11, color: c.textSecondary, marginBottom: 5, display: "flex", gap: 6 }}>
+                          <span style={{ color: "#f59e0b", flexShrink: 0 }}>◆</span>{s}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Improvement tips */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.06em" }}>КАК УЛУЧШИТЬ AI-ВИДИМОСТЬ</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {data.aiPerception.improvementTips.map((tip, i) => (
+                        <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                          <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                          <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{tip}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SEO actions + Content ideas */}
+              {((data.practicalAdvice?.seoActions ?? []).length > 0 || (data.practicalAdvice?.contentIdeas ?? []).length > 0) && (
+                <div style={{ padding: "24px 32px", borderBottom: `1px solid ${c.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {(data.practicalAdvice?.seoActions ?? []).length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚡ БЫСТРЫЕ SEO-ПОБЕДЫ</div>
+                        {data.practicalAdvice.seoActions.map((a, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 5, background: "#6366f115", color: "#818cf8", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                            <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{a}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(data.practicalAdvice?.contentIdeas ?? []).length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>💡 ИДЕИ КОНТЕНТА</div>
+                        {data.practicalAdvice.contentIdeas.map((idea, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 5, background: "#10b98115", color: "#10b981", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                            <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>{idea}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ padding: "16px 32px", borderTop: `1px solid ${c.border}`, background: c.bg, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: c.textMuted }}>MarketRadar · company24.pro</span>
+                <span style={{ fontSize: 11, color: c.textMuted }}>Сгенерировано {today}</span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
     </div>
   );
 }
+
 
 // ============================================================
 // Sources View
@@ -2916,7 +3065,7 @@ function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: UserAccount
       )}
 
       {tab === "notifications" && (
-        <NotificationsTab c={c} user={user ?? null} onUpdateUser={onUpdateUser ?? (() => {})} />
+        <NotificationsTab c={c} user={user ?? null} onUpdateUser={onUpdateUser ?? (() => { })} />
       )}
     </div>
   );
@@ -2948,7 +3097,7 @@ function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAcco
   const [prefsSaved, setPrefsSaved] = useState(false);
 
   useEffect(() => {
-    fetch("/api/telegram/connect").then(r => r.json()).then(d => { if (d.username) setBotUsername(d.username); }).catch(() => {});
+    fetch("/api/telegram/connect").then(r => r.json()).then(d => { if (d.username) setBotUsername(d.username); }).catch(() => { });
   }, []);
 
   async function handlePoll() {
@@ -3014,7 +3163,7 @@ function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAcco
             </div>
             <a href={botUsername ? `https://t.me/${botUsername}` : "https://t.me/"} target="_blank" rel="noopener noreferrer"
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 10, background: "#229ED9", color: "#fff", fontWeight: 600, fontSize: 13, textDecoration: "none", alignSelf: "flex-start" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.88 13.47l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.832.946l-.564-.857z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.88 13.47l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.832.946l-.564-.857z" /></svg>
               {botUsername ? `Открыть @${botUsername}` : "Открыть бота в Telegram"}
             </a>
             <div style={{ fontSize: 13, color: c.textSecondary, marginTop: 4 }}>2. Отправьте ему этот код:</div>
@@ -3093,7 +3242,7 @@ function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
     <div style={{ maxWidth: 700 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Анализ целевой аудитории</h1>
       <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
-        GPT-4o проведёт глубокий психологический анализ ЦА: сегменты, боли, страхи, мотивы, возражения и триггеры покупки.
+        Мы проведём глубокий психологический анализ ЦА: сегменты, боли, страхи, мотивы, возражения и триггеры покупки.
       </p>
 
       {myCompany && (
@@ -3147,8 +3296,34 @@ function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
         {isAnalyzing ? "⏳ Анализируем ЦА… (60–90 сек)" : "🧠 Провести анализ ЦА"}
       </button>
       {isAnalyzing && (
-        <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>GPT-4o проводит глубокий анализ. Не закрывайте страницу.</p>
+        <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>Проводим глубокий анализ. Не закрывайте страницу.</p>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// TA Empty Dashboard (no data yet)
+// ============================================================
+
+function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Дашборд ЦА</h1>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 28px" }}>Анализ целевой аудитории ещё не проводился</p>
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🧠</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>Тут пока нет данных</div>
+        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
+          Запустите анализ целевой аудитории, чтобы увидеть сегменты, боли, страхи и мотивы ваших клиентов
+        </div>
+        <button
+          onClick={onRunAnalysis}
+          style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #6366f140" }}
+        >
+          🚀 Запустить анализ ЦА
+        </button>
+      </div>
     </div>
   );
 }
@@ -3625,9 +3800,9 @@ export default function MarketRadarDashboard() {
     items.map(item => ({
       ...item,
       count: item.id === "competitors" ? (competitors.length > 0 ? competitors.length : null) :
-             item.id === "insights" ? (myCompany?.insights?.length ?? null) :
-             item.id === "competitor-analysis" ? (myCompany ? 1 : null) :
-             item.id === "ta-analysis" ? (taAnalysis ? 1 : null) : item.count,
+        item.id === "insights" ? (myCompany?.insights?.length ?? null) :
+          item.id === "competitor-analysis" ? (myCompany ? 1 : null) :
+            item.id === "ta-analysis" ? (taAnalysis ? 1 : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
   const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
@@ -3679,7 +3854,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}
-        {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />)}
+        {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
       </main>
     </div>
   );
