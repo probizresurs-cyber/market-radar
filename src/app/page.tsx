@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
+import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings } from "@/lib/content-types";
 
 // ============================================================
 // MarketRadar — Конкурентный анализ для Company24.pro
@@ -4165,6 +4166,761 @@ function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
   );
 }
 
+// ============================================================
+// Content Factory views
+// ============================================================
+
+function ContentEmptyView({ c, onRun, hasSmm }: { c: Colors; onRun: () => void; hasSmm: boolean }) {
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Контент-завод</h1>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🏭</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>
+          {hasSmm ? "Запустите контент-завод" : "Сначала проведите анализ СММ"}
+        </div>
+        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 24, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 24px" }}>
+          {hasSmm
+            ? "На основе вашего СММ-анализа мы создадим контент-план: 12 идей постов и 8 видео-рилсов. Дальше можно сгенерировать готовые посты с картинками и видео с аватарами HeyGen."
+            : "Контент-завод работает на основе СММ-анализа — он определяет архетип бренда, тон голоса и боли аудитории, а уже потом строит контент-план."}
+        </div>
+        <button
+          onClick={onRun}
+          style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #f59e0b, #fb923c)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
+          {hasSmm ? "🏭 Сгенерировать план" : "📱 Перейти к анализу СММ"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate }: {
+  c: Colors;
+  myCompany: AnalysisResult | null;
+  smm: SMMResult | null;
+  isGenerating: boolean;
+  onGenerate: (niche: string) => Promise<void>;
+}) {
+  const [niche, setNiche] = useState(myCompany?.company.description?.split("\n")[0]?.slice(0, 200) ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!smm) {
+      setError("Сначала проведите анализ СММ — контент-завод работает на его основе");
+      return;
+    }
+    setError(null);
+    try {
+      await onGenerate(niche.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Контент-завод</h1>
+      <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
+        Сгенерируем контент-план на 30 дней: 12 идей постов и 8 видео-рилсов на основе вашего СММ-анализа. Каждую идею можно превратить в готовый пост с картинкой или видео с аватаром HeyGen.
+      </p>
+
+      {smm ? (
+        <div style={{ background: "#f59e0b10", border: "1px solid #f59e0b30", borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
+          <div style={{ color: c.textMuted, marginBottom: 4 }}>Используем СММ-анализ:</div>
+          <div style={{ fontWeight: 600, color: c.textPrimary }}>{smm.brandIdentity.archetype} · {smm.companyName}</div>
+          <div style={{ color: c.textSecondary, marginTop: 4 }}>{smm.brandIdentity.positioning}</div>
+        </div>
+      ) : (
+        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: c.accentRed }}>
+          ⚠️ СММ-анализ не найден. Сначала запустите его в разделе «Анализ СММ».
+        </div>
+      )}
+
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+          Уточнение по нише (опционально)
+        </label>
+        <textarea
+          value={niche}
+          onChange={e => setNiche(e.target.value)}
+          placeholder="Можно дополнить контекст: продукт, ЦА, особенности коммуникации"
+          rows={3}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+        />
+      </div>
+
+      {error && (
+        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.accentRed, marginBottom: 16 }}>{error}</div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={isGenerating || !smm}
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating || !smm ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating || !smm ? c.textMuted : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating || !smm ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
+        {isGenerating ? "⏳ Запускаем завод… (60–90 сек)" : "🏭 Сгенерировать контент-план"}
+      </button>
+    </div>
+  );
+}
+
+function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings }: {
+  c: Colors;
+  plan: ContentPlan;
+  isGeneratingPost: boolean;
+  generatingPostId: string | null;
+  isGeneratingReel: boolean;
+  generatingReelId: string | null;
+  onGeneratePost: (idea: ContentPostIdea) => void;
+  onGenerateReel: (idea: ContentReelIdea) => void;
+  avatarSettings: AvatarSettings;
+  onUpdateAvatarSettings: (next: AvatarSettings) => void;
+}) {
+  const generatedDate = new Date(plan.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+
+  const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow, ...style }}>{children}</div>
+  );
+
+  return (
+    <div style={{ maxWidth: 1200 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>🏭 Контент-завод — {plan.companyName}</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{generatedDate} · {plan.postIdeas.length} постов · {plan.reelIdeas.length} рилсов</p>
+      </div>
+
+      {/* Big Idea + pillars */}
+      <CollapsibleSection c={c} title="💡 Большая идея и контент-столпы">
+        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, ${c.bgCard} 60%, #f59e0b08 100%)` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, lineHeight: 1.5, margin: 0 }}>{plan.bigIdea}</p>
+        </Card>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          {plan.pillars?.map((p, i) => (
+            <Card key={i}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>{p.name}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>{p.share}</div>
+              </div>
+              <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, margin: 0 }}>{p.description}</p>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* Post ideas */}
+      <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+          {plan.postIdeas.map(idea => {
+            const busy = isGeneratingPost && generatingPostId === idea.id;
+            return (
+              <Card key={idea.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px", textTransform: "uppercase" }}>{idea.format}</span>
+                  <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.platform}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 8 }}>{idea.hook}</div>
+                <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, margin: "0 0 8px" }}>{idea.angle}</p>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Столп:</b> {idea.pillar}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Цель:</b> {idea.goal}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 12 }}><b style={{ color: c.textSecondary }}>CTA:</b> {idea.cta}</div>
+                <button
+                  onClick={() => onGeneratePost(idea)}
+                  disabled={busy || isGeneratingPost}
+                  style={{ width: "100%", padding: "9px 14px", borderRadius: 9, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy || isGeneratingPost ? "not-allowed" : "pointer", opacity: isGeneratingPost && !busy ? 0.5 : 1 }}>
+                  {busy ? "⏳ Генерируем пост + картинку…" : "✨ Создать пост с картинкой"}
+                </button>
+              </Card>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
+
+      {/* Avatar settings (affects reel scenarios + video generation) */}
+      <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
+
+      {/* Reel ideas */}
+      <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+          {plan.reelIdeas.map(idea => {
+            const busy = isGeneratingReel && generatingReelId === idea.id;
+            return (
+              <Card key={idea.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {idea.durationSec}s</span>
+                  <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.pillar}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 8 }}>🪝 {idea.hook}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Боль:</b> {idea.problem}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Решение:</b> {idea.solution}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 12 }}><b style={{ color: c.textSecondary }}>Результат:</b> {idea.result}</div>
+                <button
+                  onClick={() => onGenerateReel(idea)}
+                  disabled={busy || isGeneratingReel}
+                  style={{ width: "100%", padding: "9px 14px", borderRadius: 9, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy || isGeneratingReel ? "not-allowed" : "pointer", opacity: isGeneratingReel && !busy ? 0.5 : 1 }}>
+                  {busy ? "⏳ Пишем сценарий…" : "🎬 Создать сценарий рилса"}
+                </button>
+              </Card>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
+
+      {/* Calendar */}
+      <CollapsibleSection c={c} title="📅 Календарь на 30 дней" defaultOpen={false}>
+        <Card>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+            {plan.thirtyDayCalendar?.map((day, i) => (
+              <div key={i} style={{ padding: "8px 12px", background: c.bg, borderRadius: 8, border: `1px solid ${c.borderLight}`, fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
+                {day}
+              </div>
+            ))}
+          </div>
+          {plan.weeklyRhythm && (
+            <div style={{ marginTop: 16, padding: 12, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: c.textSecondary }}>
+              <b style={{ color: "#f59e0b" }}>Ритм публикаций:</b> {plan.weeklyRhythm}
+            </div>
+          )}
+        </Card>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+function PostCard({ c, post, onUpdate, onDelete }: {
+  c: Colors;
+  post: GeneratedPost;
+  onUpdate: (updated: GeneratedPost) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [hook, setHook] = useState(post.hook);
+  const [body, setBody] = useState(post.body);
+  const [hashtagsRaw, setHashtagsRaw] = useState(post.hashtags.join(" "));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleSave = () => {
+    const tags = hashtagsRaw.split(/[\s,]+/).filter(Boolean).map(t => t.startsWith("#") ? t : "#" + t);
+    onUpdate({ ...post, hook, body, hashtags: tags });
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setHook(post.hook);
+    setBody(post.body);
+    setHashtagsRaw(post.hashtags.join(" "));
+    setEditing(false);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    border: `1px solid ${c.accent}50`, background: c.bg,
+    color: c.textPrimary, fontSize: 13, outline: "none",
+    lineHeight: 1.55, fontFamily: "inherit", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${editing ? c.accent + "60" : c.border}`, padding: 18, boxShadow: c.shadow, transition: "border-color 0.15s" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px" }}>{post.platform}</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(post.generatedAt).toLocaleString("ru-RU")}</span>
+          {!editing && (
+            <button
+              onClick={() => setEditing(true)}
+              style={{ padding: "4px 9px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+              ✏️ Редактировать
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Image */}
+      {post.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, marginBottom: 12, aspectRatio: "1/1", objectFit: "cover" }} />
+      )}
+
+      {editing ? (
+        <>
+          {/* Hook */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>КРЮЧОК / ЗАГОЛОВОК</label>
+            <input
+              type="text"
+              value={hook}
+              onChange={e => setHook(e.target.value)}
+              style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }}
+            />
+          </div>
+          {/* Body */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ТЕКСТ ПОСТА</label>
+            <textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              rows={10}
+              style={{ ...inputStyle, resize: "vertical" }}
+            />
+          </div>
+          {/* Hashtags */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ (через пробел)</label>
+            <input
+              type="text"
+              value={hashtagsRaw}
+              onChange={e => setHashtagsRaw(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={handleSave}
+              style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+              💾 Сохранить
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Отмена
+            </button>
+            {confirmDelete ? (
+              <>
+                <button
+                  onClick={() => onDelete(post.id)}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: c.accentRed, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Удалить
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer" }}>
+                  Нет
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🗑 Удалить
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
+          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 12px", whiteSpace: "pre-wrap" }}>{post.body}</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+            {post.hashtags.map((h, i) => (
+              <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+            ))}
+          </div>
+          <button
+            onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
+            style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            📋 Скопировать текст
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost }: {
+  c: Colors;
+  posts: GeneratedPost[];
+  onUpdatePost: (updated: GeneratedPost) => void;
+  onDeletePost: (id: string) => void;
+}) {
+  if (posts.length === 0) {
+    return (
+      <div style={{ maxWidth: 700 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые посты</h1>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow, marginTop: 20 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+          <div style={{ fontSize: 14, color: c.textSecondary }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые посты ({posts.length})</h1>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните «Редактировать» на карточке, чтобы поправить текст</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+        {posts.map(post => (
+          <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AvatarSettingsPanel({ c, settings, onChange }: {
+  c: Colors;
+  settings: AvatarSettings;
+  onChange: (next: AvatarSettings) => void;
+}) {
+  const [open, setOpen] = useState(!settings.avatarId && !settings.voiceId);
+  const [loading, setLoading] = useState(false);
+  const [avatars, setAvatars] = useState<Array<{ id: string; name: string; gender: string; previewImage: string }>>([]);
+  const [voices, setVoices] = useState<Array<{ id: string; name: string; language: string; gender: string; previewAudio: string }>>([]);
+  const [showLists, setShowLists] = useState(false);
+  const [voiceFilter, setVoiceFilter] = useState("ru");
+  const [error, setError] = useState<string | null>(null);
+
+  const update = (patch: Partial<AvatarSettings>) => onChange({ ...settings, ...patch });
+
+  const loadLists = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/heygen-list");
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка HeyGen");
+      setAvatars(json.data.avatars);
+      setVoices(json.data.voices);
+      setShowLists(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredVoices = voiceFilter
+    ? voices.filter(v => v.language?.toLowerCase().includes(voiceFilter.toLowerCase()) || v.name?.toLowerCase().includes(voiceFilter.toLowerCase()))
+    : voices;
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, boxShadow: c.shadow, marginBottom: 20 }}>
+      <div
+        onClick={() => setOpen(!open)}
+        style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid ${c.borderLight}` : "none" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>🎭 Настройки аватара и голоса HeyGen</div>
+          <div style={{ fontSize: 11, color: c.textMuted, marginTop: 3 }}>
+            {settings.avatarId || settings.voiceId
+              ? `Avatar: ${settings.avatarId || "—"} · Voice: ${settings.voiceId || "—"}`
+              : "Не настроено — будут использованы значения по умолчанию"}
+          </div>
+        </div>
+        <span style={{ fontSize: 11, color: c.textMuted, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+      </div>
+
+      {open && (
+        <div style={{ padding: "16px 18px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>HEYGEN AVATAR ID</label>
+              <input
+                type="text"
+                value={settings.avatarId}
+                onChange={e => update({ avatarId: e.target.value })}
+                placeholder="например: Daisy-inskirt-20220818"
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", fontFamily: "monospace" }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>HEYGEN VOICE ID</label>
+              <input
+                type="text"
+                value={settings.voiceId}
+                onChange={e => update({ voiceId: e.target.value })}
+                placeholder="ID голоса из HeyGen"
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", fontFamily: "monospace" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 14 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>КАК ВЫГЛЯДИТ АВАТАР</label>
+              <textarea
+                value={settings.avatarDescription}
+                onChange={e => update({ avatarDescription: e.target.value })}
+                placeholder="Например: молодой эксперт мужчина 30-35 лет, деловой стиль, дружелюбное лицо, профессиональный фон"
+                rows={3}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }}
+              />
+              <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>Используется в подсказке для генерации сценария — чтобы стиль сценария совпадал с внешним видом ведущего</div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>КАКИМ ДОЛЖЕН БЫТЬ ГОЛОС</label>
+              <textarea
+                value={settings.voiceDescription}
+                onChange={e => update({ voiceDescription: e.target.value })}
+                placeholder="Например: уверенный мужской баритон, средний темп, дружелюбный, с лёгкой улыбкой в голосе, без формальностей"
+                rows={3}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }}
+              />
+              <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>Скрипт для озвучки будет адаптирован под этот тон и манеру речи</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>ФОРМАТ:</label>
+            <button
+              onClick={() => update({ aspect: "portrait" })}
+              style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "portrait" ? c.accent : c.border}`, background: settings.aspect === "portrait" ? c.accent + "15" : "transparent", color: settings.aspect === "portrait" ? c.accent : c.textSecondary, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              📱 Вертикально (720×1280)
+            </button>
+            <button
+              onClick={() => update({ aspect: "landscape" })}
+              style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "landscape" ? c.accent : c.border}`, background: settings.aspect === "landscape" ? c.accent + "15" : "transparent", color: settings.aspect === "landscape" ? c.accent : c.textSecondary, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              🖥 Горизонтально (1280×720)
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+            <button
+              onClick={loadLists}
+              disabled={loading}
+              style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
+              {loading ? "⏳ Загружаем…" : showLists ? "🔄 Обновить списки" : "📋 Загрузить доступные аватары и голоса с HeyGen"}
+            </button>
+          </div>
+
+          {error && (
+            <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11, marginTop: 12 }}>{error}</div>
+          )}
+
+          {showLists && avatars.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>АВАТАРЫ ({avatars.length}) — кликни, чтобы выбрать</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, maxHeight: 320, overflowY: "auto", padding: 4 }}>
+                {avatars.map(a => (
+                  <div
+                    key={a.id}
+                    onClick={() => update({ avatarId: a.id })}
+                    style={{ cursor: "pointer", border: `2px solid ${settings.avatarId === a.id ? c.accent : c.border}`, borderRadius: 8, padding: 6, background: settings.avatarId === a.id ? c.accent + "10" : "transparent" }}>
+                    {a.previewImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.previewImage} alt={a.name} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 5, marginBottom: 4 }} />
+                    )}
+                    <div style={{ fontSize: 10, fontWeight: 600, color: c.textPrimary, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name || a.id}</div>
+                    {a.gender && <div style={{ fontSize: 9, color: c.textMuted }}>{a.gender}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showLists && voices.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>ГОЛОСА ({filteredVoices.length} из {voices.length})</div>
+                <input
+                  type="text"
+                  value={voiceFilter}
+                  onChange={e => setVoiceFilter(e.target.value)}
+                  placeholder="фильтр (ru, en, female...)"
+                  style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 11, outline: "none", width: 180 }}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, maxHeight: 300, overflowY: "auto", padding: 4 }}>
+                {filteredVoices.slice(0, 100).map(v => (
+                  <div
+                    key={v.id}
+                    onClick={() => update({ voiceId: v.id })}
+                    style={{ cursor: "pointer", border: `1.5px solid ${settings.voiceId === v.id ? c.accent : c.border}`, borderRadius: 7, padding: "8px 10px", background: settings.voiceId === v.id ? c.accent + "10" : "transparent" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: c.textPrimary, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name || v.id}</div>
+                    <div style={{ fontSize: 10, color: c.textMuted }}>{v.language} · {v.gender}</div>
+                    {v.previewAudio && (
+                      <audio src={v.previewAudio} controls style={{ width: "100%", height: 24, marginTop: 4 }} onClick={e => e.stopPropagation()} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor }: {
+  c: Colors;
+  reel: GeneratedReel;
+  onUpdate: (updated: GeneratedReel) => void;
+  onDelete: (id: string) => void;
+  onGenerateVideo: (reelId: string) => void;
+  generatingVideoFor: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(reel.title);
+  const [scenario, setScenario] = useState(reel.scenario);
+  const [voiceover, setVoiceover] = useState(reel.voiceoverScript);
+  const [hashtagsRaw, setHashtagsRaw] = useState(reel.hashtags.join(" "));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const busy = generatingVideoFor === reel.id || reel.videoStatus === "generating";
+
+  const handleSave = () => {
+    const tags = hashtagsRaw.split(/[\s,]+/).filter(Boolean).map(t => t.startsWith("#") ? t : "#" + t);
+    onUpdate({ ...reel, title, scenario, voiceoverScript: voiceover, hashtags: tags });
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setTitle(reel.title);
+    setScenario(reel.scenario);
+    setVoiceover(reel.voiceoverScript);
+    setHashtagsRaw(reel.hashtags.join(" "));
+    setEditing(false);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    border: `1px solid ${c.accent}50`, background: c.bg,
+    color: c.textPrimary, fontSize: 12, outline: "none",
+    lineHeight: 1.55, fontFamily: "inherit", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${editing ? "#ec489960" : c.border}`, padding: 18, boxShadow: c.shadow, transition: "border-color 0.15s" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {reel.durationSec}s</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(reel.generatedAt).toLocaleString("ru-RU")}</span>
+          {!editing && (
+            <button
+              onClick={() => setEditing(true)}
+              style={{ padding: "4px 9px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+              ✏️ Редактировать
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Finished video */}
+      {reel.videoUrl && reel.videoStatus === "ready" && (
+        <video src={reel.videoUrl} controls style={{ width: "100%", borderRadius: 10, marginBottom: 12, aspectRatio: "9/16", background: "#000" }} />
+      )}
+
+      {editing ? (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>НАЗВАНИЕ</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>РАСКАДРОВКА</label>
+            <textarea value={scenario} onChange={e => setScenario(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ТЕКСТ ДЛЯ ОЗВУЧКИ (отправляется в HeyGen)</label>
+            <textarea value={voiceover} onChange={e => setVoiceover(e.target.value)} rows={5} style={{ ...inputStyle, resize: "vertical" }} />
+            <div style={{ fontSize: 10, color: c.textMuted, marginTop: 3 }}>После правки можно заново сгенерировать видео с обновлённым текстом</div>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ</label>
+            <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+              💾 Сохранить
+            </button>
+            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Отмена
+            </button>
+            {confirmDelete ? (
+              <>
+                <button onClick={() => onDelete(reel.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: c.accentRed, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
+                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer" }}>Нет</button>
+              </>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🗑 Удалить
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 12 }}>{reel.title}</div>
+
+          <details style={{ marginBottom: 10 }}>
+            <summary style={{ fontSize: 12, fontWeight: 700, color: c.textSecondary, cursor: "pointer" }}>📋 Раскадровка</summary>
+            <pre style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.55, margin: "8px 0 0", whiteSpace: "pre-wrap", fontFamily: "inherit", background: c.bg, padding: 12, borderRadius: 8, border: `1px solid ${c.borderLight}` }}>{reel.scenario}</pre>
+          </details>
+
+          <details style={{ marginBottom: 12 }}>
+            <summary style={{ fontSize: 12, fontWeight: 700, color: c.textSecondary, cursor: "pointer" }}>🎙 Текст для озвучки</summary>
+            <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, margin: "8px 0 0", background: c.bg, padding: 12, borderRadius: 8, border: `1px solid ${c.borderLight}` }}>{reel.voiceoverScript}</p>
+          </details>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+            {reel.hashtags.map((h, i) => (
+              <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+            ))}
+          </div>
+
+          {reel.videoStatus === "failed" && reel.videoError && (
+            <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 10 }}>❌ {reel.videoError}</div>
+          )}
+
+          {reel.videoStatus !== "ready" && (
+            <button
+              onClick={() => onGenerateVideo(reel.id)}
+              disabled={busy}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 9, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
+              {reel.videoStatus === "generating"
+                ? "⏳ HeyGen генерирует видео… (~2-5 мин)"
+                : busy ? "⏳ Запускаем HeyGen…"
+                : reel.videoStatus === "failed" ? "🔄 Повторить генерацию"
+                : "🎥 Сгенерировать видео с аватаром"}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel }: {
+  c: Colors;
+  reels: GeneratedReel[];
+  onGenerateVideo: (reelId: string) => void;
+  generatingVideoFor: string | null;
+  avatarSettings: AvatarSettings;
+  onUpdateAvatarSettings: (next: AvatarSettings) => void;
+  onUpdateReel: (updated: GeneratedReel) => void;
+  onDeleteReel: (id: string) => void;
+}) {
+  if (reels.length === 0) {
+    return (
+      <div style={{ maxWidth: 1100 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые видео</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Настройте аватара, потом сгенерируйте сценарии в «План контента»</p>
+        <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎬</div>
+          <div style={{ fontSize: 14, color: c.textSecondary }}>Пока нет сценариев. Перейдите в «План контента» и нажмите «Создать сценарий рилса» на любой идее.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые видео ({reels.length})</h1>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните «Редактировать» на карточке для правки сценария и текста озвучки</p>
+      <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+        {reels.map(reel => (
+          <ReelCard key={reel.id} c={c} reel={reel} onUpdate={onUpdateReel} onDelete={onDeleteReel} onGenerateVideo={onGenerateVideo} generatingVideoFor={generatingVideoFor} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface NavItem {
   id: string;
   icon: string;
@@ -4206,6 +4962,14 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "smm-dashboard", icon: "🎨", label: "Дашборд СММ", count: null },
         ],
       },
+      {
+        id: "content-factory", icon: "🏭", label: "Контент-завод", count: null,
+        children: [
+          { id: "content-plan", icon: "📋", label: "План контента", count: null },
+          { id: "content-posts", icon: "📝", label: "Готовые посты", count: null },
+          { id: "content-reels", icon: "🎬", label: "Готовые видео", count: null },
+        ],
+      },
       { id: "reports", icon: "📄", label: "Отчёты", count: null },
       { id: "sources", icon: "🔗", label: "Источники", count: null },
     ],
@@ -4237,6 +5001,20 @@ export default function MarketRadarDashboard() {
   const [isTAAnalyzing, setIsTAAnalyzing] = useState(false);
   const [smmAnalysis, setSmmAnalysis] = useState<SMMResult | null>(null);
   const [isSMMAnalyzing, setIsSMMAnalyzing] = useState(false);
+  const [contentPlan, setContentPlan] = useState<ContentPlan | null>(null);
+  const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
+  const [generatedReels, setGeneratedReels] = useState<GeneratedReel[]>([]);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
+  const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
+  const [generatingVideoFor, setGeneratingVideoFor] = useState<string | null>(null);
+  const [avatarSettings, setAvatarSettings] = useState<AvatarSettings>({
+    avatarId: "",
+    voiceId: "",
+    avatarDescription: "",
+    voiceDescription: "",
+    aspect: "portrait",
+  });
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -4267,6 +5045,17 @@ export default function MarketRadarDashboard() {
         const savedSMM = localStorage.getItem(`mr_smm_${user.id}`);
         if (savedSMM) {
           setSmmAnalysis(JSON.parse(savedSMM));
+        }
+        const savedContent = localStorage.getItem(`mr_content_${user.id}`);
+        if (savedContent) {
+          const parsedContent = JSON.parse(savedContent) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] };
+          if (parsedContent.plan) setContentPlan(parsedContent.plan);
+          if (Array.isArray(parsedContent.posts)) setGeneratedPosts(parsedContent.posts);
+          if (Array.isArray(parsedContent.reels)) setGeneratedReels(parsedContent.reels);
+        }
+        const savedAvatarSettings = localStorage.getItem(`mr_avatar_settings_${user.id}`);
+        if (savedAvatarSettings) {
+          setAvatarSettings(JSON.parse(savedAvatarSettings));
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -4390,6 +5179,205 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  // ----- Content Factory -----
+
+  const persistContent = (plan: ContentPlan | null, posts: GeneratedPost[], reels: GeneratedReel[]) => {
+    if (!currentUser?.id) return;
+    try {
+      localStorage.setItem(`mr_content_${currentUser.id}`, JSON.stringify({ plan, posts, reels }));
+    } catch { /* ignore */ }
+  };
+
+  const handleUpdateAvatarSettings = (next: AvatarSettings) => {
+    setAvatarSettings(next);
+    if (currentUser?.id) {
+      try { localStorage.setItem(`mr_avatar_settings_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+    }
+  };
+
+  const handleGenerateContentPlan = async (niche: string) => {
+    if (!smmAnalysis) return;
+    setIsGeneratingPlan(true);
+    try {
+      const res = await fetch("/api/generate-content-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? smmAnalysis.companyName,
+          niche,
+          smmAnalysis,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации плана");
+      setContentPlan(json.data);
+      persistContent(json.data, generatedPosts, generatedReels);
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
+  const handleGeneratePost = async (idea: ContentPostIdea) => {
+    setGeneratingPostId(idea.id);
+    try {
+      const res = await fetch("/api/generate-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
+          idea,
+          smmAnalysis,
+          generateImage: true,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
+      setGeneratedPosts(prev => {
+        const next = [json.data as GeneratedPost, ...prev];
+        persistContent(contentPlan, next, generatedReels);
+        return next;
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка генерации поста");
+    } finally {
+      setGeneratingPostId(null);
+    }
+  };
+
+  const handleGenerateReelScenario = async (idea: ContentReelIdea) => {
+    setGeneratingReelId(idea.id);
+    try {
+      const res = await fetch("/api/generate-reel-scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
+          idea,
+          smmAnalysis,
+          voiceDescription: avatarSettings.voiceDescription,
+          avatarDescription: avatarSettings.avatarDescription,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации сценария");
+      setGeneratedReels(prev => {
+        const next = [json.data as GeneratedReel, ...prev];
+        persistContent(contentPlan, generatedPosts, next);
+        return next;
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка генерации сценария");
+    } finally {
+      setGeneratingReelId(null);
+    }
+  };
+
+  const handleUpdatePost = (updated: GeneratedPost) => {
+    setGeneratedPosts(prev => {
+      const next = prev.map(p => p.id === updated.id ? updated : p);
+      persistContent(contentPlan, next, generatedReels);
+      return next;
+    });
+  };
+
+  const handleUpdateReel = (updated: GeneratedReel) => {
+    setGeneratedReels(prev => {
+      const next = prev.map(r => r.id === updated.id ? updated : r);
+      persistContent(contentPlan, generatedPosts, next);
+      return next;
+    });
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setGeneratedPosts(prev => {
+      const next = prev.filter(p => p.id !== postId);
+      persistContent(contentPlan, next, generatedReels);
+      return next;
+    });
+  };
+
+  const handleDeleteReel = (reelId: string) => {
+    setGeneratedReels(prev => {
+      const next = prev.filter(r => r.id !== reelId);
+      persistContent(contentPlan, generatedPosts, next);
+      return next;
+    });
+  };
+
+  const handleGenerateReelVideo = async (reelId: string) => {
+    const reel = generatedReels.find(r => r.id === reelId);
+    if (!reel) return;
+    setGeneratingVideoFor(reelId);
+    try {
+      const res = await fetch("/api/generate-reel-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script: reel.voiceoverScript,
+          avatarId: avatarSettings.avatarId || undefined,
+          voiceId: avatarSettings.voiceId || undefined,
+          aspect: avatarSettings.aspect,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка HeyGen");
+      const videoId: string = json.data.videoId;
+      setGeneratedReels(prev => {
+        const next = prev.map(r => r.id === reelId
+          ? { ...r, heygenVideoId: videoId, videoStatus: "generating" as const, videoError: undefined }
+          : r);
+        persistContent(contentPlan, generatedPosts, next);
+        return next;
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Ошибка";
+      setGeneratedReels(prev => {
+        const next = prev.map(r => r.id === reelId
+          ? { ...r, videoStatus: "failed" as const, videoError: msg }
+          : r);
+        persistContent(contentPlan, generatedPosts, next);
+        return next;
+      });
+    } finally {
+      setGeneratingVideoFor(null);
+    }
+  };
+
+  // Poll HeyGen for any reels currently generating
+  useEffect(() => {
+    const generating = generatedReels.filter(r => r.videoStatus === "generating" && r.heygenVideoId);
+    if (generating.length === 0) return;
+    const interval = setInterval(async () => {
+      for (const reel of generating) {
+        try {
+          const res = await fetch(`/api/video-status?videoId=${encodeURIComponent(reel.heygenVideoId!)}`);
+          const json = await res.json();
+          if (!json.ok) continue;
+          const status: string = json.data.status;
+          if (status === "completed" && json.data.videoUrl) {
+            setGeneratedReels(prev => {
+              const next = prev.map(r => r.id === reel.id
+                ? { ...r, videoStatus: "ready" as const, videoUrl: json.data.videoUrl as string }
+                : r);
+              persistContent(contentPlan, generatedPosts, next);
+              return next;
+            });
+          } else if (status === "failed") {
+            setGeneratedReels(prev => {
+              const next = prev.map(r => r.id === reel.id
+                ? { ...r, videoStatus: "failed" as const, videoError: json.data.error ?? "HeyGen вернул failed" }
+                : r);
+              persistContent(contentPlan, generatedPosts, next);
+              return next;
+            });
+          }
+        } catch { /* keep polling */ }
+      }
+    }, 10_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedReels.map(r => `${r.id}:${r.videoStatus}`).join(",")]);
+
   // Onboarding complete: run initial analysis
   const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {
     setCurrentUser(updatedUser);
@@ -4438,7 +5426,10 @@ export default function MarketRadarDashboard() {
         item.id === "insights" ? (myCompany?.insights?.length ?? null) :
           item.id === "competitor-analysis" ? (myCompany ? 1 : null) :
             item.id === "ta-analysis" ? (taAnalysis ? 1 : null) :
-              item.id === "smm-analysis" ? (smmAnalysis ? 1 : null) : item.count,
+              item.id === "smm-analysis" ? (smmAnalysis ? 1 : null) :
+                item.id === "content-factory" ? (contentPlan ? 1 : null) :
+                  item.id === "content-posts" ? (generatedPosts.length > 0 ? generatedPosts.length : null) :
+                    item.id === "content-reels" ? (generatedReels.length > 0 ? generatedReels.length : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
   const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
@@ -4493,6 +5484,24 @@ export default function MarketRadarDashboard() {
         {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
+        {activeNav === "content-plan" && (
+          contentPlan
+            ? <ContentPlanView
+                c={c}
+                plan={contentPlan}
+                isGeneratingPost={generatingPostId !== null}
+                generatingPostId={generatingPostId}
+                isGeneratingReel={generatingReelId !== null}
+                generatingReelId={generatingReelId}
+                onGeneratePost={handleGeneratePost}
+                onGenerateReel={handleGenerateReelScenario}
+                avatarSettings={avatarSettings}
+                onUpdateAvatarSettings={handleUpdateAvatarSettings}
+              />
+            : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
+        )}
+        {activeNav === "content-posts" && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} />}
+        {activeNav === "content-reels" && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
       </main>
     </div>
   );
