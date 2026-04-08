@@ -627,19 +627,51 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
         .sort((a, b) => a.position - b.position);
     };
 
-    // Parse dashboard metrics
+    // Log raw response once to debug field names
+    if (yandexDash) console.log(`[Key.so] yandex raw keys for ${domain}:`, Object.keys(yandexDash as object));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const n = (dash: any, ...keys: string[]): number => {
+      for (const k of keys) {
+        const v = Number(dash[k]);
+        if (v > 0) return v;
+      }
+      return 0;
+    };
+
+    // Parse dashboard metrics — try multiple field name variants
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parseDashboard = (dash: any) => {
       if (!dash || typeof dash !== "object") return undefined;
+
       const compets = Array.isArray(dash.competitors_similar)
         ? dash.competitors_similar.slice(0, 5).map((c: any) => c.domain || "").filter(Boolean)
-        : [];
+        : Array.isArray(dash.competitors)
+          ? dash.competitors.slice(0, 5).map((c: any) => typeof c === "string" ? c : c.domain || "").filter(Boolean)
+          : [];
+
       return {
-        traffic: Number(dash.traffic) || 0,
-        visibility: Number(dash.visibility) || 0,
-        pagesInOrganic: Number(dash.pages_in_organic) || 0,
-        adKeys: Number(dash.ad_keys) || 0,
-        competitors: compets,
+        traffic:        n(dash, "traffic", "traffic_organic", "organic_traffic", "traffic_count"),
+        visibility:     n(dash, "visibility", "visibility_index", "vis"),
+        pagesInOrganic: n(dash, "pages_in_organic", "pages", "organic_pages", "pages_count"),
+        adKeys:         n(dash, "ad_keys", "ad_keywords", "context_keys"),
+        competitors:    compets,
+        // Top positions
+        top1:           n(dash, "top1", "in_top1", "top_1"),
+        top3:           n(dash, "top3", "in_top3", "top_3"),
+        top5:           n(dash, "top5", "in_top5", "top_5"),
+        top10:          n(dash, "top10", "in_top10", "top_10"),
+        top50:          n(dash, "top50", "in_top50", "top_50"),
+        // Links
+        backlinks:       n(dash, "backlinks_count", "backlinks", "inbound_links", "inlinks"),
+        outboundLinks:   n(dash, "outbound_links", "outlinks", "external_links"),
+        dr:              n(dash, "dr", "domain_rating", "domain_rank"),
+        referringDomains:n(dash, "referring_domains", "ref_domains", "domains_count"),
+        outboundDomains: n(dash, "outbound_domains", "out_domains"),
+        ipLinks:         n(dash, "ip_links", "links_ip"),
+        anchors:         n(dash, "anchors", "anchors_count"),
+        // AI
+        aiMentions:      n(dash, "ai_mentions", "alice_mentions", "ai_answers", "alice_answers", "neural_mentions"),
       };
     };
 
@@ -649,6 +681,14 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     if (!yDashParsed && !gDashParsed) {
       console.warn(`[Key.so] No dashboard data for ${domain}`);
       return null;
+    }
+
+    // If all key metrics are zero, the domain might not be indexed yet
+    const hasAnyData = (d: ReturnType<typeof parseDashboard>) =>
+      d && (d.traffic > 0 || d.pagesInOrganic > 0 || d.top10 > 0 || d.top50 > 0 || d.backlinks > 0);
+
+    if (!hasAnyData(yDashParsed) && !hasAnyData(gDashParsed)) {
+      console.warn(`[Key.so] All-zero dashboard for ${domain} — raw:`, JSON.stringify(yandexDash).slice(0, 400));
     }
 
     return {

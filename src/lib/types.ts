@@ -31,6 +31,22 @@ export interface KeysoDashboardData {
   pagesInOrganic: number;
   adKeys: number;
   competitors: string[];
+  // Top positions
+  top1?: number;
+  top3?: number;
+  top5?: number;
+  top10?: number;
+  top50?: number;
+  // Links
+  backlinks?: number;
+  outboundLinks?: number;
+  dr?: number;
+  referringDomains?: number;
+  outboundDomains?: number;
+  ipLinks?: number;
+  anchors?: number;
+  // AI
+  aiMentions?: number;
 }
 
 export interface CopyImprovement {
