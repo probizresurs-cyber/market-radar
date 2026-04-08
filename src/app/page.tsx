@@ -928,6 +928,29 @@ function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: 
 }
 
 // ============================================================
+// Collapsible Section wrapper
+// ============================================================
+
+function CollapsibleSection({ c, title, defaultOpen = true, extra, children }: {
+  c: Colors; title: string; defaultOpen?: boolean;
+  extra?: React.ReactNode; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: open ? 12 : 0, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, flex: 1 }}>{title}</span>
+        {extra && <div onClick={e => e.stopPropagation()}>{extra}</div>}
+        <span style={{ fontSize: 10, color: c.textMuted, transition: "transform 0.18s", display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>▶</span>
+      </div>
+      {open && children}
+    </div>
+  );
+}
+
+// ============================================================
 // Dashboard View
 // ============================================================
 
@@ -975,72 +998,75 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>AI-рекомендации</div>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 28 }}>
-        {recommendations.map((rec, i) => {
-          const dotColor = rec.priority === "high" ? c.accentRed : rec.priority === "medium" ? c.accentYellow : c.accentGreen;
-          return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
-            </div>
-          );
-        })}
-      </div>
+      <CollapsibleSection c={c} title="AI-рекомендации">
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
+          {recommendations.map((rec, i) => {
+            const dotColor = rec.priority === "high" ? c.accentRed : rec.priority === "medium" ? c.accentYellow : c.accentGreen;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
+              </div>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
-      {(data.seo?.positions ?? []).length > 0 && (<>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary }}>🔑 Ключевые слова и позиции</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", background: c.bg, borderRadius: 8, border: `1px solid ${c.border}`, padding: 2 }}>
-              {(["yandex", "google"] as const).map(e => (
-                <button key={e} onClick={() => setKwEngine(e)} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: kwEngine === e ? c.accent : "transparent", color: kwEngine === e ? "#fff" : c.textSecondary, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-                  {e === "yandex" ? "Яндекс" : "Google"}
-                </button>
-              ))}
+      {(data.seo?.positions ?? []).length > 0 && (
+        <CollapsibleSection c={c} title="🔑 Ключевые слова и позиции"
+          extra={
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", background: c.bg, borderRadius: 8, border: `1px solid ${c.border}`, padding: 2 }}>
+                {(["yandex", "google"] as const).map(e => (
+                  <button key={e} onClick={() => setKwEngine(e)} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: kwEngine === e ? c.accent : "transparent", color: kwEngine === e ? "#fff" : c.textSecondary, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                    {e === "yandex" ? "Яндекс" : "Google"}
+                  </button>
+                ))}
+              </div>
+              <input type="text" value={kwSearch} onChange={e => setKwSearch(e.target.value)} placeholder="Поиск…"
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none", width: 160 }} />
             </div>
-            <input type="text" value={kwSearch} onChange={e => setKwSearch(e.target.value)} placeholder="Поиск по ключевым словам..."
-              style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none", width: 200 }} />
+          }>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 6 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: c.bg }}>
+                {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {filteredPositions.length === 0 ? (
+                  <tr><td colSpan={4} style={{ padding: "20px 16px", color: c.textMuted, textAlign: "center" }}>Ничего не найдено по запросу «{kwSearch}»</td></tr>
+                ) : filteredPositions.map((pos, i) => (
+                  <tr key={i} style={{ borderBottom: i < filteredPositions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                    <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
+                    </td>
+                    <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 6 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr style={{ background: c.bg }}>
-              {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
-                <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {filteredPositions.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: "20px 16px", color: c.textMuted, textAlign: "center" }}>Ничего не найдено по запросу «{kwSearch}»</td></tr>
-              ) : filteredPositions.map((pos, i) => (
-                <tr key={i} style={{ borderBottom: i < filteredPositions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                  <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
-                  </td>
-                  <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 16 }}>
-          {isRealKeywords
-            ? <span style={{ color: c.accentGreen, fontWeight: 600 }}>✓ Реальные позиции из Keys.so · {activePositions.length} ключевых слов</span>
-            : "⚠ Позиции — AI-оценка. Подключён Keys.so, но данных по этому домену не найдено."}
-        </div>
-      </>)}
+          <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 6 }}>
+            {isRealKeywords
+              ? <span style={{ color: c.accentGreen, fontWeight: 600 }}>✓ Реальные позиции из Keys.so · {activePositions.length} ключевых слов</span>
+              : "⚠ Позиции — AI-оценка. Подключён Keys.so, но данных по этому домену не найдено."}
+          </div>
+        </CollapsibleSection>
+      )}
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+      <CollapsibleSection c={c} title="🔍 SEO-детали и бизнес-профиль">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
         <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
           {[
@@ -1127,10 +1153,12 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           })()}
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+        <CollapsibleSection c={c} title="📋 Госконтракты (zakupki.gov.ru)">
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
           <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
             Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
@@ -1157,10 +1185,12 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
             </div>
           )}
         </div>
+        </CollapsibleSection>
       )}
 
       {/* ── Технологии + Найм ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+      <CollapsibleSection c={c} title="⚙️ Технологии и найм">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
         <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
           {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
@@ -1224,9 +1254,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           )}
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── Соцсети и рейтинги ── */}
-      <div style={{ marginBottom: 16 }}>
+      <CollapsibleSection c={c} title="📱 Соцсети и рейтинги">
+      <div>
         <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📱 Соцсети и рейтинги</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
           {data.social?.vk ? (
@@ -1274,13 +1306,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
           ))}
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>
-            📈 Прогноз ниши — {data.nicheForecast.timeframe}
-          </div>
+        <CollapsibleSection c={c} title={`📈 Прогноз ниши — ${data.nicheForecast.timeframe}`}>
           <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
               <div style={{ flex: 1 }}>
@@ -1318,7 +1348,7 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
               </div>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
     </div>
   );
@@ -1480,21 +1510,21 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
       </div>
 
       {/* AI Recommendations for this competitor */}
-      <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>AI-рекомендации</div>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 24 }}>
-        {recommendations.map((rec, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-            <PriorityBadge priority={rec.priority} c={c} />
-            <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
-          </div>
-        ))}
-      </div>
+      <CollapsibleSection c={c} title="AI-рекомендации">
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 24 }}>
+          {recommendations.map((rec, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+              <PriorityBadge priority={rec.priority} c={c} />
+              <span style={{ flex: 1, fontSize: 13, color: c.textPrimary }}>{rec.text}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: c.accentGreen, background: c.accentGreen + "12", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
 
       {/* Insights */}
       {insights.length > 0 && (
-        <>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Инсайты</div>
+        <CollapsibleSection c={c} title="💡 Инсайты">
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
             {insights.map((ins, i) => (
               <div key={i} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
@@ -1503,43 +1533,45 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
               </div>
             ))}
           </div>
-        </>
+        </CollapsibleSection>
       )}
 
       {/* ── Ключевые слова ── */}
-      {(data.seo?.positions ?? []).length > 0 && (<>
-        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Ключевые слова и позиции</div>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 16 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr style={{ background: c.bg }}>
-              {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
-                <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {data.seo.positions.map((pos, i) => (
-                <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
-                  <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
-                  </td>
-                  <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </>)}
+      {(data.seo?.positions ?? []).length > 0 && (
+        <CollapsibleSection c={c} title="🔑 Ключевые слова и позиции">
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 16 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: c.bg }}>
+                {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {data.seo.positions.map((pos, i) => (
+                  <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid ${c.borderLight}` : "none" }}>
+                    <td style={{ padding: "10px 16px", color: c.textPrimary, fontWeight: 500 }}>{pos.keyword}</td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.textSecondary }}>#{pos.position}</span>
+                    </td>
+                    <td style={{ padding: "10px 16px", color: c.textSecondary }}>{pos.volume.toLocaleString("ru")}</td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <div style={{ width: 90, height: 6, borderRadius: 3, background: c.borderLight, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? c.accentGreen : pos.position <= 30 ? c.accentWarm : c.accentRed, borderRadius: 3 }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleSection>
+      )}
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
+      <CollapsibleSection c={c} title="🔍 SEO-детали и бизнес-профиль">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>🔍 SEO-детали</div>
           {[
             { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
             { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
@@ -1621,44 +1653,47 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
               </>
             );
           })()}
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📋 Госконтракты (zakupki.gov.ru)</div>
-          <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
-            Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
-          </div>
-          {data.governmentContracts.recentContracts.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
-                    <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
-                    <tr key={i}>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
-                      <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <CollapsibleSection c={c} title="📋 Госконтракты (zakupki.gov.ru)">
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 14 }}>
+              Найдено <span style={{ fontWeight: 700, color: c.textPrimary }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: c.accent }}>{data.governmentContracts.totalAmount}</span>
             </div>
-          )}
-        </div>
+            {data.governmentContracts.recentContracts.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr>{["Дата", "Сумма", "Заказчик", "Предмет"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.04em" }}>{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {data.governmentContracts.recentContracts.map((ct: { date: string; amount: string; customer: string; subject: string }, i: number) => (
+                      <tr key={i}>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, whiteSpace: "nowrap" }}>{ct.date}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.textPrimary, whiteSpace: "nowrap" }}>{ct.amount}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.customer}</td>
+                        <td style={{ padding: "6px 10px", borderBottom: `1px solid ${c.borderLight}`, color: c.textSecondary, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{ct.subject}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </CollapsibleSection>
       )}
 
       {/* ── Технологии + Найм ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
+      <CollapsibleSection c={c} title="⚙️ Технологии и найм">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚙️ Технологии</div>
           {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
@@ -1718,44 +1753,46 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
               </div>
             </div>
           )}
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* ── Соцсети ── */}
       {(data.social?.vk || data.social?.telegram || data.social?.yandexRating || data.social?.gisRating) && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>📱 Соцсети и отзывы</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-            {data.social?.vk && (
-              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>ВКонтакте</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
-                <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
-              </div>
-            )}
-            {data.social?.telegram && (
-              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Telegram</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
-                <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
-              </div>
-            )}
-            {(data.social?.yandexRating ?? 0) > 0 && (
-              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Яндекс.Карты</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.yandexRating.toFixed(1)}</div>
-                <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.yandexReviews} отзывов</div>
-              </div>
-            )}
-            {(data.social?.gisRating ?? 0) > 0 && (
-              <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>2ГИС</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.gisRating.toFixed(1)}</div>
-                <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.gisReviews} отзывов</div>
-              </div>
-            )}
+        <CollapsibleSection c={c} title="📱 Соцсети и отзывы">
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              {data.social?.vk && (
+                <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>ВКонтакте</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
+                  <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
+                </div>
+              )}
+              {data.social?.telegram && (
+                <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Telegram</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: c.textPrimary }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
+                  <div style={{ fontSize: 11, color: c.textSecondary }}>подписчиков</div>
+                </div>
+              )}
+              {(data.social?.yandexRating ?? 0) > 0 && (
+                <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>Яндекс.Карты</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.yandexRating.toFixed(1)}</div>
+                  <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.yandexReviews} отзывов</div>
+                </div>
+              )}
+              {(data.social?.gisRating ?? 0) > 0 && (
+                <div style={{ background: c.bg, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>2ГИС</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: c.accentYellow }}>★ {data.social.gisRating.toFixed(1)}</div>
+                  <div style={{ fontSize: 11, color: c.textSecondary }}>{data.social.gisReviews} отзывов</div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
     </div>
   );
@@ -1906,7 +1943,7 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {/* ── Копирайтинг: до / после ── */}
       {(pa?.copyImprovements ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>✍️ Текст сайта: конкретные правки</div>
+          <CollapsibleSection c={c} title="✍️ Текст сайта: конкретные правки">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: c.accentWarm + "10", border: `1px solid ${c.accentWarm}25` }}>
             <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
             <span style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
@@ -1934,13 +1971,14 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               </div>
             ))}
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {/* ── Оффер и позиционирование ── */}
       {pa?.offerAnalysis && pa.offerAnalysis.currentOffer !== "—" && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🎯 Оффер и позиционирование</div>
+          <CollapsibleSection c={c} title="🎯 Оффер и позиционирование">
           <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕКУЩИЙ ОФФЕР</div>
@@ -1971,13 +2009,14 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55 }}>{pa.offerAnalysis.suggestedOffer}</div>
             </div>
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {/* ── Незанятые ключевые слова ── */}
       {(pa?.keywordGaps ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔑 Незанятые ключевые слова</div>
+          <CollapsibleSection c={c} title="🔑 Незанятые ключевые слова">
           <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr style={{ background: c.bg }}>
@@ -2002,6 +2041,7 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               </tbody>
             </table>
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
@@ -2009,26 +2049,24 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {((pa?.seoActions ?? []).length > 0 || (pa?.contentIdeas ?? []).length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
           {(pa?.seoActions ?? []).length > 0 && (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>⚡ Быстрые SEO-победы</div>
+            <CollapsibleSection c={c} title="⚡ Быстрые SEO-победы">
               {pa.seoActions.map((action, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: 6, background: c.accent + "15", color: c.accent, fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                   <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{action}</div>
                 </div>
               ))}
-            </div>
+            </CollapsibleSection>
           )}
           {(pa?.contentIdeas ?? []).length > 0 && (
-            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>💡 Идеи контента</div>
+            <CollapsibleSection c={c} title="💡 Идеи контента">
               {pa.contentIdeas.map((idea, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: 6, background: c.accentGreen + "15", color: c.accentGreen, fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                   <div style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{idea}</div>
                 </div>
               ))}
-            </div>
+            </CollapsibleSection>
           )}
         </div>
       )}
@@ -2036,7 +2074,7 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
       {/* ── Battle Cards ── */}
       {competitors.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>⚔️ Battle Cards — сравнение с конкурентами</div>
+          <CollapsibleSection c={c} title="⚔️ Battle Cards — сравнение с конкурентами">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {competitors.map((comp, i) => {
               const myScores = data.company.categories;
@@ -2093,13 +2131,14 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               );
             })}
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>📈 Прогноз ниши</div>
+          <CollapsibleSection c={c} title="📈 Прогноз ниши">
           <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
               <div style={{ fontSize: 28, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? c.accentGreen : data.nicheForecast.trend === "declining" ? c.accentRed : c.accentWarm }}>
@@ -2133,13 +2172,14 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               </div>
             </div>
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {/* ── AI-восприятие ── */}
       {data.aiPerception && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>🤖 Как нейросети видят вашу компанию</div>
+          <CollapsibleSection c={c} title="🤖 Как нейросети видят вашу компанию">
           <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 14 }}>Восприятие ChatGPT / Claude / Gemini на основе публичного информационного следа компании</div>
 
           {/* Presence badge + persona */}
@@ -2241,26 +2281,28 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
               ))}
             </div>
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {/* ── Заезженные формулировки ── */}
-      <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🗣 Заезженные формулировки в нише</div>
-      <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
-        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>
-          Фразы, которые используют все — замените их конкретикой:
-        </div>
-        {[
-          "«Индивидуальный подход» — используют все. Замените на конкретные цифры и кейсы.",
-          "«Команда профессионалов» — расскажите о реальном опыте, сертификатах и результатах.",
-          "«Комплексные решения» — опишите конкретный стек, сроки и методологию.",
-          "«Гарантия качества» — покажите цифры: SLA, процент повторных клиентов, отзывы.",
-        ].map((cl, i, arr) => (
-          <div key={i} style={{ fontSize: 13, color: c.textPrimary, padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${c.borderLight}` : "none", lineHeight: 1.45 }}>
-            {cl}
+      <CollapsibleSection c={c} title="🗣 Заезженные формулировки в нише">
+        <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+          <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>
+            Фразы, которые используют все — замените их конкретикой:
           </div>
-        ))}
-      </div>
+          {[
+            "«Индивидуальный подход» — используют все. Замените на конкретные цифры и кейсы.",
+            "«Команда профессионалов» — расскажите о реальном опыте, сертификатах и результатах.",
+            "«Комплексные решения» — опишите конкретный стек, сроки и методологию.",
+            "«Гарантия качества» — покажите цифры: SLA, процент повторных клиентов, отзывы.",
+          ].map((cl, i, arr) => (
+            <div key={i} style={{ fontSize: 13, color: c.textPrimary, padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${c.borderLight}` : "none", lineHeight: 1.45 }}>
+              {cl}
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }
