@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
-import { enrichWithRealData } from "@/lib/enricher";
+import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,13 +38,21 @@ export async function POST(request: NextRequest) {
   try {
     const scraped = await scrapeWebsite(url);
 
-    // 1. AI analysis (Claude)
+    // 1. Запускаем сбор данных по домену параллельно с AI, так как они не зависят от названия компании
+    const cleanDomain = scraped.url.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+    const domainDataPromise = enrichDomainData(cleanDomain, scraped.socialLinks);
+
+    // 2. AI analysis (Claude) — самая долгая операция, пока она идет, собираются данные по домену
     const result = await analyzeWithClaude(scraped);
 
-    // 2. Enrich with real data from open APIs (parallel, non-blocking)
-    const real = await enrichWithRealData(result.company.name, result.company.url, scraped.socialLinks);
+    // 3. Дожидаемся доменных данных и запускаем сбор данных по компании (используя полученное AI имя)
+    const [domainData, companyData] = await Promise.all([
+      domainDataPromise,
+      enrichCompanyData(result.company.name, cleanDomain),
+    ]);
+    const real = { ...domainData, ...companyData };
 
-    // 3. Overwrite AI-guessed fields with real data where available
+    // 4. Overwrite AI-guessed fields with real data where available
     if (real.domainAge) {
       result.seo.domainAge = real.domainAge;
     }

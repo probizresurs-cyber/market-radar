@@ -604,8 +604,6 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     const yRid = (yandexDash as Record<string, unknown>)?.rid as string | undefined;
     const gRid = (googleDash as Record<string, unknown>)?.rid as string | undefined;
 
-    if (!yRid && !gRid) return null;
-
     // Fetch organic keyword lists using report IDs
     const [yKeywords, gKeywords] = await Promise.all([
       yRid ? fetchJson(`https://api.keys.so/report/group/organic/keywords/${yRid}`, headers, 20000).catch(() => null) : Promise.resolve(null),
@@ -613,6 +611,7 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     ]);
 
     const parseKeywords = (data: unknown): KeysoPosition[] => {
+      if (!data) return [];
       const items = Array.isArray(data)
         ? data
         : (data as Record<string, unknown>)?.data ?? (data as Record<string, unknown>)?.items ?? (data as Record<string, unknown>)?.keywords ?? [];
@@ -631,7 +630,7 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     // Parse dashboard metrics
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parseDashboard = (dash: any) => {
-      if (!dash) return undefined;
+      if (!dash || typeof dash !== "object") return undefined;
       const compets = Array.isArray(dash.competitors_similar)
         ? dash.competitors_similar.slice(0, 5).map((c: any) => c.domain || "").filter(Boolean)
         : [];
@@ -644,64 +643,82 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
       };
     };
 
+    const yDashParsed = parseDashboard(yandexDash);
+    const gDashParsed = parseDashboard(googleDash);
+
+    if (!yDashParsed && !gDashParsed) {
+      console.warn(`[Key.so] No dashboard data for ${domain}`);
+      return null;
+    }
+
     return {
       yandex: parseKeywords(yKeywords),
       google: parseKeywords(gKeywords),
       dashboard: {
-        yandex: parseDashboard(yandexDash),
-        google: parseDashboard(googleDash),
+        yandex: yDashParsed,
+        google: gDashParsed,
       }
     };
-  } catch {
+  } catch (err) {
+    console.error(`[Key.so] Error fetching data for ${domain}:`, err);
     return null;
   }
 }
 
 // ─── Main enrichment function ─────────────────────────────────────────────────
 
-export interface RealData {
+export interface RealDomainData {
   domainAge: string | null;
-  hh: HHResult | null;
   telegram: { subscribers: number; posts30d: number } | null;
   vk: { subscribers: number; posts30d: number; engagement: string; trend: string } | null;
-  dadata: DaDataResult | null;
   pageSpeed: PageSpeedResult | null;
   wayback: WaybackResult | null;
+  keyso: KeysoKeywords | null;
+}
+
+export interface RealCompanyData {
+  hh: HHResult | null;
+  dadata: DaDataResult | null;
   rusprofile: RusprofileResult | null;
   yandexRating: YandexRatingResult | null;
   gisRating: GisRatingResult | null;
   govContracts: GovContractsResult | null;
-  keyso: KeysoKeywords | null;
 }
 
-export async function enrichWithRealData(
-  companyName: string,
+export async function enrichDomainData(
   domain: string,
   socialLinks: Record<string, string>
-): Promise<RealData> {
+): Promise<RealDomainData> {
   const tgUrl = socialLinks.telegram ?? socialLinks.tg ?? null;
   const vkUrl = socialLinks.vk ?? null;
   const fullUrl = `https://${domain}`;
 
-  // Phase 1: all parallel
-  const [domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, keyso] =
-    await Promise.all([
-      getRealDomainAge(domain).catch(() => null),
-      getRealHHData(companyName, domain).catch(() => null),
-      tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
-      vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
-      getRealDaData(companyName, domain).catch(() => null),
-      getPageSpeedScores(fullUrl).catch(() => null),
-      getFirstArchiveDate(domain).catch(() => null),
-      getRusprofileData(companyName).catch(() => null),
-      getYandexRating(companyName, domain).catch(() => null),
-      get2GisRating(companyName).catch(() => null),
-      getKeysoKeywords(domain).catch(() => null),
-    ]);
+  const [domainAge, telegram, vk, pageSpeed, wayback, keyso] = await Promise.all([
+    getRealDomainAge(domain).catch(() => null),
+    tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
+    vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
+    getPageSpeedScores(fullUrl).catch(() => null),
+    getFirstArchiveDate(domain).catch(() => null),
+    getKeysoKeywords(domain).catch(() => null),
+  ]);
 
-  // Phase 2: zakupki benefits from INN from DaData
+  return { domainAge, telegram, vk, pageSpeed, wayback, keyso };
+}
+
+export async function enrichCompanyData(
+  companyName: string,
+  domain: string
+): Promise<RealCompanyData> {
+  const [hh, dadata, rusprofile, yandexRating, gisRating] = await Promise.all([
+    getRealHHData(companyName, domain).catch(() => null),
+    getRealDaData(companyName, domain).catch(() => null),
+    getRusprofileData(companyName).catch(() => null),
+    getYandexRating(companyName, domain).catch(() => null),
+    get2GisRating(companyName).catch(() => null),
+  ]);
+
   const inn = dadata?.inn !== "—" ? dadata?.inn : undefined;
   const govContracts = await getGovContracts(companyName, inn).catch(() => null);
 
-  return { domainAge, hh, telegram, vk, dadata, pageSpeed, wayback, rusprofile, yandexRating, gisRating, govContracts, keyso };
+  return { hh, dadata, rusprofile, yandexRating, gisRating, govContracts };
 }
