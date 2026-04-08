@@ -25,6 +25,14 @@ export interface SeoPosition {
   volume: number;
 }
 
+export interface KeysoDashboardData {
+  traffic: number;
+  visibility: number;
+  pagesInOrganic: number;
+  adKeys: number;
+  competitors: string[];
+}
+
 export interface CopyImprovement {
   element: string;
   current: string;
@@ -121,6 +129,10 @@ export interface AnalysisResult {
     archiveAgeYears?: number;
     googlePositions?: SeoPosition[];
     keywordsSource?: "keyso" | "ai";
+  };
+  keysoDashboard?: {
+    yandex?: KeysoDashboardData;
+    google?: KeysoDashboardData;
   };
   techStack: {
     cms: string;

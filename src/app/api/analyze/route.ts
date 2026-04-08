@@ -133,6 +133,13 @@ export async function POST(request: NextRequest) {
       if (real.keyso.google.length > 0) {
         result.seo.googlePositions = real.keyso.google;
       }
+      if (real.keyso.dashboard) {
+        result.keysoDashboard = real.keyso.dashboard;
+        // Optionally update estimated content traffic from Key.so Yandex traffic if available
+        if (real.keyso.dashboard.yandex && real.keyso.dashboard.yandex.traffic > 0) {
+          result.seo.estimatedTraffic = `~${real.keyso.dashboard.yandex.traffic.toLocaleString("ru-RU")} визитов/мес (согласно Key.so)`;
+        }
+      }
     }
 
     return NextResponse.json({ ok: true, data: result });

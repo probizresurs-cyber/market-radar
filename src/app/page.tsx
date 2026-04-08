@@ -1014,6 +1014,35 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
         </div>
       </CollapsibleSection>
 
+      {/* Key.so Dashboard */}
+      {data.keysoDashboard && (data.keysoDashboard.yandex || data.keysoDashboard.google) && (
+        <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+            {[
+              { label: "Трафик (Яндекс)", val: data.keysoDashboard.yandex?.traffic || 0, icon: "📊" },
+              { label: "Видимость", val: data.keysoDashboard.yandex?.visibility || 0, icon: "👁️" },
+              { label: "Страниц в ТОПе", val: data.keysoDashboard.yandex?.pagesInOrganic || 0, icon: "📄" },
+              { label: "Рекламных зап.", val: data.keysoDashboard.yandex?.adKeys || 0, icon: "🎯" }
+            ].map(m => (
+              <div key={m.label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 13, color: c.textMuted, marginBottom: 8, display: "flex", gap: 6 }}>{m.icon} {m.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: c.textPrimary }}>{typeof m.val === 'number' ? m.val.toLocaleString("ru-RU") : m.val}</div>
+              </div>
+            ))}
+          </div>
+          {data.keysoDashboard.yandex?.competitors && data.keysoDashboard.yandex.competitors.length > 0 && (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: "16px 20px", boxShadow: c.shadow, marginBottom: 24 }}>
+              <div style={{ fontSize: 13, color: c.textMuted, marginBottom: 12 }}>⚔️ Основные конкуренты в органике (по версии Key.so)</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {data.keysoDashboard.yandex.competitors.map(comp => (
+                  <span key={comp} style={{ background: c.bg, border: `1px solid ${c.borderLight}`, padding: "4px 10px", borderRadius: 8, fontSize: 12, color: c.textSecondary, fontWeight: 500 }}>{comp}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (
         <CollapsibleSection c={c} title="🔑 Ключевые слова и позиции"
@@ -1538,6 +1567,35 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
               </div>
             ))}
           </div>
+        </CollapsibleSection>
+      )}
+
+      {/* Key.so Dashboard */}
+      {data.keysoDashboard && (data.keysoDashboard.yandex || data.keysoDashboard.google) && (
+        <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+            {[
+              { label: "Трафик (Яндекс)", val: data.keysoDashboard.yandex?.traffic || 0, icon: "📊" },
+              { label: "Видимость", val: data.keysoDashboard.yandex?.visibility || 0, icon: "👁️" },
+              { label: "Страниц в ТОПе", val: data.keysoDashboard.yandex?.pagesInOrganic || 0, icon: "📄" },
+              { label: "Рекламных зап.", val: data.keysoDashboard.yandex?.adKeys || 0, icon: "🎯" }
+            ].map(m => (
+              <div key={m.label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
+                <div style={{ fontSize: 13, color: c.textMuted, marginBottom: 8, display: "flex", gap: 6 }}>{m.icon} {m.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: c.textPrimary }}>{typeof m.val === 'number' ? m.val.toLocaleString("ru-RU") : m.val}</div>
+              </div>
+            ))}
+          </div>
+          {data.keysoDashboard.yandex?.competitors && data.keysoDashboard.yandex.competitors.length > 0 && (
+            <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: "16px 20px", boxShadow: c.shadow, marginBottom: 24 }}>
+              <div style={{ fontSize: 13, color: c.textMuted, marginBottom: 12 }}>⚔️ Основные конкуренты в органике (по версии Key.so)</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {data.keysoDashboard.yandex.competitors.map(comp => (
+                  <span key={comp} style={{ background: c.bg, border: `1px solid ${c.borderLight}`, padding: "4px 10px", borderRadius: 8, fontSize: 12, color: c.textSecondary, fontWeight: 500 }}>{comp}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </CollapsibleSection>
       )}
 

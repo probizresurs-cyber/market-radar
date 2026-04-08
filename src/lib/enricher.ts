@@ -293,9 +293,9 @@ export async function getRealDaData(companyName: string, domain: string): Promis
     let best = suggestions[0];
     for (const s of suggestions) {
       const name = String(s.value ?? "").toLowerCase();
-      const addr = String((s.data?.address as Record<string,unknown>)?.value ?? "").toLowerCase();
+      const addr = String((s.data?.address as Record<string, unknown>)?.value ?? "").toLowerCase();
       if (name.includes(companyName.toLowerCase().slice(0, 6)) ||
-          addr.includes(domain.replace(/\.[a-z]+$/, ""))) {
+        addr.includes(domain.replace(/\.[a-z]+$/, ""))) {
         best = s;
         break;
       }
@@ -304,13 +304,13 @@ export async function getRealDaData(companyName: string, domain: string): Promis
     const d = best.data;
 
     // Legal form
-    const opfShort = String((d?.opf as Record<string,unknown>)?.short ?? "");
+    const opfShort = String((d?.opf as Record<string, unknown>)?.short ?? "");
     const type = String(d?.type ?? "");
     const legalForm = opfShort || (type === "INDIVIDUAL" ? "ИП" : type === "LEGAL" ? "ООО" : "—");
 
     // Registration date
     let registrationDate = "—";
-    const regDateMs = Number((d?.state as Record<string,unknown>)?.registration_date);
+    const regDateMs = Number((d?.state as Record<string, unknown>)?.registration_date);
     if (regDateMs) {
       const year = new Date(regDateMs).getFullYear();
       registrationDate = `${year}`;
@@ -324,7 +324,7 @@ export async function getRealDaData(companyName: string, domain: string): Promis
 
     // Revenue from finance block
     let revenue = "—";
-    const finance = d?.finance as Record<string,unknown> | undefined;
+    const finance = d?.finance as Record<string, unknown> | undefined;
     if (finance?.revenue && Number(finance.revenue) > 0) {
       const rev = Number(finance.revenue);
       if (rev >= 1_000_000_000) {
@@ -337,7 +337,7 @@ export async function getRealDaData(companyName: string, domain: string): Promis
     }
 
     // Status
-    const statusRaw = String((d?.state as Record<string,unknown>)?.status ?? "");
+    const statusRaw = String((d?.state as Record<string, unknown>)?.status ?? "");
     const statusMap: Record<string, string> = {
       ACTIVE: "Действующая",
       LIQUIDATING: "В ликвидации",
@@ -352,7 +352,7 @@ export async function getRealDaData(companyName: string, domain: string): Promis
       ogrn: String(d?.ogrn ?? "—"),
       legalForm,
       fullName: String(best.value ?? companyName),
-      address: String((d?.address as Record<string,unknown>)?.value ?? "—"),
+      address: String((d?.address as Record<string, unknown>)?.value ?? "—"),
       registrationDate,
       employees,
       revenue,
@@ -577,6 +577,10 @@ export interface KeysoPosition {
 export interface KeysoKeywords {
   yandex: KeysoPosition[];
   google: KeysoPosition[];
+  dashboard?: {
+    yandex?: { traffic: number; visibility: number; pagesInOrganic: number; adKeys: number; competitors: string[] };
+    google?: { traffic: number; visibility: number; pagesInOrganic: number; adKeys: number; competitors: string[] };
+  };
 }
 
 export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | null> {
@@ -624,9 +628,29 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
         .sort((a, b) => a.position - b.position);
     };
 
+    // Parse dashboard metrics
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parseDashboard = (dash: any) => {
+      if (!dash) return undefined;
+      const compets = Array.isArray(dash.competitors_similar)
+        ? dash.competitors_similar.slice(0, 5).map((c: any) => c.domain || "").filter(Boolean)
+        : [];
+      return {
+        traffic: Number(dash.traffic) || 0,
+        visibility: Number(dash.visibility) || 0,
+        pagesInOrganic: Number(dash.pages_in_organic) || 0,
+        adKeys: Number(dash.ad_keys) || 0,
+        competitors: compets,
+      };
+    };
+
     return {
       yandex: parseKeywords(yKeywords),
       google: parseKeywords(gKeywords),
+      dashboard: {
+        yandex: parseDashboard(yandexDash),
+        google: parseDashboard(googleDash),
+      }
     };
   } catch {
     return null;
