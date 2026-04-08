@@ -3007,23 +3007,41 @@ function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: UserAcco
 // Nav items
 // ============================================================
 
-const NAV_SECTIONS = [
+interface NavItem {
+  id: string;
+  icon: string;
+  label: string;
+  count: number | null;
+  children?: NavItem[];
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
     title: "МАРКЕТИНГ",
     items: [
-      { id: "new-analysis", icon: "🔎", label: "Новый анализ", count: null as number | null },
-      { id: "dashboard", icon: "📊", label: "Дашборд", count: null as number | null },
-      { id: "competitors", icon: "🎯", label: "Конкуренты", count: null as number | null },
-      { id: "compare", icon: "⚖️", label: "Сравнение", count: null as number | null },
-      { id: "insights", icon: "💡", label: "AI-инсайты", count: null as number | null },
-      { id: "reports", icon: "📄", label: "Отчёты", count: null as number | null },
-      { id: "sources", icon: "🔗", label: "Источники", count: null as number | null },
+      { id: "new-analysis", icon: "🔎", label: "Новый анализ", count: null },
+      {
+        id: "competitor-analysis", icon: "📊", label: "Анализ конкурентов", count: null,
+        children: [
+          { id: "dashboard", icon: "📈", label: "Дашборд", count: null },
+          { id: "competitors", icon: "🎯", label: "Конкуренты", count: null },
+          { id: "compare", icon: "⚖️", label: "Сравнение", count: null },
+          { id: "insights", icon: "💡", label: "AI-инсайты", count: null },
+        ],
+      },
+      { id: "reports", icon: "📄", label: "Отчёты", count: null },
+      { id: "sources", icon: "🔗", label: "Источники", count: null },
     ],
   },
   {
     title: "СИСТЕМА",
     items: [
-      { id: "settings", icon: "⚙️", label: "Настройки", count: null as number | null },
+      { id: "settings", icon: "⚙️", label: "Настройки", count: null },
     ],
   },
 ];
@@ -3177,15 +3195,16 @@ export default function MarketRadarDashboard() {
     setSelectedCompetitor(null);
   };
 
-  // Update nav counts dynamically
-  const navSections = NAV_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.map(item => ({
+  // Update nav counts dynamically (including nested children)
+  const updateCounts = (items: typeof NAV_SECTIONS[0]["items"]): typeof NAV_SECTIONS[0]["items"] =>
+    items.map(item => ({
       ...item,
       count: item.id === "competitors" ? (competitors.length > 0 ? competitors.length : null) :
-             item.id === "insights" ? (myCompany?.insights.length ?? null) : item.count,
-    })),
-  }));
+             item.id === "insights" ? (myCompany?.insights?.length ?? null) :
+             item.id === "competitor-analysis" ? (myCompany ? 1 : null) : item.count,
+      children: item.children ? updateCounts(item.children) : undefined,
+    }));
+  const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
 
   // Screen routing
   if (appScreen === "landing") {
@@ -3245,9 +3264,81 @@ export default function MarketRadarDashboard() {
 function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl, user, onLogout }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
-  navSections: typeof NAV_SECTIONS; companyUrl: string;
+  navSections: NavSection[]; companyUrl: string;
   user?: UserAccount | null; onLogout?: () => void;
 }) {
+  // Auto-expand groups that contain the active item
+  const getDefaultExpanded = () => {
+    const expanded = new Set<string>();
+    for (const section of navSections) {
+      for (const item of section.items) {
+        if (item.children?.some(c => c.id === activeNav)) expanded.add(item.id);
+      }
+    }
+    return expanded;
+  };
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(getDefaultExpanded);
+
+  // When activeNav changes, ensure parent group is expanded
+  useEffect(() => {
+    for (const section of navSections) {
+      for (const item of section.items) {
+        if (item.children?.some(ch => ch.id === activeNav)) {
+          setExpandedGroups(prev => { const next = new Set(prev); next.add(item.id); return next; });
+        }
+      }
+    }
+  }, [activeNav]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleGroup = (id: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const renderItem = (item: NavItem, depth = 0) => {
+    const isGroup = !!(item.children && item.children.length > 0);
+    const isExpanded = expandedGroups.has(item.id);
+    const isActive = activeNav === item.id;
+    const childActive = isGroup && item.children!.some(ch => ch.id === activeNav);
+
+    return (
+      <div key={item.id}>
+        <div
+          onClick={() => isGroup ? toggleGroup(item.id) : setActiveNav(item.id)}
+          style={{
+            display: "flex", alignItems: "center", gap: 9,
+            padding: depth > 0 ? "7px 10px 7px 28px" : "8px 10px",
+            borderRadius: 9, cursor: "pointer",
+            background: isActive ? "#6366f118" : childActive && !isExpanded ? "#6366f10a" : "transparent",
+            color: isActive ? "#818cf8" : childActive ? "#818cf8" : c.textSecondary,
+            fontWeight: isActive || (childActive && !isExpanded) ? 600 : 400, fontSize: 13,
+            transition: "all 0.12s ease", marginBottom: 1,
+            border: "1px solid transparent",
+            borderColor: isActive ? "#6366f125" : "transparent",
+          }}
+          onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = c.bgSidebarHover; e.currentTarget.style.color = c.textPrimary; } }}
+          onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = isActive ? "#6366f118" : "transparent"; e.currentTarget.style.color = isActive ? "#818cf8" : c.textSecondary; } }}>
+          <span style={{ fontSize: depth > 0 ? 13 : 15, flexShrink: 0, opacity: isActive || childActive ? 1 : 0.7 }}>{item.icon}</span>
+          <span style={{ flex: 1 }}>{item.label}</span>
+          {item.count !== null && !isGroup && (
+            <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "#6366f130" : c.borderLight, color: isActive ? "#818cf8" : c.textMuted, borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
+          )}
+          {isGroup && (
+            <span style={{ fontSize: 10, color: c.textMuted, transition: "transform 0.15s", display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+          )}
+        </div>
+        {isGroup && isExpanded && (
+          <div style={{ borderLeft: `2px solid ${c.borderLight}`, marginLeft: 18, marginBottom: 2 }}>
+            {item.children!.map(child => renderItem(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside style={{ width: 220, minWidth: 220, background: c.bgSidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", overflow: "auto" }}>
       {/* Logo */}
@@ -3266,29 +3357,7 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
         {navSections.map(section => (
           <div key={section.title}>
             <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.1em", padding: "12px 10px 5px", textTransform: "uppercase" }}>{section.title}</div>
-            {section.items.map(item => {
-              const isActive = activeNav === item.id;
-              return (
-                <div key={item.id} onClick={() => setActiveNav(item.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 9, cursor: "pointer",
-                    background: isActive ? "#6366f118" : "transparent",
-                    color: isActive ? "#818cf8" : c.textSecondary,
-                    fontWeight: isActive ? 600 : 400, fontSize: 13,
-                    transition: "all 0.12s ease", marginBottom: 1,
-                    border: "1px solid transparent",
-                    borderColor: isActive ? "#6366f125" : "transparent",
-                  }}
-                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = c.bgSidebarHover; e.currentTarget.style.color = c.textPrimary; } }}
-                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = c.textSecondary; } }}>
-                  <span style={{ fontSize: 15, flexShrink: 0, opacity: isActive ? 1 : 0.7 }}>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.count !== null && (
-                    <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "#6366f130" : c.borderLight, color: isActive ? "#818cf8" : c.textMuted, borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
-                  )}
-                </div>
-              );
-            })}
+            {section.items.map(item => renderItem(item))}
           </div>
         ))}
       </div>
