@@ -46,6 +46,11 @@ export interface SMMContentStrategy {
   }>;
 }
 
+export interface SMMRealStats {
+  vk?: { subscribers: number; posts30d: number; engagement: string; trend: string };
+  telegram?: { subscribers: number; posts30d: number };
+}
+
 export interface SMMResult {
   generatedAt: string;
   companyName: string;
@@ -59,4 +64,6 @@ export interface SMMResult {
   thirtyDayPlan: string[];        // план на 30 дней по неделям
   redFlags: string[];             // ошибки которые сейчас совершает компания
   inspirationAccounts: string[];  // примеры аккаунтов для вдохновения
+
+  realStats?: SMMRealStats;       // реальные данные VK / Telegram (если удалось получить)
 }

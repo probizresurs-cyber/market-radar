@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import type { SMMResult, SMMSocialLinks } from "@/lib/smm-types";
+import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
+import { getRealVKStats, getRealTelegramStats } from "@/lib/enricher";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -26,12 +27,18 @@ const PLATFORM_LABELS: Record<string, string> = {
   youtube: "YouTube",
 };
 
+type RealSocialData = {
+  vk: SMMRealStats["vk"] | null;
+  telegram: SMMRealStats["telegram"] | null;
+};
+
 function buildPrompt(
   companyName: string,
   companyUrl: string,
   niche: string,
   socialLinks: SMMSocialLinks,
   websiteContext: string,
+  realData: RealSocialData,
 ): string {
   const providedPlatforms = Object.entries(socialLinks)
     .filter(([, v]) => v && v.trim())
@@ -43,6 +50,22 @@ function buildPrompt(
     .map(k => `"${k}"`)
     .join(", ");
 
+  // Build real data block
+  const realLines: string[] = [];
+  if (realData.vk) {
+    realLines.push(`ВКонтакте — реальные данные:`);
+    realLines.push(`  • Подписчиков: ${realData.vk.subscribers.toLocaleString("ru-RU")}`);
+    if (realData.vk.posts30d > 0) realLines.push(`  • Постов за 30 дней: ${realData.vk.posts30d}`);
+  }
+  if (realData.telegram) {
+    realLines.push(`Telegram — реальные данные:`);
+    realLines.push(`  • Подписчиков: ${realData.telegram.subscribers.toLocaleString("ru-RU")}`);
+    if (realData.telegram.posts30d > 0) realLines.push(`  • Постов на странице: ${realData.telegram.posts30d}`);
+  }
+  const realBlock = realLines.length > 0
+    ? `\nРеальная статистика (получена автоматически):\n${realLines.join("\n")}\n`
+    : "";
+
   return `Проведи глубокий брендинг-анализ и разработай SMM-стратегию для следующей компании.
 
 Компания: ${companyName || "—"}
@@ -51,13 +74,12 @@ function buildPrompt(
 
 Социальные сети компании:
 ${providedPlatforms || "(пока не указаны — нужно дать рекомендации с нуля)"}
-
+${realBlock}
 ${websiteContext ? `Дополнительный контекст по сайту:\n${websiteContext}\n` : ""}
-
 Твоя задача:
 1. Определить архетип бренда и позиционирование
 2. Разработать общую контент-стратегию
-3. Для КАЖДОЙ указанной соцсети дать отдельную стратегию (форматы, тон, контент-столпы, примеры постов, тактики роста)
+3. Для КАЖДОЙ указанной соцсети дать отдельную стратегию (форматы, тон, контент-столпы, примеры постов, тактики роста). Используй реальную статистику, чтобы оценить текущее состояние аккаунта.
 4. Дать quick wins на первую неделю и план на 30 дней
 5. Указать ошибки и примеры аккаунтов для вдохновения
 
@@ -157,6 +179,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
     }
 
+    // Fetch real VK + Telegram data in parallel before calling AI
+    const [vkReal, tgReal] = await Promise.all([
+      socialLinks.vk?.trim() ? getRealVKStats(socialLinks.vk).catch(() => null) : Promise.resolve(null),
+      socialLinks.telegram?.trim() ? getRealTelegramStats(socialLinks.telegram).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    const realData: RealSocialData = { vk: vkReal, telegram: tgReal };
+
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 120_000);
 
@@ -173,7 +203,7 @@ export async function POST(req: Request) {
           model: "gpt-4o",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext) },
+            { role: "user", content: buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext, realData) },
           ],
           temperature: 0.85,
           max_tokens: 7000,
@@ -195,13 +225,18 @@ export async function POST(req: Request) {
       clearTimeout(timeout);
     }
 
-    const parsed = JSON.parse(raw) as Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl">;
+    const parsed = JSON.parse(raw) as Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl" | "realStats" >;
 
     const result: SMMResult = {
       generatedAt: new Date().toISOString(),
       companyName,
       companyUrl,
       ...parsed,
+      // Store real stats so UI can display them
+      realStats: {
+        vk: vkReal ?? undefined,
+        telegram: tgReal ?? undefined,
+      },
     };
 
     return NextResponse.json({ ok: true, data: result });

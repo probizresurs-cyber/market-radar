@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
-import type { SMMResult, SMMSocialLinks } from "@/lib/smm-types";
+import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 
 // ============================================================
 // MarketRadar — Конкурентный анализ для Company24.pro
@@ -3864,6 +3864,45 @@ function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
   );
 }
 
+function RealStatsBar({ c, stats }: { c: Colors; stats: SMMRealStats }) {
+  const items: Array<{ label: string; value: string; sub?: string }> = [];
+
+  if (stats.vk) {
+    items.push({
+      label: "🟦 ВКонтакте",
+      value: stats.vk.subscribers.toLocaleString("ru-RU") + " подп.",
+      sub: stats.vk.posts30d > 0 ? `${stats.vk.posts30d} постов` : undefined,
+    });
+  }
+  if (stats.telegram) {
+    items.push({
+      label: "✈️ Telegram",
+      value: stats.telegram.subscribers.toLocaleString("ru-RU") + " подп.",
+      sub: stats.telegram.posts30d > 0 ? `${stats.telegram.posts30d} постов` : undefined,
+    });
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{
+          background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 12,
+          padding: "10px 18px", display: "flex", alignItems: "center", gap: 12, boxShadow: c.shadow,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, color: c.textMuted, fontWeight: 600, marginBottom: 2 }}>{item.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: c.textPrimary }}>{item.value}</div>
+            {item.sub && <div style={{ fontSize: 11, color: c.textMuted }}>{item.sub}</div>}
+          </div>
+          <div style={{ fontSize: 10, background: "#10b98115", color: "#10b981", borderRadius: 6, padding: "2px 7px", fontWeight: 700 }}>
+            РЕАЛЬНЫЕ ДАННЫЕ
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
   return (
     <div style={{ maxWidth: 700 }}>
@@ -3913,6 +3952,11 @@ function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>СММ-стратегия — {data.companyName}</h1>
         <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
       </div>
+
+      {/* Real stats badge */}
+      {data.realStats && (data.realStats.vk || data.realStats.telegram) && (
+        <RealStatsBar c={c} stats={data.realStats} />
+      )}
 
       {/* Brand Identity */}
       <CollapsibleSection c={c} title="🎭 Идентичность бренда">
