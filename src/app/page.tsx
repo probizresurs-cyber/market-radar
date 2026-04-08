@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
+import type { SMMResult, SMMSocialLinks } from "@/lib/smm-types";
 
 // ============================================================
 // MarketRadar — Конкурентный анализ для Company24.pro
@@ -2386,9 +2387,30 @@ function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResul
 // Reports View
 // ============================================================
 
-function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null }) {
+function ReportsView({ c, data, taAnalysis, smmAnalysis }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null; smmAnalysis?: SMMResult | null }) {
   const [taExpanded, setTaExpanded] = useState(false);
   const [compExpanded, setCompExpanded] = useState(false);
+  const [smmExpanded, setSmmExpanded] = useState(false);
+
+  const handlePrintSMM = () => {
+    const win = window.open("", "_blank");
+    if (!win || !smmAnalysis) return;
+    const platforms = smmAnalysis.platformStrategies.map(p => `
+      <div style="margin-bottom:24px; padding:16px; border:1px solid #e0e3ef; border-radius:10px;">
+        <h3 style="margin:0 0 8px;">${p.platformLabel}</h3>
+        <p><b>Соответствие ЦА:</b> ${p.audienceFit}</p>
+        <p><b>Форматы:</b> ${p.contentFormat}</p>
+        <p><b>Частота:</b> ${p.postingFrequency}</p>
+        <p><b>Тон голоса:</b> ${p.toneOfVoice}</p>
+        <p><b>Контент-столпы:</b> ${(p.contentPillars ?? []).join(" · ")}</p>
+        <p><b>Тактики роста:</b> ${(p.growthTactics ?? []).join("; ")}</p>
+        <p><b>Примеры постов:</b><br>${(p.examplePosts ?? []).map((x, i) => `${i + 1}. ${x}`).join("<br><br>")}</p>
+      </div>
+    `).join("");
+    win.document.write(`<html><head><title>СММ-стратегия — ${smmAnalysis.companyName}</title><style>body{font-family:sans-serif;padding:32px;max-width:900px;margin:0 auto;} h1,h2,h3{color:#1a1a2e;} p{line-height:1.6;color:#444;}</style></head><body><h1>СММ-стратегия — ${smmAnalysis.companyName}</h1><p style="color:#888;">${new Date(smmAnalysis.generatedAt).toLocaleDateString("ru-RU")}</p><h2>Архетип бренда</h2><p><b>${smmAnalysis.brandIdentity.archetype}</b> — ${smmAnalysis.brandIdentity.positioning}</p><p><b>УТП:</b> ${smmAnalysis.brandIdentity.uniqueValue}</p><h2>Большая идея</h2><p>${smmAnalysis.contentStrategy.bigIdea}</p><h2>Платформы</h2>${platforms}<h2>Quick wins</h2><ol>${smmAnalysis.quickWins.map(q => `<li>${q}</li>`).join("")}</ol><h2>План на 30 дней</h2><ol>${smmAnalysis.thirtyDayPlan.map(q => `<li>${q}</li>`).join("")}</ol></body></html>`);
+    win.document.close();
+    win.print();
+  };
 
   const handlePrintTA = () => {
     const win = window.open("", "_blank");
@@ -2414,7 +2436,7 @@ function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult 
     window.print();
   };
 
-  if (!data && !taAnalysis) {
+  if (!data && !taAnalysis && !smmAnalysis) {
     return (
       <div style={{ maxWidth: 700 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>Отчёты</h1>
@@ -2565,6 +2587,90 @@ function ReportsView({ c, data, taAnalysis }: { c: Colors; data: AnalysisResult 
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {smmAnalysis && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow, marginBottom: 16, overflow: "hidden" }}>
+          <div
+            onClick={() => setSmmExpanded(v => !v)}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", cursor: "pointer", userSelect: "none" }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>📱 СММ-стратегия — {smmAnalysis.companyName}</div>
+              <div style={{ fontSize: 12, color: c.textMuted }}>{smmAnalysis.brandIdentity.archetype} · {new Date(smmAnalysis.generatedAt).toLocaleDateString("ru-RU")}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={e => { e.stopPropagation(); handlePrintSMM(); }}
+                className="no-print"
+                style={{ background: "#ec4899", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+              >
+                ↓ PDF
+              </button>
+              <span style={{ fontSize: 12, color: c.textMuted, transition: "transform 0.2s", display: "inline-block", transform: smmExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </div>
+          </div>
+
+          {smmExpanded && (
+            <div style={{ borderTop: `1px solid ${c.border}`, padding: "20px 24px" }}>
+              <div style={{ background: "#ec489908", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginBottom: 6 }}>АРХЕТИП И ПОЗИЦИОНИРОВАНИЕ</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#ec4899", marginBottom: 6 }}>{smmAnalysis.brandIdentity.archetype}</div>
+                <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: "0 0 8px" }}>{smmAnalysis.brandIdentity.positioning}</p>
+                <p style={{ fontSize: 12, color: c.textPrimary, fontWeight: 600, lineHeight: 1.55, margin: 0 }}><b>УТП:</b> {smmAnalysis.brandIdentity.uniqueValue}</p>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginBottom: 6 }}>БОЛЬШАЯ ИДЕЯ</div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.55, margin: "0 0 6px" }}>{smmAnalysis.contentStrategy.bigIdea}</p>
+                <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{smmAnalysis.contentStrategy.contentMission}</p>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 12 }}>СТРАТЕГИИ ПО ПЛАТФОРМАМ</div>
+              {smmAnalysis.platformStrategies.map((p, i) => (
+                <div key={i} style={{ marginBottom: 16, padding: "14px 18px", border: `1px solid ${c.border}`, borderRadius: 12, background: c.bg }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>{p.platformLabel}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, fontSize: 12, marginBottom: 10 }}>
+                    <div><b style={{ color: c.textMuted }}>Форматы:</b> <span style={{ color: c.textSecondary }}>{p.contentFormat}</span></div>
+                    <div><b style={{ color: c.textMuted }}>Частота:</b> <span style={{ color: c.textSecondary }}>{p.postingFrequency}</span></div>
+                    <div><b style={{ color: c.textMuted }}>Тон:</b> <span style={{ color: c.textSecondary }}>{p.toneOfVoice}</span></div>
+                  </div>
+                  {p.contentPillars?.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 4 }}>КОНТЕНТ-СТОЛПЫ</div>
+                      <div>{p.contentPillars.map((cp, j) => (
+                        <span key={j} style={{ display: "inline-block", background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, marginRight: 5, marginBottom: 4 }}>{cp}</span>
+                      ))}</div>
+                    </div>
+                  )}
+                  {p.examplePosts?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginTop: 6, marginBottom: 6 }}>ПРИМЕРЫ ПОСТОВ</div>
+                      {p.examplePosts.slice(0, 2).map((ex, j) => (
+                        <div key={j} style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, padding: "6px 10px", background: c.bgCard, border: `1px solid ${c.borderLight}`, borderRadius: 8, marginBottom: 6, whiteSpace: "pre-wrap" }}>{ex}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 8 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", letterSpacing: "0.05em", marginBottom: 8 }}>QUICK WINS</div>
+                  {smmAnalysis.quickWins.map((q, i) => (
+                    <div key={i} style={{ fontSize: 12, color: c.textSecondary, padding: "4px 0", borderBottom: `1px solid ${c.borderLight}` }}>{i + 1}. {q}</div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, letterSpacing: "0.05em", marginBottom: 8 }}>ПЛАН НА 30 ДНЕЙ</div>
+                  {smmAnalysis.thirtyDayPlan.map((w, i) => (
+                    <div key={i} style={{ fontSize: 12, color: c.textSecondary, padding: "4px 0", borderBottom: `1px solid ${c.borderLight}` }}>📅 {w}</div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -3637,6 +3743,346 @@ function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
   );
 }
 
+// ============================================================
+// SMM Module — Анализ соцсетей и брендинг
+// ============================================================
+
+const SMM_PLATFORMS: Array<{ key: keyof SMMSocialLinks; label: string; icon: string; placeholder: string }> = [
+  { key: "vk", label: "ВКонтакте", icon: "🟦", placeholder: "https://vk.com/your_page" },
+  { key: "instagram", label: "Instagram", icon: "📸", placeholder: "https://instagram.com/your_account" },
+  { key: "telegram", label: "Telegram", icon: "✈️", placeholder: "https://t.me/your_channel" },
+  { key: "facebook", label: "Facebook", icon: "📘", placeholder: "https://facebook.com/your_page" },
+  { key: "tiktok", label: "TikTok", icon: "🎵", placeholder: "https://tiktok.com/@your_account" },
+  { key: "youtube", label: "YouTube", icon: "▶️", placeholder: "https://youtube.com/@your_channel" },
+];
+
+function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
+  c: Colors;
+  myCompany: AnalysisResult | null;
+  isAnalyzing: boolean;
+  onAnalyze: (niche: string, links: SMMSocialLinks) => Promise<void>;
+}) {
+  const [niche, setNiche] = useState(myCompany?.company.description?.split("\n")[0]?.slice(0, 200) ?? "");
+  const [links, setLinks] = useState<SMMSocialLinks>(() => {
+    const initial: SMMSocialLinks = {};
+    const social = myCompany?.social;
+    // Pre-fill telegram/vk if available from existing analysis (only urls)
+    if (social) {
+      // social.vk and social.telegram are objects in AnalysisResult, not URLs — skip auto-fill
+    }
+    return initial;
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (key: keyof SMMSocialLinks, value: string) => {
+    setLinks(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = async () => {
+    const hasAny = Object.values(links).some(v => v && v.trim());
+    if (!hasAny && !niche.trim()) {
+      setError("Укажите хотя бы одну ссылку на соцсеть или опишите нишу");
+      return;
+    }
+    setError(null);
+    try {
+      await onAnalyze(niche.trim(), links);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Анализ СММ и брендинг</h1>
+      <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
+        Мы проанализируем ваши соцсети и сайт, определим архетип бренда и разработаем стратегию для каждой платформы: форматы, тон, контент-столпы и готовые примеры постов.
+      </p>
+
+      {myCompany && (
+        <div style={{ background: c.accent + "10", border: `1px solid ${c.accent}30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
+          <span style={{ color: c.textMuted }}>Компания: </span>
+          <span style={{ fontWeight: 600, color: c.textPrimary }}>{myCompany.company.name}</span>
+          <span style={{ color: c.textMuted }}> · {myCompany.company.url}</span>
+        </div>
+      )}
+
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+          Ниша / о компании
+        </label>
+        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 10px" }}>
+          Опишите чем занимается компания, для кого продукт, в чём ценность
+        </p>
+        <textarea
+          value={niche}
+          onChange={e => setNiche(e.target.value)}
+          placeholder="Например: студия онлайн-йоги для женщин 30+. Помогаем вернуть гибкость, снять стресс и найти баланс через короткие практики дома."
+          rows={4}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+        />
+      </div>
+
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+          Ссылки на соцсети
+        </label>
+        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 14px" }}>
+          Заполните те, которые есть. Можно оставить пустыми — тогда дадим рекомендации с нуля.
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          {SMM_PLATFORMS.map(p => (
+            <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{p.icon}</span>
+              <span style={{ fontSize: 12, color: c.textSecondary, width: 90, fontWeight: 600 }}>{p.label}</span>
+              <input
+                type="text"
+                value={links[p.key] ?? ""}
+                onChange={e => handleChange(p.key, e.target.value)}
+                placeholder={p.placeholder}
+                style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none" }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.accentRed, marginBottom: 16 }}>{error}</div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={isAnalyzing}
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: isAnalyzing ? c.textMuted : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #ec489940" }}>
+        {isAnalyzing ? "⏳ Анализируем СММ… (60–90 сек)" : "📱 Провести анализ СММ"}
+      </button>
+      {isAnalyzing && (
+        <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>Разрабатываем стратегию брендинга. Не закрывайте страницу.</p>
+      )}
+    </div>
+  );
+}
+
+function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Дашборд СММ</h1>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>📱</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>Тут пока нет данных</div>
+        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 24, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 24px" }}>
+          Запустите анализ СММ, чтобы получить стратегию брендинга, контент-план и рекомендации для каждой соцсети
+        </div>
+        <button
+          onClick={onRunAnalysis}
+          style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #ec4899, #f472b6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #ec489940" }}
+        >
+          🚀 Запустить анализ СММ
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
+  const [activePlatform, setActivePlatform] = useState(0);
+  const platform = data.platformStrategies[activePlatform];
+
+  const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, ...style }}>{children}</div>
+  );
+
+  const Tag = ({ text, color }: { text: string; color?: string }) => (
+    <span style={{ display: "inline-block", background: (color ?? c.accent) + "15", color: color ?? c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600, marginRight: 6, marginBottom: 6 }}>{text}</span>
+  );
+
+  const ListItem = ({ text, color, icon }: { text: string; color?: string; icon?: string }) => (
+    <div style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
+      <span style={{ flexShrink: 0, color: color ?? c.accent }}>{icon ?? "•"}</span>
+      <span style={{ color: c.textSecondary, lineHeight: 1.5 }}>{text}</span>
+    </div>
+  );
+
+  const generatedDate = new Date(data.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>СММ-стратегия — {data.companyName}</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
+      </div>
+
+      {/* Brand Identity */}
+      <CollapsibleSection c={c} title="🎭 Идентичность бренда">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>АРХЕТИП</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: c.accent, marginBottom: 14 }}>{data.brandIdentity.archetype}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ПОЗИЦИОНИРОВАНИЕ</div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.positioning}</p>
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>УТП</div>
+            <p style={{ fontSize: 14, color: c.textPrimary, fontWeight: 600, lineHeight: 1.55, marginBottom: 14 }}>{data.brandIdentity.uniqueValue}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ВИЗУАЛЬНЫЙ СТИЛЬ</div>
+            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.visualStyle}</p>
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>ТОН ГОЛОСА</div>
+            <div style={{ marginBottom: 14 }}>{data.brandIdentity.toneOfVoice.map((t, i) => <Tag key={i} text={t} />)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>КЛЮЧЕВЫЕ СЛОВА БРЕНДА</div>
+            <div>{data.brandIdentity.brandKeywords.map((k, i) => <Tag key={i} text={k} color={c.accentWarm} />)}</div>
+          </Card>
+        </div>
+      </CollapsibleSection>
+
+      {/* Content Strategy */}
+      <CollapsibleSection c={c} title="📝 Контент-стратегия">
+        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, ${c.bgCard} 60%, ${c.accent}06 100%)` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, lineHeight: 1.5, margin: "0 0 14px" }}>{data.contentStrategy.bigIdea}</p>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>МИССИЯ КОНТЕНТА</div>
+          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{data.contentStrategy.contentMission}</p>
+        </Card>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>БОЛИ АУДИТОРИИ</div>
+            {data.contentStrategy.audienceProblems.map((p, i) => <ListItem key={i} text={p} color={c.accentRed} icon="⚡" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>СТОРИТЕЛЛИНГ-УГЛЫ</div>
+            {data.contentStrategy.storytellingAngles.map((s, i) => <ListItem key={i} text={s} icon="→" />)}
+          </Card>
+        </div>
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>МАТРИЦА КОНТЕНТА</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              {["Тип контента", "Цель", "Доля"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {data.contentStrategy.contentMatrix.map((m, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{m.type}</td>
+                  <td style={{ padding: "10px 12px", fontSize: 12, color: c.textSecondary }}>{m.goal}</td>
+                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: c.accent }}>{m.share}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </CollapsibleSection>
+
+      {/* Platform tabs + strategy */}
+      {data.platformStrategies.length > 0 && (
+        <CollapsibleSection c={c} title="📲 Стратегия по платформам">
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {data.platformStrategies.map((p, i) => (
+              <button key={i} onClick={() => setActivePlatform(i)} style={{
+                padding: "8px 18px", borderRadius: 10, border: `2px solid ${activePlatform === i ? c.accent : c.border}`,
+                background: activePlatform === i ? c.accent : "transparent",
+                color: activePlatform === i ? "#fff" : c.textSecondary,
+                fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>
+                {p.platformLabel}
+              </button>
+            ))}
+          </div>
+          {platform && (
+            <div>
+              <Card style={{ marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>СООТВЕТСТВИЕ ЦА</div>
+                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.audienceFit}</p>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ФОРМАТЫ</div>
+                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.contentFormat}</p>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ЧАСТОТА</div>
+                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.postingFrequency}</p>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ТОН</div>
+                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.toneOfVoice}</p>
+                  </div>
+                </div>
+              </Card>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
+                <Card>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛПЫ</div>
+                  {platform.contentPillars.map((p, i) => <ListItem key={i} text={p} icon="🏛" />)}
+                </Card>
+                <Card>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 12, letterSpacing: "0.05em" }}>ТАКТИКИ РОСТА</div>
+                  {platform.growthTactics.map((g, i) => <ListItem key={i} text={g} color={c.accentGreen} icon="📈" />)}
+                </Card>
+                <Card>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>KPI</div>
+                  {platform.metricsToTrack.map((m, i) => <ListItem key={i} text={m} icon="📊" />)}
+                </Card>
+              </div>
+              <Card style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 12, letterSpacing: "0.05em" }}>ПРИМЕРЫ ПОСТОВ — ГОТОВЫ К ПУБЛИКАЦИИ</div>
+                {platform.examplePosts.map((post, i) => (
+                  <div key={i} style={{ padding: 14, background: c.bg, borderRadius: 10, marginBottom: 10, border: `1px solid ${c.borderLight}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>ПОСТ #{i + 1}</div>
+                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{post}</p>
+                  </div>
+                ))}
+              </Card>
+              <Card style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>СТРАТЕГИЯ ХЭШТЕГОВ / SEO</div>
+                <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{platform.hashtagStrategy}</p>
+              </Card>
+              {platform.warnings && platform.warnings.length > 0 && (
+                <Card style={{ background: c.accentRed + "08", border: `1px solid ${c.accentRed}25` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ЧЕГО НЕ ДЕЛАТЬ</div>
+                  {platform.warnings.map((w, i) => <ListItem key={i} text={w} color={c.accentRed} icon="✗" />)}
+                </Card>
+              )}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {/* Quick wins + 30 day plan */}
+      <CollapsibleSection c={c} title="🚀 Quick wins и план на 30 дней">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 12, letterSpacing: "0.05em" }}>QUICK WINS — ПЕРВАЯ НЕДЕЛЯ</div>
+            {data.quickWins.map((q, i) => <ListItem key={i} text={q} color={c.accentGreen} icon={`${i + 1}.`} />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 12, letterSpacing: "0.05em" }}>ПЛАН НА 30 ДНЕЙ</div>
+            {data.thirtyDayPlan.map((w, i) => <ListItem key={i} text={w} icon="📅" />)}
+          </Card>
+        </div>
+      </CollapsibleSection>
+
+      {/* Red flags + Inspiration */}
+      <CollapsibleSection c={c} title="⚠️ Ошибки и вдохновение">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <Card style={{ background: c.accentRed + "08" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>RED FLAGS</div>
+            {data.redFlags.map((r, i) => <ListItem key={i} text={r} color={c.accentRed} icon="⚠️" />)}
+          </Card>
+          <Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>АККАУНТЫ ДЛЯ ВДОХНОВЕНИЯ</div>
+            {data.inspirationAccounts.map((a, i) => <ListItem key={i} text={a} icon="✨" />)}
+          </Card>
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
 interface NavItem {
   id: string;
   icon: string;
@@ -3671,6 +4117,13 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "ta-dashboard", icon: "👥", label: "Дашборд ЦА", count: null },
         ],
       },
+      {
+        id: "smm-analysis", icon: "📱", label: "Анализ СММ", count: null,
+        children: [
+          { id: "smm-new", icon: "✏️", label: "Новый анализ", count: null },
+          { id: "smm-dashboard", icon: "🎨", label: "Дашборд СММ", count: null },
+        ],
+      },
       { id: "reports", icon: "📄", label: "Отчёты", count: null },
       { id: "sources", icon: "🔗", label: "Источники", count: null },
     ],
@@ -3700,6 +4153,8 @@ export default function MarketRadarDashboard() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<number | null>(null);
   const [taAnalysis, setTaAnalysis] = useState<TAResult | null>(null);
   const [isTAAnalyzing, setIsTAAnalyzing] = useState(false);
+  const [smmAnalysis, setSmmAnalysis] = useState<SMMResult | null>(null);
+  const [isSMMAnalyzing, setIsSMMAnalyzing] = useState(false);
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -3726,6 +4181,10 @@ export default function MarketRadarDashboard() {
         const savedTA = localStorage.getItem(`mr_ta_${user.id}`);
         if (savedTA) {
           setTaAnalysis(JSON.parse(savedTA));
+        }
+        const savedSMM = localStorage.getItem(`mr_smm_${user.id}`);
+        if (savedSMM) {
+          setSmmAnalysis(JSON.parse(savedSMM));
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -3823,6 +4282,32 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  const handleSMMAnalysis = async (niche: string, links: SMMSocialLinks) => {
+    setIsSMMAnalyzing(true);
+    try {
+      const res = await fetch("/api/analyze-smm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? "",
+          companyUrl: myCompany?.company.url ?? "",
+          niche,
+          socialLinks: links,
+          websiteContext: myCompany?.company.description ?? "",
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка анализа СММ");
+      setSmmAnalysis(json.data);
+      if (currentUser?.id) {
+        try { localStorage.setItem(`mr_smm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+      }
+      setActiveNav("smm-dashboard");
+    } finally {
+      setIsSMMAnalyzing(false);
+    }
+  };
+
   // Onboarding complete: run initial analysis
   const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {
     setCurrentUser(updatedUser);
@@ -3870,7 +4355,8 @@ export default function MarketRadarDashboard() {
       count: item.id === "competitors" ? (competitors.length > 0 ? competitors.length : null) :
         item.id === "insights" ? (myCompany?.insights?.length ?? null) :
           item.id === "competitor-analysis" ? (myCompany ? 1 : null) :
-            item.id === "ta-analysis" ? (taAnalysis ? 1 : null) : item.count,
+            item.id === "ta-analysis" ? (taAnalysis ? 1 : null) :
+              item.id === "smm-analysis" ? (smmAnalysis ? 1 : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
   const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
@@ -3918,11 +4404,13 @@ export default function MarketRadarDashboard() {
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} />}
+        {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}
         {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
+        {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
+        {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
       </main>
     </div>
   );
