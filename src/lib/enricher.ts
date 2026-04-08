@@ -596,111 +596,95 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     };
 
     // Fetch Yandex (msk) and Google (gru) domain dashboards in parallel
-    const [yandexDash, googleDash] = await Promise.all([
-      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=msk&domain=${encodeURIComponent(cleanDomain)}`, headers, 20000).catch(() => null),
-      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=gru&domain=${encodeURIComponent(cleanDomain)}`, headers, 20000).catch(() => null),
+    // domain_dashboard returns all data directly: keywords, competitors, metrics, links history
+    const [yDash, gDash] = await Promise.all([
+      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=msk&domain=${encodeURIComponent(cleanDomain)}`, headers, 25000).catch(() => null),
+      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=gru&domain=${encodeURIComponent(cleanDomain)}`, headers, 25000).catch(() => null),
     ]);
 
-    const yRid = (yandexDash as Record<string, unknown>)?.rid as string | undefined;
-    const gRid = (googleDash as Record<string, unknown>)?.rid as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parseDashboard = (dash: any) => {
+      if (!dash || typeof dash !== "object") return undefined;
 
-    // Fetch organic keyword lists using report IDs
-    const [yKeywords, gKeywords] = await Promise.all([
-      yRid ? fetchJson(`https://api.keys.so/report/group/organic/keywords/${yRid}`, headers, 20000).catch(() => null) : Promise.resolve(null),
-      gRid ? fetchJson(`https://api.keys.so/report/group/organic/keywords/${gRid}`, headers, 20000).catch(() => null) : Promise.resolve(null),
-    ]);
+      // Competitors from concs[]
+      const competitors = Array.isArray(dash.concs)
+        ? dash.concs.slice(0, 5).map((c: any) => String(c.name ?? "")).filter(Boolean)
+        : [];
 
-    const parseKeywords = (data: unknown): KeysoPosition[] => {
-      if (!data) return [];
-      const items = Array.isArray(data)
-        ? data
-        : (data as Record<string, unknown>)?.data ?? (data as Record<string, unknown>)?.items ?? (data as Record<string, unknown>)?.keywords ?? [];
-      if (!Array.isArray(items)) return [];
-      return (items as Record<string, unknown>[])
-        .slice(0, 30)
+      // Links from linksHistory — latest month entry: [backlinks, outlinks, ref_domains, out_domains, ip_links]
+      let backlinks = 0, outboundLinks = 0, referringDomains = 0, outboundDomains = 0, ipLinks = 0;
+      if (dash.linksHistory && typeof dash.linksHistory === "object") {
+        const months = Object.keys(dash.linksHistory).sort().reverse();
+        if (months.length > 0) {
+          const latest = dash.linksHistory[months[0]];
+          if (Array.isArray(latest) && latest.length >= 5) {
+            backlinks        = Number(latest[0]) || 0;
+            outboundLinks    = Number(latest[1]) || 0;
+            referringDomains = Number(latest[2]) || 0;
+            outboundDomains  = Number(latest[3]) || 0;
+            ipLinks          = Number(latest[4]) || 0;
+          }
+        }
+      }
+
+      return {
+        // Organic traffic metrics
+        traffic:         Number(dash.vis)         || 0,   // трафик с поиска в сутки
+        visibility:      Number(dash.topvis)       || 0,   // рейтинг по видимости
+        pagesInOrganic:  Number(dash.pagesinindex) || 0,   // страниц в выдаче
+        adKeys:          Number(dash.adkeyscnt)    || 0,   // запросов в контексте
+        competitors,
+        // Top positions
+        top1:  Number(dash.it1)  || 0,
+        top3:  Number(dash.it3)  || 0,
+        top5:  Number(dash.it5)  || 0,
+        top10: Number(dash.it10) || 0,
+        top50: Number(dash.it50) || 0,
+        // Domain rating
+        dr: Number(dash.dr) || 0,
+        // Links (from linksHistory)
+        backlinks,
+        outboundLinks,
+        referringDomains,
+        outboundDomains,
+        ipLinks,
+        // AI mentions (Алиса)
+        aiMentions: Number(dash.aiAnswersCnt) || 0,
+      };
+    };
+
+    // Keywords are directly in keys[] — each: { word, pos, ws (base freq), wsk (exact freq) }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parseKeywords = (dash: any): KeysoPosition[] => {
+      if (!dash?.keys || !Array.isArray(dash.keys)) return [];
+      return (dash.keys as Record<string, unknown>[])
         .map(item => ({
-          keyword: String(item.keyword ?? item.phrase ?? item.key ?? item.query ?? ""),
-          position: parseInt(String(item.position ?? item.pos ?? item.rank ?? "0"), 10),
-          volume: parseInt(String(item.volume ?? item.freq ?? item.frequency ?? item.shows ?? "0"), 10),
+          keyword: String(item.word ?? ""),
+          position: parseInt(String(item.pos ?? "0"), 10),
+          volume: parseInt(String(item.wsk ?? item.ws ?? "0"), 10),
         }))
         .filter(p => p.keyword.length > 0 && p.position > 0 && p.position <= 100)
         .sort((a, b) => a.position - b.position);
     };
 
-    // Log raw response once to debug field names
-    if (yandexDash) console.log(`[Key.so] yandex raw keys for ${domain}:`, Object.keys(yandexDash as object));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const n = (dash: any, ...keys: string[]): number => {
-      for (const k of keys) {
-        const v = Number(dash[k]);
-        if (v > 0) return v;
-      }
-      return 0;
-    };
-
-    // Parse dashboard metrics — try multiple field name variants
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parseDashboard = (dash: any) => {
-      if (!dash || typeof dash !== "object") return undefined;
-
-      const compets = Array.isArray(dash.competitors_similar)
-        ? dash.competitors_similar.slice(0, 5).map((c: any) => c.domain || "").filter(Boolean)
-        : Array.isArray(dash.competitors)
-          ? dash.competitors.slice(0, 5).map((c: any) => typeof c === "string" ? c : c.domain || "").filter(Boolean)
-          : [];
-
-      return {
-        traffic:        n(dash, "traffic", "traffic_organic", "organic_traffic", "traffic_count"),
-        visibility:     n(dash, "visibility", "visibility_index", "vis"),
-        pagesInOrganic: n(dash, "pages_in_organic", "pages", "organic_pages", "pages_count"),
-        adKeys:         n(dash, "ad_keys", "ad_keywords", "context_keys"),
-        competitors:    compets,
-        // Top positions
-        top1:           n(dash, "top1", "in_top1", "top_1"),
-        top3:           n(dash, "top3", "in_top3", "top_3"),
-        top5:           n(dash, "top5", "in_top5", "top_5"),
-        top10:          n(dash, "top10", "in_top10", "top_10"),
-        top50:          n(dash, "top50", "in_top50", "top_50"),
-        // Links
-        backlinks:       n(dash, "backlinks_count", "backlinks", "inbound_links", "inlinks"),
-        outboundLinks:   n(dash, "outbound_links", "outlinks", "external_links"),
-        dr:              n(dash, "dr", "domain_rating", "domain_rank"),
-        referringDomains:n(dash, "referring_domains", "ref_domains", "domains_count"),
-        outboundDomains: n(dash, "outbound_domains", "out_domains"),
-        ipLinks:         n(dash, "ip_links", "links_ip"),
-        anchors:         n(dash, "anchors", "anchors_count"),
-        // AI
-        aiMentions:      n(dash, "ai_mentions", "alice_mentions", "ai_answers", "alice_answers", "neural_mentions"),
-      };
-    };
-
-    const yDashParsed = parseDashboard(yandexDash);
-    const gDashParsed = parseDashboard(googleDash);
+    const yDashParsed = parseDashboard(yDash);
+    const gDashParsed = parseDashboard(gDash);
 
     if (!yDashParsed && !gDashParsed) {
-      console.warn(`[Key.so] No dashboard data for ${domain}`);
+      console.warn(`[Key.so] No data for ${domain}`);
       return null;
     }
 
-    // If all key metrics are zero, the domain might not be indexed yet
-    const hasAnyData = (d: ReturnType<typeof parseDashboard>) =>
-      d && (d.traffic > 0 || d.pagesInOrganic > 0 || d.top10 > 0 || d.top50 > 0 || d.backlinks > 0);
-
-    if (!hasAnyData(yDashParsed) && !hasAnyData(gDashParsed)) {
-      console.warn(`[Key.so] All-zero dashboard for ${domain} — raw:`, JSON.stringify(yandexDash).slice(0, 400));
-    }
-
     return {
-      yandex: parseKeywords(yKeywords),
-      google: parseKeywords(gKeywords),
+      yandex: parseKeywords(yDash),
+      google:  parseKeywords(gDash),
       dashboard: {
         yandex: yDashParsed,
-        google: gDashParsed,
-      }
+        google:  gDashParsed,
+      },
     };
   } catch (err) {
-    console.error(`[Key.so] Error fetching data for ${domain}:`, err);
+    console.error(`[Key.so] Error for ${domain}:`, err);
     return null;
   }
 }

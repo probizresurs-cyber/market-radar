@@ -26,26 +26,27 @@ export interface SeoPosition {
 }
 
 export interface KeysoDashboardData {
-  traffic: number;
-  visibility: number;
-  pagesInOrganic: number;
-  adKeys: number;
-  competitors: string[];
-  // Top positions
+  // Органика
+  traffic: number;          // vis — трафик с поиска в сутки
+  visibility: number;       // topvis — рейтинг по видимости
+  pagesInOrganic: number;   // pagesinindex — страниц в выдаче
+  adKeys: number;           // adkeyscnt — запросов в контексте
+  competitors: string[];    // concs[].name
+  // Позиции (it1..it50)
   top1?: number;
   top3?: number;
   top5?: number;
   top10?: number;
   top50?: number;
-  // Links
+  // Домен
+  dr?: number;
+  // Ссылки (из linksHistory)
   backlinks?: number;
   outboundLinks?: number;
-  dr?: number;
   referringDomains?: number;
   outboundDomains?: number;
   ipLinks?: number;
-  anchors?: number;
-  // AI
+  // ИИ-ответы Алисы
   aiMentions?: number;
 }
 

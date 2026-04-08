@@ -1011,7 +1011,7 @@ function KeysoDashboardBlock({ c, dash }: {
             <MetricCard icon="⭐" label="DR (рейтинг домена)" value={d.dr} color={c.accentWarm} />
             <MetricCard icon="🌐" label="Ссылающихся доменов" value={d.referringDomains} />
             <MetricCard icon="🖥️" label="Исходящих доменов" value={d.outboundDomains} />
-            <MetricCard icon="⚓" label="Анкоров" value={d.anchors} />
+            <MetricCard icon="📡" label="Ссылок по IP" value={d.ipLinks} />
           </div>
         </div>
       ) : null}
