@@ -3066,10 +3066,10 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "МАРКЕТИНГ",
     items: [
-      { id: "new-analysis", icon: "🔎", label: "Новый анализ", count: null },
       {
         id: "competitor-analysis", icon: "📊", label: "Анализ конкурентов", count: null,
         children: [
+          { id: "new-analysis", icon: "🔎", label: "Новый анализ", count: null },
           { id: "dashboard", icon: "📈", label: "Дашборд", count: null },
           { id: "competitors", icon: "🎯", label: "Конкуренты", count: null },
           { id: "compare", icon: "⚖️", label: "Сравнение", count: null },
