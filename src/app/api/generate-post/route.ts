@@ -110,13 +110,13 @@ export async function POST(req: Request) {
       hook: string; body: string; hashtags: string[]; imagePrompt: string;
     };
 
-    // 2) Generate image via Gemini (supports reference images) — optional
+    // 2) Generate image via Gemini — optional (requires billing on the API key)
     let imageUrl: string | undefined;
+    const imageError: string | undefined = undefined;
     if (generateImage && parsed.imagePrompt) {
       try {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
-          // Build parts
           type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
           const parts: GeminiPart[] = [];
           if (referenceImages.length > 0) {
