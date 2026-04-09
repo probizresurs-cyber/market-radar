@@ -4292,112 +4292,275 @@ CTA: ${idea.cta}
 Верни JSON: { "title": "...", "scenario": "...", "voiceoverScript": "...", "hashtags": [...] }`;
 }
 
-function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
-  c: Colors;
-  idea: ContentPostIdea;
-  isGenerating: boolean;
-  generatingId: string | null;
-  onGenerate: (idea: ContentPostIdea, customPrompt?: string) => void;
-}) {
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const busy = isGenerating && generatingId === idea.id;
-
-  const handleOpenPrompt = () => {
-    if (!prompt) setPrompt(buildPostPrompt(idea));
-    setShowPrompt(v => !v);
-  };
-
+function PostIdeaCard({ c, idea }: { c: Colors; idea: ContentPostIdea }) {
   return (
-    <div style={{ background: "var(--card-bg, #fff)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "0 1px 4px #0000080a" }}>
+    <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px", textTransform: "uppercase" }}>{idea.format}</span>
-        <span style={{ fontSize: 10, color: "#888", fontWeight: 600 }}>{idea.platform}</span>
+        <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.platform}</span>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "inherit", lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
-      <p style={{ fontSize: 11, color: "#666", lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
-      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
-      <div style={{ fontSize: 10, color: "#999", marginBottom: 12 }}><b>CTA:</b> {idea.cta}</div>
-
-      <button
-        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
-        disabled={busy || isGenerating}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "#e5e7eb" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? "#9ca3af" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
-        {busy ? "⏳ Генерируем…" : showPrompt ? "✨ Создать по промпту" : "✨ Создать пост с картинкой"}
-      </button>
-
-      <button
-        onClick={handleOpenPrompt}
-        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: showPrompt ? "#f59e0b12" : "transparent", color: "#888", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-        {showPrompt ? "↑ Скрыть промпт" : "✏️ Задать свой промпт"}
-      </button>
-
-      {showPrompt && (
-        <div style={{ marginTop: 8 }}>
-          <textarea
-            value={prompt}
-            onChange={e => setPrompt(e.target.value)}
-            rows={7}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #f59e0b50", background: "transparent", color: "inherit", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
-          />
-          <div style={{ fontSize: 10, color: "#aaa", marginTop: 2 }}>Промпт заменит стандартный при генерации. Ответ должен быть JSON.</div>
-        </div>
-      )}
+      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
+      <p style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
+      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
+      <div style={{ fontSize: 10, color: c.textMuted }}><b>CTA:</b> {idea.cta}</div>
     </div>
   );
 }
 
-function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
-  c: Colors;
-  idea: ContentReelIdea;
-  isGenerating: boolean;
-  generatingId: string | null;
-  onGenerate: (idea: ContentReelIdea, customPrompt?: string) => void;
-}) {
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const busy = isGenerating && generatingId === idea.id;
-
-  const handleOpenPrompt = () => {
-    if (!prompt) setPrompt(buildReelPrompt(idea));
-    setShowPrompt(v => !v);
-  };
-
+function ReelIdeaCard({ c, idea }: { c: Colors; idea: ContentReelIdea }) {
   return (
-    <div style={{ background: "var(--card-bg, #fff)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "0 1px 4px #0000080a" }}>
+    <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {idea.durationSec}s</span>
-        <span style={{ fontSize: 10, color: "#888", fontWeight: 600 }}>{idea.pillar}</span>
+        <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.pillar}</span>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
-      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
-      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
-      <div style={{ fontSize: 10, color: "#999", marginBottom: 12 }}><b>Результат:</b> {idea.result}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
+      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
+      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
+      <div style={{ fontSize: 10, color: c.textMuted }}><b>Результат:</b> {idea.result}</div>
+    </div>
+  );
+}
 
-      <button
-        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
-        disabled={busy || isGenerating}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "#e5e7eb" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "#9ca3af" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
-        {busy ? "⏳ Пишем сценарий…" : showPrompt ? "🎬 Создать по промпту" : "🎬 Создать сценарий рилса"}
-      </button>
+// ---------- ContentGeneratorBlock ----------
 
-      <button
-        onClick={handleOpenPrompt}
-        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: showPrompt ? "#ec489912" : "transparent", color: "#888", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-        {showPrompt ? "↑ Скрыть промпт" : "✏️ Задать свой промпт"}
-      </button>
+function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel }: {
+  c: Colors;
+  plan: ContentPlan;
+  isGeneratingPost: boolean;
+  generatingPostId: string | null;
+  isGeneratingReel: boolean;
+  generatingReelId: string | null;
+  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
+}) {
+  const [mode, setMode] = useState<"post" | "reel">("post");
+  const [scratchMode, setScratchMode] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedReelId, setSelectedReelId] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [scratchTopic, setScratchTopic] = useState("");
+  const [isExpandingPrompt, setIsExpandingPrompt] = useState(false);
+  const [expandError, setExpandError] = useState<string | null>(null);
 
-      {showPrompt && (
-        <div style={{ marginTop: 8 }}>
+  const selectedPost = plan.postIdeas.find(p => p.id === selectedPostId);
+  const selectedReel = plan.reelIdeas.find(r => r.id === selectedReelId);
+
+  const selectPost = (idea: ContentPostIdea) => {
+    setScratchMode(false);
+    if (selectedPostId === idea.id) { setSelectedPostId(null); setPrompt(""); return; }
+    setSelectedPostId(idea.id);
+    setPrompt(buildPostPrompt(idea));
+  };
+
+  const selectReel = (idea: ContentReelIdea) => {
+    setScratchMode(false);
+    if (selectedReelId === idea.id) { setSelectedReelId(null); setPrompt(""); return; }
+    setSelectedReelId(idea.id);
+    setPrompt(buildReelPrompt(idea));
+  };
+
+  const openScratch = () => {
+    setScratchMode(true);
+    setSelectedPostId(null);
+    setSelectedReelId(null);
+    setPrompt("");
+  };
+
+  const handleExpandPrompt = async () => {
+    const topic = scratchMode ? scratchTopic : (mode === "post" ? (selectedPost?.hook ?? "") : (selectedReel?.hook ?? ""));
+    setIsExpandingPrompt(true);
+    setExpandError(null);
+    try {
+      const res = await fetch("/api/expand-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: topic || "контент для бизнеса", type: mode }),
+      });
+      const json = await res.json() as { ok: boolean; prompt?: string; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка");
+      setPrompt(json.prompt ?? "");
+    } catch (e) {
+      setExpandError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setIsExpandingPrompt(false);
+    }
+  };
+
+  const handleGenerate = () => {
+    if (mode === "post") {
+      const idea: ContentPostIdea = selectedPost ?? {
+        id: `scratch-${Date.now()}`, pillar: "С нуля", format: "single",
+        hook: scratchTopic || "Новый пост", angle: scratchTopic, goal: "охват", cta: "", platform: "vk",
+      };
+      onGeneratePost(idea, prompt || undefined);
+    } else {
+      const idea: ContentReelIdea = selectedReel ?? {
+        id: `scratch-${Date.now()}`, pillar: "С нуля", hook: scratchTopic || "Новый рилс",
+        intrigue: "", problem: "", solution: "", result: "", cta: "", durationSec: 30, visualStyle: "", hashtags: [],
+      };
+      onGenerateReel(idea, prompt || undefined);
+    }
+  };
+
+  const isGenerating = mode === "post" ? isGeneratingPost : isGeneratingReel;
+  const busyId = mode === "post" ? generatingPostId : generatingReelId;
+  const selectedId = mode === "post" ? selectedPostId : selectedReelId;
+  const busy = isGenerating && (busyId === selectedId || (scratchMode && busyId?.startsWith("scratch")));
+  const accent = mode === "post" ? "#f59e0b" : "#ec4899";
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadowLg, marginBottom: 24, overflow: "hidden" }}>
+      {/* Header + mode tabs */}
+      <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${c.borderLight}`, background: `linear-gradient(135deg, ${c.bgCard} 50%, ${accent}06 100%)` }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: c.textPrimary, marginBottom: 12 }}>✨ Создать контент</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {([["post", "📝 Пост"], ["reel", "🎬 Рилс"]] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setPrompt(""); }}
+              style={{ padding: "7px 18px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.15s",
+                background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : c.bg,
+                color: mode === m ? "#fff" : c.textSecondary,
+                boxShadow: mode === m ? `0 2px 8px ${m === "reel" ? "#ec489940" : "#f59e0b40"}` : "none",
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "18px 20px" }}>
+        {/* Idea chips */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>
+            {mode === "post" ? "ВЫБЕРИТЕ ИДЕЮ ИЗ ПЛАНА" : "ВЫБЕРИТЕ ИДЕЮ РИЛСА"}
+            <span style={{ fontWeight: 400, marginLeft: 6 }}>(или напишите с нуля)</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {mode === "post"
+              ? plan.postIdeas.map(idea => {
+                  const sel = selectedPostId === idea.id;
+                  return (
+                    <button
+                      key={idea.id}
+                      onClick={() => selectPost(idea)}
+                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
+                        background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
+                        fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
+                        maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
+                      }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : c.textMuted, marginBottom: 2, textTransform: "uppercase" }}>{idea.format}</div>
+                      {idea.hook}
+                    </button>
+                  );
+                })
+              : plan.reelIdeas.map(idea => {
+                  const sel = selectedReelId === idea.id;
+                  return (
+                    <button
+                      key={idea.id}
+                      onClick={() => selectReel(idea)}
+                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
+                        background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
+                        fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
+                        maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
+                      }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : c.textMuted, marginBottom: 2 }}>{idea.durationSec}с · {idea.pillar}</div>
+                      🪝 {idea.hook}
+                    </button>
+                  );
+                })
+            }
+            {/* From scratch chip */}
+            <button
+              onClick={openScratch}
+              style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : c.border}`,
+                background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : c.textMuted,
+                fontSize: 11, fontWeight: scratchMode ? 700 : 500, cursor: "pointer", transition: "all 0.12s",
+              }}>
+              ✍️ С нуля
+            </button>
+          </div>
+        </div>
+
+        {/* Selected idea detail */}
+        {!scratchMode && (selectedPost || selectedReel) && (
+          <div style={{ marginBottom: 14, padding: "10px 14px", background: accent + "0a", borderRadius: 10, border: `1px solid ${accent}20`, fontSize: 11, color: c.textSecondary, lineHeight: 1.6 }}>
+            {selectedPost && <>
+              <b style={{ color: accent }}>Угол:</b> {selectedPost.angle} · <b style={{ color: accent }}>Цель:</b> {selectedPost.goal} · <b style={{ color: accent }}>CTA:</b> {selectedPost.cta}
+            </>}
+            {selectedReel && <>
+              <b style={{ color: accent }}>Боль:</b> {selectedReel.problem} · <b style={{ color: accent }}>Решение:</b> {selectedReel.solution} · <b style={{ color: accent }}>CTA:</b> {selectedReel.cta}
+            </>}
+          </div>
+        )}
+
+        {/* Scratch topic */}
+        {scratchMode && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕМА / БРИФ</label>
+            <textarea
+              value={scratchTopic}
+              onChange={e => setScratchTopic(e.target.value)}
+              placeholder="Опишите тему, задачу или ключевую мысль. Например: «Почему немецкие перевозчики надёжнее» или «Кейс: доставка в шторм»"
+              rows={2}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+            />
+          </div>
+        )}
+
+        {/* AI expand button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <button
+            onClick={handleExpandPrompt}
+            disabled={isExpandingPrompt}
+            style={{ padding: "8px 16px", borderRadius: 9, border: `1px solid ${accent}50`, background: accent + "0c",
+              color: accent, fontSize: 11, fontWeight: 700, cursor: isExpandingPrompt ? "not-allowed" : "pointer",
+              opacity: isExpandingPrompt ? 0.6 : 1, transition: "all 0.15s",
+            }}>
+            {isExpandingPrompt ? "⏳ ИИ пишет промпт…" : "🤖 ИИ-помощник: сгенерировать промпт"}
+          </button>
+          {expandError && <span style={{ fontSize: 11, color: c.accentRed }}>{expandError}</span>}
+        </div>
+
+        {/* Prompt textarea */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>
+            ПРОМПТ ДЛЯ ГЕНЕРАЦИИ
+            <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно редактировать</span>
+          </label>
           <textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
-            rows={7}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #ec489950", background: "transparent", color: "inherit", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+            placeholder={mode === "post"
+              ? "Нажмите «ИИ-помощник» для автозаполнения или выберите идею из плана, или напишите промпт вручную…\n\nОжидаемый ответ JSON: { \"hook\": \"...\", \"body\": \"...\", \"hashtags\": [...], \"imagePrompt\": \"...\" }"
+              : "Нажмите «ИИ-помощник» для автозаполнения или выберите идею из плана, или напишите промпт вручную…\n\nОжидаемый ответ JSON: { \"title\": \"...\", \"scenario\": \"...\", \"voiceoverScript\": \"...\", \"hashtags\": [...] }"}
+            rows={9}
+            style={{ width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${accent}40`,
+              background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical",
+              fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, boxSizing: "border-box",
+            }}
           />
-          <div style={{ fontSize: 10, color: "#aaa", marginTop: 2 }}>Промпт заменит стандартный. Ответ должен быть JSON.</div>
         </div>
-      )}
+
+        {/* Generate button */}
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating}
+          style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 14, cursor: isGenerating ? "not-allowed" : "pointer", transition: "all 0.15s",
+            background: isGenerating ? c.borderLight : (mode === "reel" ? "linear-gradient(135deg, #ec4899, #f472b6)" : "linear-gradient(135deg, #f59e0b, #fb923c)"),
+            color: isGenerating ? c.textMuted : "#fff",
+            boxShadow: isGenerating ? "none" : `0 4px 16px ${accent}50`,
+          }}>
+          {isGenerating
+            ? (busy ? "⏳ Генерируем…" : "⏳ Генерация другого…")
+            : mode === "reel" ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
+        </button>
+        {isGenerating && !busy && (
+          <div style={{ fontSize: 11, color: c.textMuted, textAlign: "center", marginTop: 6 }}>Дождитесь окончания текущей генерации</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -4512,34 +4675,34 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
         </div>
       </CollapsibleSection>
 
+      {/* Content Generator */}
+      <ContentGeneratorBlock
+        c={c} plan={plan}
+        isGeneratingPost={isGeneratingPost} generatingPostId={generatingPostId}
+        isGeneratingReel={isGeneratingReel} generatingReelId={generatingReelId}
+        onGeneratePost={onGeneratePost} onGenerateReel={onGenerateReel}
+      />
+
       {/* Reference images panel */}
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
-
-      {/* Post ideas */}
-      <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-          {plan.postIdeas.map(idea => (
-            <PostIdeaCard
-              key={idea.id} c={c} idea={idea}
-              isGenerating={isGeneratingPost} generatingId={generatingPostId}
-              onGenerate={onGeneratePost}
-            />
-          ))}
-        </div>
-      </CollapsibleSection>
 
       {/* Avatar settings (affects reel scenarios + video generation) */}
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
-      {/* Reel ideas */}
-      <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+      {/* Post ideas — reference only */}
+      <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`} defaultOpen={false}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+          {plan.postIdeas.map(idea => (
+            <PostIdeaCard key={idea.id} c={c} idea={idea} />
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* Reel ideas — reference only */}
+      <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`} defaultOpen={false}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
           {plan.reelIdeas.map(idea => (
-            <ReelIdeaCard
-              key={idea.id} c={c} idea={idea}
-              isGenerating={isGeneratingReel} generatingId={generatingReelId}
-              onGenerate={onGenerateReel}
-            />
+            <ReelIdeaCard key={idea.id} c={c} idea={idea} />
           ))}
         </div>
       </CollapsibleSection>
