@@ -5158,6 +5158,14 @@ function ImageReferencePanel({ c, images, onChange }: {
   );
 }
 
+const POPULAR_FONTS = [
+  "Inter", "Manrope", "Montserrat", "Roboto", "Open Sans", "Lato", "Poppins",
+  "Raleway", "Nunito", "Playfair Display", "Merriweather", "PT Sans", "PT Serif",
+  "Oswald", "Ubuntu", "Rubik", "Source Sans 3", "Work Sans", "DM Sans", "DM Serif Display",
+  "Bebas Neue", "Josefin Sans", "Cormorant Garamond", "Libre Baskerville", "Lora",
+  "Fira Sans", "IBM Plex Sans", "IBM Plex Serif", "Space Grotesk", "Archivo",
+];
+
 function BrandBookPanel({ c, brandBook, onChange }: {
   c: Colors;
   brandBook: BrandBook;
@@ -5165,12 +5173,23 @@ function BrandBookPanel({ c, brandBook, onChange }: {
 }) {
   const isEmpty = !brandBook.brandName && !brandBook.tagline && brandBook.colors.length === 0;
   const [open, setOpen] = useState(isEmpty);
+  const [pickerColor, setPickerColor] = useState("#f59e0b");
 
   const update = (patch: Partial<BrandBook>) => onChange({ ...brandBook, ...patch });
 
   const updateList = (key: "colors" | "toneOfVoice" | "forbiddenWords" | "goodPhrases", raw: string) => {
     const arr = raw.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
     onChange({ ...brandBook, [key]: arr });
+  };
+
+  const addColor = (col: string) => {
+    const hex = col.toLowerCase();
+    if (brandBook.colors.includes(hex)) return;
+    onChange({ ...brandBook, colors: [...brandBook.colors, hex] });
+  };
+
+  const removeColor = (col: string) => {
+    onChange({ ...brandBook, colors: brandBook.colors.filter(x => x !== col) });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5228,27 +5247,64 @@ function BrandBookPanel({ c, brandBook, onChange }: {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 14 }}>
             <div>
-              <label style={labelStyle}>ЦВЕТОВАЯ ПАЛИТРА (HEX, через запятую)</label>
-              <input type="text" value={brandBook.colors.join(", ")} onChange={e => updateList("colors", e.target.value)} placeholder="#f59e0b, #0f172a, #ffffff" style={{ ...inputStyle, fontFamily: "monospace" }} />
+              <label style={labelStyle}>ЦВЕТОВАЯ ПАЛИТРА</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: `2px solid ${c.border}`, overflow: "hidden", cursor: "pointer", background: pickerColor, boxShadow: c.shadow }}>
+                  <input
+                    type="color"
+                    value={pickerColor}
+                    onChange={e => setPickerColor(e.target.value)}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: "none" }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addColor(pickerColor)}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  + добавить
+                </button>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: c.textMuted }}>{pickerColor}</span>
+              </div>
               {brandBook.colors.length > 0 && (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                   {brandBook.colors.map((col, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 6, background: c.bg, border: `1px solid ${c.borderLight}` }}>
-                      <div style={{ width: 14, height: 14, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
+                    <div key={i}
+                      style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 6px", borderRadius: 6, background: c.bg, border: `1px solid ${c.borderLight}` }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
                       <span style={{ fontSize: 10, fontFamily: "monospace", color: c.textSecondary }}>{col}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeColor(col)}
+                        title="удалить"
+                        style={{ background: "none", border: "none", color: c.textMuted, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
+              <div style={hintStyle}>Выбери цвет в кружочке и нажми «+ добавить».</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
                 <label style={labelStyle}>ШРИФТ ЗАГОЛОВКОВ</label>
-                <input type="text" value={brandBook.fontHeader} onChange={e => update({ fontHeader: e.target.value })} placeholder="Montserrat, Inter..." style={inputStyle} />
+                <select
+                  value={brandBook.fontHeader}
+                  onChange={e => update({ fontHeader: e.target.value })}
+                  style={{ ...inputStyle, fontFamily: brandBook.fontHeader || "inherit", cursor: "pointer" }}>
+                  <option value="">— не выбран —</option>
+                  {POPULAR_FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+                </select>
               </div>
               <div>
                 <label style={labelStyle}>ШРИФТ ТЕКСТА</label>
-                <input type="text" value={brandBook.fontBody} onChange={e => update({ fontBody: e.target.value })} placeholder="Inter, Manrope..." style={inputStyle} />
+                <select
+                  value={brandBook.fontBody}
+                  onChange={e => update({ fontBody: e.target.value })}
+                  style={{ ...inputStyle, fontFamily: brandBook.fontBody || "inherit", cursor: "pointer" }}>
+                  <option value="">— не выбран —</option>
+                  {POPULAR_FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+                </select>
               </div>
             </div>
           </div>
