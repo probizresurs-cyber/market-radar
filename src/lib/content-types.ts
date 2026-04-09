@@ -88,6 +88,20 @@ export interface ReferenceImage {
   previewUrl: string; // data URL for display
 }
 
+export interface BrandBook {
+  brandName: string;           // как называем бренд/компанию в публикациях
+  tagline: string;             // слоган / короткое позиционирование
+  mission: string;             // миссия бренда
+  colors: string[];            // hex-палитра (3-5 цветов)
+  fontHeader: string;          // название шрифта для заголовков
+  fontBody: string;            // название шрифта для основного текста
+  toneOfVoice: string[];       // 3-5 дескрипторов тона (дружелюбный, экспертный, ...)
+  forbiddenWords: string[];    // слова/формулировки, которые нельзя использовать
+  goodPhrases: string[];       // примеры хороших фраз/формулировок бренда
+  visualStyle: string;         // описание визуального стиля для картинок
+  logoDataUrl?: string;        // base64 логотипа (необязательно)
+}
+
 export interface AvatarSettings {
   avatarId: string;            // HeyGen avatar_id
   voiceId: string;             // HeyGen voice_id

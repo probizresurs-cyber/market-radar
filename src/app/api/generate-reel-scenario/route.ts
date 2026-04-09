@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
-import type { GeneratedReel, ContentReelIdea } from "@/lib/content-types";
+import type { GeneratedReel, ContentReelIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+
+function buildBrandBookBlock(bb: BrandBook | null): string {
+  if (!bb) return "";
+  const lines: string[] = [];
+  if (bb.brandName) lines.push(`- Название бренда: ${bb.brandName}`);
+  if (bb.tagline) lines.push(`- Слоган: ${bb.tagline}`);
+  if (bb.mission) lines.push(`- Миссия: ${bb.mission}`);
+  if (bb.toneOfVoice?.length) lines.push(`- Tone of voice: ${bb.toneOfVoice.join(", ")}`);
+  if (bb.forbiddenWords?.length) lines.push(`- НЕ использовать слова: ${bb.forbiddenWords.join(", ")}`);
+  if (bb.goodPhrases?.length) lines.push(`- Примеры фирменных фраз:\n  ${bb.goodPhrases.map(p => `«${p}»`).join("\n  ")}`);
+  if (bb.visualStyle) lines.push(`- Визуальный стиль в кадре: ${bb.visualStyle}`);
+  if (!lines.length) return "";
+  return `\nБРЕНДБУК (строго соблюдать в тексте озвучки и описании кадра):\n${lines.join("\n")}\n`;
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -25,11 +39,14 @@ function buildPrompt(
   smm: SMMResult | null,
   voiceDescription: string,
   avatarDescription: string,
+  brandBook: BrandBook | null,
 ): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
 Тон: ${smm.brandIdentity.toneOfVoice.join(", ")}
 ` : "";
+
+  const brandBlock = buildBrandBookBlock(brandBook);
 
   const avatarBlock = (voiceDescription || avatarDescription) ? `
 АВАТАР И ГОЛОС (адаптируй сценарий и стиль речи под этого ведущего):
@@ -40,7 +57,7 @@ ${voiceDescription ? `- Голос / манера речи: ${voiceDescription}`
   return `Разверни идею рилса в готовый сценарий и текст для озвучки аватаром HeyGen.
 
 Компания: ${companyName}
-${smmBlock}${avatarBlock}
+${smmBlock}${brandBlock}${avatarBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Крюк: ${idea.hook}
@@ -76,6 +93,7 @@ export async function POST(req: Request) {
     const companyName: string = body.companyName ?? "";
     const idea: ContentReelIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
+    const brandBook: BrandBook | null = body.brandBook ?? null;
     const voiceDescription: string = body.voiceDescription ?? "";
     const avatarDescription: string = body.avatarDescription ?? "";
     const userPrompt: string = body.userPrompt ?? "";
@@ -99,7 +117,9 @@ export async function POST(req: Request) {
         model: "gpt-4o",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt.trim() || buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription) },
+          { role: "user", content: userPrompt.trim()
+              ? (buildBrandBookBlock(brandBook) ? `${userPrompt.trim()}\n${buildBrandBookBlock(brandBook)}` : userPrompt.trim())
+              : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook) },
         ],
         temperature: 0.9,
         max_tokens: 3000,

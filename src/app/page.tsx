@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
-import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage } from "@/lib/content-types";
+import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook } from "@/lib/content-types";
 
 // ============================================================
 // MarketRadar — Конкурентный анализ для Company24.pro
@@ -4400,7 +4400,7 @@ function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
 
 // ---------- ContentGeneratorBlock ----------
 
-function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel }: {
+function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -4409,6 +4409,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
   generatingReelId: string | null;
   onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
+  brandBook: BrandBook;
 }) {
   const [mode, setMode] = useState<"post" | "reel">("post");
   const [scratchMode, setScratchMode] = useState(false);
@@ -4467,6 +4468,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
           companyName: plan.companyName,
           bigIdea: plan.bigIdea,
           pillars: plan.pillars ?? [],
+          brandBook,
         }),
       });
       const json = await res.json() as { ok: boolean; prompt?: string; error?: string };
@@ -4728,7 +4730,7 @@ function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGenerating
 
 // ---------- ContentPlanView ----------
 
-function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages }: {
+function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages, brandBook, onUpdateBrandBook }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -4741,6 +4743,8 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
   onUpdateAvatarSettings: (next: AvatarSettings) => void;
   referenceImages: ReferenceImage[];
   onUpdateReferenceImages: (next: ReferenceImage[]) => void;
+  brandBook: BrandBook;
+  onUpdateBrandBook: (next: BrandBook) => void;
 }) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const generatedDate = new Date(plan.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
@@ -4781,7 +4785,11 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
         isGeneratingPost={isGeneratingPost} generatingPostId={generatingPostId}
         isGeneratingReel={isGeneratingReel} generatingReelId={generatingReelId}
         onGeneratePost={onGeneratePost} onGenerateReel={onGenerateReel}
+        brandBook={brandBook}
       />
+
+      {/* Brand Book */}
+      <BrandBookPanel c={c} brandBook={brandBook} onChange={onUpdateBrandBook} />
 
       {/* Reference images panel */}
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
@@ -5143,6 +5151,157 @@ function ImageReferencePanel({ c, images, onChange }: {
 
           <div style={{ marginTop: 12, padding: "10px 12px", background: c.accent + "08", borderRadius: 8, fontSize: 11, color: c.textSecondary, lineHeight: 1.5 }}>
             💡 <b>Как работает:</b> загрузите 1-3 картинки в нужном стиле (например, фирменные фото или референс-изображения). Gemini будет генерировать картинки для постов, ориентируясь на их цвета, композицию и настроение.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BrandBookPanel({ c, brandBook, onChange }: {
+  c: Colors;
+  brandBook: BrandBook;
+  onChange: (next: BrandBook) => void;
+}) {
+  const isEmpty = !brandBook.brandName && !brandBook.tagline && brandBook.colors.length === 0;
+  const [open, setOpen] = useState(isEmpty);
+
+  const update = (patch: Partial<BrandBook>) => onChange({ ...brandBook, ...patch });
+
+  const updateList = (key: "colors" | "toneOfVoice" | "forbiddenWords" | "goodPhrases", raw: string) => {
+    const arr = raw.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+    onChange({ ...brandBook, [key]: arr });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") update({ logoDataUrl: reader.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" };
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+  const taStyle: React.CSSProperties = { ...inputStyle, resize: "vertical", lineHeight: 1.5 };
+  const hintStyle: React.CSSProperties = { fontSize: 10, color: c.textMuted, marginTop: 4 };
+
+  const summary = brandBook.brandName
+    ? `${brandBook.brandName}${brandBook.tagline ? " · " + brandBook.tagline : ""}`
+    : "Не заполнено — контент будет генерироваться без брендовых правил";
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, boxShadow: c.shadow, marginBottom: 20 }}>
+      <div
+        onClick={() => setOpen(!open)}
+        style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid ${c.borderLight}` : "none" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>📖 Брендбук</div>
+          <div style={{ fontSize: 11, color: c.textMuted, marginTop: 3 }}>{summary}</div>
+        </div>
+        <span style={{ fontSize: 11, color: c.textMuted, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+      </div>
+
+      {open && (
+        <div style={{ padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 14, lineHeight: 1.5 }}>
+            Все поля передаются в генерацию постов, рилсов и промптов ИИ-помощника. Чем полнее заполнен брендбук — тем точнее тон и визуал.
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+            <div>
+              <label style={labelStyle}>НАЗВАНИЕ БРЕНДА</label>
+              <input type="text" value={brandBook.brandName} onChange={e => update({ brandName: e.target.value })} placeholder="как называем бренд в публикациях" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>СЛОГАН / ПОЗИЦИОНИРОВАНИЕ</label>
+              <input type="text" value={brandBook.tagline} onChange={e => update({ tagline: e.target.value })} placeholder="короткая формулировка (до 10 слов)" style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label style={labelStyle}>МИССИЯ БРЕНДА</label>
+            <textarea value={brandBook.mission} onChange={e => update({ mission: e.target.value })} rows={2} placeholder="во что верим и зачем существуем" style={taStyle} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 14 }}>
+            <div>
+              <label style={labelStyle}>ЦВЕТОВАЯ ПАЛИТРА (HEX, через запятую)</label>
+              <input type="text" value={brandBook.colors.join(", ")} onChange={e => updateList("colors", e.target.value)} placeholder="#f59e0b, #0f172a, #ffffff" style={{ ...inputStyle, fontFamily: "monospace" }} />
+              {brandBook.colors.length > 0 && (
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {brandBook.colors.map((col, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 6, background: c.bg, border: `1px solid ${c.borderLight}` }}>
+                      <div style={{ width: 14, height: 14, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
+                      <span style={{ fontSize: 10, fontFamily: "monospace", color: c.textSecondary }}>{col}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={labelStyle}>ШРИФТ ЗАГОЛОВКОВ</label>
+                <input type="text" value={brandBook.fontHeader} onChange={e => update({ fontHeader: e.target.value })} placeholder="Montserrat, Inter..." style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>ШРИФТ ТЕКСТА</label>
+                <input type="text" value={brandBook.fontBody} onChange={e => update({ fontBody: e.target.value })} placeholder="Inter, Manrope..." style={inputStyle} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 14 }}>
+            <div>
+              <label style={labelStyle}>TONE OF VOICE (3-5 дескрипторов)</label>
+              <input type="text" value={brandBook.toneOfVoice.join(", ")} onChange={e => updateList("toneOfVoice", e.target.value)} placeholder="дружелюбный, экспертный, без формальностей" style={inputStyle} />
+              <div style={hintStyle}>Через запятую. Влияет на стиль всех текстов.</div>
+            </div>
+            <div>
+              <label style={labelStyle}>ЗАПРЕЩЁННЫЕ СЛОВА / ФОРМУЛИРОВКИ</label>
+              <input type="text" value={brandBook.forbiddenWords.join(", ")} onChange={e => updateList("forbiddenWords", e.target.value)} placeholder="дешёвый, клиент, проблема" style={inputStyle} />
+              <div style={hintStyle}>ИИ будет избегать этих слов.</div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label style={labelStyle}>ПРИМЕРЫ &laquo;ХОРОШИХ&raquo; ФРАЗ БРЕНДА (по одной на строку)</label>
+            <textarea
+              value={brandBook.goodPhrases.join("\n")}
+              onChange={e => updateList("goodPhrases", e.target.value)}
+              rows={3}
+              placeholder={"Сделаем быстрее, чем вы успеете заварить кофе\nНе продаём — помогаем выбрать"}
+              style={taStyle}
+            />
+            <div style={hintStyle}>ИИ будет ориентироваться на этот стиль.</div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label style={labelStyle}>ВИЗУАЛЬНЫЙ СТИЛЬ (для генерации картинок)</label>
+            <textarea
+              value={brandBook.visualStyle}
+              onChange={e => update({ visualStyle: e.target.value })}
+              rows={3}
+              placeholder="минимализм, тёплые бежевые тона, мягкий свет, плёночная зернистость, без стоковых лиц"
+              style={taStyle}
+            />
+            <div style={hintStyle}>Добавляется к промпту Gemini/DALL-E для каждой картинки.</div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label style={labelStyle}>ЛОГОТИП (PNG / JPG)</label>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ fontSize: 11, color: c.textSecondary }} />
+              {brandBook.logoDataUrl && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={brandBook.logoDataUrl} alt="logo" style={{ maxHeight: 48, maxWidth: 120, borderRadius: 6, border: `1px solid ${c.borderLight}`, background: c.bg, padding: 4 }} />
+                  <button onClick={() => update({ logoDataUrl: undefined })} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 10, cursor: "pointer" }}>✕ удалить</button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -5629,6 +5788,18 @@ export default function MarketRadarDashboard() {
     voiceDescription: "",
     aspect: "portrait",
   });
+  const [brandBook, setBrandBook] = useState<BrandBook>({
+    brandName: "",
+    tagline: "",
+    mission: "",
+    colors: [],
+    fontHeader: "",
+    fontBody: "",
+    toneOfVoice: [],
+    forbiddenWords: [],
+    goodPhrases: [],
+    visualStyle: "",
+  });
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -5670,6 +5841,10 @@ export default function MarketRadarDashboard() {
         const savedAvatarSettings = localStorage.getItem(`mr_avatar_settings_${user.id}`);
         if (savedAvatarSettings) {
           setAvatarSettings(JSON.parse(savedAvatarSettings));
+        }
+        const savedBrandBook = localStorage.getItem(`mr_brandbook_${user.id}`);
+        if (savedBrandBook) {
+          setBrandBook(JSON.parse(savedBrandBook));
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -5809,6 +5984,13 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  const handleUpdateBrandBook = (next: BrandBook) => {
+    setBrandBook(next);
+    if (currentUser?.id) {
+      try { localStorage.setItem(`mr_brandbook_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+    }
+  };
+
   const handleGenerateContentPlan = async (niche: string) => {
     if (!smmAnalysis) return;
     setIsGeneratingPlan(true);
@@ -5841,6 +6023,7 @@ export default function MarketRadarDashboard() {
           companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
           idea,
           smmAnalysis,
+          brandBook,
           generateImage: true,
           userPrompt: customPrompt,
           referenceImages: referenceImages.map(r => ({ data: r.data, mimeType: r.mimeType })),
@@ -5870,6 +6053,7 @@ export default function MarketRadarDashboard() {
           companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
           idea,
           smmAnalysis,
+          brandBook,
           voiceDescription: avatarSettings.voiceDescription,
           avatarDescription: avatarSettings.avatarDescription,
           userPrompt: customPrompt,
@@ -6116,6 +6300,8 @@ export default function MarketRadarDashboard() {
                 onUpdateAvatarSettings={handleUpdateAvatarSettings}
                 referenceImages={referenceImages}
                 onUpdateReferenceImages={setReferenceImages}
+                brandBook={brandBook}
+                onUpdateBrandBook={handleUpdateBrandBook}
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}

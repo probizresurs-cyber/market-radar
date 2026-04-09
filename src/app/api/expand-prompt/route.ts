@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
+import type { BrandBook } from "@/lib/content-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+function buildBrandBookBlock(bb: BrandBook | null): string {
+  if (!bb) return "";
+  const lines: string[] = [];
+  if (bb.brandName) lines.push(`Название бренда: ${bb.brandName}`);
+  if (bb.tagline) lines.push(`Слоган: ${bb.tagline}`);
+  if (bb.mission) lines.push(`Миссия: ${bb.mission}`);
+  if (bb.toneOfVoice?.length) lines.push(`Tone of voice: ${bb.toneOfVoice.join(", ")}`);
+  if (bb.forbiddenWords?.length) lines.push(`Запрещённые слова: ${bb.forbiddenWords.join(", ")}`);
+  if (bb.goodPhrases?.length) lines.push(`Фирменные фразы: ${bb.goodPhrases.map(p => `«${p}»`).join("; ")}`);
+  if (bb.visualStyle) lines.push(`Визуальный стиль: ${bb.visualStyle}`);
+  if (bb.colors?.length) lines.push(`Цвета: ${bb.colors.join(", ")}`);
+  return lines.join("\n");
+}
 
 export async function POST(req: Request) {
   try {
@@ -12,6 +27,7 @@ export async function POST(req: Request) {
     const bigIdea: string = body.bigIdea ?? "";
     const pillars: Array<{ name: string; description: string; share: string }> = body.pillars ?? [];
     const smmContext: string = body.smmContext ?? ""; // brief SMM summary if available
+    const brandBook: BrandBook | null = body.brandBook ?? null;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -20,11 +36,14 @@ export async function POST(req: Request) {
 
     const pillarsText = pillars.map(p => `• ${p.name} (${p.share}): ${p.description}`).join("\n");
 
+    const brandBookBlock = buildBrandBookBlock(brandBook);
+
     const companyBlock = [
       companyName && `Компания: ${companyName}`,
       bigIdea && `Большая идея бренда: ${bigIdea}`,
       pillarsText && `Контент-столпы:\n${pillarsText}`,
       smmContext && `Контекст бренда: ${smmContext}`,
+      brandBookBlock && `Брендбук:\n${brandBookBlock}`,
     ].filter(Boolean).join("\n");
 
     const systemPrompt = type === "post"

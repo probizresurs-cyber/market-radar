@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
-import type { GeneratedPost, ContentPostIdea } from "@/lib/content-types";
+import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+
+function buildBrandBookBlock(bb: BrandBook | null): string {
+  if (!bb) return "";
+  const lines: string[] = [];
+  if (bb.brandName) lines.push(`- Название бренда: ${bb.brandName}`);
+  if (bb.tagline) lines.push(`- Слоган: ${bb.tagline}`);
+  if (bb.mission) lines.push(`- Миссия: ${bb.mission}`);
+  if (bb.toneOfVoice?.length) lines.push(`- Tone of voice: ${bb.toneOfVoice.join(", ")}`);
+  if (bb.forbiddenWords?.length) lines.push(`- НЕ использовать слова: ${bb.forbiddenWords.join(", ")}`);
+  if (bb.goodPhrases?.length) lines.push(`- Примеры фирменных фраз:\n  ${bb.goodPhrases.map(p => `«${p}»`).join("\n  ")}`);
+  if (bb.visualStyle) lines.push(`- Визуальный стиль для картинок: ${bb.visualStyle}`);
+  if (bb.colors?.length) lines.push(`- Цветовая палитра: ${bb.colors.join(", ")}`);
+  if (!lines.length) return "";
+  return `\nБРЕНДБУК (строго соблюдать):\n${lines.join("\n")}\n`;
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -19,7 +34,7 @@ const SYSTEM_PROMPT = `Ты — эмоциональный копирайтер 
 
 ВАЖНО: Ты отвечаешь ТОЛЬКО валидным JSON. Без markdown.`;
 
-function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult | null): string {
+function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
 УТП: ${smm.brandIdentity.uniqueValue}
@@ -27,10 +42,12 @@ function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult 
 Боли ЦА: ${smm.contentStrategy.audienceProblems.join("; ")}
 ` : "";
 
+  const brandBlock = buildBrandBookBlock(brandBook);
+
   return `Разверни идею поста в готовый пост для платформы ${idea.platform}.
 
 Компания: ${companyName}
-${smmBlock}
+${smmBlock}${brandBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Формат: ${idea.format}
@@ -64,6 +81,7 @@ export async function POST(req: Request) {
     const companyName: string = body.companyName ?? "";
     const idea: ContentPostIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
+    const brandBook: BrandBook | null = body.brandBook ?? null;
     const generateImage: boolean = body.generateImage !== false;
     const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
     const referenceImages: Array<{ data: string; mimeType: string }> = body.referenceImages ?? [];
@@ -78,7 +96,11 @@ export async function POST(req: Request) {
     }
 
     // 1) Generate text
-    const userMessage = userPrompt.trim() || buildPrompt(companyName, idea, smm);
+    // Even if userPrompt is provided, append brandBook rules so they aren't ignored
+    const brandBlockForCustom = buildBrandBookBlock(brandBook);
+    const userMessage = userPrompt.trim()
+      ? (brandBlockForCustom ? `${userPrompt.trim()}\n${brandBlockForCustom}` : userPrompt.trim())
+      : buildPrompt(companyName, idea, smm, brandBook);
     const textRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -117,18 +139,21 @@ export async function POST(req: Request) {
       try {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
+          const brandVisual = brandBook?.visualStyle?.trim();
+          const brandColors = brandBook?.colors?.length ? `Brand colors: ${brandBook.colors.join(", ")}.` : "";
+          const enrichedPrompt = [parsed.imagePrompt, brandVisual && `Brand visual style: ${brandVisual}.`, brandColors].filter(Boolean).join(" ");
           type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
           const parts: GeminiPart[] = [];
           if (referenceImages.length > 0) {
             parts.push({
-              text: `Generate an image matching this description: ${parsed.imagePrompt}\nUse the provided reference images for visual style — color palette, composition, mood, and aesthetic.`,
+              text: `Generate an image matching this description: ${enrichedPrompt}\nUse the provided reference images for visual style — color palette, composition, mood, and aesthetic.`,
             });
             for (const ref of referenceImages) {
               const rawData = ref.data.includes(",") ? ref.data.split(",")[1] : ref.data;
               parts.push({ inlineData: { mimeType: ref.mimeType, data: rawData } });
             }
           } else {
-            parts.push({ text: parsed.imagePrompt });
+            parts.push({ text: enrichedPrompt });
           }
 
           const imgRes = await fetch(
