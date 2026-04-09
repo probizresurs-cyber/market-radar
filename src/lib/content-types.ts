@@ -46,6 +46,22 @@ export interface ContentPlan {
   thirtyDayCalendar: string[];     // 30 пунктов: день — что публикуем
 }
 
+export interface PostMetrics {
+  reach?: number;          // охват (уникальные просмотры)
+  impressions?: number;    // показы (total)
+  likes?: number;
+  comments?: number;
+  shares?: number;         // репосты
+  saves?: number;          // сохранения
+  clicks?: number;         // переходы по ссылке
+  leads?: number;          // заявки / лиды
+  revenue?: number;        // выручка (₽)
+  adSpend?: number;        // потрачено на продвижение (₽)
+  source?: string;         // vk / instagram / telegram / tiktok
+  capturedAt?: string;     // когда внесли метрики
+  screenshotUrl?: string;  // base64 скрина (для истории)
+}
+
 export interface GeneratedPost {
   id: string;
   ideaId: string;
@@ -57,9 +73,28 @@ export interface GeneratedPost {
   imageUrl?: string;       // готовая картинка (DALL-E url)
   platform: string;
   generatedAt: string;
+  metrics?: PostMetrics;
 }
 
 export type ReelVideoStatus = "idle" | "generating" | "ready" | "failed";
+
+export interface ReelMetrics {
+  views?: number;          // просмотры (для рилсов главная метрика)
+  reach?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  avgWatchTimeSec?: number; // среднее время просмотра
+  watchedFullPct?: number;  // % досмотревших до конца
+  clicks?: number;
+  leads?: number;
+  revenue?: number;
+  adSpend?: number;
+  source?: string;
+  capturedAt?: string;
+  screenshotUrl?: string;
+}
 
 export interface GeneratedReel {
   id: string;
@@ -78,6 +113,7 @@ export interface GeneratedReel {
   videoUrl?: string;
   videoError?: string;
   generatedAt: string;
+  metrics?: ReelMetrics;
 }
 
 export interface ReferenceImage {
