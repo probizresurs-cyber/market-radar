@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const generateImage: boolean = body.generateImage !== false;
     const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
+    const referenceImages: Array<{ data: string; mimeType: string }> = body.referenceImages ?? [];
 
     if (!idea) {
       return NextResponse.json({ ok: false, error: "Не передана идея поста" }, { status: 400 });
@@ -109,27 +110,47 @@ export async function POST(req: Request) {
       hook: string; body: string; hashtags: string[]; imagePrompt: string;
     };
 
-    // 2) Generate image (DALL-E 3) — optional
+    // 2) Generate image via Gemini (supports reference images) — optional
     let imageUrl: string | undefined;
     if (generateImage && parsed.imagePrompt) {
       try {
-        const imgRes = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: parsed.imagePrompt,
-            n: 1,
-            size: "1024x1024",
-            quality: "standard",
-          }),
-        });
-        if (imgRes.ok) {
-          const imgData = await imgRes.json() as { data: Array<{ url: string }> };
-          imageUrl = imgData.data?.[0]?.url;
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (geminiKey) {
+          // Build parts
+          type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+          const parts: GeminiPart[] = [];
+          if (referenceImages.length > 0) {
+            parts.push({
+              text: `Generate an image matching this description: ${parsed.imagePrompt}\nUse the provided reference images for visual style — color palette, composition, mood, and aesthetic.`,
+            });
+            for (const ref of referenceImages) {
+              const rawData = ref.data.includes(",") ? ref.data.split(",")[1] : ref.data;
+              parts.push({ inlineData: { mimeType: ref.mimeType, data: rawData } });
+            }
+          } else {
+            parts.push({ text: parsed.imagePrompt });
+          }
+
+          const imgRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${geminiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts }],
+                generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+              }),
+            },
+          );
+          if (imgRes.ok) {
+            const imgData = await imgRes.json() as {
+              candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }>;
+            };
+            const imagePart = imgData.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
+            if (imagePart?.inlineData) {
+              imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+            }
+          }
         }
       } catch { /* image is optional */ }
     }

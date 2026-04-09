@@ -80,6 +80,14 @@ export interface GeneratedReel {
   generatedAt: string;
 }
 
+export interface ReferenceImage {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;   // base64 (without data URL prefix)
+  previewUrl: string; // data URL for display
+}
+
 export interface AvatarSettings {
   avatarId: string;            // HeyGen avatar_id
   voiceId: string;             // HeyGen voice_id
