@@ -4338,8 +4338,10 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
   const [scratchMode, setScratchMode] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedReelId, setSelectedReelId] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [scratchTopic, setScratchTopic] = useState("");
+  // brief = plain-language instructions from user; prompt = AI-generated full prompt (optional advanced view)
+  const [brief, setBrief] = useState("");
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isExpandingPrompt, setIsExpandingPrompt] = useState(false);
   const [expandError, setExpandError] = useState<string | null>(null);
 
@@ -4348,38 +4350,53 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
 
   const selectPost = (idea: ContentPostIdea) => {
     setScratchMode(false);
-    if (selectedPostId === idea.id) { setSelectedPostId(null); setPrompt(""); return; }
+    if (selectedPostId === idea.id) { setSelectedPostId(null); setBrief(""); setGeneratedPrompt(""); return; }
     setSelectedPostId(idea.id);
-    setPrompt(buildPostPrompt(idea));
+    setBrief("");
+    setGeneratedPrompt("");
   };
 
   const selectReel = (idea: ContentReelIdea) => {
     setScratchMode(false);
-    if (selectedReelId === idea.id) { setSelectedReelId(null); setPrompt(""); return; }
+    if (selectedReelId === idea.id) { setSelectedReelId(null); setBrief(""); setGeneratedPrompt(""); return; }
     setSelectedReelId(idea.id);
-    setPrompt(buildReelPrompt(idea));
+    setBrief("");
+    setGeneratedPrompt("");
   };
 
   const openScratch = () => {
     setScratchMode(true);
     setSelectedPostId(null);
     setSelectedReelId(null);
-    setPrompt("");
+    setGeneratedPrompt("");
+  };
+
+  // Build the topic string for expand-prompt: use idea hook OR brief OR empty (AI will use company context)
+  const getExpandTopic = () => {
+    if (scratchMode) return brief;
+    if (mode === "post") return brief || (selectedPost ? `${selectedPost.hook} — ${selectedPost.angle}` : "");
+    return brief || (selectedReel ? selectedReel.hook : "");
   };
 
   const handleExpandPrompt = async () => {
-    const topic = scratchMode ? scratchTopic : (mode === "post" ? (selectedPost?.hook ?? "") : (selectedReel?.hook ?? ""));
     setIsExpandingPrompt(true);
     setExpandError(null);
     try {
       const res = await fetch("/api/expand-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic || "контент для бизнеса", type: mode }),
+        body: JSON.stringify({
+          topic: getExpandTopic(),
+          type: mode,
+          companyName: plan.companyName,
+          bigIdea: plan.bigIdea,
+          pillars: plan.pillars ?? [],
+        }),
       });
       const json = await res.json() as { ok: boolean; prompt?: string; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
-      setPrompt(json.prompt ?? "");
+      setGeneratedPrompt(json.prompt ?? "");
+      setShowAdvanced(true);
     } catch (e) {
       setExpandError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -4388,25 +4405,27 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
   };
 
   const handleGenerate = () => {
+    // customPrompt: use AI-generated prompt if available (and visible), otherwise use brief as extra instruction
+    const customPrompt = showAdvanced && generatedPrompt ? generatedPrompt : undefined;
     if (mode === "post") {
       const idea: ContentPostIdea = selectedPost ?? {
         id: `scratch-${Date.now()}`, pillar: "С нуля", format: "single",
-        hook: scratchTopic || "Новый пост", angle: scratchTopic, goal: "охват", cta: "", platform: "vk",
+        hook: brief || "Новый пост", angle: brief, goal: "охват", cta: "", platform: "vk",
       };
-      onGeneratePost(idea, prompt || undefined);
+      onGeneratePost(idea, customPrompt);
     } else {
       const idea: ContentReelIdea = selectedReel ?? {
-        id: `scratch-${Date.now()}`, pillar: "С нуля", hook: scratchTopic || "Новый рилс",
+        id: `scratch-${Date.now()}`, pillar: "С нуля", hook: brief || "Новый рилс",
         intrigue: "", problem: "", solution: "", result: "", cta: "", durationSec: 30, visualStyle: "", hashtags: [],
       };
-      onGenerateReel(idea, prompt || undefined);
+      onGenerateReel(idea, customPrompt);
     }
   };
 
   const isGenerating = mode === "post" ? isGeneratingPost : isGeneratingReel;
   const busyId = mode === "post" ? generatingPostId : generatingReelId;
   const selectedId = mode === "post" ? selectedPostId : selectedReelId;
-  const busy = isGenerating && (busyId === selectedId || (scratchMode && busyId?.startsWith("scratch")));
+  const busy = isGenerating && (busyId === selectedId || (scratchMode && (busyId?.startsWith("scratch") ?? false)));
   const accent = mode === "post" ? "#f59e0b" : "#ec4899";
 
   return (
@@ -4418,7 +4437,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
           {([["post", "📝 Пост"], ["reel", "🎬 Рилс"]] as const).map(([m, label]) => (
             <button
               key={m}
-              onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setPrompt(""); }}
+              onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setBrief(""); setGeneratedPrompt(""); setShowAdvanced(false); }}
               style={{ padding: "7px 18px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.15s",
                 background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : c.bg,
                 color: mode === m ? "#fff" : c.textSecondary,
@@ -4435,16 +4454,14 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>
             {mode === "post" ? "ВЫБЕРИТЕ ИДЕЮ ИЗ ПЛАНА" : "ВЫБЕРИТЕ ИДЕЮ РИЛСА"}
-            <span style={{ fontWeight: 400, marginLeft: 6 }}>(или напишите с нуля)</span>
+            <span style={{ fontWeight: 400, marginLeft: 6 }}>— или создайте с нуля</span>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {mode === "post"
               ? plan.postIdeas.map(idea => {
                   const sel = selectedPostId === idea.id;
                   return (
-                    <button
-                      key={idea.id}
-                      onClick={() => selectPost(idea)}
+                    <button key={idea.id} onClick={() => selectPost(idea)}
                       style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
                         background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
                         fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
@@ -4458,9 +4475,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
               : plan.reelIdeas.map(idea => {
                   const sel = selectedReelId === idea.id;
                   return (
-                    <button
-                      key={idea.id}
-                      onClick={() => selectReel(idea)}
+                    <button key={idea.id} onClick={() => selectReel(idea)}
                       style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
                         background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
                         fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
@@ -4472,9 +4487,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
                   );
                 })
             }
-            {/* From scratch chip */}
-            <button
-              onClick={openScratch}
+            <button onClick={openScratch}
               style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : c.border}`,
                 background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : c.textMuted,
                 fontSize: 11, fontWeight: scratchMode ? 700 : 500, cursor: "pointer", transition: "all 0.12s",
@@ -4484,65 +4497,76 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
           </div>
         </div>
 
-        {/* Selected idea detail */}
+        {/* Selected idea details */}
         {!scratchMode && (selectedPost || selectedReel) && (
           <div style={{ marginBottom: 14, padding: "10px 14px", background: accent + "0a", borderRadius: 10, border: `1px solid ${accent}20`, fontSize: 11, color: c.textSecondary, lineHeight: 1.6 }}>
-            {selectedPost && <>
-              <b style={{ color: accent }}>Угол:</b> {selectedPost.angle} · <b style={{ color: accent }}>Цель:</b> {selectedPost.goal} · <b style={{ color: accent }}>CTA:</b> {selectedPost.cta}
-            </>}
-            {selectedReel && <>
-              <b style={{ color: accent }}>Боль:</b> {selectedReel.problem} · <b style={{ color: accent }}>Решение:</b> {selectedReel.solution} · <b style={{ color: accent }}>CTA:</b> {selectedReel.cta}
-            </>}
+            {selectedPost && <><b style={{ color: accent }}>Угол:</b> {selectedPost.angle} · <b style={{ color: accent }}>Цель:</b> {selectedPost.goal} · <b style={{ color: accent }}>CTA:</b> {selectedPost.cta}</>}
+            {selectedReel && <><b style={{ color: accent }}>Боль:</b> {selectedReel.problem} · <b style={{ color: accent }}>Решение:</b> {selectedReel.solution} · <b style={{ color: accent }}>CTA:</b> {selectedReel.cta}</>}
           </div>
         )}
 
-        {/* Scratch topic */}
-        {scratchMode && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ТЕМА / БРИФ</label>
-            <textarea
-              value={scratchTopic}
-              onChange={e => setScratchTopic(e.target.value)}
-              placeholder="Опишите тему, задачу или ключевую мысль. Например: «Почему немецкие перевозчики надёжнее» или «Кейс: доставка в шторм»"
-              rows={2}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
-            />
-          </div>
-        )}
-
-        {/* AI expand button */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <button
-            onClick={handleExpandPrompt}
-            disabled={isExpandingPrompt}
-            style={{ padding: "8px 16px", borderRadius: 9, border: `1px solid ${accent}50`, background: accent + "0c",
-              color: accent, fontSize: 11, fontWeight: 700, cursor: isExpandingPrompt ? "not-allowed" : "pointer",
-              opacity: isExpandingPrompt ? 0.6 : 1, transition: "all 0.15s",
-            }}>
-            {isExpandingPrompt ? "⏳ ИИ пишет промпт…" : "🤖 ИИ-помощник: сгенерировать промпт"}
-          </button>
-          {expandError && <span style={{ fontSize: 11, color: c.accentRed }}>{expandError}</span>}
-        </div>
-
-        {/* Prompt textarea */}
-        <div style={{ marginBottom: 16 }}>
+        {/* Brief / instructions field */}
+        <div style={{ marginBottom: 14 }}>
           <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>
-            ПРОМПТ ДЛЯ ГЕНЕРАЦИИ
-            <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно редактировать</span>
+            БРИФ / УТОЧНЕНИЕ
+            <span style={{ fontWeight: 400, marginLeft: 6 }}>— необязательно, можно оставить пустым</span>
           </label>
           <textarea
-            value={prompt}
-            onChange={e => setPrompt(e.target.value)}
-            placeholder={mode === "post"
-              ? "Нажмите «ИИ-помощник» для автозаполнения или выберите идею из плана, или напишите промпт вручную…\n\nОжидаемый ответ JSON: { \"hook\": \"...\", \"body\": \"...\", \"hashtags\": [...], \"imagePrompt\": \"...\" }"
-              : "Нажмите «ИИ-помощник» для автозаполнения или выберите идею из плана, или напишите промпт вручную…\n\nОжидаемый ответ JSON: { \"title\": \"...\", \"scenario\": \"...\", \"voiceoverScript\": \"...\", \"hashtags\": [...] }"}
-            rows={9}
-            style={{ width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${accent}40`,
+            value={brief}
+            onChange={e => setBrief(e.target.value)}
+            placeholder={scratchMode
+              ? `Например: «напиши ${mode === "post" ? "пост" : "рилс"} о плюсах нашего бизнеса» или «сделай акцент на надёжности и немецком качестве»`
+              : `Дополнительные пожелания. Например: «сделай акцент на скорости доставки» или «добавь кейс из практики»`}
+            rows={2}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1px solid ${c.border}`,
               background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical",
-              fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, boxSizing: "border-box",
+              fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box",
             }}
           />
         </div>
+
+        {/* AI assistant row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button
+            onClick={handleExpandPrompt}
+            disabled={isExpandingPrompt}
+            style={{ padding: "8px 18px", borderRadius: 9, border: `1px solid ${accent}50`, background: accent + "0c",
+              color: accent, fontSize: 12, fontWeight: 700, cursor: isExpandingPrompt ? "not-allowed" : "pointer",
+              opacity: isExpandingPrompt ? 0.6 : 1, transition: "all 0.15s",
+            }}>
+            {isExpandingPrompt ? "⏳ ИИ готовит промпт…" : "🤖 ИИ-помощник: подготовить промпт"}
+          </button>
+          <div style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>
+            {isExpandingPrompt ? "Анализирую компанию и тему…" : "ИИ использует данные компании и сформирует готовый промпт"}
+          </div>
+          {expandError && <span style={{ fontSize: 11, color: c.accentRed }}>{expandError}</span>}
+        </div>
+
+        {/* AI-generated prompt (advanced / editable) */}
+        {showAdvanced && generatedPrompt && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>
+                ПРОМПТ ОТ ИИ-ПОМОЩНИКА
+                <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно отредактировать</span>
+              </label>
+              <button onClick={() => { setShowAdvanced(false); setGeneratedPrompt(""); }}
+                style={{ fontSize: 10, color: c.textMuted, background: "none", border: "none", cursor: "pointer" }}>✕ скрыть</button>
+            </div>
+            <textarea
+              value={generatedPrompt}
+              onChange={e => setGeneratedPrompt(e.target.value)}
+              rows={8}
+              style={{ width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${accent}40`,
+                background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical",
+                fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, boxSizing: "border-box",
+              }}
+            />
+            <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+              Этот промпт будет использован при генерации. При нажатии «Создать» без промпта — ИИ сгенерирует по идее и данным компании автоматически.
+            </div>
+          </div>
+        )}
 
         {/* Generate button */}
         <button
@@ -4554,7 +4578,7 @@ function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, is
             boxShadow: isGenerating ? "none" : `0 4px 16px ${accent}50`,
           }}>
           {isGenerating
-            ? (busy ? "⏳ Генерируем…" : "⏳ Генерация другого…")
+            ? (busy ? "⏳ Генерируем…" : "⏳ Ожидание…")
             : mode === "reel" ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
         </button>
         {isGenerating && !busy && (
