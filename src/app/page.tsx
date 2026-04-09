@@ -4264,6 +4264,207 @@ function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate }: {
   );
 }
 
+// ---------- Idea card helpers ----------
+
+function buildPostPrompt(idea: ContentPostIdea): string {
+  return `Напиши пост для платформы ${idea.platform}.
+Формат: ${idea.format}
+Крючок (заголовок): ${idea.hook}
+Угол подачи: ${idea.angle}
+Контент-столп: ${idea.pillar}
+Цель: ${idea.goal}
+CTA: ${idea.cta}
+
+Верни JSON: { "hook": "...", "body": "...", "hashtags": [...], "imagePrompt": "..." }`;
+}
+
+function buildReelPrompt(idea: ContentReelIdea): string {
+  return `Напиши сценарий рилса (${idea.durationSec} сек) по виральной структуре:
+Крюк: ${idea.hook}
+Интрига: ${idea.intrigue}
+Проблема: ${idea.problem}
+Решение: ${idea.solution}
+Результат: ${idea.result}
+CTA: ${idea.cta}
+Визуал: ${idea.visualStyle}
+Столп: ${idea.pillar}
+
+Верни JSON: { "title": "...", "scenario": "...", "voiceoverScript": "...", "hashtags": [...] }`;
+}
+
+function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
+  c: Colors;
+  idea: ContentPostIdea;
+  isGenerating: boolean;
+  generatingId: string | null;
+  onGenerate: (idea: ContentPostIdea, customPrompt?: string) => void;
+}) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const busy = isGenerating && generatingId === idea.id;
+
+  const handleOpenPrompt = () => {
+    if (!prompt) setPrompt(buildPostPrompt(idea));
+    setShowPrompt(v => !v);
+  };
+
+  return (
+    <div style={{ background: "var(--card-bg, #fff)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "0 1px 4px #0000080a" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px", textTransform: "uppercase" }}>{idea.format}</span>
+        <span style={{ fontSize: 10, color: "#888", fontWeight: 600 }}>{idea.platform}</span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "inherit", lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
+      <p style={{ fontSize: 11, color: "#666", lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
+      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
+      <div style={{ fontSize: 10, color: "#999", marginBottom: 12 }}><b>CTA:</b> {idea.cta}</div>
+
+      <button
+        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
+        disabled={busy || isGenerating}
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "#e5e7eb" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? "#9ca3af" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        {busy ? "⏳ Генерируем…" : showPrompt ? "✨ Создать по промпту" : "✨ Создать пост с картинкой"}
+      </button>
+
+      <button
+        onClick={handleOpenPrompt}
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: showPrompt ? "#f59e0b12" : "transparent", color: "#888", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        {showPrompt ? "↑ Скрыть промпт" : "✏️ Задать свой промпт"}
+      </button>
+
+      {showPrompt && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            rows={7}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #f59e0b50", background: "transparent", color: "inherit", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+          />
+          <div style={{ fontSize: 10, color: "#aaa", marginTop: 2 }}>Промпт заменит стандартный при генерации. Ответ должен быть JSON.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
+  c: Colors;
+  idea: ContentReelIdea;
+  isGenerating: boolean;
+  generatingId: string | null;
+  onGenerate: (idea: ContentReelIdea, customPrompt?: string) => void;
+}) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const busy = isGenerating && generatingId === idea.id;
+
+  const handleOpenPrompt = () => {
+    if (!prompt) setPrompt(buildReelPrompt(idea));
+    setShowPrompt(v => !v);
+  };
+
+  return (
+    <div style={{ background: "var(--card-bg, #fff)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "0 1px 4px #0000080a" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {idea.durationSec}s</span>
+        <span style={{ fontSize: 10, color: "#888", fontWeight: 600 }}>{idea.pillar}</span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
+      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
+      <div style={{ fontSize: 10, color: "#999", marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
+      <div style={{ fontSize: 10, color: "#999", marginBottom: 12 }}><b>Результат:</b> {idea.result}</div>
+
+      <button
+        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
+        disabled={busy || isGenerating}
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "#e5e7eb" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "#9ca3af" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        {busy ? "⏳ Пишем сценарий…" : showPrompt ? "🎬 Создать по промпту" : "🎬 Создать сценарий рилса"}
+      </button>
+
+      <button
+        onClick={handleOpenPrompt}
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: showPrompt ? "#ec489912" : "transparent", color: "#888", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        {showPrompt ? "↑ Скрыть промпт" : "✏️ Задать свой промпт"}
+      </button>
+
+      {showPrompt && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            rows={7}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #ec489950", background: "transparent", color: "inherit", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+          />
+          <div style={{ fontSize: 10, color: "#aaa", marginTop: 2 }}>Промпт заменит стандартный. Ответ должен быть JSON.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGeneratingReel, onGeneratePost, onGenerateReel, onClose }: {
+  c: Colors;
+  dayText: string;
+  dayIndex: number;
+  isGeneratingPost: boolean;
+  isGeneratingReel: boolean;
+  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
+  onClose: () => void;
+}) {
+  const isReel = /рилс/i.test(dayText);
+  const accentColor = isReel ? "#ec4899" : "#f59e0b";
+
+  const defaultPrompt = isReel
+    ? `Напиши сценарий рилса по теме: ${dayText}\n\nСтруктура: крюк (0-3 сек) → интрига → проблема → решение → результат → CTA.\nВерни JSON: { "title": "...", "scenario": "...", "voiceoverScript": "...", "hashtags": [...] }`
+    : `Напиши пост на тему: ${dayText}\n\nИспользуй сильный крючок, тело с конкретикой и призыв к действию.\nВерни JSON: { "hook": "...", "body": "...", "hashtags": [...], "imagePrompt": "..." }`;
+
+  const [prompt, setPrompt] = useState(defaultPrompt);
+  const busy = isReel ? isGeneratingReel : isGeneratingPost;
+
+  const fakeIdBase = { id: `cal-${dayIndex}`, pillar: "Календарь", format: "single" as const, hook: dayText, angle: dayText, goal: "охват", cta: "", platform: "instagram" };
+  const fakeReelBase = { id: `cal-${dayIndex}`, pillar: "Календарь", hook: dayText, intrigue: "", problem: "", solution: "", result: "", cta: "", durationSec: 30, visualStyle: "", hashtags: [] };
+
+  return (
+    <div style={{ marginTop: 14, background: c.bgCard, borderRadius: 12, border: `1.5px solid ${accentColor}40`, padding: 18, boxShadow: c.shadow }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, marginBottom: 4, letterSpacing: "0.05em" }}>ДЕНЬ {dayIndex + 1}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>{dayText}</div>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: c.textMuted, lineHeight: 1 }}>×</button>
+      </div>
+
+      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>ПРОМПТ ДЛЯ ГЕНЕРАЦИИ (можно редактировать)</label>
+      <textarea
+        value={prompt}
+        onChange={e => setPrompt(e.target.value)}
+        rows={6}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${accentColor}50`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.55, boxSizing: "border-box" }}
+      />
+
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <button
+          onClick={() => isReel
+            ? onGenerateReel(fakeReelBase, prompt)
+            : onGeneratePost(fakeIdBase, prompt)
+          }
+          disabled={busy}
+          style={{ flex: 1, padding: "10px 16px", borderRadius: 9, border: "none", background: busy ? c.borderLight : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
+          {busy ? "⏳ Генерируем…" : isReel ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
+        </button>
+        <button
+          onClick={() => setPrompt(defaultPrompt)}
+          style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+          Сбросить промпт
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- ContentPlanView ----------
+
 function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings }: {
   c: Colors;
   plan: ContentPlan;
@@ -4271,11 +4472,12 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
   generatingPostId: string | null;
   isGeneratingReel: boolean;
   generatingReelId: string | null;
-  onGeneratePost: (idea: ContentPostIdea) => void;
-  onGenerateReel: (idea: ContentReelIdea) => void;
+  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
   avatarSettings: AvatarSettings;
   onUpdateAvatarSettings: (next: AvatarSettings) => void;
 }) {
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const generatedDate = new Date(plan.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
@@ -4311,28 +4513,13 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
       {/* Post ideas */}
       <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-          {plan.postIdeas.map(idea => {
-            const busy = isGeneratingPost && generatingPostId === idea.id;
-            return (
-              <Card key={idea.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px", textTransform: "uppercase" }}>{idea.format}</span>
-                  <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.platform}</span>
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 8 }}>{idea.hook}</div>
-                <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, margin: "0 0 8px" }}>{idea.angle}</p>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Столп:</b> {idea.pillar}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Цель:</b> {idea.goal}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 12 }}><b style={{ color: c.textSecondary }}>CTA:</b> {idea.cta}</div>
-                <button
-                  onClick={() => onGeneratePost(idea)}
-                  disabled={busy || isGeneratingPost}
-                  style={{ width: "100%", padding: "9px 14px", borderRadius: 9, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy || isGeneratingPost ? "not-allowed" : "pointer", opacity: isGeneratingPost && !busy ? 0.5 : 1 }}>
-                  {busy ? "⏳ Генерируем пост + картинку…" : "✨ Создать пост с картинкой"}
-                </button>
-              </Card>
-            );
-          })}
+          {plan.postIdeas.map(idea => (
+            <PostIdeaCard
+              key={idea.id} c={c} idea={idea}
+              isGenerating={isGeneratingPost} generatingId={generatingPostId}
+              onGenerate={onGeneratePost}
+            />
+          ))}
         </div>
       </CollapsibleSection>
 
@@ -4342,47 +4529,77 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
       {/* Reel ideas */}
       <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-          {plan.reelIdeas.map(idea => {
-            const busy = isGeneratingReel && generatingReelId === idea.id;
-            return (
-              <Card key={idea.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {idea.durationSec}s</span>
-                  <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.pillar}</span>
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 8 }}>🪝 {idea.hook}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Боль:</b> {idea.problem}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}><b style={{ color: c.textSecondary }}>Решение:</b> {idea.solution}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 12 }}><b style={{ color: c.textSecondary }}>Результат:</b> {idea.result}</div>
-                <button
-                  onClick={() => onGenerateReel(idea)}
-                  disabled={busy || isGeneratingReel}
-                  style={{ width: "100%", padding: "9px 14px", borderRadius: 9, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy || isGeneratingReel ? "not-allowed" : "pointer", opacity: isGeneratingReel && !busy ? 0.5 : 1 }}>
-                  {busy ? "⏳ Пишем сценарий…" : "🎬 Создать сценарий рилса"}
-                </button>
-              </Card>
-            );
-          })}
+          {plan.reelIdeas.map(idea => (
+            <ReelIdeaCard
+              key={idea.id} c={c} idea={idea}
+              isGenerating={isGeneratingReel} generatingId={generatingReelId}
+              onGenerate={onGenerateReel}
+            />
+          ))}
         </div>
       </CollapsibleSection>
 
       {/* Calendar */}
       <CollapsibleSection c={c} title="📅 Календарь на 30 дней" defaultOpen={false}>
         <Card>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-            {plan.thirtyDayCalendar?.map((day, i) => (
-              <div key={i} style={{ padding: "8px 12px", background: c.bg, borderRadius: 8, border: `1px solid ${c.borderLight}`, fontSize: 12, color: c.textSecondary, lineHeight: 1.5 }}>
-                {day}
-              </div>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+            {plan.thirtyDayCalendar?.map((day, i) => {
+              const isReel = /рилс/i.test(day);
+              const isSelected = selectedDay === i;
+              return (
+                <div
+                  key={i}
+                  onClick={() => setSelectedDay(isSelected ? null : i)}
+                  style={{
+                    padding: "8px 10px", background: isSelected ? (isReel ? "#ec489918" : "#f59e0b18") : c.bg,
+                    borderRadius: 8, border: `1.5px solid ${isSelected ? (isReel ? "#ec4899" : "#f59e0b") : c.borderLight}`,
+                    fontSize: 11, color: c.textSecondary, lineHeight: 1.45, cursor: "pointer",
+                    transition: "all 0.12s",
+                  }}>
+                  {day}
+                </div>
+              );
+            })}
           </div>
           {plan.weeklyRhythm && (
-            <div style={{ marginTop: 16, padding: 12, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: c.textSecondary }}>
-              <b style={{ color: "#f59e0b" }}>Ритм публикаций:</b> {plan.weeklyRhythm}
+            <div style={{ marginTop: 14, padding: 10, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: c.textSecondary }}>
+              <b style={{ color: "#f59e0b" }}>Ритм:</b> {plan.weeklyRhythm}
             </div>
           )}
         </Card>
+
+        {/* Day detail panel */}
+        {selectedDay !== null && plan.thirtyDayCalendar?.[selectedDay] && (
+          <CalendarDayPanel
+            c={c}
+            dayText={plan.thirtyDayCalendar[selectedDay]}
+            dayIndex={selectedDay}
+            isGeneratingPost={isGeneratingPost}
+            isGeneratingReel={isGeneratingReel}
+            onGeneratePost={onGeneratePost}
+            onGenerateReel={onGenerateReel}
+            onClose={() => setSelectedDay(null)}
+          />
+        )}
       </CollapsibleSection>
+    </div>
+  );
+}
+
+// Render carousel body (split by "---") as numbered screens
+function CarouselBody({ c, body }: { c: Colors; body: string }) {
+  const slides = body.split(/\n?---\n?/).map(s => s.trim()).filter(Boolean);
+  if (slides.length <= 1) {
+    return <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{body}</p>;
+  }
+  return (
+    <div>
+      {slides.map((slide, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+          <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#f59e0b", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
+          <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{slide}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -4398,6 +4615,9 @@ function PostCard({ c, post, onUpdate, onDelete }: {
   const [body, setBody] = useState(post.body);
   const [hashtagsRaw, setHashtagsRaw] = useState(post.hashtags.join(" "));
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [imgExpanded, setImgExpanded] = useState(false);
+
+  const isCarousel = post.body.includes("---");
 
   const handleSave = () => {
     const tags = hashtagsRaw.split(/[\s,]+/).filter(Boolean).map(t => t.startsWith("#") ? t : "#" + t);
@@ -4420,107 +4640,92 @@ function PostCard({ c, post, onUpdate, onDelete }: {
   };
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${editing ? c.accent + "60" : c.border}`, padding: 18, boxShadow: c.shadow, transition: "border-color 0.15s" }}>
+    <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${editing ? c.accent + "60" : c.border}`, padding: 16, boxShadow: c.shadow, transition: "border-color 0.15s" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px" }}>{post.platform}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(post.generatedAt).toLocaleString("ru-RU")}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px" }}>{post.platform}</span>
+          {isCarousel && <span style={{ fontSize: 10, fontWeight: 700, background: "#6366f115", color: "#818cf8", borderRadius: 6, padding: "3px 8px" }}>КАРУСЕЛЬ</span>}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
           {!editing && (
-            <button
-              onClick={() => setEditing(true)}
-              style={{ padding: "4px 9px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-              ✏️ Редактировать
+            <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+              ✏️
             </button>
           )}
         </div>
       </div>
 
-      {/* Image */}
-      {post.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, marginBottom: 12, aspectRatio: "1/1", objectFit: "cover" }} />
+      {/* Compact image thumbnail */}
+      {post.imageUrl && !editing && (
+        <div style={{ marginBottom: 10 }}>
+          {imgExpanded ? (
+            <div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, objectFit: "cover", maxHeight: 320 }} />
+              <button onClick={() => setImgExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 10, cursor: "pointer" }}>
+                Свернуть
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.imageUrl} alt={post.hook}
+                onClick={() => setImgExpanded(true)}
+                style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid ${c.border}`, flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 10, color: c.textMuted, cursor: "pointer" }} onClick={() => setImgExpanded(true)}>🖼 Нажмите, чтобы открыть картинку</span>
+            </div>
+          )}
+        </div>
       )}
 
       {editing ? (
         <>
-          {/* Hook */}
           <div style={{ marginBottom: 10 }}>
             <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>КРЮЧОК / ЗАГОЛОВОК</label>
-            <input
-              type="text"
-              value={hook}
-              onChange={e => setHook(e.target.value)}
-              style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }}
-            />
+            <input type="text" value={hook} onChange={e => setHook(e.target.value)} style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }} />
           </div>
-          {/* Body */}
           <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ТЕКСТ ПОСТА</label>
-            <textarea
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              rows={10}
-              style={{ ...inputStyle, resize: "vertical" }}
-            />
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>
+              ТЕКСТ ПОСТА {isCarousel && <span style={{ fontWeight: 400 }}>(экраны карусели разделяются через "---")</span>}
+            </label>
+            <textarea value={body} onChange={e => setBody(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          {/* Hashtags */}
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ (через пробел)</label>
-            <input
-              type="text"
-              value={hashtagsRaw}
-              onChange={e => setHashtagsRaw(e.target.value)}
-              style={inputStyle}
-            />
+            <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
           </div>
-          {/* Actions */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={handleSave}
-              style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              💾 Сохранить
-            </button>
-            <button
-              onClick={handleCancel}
-              style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              Отмена
-            </button>
+            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 Сохранить</button>
+            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Отмена</button>
             {confirmDelete ? (
               <>
-                <button
-                  onClick={() => onDelete(post.id)}
-                  style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: c.accentRed, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  Удалить
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer" }}>
-                  Нет
-                </button>
+                <button onClick={() => onDelete(post.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: c.accentRed, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
+                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer" }}>Нет</button>
               </>
             ) : (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                🗑 Удалить
-              </button>
+              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
             )}
           </div>
         </>
       ) : (
         <>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
-          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: "0 0 12px", whiteSpace: "pre-wrap" }}>{post.body}</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
+          <div style={{ marginBottom: 10 }}>
+            <CarouselBody c={c} body={post.body} />
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
             {post.hashtags.map((h, i) => (
               <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
             ))}
           </div>
           <button
             onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-            style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-            📋 Скопировать текст
+            style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+            📋 Скопировать
           </button>
         </>
       )}
@@ -4549,8 +4754,8 @@ function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost }: {
   return (
     <div style={{ maxWidth: 1100 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые посты ({posts.length})</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните «Редактировать» на карточке, чтобы поправить текст</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните ✏️ на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {posts.map(post => (
           <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} />
         ))}
@@ -4743,6 +4948,28 @@ function AvatarSettingsPanel({ c, settings, onChange }: {
   );
 }
 
+function VideoPreview({ c, src }: { c: Colors; src: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {expanded ? (
+        <div>
+          <video src={src} controls style={{ width: "100%", borderRadius: 10, background: "#000", maxHeight: 400 }} />
+          <button onClick={() => setExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 10, cursor: "pointer" }}>
+            Свернуть
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid #ec489940`, background: "#ec489910", color: "#ec4899", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          ▶ Смотреть готовое видео
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor }: {
   c: Colors;
   reel: GeneratedReel;
@@ -4798,9 +5025,9 @@ function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVide
         </div>
       </div>
 
-      {/* Finished video */}
+      {/* Finished video — compact toggle */}
       {reel.videoUrl && reel.videoStatus === "ready" && (
-        <video src={reel.videoUrl} controls style={{ width: "100%", borderRadius: 10, marginBottom: 12, aspectRatio: "9/16", background: "#000" }} />
+        <VideoPreview c={c} src={reel.videoUrl} />
       )}
 
       {editing ? (
@@ -4910,9 +5137,9 @@ function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, ava
   return (
     <div style={{ maxWidth: 1100 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые видео ({reels.length})</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните «Редактировать» на карточке для правки сценария и текста озвучки</p>
+      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Кликните ✏️ для правки сценария и текста озвучки</p>
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {reels.map(reel => (
           <ReelCard key={reel.id} c={c} reel={reel} onUpdate={onUpdateReel} onDelete={onDeleteReel} onGenerateVideo={onGenerateVideo} generatingVideoFor={generatingVideoFor} />
         ))}
@@ -5217,7 +5444,7 @@ export default function MarketRadarDashboard() {
     }
   };
 
-  const handleGeneratePost = async (idea: ContentPostIdea) => {
+  const handleGeneratePost = async (idea: ContentPostIdea, customPrompt?: string) => {
     setGeneratingPostId(idea.id);
     try {
       const res = await fetch("/api/generate-post", {
@@ -5228,6 +5455,7 @@ export default function MarketRadarDashboard() {
           idea,
           smmAnalysis,
           generateImage: true,
+          userPrompt: customPrompt,
         }),
       });
       const json = await res.json();
@@ -5244,7 +5472,7 @@ export default function MarketRadarDashboard() {
     }
   };
 
-  const handleGenerateReelScenario = async (idea: ContentReelIdea) => {
+  const handleGenerateReelScenario = async (idea: ContentReelIdea, customPrompt?: string) => {
     setGeneratingReelId(idea.id);
     try {
       const res = await fetch("/api/generate-reel-scenario", {
@@ -5256,6 +5484,7 @@ export default function MarketRadarDashboard() {
           smmAnalysis,
           voiceDescription: avatarSettings.voiceDescription,
           avatarDescription: avatarSettings.avatarDescription,
+          userPrompt: customPrompt,
         }),
       });
       const json = await res.json();

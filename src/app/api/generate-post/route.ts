@@ -41,7 +41,11 @@ ${smmBlock}
 
 Напиши:
 1. Финальный сильный крючок (заголовок) — может быть переписан, чтобы цеплял
-2. Основной текст поста (для carousel — 6-8 слайдов через "---", для single — до 800 знаков, для longread — 1500-2500 знаков, для story — короткий емкий)
+2. Основной текст поста:
+   - carousel: 6-8 экранов, каждый экран отделяй строкой "---", без пометок "Слайд N"
+   - single: до 800 знаков
+   - longread: 1500-2500 знаков
+   - story: короткий, 1-3 предложения, ёмко
 3. Хэштеги (5-10)
 4. Промпт для DALL-E 3 — описание визуала: стиль, композиция, цвета, настроение, без текста на картинке. Промпт пиши на английском.
 
@@ -61,6 +65,7 @@ export async function POST(req: Request) {
     const idea: ContentPostIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const generateImage: boolean = body.generateImage !== false;
+    const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
 
     if (!idea) {
       return NextResponse.json({ ok: false, error: "Не передана идея поста" }, { status: 400 });
@@ -72,6 +77,7 @@ export async function POST(req: Request) {
     }
 
     // 1) Generate text
+    const userMessage = userPrompt.trim() || buildPrompt(companyName, idea, smm);
     const textRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -82,7 +88,7 @@ export async function POST(req: Request) {
         model: "gpt-4o",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildPrompt(companyName, idea, smm) },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.9,
         max_tokens: 3500,

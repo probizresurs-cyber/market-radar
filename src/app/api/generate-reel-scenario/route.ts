@@ -78,6 +78,7 @@ export async function POST(req: Request) {
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const voiceDescription: string = body.voiceDescription ?? "";
     const avatarDescription: string = body.avatarDescription ?? "";
+    const userPrompt: string = body.userPrompt ?? "";
 
     if (!idea) {
       return NextResponse.json({ ok: false, error: "Не передана идея рилса" }, { status: 400 });
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
         model: "gpt-4o",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription) },
+          { role: "user", content: userPrompt.trim() || buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription) },
         ],
         temperature: 0.9,
         max_tokens: 3000,
