@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
-import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics } from "@/lib/content-types";
+import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, TovCheckResult, TovIssue } from "@/lib/content-types";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -4888,6 +4888,140 @@ function CarouselBody({ c, body }: { c: Colors; body: string }) {
   );
 }
 
+// ---------- Tone of Voice panel ----------
+
+function TovPanel({ c, post, brandBook, onApply, onClose }: {
+  c: Colors;
+  post: GeneratedPost;
+  brandBook: BrandBook;
+  onApply: (corrected: GeneratedPost) => void;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<TovCheckResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showCorrected, setShowCorrected] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/check-tov", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hook: post.hook,
+          text: post.body,
+          hashtags: post.hashtags,
+          platform: post.platform,
+          brandBook,
+        }),
+      });
+      const json = await res.json() as { ok: boolean; data?: TovCheckResult; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка");
+      setResult(json.data ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scoreColor = (score: number) =>
+    score >= 80 ? "#22c55e" : score >= 55 ? "#f59e0b" : c.accentRed;
+
+  const issueTypeLabel: Record<TovIssue["type"], string> = {
+    forbidden_word: "Запрещённое слово",
+    wrong_tone: "Неверный тон",
+    missing_phrase_style: "Не тот стиль",
+    format: "Формат",
+  };
+
+  return (
+    <div style={{ marginTop: 10, padding: 14, borderRadius: 10, background: c.bg, border: "1.5px solid #6366f140" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#6366f1" }}>🎨 Корректор Tone of Voice</div>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: c.textMuted, fontSize: 14, cursor: "pointer" }}>×</button>
+      </div>
+
+      {!result && !loading && (
+        <button
+          onClick={run}
+          style={{ width: "100%", padding: "9px 16px", borderRadius: 8, border: "none",
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff",
+            fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 10px #6366f140" }}>
+          🔍 Проверить на соответствие брендбуку
+        </button>
+      )}
+      {loading && (
+        <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#6366f1", fontWeight: 700 }}>
+          ⏳ GPT-4o проверяет тон…
+        </div>
+      )}
+      {error && (
+        <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11 }}>❌ {error}</div>
+      )}
+      {result && (
+        <div>
+          {/* Score */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: scoreColor(result.score) + "20", border: `3px solid ${scoreColor(result.score)}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ fontSize: 16, fontWeight: 900, color: scoreColor(result.score) }}>{result.score}</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: c.textPrimary }}>{result.verdict}</div>
+              <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>
+                {result.issues.length === 0 ? "✅ Нарушений не найдено" : `${result.issues.length} ${result.issues.length === 1 ? "нарушение" : "нарушения/нарушений"}`}
+              </div>
+            </div>
+            <button
+              onClick={run}
+              style={{ marginLeft: "auto", padding: "5px 10px", borderRadius: 6, border: `1px solid #6366f130`, background: "transparent", color: "#6366f1", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+              ↺ Перепроверить
+            </button>
+          </div>
+
+          {/* Issues */}
+          {result.issues.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              {result.issues.map((issue, i) => (
+                <div key={i} style={{ padding: "8px 10px", background: c.accentRed + "08", border: `1px solid ${c.accentRed}25`, borderRadius: 7, marginBottom: 6 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 3 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, background: c.accentRed + "20", color: c.accentRed, borderRadius: 4, padding: "2px 6px" }}>{issueTypeLabel[issue.type]}</span>
+                    <span style={{ fontSize: 11, fontStyle: "italic", color: c.textMuted }}>«{issue.text}»</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: c.textSecondary, marginBottom: 3 }}>{issue.explanation}</div>
+                  <div style={{ fontSize: 11, color: "#22c55e" }}>👉 {issue.suggestion}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Corrected version */}
+          <button
+            onClick={() => setShowCorrected(v => !v)}
+            style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid #6366f140`, background: "#6366f108", color: "#6366f1", fontSize: 11, fontWeight: 700, cursor: "pointer", marginBottom: showCorrected ? 10 : 0 }}>
+            {showCorrected ? "▲ Скрыть исправленную версию" : "✨ Показать исправленную версию"}
+          </button>
+          {showCorrected && (
+            <div style={{ padding: 12, background: "#6366f108", borderRadius: 8, border: "1px solid #6366f125", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ИСПРАВЛЕННАЯ ВЕРСИЯ</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>{result.correctedHook}</div>
+              <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{result.correctedBody}</div>
+              <button
+                onClick={() => onApply({ ...post, hook: result.correctedHook, body: result.correctedBody })}
+                style={{ marginTop: 10, width: "100%", padding: "9px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                ✅ Применить исправления к посту
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Metrics block (screenshot → vision → editable form) ----------
 
 const POST_METRIC_FIELDS: Array<{ key: keyof PostMetrics; label: string; emoji: string }> = [
@@ -5157,11 +5291,12 @@ function MetricsBlock({ c, kind, metrics, onChange }: {
   );
 }
 
-function PostCard({ c, post, onUpdate, onDelete }: {
+function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   c: Colors;
   post: GeneratedPost;
   onUpdate: (updated: GeneratedPost) => void;
   onDelete: (id: string) => void;
+  brandBook?: BrandBook;
 }) {
   const [editing, setEditing] = useState(false);
   const [hook, setHook] = useState(post.hook);
@@ -5169,6 +5304,7 @@ function PostCard({ c, post, onUpdate, onDelete }: {
   const [hashtagsRaw, setHashtagsRaw] = useState(post.hashtags.join(" "));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
+  const [showTov, setShowTov] = useState(false);
 
   const isCarousel = post.body.includes("---");
 
@@ -5275,11 +5411,29 @@ function PostCard({ c, post, onUpdate, onDelete }: {
               <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
             ))}
           </div>
-          <button
-            onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-            style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-            📋 Скопировать
-          </button>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button
+              onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
+              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+              📋 Скопировать
+            </button>
+            {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
+              <button
+                onClick={() => setShowTov(v => !v)}
+                style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : c.border}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                🎨 Tone of Voice
+              </button>
+            )}
+          </div>
+          {showTov && brandBook && (
+            <TovPanel
+              c={c}
+              post={post}
+              brandBook={brandBook}
+              onApply={corrected => { onUpdate(corrected); setShowTov(false); }}
+              onClose={() => setShowTov(false)}
+            />
+          )}
           <MetricsBlock c={c} kind="post" metrics={post.metrics} onChange={m => onUpdate({ ...post, metrics: m })} />
         </>
       )}
@@ -5287,13 +5441,14 @@ function PostCard({ c, post, onUpdate, onDelete }: {
   );
 }
 
-function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages }: {
+function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages, brandBook }: {
   c: Colors;
   posts: GeneratedPost[];
   onUpdatePost: (updated: GeneratedPost) => void;
   onDeletePost: (id: string) => void;
   referenceImages: ReferenceImage[];
   onUpdateReferenceImages: (next: ReferenceImage[]) => void;
+  brandBook?: BrandBook;
 }) {
   if (posts.length === 0) {
     return (
@@ -5314,7 +5469,7 @@ function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceIma
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {posts.map(post => (
-          <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} />
+          <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
         ))}
       </div>
     </div>
@@ -6546,6 +6701,299 @@ function ForecastRow({ c, label, value, sub, color }: { c: Colors; label: string
   );
 }
 
+// ============================================================
+// Stories View
+// ============================================================
+
+function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete }: {
+  c: Colors;
+  stories: GeneratedStory[];
+  plan: ContentPlan | null;
+  smmAnalysis: unknown;
+  companyName: string;
+  brandBook: BrandBook;
+  onAdd: (story: GeneratedStory) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
+  const [slidesCount, setSlidesCount] = useState<3 | 5 | 7>(5);
+  const [goal, setGoal] = useState("прогрев");
+  const [brief, setBrief] = useState("");
+  const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/generate-stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName, platform, slidesCount, goal, brief, pillar, smmAnalysis, brandBook }),
+      });
+      const json = await res.json() as { ok: boolean; data?: GeneratedStory; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
+      onAdd(json.data!);
+      setBrief("");
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary,
+    fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit",
+  };
+  const accent = "#a855f7";
+
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>📱 Сторис-сценарии</h1>
+        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
+      </div>
+
+      {/* Generator form */}
+      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadowLg, marginBottom: 24, overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${c.borderLight}`, background: `linear-gradient(135deg, ${c.bgCard} 50%, ${accent}06 100%)` }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: c.textPrimary }}>✨ Создать серию сторис</div>
+        </div>
+        <div style={{ padding: "18px 20px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
+            {/* Platform */}
+            <div>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ПЛАТФОРМА</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["instagram", "vk", "telegram"] as const).map(p => (
+                  <button key={p} onClick={() => setPlatform(p)}
+                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${platform === p ? accent : c.border}`,
+                      background: platform === p ? accent + "15" : c.bg, color: platform === p ? accent : c.textSecondary,
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
+                    {p === "instagram" ? "📸 Insta" : p === "vk" ? "💙 VK" : "✈️ TG"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Slides count */}
+            <div>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>КОЛ-ВО СЛАЙДОВ</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {([3, 5, 7] as const).map(n => (
+                  <button key={n} onClick={() => setSlidesCount(n)}
+                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${slidesCount === n ? accent : c.border}`,
+                      background: slidesCount === n ? accent + "15" : c.bg, color: slidesCount === n ? accent : c.textSecondary,
+                      fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Goal */}
+            <div>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕЛЬ</label>
+              <select value={goal} onChange={e => setGoal(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                {["прогрев", "продажа", "охват", "вовлечение", "обучение", "анонс", "доверие"].map(g => (
+                  <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pillar */}
+            {plan?.pillars?.length ? (
+              <div>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛП</label>
+                <select value={pillar} onChange={e => setPillar(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                  <option value="">— свободная тема —</option>
+                  {plan.pillars.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Brief */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>
+              ТЕМА / БРИФ
+              <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
+            </label>
+            <textarea
+              value={brief}
+              onChange={e => setBrief(e.target.value)}
+              rows={2}
+              placeholder="Например: «серия про наш процесс производства», «3 мифа о нашей нише», «анонс акции 20%»"
+              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+            />
+          </div>
+
+          {genError && <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
+
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 14,
+              cursor: generating ? "not-allowed" : "pointer",
+              background: generating ? c.borderLight : `linear-gradient(135deg, #a855f7, #c084fc)`,
+              color: generating ? c.textMuted : "#fff",
+              boxShadow: generating ? "none" : `0 4px 16px #a855f740` }}>
+            {generating ? "⏳ Генерируем сценарий…" : "📱 Создать серию сторис"}
+          </button>
+        </div>
+      </div>
+
+      {/* Stories list */}
+      {stories.length === 0 ? (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 40, textAlign: "center", boxShadow: c.shadow }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>📱</div>
+          <div style={{ fontSize: 13, color: c.textSecondary }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {stories.map(story => (
+            <StoryCard key={story.id} c={c} story={story} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StoryCard({ c, story, onDelete }: {
+  c: Colors;
+  story: GeneratedStory;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const accent = "#a855f7";
+
+  const platformLabel = { instagram: "📸 Instagram", vk: "💙 VK", telegram: "✈️ Telegram" }[story.platform];
+
+  return (
+    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow, overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: expanded ? `1px solid ${c.borderLight}` : "none", cursor: "pointer" }}
+        onClick={() => setExpanded(v => !v)}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: accent + "15", color: accent, flexShrink: 0 }}>STORIES</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: c.bg, color: c.textMuted, flexShrink: 0 }}>{platformLabel}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: c.bg, color: c.textMuted, flexShrink: 0 }}>{story.slides.length} слайдов</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{story.title}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(story.generatedAt).toLocaleDateString("ru-RU")}</span>
+          <span style={{ fontSize: 11, color: c.textMuted, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: "16px 18px" }}>
+          {/* Slide navigator */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+            {story.slides.map((_, i) => (
+              <button key={i} onClick={() => setActiveSlide(i)}
+                style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${activeSlide === i ? accent : c.border}`,
+                  background: activeSlide === i ? accent : c.bg, color: activeSlide === i ? "#fff" : c.textSecondary,
+                  fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                {i + 1}
+              </button>
+            ))}
+          </div>
+
+          {/* Active slide */}
+          {story.slides[activeSlide] && (() => {
+            const slide = story.slides[activeSlide];
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
+                {/* Phone mockup */}
+                <div style={{ background: "#0f0f0f", borderRadius: 16, padding: 12, minHeight: 280, display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", position: "relative" }}>
+                  {/* Progress bar */}
+                  <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+                    {story.slides.map((_, i) => (
+                      <div key={i} style={{ flex: 1, height: 2, borderRadius: 2, background: i <= activeSlide ? "#fff" : "rgba(255,255,255,0.3)" }} />
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "8px 4px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1.3, marginBottom: 8, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{slide.headlineText}</div>
+                    {slide.bodyText && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.85)", lineHeight: 1.4, marginBottom: 8 }}>{slide.bodyText}</div>}
+                    {slide.sticker && (
+                      <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "4px 8px", fontSize: 9, color: "#fff", fontWeight: 700, marginBottom: 6 }}>
+                        🎯 {slide.sticker}
+                      </div>
+                    )}
+                  </div>
+                  {slide.cta && (
+                    <div style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "#fff", background: accent + "cc", borderRadius: 6, padding: "5px 8px" }}>
+                      {slide.cta}
+                    </div>
+                  )}
+                </div>
+
+                {/* Slide details */}
+                <div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <Field c={c} label="Фон" value={slide.background} />
+                    <Field c={c} label="Заголовок" value={slide.headlineText} bold />
+                    {slide.bodyText && <Field c={c} label="Текст" value={slide.bodyText} />}
+                    {slide.sticker && <Field c={c} label="Стикер / интерактив" value={slide.sticker} accent={accent} />}
+                    {slide.cta && <Field c={c} label="CTA" value={slide.cta} accent={accent} />}
+                    <Field c={c} label="Режиссёрская пометка" value={slide.visualNote} muted />
+                  </div>
+                  {/* Nav arrows */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button onClick={() => setActiveSlide(Math.max(0, activeSlide - 1))} disabled={activeSlide === 0}
+                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${c.border}`, background: c.bg, color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: activeSlide === 0 ? "not-allowed" : "pointer", opacity: activeSlide === 0 ? 0.4 : 1 }}>
+                      ← Назад
+                    </button>
+                    <button onClick={() => setActiveSlide(Math.min(story.slides.length - 1, activeSlide + 1))} disabled={activeSlide === story.slides.length - 1}
+                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${c.border}`, background: c.bg, color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: activeSlide === story.slides.length - 1 ? "not-allowed" : "pointer", opacity: activeSlide === story.slides.length - 1 ? 0.4 : 1 }}>
+                      Вперёд →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Hashtags + delete */}
+          <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {story.hashtags.map((h, i) => (
+                <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {confirmDelete ? (
+                <>
+                  <button onClick={() => onDelete(story.id)} style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: c.accentRed, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
+                  <button onClick={() => setConfirmDelete(false)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, cursor: "pointer" }}>Нет</button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ c, label, value, bold, muted, accent }: { c: Colors; label: string; value: string; bold?: boolean; muted?: boolean; accent?: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 2 }}>{label.toUpperCase()}</div>
+      <div style={{ fontSize: 12, color: accent ?? (muted ? c.textMuted : c.textSecondary), fontWeight: bold ? 700 : 400, lineHeight: 1.5 }}>{value}</div>
+    </div>
+  );
+}
+
 interface NavItem {
   id: string;
   icon: string;
@@ -6593,6 +7041,7 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "content-plan", icon: "📋", label: "План контента", count: null },
           { id: "content-posts", icon: "📝", label: "Готовые посты", count: null },
           { id: "content-reels", icon: "🎬", label: "Готовые видео", count: null },
+          { id: "content-stories", icon: "📱", label: "Сторис-сценарии", count: null },
           { id: "content-analytics", icon: "📊", label: "Аналитика контента", count: null },
           { id: "content-roi", icon: "💰", label: "ROI калькулятор", count: null },
         ],
@@ -6655,6 +7104,7 @@ export default function MarketRadarDashboard() {
     goodPhrases: [],
     visualStyle: "",
   });
+  const [generatedStories, setGeneratedStories] = useState<GeneratedStory[]>([]);
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -6700,6 +7150,10 @@ export default function MarketRadarDashboard() {
         const savedBrandBook = localStorage.getItem(`mr_brandbook_${user.id}`);
         if (savedBrandBook) {
           setBrandBook(JSON.parse(savedBrandBook));
+        }
+        const savedStories = localStorage.getItem(`mr_stories_${user.id}`);
+        if (savedStories) {
+          setGeneratedStories(JSON.parse(savedStories));
         }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
@@ -6844,6 +7298,27 @@ export default function MarketRadarDashboard() {
     if (currentUser?.id) {
       try { localStorage.setItem(`mr_brandbook_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
     }
+  };
+
+  const persistStories = (stories: GeneratedStory[]) => {
+    if (!currentUser?.id) return;
+    try { localStorage.setItem(`mr_stories_${currentUser.id}`, JSON.stringify(stories)); } catch { /* ignore */ }
+  };
+
+  const handleAddStory = (story: GeneratedStory) => {
+    setGeneratedStories(prev => {
+      const next = [story, ...prev];
+      persistStories(next);
+      return next;
+    });
+  };
+
+  const handleDeleteStory = (storyId: string) => {
+    setGeneratedStories(prev => {
+      const next = prev.filter(s => s.id !== storyId);
+      persistStories(next);
+      return next;
+    });
   };
 
   const handleGenerateContentPlan = async (niche: string) => {
@@ -7160,8 +7635,9 @@ export default function MarketRadarDashboard() {
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}
-        {activeNav === "content-posts" && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} />}
+        {activeNav === "content-posts" && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
         {activeNav === "content-reels" && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
+        {activeNav === "content-stories" && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} />}
         {activeNav === "content-analytics" && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
       </main>

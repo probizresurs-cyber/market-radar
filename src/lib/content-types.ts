@@ -152,3 +152,44 @@ export interface ContentFactoryState {
   reels: GeneratedReel[];
   avatarSettings?: AvatarSettings;
 }
+
+// ---------- Stories ----------
+
+export interface StorySlide {
+  order: number;
+  background: string;       // описание фона / картинки за текстом
+  headlineText: string;     // крупный текст на экране (3-6 слов)
+  bodyText?: string;        // дополнительный мелкий текст
+  sticker?: string;         // опрос / emoji / countdown / quiz
+  cta?: string;             // свайп вверх / ссылка / кнопка
+  visualNote: string;       // режиссёрская пометка (цвета, шрифт, стиль)
+}
+
+export interface GeneratedStory {
+  id: string;
+  pillar: string;
+  platform: "instagram" | "vk" | "telegram";
+  title: string;            // название серии (для внутреннего использования)
+  goal: string;             // цель серии: охват / прогрев / продажа
+  slides: StorySlide[];
+  hashtags: string[];
+  generatedAt: string;
+}
+
+// ---------- Tone of Voice check ----------
+
+export interface TovIssue {
+  type: "forbidden_word" | "wrong_tone" | "missing_phrase_style" | "format";
+  text: string;             // фрагмент с проблемой
+  explanation: string;      // почему нарушение
+  suggestion: string;       // как исправить
+}
+
+export interface TovCheckResult {
+  score: number;            // 0-100 соответствие брендбуку
+  verdict: string;          // короткий вердикт (1 предложение)
+  issues: TovIssue[];
+  correctedHook: string;    // исправленный крючок
+  correctedBody: string;    // исправленный текст поста
+  checkedAt: string;
+}
