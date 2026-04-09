@@ -4292,7 +4292,22 @@ CTA: ${idea.cta}
 Верни JSON: { "title": "...", "scenario": "...", "voiceoverScript": "...", "hashtags": [...] }`;
 }
 
-function PostIdeaCard({ c, idea }: { c: Colors; idea: ContentPostIdea }) {
+function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
+  c: Colors;
+  idea: ContentPostIdea;
+  isGenerating: boolean;
+  generatingId: string | null;
+  onGenerate: (idea: ContentPostIdea, customPrompt?: string) => void;
+}) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const busy = isGenerating && generatingId === idea.id;
+
+  const handleOpenPrompt = () => {
+    if (!prompt) setPrompt(buildPostPrompt(idea));
+    setShowPrompt(v => !v);
+  };
+
   return (
     <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -4302,12 +4317,50 @@ function PostIdeaCard({ c, idea }: { c: Colors; idea: ContentPostIdea }) {
       <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
       <p style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
       <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
-      <div style={{ fontSize: 10, color: c.textMuted }}><b>CTA:</b> {idea.cta}</div>
+      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 12 }}><b>CTA:</b> {idea.cta}</div>
+
+      <button
+        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
+        disabled={busy || isGenerating}
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        {busy ? "⏳ Генерируем…" : "✨ Создать пост с картинкой"}
+      </button>
+      <button
+        onClick={handleOpenPrompt}
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: showPrompt ? "#f59e0b12" : "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        {showPrompt ? "↑ Скрыть промпт" : "✏️ Редактировать промпт"}
+      </button>
+      {showPrompt && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            rows={7}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #f59e0b50`, background: c.bg, color: c.textPrimary, fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+          />
+          <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>Промпт заменит стандартный при генерации. Ответ должен быть JSON.</div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ReelIdeaCard({ c, idea }: { c: Colors; idea: ContentReelIdea }) {
+function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
+  c: Colors;
+  idea: ContentReelIdea;
+  isGenerating: boolean;
+  generatingId: string | null;
+  onGenerate: (idea: ContentReelIdea, customPrompt?: string) => void;
+}) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const busy = isGenerating && generatingId === idea.id;
+
+  const handleOpenPrompt = () => {
+    if (!prompt) setPrompt(buildReelPrompt(idea));
+    setShowPrompt(v => !v);
+  };
+
   return (
     <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -4317,7 +4370,30 @@ function ReelIdeaCard({ c, idea }: { c: Colors; idea: ContentReelIdea }) {
       <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
       <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
       <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
-      <div style={{ fontSize: 10, color: c.textMuted }}><b>Результат:</b> {idea.result}</div>
+      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 12 }}><b>Результат:</b> {idea.result}</div>
+
+      <button
+        onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
+        disabled={busy || isGenerating}
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        {busy ? "⏳ Пишем сценарий…" : "🎬 Создать сценарий рилса"}
+      </button>
+      <button
+        onClick={handleOpenPrompt}
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: showPrompt ? "#ec489912" : "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        {showPrompt ? "↑ Скрыть промпт" : "✏️ Редактировать промпт"}
+      </button>
+      {showPrompt && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            rows={7}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #ec489950`, background: c.bg, color: c.textPrimary, fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+          />
+          <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>Промпт заменит стандартный. Ответ должен быть JSON.</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4713,20 +4789,26 @@ function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGenera
       {/* Avatar settings (affects reel scenarios + video generation) */}
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
-      {/* Post ideas — reference only */}
+      {/* Post ideas */}
       <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`} defaultOpen={false}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
           {plan.postIdeas.map(idea => (
-            <PostIdeaCard key={idea.id} c={c} idea={idea} />
+            <PostIdeaCard key={idea.id} c={c} idea={idea}
+              isGenerating={isGeneratingPost} generatingId={generatingPostId}
+              onGenerate={onGeneratePost}
+            />
           ))}
         </div>
       </CollapsibleSection>
 
-      {/* Reel ideas — reference only */}
+      {/* Reel ideas */}
       <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`} defaultOpen={false}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
           {plan.reelIdeas.map(idea => (
-            <ReelIdeaCard key={idea.id} c={c} idea={idea} />
+            <ReelIdeaCard key={idea.id} c={c} idea={idea}
+              isGenerating={isGeneratingReel} generatingId={generatingReelId}
+              onGenerate={onGenerateReel}
+            />
           ))}
         </div>
       </CollapsibleSection>
