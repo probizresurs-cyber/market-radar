@@ -6705,7 +6705,7 @@ function ForecastRow({ c, label, value, sub, color }: { c: Colors; label: string
 // Stories View
 // ============================================================
 
-function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete }: {
+function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate }: {
   c: Colors;
   stories: GeneratedStory[];
   plan: ContentPlan | null;
@@ -6714,6 +6714,7 @@ function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, on
   brandBook: BrandBook;
   onAdd: (story: GeneratedStory) => void;
   onDelete: (id: string) => void;
+  onUpdate: (story: GeneratedStory) => void;
 }) {
   const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
   const [slidesCount, setSlidesCount] = useState<3 | 5 | 7>(5);
@@ -6855,7 +6856,7 @@ function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, on
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {stories.map(story => (
-            <StoryCard key={story.id} c={c} story={story} onDelete={onDelete} />
+            <StoryCard key={story.id} c={c} story={story} onDelete={onDelete} onUpdate={onUpdate} brandBook={brandBook} />
           ))}
         </div>
       )}
@@ -6863,15 +6864,54 @@ function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, on
   );
 }
 
-function StoryCard({ c, story, onDelete }: {
+function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
   c: Colors;
   story: GeneratedStory;
   onDelete: (id: string) => void;
+  onUpdate: (updated: GeneratedStory) => void;
+  brandBook?: BrandBook;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [generatingBg, setGeneratingBg] = useState<number | null>(null); // slide order index
+  const [bgError, setBgError] = useState<string | null>(null);
   const accent = "#a855f7";
+
+  const handleGenerateBg = async (slideIndex: number) => {
+    const slide = story.slides[slideIndex];
+    if (!slide) return;
+    setGeneratingBg(slideIndex);
+    setBgError(null);
+    try {
+      const brandVisual = brandBook?.visualStyle?.trim();
+      const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+      const prompt = [
+        `Story background for ${story.platform}: ${slide.background}.`,
+        `Mood: ${slide.visualNote}.`,
+        brandVisual && `Brand visual style: ${brandVisual}.`,
+        brandColors,
+        "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
+      ].filter(Boolean).join(" ");
+
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
+
+      const updatedSlides = story.slides.map((s, i) =>
+        i === slideIndex ? { ...s, backgroundImageUrl: json.data!.imageUrl } : s,
+      );
+      onUpdate({ ...story, slides: updatedSlides });
+    } catch (e) {
+      setBgError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGeneratingBg(null);
+    }
+  };
 
   const platformLabel = { instagram: "📸 Instagram", vk: "💙 VK", telegram: "✈️ Telegram" }[story.platform];
 
@@ -6912,33 +6952,65 @@ function StoryCard({ c, story, onDelete }: {
             return (
               <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
                 {/* Phone mockup */}
-                <div style={{ background: "#0f0f0f", borderRadius: 16, padding: 12, minHeight: 280, display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", position: "relative" }}>
-                  {/* Progress bar */}
-                  <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
-                    {story.slides.map((_, i) => (
-                      <div key={i} style={{ flex: 1, height: 2, borderRadius: 2, background: i <= activeSlide ? "#fff" : "rgba(255,255,255,0.3)" }} />
-                    ))}
-                  </div>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "8px 4px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1.3, marginBottom: 8, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{slide.headlineText}</div>
-                    {slide.bodyText && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.85)", lineHeight: 1.4, marginBottom: 8 }}>{slide.bodyText}</div>}
-                    {slide.sticker && (
-                      <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "4px 8px", fontSize: 9, color: "#fff", fontWeight: 700, marginBottom: 6 }}>
-                        🎯 {slide.sticker}
+                <div style={{
+                  borderRadius: 16, padding: 12, minHeight: 320, display: "flex", flexDirection: "column",
+                  justifyContent: "space-between", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", position: "relative",
+                  overflow: "hidden",
+                  background: slide.backgroundImageUrl ? "transparent" : "#0f0f0f",
+                }}>
+                  {/* Background image */}
+                  {slide.backgroundImageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={slide.backgroundImageUrl} alt="bg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+                  )}
+                  {/* Overlay for readability */}
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.55) 100%)", zIndex: 1 }} />
+
+                  {/* Content above overlay */}
+                  <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
+                    {/* Progress bar */}
+                    <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+                      {story.slides.map((_, i) => (
+                        <div key={i} style={{ flex: 1, height: 2, borderRadius: 2, background: i <= activeSlide ? "#fff" : "rgba(255,255,255,0.4)" }} />
+                      ))}
+                    </div>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "8px 4px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1.3, marginBottom: 8, textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>{slide.headlineText}</div>
+                      {slide.bodyText && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.9)", lineHeight: 1.4, marginBottom: 8, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{slide.bodyText}</div>}
+                      {slide.sticker && (
+                        <div style={{ background: "rgba(255,255,255,0.25)", backdropFilter: "blur(4px)", borderRadius: 8, padding: "4px 8px", fontSize: 9, color: "#fff", fontWeight: 700, marginBottom: 6 }}>
+                          🎯 {slide.sticker}
+                        </div>
+                      )}
+                    </div>
+                    {slide.cta && (
+                      <div style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "#fff", background: accent + "dd", borderRadius: 6, padding: "5px 8px" }}>
+                        {slide.cta}
                       </div>
                     )}
                   </div>
-                  {slide.cta && (
-                    <div style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "#fff", background: accent + "cc", borderRadius: 6, padding: "5px 8px" }}>
-                      {slide.cta}
-                    </div>
-                  )}
                 </div>
 
                 {/* Slide details */}
                 <div>
                   <div style={{ display: "grid", gap: 10 }}>
-                    <Field c={c} label="Фон" value={slide.background} />
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 4 }}>ФОН</div>
+                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, marginBottom: 6 }}>{slide.background}</div>
+                      <button
+                        onClick={() => handleGenerateBg(activeSlide)}
+                        disabled={generatingBg === activeSlide}
+                        style={{
+                          padding: "6px 12px", borderRadius: 7,
+                          border: `1px solid ${accent}50`, background: accent + "10",
+                          color: accent, fontSize: 11, fontWeight: 700,
+                          cursor: generatingBg === activeSlide ? "not-allowed" : "pointer",
+                          opacity: generatingBg === activeSlide ? 0.6 : 1,
+                        }}>
+                        {generatingBg === activeSlide ? "⏳ Генерируем…" : slide.backgroundImageUrl ? "🔄 Перегенерировать фон" : "🎨 Сгенерировать фон"}
+                      </button>
+                      {bgError && <div style={{ marginTop: 4, fontSize: 10, color: c.accentRed }}>❌ {bgError}</div>}
+                    </div>
                     <Field c={c} label="Заголовок" value={slide.headlineText} bold />
                     {slide.bodyText && <Field c={c} label="Текст" value={slide.bodyText} />}
                     {slide.sticker && <Field c={c} label="Стикер / интерактив" value={slide.sticker} accent={accent} />}
@@ -7321,6 +7393,14 @@ export default function MarketRadarDashboard() {
     });
   };
 
+  const handleUpdateStory = (updated: GeneratedStory) => {
+    setGeneratedStories(prev => {
+      const next = prev.map(s => s.id === updated.id ? updated : s);
+      persistStories(next);
+      return next;
+    });
+  };
+
   const handleGenerateContentPlan = async (niche: string) => {
     if (!smmAnalysis) return;
     setIsGeneratingPlan(true);
@@ -7637,7 +7717,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "content-posts" && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
         {activeNav === "content-reels" && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
-        {activeNav === "content-stories" && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} />}
+        {activeNav === "content-stories" && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
         {activeNav === "content-analytics" && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
       </main>

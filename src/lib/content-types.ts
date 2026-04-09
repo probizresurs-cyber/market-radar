@@ -157,12 +157,13 @@ export interface ContentFactoryState {
 
 export interface StorySlide {
   order: number;
-  background: string;       // описание фона / картинки за текстом
-  headlineText: string;     // крупный текст на экране (3-6 слов)
-  bodyText?: string;        // дополнительный мелкий текст
-  sticker?: string;         // опрос / emoji / countdown / quiz
-  cta?: string;             // свайп вверх / ссылка / кнопка
-  visualNote: string;       // режиссёрская пометка (цвета, шрифт, стиль)
+  background: string;           // описание фона / картинки за текстом
+  backgroundImageUrl?: string;  // сгенерированная картинка (base64 data URL)
+  headlineText: string;         // крупный текст на экране (3-6 слов)
+  bodyText?: string;            // дополнительный мелкий текст
+  sticker?: string;             // опрос / emoji / countdown / quiz
+  cta?: string;                 // свайп вверх / ссылка / кнопка
+  visualNote: string;           // режиссёрская пометка (цвета, шрифт, стиль)
 }
 
 export interface GeneratedStory {
