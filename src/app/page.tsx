@@ -7117,6 +7117,249 @@ function ForecastRow({ c, label, value, sub, color }: { c: Colors; label: string
 }
 
 // ============================================================
+// Presentation Builder View
+// ============================================================
+
+interface PresentationSlide {
+  title: string;
+  subtitle?: string;
+  type: string;
+  content: string;
+  bullets: string[];
+  stats: Array<{ value: string; label: string }>;
+  quote?: string;
+  note?: string;
+}
+
+function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
+  c: Colors;
+  myCompany: AnalysisResult | null;
+  taAnalysis: TAResult | null;
+  smmAnalysis: SMMResult | null;
+  brandBook: BrandBook;
+}) {
+  const [slides, setSlides] = useState<PresentationSlide[]>([]);
+  const [presTitle, setPresTitle] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState("");
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Brand colors
+  const primary = brandBook.colors[0] || c.accent;
+  const secondary = brandBook.colors[1] || c.accentGreen;
+  const bg = brandBook.colors[3] || "#ffffff";
+  const textColor = brandBook.colors[4] || "#1a1a2e";
+
+  const handleGenerate = async () => {
+    if (!myCompany) { setError("Сначала проведите анализ компании"); return; }
+    setIsGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/generate-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: myCompany.company,
+          brandBook,
+          taData: taAnalysis,
+          smmData: smmAnalysis,
+          social: myCompany.social,
+          business: myCompany.business,
+          seo: myCompany.seo,
+          nicheForecast: myCompany.nicheForecast,
+          hiring: myCompany.hiring,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      setPresTitle(json.data.title ?? "Бренд-презентация");
+      setSlides(json.data.slides ?? []);
+      setActiveSlide(0);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка генерации");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handlePrint = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const slidesHtml = slides.map((slide, i) => {
+      const isCover = slide.type === "cover";
+      return `<div style="page-break-after:always;width:960px;height:540px;padding:${isCover ? "0" : "48px 60px"};box-sizing:border-box;position:relative;overflow:hidden;${isCover ? `background:linear-gradient(135deg,${primary},${secondary});display:flex;align-items:center;justify-content:center;text-align:center;` : `background:${bg};`}">
+        ${isCover ? `<div><h1 style="font-size:42px;font-weight:800;color:#fff;margin:0 0 12px;text-shadow:0 2px 8px rgba(0,0,0,0.2)">${slide.title}</h1>${slide.subtitle ? `<p style="font-size:20px;color:rgba(255,255,255,0.85);margin:0">${slide.subtitle}</p>` : ""}${slide.content ? `<p style="font-size:16px;color:rgba(255,255,255,0.7);margin:16px 0 0">${slide.content}</p>` : ""}</div>` : ""}
+        ${!isCover ? `<div style="border-left:4px solid ${primary};padding-left:16px;margin-bottom:24px"><h2 style="font-size:28px;font-weight:700;color:${textColor};margin:0">${slide.title}</h2>${slide.subtitle ? `<p style="font-size:14px;color:#888;margin:4px 0 0">${slide.subtitle}</p>` : ""}</div>` : ""}
+        ${!isCover && slide.content ? `<p style="font-size:16px;color:#444;line-height:1.6;margin:0 0 16px">${slide.content}</p>` : ""}
+        ${slide.bullets?.length > 0 ? `<ul style="margin:0;padding:0 0 0 20px">${slide.bullets.map(b => `<li style="font-size:15px;color:#333;margin:8px 0;line-height:1.5">${b}</li>`).join("")}</ul>` : ""}
+        ${slide.stats?.length > 0 ? `<div style="display:flex;gap:20px;margin:16px 0">${slide.stats.map(s => `<div style="flex:1;text-align:center;padding:16px;border-radius:12px;background:${primary}15"><div style="font-size:28px;font-weight:800;color:${primary}">${s.value}</div><div style="font-size:12px;color:#666;margin-top:4px">${s.label}</div></div>`).join("")}</div>` : ""}
+        ${slide.quote ? `<blockquote style="border-left:3px solid ${primary};padding:12px 16px;margin:16px 0;font-style:italic;color:#555;font-size:15px">"${slide.quote}"</blockquote>` : ""}
+        <div style="position:absolute;bottom:16px;right:24px;font-size:10px;color:#bbb">${i + 1} / ${slides.length}</div>
+      </div>`;
+    }).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>${presTitle}</title><style>@media print{@page{size:960px 540px;margin:0}body{margin:0}div{page-break-inside:avoid}}body{margin:0;font-family:${brandBook.fontBody || "PT Sans"},system-ui,sans-serif}</style></head><body>${slidesHtml}</body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
+  const renderSlide = (slide: PresentationSlide, idx: number) => {
+    const isCover = slide.type === "cover";
+    return (
+      <div key={idx} style={{
+        width: "100%", aspectRatio: "16/9", borderRadius: 12, overflow: "hidden", position: "relative",
+        background: isCover ? `linear-gradient(135deg, ${primary}, ${secondary})` : bg,
+        display: "flex", flexDirection: "column", justifyContent: isCover ? "center" : "flex-start",
+        alignItems: isCover ? "center" : "stretch", textAlign: isCover ? "center" : "left",
+        padding: isCover ? 40 : "36px 48px", boxShadow: c.shadowLg, border: `1px solid ${c.border}`,
+      }}>
+        {isCover ? (
+          <>
+            {brandBook.logoDataUrl && <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 16, objectFit: "contain" }} />}
+            <h2 style={{ fontSize: 32, fontWeight: 800, color: "#fff", margin: "0 0 8px", textShadow: "0 2px 8px rgba(0,0,0,0.2)", fontFamily: brandBook.fontHeader || "inherit" }}>{slide.title}</h2>
+            {slide.subtitle && <p style={{ fontSize: 16, color: "rgba(255,255,255,0.85)", margin: 0 }}>{slide.subtitle}</p>}
+            {slide.content && <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "12px 0 0", maxWidth: 500 }}>{slide.content}</p>}
+          </>
+        ) : (
+          <>
+            <div style={{ borderLeft: `4px solid ${primary}`, paddingLeft: 12, marginBottom: 20 }}>
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: textColor, margin: 0, fontFamily: brandBook.fontHeader || "inherit" }}>{slide.title}</h3>
+              {slide.subtitle && <p style={{ fontSize: 12, color: "#888", margin: "2px 0 0" }}>{slide.subtitle}</p>}
+            </div>
+            {slide.content && <p style={{ fontSize: 14, color: "#444", lineHeight: 1.6, margin: "0 0 12px" }}>{slide.content}</p>}
+            {slide.bullets?.length > 0 && (
+              <ul style={{ margin: 0, padding: "0 0 0 18px", flex: 1 }}>
+                {slide.bullets.map((b, bi) => <li key={bi} style={{ fontSize: 13, color: "#333", marginBottom: 6, lineHeight: 1.5 }}>{b}</li>)}
+              </ul>
+            )}
+            {slide.stats?.length > 0 && (
+              <div style={{ display: "flex", gap: 12, margin: "12px 0" }}>
+                {slide.stats.map((s, si) => (
+                  <div key={si} style={{ flex: 1, textAlign: "center", padding: 14, borderRadius: 10, background: primary + "15" }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: primary }}>{s.value}</div>
+                    <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {slide.quote && (
+              <blockquote style={{ borderLeft: `3px solid ${primary}`, paddingLeft: 12, margin: "12px 0 0", fontStyle: "italic", color: "#555", fontSize: 13 }}>
+                &ldquo;{slide.quote}&rdquo;
+              </blockquote>
+            )}
+          </>
+        )}
+        <div style={{ position: "absolute", bottom: 12, right: 16, fontSize: 10, color: isCover ? "rgba(255,255,255,0.4)" : "#ccc" }}>
+          {idx + 1} / {slides.length}
+        </div>
+      </div>
+    );
+  };
+
+  // Fullscreen mode
+  if (fullscreen && slides.length > 0) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}
+        onClick={() => setActiveSlide(prev => prev < slides.length - 1 ? prev + 1 : prev)}
+        onKeyDown={e => { if (e.key === "Escape") setFullscreen(false); if (e.key === "ArrowRight") setActiveSlide(p => Math.min(p + 1, slides.length - 1)); if (e.key === "ArrowLeft") setActiveSlide(p => Math.max(p - 1, 0)); }}
+        tabIndex={0}
+      >
+        <div style={{ width: "90vw", maxWidth: 1200 }}>{renderSlide(slides[activeSlide], activeSlide)}</div>
+        <button onClick={e => { e.stopPropagation(); setFullscreen(false); }} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 8, padding: "4px 12px" }}>✕</button>
+        <div style={{ position: "absolute", bottom: 20, color: "rgba(255,255,255,0.5)", fontSize: 12 }}>← → навигация • ESC выход • клик → далее</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Бренд-презентация</h1>
+      <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
+        Автоматически собирает данные из всех анализов и создаёт презентацию в стиле вашего бренда
+      </p>
+
+      {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+      {slides.length === 0 ? (
+        <div style={{ background: c.bgCard, borderRadius: 16, padding: 40, boxShadow: c.shadow, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+          <h3 style={{ color: c.textPrimary, marginBottom: 8 }}>Создать бренд-презентацию</h3>
+          <p style={{ color: c.textSecondary, fontSize: 14, marginBottom: 8, maxWidth: 500, margin: "0 auto 20px" }}>
+            AI соберёт данные из анализа компании, ЦА, СММ, брендбука и создаст профессиональную презентацию
+          </p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 }}>
+            {[
+              { label: "Анализ компании", ok: !!myCompany },
+              { label: "Анализ ЦА", ok: !!taAnalysis },
+              { label: "Анализ СММ", ok: !!smmAnalysis },
+              { label: "Брендбук", ok: !!brandBook.brandName },
+            ].map(item => (
+              <span key={item.label} style={{
+                padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                background: item.ok ? c.accentGreen + "15" : c.accentRed + "15",
+                color: item.ok ? c.accentGreen : c.accentRed,
+              }}>
+                {item.ok ? "✓" : "✗"} {item.label}
+              </span>
+            ))}
+          </div>
+          <button onClick={handleGenerate} disabled={isGenerating || !myCompany} style={{
+            padding: "12px 32px", borderRadius: 10, border: "none",
+            background: isGenerating ? c.textMuted : c.accent, color: "#fff",
+            fontWeight: 700, fontSize: 15, cursor: isGenerating ? "wait" : "pointer",
+          }}>
+            {isGenerating ? "Генерирую презентацию..." : "Создать презентацию"}
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Toolbar */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+            <h3 style={{ margin: 0, fontSize: 16, color: c.textPrimary, flex: 1 }}>{presTitle} — {slides.length} слайдов</h3>
+            <button onClick={() => setFullscreen(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              ▶ Показ слайдов
+            </button>
+            <button onClick={handlePrint} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              📄 Скачать PDF
+            </button>
+            <button onClick={handleGenerate} disabled={isGenerating} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12, opacity: isGenerating ? 0.5 : 1 }}>
+              🔄 Перегенерировать
+            </button>
+          </div>
+
+          {/* Slide navigator + preview */}
+          <div style={{ display: "flex", gap: 20 }}>
+            {/* Thumbnails */}
+            <div style={{ width: 140, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, maxHeight: "70vh", overflowY: "auto" }}>
+              {slides.map((slide, i) => (
+                <div key={i} onClick={() => setActiveSlide(i)} style={{
+                  padding: 8, borderRadius: 8, border: `2px solid ${activeSlide === i ? c.accent : c.border}`,
+                  background: activeSlide === i ? c.accent + "10" : c.bgCard, cursor: "pointer", transition: "all .15s",
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: activeSlide === i ? c.accent : c.textMuted, marginBottom: 2 }}>Слайд {i + 1}</div>
+                  <div style={{ fontSize: 11, color: c.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slide.title}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Main slide preview */}
+            <div style={{ flex: 1 }}>
+              {renderSlide(slides[activeSlide], activeSlide)}
+              {/* Speaker note */}
+              {slides[activeSlide]?.note && (
+                <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 12, color: c.textSecondary }}>
+                  <b>Заметка:</b> {slides[activeSlide].note}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Reviews Analysis View
 // ============================================================
 
@@ -8159,6 +8402,7 @@ const NAV_SECTIONS: NavSection[] = [
         ],
       },
       { id: "reviews-analysis", icon: "⭐", label: "Анализ отзывов", count: null },
+      { id: "brand-presentation", icon: "🎤", label: "Презентация бренда", count: null },
       { id: "reports", icon: "📄", label: "Отчёты", count: null },
       { id: "sources", icon: "🔗", label: "Источники", count: null },
     ],
@@ -8779,6 +9023,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-analytics" && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {activeNav === "reviews-analysis" && <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />}
+        {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} />}
       </main>
     </div>
   );
