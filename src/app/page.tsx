@@ -1055,6 +1055,144 @@ function CollapsibleSection({ c, title, defaultOpen = true, extra, children }: {
 }
 
 // ============================================================
+// Previous Analyses View
+// ============================================================
+
+function PreviousAnalysesView({ c, history, currentAnalysis }: {
+  c: Colors;
+  history: Array<AnalysisResult & { analyzedAt: string }>;
+  currentAnalysis: AnalysisResult | null;
+}) {
+  const [compareIdx, setCompareIdx] = useState<number | null>(null);
+
+  if (history.length === 0) {
+    return (
+      <div style={{ maxWidth: 900, padding: 32 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>Предыдущие анализы</h1>
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 40, textAlign: "center", boxShadow: c.shadow }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📂</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>Пока нет предыдущих анализов</div>
+          <div style={{ fontSize: 13, color: c.textSecondary }}>После повторного анализа компании предыдущие результаты сохраняются здесь</div>
+        </div>
+      </div>
+    );
+  }
+
+  const compEntry = compareIdx !== null ? history[compareIdx] : null;
+
+  const renderDelta = (current: number, previous: number) => {
+    const diff = current - previous;
+    if (diff === 0) return <span style={{ color: c.textMuted, fontSize: 12 }}>→ 0</span>;
+    return (
+      <span style={{ color: diff > 0 ? c.accentGreen : c.accentRed, fontSize: 12, fontWeight: 700 }}>
+        {diff > 0 ? `↑ +${diff}` : `↓ ${diff}`}
+      </span>
+    );
+  };
+
+  return (
+    <div style={{ maxWidth: 1000, padding: "0" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Предыдущие анализы</h1>
+      <p style={{ color: c.textSecondary, fontSize: 13, marginBottom: 20 }}>
+        {history.length} сохранённых анализов. Нажмите «Сравнить» для детального сравнения с текущим.
+      </p>
+
+      {/* History cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+        {history.map((entry, i) => (
+          <div key={i} style={{
+            background: c.bgCard, borderRadius: 14, padding: 16, border: `1px solid ${compareIdx === i ? c.accent : c.border}`,
+            boxShadow: compareIdx === i ? c.shadowLg : c.shadow, display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: c.textPrimary }}>{entry.company.name}</div>
+              <div style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>
+                {new Date(entry.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })} • {entry.company.url}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: c.accent }}>Score: {entry.company.score}</span>
+                {entry.company.categories.slice(0, 4).map(cat => (
+                  <span key={cat.name} style={{ fontSize: 11, color: c.textSecondary, background: c.borderLight, padding: "1px 6px", borderRadius: 4 }}>
+                    {cat.icon} {cat.score}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => setCompareIdx(compareIdx === i ? null : i)}
+              style={{
+                padding: "8px 16px", borderRadius: 8, border: `1px solid ${compareIdx === i ? c.accent : c.border}`,
+                background: compareIdx === i ? c.accent : "transparent", color: compareIdx === i ? "#fff" : c.textPrimary,
+                cursor: "pointer", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap",
+              }}
+            >
+              {compareIdx === i ? "✓ Сравнение" : "Сравнить"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Comparison table */}
+      {compEntry && currentAnalysis && (
+        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, color: c.textPrimary }}>
+            Сравнение: Текущий vs {new Date(compEntry.analyzedAt).toLocaleDateString("ru-RU")}
+          </h3>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11 }}>МЕТРИКА</th>
+                <th style={{ textAlign: "center", padding: "10px 12px", borderBottom: `2px solid ${c.border}`, color: c.accent, fontWeight: 600, fontSize: 11 }}>ТЕКУЩИЙ</th>
+                <th style={{ textAlign: "center", padding: "10px 12px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11 }}>ПРЕДЫДУЩИЙ</th>
+                <th style={{ textAlign: "center", padding: "10px 12px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11 }}>ИЗМЕНЕНИЕ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600 }}>Общий Score</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 700, color: c.accent }}>{currentAnalysis.company.score}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{compEntry.company.score}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{renderDelta(currentAnalysis.company.score, compEntry.company.score)}</td>
+              </tr>
+              {currentAnalysis.company.categories.map((cat, ci) => {
+                const prevCat = compEntry.company.categories[ci];
+                return (
+                  <tr key={cat.name}>
+                    <td style={{ padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{cat.icon} {cat.name}</td>
+                    <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, fontWeight: 600, color: c.accent }}>{cat.score}</td>
+                    <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{prevCat?.score ?? "—"}</td>
+                    <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{prevCat ? renderDelta(cat.score, prevCat.score) : "—"}</td>
+                  </tr>
+                );
+              })}
+              {/* SEO metrics */}
+              <tr>
+                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>SEO — трафик</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, color: c.accent }}>{currentAnalysis.seo.estimatedTraffic}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{compEntry.seo.estimatedTraffic}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>—</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>Яндекс.Карты</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, color: c.accent }}>{currentAnalysis.social.yandexRating > 0 ? `★${currentAnalysis.social.yandexRating.toFixed(1)}` : "—"}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{compEntry.social.yandexRating > 0 ? `★${compEntry.social.yandexRating.toFixed(1)}` : "—"}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>—</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>2ГИС</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}`, color: c.accent }}>{currentAnalysis.social.gisRating > 0 ? `★${currentAnalysis.social.gisRating.toFixed(1)}` : "—"}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>{compEntry.social.gisRating > 0 ? `★${compEntry.social.gisRating.toFixed(1)}` : "—"}</td>
+                <td style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid ${c.borderLight}` }}>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Dashboard View
 // ============================================================
 
@@ -1613,6 +1751,24 @@ function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddC
 
 function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisResult; onBack: () => void }) {
   const { company, recommendations, insights } = data;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [offers, setOffers] = useState<any>(null);
+  const [offersLoading, setOffersLoading] = useState(false);
+
+  const loadOffers = async () => {
+    setOffersLoading(true);
+    try {
+      const res = await fetch("/api/analyze-offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
+      });
+      const json = await res.json();
+      if (json.ok) setOffers(json.data);
+    } catch { /* ignore */ }
+    setOffersLoading(false);
+  };
+
   return (
     <div style={{ maxWidth: 900 }}>
       <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: c.accent, fontSize: 13, fontWeight: 600, marginBottom: 16, padding: 0, fontFamily: "inherit" }}>
@@ -1689,6 +1845,57 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
           </div>
         </CollapsibleSection>
       )}
+
+      {/* Offers analysis */}
+      <CollapsibleSection c={c} title="🏷️ Анализ офферов">
+        {!offers && !offersLoading && (
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, textAlign: "center", boxShadow: c.shadow, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>Проанализировать офферы и предложения конкурента с его сайта</p>
+            <button onClick={loadOffers} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              Загрузить офферы
+            </button>
+          </div>
+        )}
+        {offersLoading && (
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, textAlign: "center", boxShadow: c.shadow, marginBottom: 16 }}>
+            <div style={{ color: c.accent, fontSize: 13 }}>Анализирую офферы с сайта...</div>
+          </div>
+        )}
+        {offers && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            <div style={{ background: c.accent + "10", borderRadius: 12, padding: 16, border: `1px solid ${c.accent}30` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕННОСТНОЕ ПРЕДЛОЖЕНИЕ</div>
+              <p style={{ fontSize: 14, color: c.textPrimary, margin: 0, fontWeight: 600 }}>{offers.mainValueProposition}</p>
+              <div style={{ fontSize: 12, color: c.textSecondary, marginTop: 6 }}>Стратегия: {offers.pricingStrategy}</div>
+            </div>
+            {(offers.offers ?? []).map((offer: { title: string; description: string; price: string; uniqueSellingPoint: string; targetAudience: string }, i: number) => (
+              <div key={i} style={{ background: c.bgCard, borderRadius: 12, padding: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>{offer.title}</div>
+                  {offer.price && <span style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, background: c.accentGreen + "12", padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>{offer.price}</span>}
+                </div>
+                <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 6px", lineHeight: 1.4 }}>{offer.description}</p>
+                {offer.uniqueSellingPoint && <div style={{ fontSize: 12, color: c.accent }}>USP: {offer.uniqueSellingPoint}</div>}
+                {offer.targetAudience && <div style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>ЦА: {offer.targetAudience}</div>}
+              </div>
+            ))}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8 }}>СИЛЬНЫЕ</div>
+                {(offers.strengths ?? []).map((s: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentGreen}30` }}>{s}</div>)}
+              </div>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8 }}>СЛАБЫЕ</div>
+                {(offers.weaknesses ?? []).map((w: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentRed}30` }}>{w}</div>)}
+              </div>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, marginBottom: 8 }}>НЕ ХВАТАЕТ</div>
+                {(offers.missingOffers ?? []).map((m: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentWarm}30` }}>{m}</div>)}
+              </div>
+            </div>
+          </div>
+        )}
+      </CollapsibleSection>
 
       {/* Key.so Dashboard */}
       <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
@@ -3593,6 +3800,31 @@ function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () =
 
 function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
   const [activeSegment, setActiveSegment] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [brandSuggestions, setBrandSuggestions] = useState<any>(null);
+  const [brandSugLoading, setBrandSugLoading] = useState(false);
+
+  const loadBrandSuggestions = async () => {
+    setBrandSugLoading(true);
+    try {
+      const segments = data.segments.map(s => ({
+        segmentName: s.segmentName,
+        demographics: s.demographics,
+        worldview: s.worldview,
+        topEmotions: s.topEmotions,
+        topFears: s.topFears,
+      }));
+      const res = await fetch("/api/suggest-brandbook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: data.companyName, niche: data.niche, segments }),
+      });
+      const json = await res.json();
+      if (json.ok) setBrandSuggestions(json.data);
+    } catch { /* ignore */ }
+    setBrandSugLoading(false);
+  };
+
   const seg = data.segments[activeSegment];
   if (!seg) return null;
 
@@ -3823,6 +4055,145 @@ function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ЧТО РЫНОК ДОЛЖЕН ОТПУСТИТЬ</div>
           <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{seg.mustLetGo}</p>
         </Card>
+      </CollapsibleSection>
+
+      {/* Brand Book Suggestions */}
+      <CollapsibleSection c={c} title="🎨 Рекомендации по брендбуку">
+        {!brandSuggestions && !brandSugLoading && (
+          <Card style={{ textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>
+              AI предложит цвета, шрифты, тон голоса и визуальный стиль на основе портрета вашей ЦА
+            </p>
+            <button onClick={loadBrandSuggestions} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              Сгенерировать рекомендации
+            </button>
+          </Card>
+        )}
+        {brandSugLoading && (
+          <Card style={{ textAlign: "center" }}>
+            <div style={{ color: c.accent, fontSize: 13 }}>Генерирую рекомендации по брендбуку...</div>
+          </Card>
+        )}
+        {brandSuggestions && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Summary */}
+            <Card style={{ borderLeft: `4px solid ${c.accent}` }}>
+              <p style={{ fontSize: 14, color: c.textPrimary, margin: 0, lineHeight: 1.6, fontWeight: 500 }}>{brandSuggestions.summary}</p>
+            </Card>
+
+            {/* Color Palette */}
+            {brandSuggestions.colorPalette && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ЦВЕТОВАЯ ПАЛИТРА</div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                  {(["primary", "secondary", "accent", "background", "text"] as const).map(key => {
+                    const hex = brandSuggestions.colorPalette[key];
+                    if (!hex || !hex.startsWith("#")) return null;
+                    return (
+                      <div key={key} style={{ textAlign: "center" }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 12, background: hex, border: `2px solid ${c.border}`, marginBottom: 4 }} />
+                        <div style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{key}</div>
+                        <div style={{ fontSize: 10, color: c.textSecondary }}>{hex}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: 12, color: c.textSecondary, margin: 0, lineHeight: 1.5 }}>{brandSuggestions.colorPalette.reasoning}</p>
+              </Card>
+            )}
+
+            {/* Typography */}
+            {brandSuggestions.typography && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ТИПОГРАФИКА</div>
+                <div style={{ display: "flex", gap: 16, marginBottom: 10 }}>
+                  <div style={{ flex: 1, padding: 12, borderRadius: 8, background: c.bg }}>
+                    <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}>Заголовки</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary }}>{brandSuggestions.typography.headerFont}</div>
+                  </div>
+                  <div style={{ flex: 1, padding: 12, borderRadius: 8, background: c.bg }}>
+                    <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 4 }}>Основной текст</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary }}>{brandSuggestions.typography.bodyFont}</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, color: c.textSecondary, margin: 0, lineHeight: 1.5 }}>{brandSuggestions.typography.reasoning}</p>
+              </Card>
+            )}
+
+            {/* Aesthetics */}
+            {brandSuggestions.aesthetics && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ВИЗУАЛЬНЫЙ СТИЛЬ</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: c.accent, marginBottom: 8 }}>{brandSuggestions.aesthetics.style}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {(brandSuggestions.aesthetics.moodKeywords ?? []).map((kw: string, i: number) => (
+                    <Tag key={i} text={kw} color={c.accentGreen} />
+                  ))}
+                </div>
+                {(brandSuggestions.aesthetics.avoidKeywords ?? []).length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: c.accentRed, fontWeight: 600 }}>Избегать:</span>
+                    {brandSuggestions.aesthetics.avoidKeywords.map((kw: string, i: number) => (
+                      <Tag key={i} text={kw} color={c.accentRed} />
+                    ))}
+                  </div>
+                )}
+                <p style={{ fontSize: 12, color: c.textSecondary, margin: 0, lineHeight: 1.5 }}>{brandSuggestions.aesthetics.reasoning}</p>
+              </Card>
+            )}
+
+            {/* Tone of Voice */}
+            {brandSuggestions.toneOfVoice && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>ТОН ГОЛОСА</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {(brandSuggestions.toneOfVoice.adjectives ?? []).map((a: string, i: number) => (
+                    <Tag key={i} text={a} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>{brandSuggestions.toneOfVoice.communicationStyle}</div>
+                {(brandSuggestions.toneOfVoice.goodPhrases ?? []).length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 4 }}>Хорошие фразы:</div>
+                    {brandSuggestions.toneOfVoice.goodPhrases.map((p: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: c.textSecondary, paddingLeft: 10, borderLeft: `2px solid ${c.accentGreen}30`, marginBottom: 4 }}>«{p}»</div>
+                    ))}
+                  </div>
+                )}
+                {(brandSuggestions.toneOfVoice.forbiddenPhrases ?? []).length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 4 }}>Запрещённые фразы:</div>
+                    {brandSuggestions.toneOfVoice.forbiddenPhrases.map((p: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: c.textSecondary, paddingLeft: 10, borderLeft: `2px solid ${c.accentRed}30`, marginBottom: 4 }}>«{p}»</div>
+                    ))}
+                  </div>
+                )}
+                <p style={{ fontSize: 12, color: c.textSecondary, margin: 0, lineHeight: 1.5 }}>{brandSuggestions.toneOfVoice.reasoning}</p>
+              </Card>
+            )}
+
+            {/* Social Media */}
+            {brandSuggestions.socialMedia && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>СОЦСЕТИ</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {(brandSuggestions.socialMedia.bestPlatforms ?? []).map((p: string, i: number) => (
+                    <Tag key={i} text={p} color={c.accent} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: c.textSecondary, marginBottom: 6 }}>
+                  Частота: <b>{brandSuggestions.socialMedia.postingFrequency}</b>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {(brandSuggestions.socialMedia.contentTypes ?? []).map((ct: string, i: number) => (
+                    <Tag key={i} text={ct} color={c.accentGreen} />
+                  ))}
+                </div>
+                <p style={{ fontSize: 12, color: c.textSecondary, margin: 0, lineHeight: 1.5 }}>{brandSuggestions.socialMedia.reasoning}</p>
+              </Card>
+            )}
+          </div>
+        )}
       </CollapsibleSection>
     </div>
   );
@@ -7747,10 +8118,16 @@ const NAV_SECTIONS: NavSection[] = [
     title: "МАРКЕТИНГ",
     items: [
       {
-        id: "competitor-analysis", icon: "📊", label: "Анализ конкурентов", count: null,
+        id: "company-analysis", icon: "🏢", label: "Анализ компании", count: null,
         children: [
           { id: "new-analysis", icon: "🔎", label: "Новый анализ", count: null },
           { id: "dashboard", icon: "📈", label: "Дашборд", count: null },
+          { id: "prev-analyses", icon: "📂", label: "Предыдущие анализы", count: null },
+        ],
+      },
+      {
+        id: "competitor-analysis", icon: "📊", label: "Анализ конкурентов", count: null,
+        children: [
           { id: "competitors", icon: "🎯", label: "Конкуренты", count: null },
           { id: "compare", icon: "⚖️", label: "Сравнение", count: null },
           { id: "insights", icon: "💡", label: "AI-инсайты", count: null },
@@ -7841,6 +8218,7 @@ export default function MarketRadarDashboard() {
     visualStyle: "",
   });
   const [generatedStories, setGeneratedStories] = useState<GeneratedStory[]>([]);
+  const [analysisHistory, setAnalysisHistory] = useState<Array<AnalysisResult & { analyzedAt: string }>>([]);
   const c = COLORS[theme];
 
   // Check for existing session + restore saved company data on mount
@@ -7891,6 +8269,10 @@ export default function MarketRadarDashboard() {
         if (savedStories) {
           setGeneratedStories(JSON.parse(savedStories));
         }
+        const savedHistory = localStorage.getItem(`mr_analysis_history_${user.id}`);
+        if (savedHistory) {
+          setAnalysisHistory(JSON.parse(savedHistory));
+        }
       } catch { /* ignore */ }
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     }
@@ -7921,6 +8303,17 @@ export default function MarketRadarDashboard() {
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
+      // Save current analysis to history before replacing
+      if (myCompany) {
+        const historyEntry = { ...myCompany, analyzedAt: new Date().toISOString() };
+        setAnalysisHistory(prev => {
+          const next = [historyEntry, ...prev].slice(0, 20); // keep last 20
+          if (currentUser?.id) {
+            try { localStorage.setItem(`mr_analysis_history_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+          }
+          return next;
+        });
+      }
       saveMyCompany(result);
       setCompetitors([]);
       if (currentUser?.id) {
@@ -8349,6 +8742,7 @@ export default function MarketRadarDashboard() {
       <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
+        {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
