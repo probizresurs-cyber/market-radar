@@ -7401,59 +7401,104 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     const fontH = brandBook.fontHeader || "Georgia";
     const fontB = brandBook.fontBody || "Calibri";
 
-    // Shared slide wrapper style
+    // Derive dark version of primary for contrast
+    const darkenHex = (hex: string, amt: number) => {
+      const h = hex.replace("#", "");
+      const r = Math.round(parseInt(h.slice(0,2),16)*(1-amt));
+      const g = Math.round(parseInt(h.slice(2,4),16)*(1-amt));
+      const b2 = Math.round(parseInt(h.slice(4,6),16)*(1-amt));
+      return `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b2.toString(16).padStart(2,"0")}`;
+    };
+    const darkPrimary = darkenHex(primary, 0.3);
+
     const slideBase: React.CSSProperties = {
       width: "100%", aspectRatio: "16/9", borderRadius: 14, overflow: "hidden",
-      position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
+      position: "relative", boxShadow: "0 12px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1)",
       fontFamily: `'${fontB}', system-ui, sans-serif`,
     };
 
-    // Slide number badge
-    const numBadge = (dark: boolean) => (
-      <div style={{ position: "absolute", bottom: 14, right: 18, fontSize: 10, fontWeight: 600,
-        color: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.2)", letterSpacing: 1 }}>
-        {idx + 1} / {total}
+    const numTag = (dark: boolean) => (
+      <div style={{ position: "absolute", bottom: 14, right: 18, fontSize: 10, fontWeight: 700,
+        color: dark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.18)", letterSpacing: 1.5 }}>
+        {String(idx + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
       </div>
     );
 
-    // ── COVER / CTA ──────────────────────────────────────────
-    if (type === "cover" || type === "cta") {
-      const isCta = type === "cta";
+    // ── COVER ─────────────────────────────────────────────────
+    if (type === "cover") {
       return (
-        <div key={idx} style={{ ...slideBase, background: primary, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          {/* Decorative blobs */}
-          <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "55%", paddingBottom: "55%", borderRadius: "50%",
-            background: secondary, opacity: 0.18, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: "-25%", left: "-8%", width: "45%", paddingBottom: "45%", borderRadius: "50%",
-            background: "#ffffff", opacity: 0.07, pointerEvents: "none" }} />
-          {/* Top accent line */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: secondary }} />
-          <div style={{ position: "relative", zIndex: 2, maxWidth: "70%", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            {brandBook.logoDataUrl && !isCta && (
-              <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: "contain",
-                background: "rgba(255,255,255,0.15)", padding: 6, marginBottom: 4 }} />
-            )}
-            {isCta && <div style={{ fontSize: 36, marginBottom: 4 }}>🚀</div>}
-            <h2 style={{ fontSize: 30, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.15,
-              textShadow: "0 2px 12px rgba(0,0,0,0.25)", fontFamily: `'${fontH}', serif` }}>
+        <div key={idx} style={{ ...slideBase, display: "flex" }}>
+          {/* Left panel — dark brand */}
+          <div style={{ width: "42%", background: `linear-gradient(160deg, ${darkPrimary} 0%, ${primary} 100%)`,
+            display: "flex", flexDirection: "column", justifyContent: "space-between",
+            padding: "32px 28px 24px", position: "relative", overflow: "hidden", flexShrink: 0 }}>
+            {/* Decorative ring */}
+            <div style={{ position: "absolute", bottom: "-30%", left: "-30%", width: "120%", paddingBottom: "120%",
+              borderRadius: "50%", border: `2px solid rgba(255,255,255,0.08)`, pointerEvents: "none" }} />
+            <div style={{ position: "absolute", top: "-20%", right: "-20%", width: "80%", paddingBottom: "80%",
+              borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
+            {/* Logo */}
+            {brandBook.logoDataUrl
+              ? <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 10, background: "rgba(255,255,255,0.12)", padding: 4 }} />
+              : <div style={{ width: 40, height: 4, borderRadius: 2, background: secondary }} />
+            }
+            {/* Bottom: slide index + brand name */}
+            <div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "rgba(255,255,255,0.08)", lineHeight: 1, marginBottom: 8, fontFamily: `'${fontH}', serif` }}>
+                {String(idx + 1).padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>
+                {brandBook.brandName || "Brand"}
+              </div>
+            </div>
+          </div>
+          {/* Right panel — white */}
+          <div style={{ flex: 1, background: "#fff", display: "flex", flexDirection: "column", justifyContent: "center", padding: "36px 36px 36px 40px" }}>
+            {/* Top accent bar */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: secondary, marginBottom: 24 }} />
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: textColor || "#111", margin: "0 0 14px", lineHeight: 1.15,
+              fontFamily: `'${fontH}', serif`, letterSpacing: "-0.5px" }}>
               {slide.title}
             </h2>
             {slide.subtitle && (
-              <p style={{ fontSize: 15, color: "rgba(255,255,255,0.82)", margin: 0, fontWeight: 500 }}>{slide.subtitle}</p>
+              <p style={{ fontSize: 15, color: "#555", margin: "0 0 12px", fontWeight: 500, lineHeight: 1.4 }}>{slide.subtitle}</p>
             )}
             {slide.content && (
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.62)", margin: 0, maxWidth: 480, lineHeight: 1.55 }}>{slide.content}</p>
+              <p style={{ fontSize: 13, color: "#777", margin: 0, lineHeight: 1.65, maxWidth: 340 }}>{slide.content}</p>
             )}
-            {isCta && slide.bullets && slide.bullets.length > 0 && (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
+            {/* Bottom: total slides */}
+            <div style={{ position: "absolute", bottom: 18, right: 22, fontSize: 10, color: "#ccc", fontWeight: 600, letterSpacing: 1 }}>
+              {String(idx + 1).padStart(2,"0")} / {String(total).padStart(2,"0")}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── CTA ───────────────────────────────────────────────────
+    if (type === "cta") {
+      return (
+        <div key={idx} style={{ ...slideBase, background: `linear-gradient(135deg, ${darkPrimary} 0%, ${primary} 60%, ${secondary} 100%)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "40px 60px" }}>
+          {/* Grid pattern overlay */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)`,
+            backgroundSize: "28px 28px", pointerEvents: "none" }} />
+          <div style={{ position: "relative", zIndex: 2, maxWidth: "70%", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 48, height: 3, borderRadius: 2, background: secondary }} />
+            <h2 style={{ fontSize: 32, fontWeight: 900, color: "#fff", margin: 0, lineHeight: 1.15,
+              fontFamily: `'${fontH}', serif`, letterSpacing: "-0.5px" }}>{slide.title}</h2>
+            {slide.subtitle && <p style={{ fontSize: 16, color: "rgba(255,255,255,0.78)", margin: 0, fontWeight: 500 }}>{slide.subtitle}</p>}
+            {slide.content && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.58)", margin: 0, lineHeight: 1.6 }}>{slide.content}</p>}
+            {(slide.bullets || []).length > 0 && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
                 {slide.bullets.map((b, bi) => (
-                  <span key={bi} style={{ padding: "6px 16px", borderRadius: 20, background: "rgba(255,255,255,0.18)",
-                    color: "#fff", fontSize: 12, fontWeight: 600, border: "1px solid rgba(255,255,255,0.25)" }}>{b}</span>
+                  <span key={bi} style={{ padding: "7px 18px", borderRadius: 20, background: "rgba(255,255,255,0.14)",
+                    color: "#fff", fontSize: 12, fontWeight: 600, border: "1px solid rgba(255,255,255,0.22)", backdropFilter: "blur(4px)" }}>{b}</span>
                 ))}
               </div>
             )}
           </div>
-          {numBadge(true)}
+          {numTag(true)}
         </div>
       );
     }
@@ -7462,32 +7507,30 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     if (type === "stats") {
       const stats = slide.stats || [];
       return (
-        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
-          {/* Title band */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 4, height: 24, borderRadius: 2, background: primary, flexShrink: 0 }} />
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-            </div>
-            {slide.subtitle && <p style={{ fontSize: 12, color: "#888", margin: "0 0 0 14px" }}>{slide.subtitle}</p>}
+        <div key={idx} style={{ ...slideBase, display: "flex", flexDirection: "column", background: "#f8f9fc" }}>
+          {/* Header band */}
+          <div style={{ background: `linear-gradient(90deg, ${primary}, ${darkPrimary})`, padding: "18px 32px 16px", flexShrink: 0 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: "#fff", margin: 0, fontFamily: `'${fontH}', serif`, letterSpacing: "-0.3px" }}>{slide.title}</h3>
+            {slide.subtitle && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", margin: "4px 0 0", letterSpacing: 0.3 }}>{slide.subtitle}</p>}
           </div>
-          {/* Stat cards */}
-          <div style={{ display: "flex", gap: 14, flex: 1 }}>
+          {/* Stats grid */}
+          <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 28px 16px", alignItems: "stretch" }}>
             {stats.map((s, si) => (
-              <div key={si} style={{ flex: 1, borderRadius: 12, background: "#fff",
-                border: `1px solid ${primary}22`, display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", padding: "16px 12px", gap: 8,
-                boxShadow: `0 2px 12px ${primary}15`, position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: primary }} />
-                <div style={{ fontSize: 36, fontWeight: 900, color: primary, lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: "#666", textAlign: "center", lineHeight: 1.4, maxWidth: 120 }}>{s.label}</div>
+              <div key={si} style={{ flex: 1, background: "#fff", borderRadius: 14, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", padding: "20px 12px", gap: 10, position: "relative",
+                boxShadow: `0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)`,
+                border: `1px solid rgba(0,0,0,0.06)` }}>
+                {/* Colored top indicator */}
+                <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 3, background: [primary, secondary, "#f59e0b", "#10b981"][si % 4], borderRadius: "0 0 3px 3px" }} />
+                <div style={{ fontSize: 42, fontWeight: 900, color: textColor || "#111", lineHeight: 1, fontFamily: `'${fontH}', serif`, letterSpacing: "-1px" }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "#888", textAlign: "center", lineHeight: 1.45, maxWidth: 110, fontWeight: 500 }}>{s.label}</div>
               </div>
             ))}
           </div>
           {slide.content && (
-            <p style={{ fontSize: 12, color: "#777", margin: "14px 0 0", lineHeight: 1.5 }}>{slide.content}</p>
+            <div style={{ padding: "0 28px 16px", fontSize: 11, color: "#999", lineHeight: 1.5 }}>{slide.content}</div>
           )}
-          {numBadge(false)}
+          {numTag(false)}
         </div>
       );
     }
@@ -7495,24 +7538,30 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     // ── QUOTE ────────────────────────────────────────────────
     if (type === "quote") {
       return (
-        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", padding: "36px 60px", textAlign: "center" }}>
-          {/* Decorative top stripe */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
-          <div style={{ position: "absolute", top: 16, left: 36, fontSize: 80, color: primary, opacity: 0.12, lineHeight: 1, userSelect: "none",
-            fontFamily: "Georgia, serif", fontWeight: 900 }}>"</div>
-          <div style={{ position: "relative", zIndex: 2, maxWidth: 600 }}>
-            <div style={{ width: 3, height: 40, background: primary, margin: "0 auto 20px", borderRadius: 2 }} />
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: textColor, margin: "0 0 16px", fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+        <div key={idx} style={{ ...slideBase, background: primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {/* Subtle grid */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+            backgroundSize: "24px 24px", pointerEvents: "none" }} />
+          {/* Big decorative quote */}
+          <div style={{ position: "absolute", top: "5%", left: "4%", fontSize: 180, color: "rgba(255,255,255,0.06)",
+            fontFamily: "Georgia, serif", fontWeight: 900, lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>&ldquo;</div>
+          <div style={{ position: "relative", zIndex: 2, maxWidth: "70%", textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: secondary, letterSpacing: 3, textTransform: "uppercase", marginBottom: 20 }}>
+              {slide.title}
+            </div>
             {slide.quote && (
-              <p style={{ fontSize: 16, fontStyle: "italic", color: "#444", lineHeight: 1.65, margin: "0 0 16px",
-                padding: "0 20px", position: "relative" }}>
+              <p style={{ fontSize: 20, fontStyle: "italic", color: "rgba(255,255,255,0.95)", lineHeight: 1.6, margin: "0 0 20px",
+                fontFamily: `'${fontH}', serif`, fontWeight: 400 }}>
                 &ldquo;{slide.quote}&rdquo;
               </p>
             )}
-            {slide.content && <p style={{ fontSize: 13, color: "#777", lineHeight: 1.5, margin: 0 }}>{slide.content}</p>}
+            {slide.content && (
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.5 }}>{slide.content}</p>
+            )}
+            {/* Bottom line */}
+            <div style={{ width: 48, height: 2, background: secondary, borderRadius: 2, margin: "20px auto 0" }} />
           </div>
-          {numBadge(false)}
+          {numTag(true)}
         </div>
       );
     }
@@ -7522,80 +7571,95 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
       const half = Math.ceil((slide.bullets || []).length / 2);
       const leftBullets = (slide.bullets || []).slice(0, half);
       const rightBullets = (slide.bullets || []).slice(half);
+      const colColors = [primary, secondary];
       return (
-        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 4, height: 24, borderRadius: 2, background: primary, flexShrink: 0 }} />
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+        <div key={idx} style={{ ...slideBase, background: "#f8f9fc", display: "flex", flexDirection: "column" }}>
+          {/* Header */}
+          <div style={{ background: `linear-gradient(90deg, ${primary}, ${darkPrimary})`, padding: "16px 32px 14px", flexShrink: 0 }}>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: "#fff", margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+            {slide.subtitle && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", margin: "3px 0 0" }}>{slide.subtitle}</p>}
           </div>
-          {slide.content && <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>{slide.content}</p>}
-          <div style={{ display: "flex", gap: 16, flex: 1 }}>
+          {slide.content && (
+            <div style={{ padding: "12px 28px 0", fontSize: 12, color: "#555", lineHeight: 1.5 }}>{slide.content}</div>
+          )}
+          <div style={{ display: "flex", gap: 14, padding: "14px 28px 20px", flex: 1 }}>
             {[leftBullets, rightBullets].map((col, ci) => (
-              <div key={ci} style={{ flex: 1, background: ci === 0 ? primary + "08" : secondary + "08",
-                borderRadius: 10, padding: "14px 16px", border: `1px solid ${ci === 0 ? primary : secondary}20` }}>
-                {col.map((b, bi) => (
-                  <div key={bi} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: ci === 0 ? primary : secondary,
-                      flexShrink: 0, marginTop: 5 }} />
-                    <span style={{ fontSize: 12, color: "#333", lineHeight: 1.5 }}>{b}</span>
-                  </div>
-                ))}
+              <div key={ci} style={{ flex: 1, background: "#fff", borderRadius: 12, overflow: "hidden",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.05)" }}>
+                {/* Column header accent */}
+                <div style={{ height: 3, background: colColors[ci] }} />
+                <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 9 }}>
+                  {col.map((b, bi) => (
+                    <div key={bi} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, background: colColors[ci] + "18",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: colColors[ci] }} />
+                      </div>
+                      <span style={{ fontSize: 12, color: "#333", lineHeight: 1.5 }}>{b}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
-          {numBadge(false)}
+          {numTag(false)}
         </div>
       );
     }
 
     // ── BULLETS (default) ─────────────────────────────────────
     return (
-      <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
-        {/* Top accent */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
-          <div style={{ width: 4, minHeight: 28, borderRadius: 2, background: primary, flexShrink: 0, marginTop: 2 }} />
+      <div key={idx} style={{ ...slideBase, display: "flex", background: "#fff" }}>
+        {/* Left sidebar */}
+        <div style={{ width: "26%", background: `linear-gradient(180deg, ${primary} 0%, ${darkPrimary} 100%)`,
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          padding: "28px 20px 20px", flexShrink: 0, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", bottom: "-15%", left: "-15%", width: "80%", paddingBottom: "80%",
+            borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
           <div>
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: "0 0 3px", fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-            {slide.subtitle && <p style={{ fontSize: 12, color: "#999", margin: 0 }}>{slide.subtitle}</p>}
+            <div style={{ width: 28, height: 3, borderRadius: 2, background: secondary, marginBottom: 16 }} />
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3,
+              fontFamily: `'${fontH}', serif`, letterSpacing: "-0.2px" }}>{slide.title}</h3>
+            {slide.subtitle && (
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", margin: "8px 0 0", lineHeight: 1.5, letterSpacing: 0.2 }}>{slide.subtitle}</p>
+            )}
           </div>
-          {/* Slide number circle top-right */}
-          <div style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: "50%", background: primary + "18",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: primary, flexShrink: 0 }}>
-            {idx + 1}
+          <div style={{ fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.08)", lineHeight: 1, fontFamily: `'${fontH}', serif` }}>
+            {String(idx + 1).padStart(2, "0")}
           </div>
         </div>
-        {slide.content && <p style={{ fontSize: 13, color: "#555", margin: "0 0 12px", lineHeight: 1.6 }}>{slide.content}</p>}
-        {/* Bullets */}
-        {(slide.bullets || []).length > 0 && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-            {(slide.bullets || []).map((b, bi) => (
-              <div key={bi} style={{ display: "flex", alignItems: "flex-start", gap: 10,
-                padding: "8px 12px", borderRadius: 8, background: bi % 2 === 0 ? primary + "07" : "transparent",
-                transition: "background .15s" }}>
-                <div style={{ width: 20, height: 20, borderRadius: "50%", background: primary, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", marginTop: 1 }}>
-                  {bi + 1}
+        {/* Right content */}
+        <div style={{ flex: 1, padding: "24px 28px 20px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {slide.content && (
+            <p style={{ fontSize: 12, color: "#666", margin: "0 0 14px", lineHeight: 1.6, borderBottom: `1px solid #f0f0f0`, paddingBottom: 12 }}>{slide.content}</p>
+          )}
+          {(slide.bullets || []).length > 0 && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
+              {(slide.bullets || []).map((b, bi) => (
+                <div key={bi} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 10px", borderRadius: 8,
+                  background: bi % 2 === 0 ? "#f9fafb" : "transparent" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, background: primary, flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" }}>
+                    {bi + 1}
+                  </div>
+                  <span style={{ fontSize: 12, color: "#2d2d2d", lineHeight: 1.55 }}>{b}</span>
                 </div>
-                <span style={{ fontSize: 13, color: "#2d2d2d", lineHeight: 1.5 }}>{b}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* Inline stats if any */}
-        {(slide.stats || []).length > 0 && (
-          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            {(slide.stats || []).map((s, si) => (
-              <div key={si} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: 10, background: primary + "12",
-                border: `1px solid ${primary}20` }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: primary, fontFamily: `'${fontH}', serif` }}>{s.value}</div>
-                <div style={{ fontSize: 10, color: "#777", marginTop: 2, lineHeight: 1.3 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {numBadge(false)}
+              ))}
+            </div>
+          )}
+          {(slide.stats || []).length > 0 && (
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              {(slide.stats || []).map((s, si) => (
+                <div key={si} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: 10,
+                  background: primary + "0d", border: `1px solid ${primary}18` }}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: primary, fontFamily: `'${fontH}', serif` }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: "#888", marginTop: 2, lineHeight: 1.3 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {numTag(false)}
+        </div>
       </div>
     );
   };
