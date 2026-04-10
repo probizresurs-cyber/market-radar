@@ -1062,6 +1062,27 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
   const { company, recommendations } = data;
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
+  const [liveRatings, setLiveRatings] = useState<{
+    google: { rating: number; reviewCount: number } | null;
+    yandex: { rating: number; reviewCount: number } | null;
+    gis: { rating: number; reviewCount: number } | null;
+  } | null>(null);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!company?.name) return;
+    setRatingsLoading(true);
+    fetch("/api/fetch-map-ratings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName: company.name }),
+    })
+      .then(r => r.json())
+      .then(json => { if (json.ok) setLiveRatings(json.data); })
+      .catch(() => {/* ignore */})
+      .finally(() => setRatingsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.name]);
 
   const isRealKeywords = data.seo?.keywordsSource === "keyso";
   const allPositions = data.seo?.positions ?? [];
@@ -1398,11 +1419,18 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
               </div>
             )}
             {[
-              { label: "Яндекс.Карты", rating: data.social?.yandexRating ?? 0, reviews: data.social?.yandexReviews ?? 0, color: "#FC3F1D" },
-              { label: "2ГИС", rating: data.social?.gisRating ?? 0, reviews: data.social?.gisReviews ?? 0, color: "#04AE30" },
-            ].map(({ label, rating, reviews, color }) => (
+              { label: "Яндекс.Карты", rating: liveRatings?.yandex?.rating ?? data.social?.yandexRating ?? 0, reviews: liveRatings?.yandex?.reviewCount ?? data.social?.yandexReviews ?? 0, color: "#FC3F1D", isLive: !!liveRatings?.yandex },
+              { label: "2ГИС", rating: liveRatings?.gis?.rating ?? data.social?.gisRating ?? 0, reviews: liveRatings?.gis?.reviewCount ?? data.social?.gisReviews ?? 0, color: "#04AE30", isLive: !!liveRatings?.gis },
+              { label: "Google Maps", rating: liveRatings?.google?.rating ?? 0, reviews: liveRatings?.google?.reviewCount ?? 0, color: "#4285F4", isLive: !!liveRatings?.google },
+            ].map(({ label, rating, reviews, color, isLive }) => (
               <div key={label} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>{label}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color }}>{label}</div>
+                  {ratingsLoading
+                    ? <span style={{ fontSize: 10, color: c.textMuted }}>⏳</span>
+                    : isLive && <span style={{ fontSize: 10, color: c.accentGreen, background: c.accentGreen + "18", padding: "1px 6px", borderRadius: 4 }}>live</span>
+                  }
+                </div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: c.textPrimary, lineHeight: 1 }}>{rating > 0 ? rating.toFixed(1) : "—"}</div>
                 <div style={{ fontSize: 11, color: c.textMuted, margin: "3px 0 8px" }}>рейтинг</div>
                 {rating > 0 && (
@@ -1548,13 +1576,28 @@ function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddC
                     {sc}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                   {comp.company.categories.map(cat => (
                     <span key={cat.name} style={{ fontSize: 11, color: c.textSecondary, background: c.borderLight, padding: "2px 8px", borderRadius: 6 }}>
                       {cat.icon} {cat.score}
                     </span>
                   ))}
                 </div>
+                {/* Map ratings */}
+                {((comp.social?.yandexRating ?? 0) > 0 || (comp.social?.gisRating ?? 0) > 0) && (
+                  <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: `1px solid ${c.border}` }}>
+                    {(comp.social?.yandexRating ?? 0) > 0 && (
+                      <span style={{ fontSize: 11, color: "#FC3F1D", fontWeight: 600 }}>
+                        Я.К: ★{comp.social.yandexRating.toFixed(1)} ({comp.social.yandexReviews})
+                      </span>
+                    )}
+                    {(comp.social?.gisRating ?? 0) > 0 && (
+                      <span style={{ fontSize: 11, color: "#04AE30", fontWeight: 600 }}>
+                        2ГИС: ★{comp.social.gisRating.toFixed(1)} ({comp.social.gisReviews})
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -6719,6 +6762,63 @@ function ReviewsView({ c, companyName }: {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"input" | "reviews" | "analysis">("input");
+  const [autoFetchStatus, setAutoFetchStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [autoFetchLog, setAutoFetchLog] = useState<string[]>([]);
+
+  // Auto-fetch from Google + 2GIS on mount when company name is known
+  useEffect(() => {
+    if (!companyName.trim()) return;
+    const run = async () => {
+      setAutoFetchStatus("loading");
+      const log: string[] = [];
+      const fetched: Review[] = [];
+
+      // Google Places
+      try {
+        const res = await fetch("/api/fetch-reviews-google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyName }),
+        });
+        const json = await res.json();
+        if (json.ok && json.data.reviews.length > 0) {
+          fetched.push(...json.data.reviews);
+          log.push(`Google Maps: ${json.data.reviews.length} отзывов (рейтинг ${json.data.rating}★)`);
+        } else {
+          log.push("Google Maps: не найдено");
+        }
+      } catch {
+        log.push("Google Maps: ошибка загрузки");
+      }
+
+      // 2GIS by name
+      try {
+        const res = await fetch("/api/fetch-reviews-2gis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyName }),
+        });
+        const json = await res.json();
+        if (json.ok && json.data.reviews.length > 0) {
+          fetched.push(...json.data.reviews);
+          log.push(`2ГИС: ${json.data.reviews.length} отзывов`);
+        } else {
+          log.push("2ГИС: не найдено");
+        }
+      } catch {
+        log.push("2ГИС: ошибка загрузки");
+      }
+
+      setAutoFetchLog(log);
+      if (fetched.length > 0) {
+        setReviews(fetched);
+        setTab("reviews");
+      }
+      setAutoFetchStatus("done");
+    };
+    run();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyName]);
 
   // Handle screenshot drop/paste
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -6880,6 +6980,20 @@ function ReviewsView({ c, companyName }: {
           </button>
         )}
       </div>
+
+      {/* Auto-fetch status banner */}
+      {autoFetchStatus === "loading" && (
+        <div style={{ padding: 12, borderRadius: 8, background: c.accent + "12", color: c.accent, marginBottom: 16, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${c.accent}40`, borderTop: `2px solid ${c.accent}`, borderRadius: "50%", animation: "mr-spin 1s linear infinite" }} />
+          Загружаю отзывы с Google Maps и 2ГИС...
+        </div>
+      )}
+      {autoFetchStatus === "done" && autoFetchLog.length > 0 && (
+        <div style={{ padding: 12, borderRadius: 8, background: c.accentGreen + "12", color: c.textSecondary, marginBottom: 16, fontSize: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, color: c.accentGreen }}>✓ Автозагрузка:</span>
+          {autoFetchLog.map((l, i) => <span key={i}>{l}</span>)}
+        </div>
+      )}
 
       {error && (
         <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>
