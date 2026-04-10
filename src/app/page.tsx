@@ -7183,90 +7183,271 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     }
   };
 
+  const [isExportingPptx, setIsExportingPptx] = useState(false);
+
   const handlePrint = () => {
     const w = window.open("", "_blank");
     if (!w) return;
-    const slidesHtml = slides.map((slide, i) => {
-      const isCover = slide.type === "cover";
-      return `<div style="page-break-after:always;width:960px;height:540px;padding:${isCover ? "0" : "48px 60px"};box-sizing:border-box;position:relative;overflow:hidden;${isCover ? `background:linear-gradient(135deg,${primary},${secondary});display:flex;align-items:center;justify-content:center;text-align:center;` : `background:${bg};`}">
-        ${isCover ? `<div><h1 style="font-size:42px;font-weight:800;color:#fff;margin:0 0 12px;text-shadow:0 2px 8px rgba(0,0,0,0.2)">${slide.title}</h1>${slide.subtitle ? `<p style="font-size:20px;color:rgba(255,255,255,0.85);margin:0">${slide.subtitle}</p>` : ""}${slide.content ? `<p style="font-size:16px;color:rgba(255,255,255,0.7);margin:16px 0 0">${slide.content}</p>` : ""}</div>` : ""}
-        ${!isCover ? `<div style="border-left:4px solid ${primary};padding-left:16px;margin-bottom:24px"><h2 style="font-size:28px;font-weight:700;color:${textColor};margin:0">${slide.title}</h2>${slide.subtitle ? `<p style="font-size:14px;color:#888;margin:4px 0 0">${slide.subtitle}</p>` : ""}</div>` : ""}
-        ${!isCover && slide.content ? `<p style="font-size:16px;color:#444;line-height:1.6;margin:0 0 16px">${slide.content}</p>` : ""}
-        ${slide.bullets?.length > 0 ? `<ul style="margin:0;padding:0 0 0 20px">${slide.bullets.map(b => `<li style="font-size:15px;color:#333;margin:8px 0;line-height:1.5">${b}</li>`).join("")}</ul>` : ""}
-        ${slide.stats?.length > 0 ? `<div style="display:flex;gap:20px;margin:16px 0">${slide.stats.map(s => `<div style="flex:1;text-align:center;padding:16px;border-radius:12px;background:${primary}15"><div style="font-size:28px;font-weight:800;color:${primary}">${s.value}</div><div style="font-size:12px;color:#666;margin-top:4px">${s.label}</div></div>`).join("")}</div>` : ""}
-        ${slide.quote ? `<blockquote style="border-left:3px solid ${primary};padding:12px 16px;margin:16px 0;font-style:italic;color:#555;font-size:15px">"${slide.quote}"</blockquote>` : ""}
-        <div style="position:absolute;bottom:16px;right:24px;font-size:10px;color:#bbb">${i + 1} / ${slides.length}</div>
-      </div>`;
-    }).join("");
-    w.document.write(`<!DOCTYPE html><html><head><title>${presTitle}</title><style>@media print{@page{size:960px 540px;margin:0}body{margin:0}div{page-break-inside:avoid}}body{margin:0;font-family:${brandBook.fontBody || "PT Sans"},system-ui,sans-serif}</style></head><body>${slidesHtml}</body></html>`);
+    const fontH = brandBook.fontHeader || "Georgia";
+    const fontB = brandBook.fontBody || "Calibri";
+    const slidesHtml = slides.map((slide, i) => renderSlideHtml(slide, i, slides.length, primary, secondary, bg, textColor, fontH, fontB, brandBook.logoDataUrl)).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>${presTitle}</title><style>*{box-sizing:border-box}@media print{@page{size:960px 540px;margin:0}body{margin:0}.slide{page-break-after:always;page-break-inside:avoid}}body{margin:0;font-family:'${fontB}',system-ui,sans-serif;background:#111}</style></head><body>${slidesHtml}</body></html>`);
     w.document.close();
-    setTimeout(() => w.print(), 500);
+    setTimeout(() => w.print(), 600);
+  };
+
+  const handleExportPptx = async () => {
+    setIsExportingPptx(true);
+    try {
+      const res = await fetch("/api/export-pptx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides, presTitle, brandBook }),
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${presTitle || "presentation"}.pptx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка экспорта PPTX");
+    } finally {
+      setIsExportingPptx(false);
+    }
   };
 
   const renderSlide = (slide: PresentationSlide, idx: number) => {
-    const isCover = slide.type === "cover";
-    return (
-      <div key={idx} style={{
-        width: "100%", aspectRatio: "16/9", borderRadius: 12, overflow: "hidden", position: "relative",
-        background: isCover ? `linear-gradient(135deg, ${primary}, ${secondary})` : bg,
-        display: "flex", flexDirection: "column", justifyContent: isCover ? "center" : "flex-start",
-        alignItems: isCover ? "center" : "stretch", textAlign: isCover ? "center" : "left",
-        padding: isCover ? 40 : "36px 48px", boxShadow: c.shadowLg, border: `1px solid ${c.border}`,
-      }}>
-        {isCover ? (
-          <>
-            {brandBook.logoDataUrl && <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 16, objectFit: "contain" }} />}
-            <h2 style={{ fontSize: 32, fontWeight: 800, color: "#fff", margin: "0 0 8px", textShadow: "0 2px 8px rgba(0,0,0,0.2)", fontFamily: brandBook.fontHeader || "inherit" }}>{slide.title}</h2>
-            {slide.subtitle && <p style={{ fontSize: 16, color: "rgba(255,255,255,0.85)", margin: 0 }}>{slide.subtitle}</p>}
-            {slide.content && <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "12px 0 0", maxWidth: 500 }}>{slide.content}</p>}
-          </>
-        ) : (
-          <>
-            <div style={{ borderLeft: `4px solid ${primary}`, paddingLeft: 12, marginBottom: 20 }}>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: textColor, margin: 0, fontFamily: brandBook.fontHeader || "inherit" }}>{slide.title}</h3>
-              {slide.subtitle && <p style={{ fontSize: 12, color: "#888", margin: "2px 0 0" }}>{slide.subtitle}</p>}
-            </div>
-            {slide.content && <p style={{ fontSize: 14, color: "#444", lineHeight: 1.6, margin: "0 0 12px" }}>{slide.content}</p>}
-            {slide.bullets?.length > 0 && (
-              <ul style={{ margin: 0, padding: "0 0 0 18px", flex: 1 }}>
-                {slide.bullets.map((b, bi) => <li key={bi} style={{ fontSize: 13, color: "#333", marginBottom: 6, lineHeight: 1.5 }}>{b}</li>)}
-              </ul>
+    const type = slide.type;
+    const total = slides.length;
+    const fontH = brandBook.fontHeader || "Georgia";
+    const fontB = brandBook.fontBody || "Calibri";
+
+    // Shared slide wrapper style
+    const slideBase: React.CSSProperties = {
+      width: "100%", aspectRatio: "16/9", borderRadius: 14, overflow: "hidden",
+      position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
+      fontFamily: `'${fontB}', system-ui, sans-serif`,
+    };
+
+    // Slide number badge
+    const numBadge = (dark: boolean) => (
+      <div style={{ position: "absolute", bottom: 14, right: 18, fontSize: 10, fontWeight: 600,
+        color: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.2)", letterSpacing: 1 }}>
+        {idx + 1} / {total}
+      </div>
+    );
+
+    // ── COVER / CTA ──────────────────────────────────────────
+    if (type === "cover" || type === "cta") {
+      const isCta = type === "cta";
+      return (
+        <div key={idx} style={{ ...slideBase, background: primary, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          {/* Decorative blobs */}
+          <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "55%", paddingBottom: "55%", borderRadius: "50%",
+            background: secondary, opacity: 0.18, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: "-25%", left: "-8%", width: "45%", paddingBottom: "45%", borderRadius: "50%",
+            background: "#ffffff", opacity: 0.07, pointerEvents: "none" }} />
+          {/* Top accent line */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: secondary }} />
+          <div style={{ position: "relative", zIndex: 2, maxWidth: "70%", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            {brandBook.logoDataUrl && !isCta && (
+              <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: "contain",
+                background: "rgba(255,255,255,0.15)", padding: 6, marginBottom: 4 }} />
             )}
-            {slide.stats?.length > 0 && (
-              <div style={{ display: "flex", gap: 12, margin: "12px 0" }}>
-                {slide.stats.map((s, si) => (
-                  <div key={si} style={{ flex: 1, textAlign: "center", padding: 14, borderRadius: 10, background: primary + "15" }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: primary }}>{s.value}</div>
-                    <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{s.label}</div>
-                  </div>
+            {isCta && <div style={{ fontSize: 36, marginBottom: 4 }}>🚀</div>}
+            <h2 style={{ fontSize: 30, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.15,
+              textShadow: "0 2px 12px rgba(0,0,0,0.25)", fontFamily: `'${fontH}', serif` }}>
+              {slide.title}
+            </h2>
+            {slide.subtitle && (
+              <p style={{ fontSize: 15, color: "rgba(255,255,255,0.82)", margin: 0, fontWeight: 500 }}>{slide.subtitle}</p>
+            )}
+            {slide.content && (
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.62)", margin: 0, maxWidth: 480, lineHeight: 1.55 }}>{slide.content}</p>
+            )}
+            {isCta && slide.bullets && slide.bullets.length > 0 && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
+                {slide.bullets.map((b, bi) => (
+                  <span key={bi} style={{ padding: "6px 16px", borderRadius: 20, background: "rgba(255,255,255,0.18)",
+                    color: "#fff", fontSize: 12, fontWeight: 600, border: "1px solid rgba(255,255,255,0.25)" }}>{b}</span>
                 ))}
               </div>
             )}
-            {slide.quote && (
-              <blockquote style={{ borderLeft: `3px solid ${primary}`, paddingLeft: 12, margin: "12px 0 0", fontStyle: "italic", color: "#555", fontSize: 13 }}>
-                &ldquo;{slide.quote}&rdquo;
-              </blockquote>
-            )}
-          </>
-        )}
-        <div style={{ position: "absolute", bottom: 12, right: 16, fontSize: 10, color: isCover ? "rgba(255,255,255,0.4)" : "#ccc" }}>
-          {idx + 1} / {slides.length}
+          </div>
+          {numBadge(true)}
         </div>
+      );
+    }
+
+    // ── STATS ────────────────────────────────────────────────
+    if (type === "stats") {
+      const stats = slide.stats || [];
+      return (
+        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
+          {/* Title band */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <div style={{ width: 4, height: 24, borderRadius: 2, background: primary, flexShrink: 0 }} />
+              <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+            </div>
+            {slide.subtitle && <p style={{ fontSize: 12, color: "#888", margin: "0 0 0 14px" }}>{slide.subtitle}</p>}
+          </div>
+          {/* Stat cards */}
+          <div style={{ display: "flex", gap: 14, flex: 1 }}>
+            {stats.map((s, si) => (
+              <div key={si} style={{ flex: 1, borderRadius: 12, background: "#fff",
+                border: `1px solid ${primary}22`, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", padding: "16px 12px", gap: 8,
+                boxShadow: `0 2px 12px ${primary}15`, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: primary }} />
+                <div style={{ fontSize: 36, fontWeight: 900, color: primary, lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "#666", textAlign: "center", lineHeight: 1.4, maxWidth: 120 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {slide.content && (
+            <p style={{ fontSize: 12, color: "#777", margin: "14px 0 0", lineHeight: 1.5 }}>{slide.content}</p>
+          )}
+          {numBadge(false)}
+        </div>
+      );
+    }
+
+    // ── QUOTE ────────────────────────────────────────────────
+    if (type === "quote") {
+      return (
+        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", padding: "36px 60px", textAlign: "center" }}>
+          {/* Decorative top stripe */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
+          <div style={{ position: "absolute", top: 16, left: 36, fontSize: 80, color: primary, opacity: 0.12, lineHeight: 1, userSelect: "none",
+            fontFamily: "Georgia, serif", fontWeight: 900 }}>"</div>
+          <div style={{ position: "relative", zIndex: 2, maxWidth: 600 }}>
+            <div style={{ width: 3, height: 40, background: primary, margin: "0 auto 20px", borderRadius: 2 }} />
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: textColor, margin: "0 0 16px", fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+            {slide.quote && (
+              <p style={{ fontSize: 16, fontStyle: "italic", color: "#444", lineHeight: 1.65, margin: "0 0 16px",
+                padding: "0 20px", position: "relative" }}>
+                &ldquo;{slide.quote}&rdquo;
+              </p>
+            )}
+            {slide.content && <p style={{ fontSize: 13, color: "#777", lineHeight: 1.5, margin: 0 }}>{slide.content}</p>}
+          </div>
+          {numBadge(false)}
+        </div>
+      );
+    }
+
+    // ── TWO-COLUMN ───────────────────────────────────────────
+    if (type === "two-column") {
+      const half = Math.ceil((slide.bullets || []).length / 2);
+      const leftBullets = (slide.bullets || []).slice(0, half);
+      const rightBullets = (slide.bullets || []).slice(half);
+      return (
+        <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 4, height: 24, borderRadius: 2, background: primary, flexShrink: 0 }} />
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+          </div>
+          {slide.content && <p style={{ fontSize: 13, color: "#555", margin: "0 0 14px", lineHeight: 1.5 }}>{slide.content}</p>}
+          <div style={{ display: "flex", gap: 16, flex: 1 }}>
+            {[leftBullets, rightBullets].map((col, ci) => (
+              <div key={ci} style={{ flex: 1, background: ci === 0 ? primary + "08" : secondary + "08",
+                borderRadius: 10, padding: "14px 16px", border: `1px solid ${ci === 0 ? primary : secondary}20` }}>
+                {col.map((b, bi) => (
+                  <div key={bi} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: ci === 0 ? primary : secondary,
+                      flexShrink: 0, marginTop: 5 }} />
+                    <span style={{ fontSize: 12, color: "#333", lineHeight: 1.5 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          {numBadge(false)}
+        </div>
+      );
+    }
+
+    // ── BULLETS (default) ─────────────────────────────────────
+    return (
+      <div key={idx} style={{ ...slideBase, background: bg, display: "flex", flexDirection: "column", padding: "28px 36px 24px" }}>
+        {/* Top accent */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
+          <div style={{ width: 4, minHeight: 28, borderRadius: 2, background: primary, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: textColor, margin: "0 0 3px", fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
+            {slide.subtitle && <p style={{ fontSize: 12, color: "#999", margin: 0 }}>{slide.subtitle}</p>}
+          </div>
+          {/* Slide number circle top-right */}
+          <div style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: "50%", background: primary + "18",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: primary, flexShrink: 0 }}>
+            {idx + 1}
+          </div>
+        </div>
+        {slide.content && <p style={{ fontSize: 13, color: "#555", margin: "0 0 12px", lineHeight: 1.6 }}>{slide.content}</p>}
+        {/* Bullets */}
+        {(slide.bullets || []).length > 0 && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            {(slide.bullets || []).map((b, bi) => (
+              <div key={bi} style={{ display: "flex", alignItems: "flex-start", gap: 10,
+                padding: "8px 12px", borderRadius: 8, background: bi % 2 === 0 ? primary + "07" : "transparent",
+                transition: "background .15s" }}>
+                <div style={{ width: 20, height: 20, borderRadius: "50%", background: primary, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", marginTop: 1 }}>
+                  {bi + 1}
+                </div>
+                <span style={{ fontSize: 13, color: "#2d2d2d", lineHeight: 1.5 }}>{b}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Inline stats if any */}
+        {(slide.stats || []).length > 0 && (
+          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            {(slide.stats || []).map((s, si) => (
+              <div key={si} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: 10, background: primary + "12",
+                border: `1px solid ${primary}20` }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: primary, fontFamily: `'${fontH}', serif` }}>{s.value}</div>
+                <div style={{ fontSize: 10, color: "#777", marginTop: 2, lineHeight: 1.3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {numBadge(false)}
       </div>
     );
   };
 
-  // Fullscreen mode
+  // ── Fullscreen mode ──────────────────────────────────────────
   if (fullscreen && slides.length > 0) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}
-        onClick={() => setActiveSlide(prev => prev < slides.length - 1 ? prev + 1 : prev)}
+      <div
+        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}
         onKeyDown={e => { if (e.key === "Escape") setFullscreen(false); if (e.key === "ArrowRight") setActiveSlide(p => Math.min(p + 1, slides.length - 1)); if (e.key === "ArrowLeft") setActiveSlide(p => Math.max(p - 1, 0)); }}
         tabIndex={0}
       >
-        <div style={{ width: "90vw", maxWidth: 1200 }}>{renderSlide(slides[activeSlide], activeSlide)}</div>
-        <button onClick={e => { e.stopPropagation(); setFullscreen(false); }} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 8, padding: "4px 12px" }}>✕</button>
-        <div style={{ position: "absolute", bottom: 20, color: "rgba(255,255,255,0.5)", fontSize: 12 }}>← → навигация • ESC выход • клик → далее</div>
+        <div style={{ width: "88vw", maxWidth: 1100, cursor: "pointer" }}
+          onClick={() => setActiveSlide(prev => Math.min(prev + 1, slides.length - 1))}>
+          {renderSlide(slides[activeSlide], activeSlide)}
+        </div>
+        {/* Progress dots */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {slides.map((_, i) => (
+            <div key={i} onClick={() => setActiveSlide(i)} style={{ width: i === activeSlide ? 20 : 6, height: 6, borderRadius: 3,
+              background: i === activeSlide ? primary : "rgba(255,255,255,0.3)", cursor: "pointer", transition: "all .2s" }} />
+          ))}
+        </div>
+        <button onClick={() => setFullscreen(false)} style={{ position: "absolute", top: 16, right: 20, background: "rgba(255,255,255,0.12)",
+          border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 18, cursor: "pointer", borderRadius: 8, padding: "4px 14px", lineHeight: 1.5 }}>✕</button>
+        <div style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontSize: 11 }}>
+          ← → клавиши навигации &nbsp;•&nbsp; ESC — выход &nbsp;•&nbsp; клик → следующий
+        </div>
       </div>
     );
   }
@@ -7319,8 +7500,12 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
             <button onClick={() => setFullscreen(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               ▶ Показ слайдов
             </button>
-            <button onClick={handlePrint} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
-              📄 Скачать PDF
+            <button onClick={handlePrint} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              📄 PDF
+            </button>
+            <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "8px 16px", borderRadius: 8, border: "none",
+              background: isExportingPptx ? c.textMuted : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              {isExportingPptx ? "Экспорт..." : "⬇ PPTX"}
             </button>
             <button onClick={handleGenerate} disabled={isGenerating} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12, opacity: isGenerating ? 0.5 : 1 }}>
               🔄 Перегенерировать
@@ -7330,16 +7515,29 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
           {/* Slide navigator + preview */}
           <div style={{ display: "flex", gap: 20 }}>
             {/* Thumbnails */}
-            <div style={{ width: 140, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, maxHeight: "70vh", overflowY: "auto" }}>
-              {slides.map((slide, i) => (
-                <div key={i} onClick={() => setActiveSlide(i)} style={{
-                  padding: 8, borderRadius: 8, border: `2px solid ${activeSlide === i ? c.accent : c.border}`,
-                  background: activeSlide === i ? c.accent + "10" : c.bgCard, cursor: "pointer", transition: "all .15s",
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: activeSlide === i ? c.accent : c.textMuted, marginBottom: 2 }}>Слайд {i + 1}</div>
-                  <div style={{ fontSize: 11, color: c.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slide.title}</div>
-                </div>
-              ))}
+            <div style={{ width: 150, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6, maxHeight: "72vh", overflowY: "auto", paddingRight: 4 }}>
+              {slides.map((slide, i) => {
+                const isActive = activeSlide === i;
+                const isCoverThumb = slide.type === "cover" || slide.type === "cta";
+                return (
+                  <div key={i} onClick={() => setActiveSlide(i)} style={{
+                    borderRadius: 8, border: `2px solid ${isActive ? primary : c.border}`,
+                    background: isActive ? primary + "12" : c.bgCard,
+                    cursor: "pointer", transition: "all .15s", overflow: "hidden",
+                  }}>
+                    {/* Mini slide preview strip */}
+                    <div style={{ height: 6, background: isCoverThumb ? primary : `linear-gradient(90deg, ${primary}, ${secondary})`, opacity: isCoverThumb ? 1 : 0.5 }} />
+                    <div style={{ padding: "6px 8px" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: isActive ? primary : c.textMuted, marginBottom: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        {i + 1} · {slide.type}
+                      </div>
+                      <div style={{ fontSize: 11, color: c.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {slide.title}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Main slide preview */}
@@ -7347,16 +7545,98 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
               {renderSlide(slides[activeSlide], activeSlide)}
               {/* Speaker note */}
               {slides[activeSlide]?.note && (
-                <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 12, color: c.textSecondary }}>
-                  <b>Заметка:</b> {slides[activeSlide].note}
+                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 12, color: c.textSecondary, display: "flex", gap: 8 }}>
+                  <span style={{ opacity: 0.5 }}>🎤</span>
+                  <span><b>Заметка для спикера:</b> {slides[activeSlide].note}</span>
                 </div>
               )}
+              {/* Navigation arrows */}
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
+                <button onClick={() => setActiveSlide(p => Math.max(p - 1, 0))} disabled={activeSlide === 0}
+                  style={{ padding: "6px 18px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
+                    color: c.textPrimary, cursor: activeSlide === 0 ? "default" : "pointer", opacity: activeSlide === 0 ? 0.4 : 1, fontSize: 14 }}>←</button>
+                <span style={{ fontSize: 12, color: c.textMuted, padding: "6px 12px" }}>{activeSlide + 1} / {slides.length}</span>
+                <button onClick={() => setActiveSlide(p => Math.min(p + 1, slides.length - 1))} disabled={activeSlide === slides.length - 1}
+                  style={{ padding: "6px 18px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
+                    color: c.textPrimary, cursor: activeSlide === slides.length - 1 ? "default" : "pointer", opacity: activeSlide === slides.length - 1 ? 0.4 : 1, fontSize: 14 }}>→</button>
+              </div>
             </div>
           </div>
         </>
       )}
     </div>
   );
+}
+
+// Helper: render a single slide as static HTML string for print/PDF
+function renderSlideHtml(slide: PresentationSlide, i: number, total: number, primary: string, secondary: string, bg: string, textColor: string, fontH: string, fontB: string, logoUrl?: string): string {
+  const type = slide.type;
+  const num = `<div style="position:absolute;bottom:14px;right:18px;font-size:10px;font-weight:600;color:rgba(0,0,0,0.18);letter-spacing:1px">${i + 1} / ${total}</div>`;
+  const base = `width:960px;height:540px;position:relative;overflow:hidden;box-sizing:border-box;font-family:'${fontB}',system-ui,sans-serif;`;
+
+  if (type === "cover" || type === "cta") {
+    return `<div class="slide" style="${base}background:${primary};display:flex;align-items:center;justify-content:center;text-align:center;">
+      <div style="position:absolute;top:-20%;right:-10%;width:55%;padding-bottom:55%;border-radius:50%;background:${secondary};opacity:0.18"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${secondary}"></div>
+      <div style="position:relative;z-index:2;max-width:70%;display:flex;flex-direction:column;align-items:center;gap:12px">
+        ${logoUrl && type !== "cta" ? `<img src="${logoUrl}" style="width:56px;height:56px;border-radius:12px;object-fit:contain;background:rgba(255,255,255,0.15);padding:6px;margin-bottom:4px">` : ""}
+        <h2 style="font-size:36px;font-weight:800;color:#fff;margin:0;line-height:1.15;text-shadow:0 2px 12px rgba(0,0,0,0.25);font-family:'${fontH}',serif">${slide.title}</h2>
+        ${slide.subtitle ? `<p style="font-size:18px;color:rgba(255,255,255,0.82);margin:0;font-weight:500">${slide.subtitle}</p>` : ""}
+        ${slide.content ? `<p style="font-size:14px;color:rgba(255,255,255,0.62);margin:0;max-width:480px;line-height:1.55">${slide.content}</p>` : ""}
+      </div>
+      <div style="position:absolute;bottom:14px;right:18px;font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:1px">${i + 1} / ${total}</div>
+    </div>`;
+  }
+
+  if (type === "stats") {
+    const statsHtml = (slide.stats || []).map(s => `<div style="flex:1;border-radius:12px;background:#fff;border:1px solid ${primary}22;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 12px;gap:8px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${primary}"></div>
+      <div style="font-size:42px;font-weight:900;color:${primary};line-height:1;font-family:'${fontH}',serif">${s.value}</div>
+      <div style="font-size:12px;color:#666;text-align:center;line-height:1.4;max-width:120px">${s.label}</div>
+    </div>`).join("");
+    return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;padding:28px 36px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:4px;height:24px;border-radius:2px;background:${primary};flex-shrink:0"></div>
+        <h3 style="font-size:22px;font-weight:700;color:${textColor};margin:0;font-family:'${fontH}',serif">${slide.title}</h3>
+      </div>
+      <div style="display:flex;gap:14px;flex:1">${statsHtml}</div>
+      ${slide.content ? `<p style="font-size:13px;color:#777;margin:14px 0 0;line-height:1.5">${slide.content}</p>` : ""}
+      ${num}
+    </div>`;
+  }
+
+  if (type === "quote") {
+    return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 60px;text-align:center;">
+      <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,${primary},${secondary})"></div>
+      <div style="position:absolute;top:16px;left:36px;font-size:80px;color:${primary};opacity:0.12;font-family:Georgia,serif;font-weight:900;line-height:1">"</div>
+      <div style="position:relative;z-index:2;max-width:600px">
+        <div style="width:3px;height:40px;background:${primary};margin:0 auto 20px;border-radius:2px"></div>
+        <h3 style="font-size:20px;font-weight:700;color:${textColor};margin:0 0 16px;font-family:'${fontH}',serif">${slide.title}</h3>
+        ${slide.quote ? `<p style="font-size:17px;font-style:italic;color:#444;line-height:1.65;margin:0 0 16px;padding:0 20px">"${slide.quote}"</p>` : ""}
+        ${slide.content ? `<p style="font-size:13px;color:#777;line-height:1.5;margin:0">${slide.content}</p>` : ""}
+      </div>
+      ${num}
+    </div>`;
+  }
+
+  // Bullets / two-column / default
+  const bulletsHtml = (slide.bullets || []).map((b, bi) => `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:8px;background:${bi % 2 === 0 ? primary + "08" : "transparent"}">
+    <div style="width:20px;height:20px;border-radius:50%;background:${primary};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;margin-top:1px">${bi + 1}</div>
+    <span style="font-size:14px;color:#2d2d2d;line-height:1.5">${b}</span>
+  </div>`).join("");
+  return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;padding:28px 36px 24px;">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,${primary},${secondary})"></div>
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+      <div style="width:4px;min-height:28px;border-radius:2px;background:${primary};flex-shrink:0;margin-top:2px"></div>
+      <div>
+        <h3 style="font-size:22px;font-weight:700;color:${textColor};margin:0 0 3px;font-family:'${fontH}',serif">${slide.title}</h3>
+        ${slide.subtitle ? `<p style="font-size:12px;color:#999;margin:0">${slide.subtitle}</p>` : ""}
+      </div>
+    </div>
+    ${slide.content ? `<p style="font-size:14px;color:#555;margin:0 0 12px;line-height:1.6">${slide.content}</p>` : ""}
+    <div style="flex:1;display:flex;flex-direction:column;gap:8px">${bulletsHtml}</div>
+    ${num}
+  </div>`;
 }
 
 // ============================================================
