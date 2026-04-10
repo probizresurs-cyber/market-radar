@@ -7649,7 +7649,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
               { label: "Анализ компании", ok: !!myCompany },
               { label: "Анализ ЦА", ok: !!taAnalysis },
               { label: "Анализ СММ", ok: !!smmAnalysis },
-              { label: "Брендбук", ok: !!brandBook.brandName },
+              { label: "Брендбук", ok: !!brandBook.brandName || brandBook.colors.length > 0 || !!brandBook.fontHeader || brandBook.toneOfVoice.length > 0 },
             ].map(item => (
               <span key={item.label} style={{
                 padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
