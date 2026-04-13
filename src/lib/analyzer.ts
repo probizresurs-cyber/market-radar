@@ -122,6 +122,10 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
       { "keyword": "string", "position": 0, "volume": 0 },
       { "keyword": "string", "position": 0, "volume": 0 },
       { "keyword": "string", "position": 0, "volume": 0 },
+      { "keyword": "string", "position": 0, "volume": 0 },
+      { "keyword": "string", "position": 0, "volume": 0 },
+      { "keyword": "string", "position": 0, "volume": 0 },
+      { "keyword": "string", "position": 0, "volume": 0 },
       { "keyword": "string", "position": 0, "volume": 0 }
     ],
     "issues": ["string", "string", "string"]
@@ -177,7 +181,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 Важно:
 - ровно 5 рекомендаций (2 high, 2 medium, 1 low)
 - ровно 7 инсайтов: 1 niche, 2 action, 1 battle, 1 copy, 1 seo, 1 offer
-- ровно 6 позиций в seo.positions
+- ровно 50 позиций в seo.positions (реалистичные ключевые слова для ниши компании, разные позиции от 1 до 100)
 - ровно 3 copyImprovements (H1/title, meta description, и ещё один элемент страницы)
 - ровно 4 keywordGaps — реальные незанятые запросы в нише
 - ровно 4 contentIdeas и 4 seoActions
@@ -287,7 +291,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     domainAge: safeStr(seoRaw.domainAge, "—"),
     estimatedTraffic: safeStr(seoRaw.estimatedTraffic, "—"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    positions: Array.isArray(seoRaw.positions) ? seoRaw.positions.slice(0, 6).map((pos: any) => ({
+    positions: Array.isArray(seoRaw.positions) ? seoRaw.positions.slice(0, 50).map((pos: any) => ({
       keyword: safeStr(pos.keyword, "—"),
       position: safeNum(pos.position, 50),
       volume: safeNum(pos.volume, 0),
