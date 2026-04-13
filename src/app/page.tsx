@@ -1309,6 +1309,9 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
     gis: { rating: number; reviewCount: number } | null;
   } | null>(null);
   const [ratingsLoading, setRatingsLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [myOffers, setMyOffers] = useState<any>(null);
+  const [myOffersLoading, setMyOffersLoading] = useState(false);
 
   useEffect(() => {
     if (!company?.name) return;
@@ -1325,6 +1328,32 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.name]);
 
+  // Load own offers from cache or API
+  useEffect(() => {
+    if (!company?.name) return;
+    const offersKey = `mr_offers_${company.url || company.name}`;
+    try {
+      const cached = localStorage.getItem(offersKey);
+      if (cached) { setMyOffers(JSON.parse(cached)); return; }
+    } catch { /* ignore */ }
+    setMyOffersLoading(true);
+    fetch("/api/analyze-offers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) {
+          setMyOffers(json.data);
+          try { localStorage.setItem(offersKey, JSON.stringify(json.data)); } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {/* ignore */})
+      .finally(() => setMyOffersLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.name, company?.url]);
+
   const isRealKeywords = data.seo?.keywordsSource === "keyso";
   const allPositions = data.seo?.positions ?? [];
   const yandexPositions = allPositions;
@@ -1332,9 +1361,9 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
     ? data.seo.googlePositions
     : allPositions.map(p => ({ ...p, position: Math.min(100, Math.max(1, p.position + Math.floor(Math.sin(p.keyword.length) * 8))) }));
   const activePositions = kwEngine === "yandex" ? yandexPositions : googlePositions;
-  const filteredPositions = kwSearch.trim()
+  const filteredPositions = (kwSearch.trim()
     ? activePositions.filter(p => p.keyword.toLowerCase().includes(kwSearch.toLowerCase()))
-    : activePositions;
+    : activePositions).slice(0, 50);
 
   return (
     <div style={{ maxWidth: 1100 }}>
@@ -1379,6 +1408,83 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
         </div>
       </CollapsibleSection>
 
+      {/* ── Анализ офферов (своей компании) ── */}
+      <CollapsibleSection c={c} title="🏷️ Анализ офферов"
+        extra={myOffers && !myOffersLoading ? (
+          <button onClick={() => {
+            const offersKey = `mr_offers_${company.url || company.name}`;
+            try { localStorage.removeItem(offersKey); } catch { /* ignore */ }
+            setMyOffers(null);
+            setMyOffersLoading(true);
+            fetch("/api/analyze-offers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
+            }).then(r => r.json()).then(json => {
+              if (json.ok) {
+                setMyOffers(json.data);
+                try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+              }
+            }).catch(() => {/* ignore */}).finally(() => setMyOffersLoading(false));
+          }} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 11, cursor: "pointer" }}>
+            🔄 Обновить
+          </button>
+        ) : undefined}>
+        {myOffersLoading && (
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, textAlign: "center", boxShadow: c.shadow, marginBottom: 16 }}>
+            <div style={{ color: c.accent, fontSize: 13 }}>Анализирую офферы с сайта компании...</div>
+          </div>
+        )}
+        {myOffers && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            <div style={{ background: c.accent + "10", borderRadius: 12, padding: 16, border: `1px solid ${c.accent}30` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕННОСТНОЕ ПРЕДЛОЖЕНИЕ</div>
+              <p style={{ fontSize: 14, color: c.textPrimary, margin: 0, fontWeight: 600 }}>{myOffers.mainValueProposition}</p>
+              <div style={{ fontSize: 12, color: c.textSecondary, marginTop: 6 }}>Стратегия: {myOffers.pricingStrategy}</div>
+            </div>
+            {(myOffers.offers ?? []).map((offer: { title: string; description: string; price: string; uniqueSellingPoint: string; targetAudience: string }, i: number) => (
+              <div key={i} style={{ background: c.bgCard, borderRadius: 12, padding: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>{offer.title}</div>
+                  {offer.price && <span style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, background: c.accentGreen + "12", padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>{offer.price}</span>}
+                </div>
+                <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 6px", lineHeight: 1.4 }}>{offer.description}</p>
+                {offer.uniqueSellingPoint && <div style={{ fontSize: 12, color: c.accent }}>USP: {offer.uniqueSellingPoint}</div>}
+                {offer.targetAudience && <div style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>ЦА: {offer.targetAudience}</div>}
+              </div>
+            ))}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8 }}>СИЛЬНЫЕ СТОРОНЫ</div>
+                {(myOffers.strengths ?? []).map((s: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentGreen}30` }}>{s}</div>)}
+              </div>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8 }}>СЛАБЫЕ СТОРОНЫ</div>
+                {(myOffers.weaknesses ?? []).map((w: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentRed}30` }}>{w}</div>)}
+              </div>
+              <div style={{ background: c.bgCard, borderRadius: 12, padding: 14, border: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.accentWarm, marginBottom: 8 }}>НЕ ХВАТАЕТ</div>
+                {(myOffers.missingOffers ?? []).map((m: string, i: number) => <div key={i} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 4, paddingLeft: 10, borderLeft: `2px solid ${c.accentWarm}30` }}>{m}</div>)}
+              </div>
+            </div>
+          </div>
+        )}
+        {!myOffers && !myOffersLoading && (
+          <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 16, fontSize: 13, color: c.textMuted, textAlign: "center" }}>
+            <button onClick={() => {
+              setMyOffersLoading(true);
+              fetch("/api/analyze-offers", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
+              }).then(r => r.json()).then(json => {
+                if (json.ok) { setMyOffers(json.data); try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(json.data)); } catch {/**/} }
+              }).catch(()=>{}).finally(() => setMyOffersLoading(false));
+            }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+              Загрузить офферы
+            </button>
+          </div>
+        )}
+      </CollapsibleSection>
+
       {/* Key.so Dashboard */}
       <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
@@ -1401,10 +1507,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
             </div>
           }>
           <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: c.shadow, marginBottom: 6 }}>
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr style={{ background: c.bg }}>
+              <thead><tr style={{ background: c.bg, position: "sticky", top: 0, zIndex: 1 }}>
                 {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid ${c.border}`, color: c.textMuted, fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: c.bg }}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
@@ -1426,10 +1533,11 @@ function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResu
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
           <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 6 }}>
             {isRealKeywords
-              ? <span style={{ color: c.accentGreen, fontWeight: 600 }}>✓ Реальные позиции из Keys.so · {activePositions.length} ключевых слов</span>
+              ? <span style={{ color: c.accentGreen, fontWeight: 600 }}>✓ Реальные позиции из Keys.so · {activePositions.length} ключевых слов · показано до 50</span>
               : "⚠ Позиции — AI-оценка. Подключён Keys.so, но данных по этому домену не найдено."}
           </div>
         </CollapsibleSection>
@@ -1858,7 +1966,19 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
   const [offers, setOffers] = useState<any>(null);
   const [offersLoading, setOffersLoading] = useState(false);
 
-  const loadOffers = async () => {
+  const offersKey = `mr_offers_${company.url || company.name}`;
+
+  const loadOffers = async (force = false) => {
+    // Check localStorage cache first
+    if (!force) {
+      try {
+        const cached = localStorage.getItem(offersKey);
+        if (cached) {
+          setOffers(JSON.parse(cached));
+          return;
+        }
+      } catch { /* ignore */ }
+    }
     setOffersLoading(true);
     try {
       const res = await fetch("/api/analyze-offers", {
@@ -1867,10 +1987,19 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
         body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
       });
       const json = await res.json();
-      if (json.ok) setOffers(json.data);
+      if (json.ok) {
+        setOffers(json.data);
+        try { localStorage.setItem(offersKey, JSON.stringify(json.data)); } catch { /* ignore */ }
+      }
     } catch { /* ignore */ }
     setOffersLoading(false);
   };
+
+  // Auto-load on mount
+  useEffect(() => {
+    loadOffers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.url, company.name]);
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -1950,11 +2079,16 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
       )}
 
       {/* Offers analysis */}
-      <CollapsibleSection c={c} title="🏷️ Анализ офферов">
+      <CollapsibleSection c={c} title="🏷️ Анализ офферов"
+        extra={offers && !offersLoading ? (
+          <button onClick={() => loadOffers(true)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 11, cursor: "pointer" }}>
+            🔄 Обновить
+          </button>
+        ) : undefined}>
         {!offers && !offersLoading && (
           <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, textAlign: "center", boxShadow: c.shadow, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>Проанализировать офферы и предложения конкурента с его сайта</p>
-            <button onClick={loadOffers} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            <p style={{ fontSize: 13, color: c.textSecondary, marginBottom: 12 }}>Загружаю офферы конкурента...</p>
+            <button onClick={() => loadOffers(true)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
               Загрузить офферы
             </button>
           </div>
@@ -2276,6 +2410,16 @@ function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisR
 function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
   if (!myCompany) return <div style={{ color: c.textMuted, fontSize: 14 }}>Сначала проанализируйте свой сайт</div>;
 
+  // Load offers from localStorage for all companies
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const loadCachedOffers = (comp: AnalysisResult): any | null => {
+    try {
+      const key = `mr_offers_${comp.company.url || comp.company.name}`;
+      const cached = localStorage.getItem(key);
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  };
+
   const allCols = [myCompany, ...competitors];
   const catNames = myCompany.company.categories.map(cat => cat.name);
   const rows = [
@@ -2350,7 +2494,7 @@ function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: Anal
           </div>
 
           {/* Radar comparison */}
-          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 8, letterSpacing: "0.03em" }}>RADAR CHART</div>
             <RadarChart data={myCompany.company} competitors={competitors.map(c2 => c2.company)} c={c} size={280} />
             <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11, flexWrap: "wrap", justifyContent: "center" }}>
@@ -2363,6 +2507,133 @@ function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: Anal
               ))}
             </div>
           </div>
+
+          {/* Detailed SWOT per competitor */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 16 }}>⚔️ Анализ сильных и слабых сторон</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {competitors.map((comp, ci) => {
+                const compColor = [c.accentRed, c.accentYellow, c.accentGreen, c.accentWarm, c.accent][ci % 5];
+                const myStrong = myCompany.company.categories.filter(cat => {
+                  const compCat = comp.company.categories.find(cc => cc.name === cat.name);
+                  return cat.score > (compCat?.score ?? 0) + 5;
+                });
+                const myWeak = myCompany.company.categories.filter(cat => {
+                  const compCat = comp.company.categories.find(cc => cc.name === cat.name);
+                  return cat.score < (compCat?.score ?? 0) - 5;
+                });
+                return (
+                  <div key={ci} style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: compColor, flexShrink: 0 }} />
+                      <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>
+                        Вы vs {comp.company.name}
+                      </div>
+                      <div style={{ marginLeft: "auto", fontSize: 12, color: c.textMuted }}>
+                        {myCompany.company.score} vs {comp.company.score} очков
+                        {myCompany.company.score > comp.company.score
+                          ? <span style={{ color: c.accentGreen, fontWeight: 700 }}> (+{myCompany.company.score - comp.company.score})</span>
+                          : myCompany.company.score < comp.company.score
+                            ? <span style={{ color: c.accentRed, fontWeight: 700 }}> ({myCompany.company.score - comp.company.score})</span>
+                            : <span style={{ color: c.textMuted }}> (=)</span>
+                        }
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.accentGreen, marginBottom: 8 }}>💪 ВЫ ЛУЧШЕ В</div>
+                        {myStrong.length > 0 ? myStrong.map(cat => {
+                          const compCat = comp.company.categories.find(cc => cc.name === cat.name);
+                          return (
+                            <div key={cat.name} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 6, display: "flex", justifyContent: "space-between", padding: "5px 10px", background: c.accentGreen + "08", borderRadius: 6 }}>
+                              <span>{cat.icon} {cat.name}</span>
+                              <span style={{ fontWeight: 700 }}><span style={{ color: c.accentGreen }}>{cat.score}</span> vs {compCat?.score ?? "—"}</span>
+                            </div>
+                          );
+                        }) : <div style={{ fontSize: 12, color: c.textMuted }}>Нет явного преимущества</div>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: c.accentRed, marginBottom: 8 }}>⚠️ КОНКУРЕНТ ЛУЧШЕ В</div>
+                        {myWeak.length > 0 ? myWeak.map(cat => {
+                          const compCat = comp.company.categories.find(cc => cc.name === cat.name);
+                          return (
+                            <div key={cat.name} style={{ fontSize: 12, color: c.textSecondary, marginBottom: 6, display: "flex", justifyContent: "space-between", padding: "5px 10px", background: c.accentRed + "08", borderRadius: 6 }}>
+                              <span>{cat.icon} {cat.name}</span>
+                              <span style={{ fontWeight: 700 }}><span style={{ color: c.accentRed }}>{cat.score}</span> vs {compCat?.score ?? "—"}</span>
+                            </div>
+                          );
+                        }) : <div style={{ fontSize: 12, color: c.textMuted }}>Нет слабых мест</div>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Offers comparison */}
+          {(() => {
+            const myOffers = loadCachedOffers(myCompany);
+            const competitorOffers = competitors.map(comp => ({ comp, offers: loadCachedOffers(comp) })).filter(x => x.offers);
+            if (!myOffers && competitorOffers.length === 0) return null;
+            return (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 16 }}>🏷️ Сравнение офферов</div>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(allCols.length, 3)}, 1fr)`, gap: 14 }}>
+                  {/* My company offers */}
+                  <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${c.accent}40`, padding: 18, boxShadow: c.shadow }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 12 }}>ВЫ — {myCompany.company.name}</div>
+                    {myOffers ? (
+                      <>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, marginBottom: 6, lineHeight: 1.4 }}>{myOffers.mainValueProposition}</div>
+                        <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 10 }}>{myOffers.pricingStrategy}</div>
+                        {(myOffers.strengths ?? []).slice(0, 3).map((s: string, i: number) => (
+                          <div key={i} style={{ fontSize: 11, color: c.textSecondary, marginBottom: 3, paddingLeft: 8, borderLeft: `2px solid ${c.accentGreen}` }}>✓ {s}</div>
+                        ))}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: c.textMuted }}>Офферы не загружены. Откройте «Дашборд» для загрузки.</div>
+                    )}
+                  </div>
+                  {/* Competitor offers */}
+                  {competitors.map((comp, ci) => {
+                    const compOffers = loadCachedOffers(comp);
+                    const compColor = [c.accentRed, c.accentYellow, c.accentGreen, c.accentWarm][ci % 4];
+                    return (
+                      <div key={ci} style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${compColor}30`, padding: 18, boxShadow: c.shadow }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: compColor, marginBottom: 12 }}>
+                          {comp.company.name.length > 20 ? comp.company.name.slice(0, 20) + "…" : comp.company.name}
+                        </div>
+                        {compOffers ? (
+                          <>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, marginBottom: 6, lineHeight: 1.4 }}>{compOffers.mainValueProposition}</div>
+                            <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 10 }}>{compOffers.pricingStrategy}</div>
+                            {(compOffers.strengths ?? []).slice(0, 3).map((s: string, i: number) => (
+                              <div key={i} style={{ fontSize: 11, color: c.textSecondary, marginBottom: 3, paddingLeft: 8, borderLeft: `2px solid ${compColor}` }}>✓ {s}</div>
+                            ))}
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: c.textMuted }}>Откройте профиль конкурента для загрузки офферов.</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Missing offers comparison */}
+                {myOffers?.missingOffers?.length > 0 && (
+                  <div style={{ marginTop: 14, background: c.accentWarm + "08", borderRadius: 12, padding: 16, border: `1px solid ${c.accentWarm}25` }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: c.accentWarm, marginBottom: 8 }}>💡 Что добавить в ваши офферы</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {(myOffers.missingOffers ?? []).map((m: string, i: number) => (
+                        <span key={i} style={{ fontSize: 12, color: c.textSecondary, background: c.bgCard, padding: "4px 12px", borderRadius: 20, border: `1px solid ${c.border}` }}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </>
       )}
     </div>
@@ -7393,6 +7664,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
   const [isEditing, setIsEditing]       = useState(false);
   const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
   const [showPreview, setShowPreview]   = useState(false);
+  const [previewMode, setPreviewMode]   = useState<"screenshot" | "iframe">("iframe");
 
   useEffect(() => {
     if (!userId) return;
@@ -7854,7 +8126,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
             </button>
           </div>
 
-          {/* Screenshot preview */}
+          {/* Preview */}
           <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${c.border}`, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", marginBottom: 20 }}>
             {/* Browser chrome mockup */}
             <div style={{ background: c.bgCard, padding: "8px 12px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
@@ -7866,10 +8138,24 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               <div style={{ flex: 1, background: c.bg, borderRadius: 5, padding: "3px 10px", fontSize: 11, color: c.textMuted }}>
                 {myCompany?.company.name || "landing"}.marketradar.ai
               </div>
+              <div style={{ display: "flex", background: c.bg, borderRadius: 6, border: `1px solid ${c.border}`, padding: 2, gap: 2 }}>
+                {(["iframe", "screenshot"] as const).map(m => (
+                  <button key={m} onClick={() => setPreviewMode(m)} style={{
+                    padding: "3px 10px", borderRadius: 4, border: "none", fontSize: 10, fontWeight: 600, cursor: "pointer",
+                    background: previewMode === m ? c.accent : "transparent",
+                    color: previewMode === m ? "#fff" : c.textMuted,
+                  }}>{m === "iframe" ? "🌐 Live" : "📸 Скрин"}</button>
+                ))}
+              </div>
             </div>
-            <img src={result.imageUrl} alt="Landing preview"
-              style={{ width: "100%", display: "block" }}
-              onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+            {previewMode === "iframe" ? (
+              <iframe src={result.htmlUrl} style={{ width: "100%", height: 640, border: "none", display: "block" }}
+                title="Landing preview" sandbox="allow-scripts allow-same-origin" />
+            ) : (
+              <img src={result.imageUrl} alt="Landing preview"
+                style={{ width: "100%", display: "block", maxHeight: 640, objectFit: "contain", background: "#f8f8f8" }}
+                onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+            )}
           </div>
 
           {/* Variants */}
@@ -7882,7 +8168,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
                 {variants.map((v, vi) => (
                   <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 0.15s" }}
                     onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl } : null)}>
-                    <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block" }} />
+                    <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "contain", background: "#f8f8f8" }} />
                     <div style={{ padding: "8px 12px", background: c.bgCard, fontSize: 12, fontWeight: 600, color: c.textPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>Вариант {vi + 1}</span>
                       <a href={v.htmlUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
@@ -8928,59 +9214,65 @@ function ReviewsView({ c, companyName }: {
   const [tab, setTab] = useState<"input" | "reviews" | "analysis">("input");
   const [autoFetchStatus, setAutoFetchStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [autoFetchLog, setAutoFetchLog] = useState<string[]>([]);
+  const [addressInput, setAddressInput] = useState("");
+  const [addressSearchName, setAddressSearchName] = useState(companyName);
+
+  const runAutoFetch = async (name: string, address?: string) => {
+    setAutoFetchStatus("loading");
+    const log: string[] = [];
+    const fetched: Review[] = [];
+
+    // Google Places
+    try {
+      const res = await fetch("/api/fetch-reviews-google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: name, address }),
+      });
+      const json = await res.json();
+      if (json.ok && json.data.reviews.length > 0) {
+        fetched.push(...json.data.reviews);
+        log.push(`Google Maps: ${json.data.reviews.length} отзывов (рейтинг ${json.data.rating}★)`);
+      } else {
+        log.push("Google Maps: не найдено");
+      }
+    } catch {
+      log.push("Google Maps: ошибка загрузки");
+    }
+
+    // 2GIS by name+address
+    try {
+      const res = await fetch("/api/fetch-reviews-2gis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: name, address }),
+      });
+      const json = await res.json();
+      if (json.ok && json.data.reviews.length > 0) {
+        fetched.push(...json.data.reviews);
+        log.push(`2ГИС: ${json.data.reviews.length} отзывов`);
+      } else {
+        log.push("2ГИС: не найдено");
+      }
+    } catch {
+      log.push("2ГИС: ошибка загрузки");
+    }
+
+    setAutoFetchLog(log);
+    if (fetched.length > 0) {
+      setReviews(prev => {
+        const existingIds = new Set(prev.map(r => r.id));
+        return [...prev, ...fetched.filter(r => !existingIds.has(r.id))];
+      });
+      setTab("reviews");
+    }
+    setAutoFetchStatus("done");
+  };
 
   // Auto-fetch from Google + 2GIS on mount when company name is known
   useEffect(() => {
     if (!companyName.trim()) return;
-    const run = async () => {
-      setAutoFetchStatus("loading");
-      const log: string[] = [];
-      const fetched: Review[] = [];
-
-      // Google Places
-      try {
-        const res = await fetch("/api/fetch-reviews-google", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyName }),
-        });
-        const json = await res.json();
-        if (json.ok && json.data.reviews.length > 0) {
-          fetched.push(...json.data.reviews);
-          log.push(`Google Maps: ${json.data.reviews.length} отзывов (рейтинг ${json.data.rating}★)`);
-        } else {
-          log.push("Google Maps: не найдено");
-        }
-      } catch {
-        log.push("Google Maps: ошибка загрузки");
-      }
-
-      // 2GIS by name
-      try {
-        const res = await fetch("/api/fetch-reviews-2gis", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyName }),
-        });
-        const json = await res.json();
-        if (json.ok && json.data.reviews.length > 0) {
-          fetched.push(...json.data.reviews);
-          log.push(`2ГИС: ${json.data.reviews.length} отзывов`);
-        } else {
-          log.push("2ГИС: не найдено");
-        }
-      } catch {
-        log.push("2ГИС: ошибка загрузки");
-      }
-
-      setAutoFetchLog(log);
-      if (fetched.length > 0) {
-        setReviews(fetched);
-        setTab("reviews");
-      }
-      setAutoFetchStatus("done");
-    };
-    run();
+    runAutoFetch(companyName);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyName]);
 
@@ -9168,12 +9460,40 @@ function ReviewsView({ c, companyName }: {
       {/* ===== INPUT TAB ===== */}
       {tab === "input" && (
         <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
+
+          {/* ── Address-based search ── */}
+          <div style={{ background: c.accent + "08", borderRadius: 12, padding: 18, border: `1px solid ${c.accent}25`, marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔍 Поиск по адресу (точнее)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input
+                value={addressSearchName}
+                onChange={e => setAddressSearchName(e.target.value)}
+                placeholder="Название компании"
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none" }}
+              />
+              <input
+                value={addressInput}
+                onChange={e => setAddressInput(e.target.value)}
+                placeholder="Адрес (город, улица, дом) — необязательно, но улучшает поиск"
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none" }}
+              />
+              <button
+                onClick={() => runAutoFetch(addressSearchName || companyName, addressInput.trim() || undefined)}
+                disabled={autoFetchStatus === "loading"}
+                style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: autoFetchStatus === "loading" ? c.textMuted : c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: autoFetchStatus === "loading" ? "wait" : "pointer", alignSelf: "flex-start" }}
+              >
+                {autoFetchStatus === "loading" ? "Ищу отзывы..." : "🔄 Найти отзывы в Google и 2ГИС"}
+              </button>
+            </div>
+          </div>
+
           {/* Input mode selector */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.04em" }}>ИЛИ ДОБАВЬТЕ ВРУЧНУЮ</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
             {([
               { id: "paste" as const, label: "📋 Вставить текст", desc: "Скопируйте отзывы с любой платформы" },
               { id: "screenshot" as const, label: "📸 Скриншот", desc: "Загрузите скрин страницы отзывов" },
-              { id: "2gis" as const, label: "🗺️ 2ГИС (авто)", desc: "Ссылка на организацию в 2ГИС" },
+              { id: "2gis" as const, label: "🗺️ 2ГИС (ссылка)", desc: "Прямая ссылка на организацию в 2ГИС" },
             ] as const).map(mode => (
               <button key={mode.id} onClick={() => setInputMode(mode.id)} style={{
                 flex: 1, padding: 16, borderRadius: 12, border: `2px solid ${inputMode === mode.id ? c.accent : c.border}`,

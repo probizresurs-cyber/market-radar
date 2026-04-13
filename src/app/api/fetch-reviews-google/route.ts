@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
+    const address: string = body.address ?? "";
 
     if (!companyName.trim()) {
       return NextResponse.json({ ok: false, error: "Название компании не передано" }, { status: 400 });
@@ -21,9 +22,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "GOOGLE_PLACES_API_KEY не настроен" }, { status: 500 });
     }
 
-    // Step 1: Find place_id
+    // Step 1: Find place_id — use address for more precise lookup
+    const query = address.trim() ? `${companyName} ${address.trim()}` : companyName;
     const searchRes = await fetch(
-      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(companyName)}&key=${apiKey}&language=ru`,
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=ru`,
     );
     const searchData = await searchRes.json() as {
       results?: Array<{ place_id: string; name?: string; rating?: number; user_ratings_total?: number }>;

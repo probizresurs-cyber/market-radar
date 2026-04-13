@@ -47,10 +47,12 @@ async function fetchReviewsByFirmId(firmId: string, apiKey?: string): Promise<{ 
   return { reviews, total: data.meta?.total_count ?? reviews.length };
 }
 
-async function searchFirmByName(name: string, apiKey?: string): Promise<string | null> {
+async function searchFirmByName(name: string, address?: string, apiKey?: string): Promise<string | null> {
   const keyParam = apiKey ? `&key=${apiKey}` : "";
+  // Combine name + address for a more precise search query
+  const query = address?.trim() ? `${name} ${address.trim()}` : name;
   const res = await fetch(
-    `https://catalog.api.2gis.com/3.0/items?q=${encodeURIComponent(name)}&type=branch&fields=items.reviews,items.stat${keyParam}&page_size=1`,
+    `https://catalog.api.2gis.com/3.0/items?q=${encodeURIComponent(query)}&type=branch&fields=items.reviews,items.stat${keyParam}&page_size=1`,
     { headers: { Accept: "application/json" } },
   );
   if (!res.ok) return null;
@@ -63,12 +65,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const url: string = body.url ?? "";
     const companyName: string = body.companyName ?? "";
+    const address: string = body.address ?? "";
 
     const apiKey = process.env.TWOGIS_API_KEY;
 
     let firmId: string | null = null;
 
-    // Prefer URL-based lookup (exact), fall back to name search
+    // Prefer URL-based lookup (exact), fall back to name+address search
     if (url.trim()) {
       firmId = extractFirmId(url);
       if (!firmId) {
@@ -78,7 +81,7 @@ export async function POST(req: Request) {
         );
       }
     } else if (companyName.trim()) {
-      firmId = await searchFirmByName(companyName, apiKey);
+      firmId = await searchFirmByName(companyName, address || undefined, apiKey);
       if (!firmId) {
         return NextResponse.json({ ok: true, data: { platform: "2gis", reviews: [], totalOnPlatform: 0 } });
       }
