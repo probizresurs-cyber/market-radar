@@ -10331,9 +10331,11 @@ export default function MarketRadarDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [cjmData, setCjmData] = useState<any | null>(null);
   const [isCJMGenerating, setIsCJMGenerating] = useState(false);
+  const [cjmError, setCjmError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [benchmarksData, setBenchmarksData] = useState<any | null>(null);
   const [isBenchmarksGenerating, setIsBenchmarksGenerating] = useState(false);
+  const [benchmarksError, setBenchmarksError] = useState<string | null>(null);
   const [smmAnalysis, setSmmAnalysis] = useState<SMMResult | null>(null);
   const [isSMMAnalyzing, setIsSMMAnalyzing] = useState(false);
   const [contentPlan, setContentPlan] = useState<ContentPlan | null>(null);
@@ -10539,23 +10541,28 @@ export default function MarketRadarDashboard() {
   const handleGenerateCJM = async () => {
     if (!myCompany) return;
     setIsCJMGenerating(true);
+    setCjmError(null);
     try {
+      const niche = (myCompany.company.description ?? myCompany.company.name ?? "").slice(0, 500);
       const res = await fetch("/api/generate-cjm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: myCompany.company.name,
-          niche: myCompany.company.description ?? myCompany.company.name,
+          niche: niche || myCompany.company.name,
           taData: taAnalysis,
-          companyData: { description: myCompany.company.description, url: myCompany.company.url },
+          companyData: { description: myCompany.company.description?.slice(0, 500), url: myCompany.company.url },
         }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации CJM");
       setCjmData(json.data);
+      setCjmError(null);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_cjm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
       }
+    } catch (e: unknown) {
+      setCjmError(e instanceof Error ? e.message : "Неизвестная ошибка");
     } finally {
       setIsCJMGenerating(false);
     }
@@ -10564,13 +10571,15 @@ export default function MarketRadarDashboard() {
   const handleGenerateBenchmarks = async () => {
     if (!myCompany) return;
     setIsBenchmarksGenerating(true);
+    setBenchmarksError(null);
     try {
+      const niche = (myCompany.company.description ?? myCompany.company.name ?? "").slice(0, 500);
       const res = await fetch("/api/generate-benchmarks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: myCompany.company.name,
-          niche: myCompany.company.description ?? myCompany.company.name,
+          niche: niche || myCompany.company.name,
           companyScore: myCompany.company.score,
           categories: myCompany.company.categories,
           seoData: myCompany.seo,
@@ -10580,9 +10589,12 @@ export default function MarketRadarDashboard() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации бенчмарков");
       setBenchmarksData(json.data);
+      setBenchmarksError(null);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_benchmarks_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
       }
+    } catch (e: unknown) {
+      setBenchmarksError(e instanceof Error ? e.message : "Неизвестная ошибка");
     } finally {
       setIsBenchmarksGenerating(false);
     }
@@ -10966,8 +10978,8 @@ export default function MarketRadarDashboard() {
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}
         {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
-        {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={handleGenerateCJM} myCompany={myCompany} taAnalysis={taAnalysis} />}
-        {activeNav === "ta-benchmarks" && <BenchmarksView c={c} data={benchmarksData} isGenerating={isBenchmarksGenerating} onGenerate={handleGenerateBenchmarks} myCompany={myCompany} />}
+        {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={handleGenerateCJM} myCompany={myCompany} taAnalysis={taAnalysis} error={cjmError} />}
+        {activeNav === "ta-benchmarks" && <BenchmarksView c={c} data={benchmarksData} isGenerating={isBenchmarksGenerating} onGenerate={handleGenerateBenchmarks} myCompany={myCompany} error={benchmarksError} />}
         {activeNav === "ta-brandbook" && taAnalysis && (
           <BrandSuggestionsView c={c} taData={taAnalysis} brandSuggestions={brandSuggestions} setBrandSuggestions={handleSetBrandSuggestions} brandBook={brandBook} onUpdateBrandBook={handleUpdateBrandBook} />
         )}
@@ -11017,7 +11029,7 @@ export default function MarketRadarDashboard() {
 // Customer Journey Map View
 // ============================================================
 
-function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis }: {
+function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis, error }: {
   c: Colors;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any | null;
@@ -11025,6 +11037,7 @@ function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis }: {
   onGenerate: () => void;
   myCompany: AnalysisResult | null;
   taAnalysis: unknown;
+  error?: string | null;
 }) {
   const emotionColor = (valence: string) => {
     if (valence === "positive") return c.accentGreen;
@@ -11059,6 +11072,11 @@ function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis }: {
           {isGenerating ? "⏳ Генерирую CJM… (30-60 сек)" : "🗺️ Построить Customer Journey Map"}
         </button>
         {isGenerating && <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>Анализирую путь клиента на основе данных компании{taAnalysis ? " и ЦА" : ""}…</p>}
+        {error && (
+          <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: c.accentRed + "15", border: `1px solid ${c.accentRed}40`, color: c.accentRed, fontSize: 13 }}>
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -11078,6 +11096,12 @@ function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis }: {
           {isGenerating ? "⏳ Обновляю…" : "🔄 Обновить"}
         </button>
       </div>
+
+      {error && (
+        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: c.accentRed + "15", border: `1px solid ${c.accentRed}40`, color: c.accentRed, fontSize: 13 }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* Horizontal journey line */}
       <div style={{ display: "flex", gap: 0, marginBottom: 32, overflowX: "auto", paddingBottom: 8 }}>
@@ -11167,13 +11191,14 @@ function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis }: {
 // Benchmarks View
 // ============================================================
 
-function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany }: {
+function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, error }: {
   c: Colors;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any | null;
   isGenerating: boolean;
   onGenerate: () => void;
   myCompany: AnalysisResult | null;
+  error?: string | null;
 }) {
   if (!myCompany) return (
     <div style={{ padding: 40, textAlign: "center", color: c.textSecondary }}>
@@ -11198,6 +11223,11 @@ function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany }: {
           {isGenerating ? "⏳ Анализирую рынок… (30-60 сек)" : "📊 Сгенерировать бенчмарки"}
         </button>
         {isGenerating && <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>Сравниваю с отраслевыми стандартами…</p>}
+        {error && (
+          <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: c.accentRed + "15", border: `1px solid ${c.accentRed}40`, color: c.accentRed, fontSize: 13 }}>
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     </div>
   );
