@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
-const SYSTEM_PROMPT = `Ты — презентационный дизайнер. Создаёшь структуру бренд-презентации компании.
+const BASE_SYSTEM_PROMPT = `Ты — презентационный дизайнер. Создаёшь структуру бренд-презентации компании.
 На основе данных создай 10-14 слайдов. Для каждого:
 - title: заголовок
 - subtitle: подзаголовок
@@ -42,12 +42,24 @@ export async function POST(req: Request) {
     if (body.nicheForecast) sections.push(`ПРОГНОЗ: ${body.nicheForecast.trend} (${body.nicheForecast.trendPercent}%)`);
     if (body.smmData?.quickWins) sections.push(`SMM: ${body.smmData.quickWins.slice(0, 3).join("; ")}`);
 
+    // Build style-aware system prompt
+    let systemPrompt = BASE_SYSTEM_PROMPT;
+    if (body.style) {
+      const s = body.style;
+      systemPrompt += `\n\nСТИЛЬ ПРЕЗЕНТАЦИИ:
+Название стиля: ${s.name}
+Настроение: ${s.mood}
+Шрифт заголовков: ${s.fontHeader}
+Шрифт текста: ${s.fontBody}
+Учитывай стиль "${s.mood}" при написании текстов — подбирай лексику и тон соответственно.`;
+    }
+
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: `Создай бренд-презентацию:\n\n${sections.join("\n\n")}` }],
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Создай бренд-презентацию:\n\n${sections.join("\n\n")}` }],
         temperature: 0.6, max_tokens: 4000, response_format: { type: "json_object" },
       }),
     });

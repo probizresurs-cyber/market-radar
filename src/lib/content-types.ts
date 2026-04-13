@@ -138,6 +138,15 @@ export interface BrandBook {
   logoDataUrl?: string;        // base64 логотипа (необязательно)
 }
 
+export interface PresentationStyle {
+  id: string;
+  name: string;            // "Минимализм", "Корпоративный", etc.
+  colors: string[];        // 5 colors: primary, secondary, accent, bg, text
+  fontHeader: string;
+  fontBody: string;
+  mood: string;            // short style description
+}
+
 export interface AvatarSettings {
   avatarId: string;            // HeyGen avatar_id
   voiceId: string;             // HeyGen voice_id

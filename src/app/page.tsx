@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
-import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, TovCheckResult, TovIssue } from "@/lib/content-types";
+import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, TovCheckResult, TovIssue, PresentationStyle } from "@/lib/content-types";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
@@ -7305,6 +7305,33 @@ interface PresentationSlide {
   stats: Array<{ value: string; label: string }>;
   quote?: string;
   note?: string;
+  isEdited?: boolean;
+}
+
+const PRESET_STYLES: PresentationStyle[] = [
+  { id: "minimalist", name: "Минимализм", colors: ["#1a1a2e", "#f5f5f5", "#6366f1", "#ffffff", "#1a1a2e"], fontHeader: "Inter", fontBody: "Inter", mood: "Чистый, воздушный, элегантный" },
+  { id: "corporate", name: "Корпоративный", colors: ["#0f2b46", "#c7985e", "#2563eb", "#f8f9fc", "#1e293b"], fontHeader: "Georgia", fontBody: "Calibri", mood: "Надёжный, солидный, деловой" },
+  { id: "bright", name: "Яркий", colors: ["#7c3aed", "#f59e0b", "#10b981", "#ffffff", "#18181b"], fontHeader: "Montserrat", fontBody: "Open Sans", mood: "Энергичный, современный, динамичный" },
+  { id: "warm", name: "Тёплый", colors: ["#92400e", "#d97706", "#b45309", "#fffbeb", "#422006"], fontHeader: "Merriweather", fontBody: "Source Sans Pro", mood: "Уютный, натуральный, человечный" },
+  { id: "dark", name: "Премиум", colors: ["#0a0a0a", "#a855f7", "#22d3ee", "#111111", "#f1f5f9"], fontHeader: "Playfair Display", fontBody: "Raleway", mood: "Элитный, технологичный, стильный" },
+  { id: "fresh", name: "Свежий", colors: ["#059669", "#34d399", "#06b6d4", "#f0fdf4", "#064e3b"], fontHeader: "Nunito", fontBody: "Nunito", mood: "Экологичный, лёгкий, оптимистичный" },
+];
+
+function buildStyleFromBrandBook(bb: BrandBook): PresentationStyle {
+  return {
+    id: "brandbook",
+    name: "Мой брендбук",
+    colors: bb.colors.length >= 5 ? bb.colors.slice(0,5) : [
+      bb.colors[0] || "#1a1a2e",
+      bb.colors[1] || "#6366f1",
+      bb.colors[2] || "#10b981",
+      bb.colors[3] || "#ffffff",
+      bb.colors[4] || "#1a1a2e",
+    ],
+    fontHeader: bb.fontHeader || "Georgia",
+    fontBody: bb.fontBody || "Calibri",
+    mood: bb.visualStyle || "Фирменный стиль",
+  };
 }
 
 function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
@@ -7314,23 +7341,67 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
   smmAnalysis: SMMResult | null;
   brandBook: BrandBook;
 }) {
+  // Multi-stage wizard
+  const [stage, setStage] = useState<"style" | "generating" | "review">("style");
   const [slides, setSlides] = useState<PresentationSlide[]>([]);
   const [presTitle, setPresTitle] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
-  const [activeSlide, setActiveSlide] = useState(0);
+
+  // Stage 1: style
+  const [styleSource, setStyleSource] = useState<"brandbook" | "presets" | null>(null);
+  const [paletteOptions, setPaletteOptions] = useState<PresentationStyle[]>([]);
+  const [selectedStyle, setSelectedStyle] = useState<PresentationStyle | null>(null);
+
+  // Stage 2: generation
+  const [genProgress, setGenProgress] = useState(0);
+
+  // Stage 3: review
+  const [editingSlide, setEditingSlide] = useState<number | null>(null);
+  const [wishText, setWishText] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingPptx, setIsExportingPptx] = useState(false);
 
-  // Brand colors
-  const primary = brandBook.colors[0] || c.accent;
-  const secondary = brandBook.colors[1] || c.accentGreen;
-  const bg = brandBook.colors[3] || "#ffffff";
-  const textColor = brandBook.colors[4] || "#1a1a2e";
+  // Derived colors from selected style
+  const sty = selectedStyle || buildStyleFromBrandBook(brandBook);
+  const primary = sty.colors[0] || c.accent;
+  const secondary = sty.colors[1] || c.accentGreen;
+  const bg = sty.colors[3] || "#ffffff";
+  const textColor = sty.colors[4] || "#1a1a2e";
 
+  // ── Stage 1 handlers ─────────────────────────────────
+  const handlePickBrandbook = () => {
+    setStyleSource("brandbook");
+    const bbStyle = buildStyleFromBrandBook(brandBook);
+    // Generate 3 variations: the brandbook itself + 2 tweaked
+    const variations: PresentationStyle[] = [bbStyle];
+    const shift = (hex: string, deg: number) => {
+      const h = hex.replace("#","");
+      let r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b2 = parseInt(h.slice(4,6),16);
+      r = Math.min(255, Math.max(0, r + deg)); g = Math.min(255, Math.max(0, g + deg * 0.5)); b2 = Math.min(255, Math.max(0, b2 - deg * 0.3));
+      return `#${Math.round(r).toString(16).padStart(2,"0")}${Math.round(g).toString(16).padStart(2,"0")}${Math.round(b2).toString(16).padStart(2,"0")}`;
+    };
+    variations.push({ ...bbStyle, id: "bb-light", name: "Брендбук (светлый)", colors: bbStyle.colors.map((col, i) => i === 3 ? "#ffffff" : i === 4 ? "#1a1a2e" : shift(col, 20)) });
+    variations.push({ ...bbStyle, id: "bb-dark", name: "Брендбук (тёмный)", colors: [bbStyle.colors[0], bbStyle.colors[1], bbStyle.colors[2], "#111118", "#f1f5f9"], mood: "Тёмная версия бренда" });
+    // Add 2 matching presets
+    variations.push(...PRESET_STYLES.slice(0, 2));
+    setPaletteOptions(variations);
+  };
+
+  const handlePickPresets = () => {
+    setStyleSource("presets");
+    setPaletteOptions(PRESET_STYLES);
+  };
+
+  // ── Stage 2 handler ──────────────────────────────────
   const handleGenerate = async () => {
-    if (!myCompany) { setError("Сначала проведите анализ компании"); return; }
-    setIsGenerating(true);
+    if (!myCompany || !selectedStyle) { setError("Выберите стиль и убедитесь что анализ проведён"); return; }
+    setStage("generating");
+    setGenProgress(0);
     setError("");
+    const timer = setInterval(() => setGenProgress(p => Math.min(p + 2, 88)), 400);
     try {
       const res = await fetch("/api/generate-presentation", {
         method: "POST",
@@ -7338,6 +7409,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
         body: JSON.stringify({
           company: myCompany.company,
           brandBook,
+          style: selectedStyle,
           taData: taAnalysis,
           smmData: smmAnalysis,
           social: myCompany.social,
@@ -7348,28 +7420,69 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
         }),
       });
       const json = await res.json();
+      clearInterval(timer);
       if (!json.ok) throw new Error(json.error);
       setPresTitle(json.data.title ?? "Бренд-презентация");
       setSlides(json.data.slides ?? []);
-      setActiveSlide(0);
+      setGenProgress(100);
+      setTimeout(() => setStage("review"), 600);
     } catch (err: unknown) {
+      clearInterval(timer);
       setError(err instanceof Error ? err.message : "Ошибка генерации");
-    } finally {
-      setIsGenerating(false);
+      setStage("style");
     }
   };
 
-  const [isExportingPptx, setIsExportingPptx] = useState(false);
+  // ── Stage 3 handlers ─────────────────────────────────
+  const handleSlideUpdate = (idx: number, patch: Partial<PresentationSlide>) => {
+    setSlides(prev => prev.map((s, i) => i === idx ? { ...s, ...patch, isEdited: true } : s));
+  };
 
-  const handlePrint = () => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const fontH = brandBook.fontHeader || "Georgia";
-    const fontB = brandBook.fontBody || "Calibri";
-    const slidesHtml = slides.map((slide, i) => renderSlideHtml(slide, i, slides.length, primary, secondary, bg, textColor, fontH, fontB, brandBook.logoDataUrl)).join("");
-    w.document.write(`<!DOCTYPE html><html><head><title>${presTitle}</title><style>*{box-sizing:border-box}@media print{@page{size:960px 540px;margin:0}body{margin:0}.slide{page-break-after:always;page-break-inside:avoid}}body{margin:0;font-family:'${fontB}',system-ui,sans-serif;background:#111}</style></head><body>${slidesHtml}</body></html>`);
-    w.document.close();
-    setTimeout(() => w.print(), 600);
+  const handleWishUpdate = async () => {
+    if (!wishText.trim() || !myCompany) return;
+    setIsUpdating(true);
+    try {
+      const res = await fetch("/api/edit-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides, wish: wishText, style: selectedStyle, brandBook, company: myCompany.company }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      setSlides(json.data.slides ?? slides);
+      setWishText("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка обновления");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // ── Export handlers ──────────────────────────────────
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [960, 540] });
+      const container = document.createElement("div");
+      container.style.cssText = "position:fixed;left:-9999px;top:0;width:960px;";
+      document.body.appendChild(container);
+      const fontH = sty.fontHeader;
+      const fontB = sty.fontBody;
+      for (let i = 0; i < slides.length; i++) {
+        if (i > 0) pdf.addPage([960, 540], "landscape");
+        container.innerHTML = renderSlideHtml(slides[i], i, slides.length, primary, secondary, bg, textColor, fontH, fontB, brandBook.logoDataUrl);
+        const canvas = await html2canvas(container.firstElementChild as HTMLElement, { width: 960, height: 540, scale: 2, useCORS: true, backgroundColor: null });
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 960, 540);
+      }
+      document.body.removeChild(container);
+      pdf.save(`${presTitle || "presentation"}.pdf`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка PDF");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const handleExportPptx = async () => {
@@ -7378,7 +7491,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
       const res = await fetch("/api/export-pptx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides, presTitle, brandBook }),
+        body: JSON.stringify({ slides, presTitle, brandBook, style: selectedStyle }),
       });
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
       const blob = await res.blob();
@@ -7389,7 +7502,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ошибка экспорта PPTX");
+      setError(err instanceof Error ? err.message : "Ошибка PPTX");
     } finally {
       setIsExportingPptx(false);
     }
@@ -7664,19 +7777,35 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     );
   };
 
+  // ── Mini cover preview for palette card ─────────────────────
+  const renderMiniCover = (sty2: PresentationStyle) => {
+    const [p, s2] = [sty2.colors[0], sty2.colors[1]];
+    const dk = (hex: string, a: number) => { const h = hex.replace("#",""); return `#${[0,2,4].map(i => Math.round(parseInt(h.slice(i,i+2),16)*(1-a)).toString(16).padStart(2,"0")).join("")}`; };
+    return (
+      <div style={{ width: "100%", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", display: "flex", fontSize: 0 }}>
+        <div style={{ width: "42%", background: `linear-gradient(160deg, ${dk(p, 0.3)}, ${p})`, display: "flex", alignItems: "flex-end", padding: 6, position: "relative" }}>
+          <div style={{ position: "absolute", top: 4, left: 6, width: 10, height: 2, borderRadius: 1, background: s2 }} />
+          <div style={{ fontSize: 5, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 0.5 }}>{sty2.name}</div>
+        </div>
+        <div style={{ flex: 1, background: sty2.colors[3] || "#fff", display: "flex", flexDirection: "column", justifyContent: "center", padding: "4px 8px" }}>
+          <div style={{ width: 14, height: 1.5, borderRadius: 1, background: s2, marginBottom: 4 }} />
+          <div style={{ width: "70%", height: 4, borderRadius: 1, background: sty2.colors[4] || "#222", marginBottom: 2 }} />
+          <div style={{ width: "50%", height: 2, borderRadius: 1, background: "#bbb" }} />
+        </div>
+      </div>
+    );
+  };
+
   // ── Fullscreen mode ──────────────────────────────────────────
   if (fullscreen && slides.length > 0) {
     return (
-      <div
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}
         onKeyDown={e => { if (e.key === "Escape") setFullscreen(false); if (e.key === "ArrowRight") setActiveSlide(p => Math.min(p + 1, slides.length - 1)); if (e.key === "ArrowLeft") setActiveSlide(p => Math.max(p - 1, 0)); }}
-        tabIndex={0}
-      >
+        tabIndex={0}>
         <div style={{ width: "88vw", maxWidth: 1100, cursor: "pointer" }}
           onClick={() => setActiveSlide(prev => Math.min(prev + 1, slides.length - 1))}>
           {renderSlide(slides[activeSlide], activeSlide)}
         </div>
-        {/* Progress dots */}
         <div style={{ display: "flex", gap: 6 }}>
           {slides.map((_, i) => (
             <div key={i} onClick={() => setActiveSlide(i)} style={{ width: i === activeSlide ? 20 : 6, height: 6, borderRadius: 3,
@@ -7684,10 +7813,8 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
           ))}
         </div>
         <button onClick={() => setFullscreen(false)} style={{ position: "absolute", top: 16, right: 20, background: "rgba(255,255,255,0.12)",
-          border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 18, cursor: "pointer", borderRadius: 8, padding: "4px 14px", lineHeight: 1.5 }}>✕</button>
-        <div style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontSize: 11 }}>
-          ← → клавиши навигации &nbsp;•&nbsp; ESC — выход &nbsp;•&nbsp; клик → следующий
-        </div>
+          border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 18, cursor: "pointer", borderRadius: 8, padding: "4px 14px" }}>✕</button>
+        <div style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontSize: 11 }}>← → навигация &nbsp;•&nbsp; ESC выход &nbsp;•&nbsp; клик → далее</div>
       </div>
     );
   }
@@ -7696,113 +7823,217 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Бренд-презентация</h1>
       <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
-        Автоматически собирает данные из всех анализов и создаёт презентацию в стиле вашего бренда
+        Профессиональная презентация за 5 минут из ваших данных
       </p>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
-      {slides.length === 0 ? (
-        <div style={{ background: c.bgCard, borderRadius: 16, padding: 40, boxShadow: c.shadow, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-          <h3 style={{ color: c.textPrimary, marginBottom: 8 }}>Создать бренд-презентацию</h3>
-          <p style={{ color: c.textSecondary, fontSize: 14, marginBottom: 8, maxWidth: 500, margin: "0 auto 20px" }}>
-            AI соберёт данные из анализа компании, ЦА, СММ, брендбука и создаст профессиональную презентацию
-          </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 }}>
+      {/* ━━━ STAGE 1: STYLE SELECTION ━━━ */}
+      {stage === "style" && (
+        <div>
+          {/* Data availability */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
             {[
               { label: "Анализ компании", ok: !!myCompany },
               { label: "Анализ ЦА", ok: !!taAnalysis },
               { label: "Анализ СММ", ok: !!smmAnalysis },
-              { label: "Брендбук", ok: !!brandBook.brandName || brandBook.colors.length > 0 || !!brandBook.fontHeader || brandBook.toneOfVoice.length > 0 },
+              { label: "Брендбук", ok: brandBook.colors.length > 0 || !!brandBook.fontHeader },
             ].map(item => (
-              <span key={item.label} style={{
-                padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-                background: item.ok ? c.accentGreen + "15" : c.accentRed + "15",
-                color: item.ok ? c.accentGreen : c.accentRed,
-              }}>
+              <span key={item.label} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                background: item.ok ? c.accentGreen + "15" : c.accentRed + "15", color: item.ok ? c.accentGreen : c.accentRed }}>
                 {item.ok ? "✓" : "✗"} {item.label}
               </span>
             ))}
           </div>
-          <button onClick={handleGenerate} disabled={isGenerating || !myCompany} style={{
-            padding: "12px 32px", borderRadius: 10, border: "none",
-            background: isGenerating ? c.textMuted : c.accent, color: "#fff",
-            fontWeight: 700, fontSize: 15, cursor: isGenerating ? "wait" : "pointer",
-          }}>
-            {isGenerating ? "Генерирую презентацию..." : "Создать презентацию"}
-          </button>
+
+          {/* Step 1a: Pick source */}
+          {!styleSource && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>Шаг 1: Выберите основу стиля</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 600 }}>
+                <div onClick={brandBook.colors.length > 0 ? handlePickBrandbook : undefined}
+                  style={{ background: c.bgCard, borderRadius: 14, padding: 24, border: `2px solid ${c.border}`, cursor: brandBook.colors.length > 0 ? "pointer" : "default",
+                    opacity: brandBook.colors.length > 0 ? 1 : 0.4, textAlign: "center", boxShadow: c.shadow, transition: "border-color .15s" }}
+                  onMouseEnter={e => brandBook.colors.length > 0 && ((e.currentTarget as HTMLElement).style.borderColor = c.accent)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = c.border)}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, marginBottom: 4 }}>На основе брендбука</div>
+                  <div style={{ fontSize: 12, color: c.textSecondary }}>Цвета, шрифты и тон из вашего брендбука</div>
+                  {brandBook.colors.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 10 }}>
+                      {brandBook.colors.slice(0,5).map((col, i) => (
+                        <div key={i} style={{ width: 20, height: 20, borderRadius: 6, background: col, border: `1px solid ${c.border}` }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div onClick={handlePickPresets}
+                  style={{ background: c.bgCard, borderRadius: 14, padding: 24, border: `2px solid ${c.border}`, cursor: "pointer",
+                    textAlign: "center", boxShadow: c.shadow, transition: "border-color .15s" }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = c.accent)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = c.border)}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>✨</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, marginBottom: 4 }}>Выбрать из каталога</div>
+                  <div style={{ fontSize: 12, color: c.textSecondary }}>6 готовых стилей: минимализм, корпоративный, яркий...</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1b: Pick palette */}
+          {styleSource && paletteOptions.length > 0 && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <button onClick={() => { setStyleSource(null); setPaletteOptions([]); setSelectedStyle(null); }}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontSize: 12 }}>← Назад</button>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, margin: 0 }}>Шаг 2: Выберите палитру</h3>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
+                {paletteOptions.map(p => {
+                  const isSel = selectedStyle?.id === p.id;
+                  return (
+                    <div key={p.id} onClick={() => setSelectedStyle(p)}
+                      style={{ background: c.bgCard, borderRadius: 12, overflow: "hidden", border: `2px solid ${isSel ? c.accent : c.border}`,
+                        cursor: "pointer", boxShadow: isSel ? c.shadowLg : c.shadow, transition: "all .15s" }}>
+                      {renderMiniCover(p)}
+                      <div style={{ padding: "10px 12px" }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: c.textSecondary, marginBottom: 8 }}>{p.mood}</div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {p.colors.slice(0, 5).map((col, i) => (
+                            <div key={i} style={{ width: 16, height: 16, borderRadius: 4, background: col, border: `1px solid ${c.border}` }} />
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>{p.fontHeader} / {p.fontBody}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {selectedStyle && (
+                <button onClick={handleGenerate} disabled={!myCompany} style={{ padding: "14px 36px", borderRadius: 10, border: "none",
+                  background: !myCompany ? c.textMuted : c.accent, color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
+                  Создать презентацию в стиле «{selectedStyle.name}»
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      ) : (
-        <>
+      )}
+
+      {/* ━━━ STAGE 2: GENERATING ━━━ */}
+      {stage === "generating" && (
+        <div style={{ background: c.bgCard, borderRadius: 16, padding: 48, boxShadow: c.shadow, textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 16 }}>🧠</div>
+          <h3 style={{ color: c.textPrimary, marginBottom: 8 }}>Генерируем презентацию...</h3>
+          <p style={{ color: c.textSecondary, fontSize: 13, marginBottom: 24 }}>
+            AI создаёт слайды на основе анализа компании, ЦА и выбранного стиля
+          </p>
+          <div style={{ maxWidth: 400, margin: "0 auto", background: c.border, borderRadius: 8, height: 8, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: `linear-gradient(90deg, ${c.accent}, ${c.accentGreen})`, borderRadius: 8,
+              width: `${genProgress}%`, transition: "width 0.4s ease" }} />
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: c.textMuted }}>{genProgress}%</div>
+        </div>
+      )}
+
+      {/* ━━━ STAGE 3: REVIEW & EDIT ━━━ */}
+      {stage === "review" && slides.length > 0 && (
+        <div>
           {/* Toolbar */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: c.textPrimary, flex: 1 }}>{presTitle} — {slides.length} слайдов</h3>
-            <button onClick={() => setFullscreen(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
-              ▶ Показ слайдов
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center",
+            background: c.bgCard, padding: "12px 16px", borderRadius: 12, border: `1px solid ${c.border}`, boxShadow: c.shadow }}>
+            <h3 style={{ margin: 0, fontSize: 15, color: c.textPrimary, flex: 1 }}>{presTitle} — {slides.length} слайдов</h3>
+            <button onClick={() => setFullscreen(true)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              ▶ Показ
             </button>
-            <button onClick={handlePrint} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
-              📄 PDF
+            <button onClick={handleExportPdf} disabled={isExportingPdf} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+              background: isExportingPdf ? c.textMuted : c.accent, color: "#fff", cursor: isExportingPdf ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              {isExportingPdf ? "Экспорт..." : "📄 PDF"}
             </button>
-            <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "8px 16px", borderRadius: 8, border: "none",
+            <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
               background: isExportingPptx ? c.textMuted : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               {isExportingPptx ? "Экспорт..." : "⬇ PPTX"}
             </button>
-            <button onClick={handleGenerate} disabled={isGenerating} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12, opacity: isGenerating ? 0.5 : 1 }}>
-              🔄 Перегенерировать
+            <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
+              background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              🔄 Заново
             </button>
           </div>
 
-          {/* Slide navigator + preview */}
-          <div style={{ display: "flex", gap: 20 }}>
-            {/* Thumbnails */}
-            <div style={{ width: 150, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6, maxHeight: "72vh", overflowY: "auto", paddingRight: 4 }}>
-              {slides.map((slide, i) => {
-                const isActive = activeSlide === i;
-                const isCoverThumb = slide.type === "cover" || slide.type === "cta";
-                return (
-                  <div key={i} onClick={() => setActiveSlide(i)} style={{
-                    borderRadius: 8, border: `2px solid ${isActive ? primary : c.border}`,
-                    background: isActive ? primary + "12" : c.bgCard,
-                    cursor: "pointer", transition: "all .15s", overflow: "hidden",
-                  }}>
-                    {/* Mini slide preview strip */}
-                    <div style={{ height: 6, background: isCoverThumb ? primary : `linear-gradient(90deg, ${primary}, ${secondary})`, opacity: isCoverThumb ? 1 : 0.5 }} />
-                    <div style={{ padding: "6px 8px" }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: isActive ? primary : c.textMuted, marginBottom: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        {i + 1} · {slide.type}
+          {/* Wish input */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <input value={wishText} onChange={e => setWishText(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleWishUpdate()}
+              placeholder="Напишите пожелание: «добавь слайд про команду», «сделай акцент на ценах»..."
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bgCard,
+                color: c.textPrimary, fontSize: 13, outline: "none" }} />
+            <button onClick={handleWishUpdate} disabled={isUpdating || !wishText.trim()}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: isUpdating ? c.textMuted : c.accent,
+                color: "#fff", fontWeight: 700, fontSize: 13, cursor: isUpdating ? "wait" : "pointer", whiteSpace: "nowrap" }}>
+              {isUpdating ? "Обновляю..." : "Обновить"}
+            </button>
+          </div>
+
+          {/* All slides — vertical scroll (Canva-style) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {slides.map((slide, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                {/* Slide number label */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: 0.5 }}>
+                  СЛАЙД {i + 1} · {slide.type.toUpperCase()} {slide.isEdited && <span style={{ color: c.accentGreen, fontSize: 10 }}>✎ изменён</span>}
+                </div>
+                {/* Slide preview */}
+                <div onClick={() => setEditingSlide(editingSlide === i ? null : i)} style={{ cursor: "pointer" }}>
+                  {renderSlide(slide, i)}
+                </div>
+                {/* Inline edit panel */}
+                {editingSlide === i && (
+                  <div style={{ marginTop: 10, background: c.bgCard, borderRadius: 12, border: `1px solid ${c.accent}40`, padding: 16, boxShadow: c.shadow }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 10 }}>Редактирование слайда {i + 1}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ЗАГОЛОВОК</label>
+                        <input value={slide.title} onChange={e => handleSlideUpdate(i, { title: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13 }} />
                       </div>
-                      <div style={{ fontSize: 11, color: c.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {slide.title}
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ПОДЗАГОЛОВОК</label>
+                        <input value={slide.subtitle || ""} onChange={e => handleSlideUpdate(i, { subtitle: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13 }} />
                       </div>
                     </div>
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ТЕКСТ</label>
+                      <textarea value={slide.content || ""} onChange={e => handleSlideUpdate(i, { content: e.target.value })} rows={2}
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, resize: "vertical" }} />
+                    </div>
+                    {(slide.bullets || []).length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ПУНКТЫ (по строке)</label>
+                        <textarea value={(slide.bullets || []).join("\n")} rows={Math.min(slide.bullets.length + 1, 6)}
+                          onChange={e => handleSlideUpdate(i, { bullets: e.target.value.split("\n") })}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
+                      </div>
+                    )}
+                    {slide.note && (
+                      <div style={{ fontSize: 11, color: c.textSecondary, padding: "6px 10px", background: c.bg, borderRadius: 6 }}>
+                        🎤 <b>Заметка:</b> {slide.note}
+                      </div>
+                    )}
+                    <button onClick={() => setEditingSlide(null)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
+                      background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Закрыть</button>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Main slide preview */}
-            <div style={{ flex: 1 }}>
-              {renderSlide(slides[activeSlide], activeSlide)}
-              {/* Speaker note */}
-              {slides[activeSlide]?.note && (
-                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 12, color: c.textSecondary, display: "flex", gap: 8 }}>
-                  <span style={{ opacity: 0.5 }}>🎤</span>
-                  <span><b>Заметка для спикера:</b> {slides[activeSlide].note}</span>
-                </div>
-              )}
-              {/* Navigation arrows */}
-              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
-                <button onClick={() => setActiveSlide(p => Math.max(p - 1, 0))} disabled={activeSlide === 0}
-                  style={{ padding: "6px 18px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
-                    color: c.textPrimary, cursor: activeSlide === 0 ? "default" : "pointer", opacity: activeSlide === 0 ? 0.4 : 1, fontSize: 14 }}>←</button>
-                <span style={{ fontSize: 12, color: c.textMuted, padding: "6px 12px" }}>{activeSlide + 1} / {slides.length}</span>
-                <button onClick={() => setActiveSlide(p => Math.min(p + 1, slides.length - 1))} disabled={activeSlide === slides.length - 1}
-                  style={{ padding: "6px 18px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
-                    color: c.textPrimary, cursor: activeSlide === slides.length - 1 ? "default" : "pointer", opacity: activeSlide === slides.length - 1 ? 0.4 : 1, fontSize: 14 }}>→</button>
+                )}
               </div>
-            </div>
+            ))}
           </div>
-        </>
+
+          {/* Watermark */}
+          <div style={{ textAlign: "center", marginTop: 32, fontSize: 11, color: c.textMuted }}>
+            Создано в MarketRadar для Company24.pro
+          </div>
+        </div>
       )}
     </div>
   );
