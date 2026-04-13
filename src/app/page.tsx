@@ -8087,12 +8087,13 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
         <div>
           {/* Toolbar */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
-            <button onClick={() => setShowPreview(true)} style={{ padding: "8px 16px", borderRadius: 8, border: "none",
-              background: primary, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
-              👁 Предпросмотр
-            </button>
             <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
-              style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: c.accentGreen, color: "#fff",
+              style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: primary, color: "#fff",
+                textDecoration: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              🌐 Открыть лендинг
+            </a>
+            <a href={result.htmlUrl} download="landing.html"
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary,
                 textDecoration: "none", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
               ⬇ Скачать HTML
             </a>
@@ -8128,9 +8129,9 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
             </button>
           </div>
 
-          {/* Preview */}
+          {/* Preview — screenshot thumbnail with zoom + click-to-open */}
           <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${c.border}`, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", marginBottom: 20 }}>
-            {/* Browser chrome mockup */}
+            {/* Browser chrome bar */}
             <div style={{ background: c.bgCard, padding: "8px 12px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", gap: 5 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
@@ -8140,49 +8141,49 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               <div style={{ flex: 1, background: c.bg, borderRadius: 5, padding: "3px 10px", fontSize: 11, color: c.textMuted }}>
                 {myCompany?.company.name || "landing"}.marketradar.ai
               </div>
-              {/* Zoom controls (screenshot mode only) */}
-              {previewMode === "screenshot" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button onClick={() => setImgZoom(z => Math.max(0.4, z - 0.2))} style={{ width: 22, height: 22, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                  <span style={{ fontSize: 10, color: c.textMuted, minWidth: 30, textAlign: "center" }}>{Math.round(imgZoom * 100)}%</span>
-                  <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 22, height: 22, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                  <button onClick={() => setImgZoom(1)} style={{ padding: "2px 7px", borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textMuted, cursor: "pointer", fontSize: 10 }}>↺</button>
+              {/* Zoom controls */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <button onClick={() => setImgZoom(z => Math.max(0.3, z - 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                <span style={{ fontSize: 11, color: c.textMuted, minWidth: 36, textAlign: "center" }}>{Math.round(imgZoom * 100)}%</span>
+                <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <button onClick={() => setImgZoom(1)} title="Сбросить" style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textMuted, cursor: "pointer", fontSize: 11 }}>↺</button>
+              </div>
+              <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
+                style={{ padding: "4px 12px", borderRadius: 6, background: primary, color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                🌐 Открыть
+              </a>
+            </div>
+
+            {/* Zoomable screenshot */}
+            <div
+              style={{ height: 560, overflow: "auto", background: "#f0f0f0", position: "relative", cursor: imgZoom > 1 ? "grab" : "zoom-in" }}
+              onWheel={e => { e.preventDefault(); setImgZoom(z => Math.min(3, Math.max(0.3, z - e.deltaY * 0.0008))); }}
+              onClick={() => { if (imgZoom === 1) window.open(result.htmlUrl, "_blank"); }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={result.imageUrl}
+                alt="Landing preview"
+                style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left" }}
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              {/* Click hint overlay when at 100% */}
+              {imgZoom === 1 && (
+                <div style={{
+                  position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(0,0,0,0)", transition: "background 0.2s",
+                  opacity: 0,
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "1", e.currentTarget.style.background = "rgba(0,0,0,0.35)")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "0", e.currentTarget.style.background = "rgba(0,0,0,0)")}
+                >
+                  <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: "14px 32px", borderRadius: 12, background: "#fff", color: "#111", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+                    🌐 Открыть полную версию
+                  </a>
                 </div>
               )}
-              <div style={{ display: "flex", background: c.bg, borderRadius: 6, border: `1px solid ${c.border}`, padding: 2, gap: 2 }}>
-                {(["iframe", "screenshot"] as const).map(m => (
-                  <button key={m} onClick={() => setPreviewMode(m)} style={{
-                    padding: "3px 10px", borderRadius: 4, border: "none", fontSize: 10, fontWeight: 600, cursor: "pointer",
-                    background: previewMode === m ? c.accent : "transparent",
-                    color: previewMode === m ? "#fff" : c.textMuted,
-                  }}>{m === "iframe" ? "🌐 Live" : "📸 Скрин"}</button>
-                ))}
-              </div>
             </div>
-            {previewMode === "iframe" ? (
-              <iframe
-                src={`/api/proxy-landing?url=${encodeURIComponent(result.htmlUrl)}`}
-                style={{ width: "100%", height: 640, border: "none", display: "block", background: "#fff" }}
-                title="Landing preview"
-              />
-            ) : (
-              /* Screenshot with zoom + scroll */
-              <div
-                style={{ height: 640, overflow: "auto", background: "#f4f4f4", cursor: imgZoom > 1 ? "grab" : "default", position: "relative" }}
-                onWheel={e => {
-                  e.preventDefault();
-                  setImgZoom(z => Math.min(3, Math.max(0.4, z - e.deltaY * 0.001)));
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={result.imageUrl} alt="Landing preview"
-                  style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left", imageRendering: imgZoom > 1.5 ? "auto" : "auto" }}
-                  onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Screenshot unavailable</text></svg>"; }} />
-                <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, padding: "3px 8px", borderRadius: 4 }}>
-                  💡 Live-режим показывает полное качество
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Variants */}
@@ -8209,20 +8210,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
         </div>
       )}
 
-      {/* Fullscreen preview modal */}
-      {showPreview && result && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.6)" }}>
-            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>Предпросмотр лендинга</span>
-            <button onClick={() => setShowPreview(false)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 6, padding: "4px 14px", cursor: "pointer", fontSize: 16 }}>✕</button>
-          </div>
-          <iframe
-            src={`/api/proxy-landing?url=${encodeURIComponent(result.htmlUrl)}`}
-            style={{ flex: 1, border: "none", background: "#fff" }}
-            title="Landing preview"
-          />
-        </div>
-      )}
+      {/* Fullscreen preview removed — use "Открыть лендинг" button instead */}
       </>}
     </div>
   );
