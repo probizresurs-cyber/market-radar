@@ -7616,6 +7616,7 @@ interface LandingResult {
   screenId: string;
   htmlUrl: string;
   imageUrl: string;
+  htmlContent?: string;
 }
 
 const STYLE_PRESETS = [
@@ -7662,7 +7663,8 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
   const [error, setError]               = useState("");
   const [editPrompt, setEditPrompt]     = useState("");
   const [isEditing, setIsEditing]       = useState(false);
-  const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
+  const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string; htmlContent?: string }>>([]);
+  const [imgZoom, setImgZoom]           = useState(1);
   const [showPreview, setShowPreview]   = useState(false);
   const [previewMode, setPreviewMode]   = useState<"screenshot" | "iframe">("iframe");
 
@@ -7795,7 +7797,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Ошибка редактирования");
-      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl } : null);
+      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl, htmlContent: data.htmlContent ?? prev.htmlContent } : null);
       setEditPrompt("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -8138,6 +8140,15 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               <div style={{ flex: 1, background: c.bg, borderRadius: 5, padding: "3px 10px", fontSize: 11, color: c.textMuted }}>
                 {myCompany?.company.name || "landing"}.marketradar.ai
               </div>
+              {/* Zoom controls (screenshot mode only) */}
+              {previewMode === "screenshot" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button onClick={() => setImgZoom(z => Math.max(0.4, z - 0.2))} style={{ width: 22, height: 22, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <span style={{ fontSize: 10, color: c.textMuted, minWidth: 30, textAlign: "center" }}>{Math.round(imgZoom * 100)}%</span>
+                  <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 22, height: 22, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  <button onClick={() => setImgZoom(1)} style={{ padding: "2px 7px", borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textMuted, cursor: "pointer", fontSize: 10 }}>↺</button>
+                </div>
+              )}
               <div style={{ display: "flex", background: c.bg, borderRadius: 6, border: `1px solid ${c.border}`, padding: 2, gap: 2 }}>
                 {(["iframe", "screenshot"] as const).map(m => (
                   <button key={m} onClick={() => setPreviewMode(m)} style={{
@@ -8149,12 +8160,36 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               </div>
             </div>
             {previewMode === "iframe" ? (
-              <iframe src={result.htmlUrl} style={{ width: "100%", height: 640, border: "none", display: "block" }}
-                title="Landing preview" sandbox="allow-scripts allow-same-origin" />
+              result.htmlContent ? (
+                <iframe
+                  srcDoc={result.htmlContent}
+                  style={{ width: "100%", height: 640, border: "none", display: "block" }}
+                  title="Landing preview"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                />
+              ) : (
+                <div style={{ height: 640, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#f8f8f8", gap: 12 }}>
+                  <div style={{ fontSize: 13, color: "#999" }}>Контент загружается или недоступен</div>
+                  <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: primary, fontWeight: 600 }}>
+                    Открыть в новой вкладке →
+                  </a>
+                </div>
+              )
             ) : (
-              <img src={result.imageUrl} alt="Landing preview"
-                style={{ width: "100%", display: "block", maxHeight: 640, objectFit: "contain", background: "#f8f8f8" }}
-                onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+              /* Screenshot with zoom + scroll */
+              <div
+                style={{ height: 640, overflow: "auto", background: "#f4f4f4", cursor: imgZoom > 1 ? "grab" : "default" }}
+                onWheel={e => {
+                  e.preventDefault();
+                  setImgZoom(z => Math.min(3, Math.max(0.4, z - e.deltaY * 0.001)));
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={result.imageUrl} alt="Landing preview"
+                  style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left" }}
+                  onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+              </div>
             )}
           </div>
 
@@ -8167,7 +8202,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
                 {variants.map((v, vi) => (
                   <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 0.15s" }}
-                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl } : null)}>
+                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl, htmlContent: v.htmlContent ?? prev?.htmlContent } : null)}>
                     <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "contain", background: "#f8f8f8" }} />
                     <div style={{ padding: "8px 12px", background: c.bgCard, fontSize: 12, fontWeight: 600, color: c.textPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>Вариант {vi + 1}</span>

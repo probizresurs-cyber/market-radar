@@ -24,6 +24,14 @@ export async function POST(req: Request) {
     const project = stitchInstance.project(projectId);
     const screen = await project.getScreen(screenId);
 
+    /** Fetch HTML content for srcDoc usage (bypasses X-Frame-Options) */
+    const fetchHtmlContent = async (url: string): Promise<string> => {
+      try {
+        const res = await fetch(url, { headers: { Accept: "text/html" } });
+        return res.ok ? await res.text() : "";
+      } catch { return ""; }
+    };
+
     // ── Action: edit ──────────────────────────────────────────
     if (action === "edit" && editPrompt) {
       const edited = await screen.edit(editPrompt, "DESKTOP");
@@ -31,12 +39,14 @@ export async function POST(req: Request) {
         edited.getHtml(),
         edited.getImage(),
       ]);
+      const htmlContent = await fetchHtmlContent(htmlUrl);
       await client.close();
       return NextResponse.json({
         ok: true,
         screenId: edited.id,
         htmlUrl,
         imageUrl,
+        htmlContent,
       });
     }
 
@@ -48,11 +58,14 @@ export async function POST(req: Request) {
         "DESKTOP"
       );
       const results = await Promise.all(
-        variants.map(async (v) => ({
-          screenId: v.id,
-          htmlUrl: await v.getHtml(),
-          imageUrl: await v.getImage(),
-        }))
+        variants.map(async (v) => {
+          const htmlUrl = await v.getHtml();
+          const [imageUrl, htmlContent] = await Promise.all([
+            v.getImage(),
+            fetchHtmlContent(htmlUrl),
+          ]);
+          return { screenId: v.id, htmlUrl, imageUrl, htmlContent };
+        })
       );
       await client.close();
       return NextResponse.json({ ok: true, variants: results });
@@ -68,12 +81,14 @@ export async function POST(req: Request) {
         mobile.getHtml(),
         mobile.getImage(),
       ]);
+      const htmlContent = await fetchHtmlContent(htmlUrl);
       await client.close();
       return NextResponse.json({
         ok: true,
         screenId: mobile.id,
         htmlUrl,
         imageUrl,
+        htmlContent,
         device: "mobile",
       });
     }
@@ -83,8 +98,9 @@ export async function POST(req: Request) {
       screen.getHtml(),
       screen.getImage(),
     ]);
+    const htmlContent = await fetchHtmlContent(htmlUrl);
     await client.close();
-    return NextResponse.json({ ok: true, htmlUrl, imageUrl });
+    return NextResponse.json({ ok: true, htmlUrl, imageUrl, htmlContent });
 
   } catch (err: unknown) {
     console.error("edit-landing error:", err);
