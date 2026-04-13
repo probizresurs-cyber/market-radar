@@ -7358,13 +7358,28 @@ const STYLE_PRESETS = [
   { id: "custom",   label: "Свои цвета",    icon: "✏️", desc: "Задайте собственную цветовую гамму" },
 ] as const;
 
-function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
+interface SavedLanding {
+  id: string;
+  title: string;
+  createdAt: string;
+  projectId: string;
+  screenId: string;
+  htmlUrl: string;
+  imageUrl: string;
+  landingType: string;
+  stylePreset: string;
+}
+
+function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook, userId }: {
   c: Colors;
   myCompany: AnalysisResult | null;
   taAnalysis: TAResult | null;
   smmAnalysis: SMMResult | null;
   brandBook: BrandBook;
+  userId: string;
 }) {
+  const [tab, setTab]                   = useState<"create" | "history">("create");
+  const [landingHistory, setLandingHistory] = useState<SavedLanding[]>([]);
   const [landingType, setLandingType]   = useState<string>("main");
   const [stylePreset, setStylePreset]   = useState<string>("auto");
   const [customColors, setCustomColors] = useState<string>("");
@@ -7378,6 +7393,45 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
   const [isEditing, setIsEditing]       = useState(false);
   const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
   const [showPreview, setShowPreview]   = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const saved = localStorage.getItem(`mr_landings_${userId}`);
+      if (saved) setLandingHistory(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  const saveLanding = (r: LandingResult, type: string, preset: string) => {
+    if (!userId) return;
+    const entry: SavedLanding = {
+      id: Date.now().toString(),
+      title: `${myCompany?.company.name ?? "Лендинг"} — ${landingTypes.find(l => l.id === type)?.label ?? type}`,
+      createdAt: new Date().toISOString(),
+      projectId: r.projectId,
+      screenId: r.screenId,
+      htmlUrl: r.htmlUrl,
+      imageUrl: r.imageUrl,
+      landingType: type,
+      stylePreset: preset,
+    };
+    const updated = [entry, ...landingHistory].slice(0, 20);
+    setLandingHistory(updated);
+    try { localStorage.setItem(`mr_landings_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+  };
+
+  const deleteLanding = (id: string) => {
+    const updated = landingHistory.filter(h => h.id !== id);
+    setLandingHistory(updated);
+    try { localStorage.setItem(`mr_landings_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+  };
+
+  const loadLanding = (h: SavedLanding) => {
+    setResult({ projectId: h.projectId, screenId: h.screenId, htmlUrl: h.htmlUrl, imageUrl: h.imageUrl });
+    setLandingType(h.landingType);
+    setStylePreset(h.stylePreset);
+    setTab("create");
+  };
 
   const landingTypes = [
     { id: "main",    icon: "🏠", label: "Главная страница", desc: "Полноценный лендинг с героем, услугами, преимуществами, отзывами и CTA" },
@@ -7442,6 +7496,7 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Ошибка генерации");
       setResult(data);
+      saveLanding(data, landingType, stylePreset);
       setProgress(100);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -7530,12 +7585,90 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Генератор лендингов</h1>
-      <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
-        AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Генератор лендингов</h1>
+          <p style={{ color: c.textSecondary, fontSize: 14 }}>AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука</p>
+        </div>
+        <div style={{ display: "flex", gap: 2, background: c.bgCard, borderRadius: 10, padding: 3, border: `1px solid ${c.border}` }}>
+          {(["create", "history"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
+                background: tab === t ? c.accent : "transparent",
+                color: tab === t ? "#fff" : c.textSecondary }}>
+              {t === "create" ? "✦ Создать" : `📁 История (${landingHistory.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+      {/* ── HISTORY TAB ── */}
+      {tab === "history" && (
+        <div>
+          {landingHistory.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 0", color: c.textMuted }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🌐</div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: c.textSecondary, marginBottom: 6 }}>Нет сохранённых лендингов</p>
+              <p style={{ fontSize: 13 }}>Создайте первый — он автоматически сохранится</p>
+              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать лендинг</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+              {landingHistory.map(h => {
+                const typeIcon = landingTypes.find(l => l.id === h.landingType)?.icon ?? "🌐";
+                const presetLabel = STYLE_PRESETS.find(p => p.id === h.stylePreset)?.label ?? h.stylePreset;
+                return (
+                  <div key={h.id} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+                    {/* Screenshot */}
+                    <div style={{ position: "relative", background: c.bg }}>
+                      {/* Browser chrome */}
+                      <div style={{ background: c.bgCard, padding: "6px 10px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444" }} />
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} />
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981" }} />
+                        </div>
+                        <div style={{ flex: 1, background: c.bg, borderRadius: 4, padding: "2px 8px", fontSize: 9, color: c.textMuted }}>
+                          {myCompany?.company.name?.toLowerCase().replace(/\s+/g, "") ?? "landing"}.ru
+                        </div>
+                      </div>
+                      <img src={h.imageUrl} alt={h.title} style={{ width: "100%", display: "block", maxHeight: 180, objectFit: "cover" }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                    <div style={{ padding: "12px 14px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 3 }}>{h.title}</div>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: c.accent + "14", color: c.accent, fontWeight: 600 }}>{typeIcon} {landingTypes.find(l => l.id === h.landingType)?.label ?? h.landingType}</span>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: c.bg, color: c.textMuted }}>{presetLabel}</span>
+                        <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short" })}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => loadLanding(h)}
+                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: c.accent, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                          Открыть
+                        </button>
+                        <a href={h.htmlUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center" }}>
+                          ⬇
+                        </a>
+                        <button onClick={() => deleteLanding(h.id)}
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 12, cursor: "pointer" }}>
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CREATE TAB ── */}
+      {tab === "create" && <>
 
       {/* ── Data readiness badges ── */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
@@ -7773,17 +7906,32 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
           <iframe src={result.htmlUrl} style={{ flex: 1, border: "none", background: "#fff" }} title="Landing preview" />
         </div>
       )}
+      </>}
     </div>
   );
 }
 
-function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
+interface SavedPresentation {
+  id: string;
+  title: string;
+  createdAt: string;
+  slides: PresentationSlide[];
+  style: PresentationStyle | null;
+  slideCount: number;
+}
+
+function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook, userId }: {
   c: Colors;
   myCompany: AnalysisResult | null;
   taAnalysis: TAResult | null;
   smmAnalysis: SMMResult | null;
   brandBook: BrandBook;
+  userId: string;
 }) {
+  // Tab
+  const [tab, setTab] = useState<"create" | "history">("create");
+  const [history, setHistory] = useState<SavedPresentation[]>([]);
+
   // Multi-stage wizard
   const [stage, setStage] = useState<"style" | "generating" | "review">("style");
   const [slides, setSlides] = useState<PresentationSlide[]>([]);
@@ -7807,6 +7955,44 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
   const [isExportingSlidev, setIsExportingSlidev] = useState(false);
+
+  // Load history from localStorage
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const saved = localStorage.getItem(`mr_presentations_${userId}`);
+      if (saved) setHistory(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  const saveToHistory = (newSlides: PresentationSlide[], title: string, style: PresentationStyle | null) => {
+    if (!userId) return;
+    const entry: SavedPresentation = {
+      id: Date.now().toString(),
+      title: title || `Презентация ${new Date().toLocaleDateString("ru")}`,
+      createdAt: new Date().toISOString(),
+      slides: newSlides,
+      style,
+      slideCount: newSlides.length,
+    };
+    const updated = [entry, ...history].slice(0, 20);
+    setHistory(updated);
+    try { localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+  };
+
+  const deleteFromHistory = (id: string) => {
+    const updated = history.filter(h => h.id !== id);
+    setHistory(updated);
+    try { localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+  };
+
+  const loadFromHistory = (saved: SavedPresentation) => {
+    setSlides(saved.slides);
+    setPresTitle(saved.title);
+    setSelectedStyle(saved.style);
+    setStage("review");
+    setTab("create");
+  };
 
   // Derived colors from selected style
   const sty = selectedStyle || buildStyleFromBrandBook(brandBook);
@@ -7866,9 +8052,12 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
       const json = await res.json();
       clearInterval(timer);
       if (!json.ok) throw new Error(json.error);
-      setPresTitle(json.data.title ?? "Бренд-презентация");
-      setSlides(json.data.slides ?? []);
+      const newTitle = json.data.title ?? "Бренд-презентация";
+      const newSlides = json.data.slides ?? [];
+      setPresTitle(newTitle);
+      setSlides(newSlides);
       setGenProgress(100);
+      saveToHistory(newSlides, newTitle, selectedStyle);
       setTimeout(() => setStage("review"), 600);
     } catch (err: unknown) {
       clearInterval(timer);
@@ -8357,12 +8546,81 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Бренд-презентация</h1>
-      <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
-        Профессиональная презентация за 5 минут из ваших данных
-      </p>
+      {/* Header + tab bar */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Бренд-презентация</h1>
+          <p style={{ color: c.textSecondary, fontSize: 14 }}>Профессиональная презентация за 5 минут из ваших данных</p>
+        </div>
+        <div style={{ display: "flex", gap: 2, background: c.bgCard, borderRadius: 10, padding: 3, border: `1px solid ${c.border}` }}>
+          {(["create", "history"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
+                background: tab === t ? c.accent : "transparent",
+                color: tab === t ? "#fff" : c.textSecondary }}>
+              {t === "create" ? "✦ Создать" : `📁 История (${history.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+      {/* ── HISTORY TAB ── */}
+      {tab === "history" && (
+        <div>
+          {history.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 0", color: c.textMuted }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: c.textSecondary, marginBottom: 6 }}>Нет сохранённых презентаций</p>
+              <p style={{ fontSize: 13 }}>Создайте первую — она автоматически сохранится</p>
+              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать презентацию</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+              {history.map(h => {
+                const pal = h.style?.colors ?? [];
+                return (
+                  <div key={h.id} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+                    {/* Mini slide preview */}
+                    <div style={{ aspectRatio: "16/9", background: pal[0] ? `linear-gradient(135deg, ${pal[0]}, ${pal[3] || "#fff"})` : `linear-gradient(135deg, ${c.accent}, ${c.bg})`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+                      <div style={{ textAlign: "center", zIndex: 1, padding: "0 20px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{h.title}</div>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>{h.slideCount} слайдов</div>
+                      </div>
+                      {/* Color dots */}
+                      {pal.length > 0 && (
+                        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 3 }}>
+                          {pal.slice(0,4).map((col: string, i: number) => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: col, border: "1px solid rgba(255,255,255,0.3)" }} />)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ padding: "12px 14px" }}>
+                      <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 10 }}>
+                        {new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => loadFromHistory(h)}
+                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: c.accent, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                          Открыть
+                        </button>
+                        <button onClick={() => deleteFromHistory(h.id)}
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 12, cursor: "pointer" }}>
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CREATE TAB ── */}
+      {tab === "create" && <>
 
       {/* ━━━ STAGE 1: STYLE SELECTION ━━━ */}
       {stage === "style" && (
@@ -8575,6 +8833,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }
@@ -10339,8 +10598,8 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-analytics" && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {activeNav === "reviews-analysis" && <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />}
-        {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} />}
-        {activeNav === "landing-generator" && <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} />}
+        {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}
+        {activeNav === "landing-generator" && <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}
       </main>
     </div>
   );
