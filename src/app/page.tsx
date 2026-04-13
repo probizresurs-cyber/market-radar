@@ -8160,26 +8160,15 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               </div>
             </div>
             {previewMode === "iframe" ? (
-              result.htmlContent ? (
-                <iframe
-                  srcDoc={result.htmlContent}
-                  style={{ width: "100%", height: 640, border: "none", display: "block" }}
-                  title="Landing preview"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                />
-              ) : (
-                <div style={{ height: 640, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#f8f8f8", gap: 12 }}>
-                  <div style={{ fontSize: 13, color: "#999" }}>Контент загружается или недоступен</div>
-                  <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 12, color: primary, fontWeight: 600 }}>
-                    Открыть в новой вкладке →
-                  </a>
-                </div>
-              )
+              <iframe
+                src={`/api/proxy-landing?url=${encodeURIComponent(result.htmlUrl)}`}
+                style={{ width: "100%", height: 640, border: "none", display: "block", background: "#fff" }}
+                title="Landing preview"
+              />
             ) : (
               /* Screenshot with zoom + scroll */
               <div
-                style={{ height: 640, overflow: "auto", background: "#f4f4f4", cursor: imgZoom > 1 ? "grab" : "default" }}
+                style={{ height: 640, overflow: "auto", background: "#f4f4f4", cursor: imgZoom > 1 ? "grab" : "default", position: "relative" }}
                 onWheel={e => {
                   e.preventDefault();
                   setImgZoom(z => Math.min(3, Math.max(0.4, z - e.deltaY * 0.001)));
@@ -8187,8 +8176,11 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={result.imageUrl} alt="Landing preview"
-                  style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left" }}
-                  onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+                  style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left", imageRendering: imgZoom > 1.5 ? "auto" : "auto" }}
+                  onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Screenshot unavailable</text></svg>"; }} />
+                <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, padding: "3px 8px", borderRadius: 4 }}>
+                  💡 Live-режим показывает полное качество
+                </div>
               </div>
             )}
           </div>
@@ -8224,7 +8216,11 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
             <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>Предпросмотр лендинга</span>
             <button onClick={() => setShowPreview(false)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 6, padding: "4px 14px", cursor: "pointer", fontSize: 16 }}>✕</button>
           </div>
-          <iframe src={result.htmlUrl} style={{ flex: 1, border: "none", background: "#fff" }} title="Landing preview" />
+          <iframe
+            src={`/api/proxy-landing?url=${encodeURIComponent(result.htmlUrl)}`}
+            style={{ flex: 1, border: "none", background: "#fff" }}
+            title="Landing preview"
+          />
         </div>
       )}
       </>}

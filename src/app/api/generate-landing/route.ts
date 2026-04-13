@@ -132,13 +132,6 @@ export async function POST(req: Request) {
       screen.getImage(),
     ]);
 
-    // Fetch actual HTML content so frontend can use srcDoc (bypasses X-Frame-Options)
-    let htmlContent = "";
-    try {
-      const htmlRes = await fetch(htmlUrl, { headers: { "Accept": "text/html" } });
-      if (htmlRes.ok) htmlContent = await htmlRes.text();
-    } catch { /* non-critical */ }
-
     await client.close();
 
     return NextResponse.json({
@@ -147,7 +140,6 @@ export async function POST(req: Request) {
       screenId,
       htmlUrl,
       imageUrl,
-      htmlContent,
       prompt: prompt.slice(0, 500),
     });
   } catch (err: unknown) {
