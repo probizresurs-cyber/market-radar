@@ -7463,22 +7463,22 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     try {
-      const { default: html2canvas } = await import("html2canvas");
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [960, 540] });
-      const container = document.createElement("div");
-      container.style.cssText = "position:fixed;left:-9999px;top:0;width:960px;";
-      document.body.appendChild(container);
-      const fontH = sty.fontHeader;
-      const fontB = sty.fontBody;
-      for (let i = 0; i < slides.length; i++) {
-        if (i > 0) pdf.addPage([960, 540], "landscape");
-        container.innerHTML = renderSlideHtml(slides[i], i, slides.length, primary, secondary, bg, textColor, fontH, fontB, brandBook.logoDataUrl);
-        const canvas = await html2canvas(container.firstElementChild as HTMLElement, { width: 960, height: 540, scale: 2, useCORS: true, backgroundColor: null });
-        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 960, 540);
+      const res = await fetch("/api/export-slides-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides, style: selectedStyle, title: presTitle }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Ошибка PDF" }));
+        throw new Error(err.error || "Ошибка PDF");
       }
-      document.body.removeChild(container);
-      pdf.save(`${presTitle || "presentation"}.pdf`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${presTitle || "presentation"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка PDF");
     } finally {
