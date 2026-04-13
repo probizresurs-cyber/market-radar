@@ -7347,6 +7347,17 @@ interface LandingResult {
   imageUrl: string;
 }
 
+const STYLE_PRESETS = [
+  { id: "auto",     label: "Из брендбука",  icon: "🎨", desc: "Цвета и шрифты из вашего брендбука" },
+  { id: "minimal",  label: "Минимализм",    icon: "⬜", desc: "Белый фон, тёмный текст, много воздуха", colors: ["#ffffff","#111111","#6366f1"], fonts: "Inter" },
+  { id: "dark",     label: "Тёмная тема",   icon: "🌑", desc: "Тёмный фон, неоновые акценты", colors: ["#0a0a0a","#f1f5f9","#a855f7"], fonts: "Inter" },
+  { id: "bold",     label: "Яркий/Смелый",  icon: "🔥", desc: "Насыщенные цвета, крупная типографика", colors: ["#7c3aed","#fbbf24","#10b981"], fonts: "Montserrat" },
+  { id: "corporate","label": "Корпоративный","icon": "💼", desc: "Синяя палитра, деловой стиль", colors: ["#1e3a5f","#3b82f6","#f8fafc"], fonts: "Georgia" },
+  { id: "warm",     label: "Тёплый",        icon: "🍂", desc: "Земляные тона, природные текстуры", colors: ["#92400e","#d97706","#fef3c7"], fonts: "Merriweather" },
+  { id: "fresh",    label: "Свежий/Эко",    icon: "🌿", desc: "Зелёная палитра, натуральный стиль", colors: ["#065f46","#34d399","#f0fdf4"], fonts: "Nunito" },
+  { id: "custom",   label: "Свои цвета",    icon: "✏️", desc: "Задайте собственную цветовую гамму" },
+] as const;
+
 function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
   c: Colors;
   myCompany: AnalysisResult | null;
@@ -7354,22 +7365,56 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
   smmAnalysis: SMMResult | null;
   brandBook: BrandBook;
 }) {
-  const [landingType, setLandingType] = useState<string>("main");
+  const [landingType, setLandingType]   = useState<string>("main");
+  const [stylePreset, setStylePreset]   = useState<string>("auto");
+  const [customColors, setCustomColors] = useState<string>("");
+  const [customFonts, setCustomFonts]   = useState<string>("");
+  const [userPrompt, setUserPrompt]     = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<LandingResult | null>(null);
-  const [error, setError] = useState("");
-  const [editPrompt, setEditPrompt] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [variants, setVariants] = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [progress, setProgress]         = useState(0);
+  const [result, setResult]             = useState<LandingResult | null>(null);
+  const [error, setError]               = useState("");
+  const [editPrompt, setEditPrompt]     = useState("");
+  const [isEditing, setIsEditing]       = useState(false);
+  const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
+  const [showPreview, setShowPreview]   = useState(false);
 
   const landingTypes = [
-    { id: "main", icon: "🏠", label: "Главная страница", desc: "Полноценный лендинг с героем, услугами, преимуществами, отзывами и CTA" },
+    { id: "main",    icon: "🏠", label: "Главная страница", desc: "Полноценный лендинг с героем, услугами, преимуществами, отзывами и CTA" },
     { id: "product", icon: "📦", label: "Продукт / Услуга", desc: "Витрина продукта: фичи, тарифы, FAQ, социальное доказательство" },
-    { id: "promo", icon: "🔥", label: "Промо / Акция", desc: "Промо-лендинг: оффер, срочность, спецпредложение, trust-бейджи" },
-    { id: "lead", icon: "📝", label: "Лид-генерация", desc: "Сбор заявок: форма, боли клиента, решение, логотипы клиентов" },
+    { id: "promo",   icon: "🔥", label: "Промо / Акция",    desc: "Промо-лендинг: оффер, срочность, спецпредложение, trust-бейджи" },
+    { id: "lead",    icon: "📝", label: "Лид-генерация",    desc: "Сбор заявок: форма, боли клиента, решение, логотипы клиентов" },
   ];
+
+  // Build style config to send to API
+  const buildStyleConfig = () => {
+    if (stylePreset === "auto") {
+      return {
+        source: "brandbook",
+        colors: brandBook.colors ?? [] as string[],
+        font: brandBook.fontHeader || undefined,
+        customPrompt: "",
+      };
+    }
+    if (stylePreset === "custom") {
+      return {
+        source: "custom",
+        colors: customColors.split(",").map(s => s.trim()).filter(Boolean) as string[],
+        font: customFonts.trim() || undefined,
+        customPrompt: `Use colors: ${customColors}. Font: ${customFonts || "Inter"}.`,
+      };
+    }
+    const preset = STYLE_PRESETS.find(p => p.id === stylePreset);
+    const colorsArr: string[] = preset && "colors" in preset ? [...(preset as unknown as { colors: readonly string[] }).colors] : [];
+    const fontStr: string = preset && "fonts" in preset ? (preset as unknown as { fonts: string }).fonts : "Inter";
+    return {
+      source: "preset",
+      id: stylePreset,
+      colors: colorsArr,
+      font: fontStr,
+      customPrompt: preset ? `Style: ${preset.label}. ${preset.desc}.` : "",
+    };
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -7390,6 +7435,8 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
           taData: taAnalysis,
           smmData: smmAnalysis,
           landingType,
+          styleConfig: buildStyleConfig(),
+          userPrompt: userPrompt.trim(),
         }),
       });
       const data = await res.json();
@@ -7506,29 +7553,113 @@ function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook
         ))}
       </div>
 
-      {/* ── Type selection ── */}
+      {/* ── Setup form ── */}
       {!result && !isGenerating && (
         <>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Тип лендинга</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
+          {/* 1. Landing type */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 10 }}>1. Тип лендинга</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
             {landingTypes.map(lt => (
               <div key={lt.id} onClick={() => setLandingType(lt.id)}
-                style={{ padding: "16px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.15s",
-                  background: landingType === lt.id ? primary + "14" : c.bgCard,
+                style={{ padding: "14px 16px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
+                  background: landingType === lt.id ? primary + "12" : c.bgCard,
                   border: `2px solid ${landingType === lt.id ? primary : c.border}`,
-                  boxShadow: landingType === lt.id ? `0 4px 16px ${primary}22` : "none" }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>{lt.icon}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>{lt.label}</div>
-                <div style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.5 }}>{lt.desc}</div>
+                  boxShadow: landingType === lt.id ? `0 4px 14px ${primary}20` : "none" }}>
+                <div style={{ fontSize: 20, marginBottom: 5 }}>{lt.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 3 }}>{lt.label}</div>
+                <div style={{ fontSize: 10.5, color: c.textSecondary, lineHeight: 1.5 }}>{lt.desc}</div>
               </div>
             ))}
           </div>
 
-          <button onClick={handleGenerate} disabled={!myCompany}
-            style={{ padding: "12px 32px", borderRadius: 10, border: "none", background: primary, color: "#fff",
-              fontSize: 15, fontWeight: 700, cursor: myCompany ? "pointer" : "not-allowed", opacity: myCompany ? 1 : 0.5 }}>
-            Сгенерировать лендинг
-          </button>
+          {/* 2. Style preset */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 10 }}>2. Стиль и цветовая гамма</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: stylePreset === "custom" ? 12 : 20 }}>
+            {STYLE_PRESETS.map(sp => {
+              const hasColors = "colors" in sp;
+              return (
+                <div key={sp.id} onClick={() => setStylePreset(sp.id)}
+                  style={{ padding: "12px 14px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
+                    background: stylePreset === sp.id ? primary + "12" : c.bgCard,
+                    border: `2px solid ${stylePreset === sp.id ? primary : c.border}` }}>
+                  {/* Color dots preview */}
+                  {hasColors && (
+                    <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                      {(sp as unknown as { colors: string[] }).colors.map((col, ci) => (
+                        <div key={ci} style={{ width: 12, height: 12, borderRadius: "50%", background: col, border: "1px solid rgba(0,0,0,0.1)" }} />
+                      ))}
+                    </div>
+                  )}
+                  {!hasColors && <div style={{ fontSize: 16, marginBottom: 4 }}>{sp.icon}</div>}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: stylePreset === sp.id ? primary : c.textPrimary, marginBottom: 2 }}>{sp.label}</div>
+                  <div style={{ fontSize: 10, color: c.textMuted, lineHeight: 1.4 }}>{sp.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Custom colors input */}
+          {stylePreset === "custom" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: c.textSecondary, display: "block", marginBottom: 4 }}>
+                  Цвета (через запятую)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input value={customColors} onChange={e => setCustomColors(e.target.value)}
+                    placeholder="#6366f1, #fff, #1a1a2e"
+                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, fontSize: 12, outline: "none" }} />
+                  {/* Live color dot previews */}
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {customColors.split(",").map(s => s.trim()).filter(Boolean).slice(0, 5).map((col, i) => (
+                      <div key={i} style={{ width: 18, height: 18, borderRadius: 4, background: col, border: `1px solid ${c.border}` }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: c.textSecondary, display: "block", marginBottom: 4 }}>
+                  Шрифт (Google Fonts)
+                </label>
+                <input value={customFonts} onChange={e => setCustomFonts(e.target.value)}
+                  placeholder="Montserrat, Playfair Display..."
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            </div>
+          )}
+
+          {/* 3. Custom prompt */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>
+            3. Дополнительные пожелания <span style={{ fontSize: 11, fontWeight: 400, color: c.textMuted }}>(необязательно)</span>
+          </h3>
+          <div style={{ position: "relative", marginBottom: 24 }}>
+            <textarea value={userPrompt} onChange={e => setUserPrompt(e.target.value)} rows={3}
+              placeholder="Например: Добавь секцию с видео-отзывами. Используй стиль как у Apple — минималистично и продающе. Сделай большой hero с градиентным фоном. Добавь счётчик с цифрами достижений..."
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${c.border}`,
+                background: c.bgCard, color: c.textPrimary, fontSize: 13, outline: "none",
+                resize: "vertical", lineHeight: 1.6, fontFamily: "inherit", boxSizing: "border-box" }} />
+            <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+              Описывайте на русском или английском — что добавить, какой стиль, какие секции нужны
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={handleGenerate} disabled={!myCompany}
+              style={{ padding: "12px 32px", borderRadius: 10, border: "none", background: primary, color: "#fff",
+                fontSize: 14, fontWeight: 700, cursor: myCompany ? "pointer" : "not-allowed", opacity: myCompany ? 1 : 0.5 }}>
+              ✦ Сгенерировать лендинг
+            </button>
+            {stylePreset === "auto" && (brandBook.colors?.[0]) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {(brandBook.colors || []).slice(0,4).map((col: string, i: number) => (
+                    <div key={i} style={{ width: 14, height: 14, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, color: c.textMuted }}>Цвета из брендбука</span>
+              </div>
+            )}
+          </div>
           {!myCompany && <p style={{ fontSize: 11, color: c.textMuted, marginTop: 8 }}>Сначала выполните анализ компании</p>}
         </>
       )}
