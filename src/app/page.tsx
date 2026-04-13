@@ -7337,6 +7337,315 @@ function buildStyleFromBrandBook(bb: BrandBook): PresentationStyle {
   };
 }
 
+// ============================================================
+// Landing Page Generator View
+// ============================================================
+interface LandingResult {
+  projectId: string;
+  screenId: string;
+  htmlUrl: string;
+  imageUrl: string;
+}
+
+function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
+  c: Colors;
+  myCompany: AnalysisResult | null;
+  taAnalysis: TAResult | null;
+  smmAnalysis: SMMResult | null;
+  brandBook: BrandBook;
+}) {
+  const [landingType, setLandingType] = useState<string>("main");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<LandingResult | null>(null);
+  const [error, setError] = useState("");
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [variants, setVariants] = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const landingTypes = [
+    { id: "main", icon: "🏠", label: "Главная страница", desc: "Полноценный лендинг с героем, услугами, преимуществами, отзывами и CTA" },
+    { id: "product", icon: "📦", label: "Продукт / Услуга", desc: "Витрина продукта: фичи, тарифы, FAQ, социальное доказательство" },
+    { id: "promo", icon: "🔥", label: "Промо / Акция", desc: "Промо-лендинг: оффер, срочность, спецпредложение, trust-бейджи" },
+    { id: "lead", icon: "📝", label: "Лид-генерация", desc: "Сбор заявок: форма, боли клиента, решение, логотипы клиентов" },
+  ];
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError("");
+    setProgress(0);
+    setResult(null);
+    setVariants([]);
+
+    const interval = setInterval(() => setProgress(p => Math.min(p + 1.5, 90)), 600);
+
+    try {
+      const res = await fetch("/api/generate-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: myCompany?.company,
+          brandBook,
+          taData: taAnalysis,
+          smmData: smmAnalysis,
+          landingType,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Ошибка генерации");
+      setResult(data);
+      setProgress(100);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      clearInterval(interval);
+      setIsGenerating(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!result || !editPrompt.trim()) return;
+    setIsEditing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/edit-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: result.projectId,
+          screenId: result.screenId,
+          editPrompt,
+          action: "edit",
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Ошибка редактирования");
+      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl } : null);
+      setEditPrompt("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleVariants = async () => {
+    if (!result) return;
+    setIsEditing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/edit-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: result.projectId,
+          screenId: result.screenId,
+          action: "variants",
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Ошибка генерации вариантов");
+      setVariants(data.variants || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleMobile = async () => {
+    if (!result) return;
+    setIsEditing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/edit-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: result.projectId,
+          screenId: result.screenId,
+          action: "mobile",
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Ошибка");
+      // Open mobile version as a new variant
+      setVariants(prev => [...prev, { screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl }]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const primary = brandBook.colors?.[0] || c.accent;
+
+  return (
+    <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Генератор лендингов</h1>
+      <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
+        AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука
+      </p>
+
+      {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+      {/* ── Data readiness badges ── */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+        {[
+          { label: "Компания", ok: !!myCompany },
+          { label: "Брендбук", ok: !!brandBook.brandName || brandBook.colors.length > 0 },
+          { label: "ЦА", ok: !!taAnalysis },
+          { label: "СММ", ok: !!smmAnalysis },
+        ].map((b, i) => (
+          <span key={i} style={{ padding: "4px 12px", borderRadius: 12, fontSize: 11, fontWeight: 600,
+            background: b.ok ? c.accentGreen + "18" : c.accentRed + "12",
+            color: b.ok ? c.accentGreen : c.textMuted }}>
+            {b.ok ? "✓" : "✗"} {b.label}
+          </span>
+        ))}
+      </div>
+
+      {/* ── Type selection ── */}
+      {!result && !isGenerating && (
+        <>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>Тип лендинга</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
+            {landingTypes.map(lt => (
+              <div key={lt.id} onClick={() => setLandingType(lt.id)}
+                style={{ padding: "16px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.15s",
+                  background: landingType === lt.id ? primary + "14" : c.bgCard,
+                  border: `2px solid ${landingType === lt.id ? primary : c.border}`,
+                  boxShadow: landingType === lt.id ? `0 4px 16px ${primary}22` : "none" }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{lt.icon}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>{lt.label}</div>
+                <div style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.5 }}>{lt.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={handleGenerate} disabled={!myCompany}
+            style={{ padding: "12px 32px", borderRadius: 10, border: "none", background: primary, color: "#fff",
+              fontSize: 15, fontWeight: 700, cursor: myCompany ? "pointer" : "not-allowed", opacity: myCompany ? 1 : 0.5 }}>
+            Сгенерировать лендинг
+          </button>
+          {!myCompany && <p style={{ fontSize: 11, color: c.textMuted, marginTop: 8 }}>Сначала выполните анализ компании</p>}
+        </>
+      )}
+
+      {/* ── Generation progress ── */}
+      {isGenerating && (
+        <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <div style={{ width: 300, height: 6, borderRadius: 3, background: c.border, margin: "0 auto 16px", overflow: "hidden" }}>
+            <div style={{ width: `${progress}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${primary}, ${c.accentGreen})`, transition: "width 0.3s" }} />
+          </div>
+          <p style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary }}>{Math.round(progress)}% — Генерация лендинга...</p>
+          <p style={{ fontSize: 11, color: c.textMuted, marginTop: 4 }}>Google Stitch создаёт дизайн на основе ваших данных</p>
+        </div>
+      )}
+
+      {/* ── Result view ── */}
+      {result && !isGenerating && (
+        <div>
+          {/* Toolbar */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
+            <button onClick={() => setShowPreview(true)} style={{ padding: "8px 16px", borderRadius: 8, border: "none",
+              background: primary, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              👁 Предпросмотр
+            </button>
+            <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
+              style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: c.accentGreen, color: "#fff",
+                textDecoration: "none", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+              ⬇ Скачать HTML
+            </a>
+            <button onClick={handleVariants} disabled={isEditing}
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
+                color: c.textPrimary, cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              🎨 Варианты
+            </button>
+            <button onClick={handleMobile} disabled={isEditing}
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
+                color: c.textPrimary, cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              📱 Мобильная версия
+            </button>
+            <button onClick={() => { setResult(null); setVariants([]); setProgress(0); }}
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
+                color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              🔄 Заново
+            </button>
+          </div>
+
+          {/* Edit prompt */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <input value={editPrompt} onChange={e => setEditPrompt(e.target.value)}
+              placeholder="Пожелание: сделай хедер темнее, добавь секцию с отзывами..."
+              onKeyDown={e => e.key === "Enter" && handleEdit()}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
+                background: c.bgCard, color: c.textPrimary, fontSize: 13, outline: "none" }} />
+            <button onClick={handleEdit} disabled={isEditing || !editPrompt.trim()}
+              style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: primary,
+                color: "#fff", cursor: isEditing || !editPrompt.trim() ? "not-allowed" : "pointer",
+                fontWeight: 600, fontSize: 13, opacity: isEditing || !editPrompt.trim() ? 0.5 : 1 }}>
+              {isEditing ? "Обновляю..." : "Изменить"}
+            </button>
+          </div>
+
+          {/* Screenshot preview */}
+          <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${c.border}`, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", marginBottom: 20 }}>
+            {/* Browser chrome mockup */}
+            <div style={{ background: c.bgCard, padding: "8px 12px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", gap: 5 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981" }} />
+              </div>
+              <div style={{ flex: 1, background: c.bg, borderRadius: 5, padding: "3px 10px", fontSize: 11, color: c.textMuted }}>
+                {myCompany?.company.name || "landing"}.marketradar.ai
+              </div>
+            </div>
+            <img src={result.imageUrl} alt="Landing preview"
+              style={{ width: "100%", display: "block" }}
+              onError={e => { (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'><rect fill='%23f0f0f0' width='800' height='500'/><text x='400' y='250' text-anchor='middle' fill='%23999'>Preview loading...</text></svg>"; }} />
+          </div>
+
+          {/* Variants */}
+          {variants.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>
+                Варианты ({variants.length})
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+                {variants.map((v, vi) => (
+                  <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 0.15s" }}
+                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl } : null)}>
+                    <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block" }} />
+                    <div style={{ padding: "8px 12px", background: c.bgCard, fontSize: 12, fontWeight: 600, color: c.textPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>Вариант {vi + 1}</span>
+                      <a href={v.htmlUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                        style={{ fontSize: 11, color: primary, textDecoration: "none" }}>Скачать</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fullscreen preview modal */}
+      {showPreview && result && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.6)" }}>
+            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>Предпросмотр лендинга</span>
+            <button onClick={() => setShowPreview(false)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 6, padding: "4px 14px", cursor: "pointer", fontSize: 16 }}>✕</button>
+          </div>
+          <iframe src={result.htmlUrl} style={{ flex: 1, border: "none", background: "#fff" }} title="Landing preview" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: {
   c: Colors;
   myCompany: AnalysisResult | null;
@@ -9255,6 +9564,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       { id: "reviews-analysis", icon: "⭐", label: "Анализ отзывов", count: null },
       { id: "brand-presentation", icon: "🎤", label: "Презентация бренда", count: null },
+      { id: "landing-generator", icon: "🌐", label: "Генератор лендингов", count: null },
       { id: "reports", icon: "📄", label: "Отчёты", count: null },
       { id: "sources", icon: "🔗", label: "Источники", count: null },
     ],
@@ -9899,6 +10209,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {activeNav === "reviews-analysis" && <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} />}
+        {activeNav === "landing-generator" && <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} />}
       </main>
     </div>
   );
