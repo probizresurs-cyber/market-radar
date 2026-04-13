@@ -47,10 +47,27 @@ async function fetchReviewsByFirmId(firmId: string, apiKey?: string): Promise<{ 
   return { reviews, total: data.meta?.total_count ?? reviews.length };
 }
 
-async function searchFirmByName(name: string, address?: string, apiKey?: string): Promise<string | null> {
+/** Extract city from an address string */
+function extractCity(address: string): string {
+  if (!address) return "";
+  const cityMatch = address.match(/\b(Москва|Санкт-Петербург|Moscow|Saint Petersburg|Novosibirsk|Yekaterinburg|Kazan|Нижний Новгород|Екатеринбург|Казань|Новосибирск|Самара|Уфа|Ростов|Челябинск|Омск|Краснодар|Воронеж|Пермь|Волгоград)\b/i);
+  if (cityMatch) return cityMatch[1];
+  const parts = address.split(",").map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 3) return parts[parts.length - 3] ?? "";
+  return "";
+}
+
+/** Extract Latin/English portion from a mixed name */
+function extractLatinName(name: string): string {
+  const inParens = name.match(/\(([A-Za-z0-9\-\s]+)\)/);
+  if (inParens) return inParens[1].trim();
+  const latinRun = name.match(/[A-Za-z][A-Za-z0-9\-]{2,}/g);
+  if (latinRun) return latinRun.join(" ").trim();
+  return "";
+}
+
+async function trySearchQuery(query: string, apiKey?: string): Promise<string | null> {
   const keyParam = apiKey ? `&key=${apiKey}` : "";
-  // Combine name + address for a more precise search query
-  const query = address?.trim() ? `${name} ${address.trim()}` : name;
   const res = await fetch(
     `https://catalog.api.2gis.com/3.0/items?q=${encodeURIComponent(query)}&type=branch&fields=items.reviews,items.stat${keyParam}&page_size=1`,
     { headers: { Accept: "application/json" } },
@@ -58,6 +75,30 @@ async function searchFirmByName(name: string, address?: string, apiKey?: string)
   if (!res.ok) return null;
   const data = await res.json() as { result?: { items?: GisCatalogItem[] } };
   return data.result?.items?.[0]?.id ?? null;
+}
+
+async function searchFirmByName(name: string, address?: string, apiKey?: string): Promise<string | null> {
+  const city = address ? extractCity(address) : "";
+  const latinName = extractLatinName(name);
+
+  // Build queries in order of specificity
+  const queries: string[] = [];
+  if (city) {
+    queries.push(`${name} ${city}`);
+    if (latinName) queries.push(`${latinName} ${city}`);
+  }
+  if (address?.trim()) {
+    const firstLine = address.split(",")[0]?.trim();
+    if (firstLine) queries.push(`${name} ${firstLine}`);
+  }
+  queries.push(name);
+  if (latinName && latinName !== name) queries.push(latinName);
+
+  for (const q of [...new Set(queries)]) {
+    const id = await trySearchQuery(q, apiKey);
+    if (id) return id;
+  }
+  return null;
 }
 
 export async function POST(req: Request) {

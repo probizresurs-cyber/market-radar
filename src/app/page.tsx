@@ -9232,7 +9232,10 @@ function ReviewsView({ c, companyName }: {
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
         fetched.push(...json.data.reviews);
-        log.push(`Google Maps: ${json.data.reviews.length} отзывов (рейтинг ${json.data.rating}★)`);
+        const placeName = json.data.placeName ? ` «${json.data.placeName}»` : "";
+        log.push(`Google Maps${placeName}: ${json.data.reviews.length} отзывов (${json.data.rating}★)`);
+      } else if (json.ok && json.data.reviewCount > 0) {
+        log.push(`Google Maps: найдено (${json.data.reviewCount} отзывов на платформе, но тексты недоступны)`);
       } else {
         log.push("Google Maps: не найдено");
       }
