@@ -7363,6 +7363,7 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
   const [activeSlide, setActiveSlide] = useState(0);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
+  const [isExportingSlidev, setIsExportingSlidev] = useState(false);
 
   // Derived colors from selected style
   const sty = selectedStyle || buildStyleFromBrandBook(brandBook);
@@ -7505,6 +7506,29 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
       setError(err instanceof Error ? err.message : "Ошибка PPTX");
     } finally {
       setIsExportingPptx(false);
+    }
+  };
+
+  const handleExportSlidev = async () => {
+    setIsExportingSlidev(true);
+    try {
+      const res = await fetch("/api/export-slidev", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides, style: selectedStyle, title: presTitle }),
+      });
+      if (!res.ok) throw new Error("Ошибка экспорта Slidev");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${presTitle || "presentation"}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка Slidev");
+    } finally {
+      setIsExportingSlidev(false);
     }
   };
 
@@ -7954,6 +7978,10 @@ function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook }: 
             <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
               background: isExportingPptx ? c.textMuted : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               {isExportingPptx ? "Экспорт..." : "⬇ PPTX"}
+            </button>
+            <button onClick={handleExportSlidev} disabled={isExportingSlidev} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+              background: isExportingSlidev ? c.textMuted : "#7c3aed", color: "#fff", cursor: isExportingSlidev ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              {isExportingSlidev ? "Экспорт..." : "✦ Slidev .md"}
             </button>
             <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
               background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
