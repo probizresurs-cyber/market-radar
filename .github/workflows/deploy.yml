@@ -19,4 +19,4 @@ jobs:
             git pull origin main
             npm install
             npm run build
-            pm2 restart market-radar
+            pm2 restart market-radar || pm2 start npm --name "market-radar" -- start -- -p 3001

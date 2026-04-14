@@ -81,6 +81,7 @@ interface UserAccount {
   tg?: string;
   hhUrl?: string;
   onboardingDone: boolean;
+  role?: string;
   tgChatId?: string;
   tgNotifyAnalysis?: boolean;
   tgNotifyCompetitors?: boolean;
@@ -88,25 +89,38 @@ interface UserAccount {
   tgNotifyDigest?: boolean;
 }
 
-function authGetUsers(): UserAccount[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem("mr_users") || "[]"); } catch { return []; }
+// ── Server sync helpers ───────────────────────────────────────
+async function syncToServer(key: string, value: unknown): Promise<void> {
+  try {
+    await fetch("/api/data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value }),
+    });
+  } catch { /* silent — localStorage still works as fallback */ }
 }
-function authSaveUser(user: UserAccount): void {
-  const users = authGetUsers();
-  const idx = users.findIndex(u => u.id === user.id);
-  if (idx >= 0) users[idx] = user; else users.push(user);
-  localStorage.setItem("mr_users", JSON.stringify(users));
+
+async function loadAllFromServer(): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch("/api/data");
+    const json = await res.json();
+    if (json.ok) return json.data;
+  } catch { /* silent */ }
+  return null;
 }
+
+// ── Legacy localStorage auth (kept for migration compat) ──────
 function authGetCurrentUser(): UserAccount | null {
   if (typeof window === "undefined") return null;
-  const id = localStorage.getItem("mr_current_user");
-  if (!id) return null;
-  return authGetUsers().find(u => u.id === id) ?? null;
+  try {
+    const raw = localStorage.getItem("mr_current_user_v2");
+    if (!raw) return null;
+    return JSON.parse(raw) as UserAccount;
+  } catch { return null; }
 }
-function authSetCurrentUser(id: string | null): void {
-  if (id) localStorage.setItem("mr_current_user", id);
-  else localStorage.removeItem("mr_current_user");
+function authSetCurrentUser(user: UserAccount | null): void {
+  if (user) localStorage.setItem("mr_current_user_v2", JSON.stringify(user));
+  else localStorage.removeItem("mr_current_user_v2");
 }
 
 // ── Telegram notification helper ──────────────────────────────
@@ -396,28 +410,38 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
   const onFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px ${c.accent}20`; e.currentTarget.style.borderColor = c.accent; };
   const onBlur = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = c.border; };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) { setError("Введите имя"); return; }
     if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
     if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
-    const users = authGetUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase().trim())) {
-      setError("Аккаунт с таким email уже существует");
-      return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setError(json.error ?? "Ошибка регистрации"); return; }
+      const user: UserAccount = {
+        id: json.user.id,
+        name: json.user.name ?? name.trim(),
+        email: json.user.email,
+        password: "",
+        phone: phone.trim() || undefined,
+        onboardingDone: false,
+        role: json.user.role,
+      };
+      authSetCurrentUser(user);
+      onSuccess(user);
+    } catch {
+      setError("Ошибка соединения с сервером");
+    } finally {
+      setLoading(false);
     }
-    const user: UserAccount = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password,
-      phone: phone.trim() || undefined,
-      onboardingDone: false,
-    };
-    authSaveUser(user);
-    authSetCurrentUser(user.id);
-    onSuccess(user);
   };
 
   return (
@@ -447,8 +471,8 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (999) 123-45-67" onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
           </div>
           {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
-          <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
-            Создать аккаунт →
+          <button type="submit" disabled={loading} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: loading ? "wait" : "pointer", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Создаём аккаунт…" : "Создать аккаунт →"}
           </button>
         </form>
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: c.textSecondary }}>
@@ -472,14 +496,34 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
   const onFocusL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px ${c.accent}20`; e.currentTarget.style.borderColor = c.accent; };
   const onBlurL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = c.border; };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const users = authGetUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === password);
-    if (!user) { setError("Неверный email или пароль"); return; }
-    authSetCurrentUser(user.id);
-    onSuccess(user);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setError(json.error ?? "Неверный email или пароль"); return; }
+      const user: UserAccount = {
+        id: json.user.id,
+        name: json.user.name ?? "",
+        email: json.user.email,
+        password: "",
+        onboardingDone: true,
+        role: json.user.role,
+      };
+      authSetCurrentUser(user);
+      onSuccess(user);
+    } catch {
+      setError("Ошибка соединения с сервером");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -501,8 +545,8 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onFocus={onFocusL} onBlur={onBlurL} style={loginInputStyle} />
           </div>
           {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: c.accentRed + "12", color: c.accentRed, fontSize: 13 }}>{error}</div>}
-          <button type="submit" style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
-            Войти →
+          <button type="submit" disabled={loading} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14, cursor: loading ? "wait" : "pointer", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Входим…" : "Войти →"}
           </button>
         </form>
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: c.textSecondary }}>
@@ -568,7 +612,7 @@ function OnboardingView({ c, user, onComplete }: {
       vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hh.trim() || undefined,
       onboardingDone: true,
     };
-    authSaveUser(updatedUser);
+    authSetCurrentUser(updatedUser);
     onComplete(updatedUser, companyUrl.trim(), Array.from(selectedCompetitors));
   };
 
@@ -3790,7 +3834,7 @@ function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: UserAccount
   const handleSave = () => {
     if (!user) return;
     const updated: UserAccount = { ...user, name: name.trim(), phone: phone.trim() || undefined, companyName: companyName.trim() || undefined, companyUrl: companyUrl.trim() || undefined, vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hhUrl.trim() || undefined };
-    authSaveUser(updated);
+    authSetCurrentUser(updated);
     onUpdateUser?.(updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -10371,69 +10415,89 @@ export default function MarketRadarDashboard() {
   const [brandSuggestions, setBrandSuggestions] = useState<any | null>(null);
   const c = COLORS[theme];
 
-  // Check for existing session + restore saved company data on mount
+  // Check for existing session + restore saved data on mount
   useEffect(() => {
-    const user = authGetCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      // Restore saved company analysis + competitors
+    const initApp = async () => {
+      // 1. Try server session first
+      let user: UserAccount | null = null;
       try {
-        const saved = localStorage.getItem(`mr_company_${user.id}`);
-        if (saved) {
-          const parsed: AnalysisResult = JSON.parse(saved);
-          setMyCompany(parsed);
-          setStatus("done");
-          setActiveNav("dashboard");
+        const meRes = await fetch("/api/auth/me");
+        const meJson = await meRes.json();
+        if (meJson.ok && meJson.user) {
+          user = {
+            id: meJson.user.id,
+            name: meJson.user.name ?? "",
+            email: meJson.user.email,
+            password: "",
+            onboardingDone: true,
+            role: meJson.user.role,
+          };
+          authSetCurrentUser(user);
         }
-        const savedComps = localStorage.getItem(`mr_competitors_${user.id}`);
-        if (savedComps) {
-          const parsedComps: AnalysisResult[] = JSON.parse(savedComps);
-          if (Array.isArray(parsedComps) && parsedComps.length > 0) {
-            setCompetitors(parsedComps);
-          }
+      } catch { /* server unreachable */ }
+
+      // 2. Fall back to localStorage session
+      if (!user) user = authGetCurrentUser();
+
+      if (!user) return; // not logged in
+
+      setCurrentUser(user);
+
+      // 3. Load data: try server first, fall back to localStorage
+      const applyData = (data: Record<string, unknown>, uid: string) => {
+        const get = (key: string) => data[key] ?? null;
+
+        const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
+        if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
+
+        const comps = get("competitors") ?? JSON.parse(localStorage.getItem(`mr_competitors_${uid}`) ?? "null");
+        if (Array.isArray(comps) && comps.length > 0) setCompetitors(comps as AnalysisResult[]);
+
+        const ta = get("ta") ?? JSON.parse(localStorage.getItem(`mr_ta_${uid}`) ?? "null");
+        if (ta) setTaAnalysis(ta as TAResult);
+
+        const cjm = get("cjm") ?? JSON.parse(localStorage.getItem(`mr_cjm_${uid}`) ?? "null");
+        if (cjm) setCjmData(cjm);
+
+        const bench = get("benchmarks") ?? JSON.parse(localStorage.getItem(`mr_benchmarks_${uid}`) ?? "null");
+        if (bench) setBenchmarksData(bench);
+
+        const smm = get("smm") ?? JSON.parse(localStorage.getItem(`mr_smm_${uid}`) ?? "null");
+        if (smm) setSmmAnalysis(smm as SMMResult);
+
+        const content = (get("content") ?? JSON.parse(localStorage.getItem(`mr_content_${uid}`) ?? "null")) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] } | null;
+        if (content) {
+          if (content.plan) setContentPlan(content.plan);
+          if (Array.isArray(content.posts)) setGeneratedPosts(content.posts);
+          if (Array.isArray(content.reels)) setGeneratedReels(content.reels);
         }
-        const savedTA = localStorage.getItem(`mr_ta_${user.id}`);
-        if (savedTA) {
-          setTaAnalysis(JSON.parse(savedTA));
-        }
-        const savedCJM = localStorage.getItem(`mr_cjm_${user.id}`);
-        if (savedCJM) { setCjmData(JSON.parse(savedCJM)); }
-        const savedBenchmarks = localStorage.getItem(`mr_benchmarks_${user.id}`);
-        if (savedBenchmarks) { setBenchmarksData(JSON.parse(savedBenchmarks)); }
-        const savedSMM = localStorage.getItem(`mr_smm_${user.id}`);
-        if (savedSMM) {
-          setSmmAnalysis(JSON.parse(savedSMM));
-        }
-        const savedContent = localStorage.getItem(`mr_content_${user.id}`);
-        if (savedContent) {
-          const parsedContent = JSON.parse(savedContent) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] };
-          if (parsedContent.plan) setContentPlan(parsedContent.plan);
-          if (Array.isArray(parsedContent.posts)) setGeneratedPosts(parsedContent.posts);
-          if (Array.isArray(parsedContent.reels)) setGeneratedReels(parsedContent.reels);
-        }
-        const savedAvatarSettings = localStorage.getItem(`mr_avatar_settings_${user.id}`);
-        if (savedAvatarSettings) {
-          setAvatarSettings(JSON.parse(savedAvatarSettings));
-        }
-        const savedBrandBook = localStorage.getItem(`mr_brandbook_${user.id}`);
-        if (savedBrandBook) {
-          setBrandBook(JSON.parse(savedBrandBook));
-        }
-        const savedStories = localStorage.getItem(`mr_stories_${user.id}`);
-        if (savedStories) {
-          setGeneratedStories(JSON.parse(savedStories));
-        }
-        const savedHistory = localStorage.getItem(`mr_analysis_history_${user.id}`);
-        if (savedHistory) {
-          setAnalysisHistory(JSON.parse(savedHistory));
-        }
-        const savedBrandSug = localStorage.getItem(`mr_brandsug_${user.id}`);
-        if (savedBrandSug) {
-          setBrandSuggestions(JSON.parse(savedBrandSug));
-        }
-      } catch { /* ignore */ }
+
+        const bb = get("brandbook") ?? JSON.parse(localStorage.getItem(`mr_brandbook_${uid}`) ?? "null");
+        if (bb) setBrandBook(bb as BrandBook);
+
+        const stories = get("stories") ?? JSON.parse(localStorage.getItem(`mr_stories_${uid}`) ?? "null");
+        if (Array.isArray(stories)) setGeneratedStories(stories as GeneratedStory[]);
+
+        const history = get("history") ?? JSON.parse(localStorage.getItem(`mr_analysis_history_${uid}`) ?? "null");
+        if (Array.isArray(history)) setAnalysisHistory(history as Array<AnalysisResult & { analyzedAt: string }>);
+
+        const brandsug = get("brandsug") ?? JSON.parse(localStorage.getItem(`mr_brandsug_${uid}`) ?? "null");
+        if (brandsug) setBrandSuggestions(brandsug);
+
+        const avatar = get("avatar") ?? JSON.parse(localStorage.getItem(`mr_avatar_settings_${uid}`) ?? "null");
+        if (avatar) setAvatarSettings(avatar as AvatarSettings);
+      };
+
+      try {
+        const serverData = await loadAllFromServer();
+        applyData(serverData ?? {}, user.id);
+      } catch {
+        applyData({}, user.id);
+      }
+
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
-    }
+    };
+    initApp();
   }, []);
 
   const analyzeUrl = async (url: string): Promise<AnalysisResult> => {
@@ -10453,6 +10517,7 @@ export default function MarketRadarDashboard() {
     const uid = userId ?? currentUser?.id;
     if (uid) {
       try { localStorage.setItem(`mr_company_${uid}`, JSON.stringify(result)); } catch { /* ignore */ }
+      syncToServer("company", result);
     }
   };
 
@@ -10468,6 +10533,7 @@ export default function MarketRadarDashboard() {
           const next = [historyEntry, ...prev].slice(0, 20); // keep last 20
           if (currentUser?.id) {
             try { localStorage.setItem(`mr_analysis_history_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+            syncToServer("history", next);
           }
           return next;
         });
@@ -10499,6 +10565,7 @@ export default function MarketRadarDashboard() {
         const updated = [...prev, result];
         if (currentUser?.id) {
           try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
+          syncToServer("competitors", updated);
         }
         return updated;
       });
@@ -10531,6 +10598,7 @@ export default function MarketRadarDashboard() {
       setTaAnalysis(json.data);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_ta_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        syncToServer("ta", json.data);
       }
       setActiveNav("ta-dashboard");
     } finally {
@@ -10560,6 +10628,7 @@ export default function MarketRadarDashboard() {
       setCjmError(null);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_cjm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        syncToServer("cjm", json.data);
       }
     } catch (e: unknown) {
       setCjmError(e instanceof Error ? e.message : "Неизвестная ошибка");
@@ -10592,6 +10661,7 @@ export default function MarketRadarDashboard() {
       setBenchmarksError(null);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_benchmarks_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        syncToServer("benchmarks", json.data);
       }
     } catch (e: unknown) {
       setBenchmarksError(e instanceof Error ? e.message : "Неизвестная ошибка");
@@ -10619,6 +10689,7 @@ export default function MarketRadarDashboard() {
       setSmmAnalysis(json.data);
       if (currentUser?.id) {
         try { localStorage.setItem(`mr_smm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        syncToServer("smm", json.data);
       }
       setActiveNav("smm-dashboard");
     } finally {
@@ -10632,6 +10703,7 @@ export default function MarketRadarDashboard() {
     if (!currentUser?.id) return;
     try {
       localStorage.setItem(`mr_content_${currentUser.id}`, JSON.stringify({ plan, posts, reels }));
+      syncToServer("content", { plan, posts, reels });
     } catch { /* ignore */ }
   };
 
@@ -10639,6 +10711,7 @@ export default function MarketRadarDashboard() {
     setAvatarSettings(next);
     if (currentUser?.id) {
       try { localStorage.setItem(`mr_avatar_settings_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      syncToServer("avatar", next);
     }
   };
 
@@ -10646,6 +10719,7 @@ export default function MarketRadarDashboard() {
     setBrandBook(next);
     if (currentUser?.id) {
       try { localStorage.setItem(`mr_brandbook_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      syncToServer("brandbook", next);
     }
   };
 
@@ -10653,12 +10727,14 @@ export default function MarketRadarDashboard() {
     setBrandSuggestions(v);
     if (currentUser) {
       try { localStorage.setItem(`mr_brandsug_${currentUser.id}`, JSON.stringify(v)); } catch { /* ignore */ }
+      syncToServer("brandsug", v);
     }
   };
 
   const persistStories = (stories: GeneratedStory[]) => {
     if (!currentUser?.id) return;
     try { localStorage.setItem(`mr_stories_${currentUser.id}`, JSON.stringify(stories)); } catch { /* ignore */ }
+    syncToServer("stories", stories);
   };
 
   const handleAddStory = (story: GeneratedStory) => {
@@ -10892,6 +10968,7 @@ export default function MarketRadarDashboard() {
       }
       if (compResults.length > 0 && updatedUser.id) {
         try { localStorage.setItem(`mr_competitors_${updatedUser.id}`, JSON.stringify(compResults)); } catch { /* ignore */ }
+        syncToServer("competitors", compResults);
       }
       setActiveNav("dashboard");
     } catch {
@@ -10901,8 +10978,9 @@ export default function MarketRadarDashboard() {
     }
   };
 
-  // Logout — НЕ сбрасываем данные компании (они в localStorage)
+  // Logout
   const handleLogout = () => {
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     authSetCurrentUser(null);
     setCurrentUser(null);
     setAppScreen("landing");
