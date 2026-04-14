@@ -1,0 +1,22 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 72.56.241.159
+          username: maria
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd /var/www/market-radar
+            git pull origin main
+            npm install
+            npm run build
+            pm2 restart market-radar
