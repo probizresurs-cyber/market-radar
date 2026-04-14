@@ -72,7 +72,7 @@ function extractJson(text: string): unknown {
     }
   }
 
-  throw new Error("Failed to parse AI response as JSON");
+  throw new Error(`Failed to parse AI response as JSON. Preview: ${stripped.slice(0, 200)}`);
 }
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
@@ -108,34 +108,15 @@ ${companyData.url ? `- Сайт: ${companyData.url}` : ""}
 ${companyData.description ? `- Описание: ${companyData.description}` : ""}`
       : "";
 
-  return `Создай CJM (Customer Journey Map) для бизнеса на российском рынке.
+  return `Создай CJM для бизнеса. Отвечай ТОЛЬКО JSON объектом, без markdown и пояснений.
 
 КОМПАНИЯ: ${companyName}
-НИША: ${niche}
-${companySection}
-${taSection}
+НИША: ${niche}${companySection}${taSection}
 
-Верни JSON с 7 этапами (awareness, interest, consideration, decision, purchase, retention, loyalty).
+Верни строго этот JSON (7 этапов, каждое поле обязательно):
+{"companyName":"${companyName}","stages":[{"id":"awareness","name":"Осведомлённость","emoji":"👁️","duration":"1–7 дней","goal":"...","emotion":"...","emotionValence":"neutral","touchpoints":[{"channel":"...","action":"...","icon":"📱"},{"channel":"...","action":"...","icon":"🔍"},{"channel":"...","action":"...","icon":"📢"}],"customerThoughts":["...","...","..."],"painPoints":["...","..."],"opportunities":["...","..."],"kpi":"..."},{"id":"interest",...},{"id":"consideration",...},{"id":"decision",...},{"id":"purchase",...},{"id":"retention",...},{"id":"loyalty",...}]}
 
-Структура каждого этапа:
-{
-  "id": "awareness",
-  "name": "Осведомлённость",
-  "emoji": "👁️",
-  "duration": "1–7 дней",
-  "goal": "цель клиента",
-  "emotion": "любопытство",
-  "emotionValence": "neutral",
-  "touchpoints": [
-    {"channel": "ВКонтакте", "action": "видит таргетированную рекламу", "icon": "📱"}
-  ],
-  "customerThoughts": ["мысль 1", "мысль 2", "мысль 3"],
-  "painPoints": ["боль 1", "боль 2"],
-  "opportunities": ["возможность 1", "возможность 2"],
-  "kpi": "охват / число показов"
-}
-
-Требования: emotionValence = positive|neutral|negative|mixed. Каждый этап: 3 touchpoints, 3 мысли, 2 боли, 2 возможности. Специфика ниши обязательна. JSON без markdown.`;
+emotionValence: positive|neutral|negative|mixed. Специфика ниши обязательна.`;
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -179,7 +160,7 @@ export async function POST(req: Request) {
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8000,
       messages: [
         {
           role: "user",
