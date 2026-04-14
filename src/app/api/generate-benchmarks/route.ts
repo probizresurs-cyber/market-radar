@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" });
 
 const SYSTEM_PROMPT = `Ты — ведущий аналитик рынка и бенчмаркинга для российского и СНГ-рынка. Ты специализируешься на конкурентном анализе, отраслевых метриках и стратегическом позиционировании компаний.
 

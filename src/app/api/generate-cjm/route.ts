@@ -154,7 +154,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" });
 
     const userPrompt = buildPrompt(companyName, niche, taData, companyData);
 

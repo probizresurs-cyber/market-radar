@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice, AiPerception } from "./types";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractJson(text: string): any {
