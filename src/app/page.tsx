@@ -10668,6 +10668,62 @@ export default function MarketRadarDashboard() {
   const [brandSuggestions, setBrandSuggestions] = useState<any | null>(null);
   const c = COLORS[theme];
 
+  // Apply server/localStorage data to React state — shared by initApp and post-login
+  const applyUserData = React.useCallback((data: Record<string, unknown>, uid: string) => {
+    const get = (key: string) => data[key] ?? null;
+
+    const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
+    if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
+
+    const comps = get("competitors") ?? JSON.parse(localStorage.getItem(`mr_competitors_${uid}`) ?? "null");
+    if (Array.isArray(comps) && comps.length > 0) setCompetitors(comps as AnalysisResult[]);
+
+    const ta = get("ta") ?? JSON.parse(localStorage.getItem(`mr_ta_${uid}`) ?? "null");
+    if (ta) setTaAnalysis(ta as TAResult);
+
+    const cjm = get("cjm") ?? JSON.parse(localStorage.getItem(`mr_cjm_${uid}`) ?? "null");
+    if (cjm) setCjmData(cjm);
+
+    const bench = get("benchmarks") ?? JSON.parse(localStorage.getItem(`mr_benchmarks_${uid}`) ?? "null");
+    if (bench) setBenchmarksData(bench);
+
+    const smm = get("smm") ?? JSON.parse(localStorage.getItem(`mr_smm_${uid}`) ?? "null");
+    if (smm) setSmmAnalysis(smm as SMMResult);
+
+    const content = (get("content") ?? JSON.parse(localStorage.getItem(`mr_content_${uid}`) ?? "null")) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] } | null;
+    if (content) {
+      if (content.plan) setContentPlan(content.plan);
+      if (Array.isArray(content.posts)) setGeneratedPosts(content.posts);
+      if (Array.isArray(content.reels)) setGeneratedReels(content.reels);
+    }
+
+    const bb = get("brandbook") ?? JSON.parse(localStorage.getItem(`mr_brandbook_${uid}`) ?? "null");
+    if (bb) setBrandBook(bb as BrandBook);
+
+    const stories = get("stories") ?? JSON.parse(localStorage.getItem(`mr_stories_${uid}`) ?? "null");
+    if (Array.isArray(stories)) setGeneratedStories(stories as GeneratedStory[]);
+
+    const history = get("history") ?? JSON.parse(localStorage.getItem(`mr_analysis_history_${uid}`) ?? "null");
+    if (Array.isArray(history)) setAnalysisHistory(history as Array<AnalysisResult & { analyzedAt: string }>);
+
+    const brandsug = get("brandsug") ?? JSON.parse(localStorage.getItem(`mr_brandsug_${uid}`) ?? "null");
+    if (brandsug) setBrandSuggestions(brandsug);
+
+    const avatar = get("avatar") ?? JSON.parse(localStorage.getItem(`mr_avatar_settings_${uid}`) ?? "null");
+    if (avatar) setAvatarSettings(avatar as AvatarSettings);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load server data and apply it — called after login and on init
+  const loadAndApplyUserData = React.useCallback(async (uid: string) => {
+    try {
+      const serverData = await loadAllFromServer();
+      applyUserData(serverData ?? {}, uid);
+    } catch {
+      applyUserData({}, uid);
+    }
+  }, [applyUserData]);
+
   // Check for existing session + restore saved data on mount
   useEffect(() => {
     const initApp = async () => {
@@ -10696,62 +10752,12 @@ export default function MarketRadarDashboard() {
 
       setCurrentUser(user);
 
-      // 3. Load data: try server first, fall back to localStorage
-      const applyData = (data: Record<string, unknown>, uid: string) => {
-        const get = (key: string) => data[key] ?? null;
-
-        const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
-        if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
-
-        const comps = get("competitors") ?? JSON.parse(localStorage.getItem(`mr_competitors_${uid}`) ?? "null");
-        if (Array.isArray(comps) && comps.length > 0) setCompetitors(comps as AnalysisResult[]);
-
-        const ta = get("ta") ?? JSON.parse(localStorage.getItem(`mr_ta_${uid}`) ?? "null");
-        if (ta) setTaAnalysis(ta as TAResult);
-
-        const cjm = get("cjm") ?? JSON.parse(localStorage.getItem(`mr_cjm_${uid}`) ?? "null");
-        if (cjm) setCjmData(cjm);
-
-        const bench = get("benchmarks") ?? JSON.parse(localStorage.getItem(`mr_benchmarks_${uid}`) ?? "null");
-        if (bench) setBenchmarksData(bench);
-
-        const smm = get("smm") ?? JSON.parse(localStorage.getItem(`mr_smm_${uid}`) ?? "null");
-        if (smm) setSmmAnalysis(smm as SMMResult);
-
-        const content = (get("content") ?? JSON.parse(localStorage.getItem(`mr_content_${uid}`) ?? "null")) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] } | null;
-        if (content) {
-          if (content.plan) setContentPlan(content.plan);
-          if (Array.isArray(content.posts)) setGeneratedPosts(content.posts);
-          if (Array.isArray(content.reels)) setGeneratedReels(content.reels);
-        }
-
-        const bb = get("brandbook") ?? JSON.parse(localStorage.getItem(`mr_brandbook_${uid}`) ?? "null");
-        if (bb) setBrandBook(bb as BrandBook);
-
-        const stories = get("stories") ?? JSON.parse(localStorage.getItem(`mr_stories_${uid}`) ?? "null");
-        if (Array.isArray(stories)) setGeneratedStories(stories as GeneratedStory[]);
-
-        const history = get("history") ?? JSON.parse(localStorage.getItem(`mr_analysis_history_${uid}`) ?? "null");
-        if (Array.isArray(history)) setAnalysisHistory(history as Array<AnalysisResult & { analyzedAt: string }>);
-
-        const brandsug = get("brandsug") ?? JSON.parse(localStorage.getItem(`mr_brandsug_${uid}`) ?? "null");
-        if (brandsug) setBrandSuggestions(brandsug);
-
-        const avatar = get("avatar") ?? JSON.parse(localStorage.getItem(`mr_avatar_settings_${uid}`) ?? "null");
-        if (avatar) setAvatarSettings(avatar as AvatarSettings);
-      };
-
-      try {
-        const serverData = await loadAllFromServer();
-        applyData(serverData ?? {}, user.id);
-      } catch {
-        applyData({}, user.id);
-      }
+      await loadAndApplyUserData(user.id);
 
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     };
     initApp();
-  }, []);
+  }, [loadAndApplyUserData]);
 
   const analyzeUrl = async (url: string): Promise<AnalysisResult> => {
     const res = await fetch("/api/analyze", {
@@ -11268,7 +11274,7 @@ export default function MarketRadarDashboard() {
     return <RegisterView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen("onboarding"); }} onLogin={() => setAppScreen("login")} />;
   }
   if (appScreen === "login") {
-    return <LoginView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} />;
+    return <LoginView c={c} onSuccess={async (user) => { setCurrentUser(user); await loadAndApplyUserData(user.id); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} />;
   }
   if (appScreen === "onboarding" && currentUser) {
     return <OnboardingView c={c} user={currentUser} onComplete={handleOnboardingComplete} />;
