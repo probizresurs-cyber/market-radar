@@ -1,65 +1,60 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  baseURL: process.env.ANTHROPIC_BASE_URL,
 });
 
-const SYSTEM_PROMPT = "Ты — SEO-специалист. Составляешь семантические кластеры ключевых слов. Отвечаешь ТОЛЬКО валидным JSON без markdown-обёрток. Твой ответ начинается с { и заканчивается }.";
-
-function extractJson(text: string): unknown {
-  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-  const start = stripped.indexOf("{");
-  const end = stripped.lastIndexOf("}");
-  if (start === -1 || end <= start) throw new Error("No JSON object found");
-  return JSON.parse(stripped.slice(start, end + 1));
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { topic, companyName, niche, taContext } = await req.json();
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-
-    const userPrompt = `Составь семантический кластер ключевых слов.
+    const prompt = `Ты — SEO-специалист. Составь семантический кластер ключевых слов для статьи.
 
 ТЕМА: ${topic}
-КОМПАНИЯ: ${companyName || "—"} | НИША: ${niche || "—"}
+КОМПАНИЯ: ${companyName || "—"}
+НИША: ${niche || "—"}
 ${taContext ? `ЦА: ${taContext}` : ""}
 
-Верни строго этот JSON:
-{"focusKeyword":"главный ключевой запрос (2-4 слова)","keywords":[{"phrase":"фраза","frequency":"high","isLsi":false,"usedInHeadings":true,"usedInBody":true}]}
+Верни ТОЛЬКО валидный JSON (без markdown):
+{
+  "focusKeyword": "главный ключевой запрос",
+  "keywords": [
+    {
+      "phrase": "ключевая фраза",
+      "frequency": "high",
+      "isLsi": false,
+      "usedInHeadings": true,
+      "usedInBody": true
+    }
+  ]
+}
 
-Включи: 1 фокус-ключ (frequency:"high"), 5-8 вторичных (frequency:"medium", isLsi:false), 8-12 LSI (frequency:"low", isLsi:true).`;
+Включи:
+- 1 фокус-ключ (высокочастотный, 2-4 слова)
+- 5-8 вторичных ключей (среднечастотные)
+- 8-12 LSI-ключей (isLsi: true, семантически близкие)
+frequency: "high" = основной запрос, "medium" = 2-3 раза в тексте, "low" = 1 раз
+Фокус-ключ включи в список keywords с frequency: "high", isLsi: false`;
 
-    const streamResponse = await client.messages.create({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-      stream: true,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    let rawText = "";
-    for await (const event of streamResponse) {
-      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        rawText += event.delta.text;
-      }
-    }
+    const text = (response.content[0] as { type: string; text: string }).text.trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON");
+    const data = JSON.parse(jsonMatch[0]);
 
-    if (!rawText) return NextResponse.json({ error: "Пустой ответ от Claude" }, { status: 500 });
-
-    const cluster = extractJson(rawText);
-    return NextResponse.json({ cluster });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("seo-cluster-keywords error:", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ cluster: data });
+  } catch (e) {
+    console.error("seo-cluster-keywords error:", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

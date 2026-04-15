@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 
@@ -6,35 +6,35 @@ export const runtime = "nodejs";
 export const maxDuration = 180;
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  baseURL: process.env.ANTHROPIC_BASE_URL,
 });
 
-const SYSTEM_PROMPT = "Ты — SEO-копирайтер. Пишешь экспертные, структурированные статьи с органичным использованием ключевых слов, плотность 1-2.5%.";
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook }
       : {
-          brief: SEOArticleBrief; h1: string; intro: string;
-          sections: SEOSection[]; conclusion: string;
-          mode: "full" | "section"; sectionId?: string;
+          brief: SEOArticleBrief;
+          h1: string;
+          intro: string;
+          sections: SEOSection[];
+          conclusion: string;
+          mode: "full" | "section";
+          sectionId?: string;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           brandBook?: any;
         }
       = await req.json();
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-
-    const tov = brandBook?.toneOfVoice?.length ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.` : "";
-    const forbidden = brandBook?.forbiddenWords?.length ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.` : "";
-
-    let userPrompt: string;
-    let maxTokens: number;
+    const tov = brandBook?.toneOfVoice?.length
+      ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.`
+      : "";
+    const forbidden = brandBook?.forbiddenWords?.length
+      ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.`
+      : "";
 
     if (mode === "section" && sectionId) {
+      // Generate a single section
       const sec = sections.find(s => s.id === sectionId);
       if (!sec) return NextResponse.json({ error: "Section not found" }, { status: 400 });
 
@@ -43,65 +43,81 @@ export async function POST(req: Request) {
         .map(s => `## ${s.heading}\n${s.generatedContent}`)
         .join("\n\n");
 
-      userPrompt = `Напиши раздел статьи.
+      const prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
 
-СТАТЬЯ: ${brief.topic} | ПЛАТФОРМА: ${brief.platform}
+СТАТЬЯ: ${brief.topic}
+ПЛАТФОРМА: ${brief.platform}
 ${tov} ${forbidden}
 ФОКУС-КЛЮЧ: ${brief.focusKeyword}
-КЛЮЧИ РАЗДЕЛА: ${sec.keywords.join(", ")}
-${prevContent ? `\nУЖЕ НАПИСАНО:\n${prevContent}\n---` : ""}
+КЛЮЧИ ДЛЯ ЭТОГО РАЗДЕЛА: ${sec.keywords.join(", ")}
 
-Напиши раздел "${sec.heading}" (H${sec.level}).
-Бриф: ${sec.contentBrief}. Объём: ~${sec.wordTarget} слов.
-Начни сразу с текста (без заголовка). Пиши экспертно, добавляй факты.`;
-      maxTokens = 2000;
-    } else {
-      const outlineText = sections
-        .map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`)
-        .join("\n\n");
+${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevContent}\n---` : ""}
 
-      userPrompt = `Напиши полную статью по брифу.
+ЗАДАЧА: Напиши раздел "${sec.heading}" (H${sec.level}).
+Бриф раздела: ${sec.contentBrief}
+Целевой объём: ~${sec.wordTarget} слов.
 
-ТЕМА: ${brief.topic} | ПЛАТФОРМА: ${brief.platform} | ТИП: ${brief.articleType}
-ФОКУС-КЛЮЧ: ${brief.focusKeyword} | ВТОРИЧНЫЕ: ${brief.secondaryKeywords.join(", ")}
-ЦА: ${brief.audience} | CTA: ${brief.callToAction}
+Требования:
+- Начни сразу с текста (без заголовка — он уже есть в структуре)
+- Используй ключевые слова раздела органично
+- Пиши для живого читателя, не для робота
+- Абзацы 3-5 предложений
+- Добавь конкретику: цифры, примеры, факты где уместно
+- Не повторяй уже написанный контент`;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const content = (response.content[0] as { type: string; text: string }).text.trim();
+      return NextResponse.json({ sectionId, content });
+    }
+
+    // Full article mode (for short articles ≤ 2000 words)
+    const outlineText = sections.map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`).join("\n\n");
+
+    const prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
+
+ТЕМА: ${brief.topic}
+ПЛАТФОРМА: ${brief.platform}
+ТИП: ${brief.articleType}
+ФОКУС-КЛЮЧ: ${brief.focusKeyword}
+ВТОРИЧНЫЕ КЛЮЧИ: ${brief.secondaryKeywords.join(", ")}
+ЦА: ${brief.audience}
+CTA: ${brief.callToAction}
 ${tov} ${forbidden}
 
 СТРУКТУРА:
-# ${h1}
+H1: ${h1}
+
 Лид: ${intro}
 
 ${outlineText}
 
 Заключение: ${conclusion}
 
-Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###).`;
-      maxTokens = 6000;
-    }
+Напиши полную статью строго по структуре. Требования:
+- Используй заголовки H1/H2/H3 из структуры
+- Органично вставляй ключевые запросы (плотность 1-2.5%)
+- Пиши живо и экспертно
+- Добавь конкретику: примеры, цифры, факты
+- Завершись чётким призывом к действию
+- Формат: Markdown (## для H2, ### для H3)`;
 
-    const streamResponse = await client.messages.create({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: maxTokens,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-      stream: true,
+      max_tokens: 6000,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    let content = "";
-    for await (const event of streamResponse) {
-      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        content += event.delta.text;
-      }
-    }
-    content = content.trim();
+    const fullText = (response.content[0] as { type: string; text: string }).text.trim();
+    const wordCount = fullText.split(/\s+/).length;
 
-    if (!content) return NextResponse.json({ error: "Пустой ответ от Claude" }, { status: 500 });
-
-    if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
-    return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("seo-generate-article error:", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ fullText, wordCount });
+  } catch (e) {
+    console.error("seo-generate-article error:", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
