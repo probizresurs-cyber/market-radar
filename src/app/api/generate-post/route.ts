@@ -101,7 +101,7 @@ export async function POST(req: Request) {
     const userMessage = userPrompt.trim()
       ? (brandBlockForCustom ? `${userPrompt.trim()}\n${brandBlockForCustom}` : userPrompt.trim())
       : buildPrompt(companyName, idea, smm, brandBook);
-    const textRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const textRes = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

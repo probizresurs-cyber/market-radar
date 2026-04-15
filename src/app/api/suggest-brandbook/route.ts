@@ -90,7 +90,7 @@ ${segmentsDump}
 
 На основе этих данных предложи рекомендации по визуальному стилю и коммуникации бренда.`;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

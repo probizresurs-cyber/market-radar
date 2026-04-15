@@ -128,7 +128,7 @@ ${dataDump}
 
 Все числа — реальные, посчитанные из данных. ER = (likes+comments+shares+saves)/(reach или views) × 100.`;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

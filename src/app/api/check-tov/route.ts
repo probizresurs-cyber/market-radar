@@ -76,7 +76,7 @@ ${text}
 Если issues пустой — score должен быть 85-100. Если issues есть — score ниже соответственно.
 correctedHook и correctedBody — всегда готовый к публикации текст, полностью в стиле брендбука.`;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

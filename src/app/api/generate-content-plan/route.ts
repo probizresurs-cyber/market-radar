@@ -135,7 +135,7 @@ export async function POST(req: Request) {
 
     let raw: string;
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
         method: "POST",
         signal: ctrl.signal,
         headers: {

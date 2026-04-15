@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       `Тип: ${type === "post" ? "пост" : "рилс"}`,
     ].filter(Boolean).join("\n\n");
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
