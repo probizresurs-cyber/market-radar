@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
@@ -13,26 +14,40 @@ type AnyMetrics = PostMetrics & ReelMetrics;
 // MarketRadar — Конкурентный анализ для Company24.pro
 // ============================================================
 
+// Palette matching globals.css design tokens. Sidebar is ALWAYS dark.
 const COLORS = {
   light: {
-    bg: "#f8fafc", bgCard: "#ffffff", bgSidebar: "#f1f5f9",
-    bgSidebarHover: "#e8eef5", bgSidebarActive: "#dde6f5",
-    accent: "#6366f1", accentWarm: "#f59e0b", accentGreen: "#10b981",
-    accentRed: "#ef4444", accentYellow: "#f59e0b",
-    textPrimary: "#0f172a", textSecondary: "#475569", textMuted: "#94a3b8",
-    border: "#e2e8f0", borderLight: "#f1f5f9",
-    shadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(99,102,241,0.06)",
-    shadowLg: "0 4px 6px rgba(0,0,0,0.04), 0 10px 40px rgba(99,102,241,0.1)",
+    bg: "#F5F3F0", bgCard: "#FEFEFE",
+    bgSidebar: "#1C1A35", bgSidebarHover: "#272450", bgSidebarActive: "#332F60",
+    sidebarText: "#E8E6EF", sidebarTextMuted: "#9B97B8", sidebarBorder: "#332F60",
+    accent: "#7C3AED", accentWarm: "#D4A017", accentGreen: "#16A34A",
+    accentRed: "#DC2626", accentYellow: "#D4A017",
+    textPrimary: "#1A1A2E", textSecondary: "#2D2B3A", textMuted: "#6B6979",
+    border: "#D1D0D7", borderLight: "#EBEAF0",
+    shadow: "0 1px 2px rgba(26,26,46,0.04), 0 4px 16px rgba(124,58,237,0.06)",
+    shadowLg: "0 4px 6px rgba(26,26,46,0.05), 0 10px 40px rgba(124,58,237,0.10)",
   },
   dark: {
-    bg: "#070b14", bgCard: "#0d1424", bgSidebar: "#060a12",
-    bgSidebarHover: "#111828", bgSidebarActive: "#161f33",
-    accent: "#818cf8", accentWarm: "#fbbf24", accentGreen: "#34d399",
-    accentRed: "#f87171", accentYellow: "#fbbf24",
-    textPrimary: "#f1f5f9", textSecondary: "#94a3b8", textMuted: "#475569",
-    border: "#1e2d45", borderLight: "#172035",
+    bg: "#1E1B2E", bgCard: "#2A2740",
+    bgSidebar: "#141126", bgSidebarHover: "#201C38", bgSidebarActive: "#2A2544",
+    sidebarText: "#E8E6EF", sidebarTextMuted: "#8F8BA8", sidebarBorder: "#2A2544",
+    accent: "#8B5CF6", accentWarm: "#FBBF24", accentGreen: "#34D399",
+    accentRed: "#F87171", accentYellow: "#FBBF24",
+    textPrimary: "#E8E6EF", textSecondary: "#B0ADC3", textMuted: "#7F7C94",
+    border: "#4A4660", borderLight: "#3A3652",
     shadow: "0 1px 3px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.4)",
-    shadowLg: "0 4px 8px rgba(0,0,0,0.6), 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(129,140,248,0.06)",
+    shadowLg: "0 4px 8px rgba(0,0,0,0.6), 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.06)",
+  },
+  warm: {
+    bg: "#F8F4EC", bgCard: "#FAF6F0",
+    bgSidebar: "#2A2418", bgSidebarHover: "#3A3020", bgSidebarActive: "#463A27",
+    sidebarText: "#F0E6D4", sidebarTextMuted: "#B8A888", sidebarBorder: "#463A27",
+    accent: "#5B4FC7", accentWarm: "#D4A017", accentGreen: "#16A34A",
+    accentRed: "#DC2626", accentYellow: "#D4A017",
+    textPrimary: "#2E2418", textSecondary: "#4A3E2E", textMuted: "#7A6E5E",
+    border: "#D4C9B8", borderLight: "#E8DFCC",
+    shadow: "0 1px 2px rgba(46,36,24,0.04), 0 4px 16px rgba(91,79,199,0.06)",
+    shadowLg: "0 4px 6px rgba(46,36,24,0.05), 0 10px 40px rgba(91,79,199,0.10)",
   },
 } as const;
 
@@ -10627,10 +10642,36 @@ const NAV_SECTIONS: NavSection[] = [
 // ============================================================
 
 export default function MarketRadarDashboard() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
+  const setTheme = React.useCallback((t: Theme) => {
+    setThemeState(t);
+    if (typeof window !== "undefined") {
+      try { localStorage.setItem("mr_theme", t); } catch { /* ignore */ }
+      const root = document.documentElement;
+      root.classList.remove("dark", "warm");
+      if (t !== "light") root.classList.add(t);
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem("mr_theme") as Theme | null;
+      if (saved && saved in COLORS) { setThemeState(saved); }
+      else {
+        // default: respect OS preference
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const def: Theme = prefersDark ? "dark" : "light";
+        setThemeState(def);
+        document.documentElement.classList.remove("dark", "warm");
+        if (def !== "light") document.documentElement.classList.add(def);
+      }
+    } catch { /* ignore */ }
+  }, []);
   const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [activeNav, setActiveNav] = useState("new-analysis");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const setActiveNavMobile = React.useCallback((id: string) => { setActiveNav(id); setMobileMenuOpen(false); }, []);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [myCompany, setMyCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
@@ -11367,25 +11408,86 @@ export default function MarketRadarDashboard() {
     return <LoadingView c={c} url={currentUrl} />;
   }
 
+  // Mobile chrome: top bar + drawer + bottom nav
+  const mobileNav = (
+    <>
+      {/* Top bar — mobile only */}
+      <div className="ds-mobile-only" style={{
+        position: "sticky", top: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 12px", height: 52,
+        background: c.bgCard, borderBottom: `1px solid ${c.border}`,
+        flexShrink: 0,
+      }}>
+        <button onClick={() => setMobileMenuOpen(true)} aria-label="Открыть меню"
+          style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", color: c.textPrimary, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8 }}>
+          <Menu size={22} />
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11 }}>MR</div>
+          <span style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>MarketRadar</span>
+        </div>
+        <button onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")} aria-label="Сменить тему"
+          style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", fontSize: 18, borderRadius: 8 }}>
+          {theme === "light" ? "🌙" : theme === "dark" ? "☕" : "☀️"}
+        </button>
+      </div>
+
+      {/* Drawer backdrop */}
+      <div onClick={() => setMobileMenuOpen(false)}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 105, opacity: mobileMenuOpen ? 1 : 0, pointerEvents: mobileMenuOpen ? "auto" : "none", transition: "opacity 220ms ease" }} />
+
+      {/* Side drawer with full nav */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, bottom: 0, width: 280, maxWidth: "85vw",
+        background: COLORS.dark.bgSidebar, zIndex: 110,
+        transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 220ms ease", overflowY: "auto",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${COLORS.dark.sidebarBorder}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11 }}>MR</div>
+            <span style={{ fontWeight: 700, fontSize: 13, color: COLORS.dark.sidebarText }}>MarketRadar</span>
+          </div>
+          <button onClick={() => setMobileMenuOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: COLORS.dark.sidebarTextMuted, borderRadius: 6, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={18} />
+          </button>
+        </div>
+        <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav}
+          setActiveNav={setActiveNavMobile} navSections={navSections}
+          companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+      </div>
+
+      <MobileBottomNav activeNav={activeNav}
+        setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNavMobile(id); }}
+        onOpenMenu={() => setMobileMenuOpen(true)} />
+    </>
+  );
+
   // App: competitor profile sub-view
   if (selectedCompetitor !== null && competitors[selectedCompetitor]) {
     return (
-      <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
-        <style>{`* { box-sizing: border-box; } ::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
-        <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
-        <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
-          <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
-        </main>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: c.bg, color: c.textPrimary }}>
+        <style>{`::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+        {mobileNav}
+        <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+          <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+            <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
+          </main>
+        </div>
       </div>
     );
   }
 
   // App: main dashboard layout
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'PT Sans', 'Segoe UI', system-ui, sans-serif", background: c.bg, color: c.textPrimary, overflow: "hidden" }}>
-      <style>{`* { box-sizing: border-box; } ::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: c.bg, color: c.textPrimary }}>
+      <style>{`::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+      {mobileNav}
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
-      <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+      <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} />}
@@ -11440,6 +11542,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}
         {activeNav === "landing-generator" && <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}
       </main>
+      </div>
     </div>
   );
 }
@@ -11861,6 +11964,9 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
     });
   };
 
+  const SB = (c as typeof COLORS["dark"]); // sidebar always reads dark-style tokens
+  void SB; // suppress unused var warning
+
   const renderItem = (item: NavItem, depth = 0) => {
     const isGroup = !!(item.children && item.children.length > 0);
     const isExpanded = expandedGroups.has(item.id);
@@ -11874,27 +11980,25 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
           style={{
             display: "flex", alignItems: "center", gap: 9,
             padding: depth > 0 ? "7px 10px 7px 28px" : "8px 10px",
-            borderRadius: 9, cursor: "pointer",
-            background: isActive ? "#6366f118" : childActive && !isExpanded ? "#6366f10a" : "transparent",
-            color: isActive ? "#818cf8" : childActive ? "#818cf8" : c.textSecondary,
+            borderRadius: 8, cursor: "pointer",
+            background: isActive ? c.bgSidebarActive : "transparent",
+            color: isActive ? "#C4B8F5" : childActive ? "#C4B8F5" : c.sidebarText,
             fontWeight: isActive || (childActive && !isExpanded) ? 600 : 400, fontSize: 13,
-            transition: "all 0.12s ease", marginBottom: 1,
-            border: "1px solid transparent",
-            borderColor: isActive ? "#6366f125" : "transparent",
+            transition: "background 0.15s ease, color 0.15s ease", marginBottom: 1,
           }}
-          onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = c.bgSidebarHover; e.currentTarget.style.color = c.textPrimary; } }}
-          onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = isActive ? "#6366f118" : "transparent"; e.currentTarget.style.color = isActive ? "#818cf8" : c.textSecondary; } }}>
-          <span style={{ fontSize: depth > 0 ? 13 : 15, flexShrink: 0, opacity: isActive || childActive ? 1 : 0.7 }}>{item.icon}</span>
+          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = c.bgSidebarHover; }}
+          onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+          <span style={{ fontSize: depth > 0 ? 13 : 15, flexShrink: 0, opacity: isActive || childActive ? 1 : 0.8 }}>{item.icon}</span>
           <span style={{ flex: 1 }}>{item.label}</span>
           {item.count !== null && !isGroup && (
-            <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "#6366f130" : c.borderLight, color: isActive ? "#818cf8" : c.textMuted, borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "rgba(196,184,245,0.15)" : "rgba(255,255,255,0.07)", color: isActive ? "#C4B8F5" : c.sidebarTextMuted, borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
           )}
           {isGroup && (
-            <span style={{ fontSize: 10, color: c.textMuted, transition: "transform 0.15s", display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+            <ChevronRight size={13} style={{ color: c.sidebarTextMuted, transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
           )}
         </div>
         {isGroup && isExpanded && (
-          <div style={{ borderLeft: `2px solid ${c.borderLight}`, marginLeft: 18, marginBottom: 2 }}>
+          <div style={{ borderLeft: `2px solid ${c.sidebarBorder}`, marginLeft: 18, marginBottom: 2 }}>
             {item.children!.map(child => renderItem(child, depth + 1))}
           </div>
         )}
@@ -11903,60 +12007,98 @@ function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSect
   };
 
   return (
-    <aside style={{ width: 220, minWidth: 220, background: c.bgSidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", overflow: "auto" }}>
+    <aside className="ds-sidebar-desktop" style={{ width: 240, minWidth: 240, background: c.bgSidebar, borderRight: `1px solid ${c.sidebarBorder}`, display: "flex", flexDirection: "column", overflow: "auto" }}>
       {/* Logo */}
-      <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid ${c.border}` }}>
+      <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid ${c.sidebarBorder}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 8px #6366f140", flexShrink: 0 }}>MR</div>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 10px rgba(124,58,237,0.4)", flexShrink: 0 }}>MR</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, letterSpacing: "-0.02em" }}>MarketRadar</div>
-            {companyUrl && <div style={{ fontSize: 10, color: c.textMuted, marginTop: 1 }}>{companyUrl}</div>}
+            <div style={{ fontWeight: 700, fontSize: 13, color: c.sidebarText, letterSpacing: "-0.02em" }}>MarketRadar</div>
+            {companyUrl && <div style={{ fontSize: 10, color: c.sidebarTextMuted, marginTop: 1 }}>{companyUrl}</div>}
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <div style={{ padding: "8px 8px", flex: 1, overflowY: "auto" }}>
+      <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
         {navSections.map(section => (
           <div key={section.title}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.1em", padding: "12px 10px 5px", textTransform: "uppercase" }}>{section.title}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: c.sidebarTextMuted, letterSpacing: "0.1em", padding: "14px 10px 6px", textTransform: "uppercase" }}>{section.title}</div>
             {section.items.map(item => renderItem(item))}
           </div>
         ))}
       </div>
 
       {/* Bottom */}
-      <div style={{ padding: "8px", borderTop: `1px solid ${c.border}` }}>
-        <div onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-          style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: c.textSecondary, transition: "background 0.12s" }}
+      <div style={{ padding: "8px", borderTop: `1px solid ${c.sidebarBorder}` }}>
+        <div onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: c.sidebarText, transition: "background 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.background = c.bgSidebarHover}
           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-          <span>{theme === "light" ? "🌙" : "☀️"}</span>
-          <span>{theme === "light" ? "Тёмная тема" : "Светлая тема"}</span>
+          <span>{theme === "light" ? "🌙" : theme === "dark" ? "☕" : "☀️"}</span>
+          <span style={{ opacity: 0.85 }}>{theme === "light" ? "Тёмная тема" : theme === "dark" ? "Тёплая тема" : "Светлая тема"}</span>
         </div>
         {user && (
-          <div style={{ padding: "8px 10px", borderTop: `1px solid ${c.borderLight}`, marginTop: 4 }}>
+          <div style={{ padding: "10px", borderTop: `1px solid ${c.sidebarBorder}`, marginTop: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13 }}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <div style={{ position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRadius: "50%", background: "#34d399", border: `2px solid ${c.bgSidebar}` }} />
+                <div style={{ position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRadius: "50%", background: "#16A34A", border: `2px solid ${c.bgSidebar}` }} />
               </div>
               <div style={{ overflow: "hidden" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: c.textPrimary, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
-                <div style={{ fontSize: 10, color: c.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: c.sidebarText, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize: 10, color: c.sidebarTextMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
               </div>
             </div>
             <div onClick={onLogout}
-              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: c.accentRed, cursor: "pointer", padding: "4px 0", opacity: 0.8, transition: "opacity 0.12s" }}
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#F87171", cursor: "pointer", padding: "5px 0", opacity: 0.85, transition: "opacity 0.15s" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "0.8"}>
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "0.85"}>
               <span>↩</span><span>Выйти</span>
             </div>
           </div>
         )}
       </div>
     </aside>
+  );
+}
+
+// ============================================================
+// Mobile Bottom Navigation (visible on <768px)
+// ============================================================
+function MobileBottomNav({ activeNav, setActiveNav, onOpenMenu }: {
+  activeNav: string; setActiveNav: (id: string) => void; onOpenMenu: () => void;
+}) {
+  const items = [
+    { id: "dashboard",    label: "Главная",    icon: <LayoutDashboard size={22} /> },
+    { id: "competitors",  label: "Конкуренты", icon: <Sword size={22} /> },
+    { id: "ta-dashboard", label: "ЦА",         icon: <Users size={22} /> },
+    { id: "content-plan", label: "Контент",    icon: <BookOpen size={22} /> },
+    { id: "__menu__",     label: "Ещё",        icon: <Menu size={22} /> },
+  ];
+  return (
+    <nav className="ds-bottom-nav ds-mobile-only" style={{ display: "flex" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", width: "100%", height: "100%" }}>
+        {items.map((it) => {
+          const isActive = activeNav === it.id;
+          return (
+            <button key={it.id}
+              onClick={() => it.id === "__menu__" ? onOpenMenu() : setActiveNav(it.id)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 3, color: isActive ? "#C4B8F5" : "rgba(255,255,255,0.45)",
+                cursor: "pointer", fontSize: 10, fontWeight: 500, background: "transparent",
+                border: "none", fontFamily: "inherit", padding: "4px 2px",
+                transition: "color 0.15s",
+              }}>
+              {it.icon}
+              <span>{it.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

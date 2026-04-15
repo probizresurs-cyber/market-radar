@@ -4,7 +4,19 @@
       "Bash(python scripts/office/unpack.py \"D:\\\\vbkf\\\\Таблица источников.docx\" \"D:\\\\vbkf\\\\unpacked_sources/\")",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm i:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)",
+      "Bash(cmd /c \"wmic logicaldisk get size,freespace,caption\")",
+      "Bash(cmd /c \"wmic logicaldisk get size,freespace,caption 2>&1\")",
+      "Bash(cmd /c wmic logicaldisk get size,freespace,caption)",
+      "Bash(xargs -I{} du -sh \"{}\")",
+      "Bash(xargs du:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm --version)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm run:*)"
     ]
   }
 }

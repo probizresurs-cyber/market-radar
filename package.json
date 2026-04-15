@@ -17,6 +17,7 @@
     "html2canvas": "^1.4.1",
     "jose": "^6.2.2",
     "jspdf": "^4.2.1",
+    "lucide-react": "^1.8.0",
     "next": "16.2.2",
     "pg": "^8.20.0",
     "puppeteer-core": "^24.40.0",
