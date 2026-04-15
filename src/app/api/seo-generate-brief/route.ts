@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const { topic, companyName, niche, platform, articleType, taContext, brandBook } = await req.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
 
     const today = new Date().toLocaleDateString("ru-RU");
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 ${taContext ? `\nЦЕЛЕВАЯ АУДИТОРИЯ:\n${taContext}` : ""}
 ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandBook.toneOfVoice.join(", ")}` : ""}
 
-Верни ТОЛЬКО валидный JSON (без markdown-блоков) со следующей структурой:
+Верни ТОЛЬКО валидный JSON без markdown-блоков, начинающийся с { и заканчивающийся }:
 {
   "articleType": "${articleType}",
   "platform": "${platform}",
@@ -46,39 +46,33 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
 
 Для wordCountTarget: informational=2000-3000, how-to=1500-2500, listicle=2000-4000, review=2500-4000, comparison=2000-3500, case-study=1500-2500, faq=1500-3000, landing-article=1200-2000.`;
 
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 110_000);
-
-    let raw: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetch(
+      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
+      {
         method: "POST",
-        signal: ctrl.signal,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
+          model: "claude-sonnet-4-5",
           max_tokens: 2000,
-          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: prompt }],
         }),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
       }
+    );
 
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      raw = data.choices[0]?.message?.content ?? "{}";
-    } finally {
-      clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `Anthropic ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
 
-    const brief = JSON.parse(raw);
+    const json = await res.json();
+    const text: string = json.content?.[0]?.text ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Не удалось распарсить JSON из ответа");
+    const brief = JSON.parse(match[0]);
     return NextResponse.json({ brief });
   } catch (e) {
     console.error("seo-generate-brief error:", e);

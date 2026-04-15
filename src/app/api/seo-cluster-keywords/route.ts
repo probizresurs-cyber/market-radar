@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const { topic, companyName, niche, taContext } = await req.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
 
     const prompt = `Ты — SEO-специалист. Составь семантический кластер ключевых слов.
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 КОМПАНИЯ: ${companyName || "—"} | НИША: ${niche || "—"}
 ${taContext ? `ЦА: ${taContext}` : ""}
 
-Верни ТОЛЬКО валидный JSON (без markdown-блоков):
+Верни ТОЛЬКО валидный JSON без markdown-блоков, начинающийся с { и заканчивающийся }:
 {
   "focusKeyword": "главный ключевой запрос (2-4 слова)",
   "keywords": [
@@ -26,39 +26,33 @@ ${taContext ? `ЦА: ${taContext}` : ""}
 
 Включи: 1 фокус-ключ (frequency:"high"), 5-8 вторичных (frequency:"medium", isLsi:false), 8-12 LSI (frequency:"low", isLsi:true).`;
 
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 110_000);
-
-    let raw: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetch(
+      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
+      {
         method: "POST",
-        signal: ctrl.signal,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
+          model: "claude-sonnet-4-5",
           max_tokens: 2000,
-          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: prompt }],
         }),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
       }
+    );
 
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      raw = data.choices[0]?.message?.content ?? "{}";
-    } finally {
-      clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `Anthropic ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
 
-    const cluster = JSON.parse(raw);
+    const json = await res.json();
+    const text: string = json.content?.[0]?.text ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Не удалось распарсить JSON из ответа");
+    const cluster = JSON.parse(match[0]);
     return NextResponse.json({ cluster });
   } catch (e) {
     console.error("seo-cluster-keywords error:", e);

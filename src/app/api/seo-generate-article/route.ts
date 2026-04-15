@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
         }
       = await req.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
 
     const tov = brandBook?.toneOfVoice?.length ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.` : "";
     const forbidden = brandBook?.forbiddenWords?.length ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.` : "";
@@ -66,40 +66,34 @@ ${outlineText}
 
 Заключение: ${conclusion}
 
-Напиши полную статью строго по структуре. Markdown-заголовки (##, ###). Ключевые запросы органично, плотность 1-2.5%.`;
+Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###). Ключевые запросы вставляй органично, плотность 1-2.5%.`;
       maxTokens = 6000;
     }
 
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 170_000);
-
-    let content: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetch(
+      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
+      {
         method: "POST",
-        signal: ctrl.signal,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.75,
+          model: "claude-sonnet-4-5",
           max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }],
         }),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
       }
+    );
 
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      content = data.choices[0]?.message?.content?.trim() ?? "";
-    } finally {
-      clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `Anthropic ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
+
+    const json = await res.json();
+    const content: string = json.content?.[0]?.text?.trim() ?? "";
 
     if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
     return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
