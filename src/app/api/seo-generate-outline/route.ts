@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
@@ -10,6 +11,11 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+
+    const client = new Anthropic({
+      apiKey,
+      baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+    });
 
     const prompt = `Ты — SEO-редактор. Составь детальную структуру (outline) для статьи.
 
@@ -44,30 +50,13 @@ export async function POST(req: NextRequest) {
 
 Требования: 4-8 разделов H2, ключевой запрос в первом H2 или H1, сумма wordTarget ≈ wordCountTarget.`;
 
-    const res = await fetch(
-      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 3000,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      }
-    );
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 3000,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `Anthropic ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
-    }
-
-    const json = await res.json();
-    const text: string = json.content?.[0]?.text ?? "";
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Не удалось распарсить JSON из ответа");
     const outline = JSON.parse(match[0]);

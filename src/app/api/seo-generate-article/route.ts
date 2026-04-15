@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+
+    const client = new Anthropic({
+      apiKey,
+      baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+    });
 
     const tov = brandBook?.toneOfVoice?.length ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.` : "";
     const forbidden = brandBook?.forbiddenWords?.length ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.` : "";
@@ -70,30 +76,13 @@ ${outlineText}
       maxTokens = 6000;
     }
 
-    const res = await fetch(
-      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      }
-    );
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `Anthropic ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
-    }
-
-    const json = await res.json();
-    const content: string = json.content?.[0]?.text?.trim() ?? "";
+    const content = response.content[0].type === "text" ? response.content[0].text.trim() : "";
 
     if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
     return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
