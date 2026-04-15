@@ -62,24 +62,24 @@ function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: 
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Новый анализ</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 24px" }}>Введите URL сайта для анализа. Результат будет добавлен в дашборд и список конкурентов.</p>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Новый анализ</h1>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Введите URL сайта для анализа. Результат будет добавлен в дашборд и список конкурентов.</p>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "flex", gap: 8 }}>
             <input type="text" value={url} onChange={e => setUrl(e.target.value)} placeholder="example.ru" disabled={isAnalyzing}
-              style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: `1.5px solid ${error ? c.accentRed : c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+              style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: `1.5px solid ${error ? "var(--destructive)" : "var(--border)"}`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit" }} />
             <button type="submit" disabled={isAnalyzing || !url.trim()}
-              style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", opacity: isAnalyzing || !url.trim() ? 0.65 : 1, fontFamily: "inherit" }}>
+              style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", opacity: isAnalyzing || !url.trim() ? 0.65 : 1, fontFamily: "inherit" }}>
               {isAnalyzing ? "Анализ…" : "Анализировать →"}
             </button>
           </div>
-          {error && <div style={{ marginTop: 10, color: c.accentRed, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 10, color: "var(--destructive)", fontSize: 13 }}>{error}</div>}
           {isAnalyzing && (
             <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <style>{`@keyframes mr-spin2 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-              <div style={{ width: 16, height: 16, border: `2px solid ${c.borderLight}`, borderTop: `2px solid ${c.accent}`, borderRadius: "50%", animation: "mr-spin2 1s linear infinite" }} />
-              <span style={{ fontSize: 13, color: c.textSecondary }}>Анализируем сайт…</span>
+              <div style={{ width: 16, height: 16, border: `2px solid var(--muted)`, borderTop: `2px solid var(--primary)`, borderRadius: "50%", animation: "mr-spin2 1s linear infinite" }} />
+              <span style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Анализируем сайт…</span>
             </div>
           )}
         </form>
@@ -122,6 +122,7 @@ import { ReviewsView } from "@/components/views/ReviewsView";
 import { StoriesView } from "@/components/views/StoriesView";
 import { CJMView, BenchmarksView } from "@/components/views/CJMBenchmarks";
 import { SidebarComponent, MobileBottomNav } from "@/components/views/SidebarComponent";
+import { SEOArticlesView } from "@/components/views/SEOArticlesView";
 import type { NavItem, NavSection } from "@/lib/nav";
 import { NAV_SECTIONS } from "@/lib/nav";
 
@@ -905,16 +906,16 @@ export default function MarketRadarDashboard() {
         position: "sticky", top: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 12px", height: 52,
-        background: c.bgCard, borderBottom: `1px solid ${c.border}`,
+        background: "var(--card)", borderBottom: `1px solid var(--border)`,
         flexShrink: 0,
       }}>
         <button onClick={() => setMobileMenuOpen(true)} aria-label="Открыть меню"
-          style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", color: c.textPrimary, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8 }}>
+          style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", color: "var(--foreground)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8 }}>
           <Menu size={22} />
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11 }}>MR</div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>MarketRadar</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>MarketRadar</span>
         </div>
         <button onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")} aria-label="Сменить тему"
           style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", fontSize: 18, borderRadius: 8 }}>
@@ -956,8 +957,8 @@ export default function MarketRadarDashboard() {
   // App: competitor profile sub-view
   if (selectedCompetitor !== null && competitors[selectedCompetitor]) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: c.bg, color: c.textPrimary }}>
-        <style>{`::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: "var(--background)", color: "var(--foreground)" }}>
+        <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
         {mobileNav}
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
           <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
@@ -971,8 +972,8 @@ export default function MarketRadarDashboard() {
 
   // App: main dashboard layout
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: c.bg, color: c.textPrimary }}>
-      <style>{`::selection { background: ${c.accent}30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: "var(--background)", color: "var(--foreground)" }}>
+      <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
       {mobileNav}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
@@ -994,9 +995,9 @@ export default function MarketRadarDashboard() {
           <BrandSuggestionsView c={c} taData={taAnalysis} brandSuggestions={brandSuggestions} setBrandSuggestions={handleSetBrandSuggestions} brandBook={brandBook} onUpdateBrandBook={handleUpdateBrandBook} />
         )}
         {activeNav === "ta-brandbook" && !taAnalysis && (
-          <div style={{ padding: 40, textAlign: "center", color: c.textSecondary }}>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--foreground-secondary)" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🧠</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: c.textPrimary, marginBottom: 6 }}>Сначала проведите анализ ЦА</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>Сначала проведите анализ ЦА</div>
             <div style={{ fontSize: 13 }}>Перейдите в «Анализ ЦА → Новый анализ»</div>
           </div>
         )}
@@ -1027,6 +1028,16 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-stories" && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
         {activeNav === "content-analytics" && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
+        {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords") && (
+          <SEOArticlesView
+            c={c}
+            userId={currentUser?.id ?? ""}
+            analysis={myCompany ?? null}
+            taResult={taAnalysis}
+            brandBook={brandBook}
+            activeSubNav={activeNav}
+          />
+        )}
         {activeNav === "reviews-analysis" && <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "brand-presentation" && <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}
         {activeNav === "landing-generator" && <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />}

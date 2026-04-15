@@ -12,14 +12,14 @@ type AnyMetrics = PostMetrics & ReelMetrics;
 export function CarouselBody({ c, body }: { c: Colors; body: string }) {
   const slides = body.split(/\n?---\n?/).map(s => s.trim()).filter(Boolean);
   if (slides.length <= 1) {
-    return <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{body}</p>;
+    return <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{body}</p>;
   }
   return (
     <div>
       {slides.map((slide, i) => (
         <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
           <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#f59e0b", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
-          <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{slide}</p>
+          <p style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: 0 }}>{slide}</p>
         </div>
       ))}
     </div>
@@ -67,7 +67,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
   };
 
   const scoreColor = (score: number) =>
-    score >= 80 ? "#22c55e" : score >= 55 ? "#f59e0b" : c.accentRed;
+    score >= 80 ? "#22c55e" : score >= 55 ? "#f59e0b" : "var(--destructive)";
 
   const issueTypeLabel: Record<TovIssue["type"], string> = {
     forbidden_word: "Запрещённое слово",
@@ -77,10 +77,10 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
   };
 
   return (
-    <div style={{ marginTop: 10, padding: 14, borderRadius: 10, background: c.bg, border: "1.5px solid #6366f140" }}>
+    <div style={{ marginTop: 10, padding: 14, borderRadius: 10, background: "var(--background)", border: "1.5px solid #6366f140" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: "#6366f1" }}>🎨 Корректор Tone of Voice</div>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: c.textMuted, fontSize: 14, cursor: "pointer" }}>×</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer" }}>×</button>
       </div>
 
       {!result && !loading && (
@@ -98,7 +98,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
         </div>
       )}
       {error && (
-        <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11 }}>❌ {error}</div>
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11 }}>❌ {error}</div>
       )}
       {result && (
         <div>
@@ -108,8 +108,8 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
               <span style={{ fontSize: 16, fontWeight: 900, color: scoreColor(result.score) }}>{result.score}</span>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: c.textPrimary }}>{result.verdict}</div>
-              <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)" }}>{result.verdict}</div>
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
                 {result.issues.length === 0 ? "✅ Нарушений не найдено" : `${result.issues.length} ${result.issues.length === 1 ? "нарушение" : "нарушения/нарушений"}`}
               </div>
             </div>
@@ -124,12 +124,12 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
           {result.issues.length > 0 && (
             <div style={{ marginBottom: 12 }}>
               {result.issues.map((issue, i) => (
-                <div key={i} style={{ padding: "8px 10px", background: c.accentRed + "08", border: `1px solid ${c.accentRed}25`, borderRadius: 7, marginBottom: 6 }}>
+                <div key={i} style={{ padding: "8px 10px", background: "color-mix(in oklch, var(--destructive) 3%, transparent)", border: `1px solid var(--destructive)25`, borderRadius: 7, marginBottom: 6 }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 3 }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, background: c.accentRed + "20", color: c.accentRed, borderRadius: 4, padding: "2px 6px" }}>{issueTypeLabel[issue.type]}</span>
-                    <span style={{ fontSize: 11, fontStyle: "italic", color: c.textMuted }}>«{issue.text}»</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, background: "color-mix(in oklch, var(--destructive) 13%, transparent)", color: "var(--destructive)", borderRadius: 4, padding: "2px 6px" }}>{issueTypeLabel[issue.type]}</span>
+                    <span style={{ fontSize: 11, fontStyle: "italic", color: "var(--muted-foreground)" }}>«{issue.text}»</span>
                   </div>
-                  <div style={{ fontSize: 11, color: c.textSecondary, marginBottom: 3 }}>{issue.explanation}</div>
+                  <div style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 3 }}>{issue.explanation}</div>
                   <div style={{ fontSize: 11, color: "#22c55e" }}>👉 {issue.suggestion}</div>
                 </div>
               ))}
@@ -144,9 +144,9 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
           </button>
           {showCorrected && (
             <div style={{ padding: 12, background: "#6366f108", borderRadius: 8, border: "1px solid #6366f125", marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ИСПРАВЛЕННАЯ ВЕРСИЯ</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>{result.correctedHook}</div>
-              <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{result.correctedBody}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ИСПРАВЛЕННАЯ ВЕРСИЯ</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>{result.correctedHook}</div>
+              <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{result.correctedBody}</div>
               <button
                 onClick={() => onApply({ ...post, hook: result.correctedHook, body: result.correctedBody })}
                 style={{ marginTop: 10, width: "100%", padding: "9px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
@@ -302,23 +302,23 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
           cursor: "pointer", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", fontSize: 11,
         }}>
         <span style={{ fontWeight: 700, color: accent }}>📊</span>
-        {metrics.views != null && <span style={{ color: c.textSecondary }}>▶️ <b>{fmtNumber(metrics.views)}</b></span>}
-        {metrics.reach != null && <span style={{ color: c.textSecondary }}>👁 <b>{fmtNumber(metrics.reach)}</b></span>}
-        {metrics.likes != null && <span style={{ color: c.textSecondary }}>❤️ <b>{fmtNumber(metrics.likes)}</b></span>}
-        {metrics.comments != null && <span style={{ color: c.textSecondary }}>💬 <b>{fmtNumber(metrics.comments)}</b></span>}
-        {metrics.saves != null && <span style={{ color: c.textSecondary }}>🔖 <b>{fmtNumber(metrics.saves)}</b></span>}
-        <span style={{ color: c.textSecondary }}>ER: <b style={{ color: accent }}>{erVal}%</b></span>
-        {metrics.leads != null && <span style={{ color: c.textSecondary }}>🎯 <b>{metrics.leads}</b></span>}
-        <span style={{ marginLeft: "auto", color: c.textMuted, fontSize: 10 }}>✏️ изменить</span>
+        {metrics.views != null && <span style={{ color: "var(--foreground-secondary)" }}>▶️ <b>{fmtNumber(metrics.views)}</b></span>}
+        {metrics.reach != null && <span style={{ color: "var(--foreground-secondary)" }}>👁 <b>{fmtNumber(metrics.reach)}</b></span>}
+        {metrics.likes != null && <span style={{ color: "var(--foreground-secondary)" }}>❤️ <b>{fmtNumber(metrics.likes)}</b></span>}
+        {metrics.comments != null && <span style={{ color: "var(--foreground-secondary)" }}>💬 <b>{fmtNumber(metrics.comments)}</b></span>}
+        {metrics.saves != null && <span style={{ color: "var(--foreground-secondary)" }}>🔖 <b>{fmtNumber(metrics.saves)}</b></span>}
+        <span style={{ color: "var(--foreground-secondary)" }}>ER: <b style={{ color: accent }}>{erVal}%</b></span>
+        {metrics.leads != null && <span style={{ color: "var(--foreground-secondary)" }}>🎯 <b>{metrics.leads}</b></span>}
+        <span style={{ marginLeft: "auto", color: "var(--muted-foreground)", fontSize: 10 }}>✏️ изменить</span>
       </div>
     );
   }
 
   return (
-    <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: c.bg, border: `1.5px solid ${accent}40` }}>
+    <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "var(--background)", border: `1.5px solid ${accent}40` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: accent }}>📊 Метрики {kind === "reel" ? "рилса" : "поста"}</div>
-        <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: c.textMuted, fontSize: 14, cursor: "pointer", lineHeight: 1 }}>×</button>
+        <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>×</button>
       </div>
 
       <div
@@ -327,18 +327,18 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
         onDrop={handleDrop}
         style={{
           padding: screenshotPreview ? 8 : 16, borderRadius: 8,
-          border: `1.5px dashed ${dragging ? accent : c.border}`,
-          background: dragging ? accent + "12" : c.bgCard,
+          border: `1.5px dashed ${dragging ? accent : "var(--border)"}`,
+          background: dragging ? accent + "12" : "var(--card)",
           textAlign: "center", marginBottom: 10, transition: "all 0.15s",
         }}>
         {screenshotPreview ? (
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={screenshotPreview} alt="screenshot" style={{ maxHeight: 80, maxWidth: 140, borderRadius: 6, border: `1px solid ${c.border}` }} />
-            <div style={{ flex: 1, textAlign: "left", fontSize: 11, color: c.textSecondary }}>
+            <img src={screenshotPreview} alt="screenshot" style={{ maxHeight: 80, maxWidth: 140, borderRadius: 6, border: `1px solid var(--border)` }} />
+            <div style={{ flex: 1, textAlign: "left", fontSize: 11, color: "var(--foreground-secondary)" }}>
               {loading ? "🤖 GPT-4o распознаёт метрики…" : "Скрин загружен — поля заполнены ниже"}
             </div>
-            <label style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: c.bg, color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+            <label style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
               ↻ заменить
               <input type="file" accept="image/*" onChange={handleFileInput} style={{ display: "none" }} />
             </label>
@@ -346,8 +346,8 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
         ) : (
           <>
             <div style={{ fontSize: 22, marginBottom: 4 }}>📸</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textPrimary, marginBottom: 2 }}>Бросьте сюда скриншот статистики</div>
-            <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 8 }}>VK / Instagram / Telegram / TikTok — GPT-4o распознает все цифры автоматически</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>Бросьте сюда скриншот статистики</div>
+            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 8 }}>VK / Instagram / Telegram / TikTok — GPT-4o распознает все цифры автоматически</div>
             <label style={{ display: "inline-block", padding: "6px 14px", borderRadius: 7, background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
               Выбрать файл
               <input type="file" accept="image/*" onChange={handleFileInput} style={{ display: "none" }} />
@@ -355,19 +355,19 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
           </>
         )}
         {loading && <div style={{ marginTop: 8, fontSize: 11, color: accent, fontWeight: 700 }}>⏳ Распознаём…</div>}
-        {error && <div style={{ marginTop: 8, fontSize: 11, color: c.accentRed }}>❌ {error}</div>}
+        {error && <div style={{ marginTop: 8, fontSize: 11, color: "var(--destructive)" }}>❌ {error}</div>}
       </div>
 
       {draft.source && (
-        <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 8 }}>
-          Источник: <b style={{ color: c.textSecondary }}>{draft.source}</b>
+        <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 8 }}>
+          Источник: <b style={{ color: "var(--foreground-secondary)" }}>{draft.source}</b>
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginBottom: 10 }}>
         {fields.map(f => (
           <div key={String(f.key)}>
-            <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: c.textMuted, marginBottom: 3, letterSpacing: "0.03em" }}>
+            <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 3, letterSpacing: "0.03em" }}>
               {f.emoji} {f.label.toUpperCase()}
             </label>
             <input
@@ -377,7 +377,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
               placeholder="—"
               style={{
                 width: "100%", padding: "6px 8px", borderRadius: 6,
-                border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary,
+                border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)",
                 fontSize: 12, fontWeight: 600, outline: "none", boxSizing: "border-box",
                 fontFamily: "monospace",
               }}
@@ -389,18 +389,18 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
       {(reach > 0 || (draft.adSpend && draft.adSpend > 0)) && (
         <div style={{ display: "flex", gap: 12, padding: "8px 12px", borderRadius: 7, background: accent + "0c", border: `1px solid ${accent}25`, fontSize: 11, marginBottom: 10, flexWrap: "wrap" }}>
           {reach > 0 && (
-            <span style={{ color: c.textSecondary }}>
+            <span style={{ color: "var(--foreground-secondary)" }}>
               ER: <b style={{ color: accent }}>{er.toFixed(1)}%</b>
             </span>
           )}
           {cpl > 0 && (
-            <span style={{ color: c.textSecondary }}>
+            <span style={{ color: "var(--foreground-secondary)" }}>
               CPL: <b style={{ color: accent }}>{cpl.toFixed(0)} ₽</b>
             </span>
           )}
           {(draft.adSpend != null && draft.adSpend > 0 && draft.revenue != null) && (
-            <span style={{ color: c.textSecondary }}>
-              ROMI: <b style={{ color: romi >= 0 ? "#22c55e" : c.accentRed }}>{romi.toFixed(0)}%</b>
+            <span style={{ color: "var(--foreground-secondary)" }}>
+              ROMI: <b style={{ color: romi >= 0 ? "#22c55e" : "var(--destructive)" }}>{romi.toFixed(0)}%</b>
             </span>
           )}
         </div>
@@ -414,13 +414,13 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
         </button>
         <button
           onClick={() => setOpen(false)}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
           Отмена
         </button>
         {metrics && (
           <button
             onClick={handleClear}
-            style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
+            style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
             🗑 Удалить метрики
           </button>
         )}
@@ -461,13 +461,13 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "9px 12px", borderRadius: 8,
-    border: `1px solid ${c.accent}50`, background: c.bg,
-    color: c.textPrimary, fontSize: 13, outline: "none",
+    border: `1px solid var(--primary)50`, background: "var(--background)",
+    color: "var(--foreground)", fontSize: 13, outline: "none",
     lineHeight: 1.55, fontFamily: "inherit", boxSizing: "border-box",
   };
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 14, border: `2px solid ${editing ? c.accent + "60" : c.border}`, padding: 16, boxShadow: c.shadow, transition: "border-color 0.15s" }}>
+    <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 16, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -475,9 +475,9 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
           {isCarousel && <span style={{ fontSize: 10, fontWeight: 700, background: "#6366f115", color: "#818cf8", borderRadius: 6, padding: "3px 8px" }}>КАРУСЕЛЬ</span>}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
+          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
           {!editing && (
-            <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
               ✏️
             </button>
           )}
@@ -491,7 +491,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             <div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, objectFit: "cover", maxHeight: 320 }} />
-              <button onClick={() => setImgExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 10, cursor: "pointer" }}>
+              <button onClick={() => setImgExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>
                 Свернуть
               </button>
             </div>
@@ -501,9 +501,9 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
               <img
                 src={post.imageUrl} alt={post.hook}
                 onClick={() => setImgExpanded(true)}
-                style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid ${c.border}`, flexShrink: 0 }}
+                style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid var(--border)`, flexShrink: 0 }}
               />
-              <span style={{ fontSize: 10, color: c.textMuted, cursor: "pointer" }} onClick={() => setImgExpanded(true)}>🖼 Нажмите, чтобы открыть картинку</span>
+              <span style={{ fontSize: 10, color: "var(--muted-foreground)", cursor: "pointer" }} onClick={() => setImgExpanded(true)}>🖼 Нажмите, чтобы открыть картинку</span>
             </div>
           )}
         </div>
@@ -512,35 +512,35 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
       {editing ? (
         <>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>КРЮЧОК / ЗАГОЛОВОК</label>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>КРЮЧОК / ЗАГОЛОВОК</label>
             <input type="text" value={hook} onChange={e => setHook(e.target.value)} style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }} />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>
               ТЕКСТ ПОСТА {isCarousel && <span style={{ fontWeight: 400 }}>(экраны карусели разделяются через "---")</span>}
             </label>
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ (через пробел)</label>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ (через пробел)</label>
             <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 Сохранить</button>
-            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Отмена</button>
+            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 Сохранить</button>
+            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Отмена</button>
             {confirmDelete ? (
               <>
-                <button onClick={() => onDelete(post.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: c.accentRed, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
-                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer" }}>Нет</button>
+                <button onClick={() => onDelete(post.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
+                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, cursor: "pointer" }}>Нет</button>
               </>
             ) : (
-              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
+              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
             )}
           </div>
         </>
       ) : (
         <>
-          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
           <div style={{ marginBottom: 10 }}>
             <CarouselBody c={c} body={post.body} />
           </div>
@@ -552,13 +552,13 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
               📋 Скопировать
             </button>
             {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
               <button
                 onClick={() => setShowTov(v => !v)}
-                style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : c.border}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
                 🎨 Tone of Voice
               </button>
             )}
@@ -591,10 +591,10 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   if (posts.length === 0) {
     return (
       <div style={{ maxWidth: 700 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые посты</h1>
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow, marginTop: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты</h1>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)", marginTop: 20 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
-          <div style={{ fontSize: 14, color: c.textSecondary }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
+          <div style={{ fontSize: 14, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
         </div>
       </div>
     );
@@ -602,8 +602,8 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
 
   return (
     <div style={{ maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Готовые посты ({posts.length})</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 16px" }}>Кликните ✏️ на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты ({posts.length})</h1>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>Кликните ✏️ на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {posts.map(post => (

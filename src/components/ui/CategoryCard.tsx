@@ -6,7 +6,7 @@ export function CategoryCard({ cat, c }: {
   cat: AnalysisResult["company"]["categories"][number];
   c: Colors;
 }) {
-  const color = cat.score >= 75 ? c.accentGreen : cat.score >= 50 ? c.accentWarm : c.accentRed;
+  const color = cat.score >= 75 ? "var(--success)" : cat.score >= 50 ? "var(--warning)" : "var(--destructive)";
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, padding: "16px 20px", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${color}00, ${color}, ${color}00)` }} />
@@ -17,7 +17,7 @@ export function CategoryCard({ cat, c }: {
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ fontWeight: 800, fontSize: 22, color, letterSpacing: "-0.02em" }}>{cat.score}</span>
             {cat.delta !== 0 && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: cat.delta > 0 ? c.accentGreen : c.accentRed }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: cat.delta > 0 ? "var(--success)" : "var(--destructive)" }}>
                 {cat.delta > 0 ? "↑" : "↓"}{Math.abs(cat.delta)}
               </span>
             )}

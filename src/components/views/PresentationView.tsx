@@ -137,8 +137,8 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 
   // Derived colors from selected style
   const sty = selectedStyle || buildStyleFromBrandBook(brandBook);
-  const primary = sty.colors[0] || c.accent;
-  const secondary = sty.colors[1] || c.accentGreen;
+  const primary = sty.colors[0] || "var(--primary)";
+  const secondary = sty.colors[1] || "var(--success)";
   const bg = sty.colors[3] || "#ffffff";
   const textColor = sty.colors[4] || "#1a1a2e";
 
@@ -690,41 +690,41 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       {/* Header + tab bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Бренд-презентация</h1>
-          <p style={{ color: c.textSecondary, fontSize: 14 }}>Профессиональная презентация за 5 минут из ваших данных</p>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Бренд-презентация</h1>
+          <p style={{ color: "var(--foreground-secondary)", fontSize: 14 }}>Профессиональная презентация за 5 минут из ваших данных</p>
         </div>
-        <div style={{ display: "flex", gap: 2, background: c.bgCard, borderRadius: 10, padding: 3, border: `1px solid ${c.border}` }}>
+        <div style={{ display: "flex", gap: 2, background: "var(--card)", borderRadius: 10, padding: 3, border: `1px solid var(--border)` }}>
           {(["create", "history"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-                background: tab === t ? c.accent : "transparent",
-                color: tab === t ? "#fff" : c.textSecondary }}>
+                background: tab === t ? "var(--primary)" : "transparent",
+                color: tab === t ? "#fff" : "var(--foreground-secondary)" }}>
               {t === "create" ? "✦ Создать" : `📁 История (${history.length})`}
             </button>
           ))}
         </div>
       </div>
 
-      {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
         <div>
           {history.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: c.textMuted }}>
+            <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted-foreground)" }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: c.textSecondary, marginBottom: 6 }}>Нет сохранённых презентаций</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground-secondary)", marginBottom: 6 }}>Нет сохранённых презентаций</p>
               <p style={{ fontSize: 13 }}>Создайте первую — она автоматически сохранится</p>
-              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать презентацию</button>
+              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать презентацию</button>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
               {history.map(h => {
                 const pal = h.style?.colors ?? [];
                 return (
-                  <div key={h.id} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+                  <div key={h.id} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
                     {/* Mini slide preview */}
-                    <div style={{ aspectRatio: "16/9", background: pal[0] ? `linear-gradient(135deg, ${pal[0]}, ${pal[3] || "#fff"})` : `linear-gradient(135deg, ${c.accent}, ${c.bg})`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                    <div style={{ aspectRatio: "16/9", background: pal[0] ? `linear-gradient(135deg, ${pal[0]}, ${pal[3] || "#fff"})` : `linear-gradient(135deg, var(--primary), var(--background))`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
                       <div style={{ textAlign: "center", zIndex: 1, padding: "0 20px" }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{h.title}</div>
@@ -738,16 +738,16 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                       )}
                     </div>
                     <div style={{ padding: "12px 14px" }}>
-                      <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10 }}>
                         {new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => loadFromHistory(h)}
-                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: c.accent, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
                           Открыть
                         </button>
                         <button onClick={() => deleteFromHistory(h.id)}
-                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 12, cursor: "pointer" }}>
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
                           🗑
                         </button>
                       </div>
@@ -775,7 +775,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               { label: "Брендбук", ok: brandBook.colors.length > 0 || !!brandBook.fontHeader },
             ].map(item => (
               <span key={item.label} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-                background: item.ok ? c.accentGreen + "15" : c.accentRed + "15", color: item.ok ? c.accentGreen : c.accentRed }}>
+                background: item.ok ? "color-mix(in oklch, var(--success) 8%, transparent)" : "color-mix(in oklch, var(--destructive) 8%, transparent)", color: item.ok ? "var(--success)" : "var(--destructive)" }}>
                 {item.ok ? "✓" : "✗"} {item.label}
               </span>
             ))}
@@ -784,32 +784,32 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           {/* Step 1a: Pick source */}
           {!styleSource && (
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>Шаг 1: Выберите основу стиля</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>Шаг 1: Выберите основу стиля</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 600 }}>
                 <div onClick={brandBook.colors.length > 0 ? handlePickBrandbook : undefined}
-                  style={{ background: c.bgCard, borderRadius: 14, padding: 24, border: `2px solid ${c.border}`, cursor: brandBook.colors.length > 0 ? "pointer" : "default",
-                    opacity: brandBook.colors.length > 0 ? 1 : 0.4, textAlign: "center", boxShadow: c.shadow, transition: "border-color .15s" }}
-                  onMouseEnter={e => brandBook.colors.length > 0 && ((e.currentTarget as HTMLElement).style.borderColor = c.accent)}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = c.border)}>
+                  style={{ background: "var(--card)", borderRadius: 14, padding: 24, border: `2px solid var(--border)`, cursor: brandBook.colors.length > 0 ? "pointer" : "default",
+                    opacity: brandBook.colors.length > 0 ? 1 : 0.4, textAlign: "center", boxShadow: "var(--shadow)", transition: "border-color .15s" }}
+                  onMouseEnter={e => brandBook.colors.length > 0 && ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, marginBottom: 4 }}>На основе брендбука</div>
-                  <div style={{ fontSize: 12, color: c.textSecondary }}>Цвета, шрифты и тон из вашего брендбука</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>На основе брендбука</div>
+                  <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>Цвета, шрифты и тон из вашего брендбука</div>
                   {brandBook.colors.length > 0 && (
                     <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 10 }}>
                       {brandBook.colors.slice(0,5).map((col, i) => (
-                        <div key={i} style={{ width: 20, height: 20, borderRadius: 6, background: col, border: `1px solid ${c.border}` }} />
+                        <div key={i} style={{ width: 20, height: 20, borderRadius: 6, background: col, border: `1px solid var(--border)` }} />
                       ))}
                     </div>
                   )}
                 </div>
                 <div onClick={handlePickPresets}
-                  style={{ background: c.bgCard, borderRadius: 14, padding: 24, border: `2px solid ${c.border}`, cursor: "pointer",
-                    textAlign: "center", boxShadow: c.shadow, transition: "border-color .15s" }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = c.accent)}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = c.border)}>
+                  style={{ background: "var(--card)", borderRadius: 14, padding: 24, border: `2px solid var(--border)`, cursor: "pointer",
+                    textAlign: "center", boxShadow: "var(--shadow)", transition: "border-color .15s" }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>✨</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, marginBottom: 4 }}>Выбрать из каталога</div>
-                  <div style={{ fontSize: 12, color: c.textSecondary }}>6 готовых стилей: минимализм, корпоративный, яркий...</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>Выбрать из каталога</div>
+                  <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>6 готовых стилей: минимализм, корпоративный, яркий...</div>
                 </div>
               </div>
             </div>
@@ -820,26 +820,26 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <button onClick={() => { setStyleSource(null); setPaletteOptions([]); setSelectedStyle(null); }}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontSize: 12 }}>← Назад</button>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, margin: 0 }}>Шаг 2: Выберите палитру</h3>
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontSize: 12 }}>← Назад</button>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>Шаг 2: Выберите палитру</h3>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
                 {paletteOptions.map(p => {
                   const isSel = selectedStyle?.id === p.id;
                   return (
                     <div key={p.id} onClick={() => setSelectedStyle(p)}
-                      style={{ background: c.bgCard, borderRadius: 12, overflow: "hidden", border: `2px solid ${isSel ? c.accent : c.border}`,
-                        cursor: "pointer", boxShadow: isSel ? c.shadowLg : c.shadow, transition: "all .15s" }}>
+                      style={{ background: "var(--card)", borderRadius: 12, overflow: "hidden", border: `2px solid ${isSel ? "var(--primary)" : "var(--border)"}`,
+                        cursor: "pointer", boxShadow: isSel ? "var(--shadow-lg)" : "var(--shadow)", transition: "all .15s" }}>
                       {renderMiniCover(p)}
                       <div style={{ padding: "10px 12px" }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, marginBottom: 4 }}>{p.name}</div>
-                        <div style={{ fontSize: 11, color: c.textSecondary, marginBottom: 8 }}>{p.mood}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--foreground)", marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 8 }}>{p.mood}</div>
                         <div style={{ display: "flex", gap: 4 }}>
                           {p.colors.slice(0, 5).map((col, i) => (
-                            <div key={i} style={{ width: 16, height: 16, borderRadius: 4, background: col, border: `1px solid ${c.border}` }} />
+                            <div key={i} style={{ width: 16, height: 16, borderRadius: 4, background: col, border: `1px solid var(--border)` }} />
                           ))}
                         </div>
-                        <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>{p.fontHeader} / {p.fontBody}</div>
+                        <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>{p.fontHeader} / {p.fontBody}</div>
                       </div>
                     </div>
                   );
@@ -847,7 +847,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               </div>
               {selectedStyle && (
                 <button onClick={handleGenerate} disabled={!myCompany} style={{ padding: "14px 36px", borderRadius: 10, border: "none",
-                  background: !myCompany ? c.textMuted : c.accent, color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
+                  background: !myCompany ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
                   Создать презентацию в стиле «{selectedStyle.name}»
                 </button>
               )}
@@ -858,17 +858,17 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 
       {/* ━━━ STAGE 2: GENERATING ━━━ */}
       {stage === "generating" && (
-        <div style={{ background: c.bgCard, borderRadius: 16, padding: 48, boxShadow: c.shadow, textAlign: "center" }}>
+        <div style={{ background: "var(--card)", borderRadius: 16, padding: 48, boxShadow: "var(--shadow)", textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 16 }}>🧠</div>
-          <h3 style={{ color: c.textPrimary, marginBottom: 8 }}>Генерируем презентацию...</h3>
-          <p style={{ color: c.textSecondary, fontSize: 13, marginBottom: 24 }}>
+          <h3 style={{ color: "var(--foreground)", marginBottom: 8 }}>Генерируем презентацию...</h3>
+          <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 24 }}>
             AI создаёт слайды на основе анализа компании, ЦА и выбранного стиля
           </p>
-          <div style={{ maxWidth: 400, margin: "0 auto", background: c.border, borderRadius: 8, height: 8, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: `linear-gradient(90deg, ${c.accent}, ${c.accentGreen})`, borderRadius: 8,
+          <div style={{ maxWidth: 400, margin: "0 auto", background: "var(--border)", borderRadius: 8, height: 8, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: `linear-gradient(90deg, var(--primary), var(--success))`, borderRadius: 8,
               width: `${genProgress}%`, transition: "width 0.4s ease" }} />
           </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: c.textMuted }}>{genProgress}%</div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted-foreground)" }}>{genProgress}%</div>
         </div>
       )}
 
@@ -877,25 +877,25 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         <div>
           {/* Toolbar */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center",
-            background: c.bgCard, padding: "12px 16px", borderRadius: 12, border: `1px solid ${c.border}`, boxShadow: c.shadow }}>
-            <h3 style={{ margin: 0, fontSize: 15, color: c.textPrimary, flex: 1 }}>{presTitle} — {slides.length} слайдов</h3>
-            <button onClick={() => setFullscreen(true)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+            background: "var(--card)", padding: "12px 16px", borderRadius: 12, border: `1px solid var(--border)`, boxShadow: "var(--shadow)" }}>
+            <h3 style={{ margin: 0, fontSize: 15, color: "var(--foreground)", flex: 1 }}>{presTitle} — {slides.length} слайдов</h3>
+            <button onClick={() => setFullscreen(true)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               ▶ Показ
             </button>
             <button onClick={handleExportPdf} disabled={isExportingPdf} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
-              background: isExportingPdf ? c.textMuted : c.accent, color: "#fff", cursor: isExportingPdf ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              background: isExportingPdf ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", cursor: isExportingPdf ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               {isExportingPdf ? "Экспорт..." : "📄 PDF"}
             </button>
             <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
-              background: isExportingPptx ? c.textMuted : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              background: isExportingPptx ? "var(--muted-foreground)" : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               {isExportingPptx ? "Экспорт..." : "⬇ PPTX"}
             </button>
             <button onClick={handleExportSlidev} disabled={isExportingSlidev} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
-              background: isExportingSlidev ? c.textMuted : "#7c3aed", color: "#fff", cursor: isExportingSlidev ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              background: isExportingSlidev ? "var(--muted-foreground)" : "#7c3aed", color: "#fff", cursor: isExportingSlidev ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               {isExportingSlidev ? "Экспорт..." : "✦ Slidev .md"}
             </button>
-            <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
-              background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+            <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+              background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               🔄 Заново
             </button>
           </div>
@@ -905,10 +905,10 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             <input value={wishText} onChange={e => setWishText(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleWishUpdate()}
               placeholder="Напишите пожелание: «добавь слайд про команду», «сделай акцент на ценах»..."
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bgCard,
-                color: c.textPrimary, fontSize: 13, outline: "none" }} />
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--card)",
+                color: "var(--foreground)", fontSize: 13, outline: "none" }} />
             <button onClick={handleWishUpdate} disabled={isUpdating || !wishText.trim()}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: isUpdating ? c.textMuted : c.accent,
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: isUpdating ? "var(--muted-foreground)" : "var(--primary)",
                 color: "#fff", fontWeight: 700, fontSize: 13, cursor: isUpdating ? "wait" : "pointer", whiteSpace: "nowrap" }}>
               {isUpdating ? "Обновляю..." : "Обновить"}
             </button>
@@ -919,8 +919,8 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             {slides.map((slide, i) => (
               <div key={i} style={{ position: "relative" }}>
                 {/* Slide number label */}
-                <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: 0.5 }}>
-                  СЛАЙД {i + 1} · {slide.type.toUpperCase()} {slide.isEdited && <span style={{ color: c.accentGreen, fontSize: 10 }}>✎ изменён</span>}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: 0.5 }}>
+                  СЛАЙД {i + 1} · {slide.type.toUpperCase()} {slide.isEdited && <span style={{ color: "var(--success)", fontSize: 10 }}>✎ изменён</span>}
                 </div>
                 {/* Slide preview */}
                 <div onClick={() => setEditingSlide(editingSlide === i ? null : i)} style={{ cursor: "pointer" }}>
@@ -928,40 +928,40 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                 </div>
                 {/* Inline edit panel */}
                 {editingSlide === i && (
-                  <div style={{ marginTop: 10, background: c.bgCard, borderRadius: 12, border: `1px solid ${c.accent}40`, padding: 16, boxShadow: c.shadow }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 10 }}>Редактирование слайда {i + 1}</div>
+                  <div style={{ marginTop: 10, background: "var(--card)", borderRadius: 12, border: `1px solid var(--primary)40`, padding: 16, boxShadow: "var(--shadow)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 10 }}>Редактирование слайда {i + 1}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div>
-                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ЗАГОЛОВОК</label>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>ЗАГОЛОВОК</label>
                         <input value={slide.title} onChange={e => handleSlideUpdate(i, { title: e.target.value })}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13 }} />
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13 }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ПОДЗАГОЛОВОК</label>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>ПОДЗАГОЛОВОК</label>
                         <input value={slide.subtitle || ""} onChange={e => handleSlideUpdate(i, { subtitle: e.target.value })}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13 }} />
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13 }} />
                       </div>
                     </div>
                     <div style={{ marginBottom: 10 }}>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ТЕКСТ</label>
+                      <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>ТЕКСТ</label>
                       <textarea value={slide.content || ""} onChange={e => handleSlideUpdate(i, { content: e.target.value })} rows={2}
-                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, resize: "vertical" }} />
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, resize: "vertical" }} />
                     </div>
                     {(slide.bullets || []).length > 0 && (
                       <div style={{ marginBottom: 10 }}>
-                        <label style={{ fontSize: 10, fontWeight: 700, color: c.textMuted, display: "block", marginBottom: 3 }}>ПУНКТЫ (по строке)</label>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>ПУНКТЫ (по строке)</label>
                         <textarea value={(slide.bullets || []).join("\n")} rows={Math.min(slide.bullets.length + 1, 6)}
                           onChange={e => handleSlideUpdate(i, { bullets: e.target.value.split("\n") })}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
                       </div>
                     )}
                     {slide.note && (
-                      <div style={{ fontSize: 11, color: c.textSecondary, padding: "6px 10px", background: c.bg, borderRadius: 6 }}>
+                      <div style={{ fontSize: 11, color: "var(--foreground-secondary)", padding: "6px 10px", background: "var(--background)", borderRadius: 6 }}>
                         🎤 <b>Заметка:</b> {slide.note}
                       </div>
                     )}
-                    <button onClick={() => setEditingSlide(null)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
-                      background: c.bgCard, color: c.textPrimary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Закрыть</button>
+                    <button onClick={() => setEditingSlide(null)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+                      background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Закрыть</button>
                   </div>
                 )}
               </div>
@@ -969,7 +969,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           </div>
 
           {/* Watermark */}
-          <div style={{ textAlign: "center", marginTop: 32, fontSize: 11, color: c.textMuted }}>
+          <div style={{ textAlign: "center", marginTop: 32, fontSize: 11, color: "var(--muted-foreground)" }}>
             Создано в MarketRadar для Company24.pro
           </div>
         </div>

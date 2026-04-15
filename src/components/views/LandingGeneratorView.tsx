@@ -251,38 +251,38 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
     }
   };
 
-  const primary = brandBook.colors?.[0] || c.accent;
+  const primary = brandBook.colors?.[0] || "var(--primary)";
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Генератор лендингов</h1>
-          <p style={{ color: c.textSecondary, fontSize: 14 }}>AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука</p>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Генератор лендингов</h1>
+          <p style={{ color: "var(--foreground-secondary)", fontSize: 14 }}>AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука</p>
         </div>
-        <div style={{ display: "flex", gap: 2, background: c.bgCard, borderRadius: 10, padding: 3, border: `1px solid ${c.border}` }}>
+        <div style={{ display: "flex", gap: 2, background: "var(--card)", borderRadius: 10, padding: 3, border: `1px solid var(--border)` }}>
           {(["create", "history"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-                background: tab === t ? c.accent : "transparent",
-                color: tab === t ? "#fff" : c.textSecondary }}>
+                background: tab === t ? "var(--primary)" : "transparent",
+                color: tab === t ? "#fff" : "var(--foreground-secondary)" }}>
               {t === "create" ? "✦ Создать" : `📁 История (${landingHistory.length})`}
             </button>
           ))}
         </div>
       </div>
 
-      {error && <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
         <div>
           {landingHistory.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: c.textMuted }}>
+            <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted-foreground)" }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🌐</div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: c.textSecondary, marginBottom: 6 }}>Нет сохранённых лендингов</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground-secondary)", marginBottom: 6 }}>Нет сохранённых лендингов</p>
               <p style={{ fontSize: 13 }}>Создайте первый — он автоматически сохранится</p>
-              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: c.accent, color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать лендинг</button>
+              <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать лендинг</button>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
@@ -290,17 +290,17 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                 const typeIcon = landingTypes.find(l => l.id === h.landingType)?.icon ?? "🌐";
                 const presetLabel = STYLE_PRESETS.find(p => p.id === h.stylePreset)?.label ?? h.stylePreset;
                 return (
-                  <div key={h.id} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+                  <div key={h.id} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
                     {/* Screenshot */}
-                    <div style={{ position: "relative", background: c.bg }}>
+                    <div style={{ position: "relative", background: "var(--background)" }}>
                       {/* Browser chrome */}
-                      <div style={{ background: c.bgCard, padding: "6px 10px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ background: "var(--card)", padding: "6px 10px", borderBottom: `1px solid var(--border)`, display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ display: "flex", gap: 4 }}>
                           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444" }} />
                           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} />
                           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981" }} />
                         </div>
-                        <div style={{ flex: 1, background: c.bg, borderRadius: 4, padding: "2px 8px", fontSize: 9, color: c.textMuted }}>
+                        <div style={{ flex: 1, background: "var(--background)", borderRadius: 4, padding: "2px 8px", fontSize: 9, color: "var(--muted-foreground)" }}>
                           {myCompany?.company.name?.toLowerCase().replace(/\s+/g, "") ?? "landing"}.ru
                         </div>
                       </div>
@@ -308,23 +308,23 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                     <div style={{ padding: "12px 14px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 3 }}>{h.title}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 3 }}>{h.title}</div>
                       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: c.accent + "14", color: c.accent, fontWeight: 600 }}>{typeIcon} {landingTypes.find(l => l.id === h.landingType)?.label ?? h.landingType}</span>
-                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: c.bg, color: c.textMuted }}>{presetLabel}</span>
-                        <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short" })}</span>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", fontWeight: 600 }}>{typeIcon} {landingTypes.find(l => l.id === h.landingType)?.label ?? h.landingType}</span>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "var(--background)", color: "var(--muted-foreground)" }}>{presetLabel}</span>
+                        <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short" })}</span>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => loadLanding(h)}
-                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: c.accent, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                          style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
                           Открыть
                         </button>
                         <a href={h.htmlUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 12, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center" }}>
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center" }}>
                           ⬇
                         </a>
                         <button onClick={() => deleteLanding(h.id)}
-                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 12, cursor: "pointer" }}>
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
                           🗑
                         </button>
                       </div>
@@ -349,8 +349,8 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           { label: "СММ", ok: !!smmAnalysis },
         ].map((b, i) => (
           <span key={i} style={{ padding: "4px 12px", borderRadius: 12, fontSize: 11, fontWeight: 600,
-            background: b.ok ? c.accentGreen + "18" : c.accentRed + "12",
-            color: b.ok ? c.accentGreen : c.textMuted }}>
+            background: b.ok ? "color-mix(in oklch, var(--success) 9%, transparent)" : "color-mix(in oklch, var(--destructive) 7%, transparent)",
+            color: b.ok ? "var(--success)" : "var(--muted-foreground)" }}>
             {b.ok ? "✓" : "✗"} {b.label}
           </span>
         ))}
@@ -360,31 +360,31 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
       {!result && !isGenerating && (
         <>
           {/* 1. Landing type */}
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 10 }}>1. Тип лендинга</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>1. Тип лендинга</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
             {landingTypes.map(lt => (
               <div key={lt.id} onClick={() => setLandingType(lt.id)}
                 style={{ padding: "14px 16px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
-                  background: landingType === lt.id ? primary + "12" : c.bgCard,
-                  border: `2px solid ${landingType === lt.id ? primary : c.border}`,
+                  background: landingType === lt.id ? primary + "12" : "var(--card)",
+                  border: `2px solid ${landingType === lt.id ? primary : "var(--border)"}`,
                   boxShadow: landingType === lt.id ? `0 4px 14px ${primary}20` : "none" }}>
                 <div style={{ fontSize: 20, marginBottom: 5 }}>{lt.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 3 }}>{lt.label}</div>
-                <div style={{ fontSize: 10.5, color: c.textSecondary, lineHeight: 1.5 }}>{lt.desc}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 3 }}>{lt.label}</div>
+                <div style={{ fontSize: 10.5, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>{lt.desc}</div>
               </div>
             ))}
           </div>
 
           {/* 2. Style preset */}
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 10 }}>2. Стиль и цветовая гамма</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>2. Стиль и цветовая гамма</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: stylePreset === "custom" ? 12 : 20 }}>
             {STYLE_PRESETS.map(sp => {
               const hasColors = "colors" in sp;
               return (
                 <div key={sp.id} onClick={() => setStylePreset(sp.id)}
                   style={{ padding: "12px 14px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
-                    background: stylePreset === sp.id ? primary + "12" : c.bgCard,
-                    border: `2px solid ${stylePreset === sp.id ? primary : c.border}` }}>
+                    background: stylePreset === sp.id ? primary + "12" : "var(--card)",
+                    border: `2px solid ${stylePreset === sp.id ? primary : "var(--border)"}` }}>
                   {/* Color dots preview */}
                   {hasColors && (
                     <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
@@ -394,8 +394,8 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                     </div>
                   )}
                   {!hasColors && <div style={{ fontSize: 16, marginBottom: 4 }}>{sp.icon}</div>}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: stylePreset === sp.id ? primary : c.textPrimary, marginBottom: 2 }}>{sp.label}</div>
-                  <div style={{ fontSize: 10, color: c.textMuted, lineHeight: 1.4 }}>{sp.desc}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: stylePreset === sp.id ? primary : "var(--foreground)", marginBottom: 2 }}>{sp.label}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted-foreground)", lineHeight: 1.4 }}>{sp.desc}</div>
                 </div>
               );
             })}
@@ -405,43 +405,43 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           {stylePreset === "custom" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: c.textSecondary, display: "block", marginBottom: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)", display: "block", marginBottom: 4 }}>
                   Цвета (через запятую)
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input value={customColors} onChange={e => setCustomColors(e.target.value)}
                     placeholder="#6366f1, #fff, #1a1a2e"
-                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, fontSize: 12, outline: "none" }} />
+                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, outline: "none" }} />
                   {/* Live color dot previews */}
                   <div style={{ display: "flex", gap: 3 }}>
                     {customColors.split(",").map(s => s.trim()).filter(Boolean).slice(0, 5).map((col, i) => (
-                      <div key={i} style={{ width: 18, height: 18, borderRadius: 4, background: col, border: `1px solid ${c.border}` }} />
+                      <div key={i} style={{ width: 18, height: 18, borderRadius: 4, background: col, border: `1px solid var(--border)` }} />
                     ))}
                   </div>
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: c.textSecondary, display: "block", marginBottom: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)", display: "block", marginBottom: 4 }}>
                   Шрифт (Google Fonts)
                 </label>
                 <input value={customFonts} onChange={e => setCustomFonts(e.target.value)}
                   placeholder="Montserrat, Playfair Display..."
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary, fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
               </div>
             </div>
           )}
 
           {/* 3. Custom prompt */}
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>
-            3. Дополнительные пожелания <span style={{ fontSize: 11, fontWeight: 400, color: c.textMuted }}>(необязательно)</span>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 6 }}>
+            3. Дополнительные пожелания <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted-foreground)" }}>(необязательно)</span>
           </h3>
           <div style={{ position: "relative", marginBottom: 24 }}>
             <textarea value={userPrompt} onChange={e => setUserPrompt(e.target.value)} rows={3}
               placeholder="Например: Добавь секцию с видео-отзывами. Используй стиль как у Apple — минималистично и продающе. Сделай большой hero с градиентным фоном. Добавь счётчик с цифрами достижений..."
-              style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${c.border}`,
-                background: c.bgCard, color: c.textPrimary, fontSize: 13, outline: "none",
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid var(--border)`,
+                background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none",
                 resize: "vertical", lineHeight: 1.6, fontFamily: "inherit", boxSizing: "border-box" }} />
-            <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
               Описывайте на русском или английском — что добавить, какой стиль, какие секции нужны
             </div>
           </div>
@@ -456,25 +456,25 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ display: "flex", gap: 3 }}>
                   {(brandBook.colors || []).slice(0,4).map((col: string, i: number) => (
-                    <div key={i} style={{ width: 14, height: 14, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
+                    <div key={i} style={{ width: 14, height: 14, borderRadius: 3, background: col, border: `1px solid var(--border)` }} />
                   ))}
                 </div>
-                <span style={{ fontSize: 11, color: c.textMuted }}>Цвета из брендбука</span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Цвета из брендбука</span>
               </div>
             )}
           </div>
-          {!myCompany && <p style={{ fontSize: 11, color: c.textMuted, marginTop: 8 }}>Сначала выполните анализ компании</p>}
+          {!myCompany && <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8 }}>Сначала выполните анализ компании</p>}
         </>
       )}
 
       {/* ── Generation progress ── */}
       {isGenerating && (
         <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <div style={{ width: 300, height: 6, borderRadius: 3, background: c.border, margin: "0 auto 16px", overflow: "hidden" }}>
-            <div style={{ width: `${progress}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${primary}, ${c.accentGreen})`, transition: "width 0.3s" }} />
+          <div style={{ width: 300, height: 6, borderRadius: 3, background: "var(--border)", margin: "0 auto 16px", overflow: "hidden" }}>
+            <div style={{ width: `${progress}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${primary}, var(--success))`, transition: "width 0.3s" }} />
           </div>
-          <p style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary }}>{Math.round(progress)}% — Генерация лендинга...</p>
-          <p style={{ fontSize: 11, color: c.textMuted, marginTop: 4 }}>Google Stitch создаёт дизайн на основе ваших данных</p>
+          <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>{Math.round(progress)}% — Генерация лендинга...</p>
+          <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Google Stitch создаёт дизайн на основе ваших данных</p>
         </div>
       )}
 
@@ -489,23 +489,23 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
               🌐 Открыть лендинг
             </a>
             <a href={result.htmlUrl} download="landing.html"
-              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard, color: c.textPrimary,
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)",
                 textDecoration: "none", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
               ⬇ Скачать HTML
             </a>
             <button onClick={handleVariants} disabled={isEditing}
-              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
-                color: c.textPrimary, cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)",
+                color: "var(--foreground)", cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               🎨 Варианты
             </button>
             <button onClick={handleMobile} disabled={isEditing}
-              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
-                color: c.textPrimary, cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)",
+                color: "var(--foreground)", cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               📱 Мобильная версия
             </button>
             <button onClick={() => { setResult(null); setVariants([]); setProgress(0); }}
-              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bgCard,
-                color: c.textPrimary, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)",
+                color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               🔄 Заново
             </button>
           </div>
@@ -515,8 +515,8 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
             <input value={editPrompt} onChange={e => setEditPrompt(e.target.value)}
               placeholder="Пожелание: сделай хедер темнее, добавь секцию с отзывами..."
               onKeyDown={e => e.key === "Enter" && handleEdit()}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: `1px solid ${c.border}`,
-                background: c.bgCard, color: c.textPrimary, fontSize: 13, outline: "none" }} />
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+                background: "var(--card)", color: "var(--foreground)", fontSize: 13, outline: "none" }} />
             <button onClick={handleEdit} disabled={isEditing || !editPrompt.trim()}
               style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: primary,
                 color: "#fff", cursor: isEditing || !editPrompt.trim() ? "not-allowed" : "pointer",
@@ -526,23 +526,23 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           </div>
 
           {/* Preview — screenshot thumbnail with zoom + click-to-open */}
-          <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${c.border}`, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", marginBottom: 20 }}>
+          <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid var(--border)`, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", marginBottom: 20 }}>
             {/* Browser chrome bar */}
-            <div style={{ background: c.bgCard, padding: "8px 12px", borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ background: "var(--card)", padding: "8px 12px", borderBottom: `1px solid var(--border)`, display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", gap: 5 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b" }} />
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981" }} />
               </div>
-              <div style={{ flex: 1, background: c.bg, borderRadius: 5, padding: "3px 10px", fontSize: 11, color: c.textMuted }}>
+              <div style={{ flex: 1, background: "var(--background)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--muted-foreground)" }}>
                 {myCompany?.company.name || "landing"}.marketradar.ai
               </div>
               {/* Zoom controls */}
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <button onClick={() => setImgZoom(z => Math.max(0.3, z - 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                <span style={{ fontSize: 11, color: c.textMuted, minWidth: 36, textAlign: "center" }}>{Math.round(imgZoom * 100)}%</span>
-                <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                <button onClick={() => setImgZoom(1)} title="Сбросить" style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.textMuted, cursor: "pointer", fontSize: 11 }}>↺</button>
+                <button onClick={() => setImgZoom(z => Math.max(0.3, z - 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)", minWidth: 36, textAlign: "center" }}>{Math.round(imgZoom * 100)}%</span>
+                <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <button onClick={() => setImgZoom(1)} title="Сбросить" style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--muted-foreground)", cursor: "pointer", fontSize: 11 }}>↺</button>
               </div>
               <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
                 style={{ padding: "4px 12px", borderRadius: 6, background: primary, color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -585,15 +585,15 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           {/* Variants */}
           {variants.length > 0 && (
             <div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 12 }}>
                 Варианты ({variants.length})
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
                 {variants.map((v, vi) => (
-                  <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 0.15s" }}
+                  <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid var(--border)`, cursor: "pointer", transition: "all 0.15s" }}
                     onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl, htmlContent: v.htmlContent ?? prev?.htmlContent } : null)}>
                     <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "contain", background: "#f8f8f8" }} />
-                    <div style={{ padding: "8px 12px", background: c.bgCard, fontSize: 12, fontWeight: 600, color: c.textPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ padding: "8px 12px", background: "var(--card)", fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>Вариант {vi + 1}</span>
                       <a href={v.htmlUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                         style={{ fontSize: 11, color: primary, textDecoration: "none" }}>Скачать</a>

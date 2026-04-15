@@ -179,7 +179,7 @@ ${themeVars(style)}
 
 body {
   background: #333;
-  font-family: var(--font-b);
+  font-family: "var(--font-b)";
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -188,8 +188,8 @@ body {
 .slide {
   width: 297mm;
   height: 210mm;
-  background: var(--bg);
-  color: var(--text);
+  background: "var(--bg)";
+  color: "var(--text)";
   position: relative;
   overflow: hidden;
   page-break-after: always;
@@ -238,7 +238,7 @@ body {
   text-transform: uppercase;
 }
 .cover h1 {
-  font-family: var(--font-h);
+  font-family: "var(--font-h)";
   font-size: 48px;
   font-weight: 700;
   line-height: 1.15;
@@ -260,10 +260,10 @@ body {
   flex-shrink: 0;
 }
 .slide-header h2 {
-  font-family: var(--font-h);
+  font-family: "var(--font-h)";
   font-size: 28px;
   font-weight: 700;
-  color: var(--primary);
+  color: "var(--primary)";
   line-height: 1.2;
 }
 .subtitle {
@@ -305,7 +305,7 @@ li::before {
   left: 0; top: 9px;
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: "var(--accent)";
 }
 
 /* ── Stats ── */
@@ -324,10 +324,10 @@ li::before {
   text-align: center;
 }
 .stat-value {
-  font-family: var(--font-h);
+  font-family: "var(--font-h)";
   font-size: 32px;
   font-weight: 700;
-  color: var(--accent);
+  color: "var(--accent)";
   line-height: 1;
 }
 .stat-label {
@@ -360,7 +360,7 @@ svg { max-width: 100%; }
   margin-bottom: 24px;
 }
 blockquote {
-  font-family: var(--font-h);
+  font-family: "var(--font-h)";
   font-size: 24px;
   font-weight: 600;
   line-height: 1.5;
@@ -400,7 +400,7 @@ cite {
 
 /* ── CTA ── */
 .cta-slide {
-  background: var(--primary);
+  background: "var(--primary)";
   color: #fff;
   justify-content: center;
   align-items: center;
@@ -411,7 +411,7 @@ cite {
   max-width: 85%;
 }
 .cta-inner h2 {
-  font-family: var(--font-h);
+  font-family: "var(--font-h)";
   font-size: 40px;
   font-weight: 700;
   color: #fff;

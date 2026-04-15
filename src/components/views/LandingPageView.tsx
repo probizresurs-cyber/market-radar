@@ -16,12 +16,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
-        ::selection { background: ${c.accent}40; }
+        ::selection { background: "var(--primary)"40; }
         .mr-btn { transition: all 0.15s ease; }
         .mr-btn:hover { transform: translateY(-1px); opacity: 0.92; }
         .mr-btn:active { transform: translateY(0); }
         .mr-card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .mr-card-hover:hover { transform: translateY(-3px); box-shadow: 0 8px 32px ${c.accent}20 !important; }
+        .mr-card-hover:hover { transform: translateY(-3px); box-shadow: 0 8px 32px var(--primary)20 !important; }
         @keyframes mr-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes mr-pulse-ring { 0%{transform:scale(0.95);opacity:0.7} 100%{transform:scale(1.2);opacity:0} }
         @keyframes mr-gradient { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }

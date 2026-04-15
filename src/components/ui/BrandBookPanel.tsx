@@ -48,30 +48,30 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
     reader.readAsDataURL(file);
   };
 
-  const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" };
-  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+  const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 5, letterSpacing: "0.05em" };
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
   const taStyle: React.CSSProperties = { ...inputStyle, resize: "vertical", lineHeight: 1.5 };
-  const hintStyle: React.CSSProperties = { fontSize: 10, color: c.textMuted, marginTop: 4 };
+  const hintStyle: React.CSSProperties = { fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 };
 
   const summary = brandBook.brandName
     ? `${brandBook.brandName}${brandBook.tagline ? " · " + brandBook.tagline : ""}`
     : "Не заполнено — контент будет генерироваться без брендовых правил";
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, boxShadow: c.shadow, marginBottom: 20 }}>
+    <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", marginBottom: 20 }}>
       <div
         onClick={() => setOpen(!open)}
-        style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid ${c.borderLight}` : "none" }}>
+        style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid var(--muted)` : "none" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>📖 Брендбук</div>
-          <div style={{ fontSize: 11, color: c.textMuted, marginTop: 3 }}>{summary}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>📖 Брендбук</div>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>{summary}</div>
         </div>
-        <span style={{ fontSize: 11, color: c.textMuted, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+        <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
       </div>
 
       {open && (
         <div style={{ padding: "16px 18px" }}>
-          <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 14, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 14, lineHeight: 1.5 }}>
             Все поля передаются в генерацию постов, рилсов и промптов ИИ-помощника. Чем полнее заполнен брендбук — тем точнее тон и визуал.
           </div>
 
@@ -95,7 +95,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
             <div>
               <label style={labelStyle}>ЦВЕТОВАЯ ПАЛИТРА</label>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: `2px solid ${c.border}`, overflow: "hidden", cursor: "pointer", background: pickerColor, boxShadow: c.shadow }}>
+                <div style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: `2px solid var(--border)`, overflow: "hidden", cursor: "pointer", background: pickerColor, boxShadow: "var(--shadow)" }}>
                   <input
                     type="color"
                     value={pickerColor}
@@ -106,23 +106,23 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
                 <button
                   type="button"
                   onClick={() => addColor(pickerColor)}
-                  style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                   + добавить
                 </button>
-                <span style={{ fontSize: 10, fontFamily: "monospace", color: c.textMuted }}>{pickerColor}</span>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--muted-foreground)" }}>{pickerColor}</span>
               </div>
               {brandBook.colors.length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                   {brandBook.colors.map((col, i) => (
                     <div key={i}
-                      style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 6px", borderRadius: 6, background: c.bg, border: `1px solid ${c.borderLight}` }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 3, background: col, border: `1px solid ${c.border}` }} />
-                      <span style={{ fontSize: 10, fontFamily: "monospace", color: c.textSecondary }}>{col}</span>
+                      style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 6px", borderRadius: 6, background: "var(--background)", border: `1px solid var(--muted)` }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 3, background: col, border: `1px solid var(--border)` }} />
+                      <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--foreground-secondary)" }}>{col}</span>
                       <button
                         type="button"
                         onClick={() => removeColor(col)}
                         title="удалить"
-                        style={{ background: "none", border: "none", color: c.textMuted, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>
+                        style={{ background: "none", border: "none", color: "var(--muted-foreground)", cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>
                         ×
                       </button>
                     </div>
@@ -195,12 +195,12 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
           <div style={{ marginTop: 14 }}>
             <label style={labelStyle}>ЛОГОТИП (PNG / JPG)</label>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ fontSize: 11, color: c.textSecondary }} />
+              <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ fontSize: 11, color: "var(--foreground-secondary)" }} />
               {brandBook.logoDataUrl && (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={brandBook.logoDataUrl} alt="logo" style={{ maxHeight: 48, maxWidth: 120, borderRadius: 6, border: `1px solid ${c.borderLight}`, background: c.bg, padding: 4 }} />
-                  <button onClick={() => update({ logoDataUrl: undefined })} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, fontSize: 10, cursor: "pointer" }}>✕ удалить</button>
+                  <img src={brandBook.logoDataUrl} alt="logo" style={{ maxHeight: 48, maxWidth: 120, borderRadius: 6, border: `1px solid var(--muted)`, background: "var(--background)", padding: 4 }} />
+                  <button onClick={() => update({ logoDataUrl: undefined })} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>✕ удалить</button>
                 </>
               )}
             </div>

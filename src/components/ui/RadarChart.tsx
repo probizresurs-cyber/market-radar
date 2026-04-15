@@ -15,7 +15,7 @@ export function RadarChart({ data, competitors, c, size = 260 }: {
     return { x: cx + d * Math.cos(a), y: cy + d * Math.sin(a) };
   };
   const poly = (vals: number[]) => vals.map((v, i) => getPoint(i, v)).map(p => `${p.x},${p.y}`).join(" ");
-  const compColors = [c.accentRed, c.accentYellow, c.accentGreen, c.accentWarm, c.accent];
+  const compColors = ["var(--destructive)", "var(--warning)", "var(--success)", "var(--warning)", "var(--primary)"];
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -29,7 +29,7 @@ export function RadarChart({ data, competitors, c, size = 260 }: {
       {competitors?.map((comp, ci) => (
         <polygon key={ci} points={poly(comp.categories.map(c2 => c2.score))} fill={compColors[ci % compColors.length] + "15"} stroke={compColors[ci % compColors.length]} strokeWidth={1.5} strokeOpacity={0.6} />
       ))}
-      <polygon points={poly(cats.map(c2 => c2.score))} fill={c.accent + "25"} stroke="var(--primary)" strokeWidth={2.5} />
+      <polygon points={poly(cats.map(c2 => c2.score))} fill={"color-mix(in oklch, var(--primary) 15%, transparent)"} stroke="var(--primary)" strokeWidth={2.5} />
       {cats.map((cat, i) => { const p = getPoint(i, cat.score); return <circle key={i} cx={p.x} cy={p.y} r={4} fill="var(--primary)" stroke="var(--card)" strokeWidth={2} />; })}
     </svg>
   );

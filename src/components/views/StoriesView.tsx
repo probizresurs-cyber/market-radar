@@ -46,7 +46,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "9px 12px", borderRadius: 8,
-    border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary,
+    border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)",
     fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit",
   };
   const accent = "#a855f7";
@@ -54,25 +54,25 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>📱 Сторис-сценарии</h1>
-        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>📱 Сторис-сценарии</h1>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
       </div>
 
       {/* Generator form */}
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadowLg, marginBottom: 24, overflow: "hidden" }}>
-        <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${c.borderLight}`, background: `linear-gradient(135deg, ${c.bgCard} 50%, ${accent}06 100%)` }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: c.textPrimary }}>✨ Создать серию сторис</div>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow-lg)", marginBottom: 24, overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid var(--muted)`, background: `linear-gradient(135deg, var(--card) 50%, ${accent}06 100%)` }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)" }}>✨ Создать серию сторис</div>
         </div>
         <div style={{ padding: "18px 20px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
             {/* Platform */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ПЛАТФОРМА</label>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ПЛАТФОРМА</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {(["instagram", "vk", "telegram"] as const).map(p => (
                   <button key={p} onClick={() => setPlatform(p)}
-                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${platform === p ? accent : c.border}`,
-                      background: platform === p ? accent + "15" : c.bg, color: platform === p ? accent : c.textSecondary,
+                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${platform === p ? accent : "var(--border)"}`,
+                      background: platform === p ? accent + "15" : "var(--background)", color: platform === p ? accent : "var(--foreground-secondary)",
                       fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
                     {p === "instagram" ? "📸 Insta" : p === "vk" ? "💙 VK" : "✈️ TG"}
                   </button>
@@ -82,12 +82,12 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
             {/* Slides count */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>КОЛ-ВО СЛАЙДОВ</label>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>КОЛ-ВО СЛАЙДОВ</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {([3, 5, 7] as const).map(n => (
                   <button key={n} onClick={() => setSlidesCount(n)}
-                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${slidesCount === n ? accent : c.border}`,
-                      background: slidesCount === n ? accent + "15" : c.bg, color: slidesCount === n ? accent : c.textSecondary,
+                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${slidesCount === n ? accent : "var(--border)"}`,
+                      background: slidesCount === n ? accent + "15" : "var(--background)", color: slidesCount === n ? accent : "var(--foreground-secondary)",
                       fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                     {n}
                   </button>
@@ -97,7 +97,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
             {/* Goal */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕЛЬ</label>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕЛЬ</label>
               <select value={goal} onChange={e => setGoal(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                 {["прогрев", "продажа", "охват", "вовлечение", "обучение", "анонс", "доверие"].map(g => (
                   <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>
@@ -108,7 +108,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
             {/* Pillar */}
             {plan?.pillars?.length ? (
               <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛП</label>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛП</label>
                 <select value={pillar} onChange={e => setPillar(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                   <option value="">— свободная тема —</option>
                   {plan.pillars.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
@@ -119,7 +119,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
           {/* Brief */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>
               ТЕМА / БРИФ
               <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
             </label>
@@ -132,15 +132,15 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
             />
           </div>
 
-          {genError && <div style={{ background: c.accentRed + "12", color: c.accentRed, padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
+          {genError && <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
 
           <button
             onClick={handleGenerate}
             disabled={generating}
             style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 14,
               cursor: generating ? "not-allowed" : "pointer",
-              background: generating ? c.borderLight : `linear-gradient(135deg, #a855f7, #c084fc)`,
-              color: generating ? c.textMuted : "#fff",
+              background: generating ? "var(--muted)" : `linear-gradient(135deg, #a855f7, #c084fc)`,
+              color: generating ? "var(--muted-foreground)" : "#fff",
               boxShadow: generating ? "none" : `0 4px 16px #a855f740` }}>
             {generating ? "⏳ Генерируем сценарий…" : "📱 Создать серию сторис"}
           </button>
@@ -149,9 +149,9 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
       {/* Stories list */}
       {stories.length === 0 ? (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 40, textAlign: "center", boxShadow: c.shadow }}>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
           <div style={{ fontSize: 40, marginBottom: 10 }}>📱</div>
-          <div style={{ fontSize: 13, color: c.textSecondary }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
+          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -216,19 +216,19 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
   const platformLabel = { instagram: "📸 Instagram", vk: "💙 VK", telegram: "✈️ Telegram" }[story.platform];
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadow, overflow: "hidden" }}>
+    <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: expanded ? `1px solid ${c.borderLight}` : "none", cursor: "pointer" }}
+      <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: expanded ? `1px solid var(--muted)` : "none", cursor: "pointer" }}
         onClick={() => setExpanded(v => !v)}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
           <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: accent + "15", color: accent, flexShrink: 0 }}>STORIES</span>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: c.bg, color: c.textMuted, flexShrink: 0 }}>{platformLabel}</span>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: c.bg, color: c.textMuted, flexShrink: 0 }}>{story.slides.length} слайдов</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{story.title}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{platformLabel}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{story.slides.length} слайдов</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{story.title}</span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 10, color: c.textMuted }}>{new Date(story.generatedAt).toLocaleDateString("ru-RU")}</span>
-          <span style={{ fontSize: 11, color: c.textMuted, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(story.generatedAt).toLocaleDateString("ru-RU")}</span>
+          <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>
       </div>
 
@@ -238,8 +238,8 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
           <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
             {story.slides.map((_, i) => (
               <button key={i} onClick={() => setActiveSlide(i)}
-                style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${activeSlide === i ? accent : c.border}`,
-                  background: activeSlide === i ? accent : c.bg, color: activeSlide === i ? "#fff" : c.textSecondary,
+                style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${activeSlide === i ? accent : "var(--border)"}`,
+                  background: activeSlide === i ? accent : "var(--background)", color: activeSlide === i ? "#fff" : "var(--foreground-secondary)",
                   fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
                 {i + 1}
               </button>
@@ -295,8 +295,8 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                 <div>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 4 }}>ФОН</div>
-                      <div style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, marginBottom: 6 }}>{slide.background}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 4 }}>ФОН</div>
+                      <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5, marginBottom: 6 }}>{slide.background}</div>
                       <button
                         onClick={() => handleGenerateBg(activeSlide)}
                         disabled={generatingBg === activeSlide}
@@ -309,7 +309,7 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                         }}>
                         {generatingBg === activeSlide ? "⏳ Генерируем…" : slide.backgroundImageUrl ? "🔄 Перегенерировать фон" : "🎨 Сгенерировать фон"}
                       </button>
-                      {bgError && <div style={{ marginTop: 4, fontSize: 10, color: c.accentRed }}>❌ {bgError}</div>}
+                      {bgError && <div style={{ marginTop: 4, fontSize: 10, color: "var(--destructive)" }}>❌ {bgError}</div>}
                     </div>
                     <Field c={c} label="Заголовок" value={slide.headlineText} bold />
                     {slide.bodyText && <Field c={c} label="Текст" value={slide.bodyText} />}
@@ -320,11 +320,11 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                   {/* Nav arrows */}
                   <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                     <button onClick={() => setActiveSlide(Math.max(0, activeSlide - 1))} disabled={activeSlide === 0}
-                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${c.border}`, background: c.bg, color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: activeSlide === 0 ? "not-allowed" : "pointer", opacity: activeSlide === 0 ? 0.4 : 1 }}>
+                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600, cursor: activeSlide === 0 ? "not-allowed" : "pointer", opacity: activeSlide === 0 ? 0.4 : 1 }}>
                       ← Назад
                     </button>
                     <button onClick={() => setActiveSlide(Math.min(story.slides.length - 1, activeSlide + 1))} disabled={activeSlide === story.slides.length - 1}
-                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${c.border}`, background: c.bg, color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: activeSlide === story.slides.length - 1 ? "not-allowed" : "pointer", opacity: activeSlide === story.slides.length - 1 ? 0.4 : 1 }}>
+                      style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600, cursor: activeSlide === story.slides.length - 1 ? "not-allowed" : "pointer", opacity: activeSlide === story.slides.length - 1 ? 0.4 : 1 }}>
                       Вперёд →
                     </button>
                   </div>
@@ -343,11 +343,11 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
             <div style={{ display: "flex", gap: 8 }}>
               {confirmDelete ? (
                 <>
-                  <button onClick={() => onDelete(story.id)} style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: c.accentRed, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
-                  <button onClick={() => setConfirmDelete(false)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, cursor: "pointer" }}>Нет</button>
+                  <button onClick={() => onDelete(story.id)} style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
+                  <button onClick={() => setConfirmDelete(false)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 11, cursor: "pointer" }}>Нет</button>
                 </>
               ) : (
-                <button onClick={() => setConfirmDelete(true)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.accentRed}40`, background: "transparent", color: c.accentRed, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
+                <button onClick={() => setConfirmDelete(true)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
               )}
             </div>
           </div>
@@ -360,8 +360,8 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
 export function Field({ c, label, value, bold, muted, accent }: { c: Colors; label: string; value: string; bold?: boolean; muted?: boolean; accent?: string }) {
   return (
     <div>
-      <div style={{ fontSize: 9, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 2 }}>{label.toUpperCase()}</div>
-      <div style={{ fontSize: 12, color: accent ?? (muted ? c.textMuted : c.textSecondary), fontWeight: bold ? 700 : 400, lineHeight: 1.5 }}>{value}</div>
+      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 2 }}>{label.toUpperCase()}</div>
+      <div style={{ fontSize: 12, color: accent ?? (muted ? "var(--muted-foreground)" : "var(--foreground-secondary)"), fontWeight: bold ? 700 : 400, lineHeight: 1.5 }}>{value}</div>
     </div>
   );
 }

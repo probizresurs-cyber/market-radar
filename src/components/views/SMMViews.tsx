@@ -53,24 +53,24 @@ export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Анализ СММ и брендинг</h1>
-      <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Анализ СММ и брендинг</h1>
+      <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Мы проанализируем ваши соцсети и сайт, определим архетип бренда и разработаем стратегию для каждой платформы: форматы, тон, контент-столпы и готовые примеры постов.
       </p>
 
       {myCompany && (
-        <div style={{ background: c.accent + "10", border: `1px solid ${c.accent}30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
-          <span style={{ color: c.textMuted }}>Компания: </span>
-          <span style={{ fontWeight: 600, color: c.textPrimary }}>{myCompany.company.name}</span>
-          <span style={{ color: c.textMuted }}> · {myCompany.company.url}</span>
+        <div style={{ background: "color-mix(in oklch, var(--primary) 6%, transparent)", border: `1px solid var(--primary)30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
+          <span style={{ color: "var(--muted-foreground)" }}>Компания: </span>
+          <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{myCompany.company.name}</span>
+          <span style={{ color: "var(--muted-foreground)" }}> · {myCompany.company.url}</span>
         </div>
       )}
 
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)", marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>
           Ниша / о компании
         </label>
-        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 10px" }}>
+        <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 10px" }}>
           Опишите чем занимается компания, для кого продукт, в чём ценность
         </p>
         <textarea
@@ -78,28 +78,28 @@ export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
           onChange={e => setNiche(e.target.value)}
           placeholder="Например: студия онлайн-йоги для женщин 30+. Помогаем вернуть гибкость, снять стресс и найти баланс через короткие практики дома."
           rows={4}
-          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
         />
       </div>
 
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)", marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>
           Ссылки на соцсети
         </label>
-        <p style={{ fontSize: 12, color: c.textMuted, margin: "0 0 14px" }}>
+        <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 14px" }}>
           Заполните те, которые есть. Можно оставить пустыми — тогда дадим рекомендации с нуля.
         </p>
         <div style={{ display: "grid", gap: 10 }}>
           {SMM_PLATFORMS.map(p => (
             <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{p.icon}</span>
-              <span style={{ fontSize: 12, color: c.textSecondary, width: 90, fontWeight: 600 }}>{p.label}</span>
+              <span style={{ fontSize: 12, color: "var(--foreground-secondary)", width: 90, fontWeight: 600 }}>{p.label}</span>
               <input
                 type="text"
                 value={links[p.key] ?? ""}
                 onChange={e => handleChange(p.key, e.target.value)}
                 placeholder={p.placeholder}
-                style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none" }}
+                style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none" }}
               />
             </div>
           ))}
@@ -107,17 +107,17 @@ export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
       </div>
 
       {error && (
-        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.accentRed, marginBottom: 16 }}>{error}</div>
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "var(--destructive)", marginBottom: 16 }}>{error}</div>
       )}
 
       <button
         onClick={handleSubmit}
         disabled={isAnalyzing}
-        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: isAnalyzing ? c.textMuted : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #ec489940" }}>
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: isAnalyzing ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #ec489940" }}>
         {isAnalyzing ? "⏳ Анализируем СММ… (60–90 сек)" : "📱 Провести анализ СММ"}
       </button>
       {isAnalyzing && (
-        <p style={{ fontSize: 12, color: c.textMuted, marginTop: 12 }}>Разрабатываем стратегию брендинга. Не закрывайте страницу.</p>
+        <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12 }}>Разрабатываем стратегию брендинга. Не закрывайте страницу.</p>
       )}
     </div>
   );
@@ -145,13 +145,13 @@ export function RealStatsBar({ c, stats }: { c: Colors; stats: SMMRealStats }) {
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
       {items.map((item, i) => (
         <div key={i} style={{
-          background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 12,
-          padding: "10px 18px", display: "flex", alignItems: "center", gap: 12, boxShadow: c.shadow,
+          background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 12,
+          padding: "10px 18px", display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow)",
         }}>
           <div>
-            <div style={{ fontSize: 11, color: c.textMuted, fontWeight: 600, marginBottom: 2 }}>{item.label}</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: c.textPrimary }}>{item.value}</div>
-            {item.sub && <div style={{ fontSize: 11, color: c.textMuted }}>{item.sub}</div>}
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontWeight: 600, marginBottom: 2 }}>{item.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)" }}>{item.value}</div>
+            {item.sub && <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{item.sub}</div>}
           </div>
           <div style={{ fontSize: 10, background: "#10b98115", color: "#10b981", borderRadius: 6, padding: "2px 7px", fontWeight: 700 }}>
             РЕАЛЬНЫЕ ДАННЫЕ
@@ -165,12 +165,12 @@ export function RealStatsBar({ c, stats }: { c: Colors; stats: SMMRealStats }) {
 export function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Дашборд СММ</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Дашборд СММ</h1>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>📱</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>Тут пока нет данных</div>
-        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 24, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 24px" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Тут пока нет данных</div>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 24px" }}>
           Запустите анализ СММ, чтобы получить стратегию брендинга, контент-план и рекомендации для каждой соцсети
         </div>
         <button
@@ -189,17 +189,17 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
   const platform = data.platformStrategies[activePlatform];
 
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
-    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 20, boxShadow: c.shadow, ...style }}>{children}</div>
+    <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", ...style }}>{children}</div>
   );
 
   const Tag = ({ text, color }: { text: string; color?: string }) => (
-    <span style={{ display: "inline-block", background: (color ?? c.accent) + "15", color: color ?? c.accent, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600, marginRight: 6, marginBottom: 6 }}>{text}</span>
+    <span style={{ display: "inline-block", background: (color ?? "var(--primary)") + "15", color: color ?? "var(--primary)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600, marginRight: 6, marginBottom: 6 }}>{text}</span>
   );
 
   const ListItem = ({ text, color, icon }: { text: string; color?: string; icon?: string }) => (
-    <div style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: `1px solid ${c.borderLight}`, fontSize: 13 }}>
-      <span style={{ flexShrink: 0, color: color ?? c.accent }}>{icon ?? "•"}</span>
-      <span style={{ color: c.textSecondary, lineHeight: 1.5 }}>{text}</span>
+    <div style={{ display: "flex", gap: 8, padding: "8px 0", borderBottom: `1px solid var(--muted)`, fontSize: 13 }}>
+      <span style={{ flexShrink: 0, color: color ?? "var(--primary)" }}>{icon ?? "•"}</span>
+      <span style={{ color: "var(--foreground-secondary)", lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 
@@ -208,8 +208,8 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>СММ-стратегия — {data.companyName}</h1>
-        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>СММ-стратегия — {data.companyName}</h1>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
       </div>
 
       {/* Real stats badge */}
@@ -221,58 +221,58 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       <CollapsibleSection c={c} title="🎭 Идентичность бренда">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>АРХЕТИП</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: c.accent, marginBottom: 14 }}>{data.brandIdentity.archetype}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>ПОЗИЦИОНИРОВАНИЕ</div>
-            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.positioning}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>АРХЕТИП</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)", marginBottom: 14 }}>{data.brandIdentity.archetype}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ПОЗИЦИОНИРОВАНИЕ</div>
+            <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.positioning}</p>
           </Card>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>УТП</div>
-            <p style={{ fontSize: 14, color: c.textPrimary, fontWeight: 600, lineHeight: 1.55, marginBottom: 14 }}>{data.brandIdentity.uniqueValue}</p>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>ВИЗУАЛЬНЫЙ СТИЛЬ</div>
-            <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.visualStyle}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>УТП</div>
+            <p style={{ fontSize: 14, color: "var(--foreground)", fontWeight: 600, lineHeight: 1.55, marginBottom: 14 }}>{data.brandIdentity.uniqueValue}</p>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>ВИЗУАЛЬНЫЙ СТИЛЬ</div>
+            <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.visualStyle}</p>
           </Card>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>ТОН ГОЛОСА</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>ТОН ГОЛОСА</div>
             <div style={{ marginBottom: 14 }}>{data.brandIdentity.toneOfVoice.map((t, i) => <Tag key={i} text={t} />)}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>КЛЮЧЕВЫЕ СЛОВА БРЕНДА</div>
-            <div>{data.brandIdentity.brandKeywords.map((k, i) => <Tag key={i} text={k} color={c.accentWarm} />)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>КЛЮЧЕВЫЕ СЛОВА БРЕНДА</div>
+            <div>{data.brandIdentity.brandKeywords.map((k, i) => <Tag key={i} text={k} color={"var(--warning)"} />)}</div>
           </Card>
         </div>
       </CollapsibleSection>
 
       {/* Content Strategy */}
       <CollapsibleSection c={c} title="📝 Контент-стратегия">
-        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, ${c.bgCard} 60%, ${c.accent}06 100%)` }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, lineHeight: 1.5, margin: "0 0 14px" }}>{data.contentStrategy.bigIdea}</p>
-          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>МИССИЯ КОНТЕНТА</div>
-          <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.65, margin: 0 }}>{data.contentStrategy.contentMission}</p>
+        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, var(--primary)06 100%)` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.5, margin: "0 0 14px" }}>{data.contentStrategy.bigIdea}</p>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>МИССИЯ КОНТЕНТА</div>
+          <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.65, margin: 0 }}>{data.contentStrategy.contentMission}</p>
         </Card>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>БОЛИ АУДИТОРИИ</div>
-            {data.contentStrategy.audienceProblems.map((p, i) => <ListItem key={i} text={p} color={c.accentRed} icon="⚡" />)}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>БОЛИ АУДИТОРИИ</div>
+            {data.contentStrategy.audienceProblems.map((p, i) => <ListItem key={i} text={p} color={"var(--destructive)"} icon="⚡" />)}
           </Card>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>СТОРИТЕЛЛИНГ-УГЛЫ</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>СТОРИТЕЛЛИНГ-УГЛЫ</div>
             {data.contentStrategy.storytellingAngles.map((s, i) => <ListItem key={i} text={s} icon="→" />)}
           </Card>
         </div>
         <Card style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>МАТРИЦА КОНТЕНТА</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>МАТРИЦА КОНТЕНТА</div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
               {["Тип контента", "Цель", "Доля"].map(h => (
-                <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid ${c.border}`, fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>{h}</th>
+                <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: `2px solid var(--border)`, fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {data.contentStrategy.contentMatrix.map((m, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${c.borderLight}` }}>
-                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600, color: c.textPrimary }}>{m.type}</td>
-                  <td style={{ padding: "10px 12px", fontSize: 12, color: c.textSecondary }}>{m.goal}</td>
-                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: c.accent }}>{m.share}</td>
+                <tr key={i} style={{ borderBottom: `1px solid var(--muted)` }}>
+                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{m.type}</td>
+                  <td style={{ padding: "10px 12px", fontSize: 12, color: "var(--foreground-secondary)" }}>{m.goal}</td>
+                  <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>{m.share}</td>
                 </tr>
               ))}
             </tbody>
@@ -286,9 +286,9 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {data.platformStrategies.map((p, i) => (
               <button key={i} onClick={() => setActivePlatform(i)} style={{
-                padding: "8px 18px", borderRadius: 10, border: `2px solid ${activePlatform === i ? c.accent : c.border}`,
-                background: activePlatform === i ? c.accent : "transparent",
-                color: activePlatform === i ? "#fff" : c.textSecondary,
+                padding: "8px 18px", borderRadius: 10, border: `2px solid ${activePlatform === i ? "var(--primary)" : "var(--border)"}`,
+                background: activePlatform === i ? "var(--primary)" : "transparent",
+                color: activePlatform === i ? "#fff" : "var(--foreground-secondary)",
                 fontWeight: 600, fontSize: 13, cursor: "pointer",
               }}>
                 {p.platformLabel}
@@ -300,54 +300,54 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
               <Card style={{ marginBottom: 16 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>СООТВЕТСТВИЕ ЦА</div>
-                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.audienceFit}</p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>СООТВЕТСТВИЕ ЦА</div>
+                    <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: 0 }}>{platform.audienceFit}</p>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ФОРМАТЫ</div>
-                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.contentFormat}</p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>ФОРМАТЫ</div>
+                    <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: 0 }}>{platform.contentFormat}</p>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ЧАСТОТА</div>
-                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.postingFrequency}</p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>ЧАСТОТА</div>
+                    <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: 0 }}>{platform.postingFrequency}</p>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 6 }}>ТОН</div>
-                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.55, margin: 0 }}>{platform.toneOfVoice}</p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>ТОН</div>
+                    <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: 0 }}>{platform.toneOfVoice}</p>
                   </div>
                 </div>
               </Card>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
                 <Card>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛПЫ</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛПЫ</div>
                   {platform.contentPillars.map((p, i) => <ListItem key={i} text={p} icon="🏛" />)}
                 </Card>
                 <Card>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 12, letterSpacing: "0.05em" }}>ТАКТИКИ РОСТА</div>
-                  {platform.growthTactics.map((g, i) => <ListItem key={i} text={g} color={c.accentGreen} icon="📈" />)}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 12, letterSpacing: "0.05em" }}>ТАКТИКИ РОСТА</div>
+                  {platform.growthTactics.map((g, i) => <ListItem key={i} text={g} color={"var(--success)"} icon="📈" />)}
                 </Card>
                 <Card>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>KPI</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>KPI</div>
                   {platform.metricsToTrack.map((m, i) => <ListItem key={i} text={m} icon="📊" />)}
                 </Card>
               </div>
               <Card style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 12, letterSpacing: "0.05em" }}>ПРИМЕРЫ ПОСТОВ — ГОТОВЫ К ПУБЛИКАЦИИ</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 12, letterSpacing: "0.05em" }}>ПРИМЕРЫ ПОСТОВ — ГОТОВЫ К ПУБЛИКАЦИИ</div>
                 {platform.examplePosts.map((post, i) => (
-                  <div key={i} style={{ padding: 14, background: c.bg, borderRadius: 10, marginBottom: 10, border: `1px solid ${c.borderLight}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6 }}>ПОСТ #{i + 1}</div>
-                    <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{post}</p>
+                  <div key={i} style={{ padding: 14, background: "var(--background)", borderRadius: 10, marginBottom: 10, border: `1px solid var(--muted)` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>ПОСТ #{i + 1}</div>
+                    <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{post}</p>
                   </div>
                 ))}
               </Card>
               <Card style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 8, letterSpacing: "0.05em" }}>СТРАТЕГИЯ ХЭШТЕГОВ / SEO</div>
-                <p style={{ fontSize: 13, color: c.textSecondary, lineHeight: 1.6, margin: 0 }}>{platform.hashtagStrategy}</p>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>СТРАТЕГИЯ ХЭШТЕГОВ / SEO</div>
+                <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0 }}>{platform.hashtagStrategy}</p>
               </Card>
               {platform.warnings && platform.warnings.length > 0 && (
-                <Card style={{ background: c.accentRed + "08", border: `1px solid ${c.accentRed}25` }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>ЧЕГО НЕ ДЕЛАТЬ</div>
-                  {platform.warnings.map((w, i) => <ListItem key={i} text={w} color={c.accentRed} icon="✗" />)}
+                <Card style={{ background: "color-mix(in oklch, var(--destructive) 3%, transparent)", border: `1px solid var(--destructive)25` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>ЧЕГО НЕ ДЕЛАТЬ</div>
+                  {platform.warnings.map((w, i) => <ListItem key={i} text={w} color={"var(--destructive)"} icon="✗" />)}
                 </Card>
               )}
             </div>
@@ -359,11 +359,11 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       <CollapsibleSection c={c} title="🚀 Quick wins и план на 30 дней">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentGreen, marginBottom: 12, letterSpacing: "0.05em" }}>QUICK WINS — ПЕРВАЯ НЕДЕЛЯ</div>
-            {data.quickWins.map((q, i) => <ListItem key={i} text={q} color={c.accentGreen} icon={`${i + 1}.`} />)}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 12, letterSpacing: "0.05em" }}>QUICK WINS — ПЕРВАЯ НЕДЕЛЯ</div>
+            {data.quickWins.map((q, i) => <ListItem key={i} text={q} color={"var(--success)"} icon={`${i + 1}.`} />)}
           </Card>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.accent, marginBottom: 12, letterSpacing: "0.05em" }}>ПЛАН НА 30 ДНЕЙ</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 12, letterSpacing: "0.05em" }}>ПЛАН НА 30 ДНЕЙ</div>
             {data.thirtyDayPlan.map((w, i) => <ListItem key={i} text={w} icon="📅" />)}
           </Card>
         </div>
@@ -372,12 +372,12 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       {/* Red flags + Inspiration */}
       <CollapsibleSection c={c} title="⚠️ Ошибки и вдохновение">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-          <Card style={{ background: c.accentRed + "08" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.accentRed, marginBottom: 12, letterSpacing: "0.05em" }}>RED FLAGS</div>
-            {data.redFlags.map((r, i) => <ListItem key={i} text={r} color={c.accentRed} icon="⚠️" />)}
+          <Card style={{ background: "color-mix(in oklch, var(--destructive) 3%, transparent)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>RED FLAGS</div>
+            {data.redFlags.map((r, i) => <ListItem key={i} text={r} color={"var(--destructive)"} icon="⚠️" />)}
           </Card>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 12, letterSpacing: "0.05em" }}>АККАУНТЫ ДЛЯ ВДОХНОВЕНИЯ</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>АККАУНТЫ ДЛЯ ВДОХНОВЕНИЯ</div>
             {data.inspirationAccounts.map((a, i) => <ListItem key={i} text={a} icon="✨" />)}
           </Card>
         </div>

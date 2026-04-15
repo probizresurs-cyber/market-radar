@@ -17,14 +17,14 @@ import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 export function ContentEmptyView({ c, onRun, hasSmm }: { c: Colors; onRun: () => void; hasSmm: boolean }) {
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Контент-завод</h1>
-      <p style={{ fontSize: 13, color: c.textMuted, margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 48, textAlign: "center", boxShadow: c.shadow }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Контент-завод</h1>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🏭</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, marginBottom: 8 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>
           {hasSmm ? "Запустите контент-завод" : "Сначала проведите анализ СММ"}
         </div>
-        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 24, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 24px" }}>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 420, margin: "0 auto 24px" }}>
           {hasSmm
             ? "На основе вашего СММ-анализа мы создадим контент-план: 12 идей постов и 8 видео-рилсов. Дальше можно сгенерировать готовые посты с картинками и видео с аватарами HeyGen."
             : "Контент-завод работает на основе СММ-анализа — он определяет архетип бренда, тон голоса и боли аудитории, а уже потом строит контент-план."}
@@ -64,25 +64,25 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: c.textPrimary }}>Контент-завод</h1>
-      <p style={{ fontSize: 13, color: c.textSecondary, margin: "0 0 28px" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Контент-завод</h1>
+      <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Сгенерируем контент-план на 30 дней: 12 идей постов и 8 видео-рилсов на основе вашего СММ-анализа. Каждую идею можно превратить в готовый пост с картинкой или видео с аватаром HeyGen.
       </p>
 
       {smm ? (
         <div style={{ background: "#f59e0b10", border: "1px solid #f59e0b30", borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
-          <div style={{ color: c.textMuted, marginBottom: 4 }}>Используем СММ-анализ:</div>
-          <div style={{ fontWeight: 600, color: c.textPrimary }}>{smm.brandIdentity.archetype} · {smm.companyName}</div>
-          <div style={{ color: c.textSecondary, marginTop: 4 }}>{smm.brandIdentity.positioning}</div>
+          <div style={{ color: "var(--muted-foreground)", marginBottom: 4 }}>Используем СММ-анализ:</div>
+          <div style={{ fontWeight: 600, color: "var(--foreground)" }}>{smm.brandIdentity.archetype} · {smm.companyName}</div>
+          <div style={{ color: "var(--foreground-secondary)", marginTop: 4 }}>{smm.brandIdentity.positioning}</div>
         </div>
       ) : (
-        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: c.accentRed }}>
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "var(--destructive)" }}>
           ⚠️ СММ-анализ не найден. Сначала запустите его в разделе «Анализ СММ».
         </div>
       )}
 
-      <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow, marginBottom: 20 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: c.textPrimary, marginBottom: 8 }}>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)", marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>
           Уточнение по нише (опционально)
         </label>
         <textarea
@@ -90,18 +90,18 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
           onChange={e => setNiche(e.target.value)}
           placeholder="Можно дополнить контекст: продукт, ЦА, особенности коммуникации"
           rows={3}
-          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit" }}
         />
       </div>
 
       {error && (
-        <div style={{ background: c.accentRed + "12", border: `1px solid ${c.accentRed}30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.accentRed, marginBottom: 16 }}>{error}</div>
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "var(--destructive)", marginBottom: 16 }}>{error}</div>
       )}
 
       <button
         onClick={handleSubmit}
         disabled={isGenerating || !smm}
-        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating || !smm ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating || !smm ? c.textMuted : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating || !smm ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating || !smm ? "var(--muted)" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating || !smm ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating || !smm ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
         {isGenerating ? "⏳ Запускаем завод… (60–90 сек)" : "🏭 Сгенерировать контент-план"}
       </button>
     </div>
@@ -153,25 +153,25 @@ export function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
   };
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
+    <div style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "var(--shadow)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px", textTransform: "uppercase" }}>{idea.format}</span>
-        <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.platform}</span>
+        <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontWeight: 600 }}>{idea.platform}</span>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
-      <p style={{ fontSize: 11, color: c.textSecondary, lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
-      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
-      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 12 }}><b>CTA:</b> {idea.cta}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 6 }}>{idea.hook}</div>
+      <p style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.45, margin: "0 0 6px" }}>{idea.angle}</p>
+      <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 2 }}><b>Столп:</b> {idea.pillar} · <b>Цель:</b> {idea.goal}</div>
+      <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 12 }}><b>CTA:</b> {idea.cta}</div>
 
       <button
         onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
         disabled={busy || isGenerating}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
         {busy ? "⏳ Генерируем…" : "✨ Создать пост с картинкой"}
       </button>
       <button
         onClick={handleOpenPrompt}
-        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: showPrompt ? "#f59e0b12" : "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid var(--border)`, background: showPrompt ? "#f59e0b12" : "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
         {showPrompt ? "↑ Скрыть промпт" : "✏️ Редактировать промпт"}
       </button>
       {showPrompt && (
@@ -180,9 +180,9 @@ export function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             rows={7}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #f59e0b50`, background: c.bg, color: c.textPrimary, fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #f59e0b50`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
           />
-          <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>Промпт заменит стандартный при генерации. Ответ должен быть JSON.</div>
+          <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>Промпт заменит стандартный при генерации. Ответ должен быть JSON.</div>
         </div>
       )}
     </div>
@@ -206,25 +206,25 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
   };
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: 14, boxShadow: c.shadow }}>
+    <div style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, padding: 14, boxShadow: "var(--shadow)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {idea.durationSec}s</span>
-        <span style={{ fontSize: 10, color: c.textMuted, fontWeight: 600 }}>{idea.pillar}</span>
+        <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontWeight: 600 }}>{idea.pillar}</span>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
-      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
-      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
-      <div style={{ fontSize: 10, color: c.textMuted, marginBottom: 12 }}><b>Результат:</b> {idea.result}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 6 }}>🪝 {idea.hook}</div>
+      <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 2 }}><b>Боль:</b> {idea.problem}</div>
+      <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 2 }}><b>Решение:</b> {idea.solution}</div>
+      <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 12 }}><b>Результат:</b> {idea.result}</div>
 
       <button
         onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
         disabled={busy || isGenerating}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? c.borderLight : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
         {busy ? "⏳ Пишем сценарий…" : "🎬 Создать сценарий рилса"}
       </button>
       <button
         onClick={handleOpenPrompt}
-        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: showPrompt ? "#ec489912" : "transparent", color: c.textSecondary, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+        style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid var(--border)`, background: showPrompt ? "#ec489912" : "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
         {showPrompt ? "↑ Скрыть промпт" : "✏️ Редактировать промпт"}
       </button>
       {showPrompt && (
@@ -233,9 +233,9 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             rows={7}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #ec489950`, background: c.bg, color: c.textPrimary, fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1px solid #ec489950`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box" }}
           />
-          <div style={{ fontSize: 10, color: c.textMuted, marginTop: 2 }}>Промпт заменит стандартный. Ответ должен быть JSON.</div>
+          <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>Промпт заменит стандартный. Ответ должен быть JSON.</div>
         </div>
       )}
     </div>
@@ -351,18 +351,18 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   const accent = mode === "post" ? "#f59e0b" : "#ec4899";
 
   return (
-    <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, boxShadow: c.shadowLg, marginBottom: 24, overflow: "hidden" }}>
+    <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow-lg)", marginBottom: 24, overflow: "hidden" }}>
       {/* Header + mode tabs */}
-      <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${c.borderLight}`, background: `linear-gradient(135deg, ${c.bgCard} 50%, ${accent}06 100%)` }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: c.textPrimary, marginBottom: 12 }}>✨ Создать контент</div>
+      <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid var(--muted)`, background: `linear-gradient(135deg, var(--card) 50%, ${accent}06 100%)` }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: 12 }}>✨ Создать контент</div>
         <div style={{ display: "flex", gap: 8 }}>
           {([["post", "📝 Пост"], ["reel", "🎬 Рилс"]] as const).map(([m, label]) => (
             <button
               key={m}
               onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setBrief(""); setGeneratedPrompt(""); setShowAdvanced(false); }}
               style={{ padding: "7px 18px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.15s",
-                background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : c.bg,
-                color: mode === m ? "#fff" : c.textSecondary,
+                background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : "var(--background)",
+                color: mode === m ? "#fff" : "var(--foreground-secondary)",
                 boxShadow: mode === m ? `0 2px 8px ${m === "reel" ? "#ec489940" : "#f59e0b40"}` : "none",
               }}>
               {label}
@@ -374,7 +374,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
       <div style={{ padding: "18px 20px" }}>
         {/* Idea chips */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.05em" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>
             {mode === "post" ? "ВЫБЕРИТЕ ИДЕЮ ИЗ ПЛАНА" : "ВЫБЕРИТЕ ИДЕЮ РИЛСА"}
             <span style={{ fontWeight: 400, marginLeft: 6 }}>— или создайте с нуля</span>
           </div>
@@ -384,12 +384,12 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
                   const sel = selectedPostId === idea.id;
                   return (
                     <button key={idea.id} onClick={() => selectPost(idea)}
-                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
-                        background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
+                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
+                        background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
                         fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
                         maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
                       }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : c.textMuted, marginBottom: 2, textTransform: "uppercase" }}>{idea.format}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2, textTransform: "uppercase" }}>{idea.format}</div>
                       {idea.hook}
                     </button>
                   );
@@ -398,20 +398,20 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
                   const sel = selectedReelId === idea.id;
                   return (
                     <button key={idea.id} onClick={() => selectReel(idea)}
-                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : c.border}`,
-                        background: sel ? accent + "18" : c.bg, color: sel ? accent : c.textSecondary,
+                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
+                        background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
                         fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
                         maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
                       }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : c.textMuted, marginBottom: 2 }}>{idea.durationSec}с · {idea.pillar}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2 }}>{idea.durationSec}с · {idea.pillar}</div>
                       🪝 {idea.hook}
                     </button>
                   );
                 })
             }
             <button onClick={openScratch}
-              style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : c.border}`,
-                background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : c.textMuted,
+              style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : "var(--border)"}`,
+                background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : "var(--muted-foreground)",
                 fontSize: 11, fontWeight: scratchMode ? 700 : 500, cursor: "pointer", transition: "all 0.12s",
               }}>
               ✍️ С нуля
@@ -421,7 +421,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
 
         {/* Selected idea details */}
         {!scratchMode && (selectedPost || selectedReel) && (
-          <div style={{ marginBottom: 14, padding: "10px 14px", background: accent + "0a", borderRadius: 10, border: `1px solid ${accent}20`, fontSize: 11, color: c.textSecondary, lineHeight: 1.6 }}>
+          <div style={{ marginBottom: 14, padding: "10px 14px", background: accent + "0a", borderRadius: 10, border: `1px solid ${accent}20`, fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.6 }}>
             {selectedPost && <><b style={{ color: accent }}>Угол:</b> {selectedPost.angle} · <b style={{ color: accent }}>Цель:</b> {selectedPost.goal} · <b style={{ color: accent }}>CTA:</b> {selectedPost.cta}</>}
             {selectedReel && <><b style={{ color: accent }}>Боль:</b> {selectedReel.problem} · <b style={{ color: accent }}>Решение:</b> {selectedReel.solution} · <b style={{ color: accent }}>CTA:</b> {selectedReel.cta}</>}
           </div>
@@ -429,7 +429,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
 
         {/* Brief / instructions field */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>
             БРИФ / УТОЧНЕНИЕ
             <span style={{ fontWeight: 400, marginLeft: 6 }}>— необязательно, можно оставить пустым</span>
           </label>
@@ -440,8 +440,8 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
               ? `Например: «напиши ${mode === "post" ? "пост" : "рилс"} о плюсах нашего бизнеса» или «сделай акцент на надёжности и немецком качестве»`
               : `Дополнительные пожелания. Например: «сделай акцент на скорости доставки» или «добавь кейс из практики»`}
             rows={2}
-            style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1px solid ${c.border}`,
-              background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical",
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1px solid var(--border)`,
+              background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none", resize: "vertical",
               fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box",
             }}
           />
@@ -458,33 +458,33 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
             }}>
             {isExpandingPrompt ? "⏳ ИИ готовит промпт…" : "🤖 ИИ-помощник: подготовить промпт"}
           </button>
-          <div style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", flex: 1 }}>
             {isExpandingPrompt ? "Анализирую компанию и тему…" : "ИИ использует данные компании и сформирует готовый промпт"}
           </div>
-          {expandError && <span style={{ fontSize: 11, color: c.accentRed }}>{expandError}</span>}
+          {expandError && <span style={{ fontSize: 11, color: "var(--destructive)" }}>{expandError}</span>}
         </div>
 
         {/* AI-generated prompt (advanced / editable) */}
         {showAdvanced && generatedPrompt && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em" }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
                 ПРОМПТ ОТ ИИ-ПОМОЩНИКА
                 <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно отредактировать</span>
               </label>
               <button onClick={() => { setShowAdvanced(false); setGeneratedPrompt(""); }}
-                style={{ fontSize: 10, color: c.textMuted, background: "none", border: "none", cursor: "pointer" }}>✕ скрыть</button>
+                style={{ fontSize: 10, color: "var(--muted-foreground)", background: "none", border: "none", cursor: "pointer" }}>✕ скрыть</button>
             </div>
             <textarea
               value={generatedPrompt}
               onChange={e => setGeneratedPrompt(e.target.value)}
               rows={8}
               style={{ width: "100%", padding: "11px 13px", borderRadius: 10, border: `1px solid ${accent}40`,
-                background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical",
+                background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none", resize: "vertical",
                 fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, boxSizing: "border-box",
               }}
             />
-            <div style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
               Этот промпт будет использован при генерации. При нажатии «Создать» без промпта — ИИ сгенерирует по идее и данным компании автоматически.
             </div>
           </div>
@@ -495,8 +495,8 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           onClick={handleGenerate}
           disabled={isGenerating}
           style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 14, cursor: isGenerating ? "not-allowed" : "pointer", transition: "all 0.15s",
-            background: isGenerating ? c.borderLight : (mode === "reel" ? "linear-gradient(135deg, #ec4899, #f472b6)" : "linear-gradient(135deg, #f59e0b, #fb923c)"),
-            color: isGenerating ? c.textMuted : "#fff",
+            background: isGenerating ? "var(--muted)" : (mode === "reel" ? "linear-gradient(135deg, #ec4899, #f472b6)" : "linear-gradient(135deg, #f59e0b, #fb923c)"),
+            color: isGenerating ? "var(--muted-foreground)" : "#fff",
             boxShadow: isGenerating ? "none" : `0 4px 16px ${accent}50`,
           }}>
           {isGenerating
@@ -504,7 +504,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
             : mode === "reel" ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
         </button>
         {isGenerating && !busy && (
-          <div style={{ fontSize: 11, color: c.textMuted, textAlign: "center", marginTop: 6 }}>Дождитесь окончания текущей генерации</div>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", textAlign: "center", marginTop: 6 }}>Дождитесь окончания текущей генерации</div>
         )}
       </div>
     </div>
@@ -535,21 +535,21 @@ export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGen
   const fakeReelBase = { id: `cal-${dayIndex}`, pillar: "Календарь", hook: dayText, intrigue: "", problem: "", solution: "", result: "", cta: "", durationSec: 30, visualStyle: "", hashtags: [] };
 
   return (
-    <div style={{ marginTop: 14, background: c.bgCard, borderRadius: 12, border: `1.5px solid ${accentColor}40`, padding: 18, boxShadow: c.shadow }}>
+    <div style={{ marginTop: 14, background: "var(--card)", borderRadius: 12, border: `1.5px solid ${accentColor}40`, padding: 18, boxShadow: "var(--shadow)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, marginBottom: 4, letterSpacing: "0.05em" }}>ДЕНЬ {dayIndex + 1}</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>{dayText}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{dayText}</div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: c.textMuted, lineHeight: 1 }}>×</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted-foreground)", lineHeight: 1 }}>×</button>
       </div>
 
-      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: c.textMuted, marginBottom: 5, letterSpacing: "0.05em" }}>ПРОМПТ ДЛЯ ГЕНЕРАЦИИ (можно редактировать)</label>
+      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 5, letterSpacing: "0.05em" }}>ПРОМПТ ДЛЯ ГЕНЕРАЦИИ (можно редактировать)</label>
       <textarea
         value={prompt}
         onChange={e => setPrompt(e.target.value)}
         rows={6}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${accentColor}50`, background: c.bg, color: c.textPrimary, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.55, boxSizing: "border-box" }}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${accentColor}50`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.55, boxSizing: "border-box" }}
       />
 
       <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
@@ -559,12 +559,12 @@ export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGen
             : onGeneratePost(fakeIdBase, prompt)
           }
           disabled={busy}
-          style={{ flex: 1, padding: "10px 16px", borderRadius: 9, border: "none", background: busy ? c.borderLight : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, color: busy ? c.textMuted : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
+          style={{ flex: 1, padding: "10px 16px", borderRadius: 9, border: "none", background: busy ? "var(--muted)" : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
           {busy ? "⏳ Генерируем…" : isReel ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
         </button>
         <button
           onClick={() => setPrompt(defaultPrompt)}
-          style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid ${c.border}`, background: "transparent", color: c.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+          style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
           Сбросить промпт
         </button>
       </div>
@@ -594,30 +594,30 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
   const generatedDate = new Date(plan.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
-    <div style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${c.border}`, padding: 16, boxShadow: c.shadow, ...style }}>{children}</div>
+    <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)", ...style }}>{children}</div>
   );
 
   return (
     <div style={{ maxWidth: 1200 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: c.textPrimary }}>🏭 Контент-завод — {plan.companyName}</h1>
-        <p style={{ fontSize: 13, color: c.textMuted, margin: 0 }}>{generatedDate} · {plan.postIdeas.length} постов · {plan.reelIdeas.length} рилсов</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>🏭 Контент-завод — {plan.companyName}</h1>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{generatedDate} · {plan.postIdeas.length} постов · {plan.reelIdeas.length} рилсов</p>
       </div>
 
       {/* Big Idea + pillars */}
       <CollapsibleSection c={c} title="💡 Большая идея и контент-столпы">
-        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, ${c.bgCard} 60%, #f59e0b08 100%)` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, marginBottom: 6, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary, lineHeight: 1.5, margin: 0 }}>{plan.bigIdea}</p>
+        <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, #f59e0b08 100%)` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.5, margin: 0 }}>{plan.bigIdea}</p>
         </Card>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           {plan.pillars?.map((p, i) => (
             <Card key={i}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary }}>{p.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{p.name}</div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>{p.share}</div>
               </div>
-              <p style={{ fontSize: 12, color: c.textSecondary, lineHeight: 1.5, margin: 0 }}>{p.description}</p>
+              <p style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5, margin: 0 }}>{p.description}</p>
             </Card>
           ))}
         </div>
@@ -677,9 +677,9 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
                   key={i}
                   onClick={() => setSelectedDay(isSelected ? null : i)}
                   style={{
-                    padding: "8px 10px", background: isSelected ? (isReel ? "#ec489918" : "#f59e0b18") : c.bg,
-                    borderRadius: 8, border: `1.5px solid ${isSelected ? (isReel ? "#ec4899" : "#f59e0b") : c.borderLight}`,
-                    fontSize: 11, color: c.textSecondary, lineHeight: 1.45, cursor: "pointer",
+                    padding: "8px 10px", background: isSelected ? (isReel ? "#ec489918" : "#f59e0b18") : "var(--background)",
+                    borderRadius: 8, border: `1.5px solid ${isSelected ? (isReel ? "#ec4899" : "#f59e0b") : "var(--muted)"}`,
+                    fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.45, cursor: "pointer",
                     transition: "all 0.12s",
                   }}>
                   {day}
@@ -688,7 +688,7 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
             })}
           </div>
           {plan.weeklyRhythm && (
-            <div style={{ marginTop: 14, padding: 10, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: c.textSecondary }}>
+            <div style={{ marginTop: 14, padding: 10, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: "var(--foreground-secondary)" }}>
               <b style={{ color: "#f59e0b" }}>Ритм:</b> {plan.weeklyRhythm}
             </div>
           )}

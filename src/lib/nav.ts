@@ -60,6 +60,14 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "content-roi", icon: "💰", label: "ROI калькулятор", count: null },
         ],
       },
+      {
+        id: "seo-articles", icon: "✍️", label: "SEO-статьи", count: null,
+        children: [
+          { id: "seo-new",      icon: "➕", label: "Новая статья",       count: null },
+          { id: "seo-library",  icon: "📚", label: "Библиотека статей",  count: null },
+          { id: "seo-keywords", icon: "🔑", label: "Кластер ключей",     count: null },
+        ],
+      },
       { id: "reviews-analysis", icon: "⭐", label: "Анализ отзывов", count: null },
       { id: "brand-presentation", icon: "🎤", label: "Презентация бренда", count: null },
       { id: "landing-generator", icon: "🌐", label: "Генератор лендингов", count: null },

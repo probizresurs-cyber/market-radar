@@ -17,7 +17,7 @@ export function KeysoDashboardBlock({ c, dash }: {
 
   if (!hasData(y) && !hasData(g)) {
     return (
-      <div style={{ background: c.bgCard, borderRadius: 14, border: `1px dashed ${c.border}`, padding: 20, textAlign: "center", color: c.textMuted, fontSize: 13, boxShadow: c.shadow, marginBottom: 16 }}>
+      <div style={{ background: "var(--card)", borderRadius: 14, border: `1px dashed var(--border)`, padding: 20, textAlign: "center", color: "var(--muted-foreground)", fontSize: 13, boxShadow: "var(--shadow)", marginBottom: 16 }}>
         Данных по этому домену в базе Key.so не найдено — попробуйте запустить новый анализ
       </div>
     );
@@ -28,9 +28,9 @@ export function KeysoDashboardBlock({ c, dash }: {
   const MetricCard = ({ icon, label, value, color }: { icon: string; label: string; value: number | string | undefined; color?: string }) => {
     if (!value && value !== 0) return null;
     return (
-      <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: "12px 16px", boxShadow: c.shadow }}>
-        <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 6 }}>{icon} {label}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: color ?? c.textPrimary }}>
+      <div style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, padding: "12px 16px", boxShadow: "var(--shadow)" }}>
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{icon} {label}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: color ?? "var(--foreground)" }}>
           {typeof value === "number" ? value.toLocaleString("ru-RU") : value}
         </div>
       </div>
@@ -42,7 +42,7 @@ export function KeysoDashboardBlock({ c, dash }: {
       {/* Позиции в поиске */}
       {(d.top1 || d.top3 || d.top5 || d.top10 || d.top50) ? (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 10 }}>ЗАПРОСЫ САЙТА (ЯНДЕКС)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>ЗАПРОСЫ САЙТА (ЯНДЕКС)</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { label: "В топ 1", val: d.top1 },
@@ -52,9 +52,9 @@ export function KeysoDashboardBlock({ c, dash }: {
               { label: "В топ 50", val: d.top50 },
               ...(d.aiMentions ? [{ label: "ИИ-ответы Алисы", val: d.aiMentions }] : []),
             ].filter(x => x.val).map(x => (
-              <div key={x.label} style={{ background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 10, padding: "8px 16px", boxShadow: c.shadow, minWidth: 80, textAlign: "center" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: c.accent }}>{x.val}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>{x.label}</div>
+              <div key={x.label} style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 10, padding: "8px 16px", boxShadow: "var(--shadow)", minWidth: 80, textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{x.val}</div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>{x.label}</div>
               </div>
             ))}
           </div>
@@ -63,9 +63,9 @@ export function KeysoDashboardBlock({ c, dash }: {
 
       {/* Органика */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 10 }}>ОРГАНИЧЕСКАЯ ВЫДАЧА</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>ОРГАНИЧЕСКАЯ ВЫДАЧА</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
-          <MetricCard icon="📊" label="Трафик с поиска" value={d.traffic} color={c.accentGreen} />
+          <MetricCard icon="📊" label="Трафик с поиска" value={d.traffic} color={"var(--success)"} />
           <MetricCard icon="📄" label="Страниц в выдаче" value={d.pagesInOrganic} />
           <MetricCard icon="👁️" label="Видимость" value={d.visibility} />
           <MetricCard icon="🎯" label="Рекл. запросов" value={d.adKeys} />
@@ -75,11 +75,11 @@ export function KeysoDashboardBlock({ c, dash }: {
       {/* Ссылки */}
       {(d.backlinks || d.dr || d.referringDomains) ? (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 10 }}>ССЫЛКИ</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>ССЫЛКИ</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
             <MetricCard icon="🔗" label="Входящие ссылки" value={d.backlinks} />
             <MetricCard icon="↗️" label="Исходящие ссылки" value={d.outboundLinks} />
-            <MetricCard icon="⭐" label="DR (рейтинг домена)" value={d.dr} color={c.accentWarm} />
+            <MetricCard icon="⭐" label="DR (рейтинг домена)" value={d.dr} color={"var(--warning)"} />
             <MetricCard icon="🌐" label="Ссылающихся доменов" value={d.referringDomains} />
             <MetricCard icon="🖥️" label="Исходящих доменов" value={d.outboundDomains} />
             <MetricCard icon="📡" label="Ссылок по IP" value={d.ipLinks} />
@@ -89,11 +89,11 @@ export function KeysoDashboardBlock({ c, dash }: {
 
       {/* Конкуренты */}
       {d.competitors && d.competitors.length > 0 && (
-        <div style={{ background: c.bgCard, borderRadius: 12, border: `1px solid ${c.border}`, padding: "14px 18px", boxShadow: c.shadow }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.05em", marginBottom: 10 }}>⚔️ КОНКУРЕНТЫ В ОРГАНИКЕ</div>
+        <div style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, padding: "14px 18px", boxShadow: "var(--shadow)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>⚔️ КОНКУРЕНТЫ В ОРГАНИКЕ</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {d.competitors.map(comp => (
-              <span key={comp} style={{ background: c.bg, border: `1px solid ${c.borderLight}`, padding: "4px 10px", borderRadius: 8, fontSize: 12, color: c.textSecondary, fontWeight: 500 }}>{comp}</span>
+              <span key={comp} style={{ background: "var(--background)", border: `1px solid var(--muted)`, padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "var(--foreground-secondary)", fontWeight: 500 }}>{comp}</span>
             ))}
           </div>
         </div>

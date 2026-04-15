@@ -2,9 +2,9 @@ import type { Colors } from "@/lib/colors";
 
 export function PriorityBadge({ priority, c }: { priority: string; c: Colors }) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
-    high: { label: "Высокий", bg: c.accentRed + "18", color: c.accentRed },
-    medium: { label: "Средний", bg: c.accentYellow + "18", color: c.accentYellow },
-    low: { label: "Низкий", bg: c.accentGreen + "18", color: c.accentGreen },
+    high: { label: "Высокий", bg: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)" },
+    medium: { label: "Средний", bg: "color-mix(in oklch, var(--warning) 9%, transparent)", color: "var(--warning)" },
+    low: { label: "Низкий", bg: "color-mix(in oklch, var(--success) 9%, transparent)", color: "var(--success)" },
   };
   const { label, bg, color } = map[priority] ?? map.medium;
   return (

@@ -40,75 +40,75 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: c.textPrimary }}>Настройки</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: "var(--foreground)" }}>Настройки</h1>
       <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${tab === t.id ? c.accent : c.border}`, background: tab === t.id ? c.accent + "15" : "transparent", color: tab === t.id ? c.accent : c.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+            style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${tab === t.id ? "var(--primary)" : "var(--border)"}`, background: tab === t.id ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", color: tab === t.id ? "var(--primary)" : "var(--foreground-secondary)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
             {t.label}
           </button>
         ))}
       </div>
 
       {tab === "profile" && (
-        <div style={{ background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow }}>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
           {/* Read-only: email + niche */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20, padding: "14px 16px", borderRadius: 10, background: c.bg, border: `1px solid ${c.borderLight}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20, padding: "14px 16px", borderRadius: 10, background: "var(--background)", border: `1px solid var(--muted)` }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 3 }}>Email</div>
-              <div style={{ fontSize: 14, color: c.textPrimary }}>{user?.email || "—"}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 3 }}>Email</div>
+              <div style={{ fontSize: 14, color: "var(--foreground)" }}>{user?.email || "—"}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 3 }}>Ниша</div>
-              <div style={{ fontSize: 14, color: c.textPrimary }}>{user?.niche ? NICHE_LABELS[user.niche] ?? user.niche : "—"}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 3 }}>Ниша</div>
+              <div style={{ fontSize: 14, color: "var(--foreground)" }}>{user?.niche ? NICHE_LABELS[user.niche] ?? user.niche : "—"}</div>
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Personal */}
-            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em" }}>ЛИЧНЫЕ ДАННЫЕ</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em" }}>ЛИЧНЫЕ ДАННЫЕ</div>
             {([
               { label: "Имя", value: name, setter: (v: string) => setName(v), placeholder: "Иван Иванов", type: "text" },
               { label: "Телефон", value: phone, setter: (v: string) => setPhone(v), placeholder: "+7 (999) 123-45-67", type: "tel" },
             ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string; type: string }>).map(f => (
               <div key={f.label}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 5 }}>{f.label}</label>
                 <input type={f.type} value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
               </div>
             ))}
 
             {/* Company */}
-            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginTop: 4 }}>КОМПАНИЯ</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginTop: 4 }}>КОМПАНИЯ</div>
             {([
               { label: "Название компании", value: companyName, setter: (v: string) => setCompanyName(v), placeholder: "ООО Ромашка" },
               { label: "Сайт", value: companyUrl, setter: (v: string) => setCompanyUrl(v), placeholder: "example.ru" },
             ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string }>).map(f => (
               <div key={f.label}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 5 }}>{f.label}</label>
                 <input type="text" value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
               </div>
             ))}
 
             {/* Social */}
-            <div style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, letterSpacing: "0.06em", marginTop: 4 }}>СОЦСЕТИ</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginTop: 4 }}>СОЦСЕТИ</div>
             {([
               { label: "ВКонтакте", value: vk, setter: (v: string) => setVk(v), placeholder: "vk.com/company" },
               { label: "Telegram", value: tg, setter: (v: string) => setTg(v), placeholder: "t.me/company" },
               { label: "hh.ru", value: hhUrl, setter: (v: string) => setHhUrl(v), placeholder: "hh.ru/employer/123" },
             ] as Array<{ label: string; value: string; setter: (v: string) => void; placeholder: string }>).map(f => (
               <div key={f.label}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: c.textMuted, marginBottom: 5 }}>{f.label}</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 5 }}>{f.label}</label>
                 <input type="text" value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
               </div>
             ))}
           </div>
 
           <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={handleSave} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
-            {saved && <span style={{ fontSize: 13, color: c.accentGreen, fontWeight: 600 }}>✓ Сохранено</span>}
+            <button onClick={handleSave} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+            {saved && <span style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>✓ Сохранено</span>}
           </div>
         </div>
       )}
@@ -121,19 +121,19 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
             { name: "Pro", price: "₽7 990/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "API-доступ", "White-label отчёты"], current: false },
             { name: "Agency", price: "₽14 990/мес", features: ["10 компаний", "100 конкурентов", "Real-time обновление", "5 мест", "Брендированные отчёты"], current: false },
           ].map(plan => (
-            <div key={plan.name} style={{ background: c.bgCard, borderRadius: 14, border: `1px solid ${plan.current ? c.accent : c.border}`, padding: 20, boxShadow: c.shadow }}>
+            <div key={plan.name} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid ${plan.current ? "var(--primary)" : "var(--border)"}`, padding: 20, boxShadow: "var(--shadow)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary }}>{plan.name}</span>
-                  {plan.current && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: c.accent, background: c.accent + "15", padding: "2px 8px", borderRadius: 6 }}>Текущий</span>}
+                  <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{plan.name}</span>
+                  {plan.current && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: "var(--primary)", background: "color-mix(in oklch, var(--primary) 8%, transparent)", padding: "2px 8px", borderRadius: 6 }}>Текущий</span>}
                 </div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: c.textPrimary }}>{plan.price}</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{plan.price}</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
-                {plan.features.map(f => <span key={f} style={{ fontSize: 12, color: c.textSecondary }}>✓ {f}</span>)}
+                {plan.features.map(f => <span key={f} style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>✓ {f}</span>)}
               </div>
               {!plan.current && (
-                <button style={{ marginTop: 12, background: c.accent, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Перейти на {plan.name}</button>
+                <button style={{ marginTop: 12, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Перейти на {plan.name}</button>
               )}
             </div>
           ))}
@@ -213,28 +213,28 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
     setTimeout(() => setPrefsSaved(false), 2000);
   }
 
-  const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
-  const boxStyle: React.CSSProperties = { background: c.bgCard, borderRadius: 16, border: `1px solid ${c.border}`, padding: 24, boxShadow: c.shadow };
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
+  const boxStyle: React.CSSProperties = { background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Connection block */}
       <div style={boxStyle}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Telegram-уведомления</div>
-        <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>Получайте уведомления о новых анализах и изменениях конкурентов прямо в Telegram.</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Telegram-уведомления</div>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 16 }}>Получайте уведомления о новых анализах и изменениях конкурентов прямо в Telegram.</div>
 
         {step === "done" ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: c.accentGreen + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✓</div>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "color-mix(in oklch, var(--success) 13%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✓</div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: c.accentGreen }}>Подключено</div>
-              <div style={{ fontSize: 12, color: c.textMuted }}>Chat ID: {user?.tgChatId}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--success)" }}>Подключено</div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Chat ID: {user?.tgChatId}</div>
             </div>
-            <button onClick={handleDisconnect} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${c.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 12, color: c.textSecondary, cursor: "pointer" }}>Отключить</button>
+            <button onClick={handleDisconnect} style={{ marginLeft: "auto", background: "transparent", border: `1px solid var(--border)`, borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "var(--foreground-secondary)", cursor: "pointer" }}>Отключить</button>
           </div>
         ) : step === "idle" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 13, color: c.textSecondary, marginBottom: 4 }}>
+            <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 4 }}>
               1. Откройте бота и отправьте ему код ниже:
             </div>
             <a href={botUsername ? `https://t.me/${botUsername}` : "https://t.me/"} target="_blank" rel="noopener noreferrer"
@@ -242,23 +242,23 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.88 13.47l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.832.946l-.564-.857z" /></svg>
               {botUsername ? `Открыть @${botUsername}` : "Открыть бота в Telegram"}
             </a>
-            <div style={{ fontSize: 13, color: c.textSecondary, marginTop: 4 }}>2. Отправьте ему этот код:</div>
+            <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginTop: 4 }}>2. Отправьте ему этот код:</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ ...inputStyle, width: "auto", flex: 1, fontFamily: "monospace", fontWeight: 700, fontSize: 18, letterSpacing: 2, color: c.accent, background: c.accent + "10", border: `1.5px solid ${c.accent}33` }}>{code}</div>
-              <button onClick={() => { navigator.clipboard.writeText(code); }} style={{ background: c.accent + "15", border: `1px solid ${c.accent}33`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: c.accent, cursor: "pointer", whiteSpace: "nowrap" }}>Копировать</button>
+              <div style={{ ...inputStyle, width: "auto", flex: 1, fontFamily: "monospace", fontWeight: 700, fontSize: 18, letterSpacing: 2, color: "var(--primary)", background: "color-mix(in oklch, var(--primary) 6%, transparent)", border: `1.5px solid var(--primary)33` }}>{code}</div>
+              <button onClick={() => { navigator.clipboard.writeText(code); }} style={{ background: "color-mix(in oklch, var(--primary) 8%, transparent)", border: `1px solid var(--primary)33`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "var(--primary)", cursor: "pointer", whiteSpace: "nowrap" }}>Копировать</button>
             </div>
-            <button onClick={() => setStep("waiting")} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>Я отправил →</button>
+            <button onClick={() => setStep("waiting")} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>Я отправил →</button>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 13, color: c.textSecondary }}>Нажмите кнопку — мы проверим, получили ли ваш код.</div>
+            <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Нажмите кнопку — мы проверим, получили ли ваш код.</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button onClick={handlePoll} disabled={polling} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: polling ? "not-allowed" : "pointer", opacity: polling ? 0.7 : 1 }}>
+              <button onClick={handlePoll} disabled={polling} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: polling ? "not-allowed" : "pointer", opacity: polling ? 0.7 : 1 }}>
                 {polling ? "Проверяем…" : "Проверить подключение"}
               </button>
-              <button onClick={() => { setStep("idle"); setPollError(""); }} style={{ background: "transparent", border: `1px solid ${c.border}`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: c.textSecondary, cursor: "pointer" }}>Назад</button>
+              <button onClick={() => { setStep("idle"); setPollError(""); }} style={{ background: "transparent", border: `1px solid var(--border)`, borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "var(--foreground-secondary)", cursor: "pointer" }}>Назад</button>
             </div>
-            {pollError && <div style={{ fontSize: 13, color: c.accentRed }}>{pollError}</div>}
+            {pollError && <div style={{ fontSize: 13, color: "var(--destructive)" }}>{pollError}</div>}
           </div>
         )}
       </div>
@@ -266,7 +266,7 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
       {/* Preferences (only when connected) */}
       {step === "done" && (
         <div style={boxStyle}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: c.textPrimary, marginBottom: 14 }}>Что уведомлять</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>Что уведомлять</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {([
               { key: "analysis", label: "Завершение нового анализа" },
@@ -276,14 +276,14 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
             ] as { key: keyof typeof prefs; label: string }[]).map(item => (
               <label key={item.key} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <input type="checkbox" checked={prefs[item.key]} onChange={e => setPrefs(p => ({ ...p, [item.key]: e.target.checked }))}
-                  style={{ width: 16, height: 16, accentColor: c.accent, cursor: "pointer" }} />
-                <span style={{ fontSize: 13, color: c.textPrimary }}>{item.label}</span>
+                  style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer" }} />
+                <span style={{ fontSize: 13, color: "var(--foreground)" }}>{item.label}</span>
               </label>
             ))}
           </div>
           <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={handleSavePrefs} style={{ background: c.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
-            {prefsSaved && <span style={{ fontSize: 13, color: c.accentGreen, fontWeight: 600 }}>✓ Сохранено</span>}
+            <button onClick={handleSavePrefs} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
+            {prefsSaved && <span style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>✓ Сохранено</span>}
           </div>
         </div>
       )}

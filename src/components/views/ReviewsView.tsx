@@ -202,11 +202,11 @@ export function ReviewsView({ c, companyName }: {
   };
 
   const starColor = (rating: number) =>
-    rating >= 4 ? c.accentGreen : rating >= 3 ? c.accentYellow : c.accentRed;
+    rating >= 4 ? "var(--success)" : rating >= 3 ? "var(--warning)" : "var(--destructive)";
 
   const renderStars = (rating: number) =>
     Array.from({ length: 5 }, (_, i) => (
-      <span key={i} style={{ color: i < rating ? starColor(rating) : c.border, fontSize: 14 }}>★</span>
+      <span key={i} style={{ color: i < rating ? starColor(rating) : "var(--border)", fontSize: 14 }}>★</span>
     ));
 
   // --- TABS ---
@@ -218,8 +218,8 @@ export function ReviewsView({ c, companyName }: {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>Анализ отзывов</h1>
-      <p style={{ color: c.textSecondary, marginBottom: 24, fontSize: 14 }}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Анализ отзывов</h1>
+      <p style={{ color: "var(--foreground-secondary)", marginBottom: 24, fontSize: 14 }}>
         Собирайте отзывы с разных платформ и получайте AI-анализ
       </p>
 
@@ -227,8 +227,8 @@ export function ReviewsView({ c, companyName }: {
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: "8px 18px", borderRadius: 8, border: `1px solid ${tab === t.id ? c.accent : c.border}`,
-            background: tab === t.id ? c.accent : c.bgCard, color: tab === t.id ? "#fff" : c.textPrimary,
+            padding: "8px 18px", borderRadius: 8, border: `1px solid ${tab === t.id ? "var(--primary)" : "var(--border)"}`,
+            background: tab === t.id ? "var(--primary)" : "var(--card)", color: tab === t.id ? "#fff" : "var(--foreground)",
             cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all .15s",
           }}>
             {t.icon} {t.label}
@@ -237,7 +237,7 @@ export function ReviewsView({ c, companyName }: {
         {reviews.length > 0 && (
           <button onClick={handleAnalyze} disabled={isAnalyzing} style={{
             marginLeft: "auto", padding: "8px 20px", borderRadius: 8, border: "none",
-            background: isAnalyzing ? c.textMuted : c.accentGreen, color: "#fff",
+            background: isAnalyzing ? "var(--muted-foreground)" : "var(--success)", color: "#fff",
             cursor: isAnalyzing ? "wait" : "pointer", fontWeight: 700, fontSize: 13,
           }}>
             {isAnalyzing ? "Анализирую..." : `🧠 Анализировать (${reviews.length})`}
@@ -247,48 +247,48 @@ export function ReviewsView({ c, companyName }: {
 
       {/* Auto-fetch status banner */}
       {autoFetchStatus === "loading" && (
-        <div style={{ padding: 12, borderRadius: 8, background: c.accent + "12", color: c.accent, marginBottom: 16, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${c.accent}40`, borderTop: `2px solid ${c.accent}`, borderRadius: "50%", animation: "mr-spin 1s linear infinite" }} />
+        <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--primary) 7%, transparent)", color: "var(--primary)", marginBottom: 16, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid var(--primary)40`, borderTop: `2px solid var(--primary)`, borderRadius: "50%", animation: "mr-spin 1s linear infinite" }} />
           Загружаю отзывы с Google Maps и 2ГИС...
         </div>
       )}
       {autoFetchStatus === "done" && autoFetchLog.length > 0 && (
-        <div style={{ padding: 12, borderRadius: 8, background: c.accentGreen + "12", color: c.textSecondary, marginBottom: 16, fontSize: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontWeight: 700, color: c.accentGreen }}>✓ Автозагрузка:</span>
+        <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--success) 7%, transparent)", color: "var(--foreground-secondary)", marginBottom: 16, fontSize: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, color: "var(--success)" }}>✓ Автозагрузка:</span>
           {autoFetchLog.map((l, i) => <span key={i}>{l}</span>)}
         </div>
       )}
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 8, background: c.accentRed + "18", color: c.accentRed, marginBottom: 16, fontSize: 13 }}>
+        <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>
           {error}
         </div>
       )}
 
       {/* ===== INPUT TAB ===== */}
       {tab === "input" && (
-        <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
+        <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
 
           {/* ── Address-based search ── */}
-          <div style={{ background: c.accent + "08", borderRadius: 12, padding: 18, border: `1px solid ${c.accent}25`, marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: c.textPrimary, marginBottom: 12 }}>🔍 Поиск по адресу (точнее)</div>
+          <div style={{ background: "color-mix(in oklch, var(--primary) 3%, transparent)", borderRadius: 12, padding: 18, border: `1px solid var(--primary)25`, marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 12 }}>🔍 Поиск по адресу (точнее)</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <input
                 value={addressSearchName}
                 onChange={e => setAddressSearchName(e.target.value)}
                 placeholder="Название компании"
-                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none" }}
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none" }}
               />
               <input
                 value={addressInput}
                 onChange={e => setAddressInput(e.target.value)}
                 placeholder="Адрес (город, улица, дом) — необязательно, но улучшает поиск"
-                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.bg, color: c.textPrimary, fontSize: 13, outline: "none" }}
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none" }}
               />
               <button
                 onClick={() => runAutoFetch(addressSearchName || companyName, addressInput.trim() || undefined)}
                 disabled={autoFetchStatus === "loading"}
-                style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: autoFetchStatus === "loading" ? c.textMuted : c.accent, color: "#fff", fontWeight: 700, fontSize: 13, cursor: autoFetchStatus === "loading" ? "wait" : "pointer", alignSelf: "flex-start" }}
+                style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: autoFetchStatus === "loading" ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: autoFetchStatus === "loading" ? "wait" : "pointer", alignSelf: "flex-start" }}
               >
                 {autoFetchStatus === "loading" ? "Ищу отзывы..." : "🔄 Найти отзывы в Google и 2ГИС"}
               </button>
@@ -296,7 +296,7 @@ export function ReviewsView({ c, companyName }: {
           </div>
 
           {/* Input mode selector */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: c.textMuted, marginBottom: 10, letterSpacing: "0.04em" }}>ИЛИ ДОБАВЬТЕ ВРУЧНУЮ</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.04em" }}>ИЛИ ДОБАВЬТЕ ВРУЧНУЮ</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
             {([
               { id: "paste" as const, label: "📋 Вставить текст", desc: "Скопируйте отзывы с любой платформы" },
@@ -304,12 +304,12 @@ export function ReviewsView({ c, companyName }: {
               { id: "2gis" as const, label: "🗺️ 2ГИС (ссылка)", desc: "Прямая ссылка на организацию в 2ГИС" },
             ] as const).map(mode => (
               <button key={mode.id} onClick={() => setInputMode(mode.id)} style={{
-                flex: 1, padding: 16, borderRadius: 12, border: `2px solid ${inputMode === mode.id ? c.accent : c.border}`,
-                background: inputMode === mode.id ? c.accent + "10" : "transparent",
+                flex: 1, padding: 16, borderRadius: 12, border: `2px solid ${inputMode === mode.id ? "var(--primary)" : "var(--border)"}`,
+                background: inputMode === mode.id ? "color-mix(in oklch, var(--primary) 6%, transparent)" : "transparent",
                 cursor: "pointer", textAlign: "left",
               }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary, marginBottom: 4 }}>{mode.label}</div>
-                <div style={{ fontSize: 12, color: c.textSecondary }}>{mode.desc}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>{mode.label}</div>
+                <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>{mode.desc}</div>
               </button>
             ))}
           </div>
@@ -322,8 +322,8 @@ export function ReviewsView({ c, companyName }: {
                 onChange={e => setPasteText(e.target.value)}
                 placeholder={"Вставьте сюда отзывы с любой платформы.\n\nПример:\n★★★★★ Иван Иванов\nОтличный сервис! Быстро и качественно.\n\n★★☆☆☆ Мария Петрова\nДолго ждала заказ, разочарована."}
                 style={{
-                  width: "100%", minHeight: 200, padding: 16, borderRadius: 12, border: `1px solid ${c.border}`,
-                  background: c.bg, color: c.textPrimary, fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                  width: "100%", minHeight: 200, padding: 16, borderRadius: 12, border: `1px solid var(--border)`,
+                  background: "var(--background)", color: "var(--foreground)", fontSize: 14, fontFamily: "inherit", resize: "vertical",
                 }}
               />
               <button
@@ -331,7 +331,7 @@ export function ReviewsView({ c, companyName }: {
                 disabled={isExtracting || !pasteText.trim()}
                 style={{
                   marginTop: 12, padding: "10px 24px", borderRadius: 8, border: "none",
-                  background: isExtracting ? c.textMuted : c.accent, color: "#fff",
+                  background: isExtracting ? "var(--muted-foreground)" : "var(--primary)", color: "#fff",
                   cursor: isExtracting ? "wait" : "pointer", fontWeight: 700, fontSize: 14,
                 }}
               >
@@ -343,14 +343,14 @@ export function ReviewsView({ c, companyName }: {
           {/* Screenshot mode */}
           {inputMode === "screenshot" && (
             <div>
-              <p style={{ color: c.textSecondary, fontSize: 13, marginBottom: 12 }}>
+              <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 12 }}>
                 Сделайте скриншот страницы отзывов на Яндекс.Картах, Отзовике, Авито или любой другой платформе.
                 GPT-4o распознает платформу и извлечёт все отзывы.
               </p>
               <label style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                padding: 40, borderRadius: 12, border: `2px dashed ${c.border}`,
-                background: c.bg, cursor: "pointer", color: c.textSecondary, fontSize: 14,
+                padding: 40, borderRadius: 12, border: `2px dashed var(--border)`,
+                background: "var(--background)", cursor: "pointer", color: "var(--foreground-secondary)", fontSize: 14,
               }}>
                 <input type="file" accept="image/*" onChange={handleScreenshotUpload} style={{ display: "none" }} />
                 {isExtracting ? "Распознаю..." : "📸 Нажмите или перетащите скриншот"}
@@ -361,7 +361,7 @@ export function ReviewsView({ c, companyName }: {
           {/* 2GIS mode */}
           {inputMode === "2gis" && (
             <div>
-              <p style={{ color: c.textSecondary, fontSize: 13, marginBottom: 12 }}>
+              <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 12 }}>
                 Вставьте ссылку на организацию в 2ГИС. Отзывы загрузятся автоматически через открытый API.
               </p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -370,8 +370,8 @@ export function ReviewsView({ c, companyName }: {
                   onChange={e => setGisUrl(e.target.value)}
                   placeholder="https://2gis.ru/moscow/firm/70000001012345678"
                   style={{
-                    flex: 1, padding: 12, borderRadius: 8, border: `1px solid ${c.border}`,
-                    background: c.bg, color: c.textPrimary, fontSize: 14,
+                    flex: 1, padding: 12, borderRadius: 8, border: `1px solid var(--border)`,
+                    background: "var(--background)", color: "var(--foreground)", fontSize: 14,
                   }}
                 />
                 <button
@@ -379,7 +379,7 @@ export function ReviewsView({ c, companyName }: {
                   disabled={isExtracting || !gisUrl.trim()}
                   style={{
                     padding: "10px 24px", borderRadius: 8, border: "none",
-                    background: isExtracting ? c.textMuted : c.accent, color: "#fff",
+                    background: isExtracting ? "var(--muted-foreground)" : "var(--primary)", color: "#fff",
                     cursor: isExtracting ? "wait" : "pointer", fontWeight: 700, fontSize: 14,
                   }}
                 >
@@ -390,15 +390,15 @@ export function ReviewsView({ c, companyName }: {
           )}
 
           {/* Platform hints */}
-          <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: c.bg, border: `1px solid ${c.border}` }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: c.textPrimary, marginBottom: 8 }}>Поддерживаемые платформы:</div>
+          <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: "var(--background)", border: `1px solid var(--border)` }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--foreground)", marginBottom: 8 }}>Поддерживаемые платформы:</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {[
-                { name: "2ГИС", method: "Авто (ссылка)", color: c.accentGreen },
-                { name: "Яндекс.Карты", method: "Скриншот / текст", color: c.accentYellow },
-                { name: "Google Maps", method: "Скриншот / текст", color: c.accent },
-                { name: "Отзовик", method: "Скриншот / текст", color: c.accentWarm },
-                { name: "Авито", method: "Скриншот / текст", color: c.accentRed },
+                { name: "2ГИС", method: "Авто (ссылка)", color: "var(--success)" },
+                { name: "Яндекс.Карты", method: "Скриншот / текст", color: "var(--warning)" },
+                { name: "Google Maps", method: "Скриншот / текст", color: "var(--primary)" },
+                { name: "Отзовик", method: "Скриншот / текст", color: "var(--warning)" },
+                { name: "Авито", method: "Скриншот / текст", color: "var(--destructive)" },
               ].map(p => (
                 <span key={p.name} style={{
                   padding: "4px 10px", borderRadius: 6, background: p.color + "18",
@@ -416,7 +416,7 @@ export function ReviewsView({ c, companyName }: {
       {tab === "reviews" && (
         <div>
           {reviews.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 60, color: c.textMuted }}>
+            <div style={{ textAlign: "center", padding: 60, color: "var(--muted-foreground)" }}>
               Отзывов пока нет. Добавьте через вкладку &ldquo;Добавить отзывы&rdquo;.
             </div>
           ) : (
@@ -428,20 +428,20 @@ export function ReviewsView({ c, companyName }: {
                   const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
                   return (
                     <>
-                      <div style={{ padding: "8px 14px", borderRadius: 8, background: c.bgCard, border: `1px solid ${c.border}`, fontSize: 13 }}>
+                      <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--card)", border: `1px solid var(--border)`, fontSize: 13 }}>
                         <b>{reviews.length}</b> отзывов
                       </div>
-                      <div style={{ padding: "8px 14px", borderRadius: 8, background: c.bgCard, border: `1px solid ${c.border}`, fontSize: 13 }}>
+                      <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--card)", border: `1px solid var(--border)`, fontSize: 13 }}>
                         Средняя оценка: <b style={{ color: starColor(Math.round(avg)) }}>{avg.toFixed(1)} ★</b>
                       </div>
                       {platforms.map(p => (
-                        <div key={p} style={{ padding: "8px 14px", borderRadius: 8, background: c.accent + "12", fontSize: 13, color: c.accent, fontWeight: 600 }}>
+                        <div key={p} style={{ padding: "8px 14px", borderRadius: 8, background: "color-mix(in oklch, var(--primary) 7%, transparent)", fontSize: 13, color: "var(--primary)", fontWeight: 600 }}>
                           {platformLabel(p)}: {reviews.filter(r => r.platform === p).length}
                         </div>
                       ))}
                       <button onClick={handleClearAll} style={{
-                        marginLeft: "auto", padding: "8px 14px", borderRadius: 8, border: `1px solid ${c.accentRed}33`,
-                        background: "transparent", color: c.accentRed, fontSize: 12, cursor: "pointer",
+                        marginLeft: "auto", padding: "8px 14px", borderRadius: 8, border: `1px solid var(--destructive)33`,
+                        background: "transparent", color: "var(--destructive)", fontSize: 12, cursor: "pointer",
                       }}>
                         Очистить все
                       </button>
@@ -454,29 +454,29 @@ export function ReviewsView({ c, companyName }: {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {reviews.map(rev => (
                   <div key={rev.id} style={{
-                    background: c.bgCard, borderRadius: 12, padding: 16, boxShadow: c.shadow,
+                    background: "var(--card)", borderRadius: 12, padding: 16, boxShadow: "var(--shadow)",
                     borderLeft: `3px solid ${starColor(rev.rating)}`,
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>{rev.author}</span>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>{rev.author}</span>
                         <span>{renderStars(rev.rating)}</span>
-                        <span style={{ fontSize: 11, color: c.textMuted, padding: "2px 6px", borderRadius: 4, background: c.accent + "12" }}>
+                        <span style={{ fontSize: 11, color: "var(--muted-foreground)", padding: "2px 6px", borderRadius: 4, background: "color-mix(in oklch, var(--primary) 7%, transparent)" }}>
                           {platformLabel(rev.platform)}
                         </span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {rev.date && <span style={{ fontSize: 11, color: c.textMuted }}>{rev.date}</span>}
+                        {rev.date && <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{rev.date}</span>}
                         <button onClick={() => handleDeleteReview(rev.id)} style={{
-                          background: "none", border: "none", cursor: "pointer", color: c.textMuted, fontSize: 16, padding: 2,
+                          background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 16, padding: 2,
                         }}>
                           ×
                         </button>
                       </div>
                     </div>
-                    <p style={{ fontSize: 14, color: c.textPrimary, lineHeight: 1.5, margin: 0 }}>{rev.text}</p>
+                    <p style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.5, margin: 0 }}>{rev.text}</p>
                     {rev.reply && (
-                      <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: c.bg, fontSize: 13, color: c.textSecondary }}>
+                      <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "var(--background)", fontSize: 13, color: "var(--foreground-secondary)" }}>
                         <b>Ответ:</b> {rev.reply}
                       </div>
                     )}
@@ -492,7 +492,7 @@ export function ReviewsView({ c, companyName }: {
       {tab === "analysis" && (
         <div>
           {!analysis ? (
-            <div style={{ textAlign: "center", padding: 60, color: c.textMuted }}>
+            <div style={{ textAlign: "center", padding: 60, color: "var(--muted-foreground)" }}>
               {reviews.length === 0
                 ? "Сначала добавьте отзывы"
                 : "Нажмите «Анализировать» чтобы запустить AI-анализ"
@@ -501,47 +501,47 @@ export function ReviewsView({ c, companyName }: {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {/* Summary */}
-              <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 16, color: c.textPrimary }}>Общий вердикт</h3>
-                <p style={{ fontSize: 15, color: c.textPrimary, lineHeight: 1.6, margin: 0 }}>{analysis.summary}</p>
+              <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
+                <p style={{ fontSize: 15, color: "var(--foreground)", lineHeight: 1.6, margin: 0 }}>{analysis.summary}</p>
               </div>
 
               {/* KPI strip */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
                 {[
-                  { label: "Отзывов", value: analysis.totalReviews.toString(), color: c.accent },
+                  { label: "Отзывов", value: analysis.totalReviews.toString(), color: "var(--primary)" },
                   { label: "Средняя оценка", value: `${analysis.avgRating.toFixed(1)} ★`, color: starColor(Math.round(analysis.avgRating)) },
-                  { label: "Позитивные", value: `${analysis.sentimentSummary.positive}`, color: c.accentGreen },
-                  { label: "Негативные", value: `${analysis.sentimentSummary.negative}`, color: c.accentRed },
+                  { label: "Позитивные", value: `${analysis.sentimentSummary.positive}`, color: "var(--success)" },
+                  { label: "Негативные", value: `${analysis.sentimentSummary.negative}`, color: "var(--destructive)" },
                 ].map(kpi => (
                   <div key={kpi.label} style={{
-                    background: c.bgCard, borderRadius: 12, padding: 16, textAlign: "center",
-                    boxShadow: c.shadow, borderTop: `3px solid ${kpi.color}`,
+                    background: "var(--card)", borderRadius: 12, padding: 16, textAlign: "center",
+                    boxShadow: "var(--shadow)", borderTop: `3px solid ${kpi.color}`,
                   }}>
                     <div style={{ fontSize: 24, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
-                    <div style={{ fontSize: 12, color: c.textSecondary, marginTop: 4 }}>{kpi.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--foreground-secondary)", marginTop: 4 }}>{kpi.label}</div>
                   </div>
                 ))}
               </div>
 
               {/* Rating distribution */}
-              <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 16, color: c.textPrimary }}>Распределение оценок</h3>
+              <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: 16, color: "var(--foreground)" }}>Распределение оценок</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[5, 4, 3, 2, 1].map(star => {
                     const count = analysis.ratingDistribution[star] ?? 0;
                     const pct = analysis.totalReviews > 0 ? (count / analysis.totalReviews) * 100 : 0;
                     return (
                       <div key={star} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 20, fontSize: 13, fontWeight: 700, color: c.textPrimary }}>{star}★</span>
-                        <div style={{ flex: 1, height: 20, borderRadius: 6, background: c.bg, overflow: "hidden" }}>
+                        <span style={{ width: 20, fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>{star}★</span>
+                        <div style={{ flex: 1, height: 20, borderRadius: 6, background: "var(--background)", overflow: "hidden" }}>
                           <div style={{
                             width: `${pct}%`, height: "100%", borderRadius: 6,
-                            background: star >= 4 ? c.accentGreen : star >= 3 ? c.accentYellow : c.accentRed,
+                            background: star >= 4 ? "var(--success)" : star >= 3 ? "var(--warning)" : "var(--destructive)",
                             transition: "width .3s",
                           }} />
                         </div>
-                        <span style={{ width: 40, fontSize: 12, color: c.textSecondary, textAlign: "right" }}>{count}</span>
+                        <span style={{ width: 40, fontSize: 12, color: "var(--foreground-secondary)", textAlign: "right" }}>{count}</span>
                       </div>
                     );
                   })}
@@ -550,29 +550,29 @@ export function ReviewsView({ c, companyName }: {
 
               {/* Topics */}
               {analysis.topics.length > 0 && (
-                <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                  <h3 style={{ margin: "0 0 16px", fontSize: 16, color: c.textPrimary }}>Темы отзывов</h3>
+                <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                  <h3 style={{ margin: "0 0 16px", fontSize: 16, color: "var(--foreground)" }}>Темы отзывов</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     {analysis.topics.map((topic, i) => {
                       const total = topic.positive + topic.negative + topic.neutral;
                       return (
-                        <div key={i} style={{ padding: 14, borderRadius: 12, background: c.bg }}>
+                        <div key={i} style={{ padding: 14, borderRadius: 12, background: "var(--background)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontWeight: 700, fontSize: 14, color: c.textPrimary }}>{topic.topic}</span>
-                            <span style={{ fontSize: 12, color: c.textMuted }}>{total} упоминаний</span>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>{topic.topic}</span>
+                            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{total} упоминаний</span>
                           </div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                            <span style={{ fontSize: 12, color: c.accentGreen }}>+{topic.positive}</span>
-                            <span style={{ fontSize: 12, color: c.accentYellow }}>{topic.neutral} нейтр.</span>
-                            <span style={{ fontSize: 12, color: c.accentRed }}>-{topic.negative}</span>
+                            <span style={{ fontSize: 12, color: "var(--success)" }}>+{topic.positive}</span>
+                            <span style={{ fontSize: 12, color: "var(--warning)" }}>{topic.neutral} нейтр.</span>
+                            <span style={{ fontSize: 12, color: "var(--destructive)" }}>-{topic.negative}</span>
                           </div>
                           {topic.keyQuotes.length > 0 && (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                               {topic.keyQuotes.map((q, qi) => (
                                 <div key={qi} style={{
-                                  fontSize: 12, color: c.textSecondary, fontStyle: "italic",
-                                  padding: "4px 8px", borderRadius: 6, background: c.bgCard,
-                                  borderLeft: `2px solid ${c.accent}`,
+                                  fontSize: 12, color: "var(--foreground-secondary)", fontStyle: "italic",
+                                  padding: "4px 8px", borderRadius: 6, background: "var(--card)",
+                                  borderLeft: `2px solid var(--primary)`,
                                 }}>
                                   &ldquo;{q}&rdquo;
                                 </div>
@@ -588,32 +588,32 @@ export function ReviewsView({ c, companyName }: {
 
               {/* Strengths & Weaknesses */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                  <h3 style={{ margin: "0 0 12px", fontSize: 16, color: c.accentGreen }}>Сильные стороны</h3>
+                <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                  <h3 style={{ margin: "0 0 12px", fontSize: 16, color: "var(--success)" }}>Сильные стороны</h3>
                   <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 6 }}>
                     {analysis.strengths.map((s, i) => (
-                      <li key={i} style={{ fontSize: 14, color: c.textPrimary }}>{s}</li>
+                      <li key={i} style={{ fontSize: 14, color: "var(--foreground)" }}>{s}</li>
                     ))}
                   </ul>
                 </div>
-                <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                  <h3 style={{ margin: "0 0 12px", fontSize: 16, color: c.accentRed }}>Слабые стороны</h3>
+                <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                  <h3 style={{ margin: "0 0 12px", fontSize: 16, color: "var(--destructive)" }}>Слабые стороны</h3>
                   <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 6 }}>
                     {analysis.weaknesses.map((w, i) => (
-                      <li key={i} style={{ fontSize: 14, color: c.textPrimary }}>{w}</li>
+                      <li key={i} style={{ fontSize: 14, color: "var(--foreground)" }}>{w}</li>
                     ))}
                   </ul>
                 </div>
               </div>
 
               {/* Recommendations */}
-              <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 16, color: c.textPrimary }}>Рекомендации</h3>
+              <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 16, color: "var(--foreground)" }}>Рекомендации</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {analysis.recommendations.map((rec, i) => (
                     <div key={i} style={{
-                      padding: 12, borderRadius: 10, background: c.accent + "10",
-                      fontSize: 14, color: c.textPrimary, borderLeft: `3px solid ${c.accent}`,
+                      padding: 12, borderRadius: 10, background: "color-mix(in oklch, var(--primary) 6%, transparent)",
+                      fontSize: 14, color: "var(--foreground)", borderLeft: `3px solid var(--primary)`,
                     }}>
                       {rec}
                     </div>
@@ -623,21 +623,21 @@ export function ReviewsView({ c, companyName }: {
 
               {/* Response Templates */}
               {analysis.responseTemplates.length > 0 && (
-                <div style={{ background: c.bgCard, borderRadius: 16, padding: 24, boxShadow: c.shadow }}>
-                  <h3 style={{ margin: "0 0 16px", fontSize: 16, color: c.textPrimary }}>Шаблоны ответов на отзывы</h3>
+                <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
+                  <h3 style={{ margin: "0 0 16px", fontSize: 16, color: "var(--foreground)" }}>Шаблоны ответов на отзывы</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {analysis.responseTemplates.map((tpl, i) => {
                       const typeLabel = tpl.type === "positive" ? "Позитивный" : tpl.type === "negative" ? "Негативный" : "Нейтральный";
-                      const typeColor = tpl.type === "positive" ? c.accentGreen : tpl.type === "negative" ? c.accentRed : c.accentYellow;
+                      const typeColor = tpl.type === "positive" ? "var(--success)" : tpl.type === "negative" ? "var(--destructive)" : "var(--warning)";
                       return (
-                        <div key={i} style={{ padding: 14, borderRadius: 12, background: c.bg, borderLeft: `3px solid ${typeColor}` }}>
+                        <div key={i} style={{ padding: 14, borderRadius: 12, background: "var(--background)", borderLeft: `3px solid ${typeColor}` }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: typeColor, marginBottom: 6 }}>{typeLabel} отзыв</div>
-                          <p style={{ fontSize: 14, color: c.textPrimary, margin: 0, lineHeight: 1.5 }}>{tpl.template}</p>
+                          <p style={{ fontSize: 14, color: "var(--foreground)", margin: 0, lineHeight: 1.5 }}>{tpl.template}</p>
                           <button
                             onClick={() => navigator.clipboard.writeText(tpl.template)}
                             style={{
-                              marginTop: 8, padding: "4px 10px", borderRadius: 6, border: `1px solid ${c.border}`,
-                              background: "transparent", color: c.textSecondary, cursor: "pointer", fontSize: 11,
+                              marginTop: 8, padding: "4px 10px", borderRadius: 6, border: `1px solid var(--border)`,
+                              background: "transparent", color: "var(--foreground-secondary)", cursor: "pointer", fontSize: 11,
                             }}
                           >
                             Копировать
