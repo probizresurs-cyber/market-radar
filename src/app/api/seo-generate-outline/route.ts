@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 - ЦА: ${brief.audience}
 - CTA: ${brief.callToAction}
 
-Верни ТОЛЬКО валидный JSON:
+Верни ТОЛЬКО валидный JSON (без markdown-блоков):
 {
   "h1": "H1 заголовок статьи (содержит фокус-ключ)",
   "intro": "краткий лид-абзац (2-3 предложения, крючок для читателя)",
@@ -44,25 +44,40 @@ export async function POST(req: NextRequest) {
 
 Требования: 4-8 разделов H2, ключевой запрос в первом H2 или H1, сумма wordTarget ≈ wordCountTarget.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 3000,
-        response_format: { type: "json_object" },
-      }),
-    });
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 110_000);
 
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+    let raw: string;
+    try {
+      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 3000,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+      }
+
+      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+      raw = data.choices[0]?.message?.content ?? "{}";
+    } finally {
+      clearTimeout(timeout);
     }
 
-    const json = await res.json();
-    const data = JSON.parse(json.choices[0].message.content);
-    return NextResponse.json({ outline: data });
+    const outline = JSON.parse(raw);
+    return NextResponse.json({ outline });
   } catch (e) {
     console.error("seo-generate-outline error:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

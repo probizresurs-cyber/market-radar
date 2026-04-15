@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 ЛИД: ${(intro || "").slice(0, 300)}
 ФОКУС-КЛЮЧ: ${focusKeyword} | ПЛАТФОРМА: ${platform}
 
-Верни ТОЛЬКО валидный JSON:
+Верни ТОЛЬКО валидный JSON (без markdown-блоков):
 {
   "title": "SEO-заголовок до 60 символов, содержит ключ",
   "metaDescription": "meta-описание до 160 символов с ключом и призывом читать",
@@ -35,27 +35,42 @@ export async function POST(req: NextRequest) {
   "ogDescription": "OG-описание до 200 символов"
 }`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        response_format: { type: "json_object" },
-      }),
-    });
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 55_000);
 
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+    let raw: string;
+    try {
+      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 500,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+      }
+
+      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+      raw = data.choices[0]?.message?.content ?? "{}";
+    } finally {
+      clearTimeout(timeout);
     }
 
-    const json = await res.json();
-    const data = JSON.parse(json.choices[0].message.content);
-    data.focusKeyword = focusKeyword;
-    data.slug = toSlug(h1 || topic);
-    return NextResponse.json({ meta: data });
+    const meta = JSON.parse(raw);
+    meta.focusKeyword = focusKeyword;
+    meta.slug = toSlug(h1 || topic);
+    return NextResponse.json({ meta });
   } catch (e) {
     console.error("seo-generate-meta error:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

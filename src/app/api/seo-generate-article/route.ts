@@ -70,23 +70,36 @@ ${outlineText}
       maxTokens = 6000;
     }
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: maxTokens,
-      }),
-    });
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 170_000);
 
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+    let content: string;
+    try {
+      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.75,
+          max_tokens: maxTokens,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
+      }
+
+      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+      content = data.choices[0]?.message?.content?.trim() ?? "";
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const json = await res.json();
-    const content = json.choices[0].message.content?.trim() || "";
 
     if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
     return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
