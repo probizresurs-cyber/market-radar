@@ -158,7 +158,7 @@ export async function POST(req: Request) {
 
     const userPrompt = buildPrompt(companyName, niche, taData, companyData);
 
-    const message = await client.messages.create({
+    const stream = client.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: 8000,
       messages: [
@@ -171,15 +171,15 @@ export async function POST(req: Request) {
         "Ты — эксперт по Customer Journey Map. Отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток, комментариев и пояснений. Твой ответ должен начинаться с { и заканчиваться }.",
     });
 
-    const rawContent = message.content[0];
-    if (!rawContent || rawContent.type !== "text") {
+    const rawText = await stream.text();
+    if (!rawText) {
       return NextResponse.json(
         { ok: false, error: "Пустой ответ от Claude" },
         { status: 500 }
       );
     }
 
-    const parsed = extractJson(rawContent.text) as { stages?: unknown[] };
+    const parsed = extractJson(rawText) as { stages?: unknown[] };
 
     if (!Array.isArray(parsed?.stages) || parsed.stages.length === 0) {
       return NextResponse.json(

@@ -192,13 +192,14 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 - ровно 5 associatedKeywords в aiPerception
 - Если VK не найден — vk должен быть null (не объект). Если Telegram не найден — telegram должен быть null.`;
 
-  const message = await client.messages.create({
-    model: "claude-opus-4-6",
+  // Use streaming so Cloudflare Worker sees the first byte within ~2s (avoiding the 30s subrequest timeout)
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-6",
     max_tokens: 10000,
     messages: [{ role: "user", content: prompt }],
   });
 
-  const responseText = message.content[0].type === "text" ? message.content[0].text : "";
+  const responseText = await stream.text();
   if (!responseText) throw new Error("Empty response from AI model");
   const p = extractJson(responseText);
 

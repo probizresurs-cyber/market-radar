@@ -218,7 +218,7 @@ export async function POST(req: Request) {
 
     const userPrompt = buildPrompt(companyName, niche, companyScore, categories, seoData, competitors);
 
-    const message = await client.messages.create({
+    const stream = client.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
@@ -230,15 +230,15 @@ export async function POST(req: Request) {
       ],
     });
 
-    const rawContent = message.content[0];
-    if (rawContent.type !== "text") {
+    const rawText = await stream.text();
+    if (!rawText) {
       return NextResponse.json(
         { ok: false, error: "Неожиданный тип ответа от Claude" },
         { status: 500 },
       );
     }
 
-    const parsed = extractJson(rawContent.text);
+    const parsed = extractJson(rawText);
 
     const result = {
       generatedAt: new Date().toISOString(),
