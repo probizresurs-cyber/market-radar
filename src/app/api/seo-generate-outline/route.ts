@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
+const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
 
 export async function POST(req: NextRequest) {
   try {
     const { brief, keywords }: { brief: SEOArticleBrief; keywords: string[] } = await req.json();
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
 
     const prompt = `Ты — SEO-редактор. Составь детальную структуру (outline) для статьи.
 
@@ -26,7 +25,7 @@ export async function POST(req: NextRequest) {
 - ЦА: ${brief.audience}
 - CTA: ${brief.callToAction}
 
-Верни ТОЛЬКО валидный JSON (без markdown-блоков):
+Верни ТОЛЬКО валидный JSON:
 {
   "h1": "H1 заголовок статьи (содержит фокус-ключ)",
   "intro": "краткий лид-абзац (2-3 предложения, крючок для читателя)",
@@ -45,25 +44,30 @@ export async function POST(req: NextRequest) {
   "conclusion": "финальный раздел / CTA (1-2 предложения)"
 }
 
-Требования к структуре:
+Требования:
 - 4-8 разделов H2 в зависимости от объёма
-- Можно добавить H3-подразделы внутри H2 (level: 3)
 - Ключевой запрос в первом H2 или H1
 - Вторичные ключи распределены по разделам
-- Сумма wordTarget всех разделов ≈ wordCountTarget
-- Для faq-типа: список вопрос-ответ (каждый вопрос — H3)
-- Для listicle: каждый пункт — H2 или H3`;
+- Сумма wordTarget всех разделов ≈ wordCountTarget`;
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 3000,
-      messages: [{ role: "user", content: prompt }],
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 3000,
+        response_format: { type: "json_object" },
+      }),
     });
 
-    const text = (response.content[0] as { type: string; text: string }).text.trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
-    const data = JSON.parse(jsonMatch[0]);
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+    }
+
+    const json = await res.json();
+    const data = JSON.parse(json.choices[0].message.content);
 
     return NextResponse.json({ outline: data });
   } catch (e) {

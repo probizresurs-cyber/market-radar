@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
+const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
 
 export async function POST(req: NextRequest) {
   try {
     const { topic, companyName, niche, platform, articleType, taContext, brandBook } = await req.json();
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
 
     const today = new Date().toLocaleDateString("ru-RU");
 
@@ -49,16 +48,24 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
 
 Для wordCountTarget ориентируйся на тип: informational=2000-3000, how-to=1500-2500, listicle=2000-4000, review=2500-4000, comparison=2000-3500, case-study=1500-2500, faq=1500-3000, landing-article=1200-2000.`;
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 2000,
+        response_format: { type: "json_object" },
+      }),
     });
 
-    const text = (response.content[0] as { type: string; text: string }).text.trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
-    const data = JSON.parse(jsonMatch[0]);
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+    }
+
+    const json = await res.json();
+    const data = JSON.parse(json.choices[0].message.content);
 
     return NextResponse.json({ brief: data });
   } catch (e) {

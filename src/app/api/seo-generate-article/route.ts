@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
+const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,15 +22,16 @@ export async function POST(req: NextRequest) {
         }
       = await req.json();
 
-    const tov = brandBook?.toneOfVoice?.length
-      ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.`
-      : "";
-    const forbidden = brandBook?.forbiddenWords?.length
-      ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.`
-      : "";
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY не настроен" }, { status: 500 });
+
+    const tov = brandBook?.toneOfVoice?.length ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.` : "";
+    const forbidden = brandBook?.forbiddenWords?.length ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.` : "";
+
+    let prompt: string;
+    let maxTokens: number;
 
     if (mode === "section" && sectionId) {
-      // Generate a single section
       const sec = sections.find(s => s.id === sectionId);
       if (!sec) return NextResponse.json({ error: "Section not found" }, { status: 400 });
 
@@ -43,7 +40,7 @@ export async function POST(req: NextRequest) {
         .map(s => `## ${s.heading}\n${s.generatedContent}`)
         .join("\n\n");
 
-      const prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
+      prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
 
 СТАТЬЯ: ${brief.topic}
 ПЛАТФОРМА: ${brief.platform}
@@ -54,31 +51,17 @@ ${tov} ${forbidden}
 ${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevContent}\n---` : ""}
 
 ЗАДАЧА: Напиши раздел "${sec.heading}" (H${sec.level}).
-Бриф раздела: ${sec.contentBrief}
+Бриф: ${sec.contentBrief}
 Целевой объём: ~${sec.wordTarget} слов.
 
-Требования:
-- Начни сразу с текста (без заголовка — он уже есть в структуре)
-- Используй ключевые слова раздела органично
-- Пиши для живого читателя, не для робота
-- Абзацы 3-5 предложений
-- Добавь конкретику: цифры, примеры, факты где уместно
-- Не повторяй уже написанный контент`;
+Начни сразу с текста (без заголовка). Пиши экспертно, добавляй факты и примеры.`;
+      maxTokens = 2000;
+    } else {
+      const outlineText = sections
+        .map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`)
+        .join("\n\n");
 
-      const response = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const content = (response.content[0] as { type: string; text: string }).text.trim();
-      return NextResponse.json({ sectionId, content });
-    }
-
-    // Full article mode (for short articles ≤ 2000 words)
-    const outlineText = sections.map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`).join("\n\n");
-
-    const prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
+      prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
 
 ТЕМА: ${brief.topic}
 ПЛАТФОРМА: ${brief.platform}
@@ -90,7 +73,7 @@ CTA: ${brief.callToAction}
 ${tov} ${forbidden}
 
 СТРУКТУРА:
-H1: ${h1}
+# ${h1}
 
 Лид: ${intro}
 
@@ -98,24 +81,34 @@ ${outlineText}
 
 Заключение: ${conclusion}
 
-Напиши полную статью строго по структуре. Требования:
-- Используй заголовки H1/H2/H3 из структуры
-- Органично вставляй ключевые запросы (плотность 1-2.5%)
-- Пиши живо и экспертно
-- Добавь конкретику: примеры, цифры, факты
-- Завершись чётким призывом к действию
-- Формат: Markdown (## для H2, ### для H3)`;
+Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###). Органично вставляй ключевые запросы (плотность 1-2.5%).`;
+      maxTokens = 6000;
+    }
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 6000,
-      messages: [{ role: "user", content: prompt }],
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+      }),
     });
 
-    const fullText = (response.content[0] as { type: string; text: string }).text.trim();
-    const wordCount = fullText.split(/\s+/).length;
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+    }
 
-    return NextResponse.json({ fullText, wordCount });
+    const json = await res.json();
+    const content = json.choices[0].message.content?.trim() || "";
+
+    if (mode === "section" && sectionId) {
+      return NextResponse.json({ sectionId, content });
+    }
+
+    const wordCount = content.split(/\s+/).length;
+    return NextResponse.json({ fullText: content, wordCount });
   } catch (e) {
     console.error("seo-generate-article error:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
