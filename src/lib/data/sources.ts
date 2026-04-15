@@ -1,0 +1,25 @@
+// ─── Free data sources used in SourcesView ─────────────────────────────────────
+
+export const SOURCES_FREE = [
+  { name: "Сайт конкурента", method: "Playwright → Turndown → Claude API", price: "~$0.03/сайт", phase: "MVP" },
+  { name: "Wappalyzer", method: "npm wappalyzer-core", price: "Бесплатно", phase: "MVP" },
+  { name: "WHOIS", method: "whois lookup", price: "Бесплатно", phase: "MVP" },
+  { name: "robots.txt / sitemap", method: "HTTP fetch + XML parse", price: "Бесплатно", phase: "MVP" },
+  { name: "VK API", method: "VK API (groups, wall)", price: "Бесплатно", phase: "MVP" },
+  { name: "Telegram", method: "t.me парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "DaData", method: "dadata.ru API", price: "Бесплатно (10k/день)", phase: "MVP" },
+  { name: "egrul.nalog.ru", method: "Через DaData", price: "Бесплатно", phase: "MVP" },
+  { name: "hh.ru API", method: "api.hh.ru", price: "Бесплатно", phase: "MVP" },
+  { name: "Google PageSpeed", method: "PageSpeed Insights API", price: "Бесплатно", phase: "MVP" },
+  { name: "Wayback Machine", method: "web.archive.org CDX API", price: "Бесплатно", phase: "MVP" },
+  { name: "Rusprofile.ru", method: "HTML парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "Яндекс.Карты", method: "Поисковый парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "2ГИС", method: "Catalog API", price: "Бесплатно", phase: "MVP" },
+  { name: "zakupki.gov.ru", method: "HTML парсинг", price: "Бесплатно", phase: "MVP" },
+  { name: "MegaIndex", method: "megaindex.ru API", price: "Бесплатно (базовый)", phase: "v2" },
+  { name: "Яндекс.Wordstat", method: "wordstat.yandex.ru парсинг", price: "Бесплатно", phase: "v2" },
+  { name: "YouTube / Social Blade", method: "YouTube Data API", price: "Бесплатно", phase: "v2" },
+  { name: "SuperJob", method: "Парсинг", price: "Бесплатно", phase: "v3" },
+  { name: "Авито Работа", method: "Парсинг", price: "Бесплатно", phase: "v3" },
+  { name: "Отзовик / IRecommend", method: "Парсинг", price: "Бесплатно", phase: "v3" },
+];
