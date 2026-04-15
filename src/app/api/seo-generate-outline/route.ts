@@ -50,14 +50,22 @@ export async function POST(req: NextRequest) {
 
 Требования: 4-8 разделов H2, ключевой запрос в первом H2 или H1, сумма wordTarget ≈ wordCountTarget.`;
 
-    const response = await client.messages.create({
+    // Use streaming — Cloudflare Worker requires stream:true to avoid 30s timeout
+    const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 3000,
       messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const match = text.match(/\{[\s\S]*\}/);
+    let responseText = "";
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        responseText += event.delta.text;
+      }
+    }
+
+    const match = responseText.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Не удалось распарсить JSON из ответа");
     const outline = JSON.parse(match[0]);
     return NextResponse.json({ outline });

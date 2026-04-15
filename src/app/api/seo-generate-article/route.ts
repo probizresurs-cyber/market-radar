@@ -76,13 +76,21 @@ ${outlineText}
       maxTokens = 6000;
     }
 
-    const response = await client.messages.create({
+    // Use streaming — Cloudflare Worker requires stream:true to avoid 30s timeout
+    const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
-    const content = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    let content = "";
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        content += event.delta.text;
+      }
+    }
+    content = content.trim();
 
     if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
     return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });

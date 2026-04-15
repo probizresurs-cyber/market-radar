@@ -52,14 +52,22 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
 
 Для wordCountTarget: informational=2000-3000, how-to=1500-2500, listicle=2000-4000, review=2500-4000, comparison=2000-3500, case-study=1500-2500, faq=1500-3000, landing-article=1200-2000.`;
 
-    const response = await client.messages.create({
+    // Use streaming — Cloudflare Worker requires stream:true to avoid 30s timeout
+    const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
       messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const match = text.match(/\{[\s\S]*\}/);
+    let responseText = "";
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        responseText += event.delta.text;
+      }
+    }
+
+    const match = responseText.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Не удалось распарсить JSON из ответа");
     const brief = JSON.parse(match[0]);
     return NextResponse.json({ brief });
