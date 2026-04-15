@@ -92,20 +92,32 @@ interface UserAccount {
 // ── Server sync helpers ───────────────────────────────────────
 async function syncToServer(key: string, value: unknown): Promise<void> {
   try {
-    await fetch("/api/data", {
+    const res = await fetch("/api/data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, value }),
+      credentials: "include",
     });
-  } catch { /* silent — localStorage still works as fallback */ }
+    if (!res.ok) {
+      console.warn(`[sync] POST /api/data "${key}" failed:`, res.status, await res.text().catch(() => ""));
+    }
+  } catch (e) {
+    console.warn(`[sync] POST /api/data "${key}" error:`, e);
+  }
 }
 
 async function loadAllFromServer(): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch("/api/data");
+    const res = await fetch("/api/data", { credentials: "include" });
     const json = await res.json();
-    if (json.ok) return json.data;
-  } catch { /* silent */ }
+    if (json.ok) {
+      console.log("[sync] loaded from server:", Object.keys(json.data ?? {}));
+      return json.data;
+    }
+    console.warn("[sync] GET /api/data returned not-ok:", json);
+  } catch (e) {
+    console.warn("[sync] GET /api/data error:", e);
+  }
   return null;
 }
 
@@ -10714,14 +10726,47 @@ export default function MarketRadarDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load server data and apply it — called after login and on init
+  // Load server data and apply it — called after login and on init.
+  // Also performs a one-time migration: if a key exists in localStorage but
+  // NOT on the server, push it up so other devices can see it.
   const loadAndApplyUserData = React.useCallback(async (uid: string) => {
+    let serverData: Record<string, unknown> = {};
     try {
-      const serverData = await loadAllFromServer();
-      applyUserData(serverData ?? {}, uid);
-    } catch {
-      applyUserData({}, uid);
+      serverData = (await loadAllFromServer()) ?? {};
+    } catch { /* keep empty */ }
+
+    // Migration map: localStorage key prefix → server key
+    const migrations: Array<[string, string]> = [
+      [`mr_company_${uid}`, "company"],
+      [`mr_competitors_${uid}`, "competitors"],
+      [`mr_ta_${uid}`, "ta"],
+      [`mr_cjm_${uid}`, "cjm"],
+      [`mr_benchmarks_${uid}`, "benchmarks"],
+      [`mr_smm_${uid}`, "smm"],
+      [`mr_content_${uid}`, "content"],
+      [`mr_brandbook_${uid}`, "brandbook"],
+      [`mr_stories_${uid}`, "stories"],
+      [`mr_analysis_history_${uid}`, "history"],
+      [`mr_brandsug_${uid}`, "brandsug"],
+      [`mr_avatar_settings_${uid}`, "avatar"],
+    ];
+
+    const pushed: Record<string, unknown> = {};
+    for (const [lsKey, srvKey] of migrations) {
+      if (serverData[srvKey] != null) continue; // server already has it
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed == null) continue;
+        if (Array.isArray(parsed) && parsed.length === 0) continue;
+        pushed[srvKey] = parsed;
+        // fire-and-forget push to server
+        syncToServer(srvKey, parsed);
+      } catch { /* ignore */ }
     }
+
+    applyUserData({ ...pushed, ...serverData }, uid);
   }, [applyUserData]);
 
   // Check for existing session + restore saved data on mount
