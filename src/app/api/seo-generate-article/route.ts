@@ -4,19 +4,13 @@ import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
-
 export async function POST(req: NextRequest) {
   try {
     const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook }
       : {
-          brief: SEOArticleBrief;
-          h1: string;
-          intro: string;
-          sections: SEOSection[];
-          conclusion: string;
-          mode: "full" | "section";
-          sectionId?: string;
+          brief: SEOArticleBrief; h1: string; intro: string;
+          sections: SEOSection[]; conclusion: string;
+          mode: "full" | "section"; sectionId?: string;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           brandBook?: any;
         }
@@ -42,19 +36,15 @@ export async function POST(req: NextRequest) {
 
       prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
 
-СТАТЬЯ: ${brief.topic}
-ПЛАТФОРМА: ${brief.platform}
+СТАТЬЯ: ${brief.topic} | ПЛАТФОРМА: ${brief.platform}
 ${tov} ${forbidden}
 ФОКУС-КЛЮЧ: ${brief.focusKeyword}
-КЛЮЧИ ДЛЯ ЭТОГО РАЗДЕЛА: ${sec.keywords.join(", ")}
+КЛЮЧИ РАЗДЕЛА: ${sec.keywords.join(", ")}
+${prevContent ? `\nУЖЕ НАПИСАНО:\n${prevContent}\n---` : ""}
 
-${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevContent}\n---` : ""}
-
-ЗАДАЧА: Напиши раздел "${sec.heading}" (H${sec.level}).
-Бриф: ${sec.contentBrief}
-Целевой объём: ~${sec.wordTarget} слов.
-
-Начни сразу с текста (без заголовка). Пиши экспертно, добавляй факты и примеры.`;
+Напиши раздел "${sec.heading}" (H${sec.level}).
+Бриф: ${sec.contentBrief}. Объём: ~${sec.wordTarget} слов.
+Начни сразу с текста (без заголовка). Пиши экспертно, добавляй факты.`;
       maxTokens = 2000;
     } else {
       const outlineText = sections
@@ -63,29 +53,24 @@ ${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevCon
 
       prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
 
-ТЕМА: ${brief.topic}
-ПЛАТФОРМА: ${brief.platform}
-ТИП: ${brief.articleType}
-ФОКУС-КЛЮЧ: ${brief.focusKeyword}
-ВТОРИЧНЫЕ КЛЮЧИ: ${brief.secondaryKeywords.join(", ")}
-ЦА: ${brief.audience}
-CTA: ${brief.callToAction}
+ТЕМА: ${brief.topic} | ПЛАТФОРМА: ${brief.platform} | ТИП: ${brief.articleType}
+ФОКУС-КЛЮЧ: ${brief.focusKeyword} | ВТОРИЧНЫЕ: ${brief.secondaryKeywords.join(", ")}
+ЦА: ${brief.audience} | CTA: ${brief.callToAction}
 ${tov} ${forbidden}
 
 СТРУКТУРА:
 # ${h1}
-
 Лид: ${intro}
 
 ${outlineText}
 
 Заключение: ${conclusion}
 
-Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###). Органично вставляй ключевые запросы (плотность 1-2.5%).`;
+Напиши полную статью строго по структуре. Markdown-заголовки (##, ###). Ключевые запросы органично, плотность 1-2.5%.`;
       maxTokens = 6000;
     }
 
-    const res = await fetch(OPENAI_URL, {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -97,18 +82,14 @@ ${outlineText}
 
     if (!res.ok) {
       const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
 
     const json = await res.json();
     const content = json.choices[0].message.content?.trim() || "";
 
-    if (mode === "section" && sectionId) {
-      return NextResponse.json({ sectionId, content });
-    }
-
-    const wordCount = content.split(/\s+/).length;
-    return NextResponse.json({ fullText: content, wordCount });
+    if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
+    return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
   } catch (e) {
     console.error("seo-generate-article error:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

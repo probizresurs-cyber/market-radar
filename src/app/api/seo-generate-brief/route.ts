@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
-
 export async function POST(req: NextRequest) {
   try {
     const { topic, companyName, niche, platform, articleType, taContext, brandBook } = await req.json();
@@ -46,9 +44,9 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
   }
 }
 
-Для wordCountTarget ориентируйся на тип: informational=2000-3000, how-to=1500-2500, listicle=2000-4000, review=2500-4000, comparison=2000-3500, case-study=1500-2500, faq=1500-3000, landing-article=1200-2000.`;
+Для wordCountTarget: informational=2000-3000, how-to=1500-2500, listicle=2000-4000, review=2500-4000, comparison=2000-3500, case-study=1500-2500, faq=1500-3000, landing-article=1200-2000.`;
 
-    const res = await fetch(OPENAI_URL, {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -61,12 +59,11 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
 
     if (!res.ok) {
       const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
 
     const json = await res.json();
     const data = JSON.parse(json.choices[0].message.content);
-
     return NextResponse.json({ brief: data });
   } catch (e) {
     console.error("seo-generate-brief error:", e);

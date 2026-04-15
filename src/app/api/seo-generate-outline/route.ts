@@ -4,8 +4,6 @@ import type { SEOArticleBrief } from "@/lib/seo-types";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const OPENAI_URL = `${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`;
-
 export async function POST(req: NextRequest) {
   try {
     const { brief, keywords }: { brief: SEOArticleBrief; keywords: string[] } = await req.json();
@@ -44,13 +42,9 @@ export async function POST(req: NextRequest) {
   "conclusion": "финальный раздел / CTA (1-2 предложения)"
 }
 
-Требования:
-- 4-8 разделов H2 в зависимости от объёма
-- Ключевой запрос в первом H2 или H1
-- Вторичные ключи распределены по разделам
-- Сумма wordTarget всех разделов ≈ wordCountTarget`;
+Требования: 4-8 разделов H2, ключевой запрос в первом H2 или H1, сумма wordTarget ≈ wordCountTarget.`;
 
-    const res = await fetch(OPENAI_URL, {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -63,12 +57,11 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const err = await res.text();
-      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+      return NextResponse.json({ error: `OpenAI ${res.status}: ${err.slice(0, 300)}` }, { status: 500 });
     }
 
     const json = await res.json();
     const data = JSON.parse(json.choices[0].message.content);
-
     return NextResponse.json({ outline: data });
   } catch (e) {
     console.error("seo-generate-outline error:", e);
