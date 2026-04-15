@@ -1,11 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-export async function POST(req: NextRequest) {
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+});
+
+const SYSTEM_PROMPT = "Ты — SEO-копирайтер. Пишешь экспертные, структурированные статьи с органичным использованием ключевых слов, плотность 1-2.5%.";
+
+export async function POST(req: Request) {
   try {
     const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook }
       : {
@@ -17,18 +24,14 @@ export async function POST(req: NextRequest) {
         }
       = await req.json();
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-
-    const client = new Anthropic({
-      apiKey,
-      baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
-    });
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+    }
 
     const tov = brandBook?.toneOfVoice?.length ? `Тон голоса: ${brandBook.toneOfVoice.join(", ")}.` : "";
     const forbidden = brandBook?.forbiddenWords?.length ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.` : "";
 
-    let prompt: string;
+    let userPrompt: string;
     let maxTokens: number;
 
     if (mode === "section" && sectionId) {
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest) {
         .map(s => `## ${s.heading}\n${s.generatedContent}`)
         .join("\n\n");
 
-      prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
+      userPrompt = `Напиши раздел статьи.
 
 СТАТЬЯ: ${brief.topic} | ПЛАТФОРМА: ${brief.platform}
 ${tov} ${forbidden}
@@ -57,7 +60,7 @@ ${prevContent ? `\nУЖЕ НАПИСАНО:\n${prevContent}\n---` : ""}
         .map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`)
         .join("\n\n");
 
-      prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
+      userPrompt = `Напиши полную статью по брифу.
 
 ТЕМА: ${brief.topic} | ПЛАТФОРМА: ${brief.platform} | ТИП: ${brief.articleType}
 ФОКУС-КЛЮЧ: ${brief.focusKeyword} | ВТОРИЧНЫЕ: ${brief.secondaryKeywords.join(", ")}
@@ -72,30 +75,33 @@ ${outlineText}
 
 Заключение: ${conclusion}
 
-Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###). Ключевые запросы вставляй органично, плотность 1-2.5%.`;
+Напиши полную статью строго по структуре. Используй Markdown-заголовки (##, ###).`;
       maxTokens = 6000;
     }
 
-    // Use streaming — Cloudflare Worker requires stream:true to avoid 30s timeout
-    const stream = await client.messages.create({
+    const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
       stream: true,
     });
 
     let content = "";
-    for await (const event of stream) {
+    for await (const event of streamResponse) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
         content += event.delta.text;
       }
     }
     content = content.trim();
 
+    if (!content) return NextResponse.json({ error: "Пустой ответ от Claude" }, { status: 500 });
+
     if (mode === "section" && sectionId) return NextResponse.json({ sectionId, content });
     return NextResponse.json({ fullText: content, wordCount: content.split(/\s+/).length });
-  } catch (e) {
-    console.error("seo-generate-article error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("seo-generate-article error:", err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

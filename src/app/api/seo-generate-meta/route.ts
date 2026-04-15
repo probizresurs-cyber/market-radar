@@ -1,8 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+});
+
+const SYSTEM_PROMPT = "Ты — SEO-специалист. Пишешь мета-теги для статей. Отвечаешь ТОЛЬКО валидным JSON без markdown-обёрток. Твой ответ начинается с { и заканчивается }.";
 
 function toSlug(text: string): string {
   const map: Record<string, string> = {
@@ -15,55 +22,55 @@ function toSlug(text: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
 
-export async function POST(req: NextRequest) {
+function extractJson(text: string): Record<string, unknown> {
+  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("No JSON object found");
+  return JSON.parse(stripped.slice(start, end + 1));
+}
+
+export async function POST(req: Request) {
   try {
     const { h1, intro, focusKeyword, platform, topic } = await req.json();
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+    }
 
-    const client = new Anthropic({
-      apiKey,
-      baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
-    });
-
-    const prompt = `Ты — SEO-специалист. Напиши мета-теги для статьи.
+    const userPrompt = `Напиши мета-теги для статьи.
 
 ТЕМА: ${topic} | H1: ${h1}
 ЛИД: ${(intro || "").slice(0, 300)}
 ФОКУС-КЛЮЧ: ${focusKeyword} | ПЛАТФОРМА: ${platform}
 
-Верни ТОЛЬКО валидный JSON без markdown-блоков, начинающийся с { и заканчивающийся }:
-{
-  "title": "SEO-заголовок до 60 символов, содержит ключ",
-  "metaDescription": "meta-описание до 160 символов с ключом и призывом читать",
-  "ogTitle": "OG-заголовок (можно чуть длиннее title)",
-  "ogDescription": "OG-описание до 200 символов"
-}`;
+Верни строго этот JSON:
+{"title":"SEO-заголовок до 60 символов, содержит ключ","metaDescription":"meta-описание до 160 символов с ключом и призывом читать","ogTitle":"OG-заголовок (можно чуть длиннее title)","ogDescription":"OG-описание до 200 символов"}`;
 
-    // Use streaming — Cloudflare Worker requires stream:true to avoid 30s timeout
-    const stream = await client.messages.create({
+    const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
       stream: true,
     });
 
-    let responseText = "";
-    for await (const event of stream) {
+    let rawText = "";
+    for await (const event of streamResponse) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        responseText += event.delta.text;
+        rawText += event.delta.text;
       }
     }
 
-    const match = responseText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Не удалось распарсить JSON из ответа");
-    const meta = JSON.parse(match[0]);
+    if (!rawText) return NextResponse.json({ error: "Пустой ответ от Claude" }, { status: 500 });
+
+    const meta = extractJson(rawText);
     meta.focusKeyword = focusKeyword;
     meta.slug = toSlug(h1 || topic);
     return NextResponse.json({ meta });
-  } catch (e) {
-    console.error("seo-generate-meta error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("seo-generate-meta error:", err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
