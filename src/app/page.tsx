@@ -10737,35 +10737,57 @@ export default function MarketRadarDashboard() {
       serverData = (await loadAllFromServer()) ?? {};
     } catch { /* keep empty */ }
 
-    // Migration map: localStorage key prefix → server key
+    // Migration map: localStorage key prefix (without userId) → server key
+    // We scan ALL localStorage keys starting with the prefix to support the
+    // case where the legacy userId (old client-generated UUID) differs from
+    // the new Postgres-backed userId.
     const migrations: Array<[string, string]> = [
-      [`mr_company_${uid}`, "company"],
-      [`mr_competitors_${uid}`, "competitors"],
-      [`mr_ta_${uid}`, "ta"],
-      [`mr_cjm_${uid}`, "cjm"],
-      [`mr_benchmarks_${uid}`, "benchmarks"],
-      [`mr_smm_${uid}`, "smm"],
-      [`mr_content_${uid}`, "content"],
-      [`mr_brandbook_${uid}`, "brandbook"],
-      [`mr_stories_${uid}`, "stories"],
-      [`mr_analysis_history_${uid}`, "history"],
-      [`mr_brandsug_${uid}`, "brandsug"],
-      [`mr_avatar_settings_${uid}`, "avatar"],
+      ["mr_company_", "company"],
+      ["mr_competitors_", "competitors"],
+      ["mr_ta_", "ta"],
+      ["mr_cjm_", "cjm"],
+      ["mr_benchmarks_", "benchmarks"],
+      ["mr_smm_", "smm"],
+      ["mr_content_", "content"],
+      ["mr_brandbook_", "brandbook"],
+      ["mr_stories_", "stories"],
+      ["mr_analysis_history_", "history"],
+      ["mr_brandsug_", "brandsug"],
+      ["mr_avatar_settings_", "avatar"],
     ];
 
+    // Build a snapshot of all localStorage keys once
+    const lsKeys: string[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) lsKeys.push(k);
+      }
+    } catch { /* ignore */ }
+
     const pushed: Record<string, unknown> = {};
-    for (const [lsKey, srvKey] of migrations) {
+    for (const [prefix, srvKey] of migrations) {
       if (serverData[srvKey] != null) continue; // server already has it
-      try {
-        const raw = localStorage.getItem(lsKey);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-        if (parsed == null) continue;
-        if (Array.isArray(parsed) && parsed.length === 0) continue;
-        pushed[srvKey] = parsed;
-        // fire-and-forget push to server
-        syncToServer(srvKey, parsed);
-      } catch { /* ignore */ }
+      // Prefer the current uid's key; fall back to any other uid's key
+      const candidates = [
+        `${prefix}${uid}`,
+        ...lsKeys.filter((k) => k.startsWith(prefix) && k !== `${prefix}${uid}`),
+      ];
+      for (const lsKey of candidates) {
+        try {
+          const raw = localStorage.getItem(lsKey);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          if (parsed == null) continue;
+          if (Array.isArray(parsed) && parsed.length === 0) continue;
+          pushed[srvKey] = parsed;
+          console.log(`[migrate] pushing "${srvKey}" from localStorage key "${lsKey}"`);
+          syncToServer(srvKey, parsed);
+          // also store under the new uid so next reload picks it up instantly
+          try { localStorage.setItem(`${prefix}${uid}`, raw); } catch { /* ignore */ }
+          break; // stop after first non-empty candidate
+        } catch { /* try next candidate */ }
+      }
     }
 
     applyUserData({ ...pushed, ...serverData }, uid);
