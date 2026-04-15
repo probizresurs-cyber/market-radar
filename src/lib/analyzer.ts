@@ -193,13 +193,19 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 - Если VK не найден — vk должен быть null (не объект). Если Telegram не найден — telegram должен быть null.`;
 
   // Use streaming so Cloudflare Worker sees the first byte within ~2s (avoiding the 30s subrequest timeout)
-  const stream = client.messages.stream({
+  const streamResponse = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 10000,
     messages: [{ role: "user", content: prompt }],
+    stream: true,
   });
 
-  const responseText = await stream.text();
+  let responseText = "";
+  for await (const event of streamResponse) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      responseText += event.delta.text;
+    }
+  }
   if (!responseText) throw new Error("Empty response from AI model");
   const p = extractJson(responseText);
 

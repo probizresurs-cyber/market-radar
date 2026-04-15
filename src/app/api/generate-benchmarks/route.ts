@@ -218,7 +218,7 @@ export async function POST(req: Request) {
 
     const userPrompt = buildPrompt(companyName, niche, companyScore, categories, seoData, competitors);
 
-    const stream = client.messages.stream({
+    const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
@@ -228,9 +228,15 @@ export async function POST(req: Request) {
           content: userPrompt,
         },
       ],
+      stream: true,
     });
 
-    const rawText = await stream.text();
+    let rawText = "";
+    for await (const event of streamResponse) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        rawText += event.delta.text;
+      }
+    }
     if (!rawText) {
       return NextResponse.json(
         { ok: false, error: "Неожиданный тип ответа от Claude" },

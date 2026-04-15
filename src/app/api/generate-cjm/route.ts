@@ -158,7 +158,7 @@ export async function POST(req: Request) {
 
     const userPrompt = buildPrompt(companyName, niche, taData, companyData);
 
-    const stream = client.messages.stream({
+    const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 8000,
       messages: [
@@ -169,9 +169,15 @@ export async function POST(req: Request) {
       ],
       system:
         "Ты — эксперт по Customer Journey Map. Отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток, комментариев и пояснений. Твой ответ должен начинаться с { и заканчиваться }.",
+      stream: true,
     });
 
-    const rawText = await stream.text();
+    let rawText = "";
+    for await (const event of streamResponse) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        rawText += event.delta.text;
+      }
+    }
     if (!rawText) {
       return NextResponse.json(
         { ok: false, error: "Пустой ответ от Claude" },
