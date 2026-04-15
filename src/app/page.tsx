@@ -435,6 +435,7 @@ function RegisterView({ c, onSuccess, onLogin }: { c: Colors; onSuccess: (user: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password }),
+        credentials: "include",
       });
       const json = await res.json();
       if (!json.ok) { setError(json.error ?? "Ошибка регистрации"); return; }
@@ -518,6 +519,7 @@ function LoginView({ c, onSuccess, onRegister }: { c: Colors; onSuccess: (user: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+        credentials: "include",
       });
       const json = await res.json();
       if (!json.ok) { setError(json.error ?? "Неверный email или пароль"); return; }
@@ -10772,10 +10774,14 @@ export default function MarketRadarDashboard() {
   // Check for existing session + restore saved data on mount
   useEffect(() => {
     const initApp = async () => {
-      // 1. Try server session first
+      // Server session is the ONLY source of truth now.
+      // If /api/auth/me fails, clear any stale legacy localStorage user and
+      // force the login screen so a fresh JWT cookie gets set.
       let user: UserAccount | null = null;
+      let serverReachable = false;
       try {
-        const meRes = await fetch("/api/auth/me");
+        const meRes = await fetch("/api/auth/me", { credentials: "include" });
+        serverReachable = true;
         const meJson = await meRes.json();
         if (meJson.ok && meJson.user) {
           user = {
@@ -10790,15 +10796,24 @@ export default function MarketRadarDashboard() {
         }
       } catch { /* server unreachable */ }
 
-      // 2. Fall back to localStorage session
-      if (!user) user = authGetCurrentUser();
+      if (!user) {
+        if (serverReachable) {
+          // Server said "no session" → wipe stale legacy login so UI shows login screen
+          const stale = authGetCurrentUser();
+          if (stale) {
+            console.warn("[auth] legacy localStorage session without JWT cookie — clearing, please re-login");
+            authSetCurrentUser(null);
+          }
+        } else {
+          // Server unreachable → allow legacy offline fallback
+          user = authGetCurrentUser();
+        }
+      }
 
-      if (!user) return; // not logged in
+      if (!user) return; // not logged in — LandingPage will show
 
       setCurrentUser(user);
-
       await loadAndApplyUserData(user.id);
-
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     };
     initApp();

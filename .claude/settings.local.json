@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python scripts/office/unpack.py \"D:\\\\vbkf\\\\Таблица источников.docx\" \"D:\\\\vbkf\\\\unpacked_sources/\")"
+      "Bash(python scripts/office/unpack.py \"D:\\\\vbkf\\\\Таблица источников.docx\" \"D:\\\\vbkf\\\\unpacked_sources/\")",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
