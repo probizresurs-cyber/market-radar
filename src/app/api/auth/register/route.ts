@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { query, initDb } from "@/lib/db";
 import { signToken, setTokenCookie } from "@/lib/auth";
@@ -26,11 +27,45 @@ export async function POST(req: Request) {
       [id, email.toLowerCase(), passwordHash, name ?? null, "user"]
     );
 
+    // ─── Partner attribution (First-Touch) ──────────────────────────────────
+    const cookieStore = await cookies();
+    const refCode = cookieStore.get("mr_ref")?.value;
+    const refTs = cookieStore.get("mr_ref_ts")?.value;
+
+    if (refCode) {
+      // Find active partner by referral_code
+      const partnerRows = await query<{ id: string }>(
+        "SELECT id FROM partners WHERE referral_code = $1 AND status = 'active'",
+        [refCode]
+      );
+      if (partnerRows.length > 0) {
+        const partnerId = partnerRows[0].id;
+        await query(
+          `INSERT INTO partner_clients (id, partner_id, client_user_id, attributed_at, cookie_set_at)
+           VALUES ($1, $2, $3, NOW(), $4)
+           ON CONFLICT (client_user_id) DO NOTHING`,
+          [
+            randomUUID(),
+            partnerId,
+            id,
+            refTs ? new Date(Number(refTs)).toISOString() : null,
+          ]
+        );
+      }
+    }
+
     const token = await signToken({ userId: id, email: email.toLowerCase(), role: "user" });
     const cookie = setTokenCookie(token);
     const res = NextResponse.json({ ok: true, user: { id, name, email: email.toLowerCase(), role: "user" } });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     res.cookies.set(cookie.name, cookie.value, cookie.options as any);
+
+    // Clear referral cookies after attribution
+    if (refCode) {
+      res.cookies.set("mr_ref", "", { maxAge: 0, path: "/" });
+      res.cookies.set("mr_ref_ts", "", { maxAge: 0, path: "/" });
+    }
+
     return res;
   } catch (e) {
     console.error("register error", e);

@@ -7,17 +7,39 @@ export function middleware(request: NextRequest) {
 
   // Route admine.* subdomain to /admin prefix
   if (host.startsWith("admine.")) {
-    // Already under /admin — let through
     if (pathname.startsWith("/admin") || pathname.startsWith("/_next") || pathname.startsWith("/api")) {
       return NextResponse.next();
     }
-    // Rewrite root → /admin/dashboard (or /admin/login)
     const url = request.nextUrl.clone();
     url.pathname = "/admin" + (pathname === "/" ? "/dashboard" : pathname);
     return NextResponse.rewrite(url);
   }
 
-  return NextResponse.next();
+  // ─── Referral cookie (First-Touch, 60 days) ─────────────────────────────────
+  const rfCode = request.nextUrl.searchParams.get("rf");
+  let response = NextResponse.next();
+
+  if (rfCode && !request.cookies.get("mr_ref")) {
+    // Strip ?rf= from URL to keep it clean
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete("rf");
+    response = NextResponse.redirect(cleanUrl);
+    response.cookies.set("mr_ref", rfCode, {
+      maxAge: 60 * 60 * 24 * 60, // 60 days
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+    });
+    // Also store cookie creation timestamp
+    response.cookies.set("mr_ref_ts", Date.now().toString(), {
+      maxAge: 60 * 60 * 24 * 60,
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }
 
 export const config = {

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
+import AdminNav from "../components/AdminNav";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export default async function AdminDashboard() {
           </form>
         </div>
       </header>
+      <AdminNav current="/admin/dashboard" />
 
       <main style={S.main}>
         <div style={S.h1}>Пользователи</div>
