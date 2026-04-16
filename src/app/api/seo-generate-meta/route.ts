@@ -47,20 +47,19 @@ H1: ${h1}
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 500,
-      messages: [
-        { role: "user", content: prompt },
-        { role: "assistant", content: "{" },
-      ],
+      messages: [{ role: "user", content: prompt }],
     });
 
     const rawText = (response.content[0] as { type: string; text: string }).text.trim();
-    const fullText = "{" + rawText;
-    // Try direct parse first, then fallback extraction
     let data: Record<string, unknown> | null = null;
-    try { data = JSON.parse(fullText); } catch { /* continue */ }
+    try { data = JSON.parse(rawText); } catch { /* continue */ }
     if (!data) {
-      const m = fullText.match(/\{[\s\S]*\}/);
-      if (m) try { data = JSON.parse(m[0]); } catch { /* continue */ }
+      const m = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      try { data = JSON.parse(m); } catch { /* continue */ }
+    }
+    if (!data) {
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (match) try { data = JSON.parse(match[0]); } catch { /* continue */ }
     }
     if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 

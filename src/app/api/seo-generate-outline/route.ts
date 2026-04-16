@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 - ЦА: ${brief.audience}
 - CTA: ${brief.callToAction}
 
-Верни ТОЛЬКО валидный JSON (без markdown-блоков):
+КРИТИЧЕСКИ ВАЖНО: верни ТОЛЬКО валидный JSON. Никакого текста до или после. Никаких markdown-блоков (```). В строковых значениях НЕ используй двойные кавычки — только одинарные или перефразируй. Не используй переносы строк \n внутри строк JSON.
 {
   "h1": "H1 заголовок статьи (содержит фокус-ключ)",
   "intro": "краткий лид-абзац (2-3 предложения, крючок для читателя)",
@@ -82,17 +82,11 @@ export async function POST(req: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 3000,
-      messages: [
-        { role: "user", content: prompt },
-        { role: "assistant", content: "{" }, // prefill — force pure JSON output
-      ],
+      messages: [{ role: "user", content: prompt }],
     });
 
     const rawText = (response.content[0] as { type: string; text: string }).text.trim();
-    // Restore the prefilled opening brace
-    const text = "{" + rawText;
-
-    const data = robustJsonParse(text);
+    const data = robustJsonParse(rawText);
     if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 
     return NextResponse.json({ outline: data });

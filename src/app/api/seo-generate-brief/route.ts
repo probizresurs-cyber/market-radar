@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 ${taContext ? `\nЦЕЛЕВАЯ АУДИТОРИЯ:\n${taContext}` : ""}
 ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandBook.toneOfVoice.join(", ")}` : ""}
 
-Верни ТОЛЬКО валидный JSON (без markdown-блоков) со следующей структурой:
+КРИТИЧЕСКИ ВАЖНО: верни ТОЛЬКО валидный JSON. Никакого текста до или после. Никаких markdown-блоков (```). В строковых значениях НЕ используй двойные кавычки — только одинарные или перефразируй. Структура:
 {
   "articleType": "${articleType}",
   "platform": "${platform}",
@@ -71,14 +71,11 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
-      messages: [
-        { role: "user", content: prompt },
-        { role: "assistant", content: "{" },
-      ],
+      messages: [{ role: "user", content: prompt }],
     });
 
     const rawText = (response.content[0] as { type: string; text: string }).text.trim();
-    const data = robustJsonParse("{" + rawText);
+    const data = robustJsonParse(rawText);
     if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 
     return NextResponse.json({ brief: data });
