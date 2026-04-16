@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -43,6 +44,8 @@ JSON-формат (строго):
 }]}`;
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const apiKey = process.env.OPENAI_API_KEY;
@@ -93,6 +96,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: `OpenAI ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
     }
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+    await access.log({ endpoint: "generate-presentation", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: JSON.parse(data.choices[0]?.message?.content ?? "{}") });
   } catch (err: unknown) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Error" }, { status: 500 });

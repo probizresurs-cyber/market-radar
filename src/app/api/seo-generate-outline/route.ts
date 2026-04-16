@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 // Robust JSON parser: tries multiple strategies to extract valid JSON
 function robustJsonParse(text: string): Record<string, unknown> | null {
@@ -45,6 +46,8 @@ const client = new Anthropic({
 });
 
 export async function POST(req: NextRequest) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { brief, keywords }: { brief: SEOArticleBrief; keywords: string[] } = await req.json();
 
@@ -101,6 +104,7 @@ export async function POST(req: NextRequest) {
       throw new Error("Не удалось разобрать JSON: " + rawText.slice(0, 200));
     }
 
+    await access.log({ endpoint: "seo-generate-outline", model: "claude-sonnet-4-6" });
     return NextResponse.json({ outline: data });
   } catch (e) {
     console.error("seo-generate-outline error:", e);

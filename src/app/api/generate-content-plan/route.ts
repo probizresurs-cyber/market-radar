@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ContentPlan } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -119,6 +120,8 @@ ${smmBlock}
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
@@ -176,6 +179,7 @@ export async function POST(req: Request) {
       ...parsed,
     };
 
+    await access.log({ endpoint: "generate-content-plan", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

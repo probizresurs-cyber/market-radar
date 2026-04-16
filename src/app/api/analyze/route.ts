@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  // Security: rate limit + logging setup
+  const access = await checkAiAccess(request);
+  if (!access.allowed) return access.response;
+
   let url: string;
 
   try {
@@ -150,11 +155,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);
 
     const message = err instanceof Error ? err.message : "Unknown error";
+
+    await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", success: false, errorMessage: message.slice(0, 200) });
 
     if (
       message.includes("fetch") ||

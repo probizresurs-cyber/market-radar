@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 function buildBrandBookBlock(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -76,6 +77,8 @@ ${smmBlock}${brandBlock}
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
@@ -193,6 +196,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
+    await access.log({ endpoint: "generate-post", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

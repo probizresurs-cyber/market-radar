@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -11,6 +12,8 @@ const client = new Anthropic({
 });
 
 export async function POST(req: NextRequest) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook }
       : {
@@ -72,6 +75,7 @@ ${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevCon
       });
 
       const content = (response.content[0] as { type: string; text: string }).text.trim();
+      await access.log({ endpoint: "seo-generate-article", model: "claude-sonnet-4-6" });
       return NextResponse.json({ sectionId, content });
     }
 
@@ -115,6 +119,7 @@ ${outlineText}
     const fullText = (response.content[0] as { type: string; text: string }).text.trim();
     const wordCount = fullText.split(/\s+/).length;
 
+    await access.log({ endpoint: "seo-generate-article", model: "claude-sonnet-4-6" });
     return NextResponse.json({ fullText, wordCount });
   } catch (e) {
     console.error("seo-generate-article error:", e);

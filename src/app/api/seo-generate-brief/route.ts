@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 function robustJsonParse(text: string): Record<string, unknown> | null {
   try { return JSON.parse(text); } catch { /* continue */ }
@@ -30,6 +31,8 @@ const client = new Anthropic({
 });
 
 export async function POST(req: NextRequest) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { topic, companyName, niche, platform, articleType, taContext, brandBook } = await req.json();
 
@@ -82,6 +85,7 @@ ${brandBook?.toneOfVoice?.length ? `\nТОН ГОЛОСА БРЕНДА: ${brandB
       throw new Error("Не удалось разобрать JSON: " + rawText.slice(0, 200));
     }
 
+    await access.log({ endpoint: "seo-generate-brief", model: "claude-sonnet-4-6" });
     return NextResponse.json({ brief: data });
   } catch (e) {
     console.error("seo-generate-brief error:", e);

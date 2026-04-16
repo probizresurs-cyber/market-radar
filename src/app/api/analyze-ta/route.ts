@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { TAResult } from "@/lib/ta-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 const SYSTEM_PROMPT = `Ты — лучший в мире маркетинговый аналитик, специализирующийся на глубоком анализе целевой аудитории.
 
@@ -139,6 +140,8 @@ ${extraContext ? `Дополнительный контекст: ${extraContext}
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { companyName, companyUrl, niche, extraContext } = await req.json();
 
@@ -195,6 +198,7 @@ export async function POST(req: Request) {
       ...parsed,
     };
 
+    await access.log({ endpoint: "analyze-ta", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
