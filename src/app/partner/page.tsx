@@ -41,7 +41,8 @@ const STATUS_COLORS: Record<string, string> = { pending: "#f59e0b", active: "#4a
 interface Stats {
   totalClients: number;
   payingClients: number;
-  balance: number;
+  balance: number;       // available for payout
+  reserved: number;      // locked 60-day reserve
   totalEarned: number;
   totalPaidOut: number;
 }
@@ -249,13 +250,46 @@ export default function PartnerDashboard() {
               </div>
               <div style={S.stat}>
                 <div style={{ ...S.statNum, color: "#f59e0b" }}>{formatPrice(stats?.balance || 0)}</div>
-                <div style={S.statLabel}>Баланс</div>
+                <div style={S.statLabel}>Доступно к выводу</div>
+                {(stats?.reserved || 0) > 0 && (
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                    + {formatPrice(stats!.reserved)} в резерве (60 дн.)
+                  </div>
+                )}
               </div>
               <div style={S.stat}>
                 <div style={{ ...S.statNum, color: "#c084fc" }}>{formatPrice(stats?.totalEarned || 0)}</div>
                 <div style={S.statLabel}>Всего заработано</div>
               </div>
             </div>
+
+            {/* Progress to next level */}
+            {(() => {
+              const payingClients = stats?.payingClients || 0;
+              const nextScale = scales.find(s => s.minClients > payingClients);
+              if (!nextScale) return null;
+              const prevScale = scales.slice().reverse().find(s => s.minClients <= payingClients);
+              const prevMin = prevScale ? prevScale.minClients : 0;
+              const progress = Math.min(100, ((payingClients - prevMin) / (nextScale.minClients - prevMin)) * 100);
+              return (
+                <div style={{ ...S.card, marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
+                    <span style={{ color: "#94a3b8" }}>
+                      До следующего уровня <strong style={{ color: "#7c3aed" }}>{nextScale.rate}%</strong>:&nbsp;
+                      {nextScale.minClients - payingClients} платящих клиентов
+                    </span>
+                    <span style={{ color: "#64748b", fontSize: 12 }}>{payingClients} / {nextScale.minClients}</span>
+                  </div>
+                  <div style={{ height: 8, background: "#1e293b", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", width: `${progress}%`,
+                      background: "linear-gradient(90deg, #7c3aed, #c084fc)",
+                      borderRadius: 8, transition: "width 0.4s ease",
+                    }} />
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -300,8 +334,16 @@ export default function PartnerDashboard() {
                   <tr key={b.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
                     <td style={{ ...S.td, fontSize: 12, color: "#64748b" }}>{new Date(b.created_at).toLocaleString("ru-RU")}</td>
                     <td style={S.td}>
-                      <span style={S.badge(b.type === "commission" ? "#4ade80" : b.type === "payout" ? "#f59e0b" : "#64748b")}>
-                        {b.type === "commission" ? "Комиссия" : b.type === "payout" ? "Вывод" : b.type}
+                      <span style={S.badge(
+                        b.type === "commission" ? "#4ade80" :
+                        b.type === "payout" ? "#f59e0b" :
+                        b.type === "reserve" ? "#94a3b8" :
+                        b.type === "refund" ? "#ef4444" : "#64748b"
+                      )}>
+                        {b.type === "commission" ? "Комиссия" :
+                         b.type === "payout" ? "Вывод" :
+                         b.type === "reserve" ? "Резерв" :
+                         b.type === "refund" ? "Возврат" : b.type}
                       </span>
                     </td>
                     <td style={{ ...S.td, fontWeight: 700, color: b.amount >= 0 ? "#4ade80" : "#ef4444" }}>

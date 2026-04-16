@@ -133,4 +133,43 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // ─── AI Monitoring + Security tables ────────────────────────────────────────
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS ai_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      endpoint TEXT NOT NULL,
+      model TEXT NOT NULL,
+      prompt_tokens INTEGER,
+      completion_tokens INTEGER,
+      total_tokens INTEGER,
+      duration_ms INTEGER,
+      success BOOLEAN NOT NULL DEFAULT true,
+      error_code TEXT,
+      error_message TEXT,
+      manipulation_detected BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_ai_logs_user_id ON ai_logs(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_logs(created_at DESC)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      metadata JSONB,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC)`);
 }

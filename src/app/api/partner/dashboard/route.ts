@@ -35,21 +35,19 @@ export async function GET() {
     [partnerId]
   );
 
-  // Balance total
-  const balanceRows = await query<{ total: string }>(
-    "SELECT COALESCE(SUM(amount), 0) AS total FROM partner_balances WHERE partner_id = $1",
-    [partnerId]
-  );
-
-  // Total earned (commissions only)
-  const earnedRows = await query<{ total: string }>(
-    "SELECT COALESCE(SUM(amount), 0) AS total FROM partner_balances WHERE partner_id = $1 AND type = 'commission'",
-    [partnerId]
-  );
-
-  // Total paid out
-  const paidOutRows = await query<{ total: string }>(
-    "SELECT COALESCE(SUM(ABS(amount)), 0) AS total FROM partner_balances WHERE partner_id = $1 AND type = 'payout'",
+  // Balance breakdown: available (excluding locked reserves) + locked reserve
+  const balanceRows = await query<{ available: string; reserved: string; total_earned: string; total_paid: string }>(
+    `SELECT
+       COALESCE(SUM(CASE
+         WHEN type != 'reserve' THEN amount
+         WHEN type = 'reserve' AND created_at <= NOW() - INTERVAL '60 days' THEN amount
+         ELSE 0 END), 0) AS available,
+       COALESCE(SUM(CASE
+         WHEN type = 'reserve' AND created_at > NOW() - INTERVAL '60 days' THEN amount
+         ELSE 0 END), 0) AS reserved,
+       COALESCE(SUM(CASE WHEN type IN ('commission','reserve') THEN amount ELSE 0 END), 0) AS total_earned,
+       COALESCE(SUM(CASE WHEN type = 'payout' THEN ABS(amount) ELSE 0 END), 0) AS total_paid
+     FROM partner_balances WHERE partner_id = $1`,
     [partnerId]
   );
 
@@ -65,9 +63,10 @@ export async function GET() {
     stats: {
       totalClients: Number(clientRows[0]?.total || 0),
       payingClients: Number(clientRows[0]?.with_payment || 0),
-      balance: Number(balanceRows[0]?.total || 0),
-      totalEarned: Number(earnedRows[0]?.total || 0),
-      totalPaidOut: Number(paidOutRows[0]?.total || 0),
+      balance: Number(balanceRows[0]?.available || 0),       // available for payout
+      reserved: Number(balanceRows[0]?.reserved || 0),       // locked in reserve (60 days)
+      totalEarned: Number(balanceRows[0]?.total_earned || 0),
+      totalPaidOut: Number(balanceRows[0]?.total_paid || 0),
     },
     recentBalances,
   });

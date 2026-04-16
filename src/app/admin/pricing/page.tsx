@@ -44,6 +44,8 @@ export default function PricingAdmin() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<(Partial<PricingItem> & typeof emptyItem) | null>(null);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState("");
 
   async function loadItems() {
     setLoading(true);
@@ -51,6 +53,17 @@ export default function PricingAdmin() {
     const d = await r.json();
     if (d.ok) setItems(d.items);
     setLoading(false);
+  }
+
+  async function handleSeed(force = false) {
+    if (force && !confirm("Удалить все существующие тарифы и загрузить 67 стандартных позиций?")) return;
+    setSeeding(true);
+    setSeedMsg("");
+    const r = await fetch(`/api/admin/seed-pricing${force ? "?force=1" : ""}`, { method: "POST" });
+    const d = await r.json();
+    setSeedMsg(d.message || d.error || "Ошибка");
+    setSeeding(false);
+    if (d.ok) loadItems();
   }
 
   useEffect(() => { loadItems(); }, []);
@@ -86,10 +99,27 @@ export default function PricingAdmin() {
       </nav>
 
       <main style={S.main}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <div style={S.h1}>Тарифы и услуги</div>
-          <button style={S.btn} onClick={() => setEditing({ ...emptyItem })}>+ Добавить тариф</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {items.length === 0 && (
+              <button style={{ ...S.btn, background: "#16a34a" }} onClick={() => handleSeed(false)} disabled={seeding}>
+                {seeding ? "Загрузка..." : "⬇ Загрузить 67 тарифов"}
+              </button>
+            )}
+            {items.length > 0 && (
+              <button style={{ ...S.btnSm, color: "#f59e0b", borderColor: "#f59e0b55" }} onClick={() => handleSeed(true)} disabled={seeding}>
+                {seeding ? "..." : "↻ Пересеять"}
+              </button>
+            )}
+            <button style={S.btn} onClick={() => setEditing({ ...emptyItem })}>+ Добавить тариф</button>
+          </div>
         </div>
+        {seedMsg && (
+          <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: seedMsg.includes("Загружено") ? "#16a34a22" : "#ef444422", color: seedMsg.includes("Загружено") ? "#4ade80" : "#ef4444", fontSize: 13 }}>
+            {seedMsg}
+          </div>
+        )}
 
         {/* Edit form */}
         {editing && (
