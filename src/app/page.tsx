@@ -217,6 +217,12 @@ export default function MarketRadarDashboard() {
   const applyUserData = React.useCallback((data: Record<string, unknown>, uid: string) => {
     const get = (key: string) => data[key] ?? null;
 
+    // Reset all state first to prevent stale data from previous session
+    setMyCompany(null); setCompetitors([]); setTaAnalysis(null);
+    setCjmData(null); setBenchmarksData(null); setSmmAnalysis(null);
+    setContentPlan(null); setGeneratedPosts([]); setGeneratedReels([]);
+    setGeneratedStories([]); setAnalysisHistory([]); setBrandSuggestions(null);
+
     const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
     if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
 
@@ -850,14 +856,37 @@ export default function MarketRadarDashboard() {
     }
   };
 
-  // Logout
+  // Logout — clear ALL user data from React state to prevent data leaking between accounts
   const handleLogout = () => {
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     authSetCurrentUser(null);
     setCurrentUser(null);
+
+    // Reset all analysis & content state
+    setMyCompany(null);
+    setCompetitors([]);
+    setTaAnalysis(null);
+    setCjmData(null);
+    setBenchmarksData(null);
+    setSmmAnalysis(null);
+    setContentPlan(null);
+    setGeneratedPosts([]);
+    setGeneratedReels([]);
+    setGeneratedStories([]);
+    setAnalysisHistory([]);
+    setBrandSuggestions(null);
+    setReferenceImages([]);
+    setBrandBook({
+      brandName: "", tagline: "", mission: "", colors: [],
+      fontHeader: "", fontBody: "", toneOfVoice: [],
+      forbiddenWords: [], goodPhrases: [], visualStyle: "",
+    });
+    setAvatarSettings({
+      avatarId: "", voiceId: "", avatarDescription: "",
+      voiceDescription: "", aspect: "portrait",
+    });
+
     setAppScreen("landing");
-    // Не сбрасываем myCompany/competitors — пусть остаются в памяти для UX
-    // При следующем входе они восстановятся из localStorage
     setStatus("idle");
     setActiveNav("new-analysis");
     setSelectedCompetitor(null);
