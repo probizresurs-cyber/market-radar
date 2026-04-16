@@ -47,13 +47,22 @@ H1: ${h1}
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "user", content: prompt },
+        { role: "assistant", content: "{" },
+      ],
     });
 
-    const text = (response.content[0] as { type: string; text: string }).text.trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON");
-    const data = JSON.parse(jsonMatch[0]);
+    const rawText = (response.content[0] as { type: string; text: string }).text.trim();
+    const fullText = "{" + rawText;
+    // Try direct parse first, then fallback extraction
+    let data: Record<string, unknown> | null = null;
+    try { data = JSON.parse(fullText); } catch { /* continue */ }
+    if (!data) {
+      const m = fullText.match(/\{[\s\S]*\}/);
+      if (m) try { data = JSON.parse(m[0]); } catch { /* continue */ }
+    }
+    if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 
     data.focusKeyword = focusKeyword;
     data.slug = toSlug(h1 || topic);

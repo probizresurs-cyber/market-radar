@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
 
+// Robust JSON parser: tries multiple strategies to extract valid JSON
+function robustJsonParse(text: string): Record<string, unknown> | null {
+  // 1. Direct parse
+  try { return JSON.parse(text); } catch { /* continue */ }
+  // 2. Strip markdown fences
+  const stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  try { return JSON.parse(stripped); } catch { /* continue */ }
+  // 3. Extract first balanced {...} block
+  const start = stripped.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") { depth--; if (depth === 0) { try { return JSON.parse(stripped.slice(start, i + 1)); } catch { break; } } }
+  }
+  return null;
+}
+
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
@@ -57,13 +82,18 @@ export async function POST(req: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 3000,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "user", content: prompt },
+        { role: "assistant", content: "{" }, // prefill — force pure JSON output
+      ],
     });
 
-    const text = (response.content[0] as { type: string; text: string }).text.trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response");
-    const data = JSON.parse(jsonMatch[0]);
+    const rawText = (response.content[0] as { type: string; text: string }).text.trim();
+    // Restore the prefilled opening brace
+    const text = "{" + rawText;
+
+    const data = robustJsonParse(text);
+    if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 
     return NextResponse.json({ outline: data });
   } catch (e) {
