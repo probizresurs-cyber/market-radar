@@ -6,23 +6,32 @@ import type { SEOArticleBrief } from "@/lib/seo-types";
 function robustJsonParse(text: string): Record<string, unknown> | null {
   // 1. Direct parse
   try { return JSON.parse(text); } catch { /* continue */ }
-  // 2. Strip markdown fences
-  const stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+  // 2. Strip ALL markdown fences anywhere in the text
+  const stripped = text
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
   try { return JSON.parse(stripped); } catch { /* continue */ }
-  // 3. Extract first balanced {...} block
-  const start = stripped.indexOf("{");
-  if (start === -1) return null;
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  for (let i = start; i < stripped.length; i++) {
-    const ch = stripped[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    else if (ch === "}") { depth--; if (depth === 0) { try { return JSON.parse(stripped.slice(start, i + 1)); } catch { break; } } }
+
+  // 3. Find every { position and try balanced extraction from each
+  for (let start = 0; start < stripped.length; start++) {
+    if (stripped[start] !== "{") continue;
+    let depth = 0, inString = false, escape = false;
+    for (let i = start; i < stripped.length; i++) {
+      const ch = stripped[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\") { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(stripped.slice(start, i + 1)); } catch { break; }
+        }
+      }
+    }
   }
   return null;
 }
@@ -87,7 +96,10 @@ export async function POST(req: NextRequest) {
 
     const rawText = (response.content[0] as { type: string; text: string }).text.trim();
     const data = robustJsonParse(rawText);
-    if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
+    if (!data) {
+      console.error("[seo-outline] raw response (first 1000 chars):", rawText.slice(0, 1000));
+      throw new Error("Не удалось разобрать JSON: " + rawText.slice(0, 200));
+    }
 
     return NextResponse.json({ outline: data });
   } catch (e) {
