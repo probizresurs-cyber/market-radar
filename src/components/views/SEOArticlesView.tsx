@@ -723,6 +723,61 @@ function SEOArticleEditor({
   );
 }
 
+// ─── Topic suggestion helpers ────────────────────────────────────────────────
+
+interface SuggestedTopic {
+  title: string;
+  keyword?: string;
+  source: "analysis" | "keyword-gap" | "opportunity" | "template";
+  badge: string;
+  badgeColor: string;
+  difficulty?: "low" | "medium" | "high";
+  volume?: number;
+}
+
+function extractAnalysisTopics(a: AnalysisResult | null, at: SEOArticleType): SuggestedTopic[] {
+  if (!a) return [];
+  const out: SuggestedTopic[] = [];
+  for (const idea of (a.practicalAdvice?.contentIdeas || []).slice(0, 6)) {
+    out.push({ title: idea, source: "analysis", badge: "AI-идея", badgeColor: "var(--primary)" });
+  }
+  const pre: Record<string, string> = {
+    informational: "Что такое", "how-to": "Как использовать", listicle: "Топ инструментов для",
+    review: "Обзор:", comparison: "Сравнение решений:", faq: "FAQ по теме",
+    "case-study": "Кейс по", "landing-article": "Почему выбирают",
+    news: "Новости в области", "expert-column": "Экспертное мнение:",
+  };
+  for (const g of (a.practicalAdvice?.keywordGaps || []).slice(0, 5)) {
+    out.push({
+      title: `${pre[at] || ""} ${g.keyword}`.trim(), keyword: g.keyword, source: "keyword-gap",
+      badge: g.difficulty === "low" ? "Легко" : g.difficulty === "medium" ? "Средне" : "Сложно",
+      badgeColor: g.difficulty === "low" ? "var(--success)" : g.difficulty === "medium" ? "var(--warning)" : "var(--destructive)",
+      difficulty: g.difficulty, volume: g.volume,
+    });
+  }
+  for (const opp of (a.nicheForecast?.opportunities || []).slice(0, 4)) {
+    out.push({ title: opp, source: "opportunity", badge: "Тренд", badgeColor: "var(--success)" });
+  }
+  return out;
+}
+
+function getTemplateTopics(at: SEOArticleType, niche: string): SuggestedTopic[] {
+  const n = niche || "вашей нише";
+  const m: Record<SEOArticleType, string[]> = {
+    informational: [`Полное руководство по ${n}`, `Что такое ${n} и зачем это нужно`, `${n}: от основ до продвинутого уровня`, `Всё, что нужно знать о ${n} в 2026`, `Как ${n} меняет рынок`],
+    "how-to": [`Как начать работу с ${n}`, `Как выбрать лучшее решение в ${n}`, `Как увеличить эффективность в ${n}`, `Как автоматизировать процессы в ${n}`, `Как избежать ошибок в ${n}`],
+    listicle: [`Топ-10 инструментов для ${n}`, `7 лучших практик в ${n}`, `15 ошибок в ${n}, которых легко избежать`, `5 трендов ${n} в 2026`, `12 советов по ${n} от экспертов`],
+    review: [`Обзор лучших решений в ${n}`, `Детальный обзор рынка ${n}`, `Обзор новинок в ${n}`, `Независимый обзор сервисов для ${n}`],
+    comparison: [`Сравнение подходов к ${n}`, `Что лучше для ${n}: варианты`, `Онлайн vs офлайн в ${n}`, `Бюджетные vs премиум в ${n}`],
+    "case-study": [`Кейс: как мы увеличили показатели в ${n}`, `Реальный опыт внедрения ${n}`, `Результаты за 6 месяцев в ${n}`, `От нуля до результата: ${n}`],
+    faq: [`FAQ: 20 вопросов про ${n}`, `Ответы на главные вопросы о ${n}`, `${n} простыми словами`, `Мифы и факты о ${n}`],
+    "landing-article": [`Почему ${n} — это то, что вам нужно`, `${n}: преимущества для бизнеса`, `Готовое решение для ${n}`, `Как ${n} поможет расти`],
+    news: [`Новые тренды в ${n}`, `${n} в 2026: обзор изменений`, `Главные события в ${n} за квартал`],
+    "expert-column": [`Будущее ${n}: экспертный взгляд`, `Почему ${n} ждут перемены`, `Инсайды рынка ${n}`, `Уроки из работы с ${n}`],
+  };
+  return (m[at] || []).map(title => ({ title, source: "template" as const, badge: "Шаблон", badgeColor: "var(--muted-foreground)" }));
+}
+
 // ─── New Article Wizard ────────────────────────────────────────────────────────
 
 function SEONewArticleView({
@@ -746,6 +801,22 @@ function SEONewArticleView({
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
   const [err, setErr] = useState("");
+  const [topicTab, setTopicTab] = useState<"analysis" | "templates" | "custom">(() => {
+    const hasAny = analysis?.practicalAdvice?.contentIdeas?.length
+      || analysis?.practicalAdvice?.keywordGaps?.length
+      || analysis?.nicheForecast?.opportunities?.length;
+    return hasAny ? "analysis" : "templates";
+  });
+
+  const niche = analysis?.company?.description?.slice(0, 60) || "";
+  const analysisTopics = extractAnalysisTopics(analysis, articleType);
+  const templateTopics = getTemplateTopics(articleType, niche);
+  const hasAnalysis = analysisTopics.length > 0;
+
+  const selectSuggested = (t: SuggestedTopic) => {
+    setTopic(t.title);
+    if (t.keyword) setFocusKeyword(t.keyword);
+  };
 
   const taContext = taResult?.segments?.[0]
     ? `${taResult.segments[0].segmentName}: ${taResult.segments[0].mainProblems?.slice(0, 2).join("; ")}`
@@ -947,39 +1018,164 @@ function SEONewArticleView({
         </div>
       )}
 
-      {/* Step 3: Topic + keyword */}
+      {/* Step 3: Topic + keyword — tabbed */}
       {step === "topic" && (
         <div>
-          <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 14 }}>Тема и ключевой запрос</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "block", marginBottom: 4 }}>Тема статьи *</label>
-              <input
-                className="ds-input"
-                placeholder="Например: как выбрать CRM-систему для малого бизнеса"
-                value={topic}
-                onChange={e => setTopic(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && topic.trim() && create()}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "block", marginBottom: 4 }}>
-                Фокус-ключевой запрос
-                <span style={{ color: "var(--muted-foreground)", fontWeight: 400, marginLeft: 6 }}>(опционально — AI предложит сам)</span>
-              </label>
-              <input
-                className="ds-input"
-                placeholder="Например: crm для малого бизнеса"
-                value={focusKeyword}
-                onChange={e => setFocusKeyword(e.target.value)}
-              />
-            </div>
-            {analysis?.company && (
-              <div style={{ fontSize: 12, color: "var(--muted-foreground)", background: "var(--muted)", padding: "8px 12px", borderRadius: 8 }}>
-                ℹ️ Статья будет создана в контексте компании <strong>{analysis.company.name}</strong>
-              </div>
-            )}
+          <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 14 }}>Выберите тему статьи</div>
+
+          {/* Topic source tabs */}
+          <div style={{ display: "flex", borderBottom: "1px solid var(--border)", marginBottom: 16, gap: 2 }}>
+            {([
+              { id: "analysis" as const, label: "По анализу рынка", icon: "📊", disabled: !hasAnalysis },
+              { id: "templates" as const, label: "Общие темы", icon: "📋", disabled: false },
+              { id: "custom" as const, label: "Своя тема", icon: "✏️", disabled: false },
+            ]).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setTopicTab(tab.id)}
+                style={{
+                  padding: "8px 14px", background: "none", border: "none", cursor: tab.disabled ? "default" : "pointer",
+                  fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
+                  color: tab.disabled ? "var(--muted)" : topicTab === tab.id ? "var(--primary)" : "var(--muted-foreground)",
+                  borderBottom: topicTab === tab.id ? "2px solid var(--primary)" : "2px solid transparent",
+                  marginBottom: -1, opacity: tab.disabled ? 0.5 : 1,
+                }}
+                title={tab.disabled ? "Сначала проведите анализ компании" : ""}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
           </div>
+
+          {/* Tab: Analysis-based topics */}
+          {topicTab === "analysis" && (
+            <div>
+              {hasAnalysis ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {analysis?.company && (
+                    <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
+                      Темы на основе анализа <strong>{analysis.company.name}</strong>
+                    </div>
+                  )}
+                  {analysisTopics.map((t, i) => (
+                    <div
+                      key={i}
+                      onClick={() => selectSuggested(t)}
+                      style={{
+                        padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+                        border: `2px solid ${topic === t.title ? "var(--primary)" : "var(--border)"}`,
+                        background: topic === t.title ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "var(--card)",
+                        display: "flex", alignItems: "center", gap: 10,
+                        transition: "border-color 0.15s",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", lineHeight: 1.4 }}>{t.title}</div>
+                        {t.keyword && (
+                          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
+                            🔑 {t.keyword}{t.volume ? ` · ~${t.volume.toLocaleString()} запр/мес` : ""}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 10,
+                        background: `color-mix(in oklch, ${t.badgeColor} 12%, transparent)`,
+                        color: t.badgeColor, whiteSpace: "nowrap", flexShrink: 0,
+                      }}>
+                        {t.badge}
+                      </span>
+                      {topic === t.title && <span style={{ color: "var(--primary)", fontSize: 16, flexShrink: 0 }}>✓</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--muted-foreground)" }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Нет данных анализа</div>
+                  <div style={{ fontSize: 12 }}>Проведите анализ компании — AI предложит актуальные темы на основе рынка, конкурентов и ключевых слов</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Template topics */}
+          {topicTab === "templates" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
+                Универсальные темы для типа «{SEO_ARTICLE_TYPES.find(t => t.id === articleType)?.label}»
+              </div>
+              {templateTopics.map((t, i) => (
+                <div
+                  key={i}
+                  onClick={() => selectSuggested(t)}
+                  style={{
+                    padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+                    border: `2px solid ${topic === t.title ? "var(--primary)" : "var(--border)"}`,
+                    background: topic === t.title ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "var(--card)",
+                    display: "flex", alignItems: "center", gap: 10,
+                    transition: "border-color 0.15s",
+                  }}
+                >
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--foreground)" }}>{t.title}</div>
+                  {topic === t.title && <span style={{ color: "var(--primary)", fontSize: 16 }}>✓</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tab: Custom topic */}
+          {topicTab === "custom" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "block", marginBottom: 4 }}>Тема статьи *</label>
+                <input
+                  className="ds-input"
+                  placeholder="Например: как выбрать CRM-систему для малого бизнеса"
+                  value={topic}
+                  onChange={e => setTopic(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && topic.trim() && create()}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "block", marginBottom: 4 }}>
+                  Фокус-ключевой запрос
+                  <span style={{ color: "var(--muted-foreground)", fontWeight: 400, marginLeft: 6 }}>(опционально)</span>
+                </label>
+                <input
+                  className="ds-input"
+                  placeholder="Например: crm для малого бизнеса"
+                  value={focusKeyword}
+                  onChange={e => setFocusKeyword(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Selected topic preview + keyword override (for analysis/template tabs) */}
+          {topicTab !== "custom" && topic && (
+            <div className="ds-card" style={{ marginTop: 14, padding: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 6 }}>Выбрана тема</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>{topic}</div>
+              <div>
+                <label style={{ fontSize: 11, color: "var(--muted-foreground)", display: "block", marginBottom: 3 }}>Фокус-ключ (можно изменить)</label>
+                <input
+                  className="ds-input"
+                  style={{ fontSize: 12, height: 32 }}
+                  placeholder="AI подберёт сам"
+                  value={focusKeyword}
+                  onChange={e => setFocusKeyword(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {analysis?.company && (
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", background: "var(--muted)", padding: "8px 12px", borderRadius: 8, marginTop: 12 }}>
+              ℹ️ Статья будет создана в контексте компании <strong>{analysis.company.name}</strong>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <button className="ds-btn ds-btn-secondary" style={{ flex: 1 }} onClick={() => setStep("platform")}>← Назад</button>
             <button className="ds-btn ds-btn-primary" style={{ flex: 2 }} disabled={!topic.trim()} onClick={create}>
