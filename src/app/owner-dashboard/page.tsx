@@ -10,29 +10,59 @@
 import { useEffect, useState, useMemo } from "react";
 import type { AnalysisResult } from "@/lib/types";
 
-// ─── Palette (фирменный #534AB7 + нейтральные) ─────────────────────────────
-const C = {
-  primary: "#534AB7",
-  primaryLight: "#7C6BE8",
-  bgPage: "#F7F7F8",
-  bgCard: "#FFFFFF",
-  bgSecondary: "#F0F1F5",
-  textPrimary: "#0F1123",
-  textSecondary: "#55576B",
-  textTertiary: "#8A8C9E",
-  borderTertiary: "rgba(15,17,35,0.08)",
-  borderSecondary: "rgba(15,17,35,0.16)",
-  green: "#1D9E5F",
-  greenBg: "rgba(29,158,95,0.10)",
-  red: "#D64545",
-  redBg: "rgba(214,69,69,0.10)",
-  orange: "#E58F2A",
-  orangeBg: "rgba(229,143,42,0.10)",
-  blue: "#3B82F6",
-  blueBg: "rgba(59,130,246,0.10)",
-  gray: "#8A8C9E",
-  grayBg: "rgba(138,140,158,0.10)",
-};
+// ─── Palettes: light & dark (фирменный #534AB7 в обеих) ────────────────────
+type Theme = "light" | "dark";
+
+const PALETTES = {
+  light: {
+    primary: "#534AB7",
+    primaryLight: "#7C6BE8",
+    bgPage: "#F7F7F8",
+    bgCard: "#FFFFFF",
+    bgSecondary: "#F0F1F5",
+    textPrimary: "#0F1123",
+    textSecondary: "#55576B",
+    textTertiary: "#8A8C9E",
+    borderTertiary: "rgba(15,17,35,0.08)",
+    borderSecondary: "rgba(15,17,35,0.16)",
+    green: "#1D9E5F",
+    greenBg: "rgba(29,158,95,0.12)",
+    red: "#D64545",
+    redBg: "rgba(214,69,69,0.12)",
+    orange: "#E58F2A",
+    orangeBg: "rgba(229,143,42,0.12)",
+    blue: "#3B82F6",
+    blueBg: "rgba(59,130,246,0.12)",
+    gray: "#8A8C9E",
+    grayBg: "rgba(138,140,158,0.12)",
+  },
+  dark: {
+    primary: "#7C6BE8",
+    primaryLight: "#9E90F0",
+    bgPage: "#0D0E18",
+    bgCard: "#161826",
+    bgSecondary: "#1F2234",
+    textPrimary: "#F2F3F8",
+    textSecondary: "#A8ABC2",
+    textTertiary: "#6C6F85",
+    borderTertiary: "rgba(255,255,255,0.06)",
+    borderSecondary: "rgba(255,255,255,0.14)",
+    green: "#4ADE80",
+    greenBg: "rgba(74,222,128,0.14)",
+    red: "#F87171",
+    redBg: "rgba(248,113,113,0.16)",
+    orange: "#FBBF24",
+    orangeBg: "rgba(251,191,36,0.14)",
+    blue: "#60A5FA",
+    blueBg: "rgba(96,165,250,0.14)",
+    gray: "#6C6F85",
+    grayBg: "rgba(108,111,133,0.16)",
+  },
+} as const;
+
+// Runtime palette — reassigned by OwnerDashboardPage based on theme.
+// Sub-components read this at render time.
+let C = PALETTES.light as typeof PALETTES.light | typeof PALETTES.dark;
 
 // ─── Типы для dashboard ─────────────────────────────────────────────────────
 interface MetricBadgeColor {
@@ -272,29 +302,54 @@ export default function OwnerDashboardPage() {
   const [myCompany, setMyCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
   const [authChecked, setAuthChecked] = useState(false);
+  const [theme, setTheme] = useState<Theme>("light");
 
-  // 1. Проверяем авторизацию
+  // Detect theme from localStorage (same key as main platform)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mr_theme");
+      if (saved === "dark") setTheme("dark");
+      else if (saved === "light" || saved === "warm") setTheme("light");
+      else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) setTheme("dark");
+    } catch { /* ignore */ }
+  }, []);
+
+  // Switch module-level palette before children render
+  C = PALETTES[theme];
+
+  // 1. Проверяем авторизацию + сразу грузим данные (сервер → localStorage fallback)
   useEffect(() => {
     (async () => {
+      let uid: string | null = null;
       try {
         const r = await fetch("/api/auth/me", { credentials: "include" });
         const j = await r.json();
-        if (j.ok && j.user) setUserId(j.user.id);
+        if (j.ok && j.user) { uid = j.user.id; setUserId(uid); }
       } catch { /* ignore */ }
       setAuthChecked(true);
+
+      // Пытаемся загрузить с сервера (основной источник)
+      let loadedFromServer = false;
+      try {
+        const res = await fetch("/api/data", { credentials: "include" });
+        const json = await res.json();
+        if (json.ok && json.data) {
+          if (json.data.company) { setMyCompany(json.data.company as AnalysisResult); loadedFromServer = true; }
+          if (Array.isArray(json.data.competitors)) setCompetitors(json.data.competitors as AnalysisResult[]);
+        }
+      } catch { /* ignore */ }
+
+      // Fallback: localStorage (если на сервере ничего нет)
+      if (!loadedFromServer && uid) {
+        try {
+          const c = localStorage.getItem(`mr_company_${uid}`);
+          if (c) setMyCompany(JSON.parse(c) as AnalysisResult);
+          const comp = localStorage.getItem(`mr_competitors_${uid}`);
+          if (comp) setCompetitors(JSON.parse(comp) as AnalysisResult[]);
+        } catch { /* ignore */ }
+      }
     })();
   }, []);
-
-  // 2. Загружаем данные анализов из localStorage
-  useEffect(() => {
-    if (!userId) return;
-    try {
-      const c = localStorage.getItem(`mr_company_${userId}`);
-      if (c) setMyCompany(JSON.parse(c) as AnalysisResult);
-      const comp = localStorage.getItem(`mr_competitors_${userId}`);
-      if (comp) setCompetitors(JSON.parse(comp) as AnalysisResult[]);
-    } catch { /* ignore */ }
-  }, [userId]);
 
   // ─── Metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -420,7 +475,7 @@ export default function OwnerDashboardPage() {
 
   return (
     <>
-      <style>{dashboardCSS}</style>
+      <style>{buildDashboardCSS(C)}</style>
       <div style={{ minHeight: "100vh", background: C.bgPage, fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", color: C.textPrimary }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px" }}>
           {/* ─── Header ─── */}
@@ -580,10 +635,11 @@ export default function OwnerDashboardPage() {
 }
 
 // ─── CSS (анимации + responsive) ──────────────────────────────────────────
-const dashboardCSS = `
+function buildDashboardCSS(p: typeof PALETTES.light | typeof PALETTES.dark): string {
+  return `
 .mr-card {
-  background: ${C.bgCard};
-  border: 1px solid ${C.borderTertiary};
+  background: ${p.bgCard};
+  border: 1px solid ${p.borderTertiary};
   border-radius: 14px;
   opacity: 0;
   transform: translateY(18px);
@@ -595,7 +651,7 @@ const dashboardCSS = `
 }
 .mr-metric:hover {
   transform: scale(1.015);
-  border-color: ${C.borderSecondary};
+  border-color: ${p.borderSecondary};
   box-shadow: 0 6px 18px rgba(15,17,35,0.06);
 }
 .mr-bar-row {
@@ -606,7 +662,7 @@ const dashboardCSS = `
   border-radius: 6px;
 }
 .mr-bar-row:hover {
-  background: ${C.bgSecondary};
+  background: ${p.bgSecondary};
 }
 .mr-bar-fill {
   transform: scaleX(0);
@@ -623,7 +679,7 @@ const dashboardCSS = `
   cursor: default;
 }
 .mr-threat:hover {
-  background: ${C.bgSecondary};
+  background: ${p.bgSecondary};
   transform: translateX(4px);
 }
 .mr-ai-rec {
@@ -631,7 +687,7 @@ const dashboardCSS = `
   transform: translateX(-12px);
   animation: mrSlideIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   padding: 12px 14px;
-  background: ${C.bgSecondary};
+  background: ${p.bgSecondary};
   border-radius: 10px;
 }
 .mr-chart-wrap {
@@ -642,10 +698,10 @@ const dashboardCSS = `
   transition: background 150ms ease;
 }
 .mr-row:hover {
-  background: ${C.bgSecondary};
+  background: ${p.bgSecondary};
 }
 .mr-row td {
-  border-bottom: 1px solid ${C.borderTertiary};
+  border-bottom: 1px solid ${p.borderTertiary};
 }
 .mr-pulse-dot {
   animation: mrPulse 1.5s ease-in-out infinite;
@@ -684,3 +740,4 @@ const dashboardCSS = `
   button, a[href="/"] { display: none !important; }
 }
 `;
+}
