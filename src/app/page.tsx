@@ -161,7 +161,21 @@ export default function MarketRadarDashboard() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [activeNav, setActiveNav] = useState("new-analysis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const setActiveNavMobile = React.useCallback((id: string) => { setActiveNav(id); setMobileMenuOpen(false); }, []);
+  const handleNavClick = React.useCallback((id: string) => {
+    if (id === "owner-dashboard") {
+      if (typeof window !== "undefined") window.open("/owner-dashboard", "_blank");
+      return;
+    }
+    setActiveNav(id);
+  }, []);
+  const setActiveNavMobile = React.useCallback((id: string) => {
+    if (id === "owner-dashboard") {
+      if (typeof window !== "undefined") window.open("/owner-dashboard", "_blank");
+      setMobileMenuOpen(false);
+      return;
+    }
+    setActiveNav(id); setMobileMenuOpen(false);
+  }, []);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [myCompany, setMyCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
@@ -990,7 +1004,7 @@ export default function MarketRadarDashboard() {
         <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
         {mobileNav}
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-          <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+          <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
           <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
             <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
           </main>
@@ -1005,7 +1019,7 @@ export default function MarketRadarDashboard() {
       <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
       {mobileNav}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={setActiveNav} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}

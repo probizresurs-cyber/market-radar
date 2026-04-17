@@ -83,6 +83,31 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Дашборд</h1>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>{company.name} · {company.url}</p>
       </div>
+      <a
+        href="/owner-dashboard"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+          background: "linear-gradient(135deg, #534AB7 0%, #7C6BE8 100%)",
+          color: "#fff", padding: "18px 24px", borderRadius: 16, marginBottom: 20,
+          boxShadow: "0 8px 24px rgba(83,74,183,0.25)", textDecoration: "none",
+          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(83,74,183,0.35)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(83,74,183,0.25)"; }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ fontSize: 28, lineHeight: 1 }}>🎯</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Дашборд руководителя</div>
+            <div style={{ fontSize: 12, opacity: 0.9 }}>Конкурентный ландшафт, угрозы и AI-рекомендации — вся картина за 30 секунд</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+          Открыть <span style={{ fontSize: 16 }}>→</span>
+        </div>
+      </a>
       <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ background: `linear-gradient(160deg, var(--card) 60%, var(--primary)06 100%)`, borderRadius: 16, border: `1px solid var(--border)`, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, boxShadow: "var(--shadow)" }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 16, letterSpacing: "0.03em" }}>ОБЩИЙ SCORE</div>
