@@ -12,9 +12,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 }) {
   void c;
   const [url, setUrl] = useState("");
-  const TG_BOT = "https://t.me/Company24Bot?start=lending";
+  const TG_BOT = "https://t.me/market_radar1_bot";
   const TG_CHANNEL = "https://t.me/company24pro";
-  const TG_PARTNER_BOT = "https://t.me/Company24PartnerBot";
+  const TG_PARTNER_BOT = "https://t.me/market_radar1_bot";
 
   function handleUrlAnalyze() {
     if (url.trim()) onRegister();
