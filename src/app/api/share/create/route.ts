@@ -22,6 +22,7 @@ const SHARE_KEYS = [
 ];
 
 // Создаёт новый public_share со снэпшотом текущих анализов пользователя.
+// Каждый клик = новая ссылка с новым UUID.
 // Возвращает id (UUID) — публичная ссылка /share/[id].
 export async function POST() {
   try {

@@ -174,6 +174,7 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC)`);
 
   // ─── Public shares (дашборд по публичной ссылке, без авторизации) ──────────
+  // Каждая генерация ссылки создаёт новую строку со своим UUID.
   await query(`
     CREATE TABLE IF NOT EXISTS public_shares (
       id TEXT PRIMARY KEY,
