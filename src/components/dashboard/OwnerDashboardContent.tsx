@@ -13,6 +13,37 @@ import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { ContentPlan, BrandBook } from "@/lib/content-types";
 
+// ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
+interface CJMTouchpoint { channel: string; action: string; icon: string }
+interface CJMStage {
+  id: string; name: string; emoji: string; duration: string;
+  goal: string; emotion: string;
+  emotionValence: "positive" | "neutral" | "negative" | "mixed";
+  touchpoints: CJMTouchpoint[];
+  customerThoughts: string[]; painPoints: string[]; opportunities: string[];
+  kpi: string;
+}
+interface CJMResult { generatedAt: string; companyName: string; stages: CJMStage[] }
+
+interface BenchmarkCategory {
+  categoryName: string; icon: string;
+  companyScore: number; nicheAverage: number; nicheLeader: number;
+  gap: number; priority: "high" | "medium" | "low"; insight: string;
+}
+interface BenchmarkMetric { metric: string; nicheAverage: string; topPlayers: string; yourEstimate: string; icon: string }
+interface BenchmarkOpportunity { title: string; description: string; potentialImpact: "high" | "medium" | "low"; effort: "high" | "medium" | "low"; icon: string }
+interface BenchmarksResult {
+  generatedAt: string; niche: string; summary: string;
+  overallBenchmark: {
+    companyScore: number; nicheAverage: number; nicheLeader: number;
+    nicheBottom: number; percentile: number; verdict: string;
+  };
+  categoryBenchmarks: BenchmarkCategory[];
+  marketMetrics: BenchmarkMetric[];
+  growthOpportunities: BenchmarkOpportunity[];
+  nicheInsights: string[];
+}
+
 // ─── Палитры ──────────────────────────────────────────────────────────────
 export type Theme = "light" | "dark";
 
@@ -97,9 +128,11 @@ export interface DashboardData {
   smm: SMMResult | null;
   content: { plan: ContentPlan | null; posts: unknown[]; reels: unknown[] } | null;
   brandbook: BrandBook | null;
+  cjm: CJMResult | null;
+  benchmarks: BenchmarksResult | null;
 }
 
-type TabId = "overview" | "company" | "competitors" | "ta" | "smm" | "content";
+type TabId = "overview" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content";
 
 type CompetitorStatus = "leader" | "growing" | "stable" | "new" | "declining";
 
@@ -163,6 +196,29 @@ function statusColor(p: Palette, s: CompetitorStatus): string {
     case "declining": return p.gray;
   }
 }
+function insightColor(p: Palette, type: string): string {
+  switch (type) {
+    case "niche": return p.primary;
+    case "action": return p.green;
+    case "battle": return p.red;
+    case "copy": return p.orange;
+    case "seo": return p.blue;
+    case "offer": return p.primaryLight;
+    default: return p.textTertiary;
+  }
+}
+function insightLabel(type: string): string {
+  switch (type) {
+    case "niche": return "Ниша";
+    case "action": return "Действие";
+    case "battle": return "Конкуренция";
+    case "copy": return "Копирайт";
+    case "seo": return "SEO";
+    case "offer": return "Оффер";
+    default: return "Инсайт";
+  }
+}
+
 function statusLabel(s: CompetitorStatus): string {
   switch (s) {
     case "leader": return "лидер";
@@ -484,16 +540,18 @@ export function OwnerDashboardContent({
   }, [mode]);
 
   const p = PALETTES[theme];
-  const { company: myCompany, competitors, ta: taAnalysis, smm: smmAnalysis, content, brandbook } = data;
+  const { company: myCompany, competitors, ta: taAnalysis, smm: smmAnalysis, content, brandbook, cjm, benchmarks } = data;
 
   const tabs = useMemo(() => [
     { id: "overview" as const, icon: "📊", label: "Обзор" },
     { id: "company" as const, icon: "🏢", label: "Компания" },
     { id: "competitors" as const, icon: "🎯", label: "Конкуренты", disabled: competitors.length === 0 },
     { id: "ta" as const, icon: "🧠", label: "Целевая аудитория", disabled: !taAnalysis },
+    { id: "cjm" as const, icon: "🗺", label: "CJM", disabled: !cjm },
+    { id: "benchmarks" as const, icon: "📈", label: "Бенчмарки", disabled: !benchmarks },
     { id: "smm" as const, icon: "📱", label: "СММ", disabled: !smmAnalysis },
     { id: "content" as const, icon: "🏭", label: "Контент", disabled: !content?.plan },
-  ], [competitors.length, taAnalysis, smmAnalysis, content?.plan]);
+  ], [competitors.length, taAnalysis, smmAnalysis, content?.plan, cjm, benchmarks]);
 
   // ─── Metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -561,6 +619,7 @@ export function OwnerDashboardContent({
 
   const threats = useMemo(() => buildThreats(myCompany, competitors), [myCompany, competitors]);
   const aiRecs = useMemo(() => (myCompany?.recommendations ?? []).slice(0, 3), [myCompany]);
+  const keyInsights = useMemo(() => (myCompany?.insights ?? []).slice(0, 4), [myCompany]);
 
   // ─── Market share для donut ─────────────────────────────────────────────
   const marketDonut = useMemo(() => {
@@ -728,6 +787,24 @@ export function OwnerDashboardContent({
                       <TrendChart p={p} series={trendSeries} />
                     </div>
                   )}
+
+                  {/* Ключевые инсайты — закрывают пустое место под графиком */}
+                  {keyInsights.length > 0 && (
+                    <div className="mr-chart-wrap" style={{ marginTop: 28, animationDelay: "1100ms" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary, marginBottom: 12 }}>Ключевые инсайты</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                        {keyInsights.map((ins, i) => (
+                          <div key={i} className="mr-ai-rec" style={{ animationDelay: `${1150 + i * 120}ms`, padding: 14, background: p.bgSecondary, borderRadius: 10, borderLeft: `3px solid ${insightColor(p, ins.type)}` }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: insightColor(p, ins.type), marginBottom: 6 }}>
+                              {insightLabel(ins.type)}
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>{ins.title}</div>
+                            <div style={{ fontSize: 12, color: p.textSecondary, lineHeight: 1.45 }}>{ins.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -820,6 +897,12 @@ export function OwnerDashboardContent({
 
           {/* ═══ TA TAB ═══ */}
           {activeTab === "ta" && taAnalysis && <TATab p={p} data={taAnalysis} />}
+
+          {/* ═══ CJM TAB ═══ */}
+          {activeTab === "cjm" && cjm && <CJMTab p={p} data={cjm} />}
+
+          {/* ═══ BENCHMARKS TAB ═══ */}
+          {activeTab === "benchmarks" && benchmarks && <BenchmarksTab p={p} data={benchmarks} />}
 
           {/* ═══ SMM TAB ═══ */}
           {activeTab === "smm" && smmAnalysis && <SMMTab p={p} data={smmAnalysis} />}
@@ -1143,6 +1226,199 @@ function ContentTab({ p, plan }: { p: Palette; plan: ContentPlan }) {
           <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: p.textPrimary, lineHeight: 1.8 }}>
             {plan.postIdeas.slice(0, 8).map((idea, i) => <li key={i}>{idea.hook}</li>)}
           </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CJMTab ───────────────────────────────────────────────────────────────
+function CJMTab({ p, data }: { p: Palette; data: CJMResult }) {
+  const valenceColor = (v: CJMStage["emotionValence"]): string =>
+    v === "positive" ? p.green : v === "negative" ? p.red : v === "mixed" ? p.orange : p.gray;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>Customer Journey Map</div>
+        <div style={{ fontSize: 13, color: p.textSecondary }}>
+          Путь клиента от осознания до лояльности · {data.stages.length} этапов
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {data.stages.map((st, i) => (
+          <div key={i} className="mr-card" style={{ padding: 20, animationDelay: `${200 + i * 100}ms`, borderLeft: `4px solid ${valenceColor(st.emotionValence)}` }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 32, lineHeight: 1 }}>{st.emoji}</div>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary }}>{st.name}</div>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: p.bgSecondary, color: p.textTertiary }}>{st.duration}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${valenceColor(st.emotionValence)}22`, color: valenceColor(st.emotionValence) }}>
+                    {st.emotion}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 10 }}><strong>Цель:</strong> {st.goal}</div>
+                <div style={{ fontSize: 11, color: p.textTertiary, marginBottom: 12 }}><strong>KPI:</strong> {st.kpi}</div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  {st.touchpoints.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: p.blue, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Точки касания</div>
+                      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: p.textSecondary, lineHeight: 1.5 }}>
+                        {st.touchpoints.slice(0, 4).map((t, j) => <li key={j}>{t.icon} {t.channel}: {t.action}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {st.painPoints.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: p.red, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Боли</div>
+                      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: p.textSecondary, lineHeight: 1.5 }}>
+                        {st.painPoints.slice(0, 3).map((t, j) => <li key={j}>{t}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {st.opportunities.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: p.green, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Возможности</div>
+                      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: p.textSecondary, lineHeight: 1.5 }}>
+                        {st.opportunities.slice(0, 3).map((t, j) => <li key={j}>{t}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── BenchmarksTab ────────────────────────────────────────────────────────
+function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
+  const ob = data.overallBenchmark;
+  const priorityColor = (pr: "high" | "medium" | "low"): string =>
+    pr === "high" ? p.red : pr === "medium" ? p.orange : p.gray;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Сводка */}
+      {data.summary && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>
+            Позиция в нише «{data.niche}»
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary, lineHeight: 1.5 }}>{data.summary}</div>
+        </div>
+      )}
+
+      {/* Overall benchmark — 4 метрики */}
+      {ob && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+          <MetricCard p={p} label="Ваш балл" value={ob.companyScore ?? 0} change={ob.verdict ?? "—"} positive delayMs={200} />
+          <MetricCard p={p} label="Средний по нише" value={ob.nicheAverage ?? 0} change="бенчмарк рынка" positive delayMs={300} />
+          <MetricCard p={p} label="Лидеры ниши" value={ob.nicheLeader ?? 0} change="топ-10%" positive delayMs={400} />
+          <MetricCard p={p} label="Ваш процентиль" value={ob.percentile ?? 0} change="места в нише" positive delayMs={500} suffix="%" />
+        </div>
+      )}
+
+      {/* Категорийные бенчмарки */}
+      {data.categoryBenchmarks?.length > 0 && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Бенчмарки по категориям</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {data.categoryBenchmarks.map((cb, i) => {
+              const scale = Math.max(100, cb.nicheLeader, cb.companyScore);
+              return (
+                <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: p.textPrimary }}>
+                      {cb.icon} {cb.categoryName}
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 10, background: `${priorityColor(cb.priority)}22`, color: priorityColor(cb.priority) }}>
+                      {cb.priority === "high" ? "высокий приоритет" : cb.priority === "medium" ? "средний приоритет" : "низкий приоритет"}
+                    </span>
+                  </div>
+                  {/* Диаграмма: вы / средн. / лидер */}
+                  <div style={{ position: "relative", height: 24, background: p.bgCard, borderRadius: 6, marginBottom: 6 }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(cb.companyScore / scale) * 100}%`,
+                      background: `linear-gradient(90deg, ${p.primary} 0%, ${p.primaryLight} 100%)`, borderRadius: 6 }} />
+                    <div style={{ position: "absolute", left: `${(cb.nicheAverage / scale) * 100}%`, top: -2, bottom: -2, width: 2, background: p.orange }} title="средн. по нише" />
+                    <div style={{ position: "absolute", left: `${(cb.nicheLeader / scale) * 100}%`, top: -2, bottom: -2, width: 2, background: p.green }} title="лидер ниши" />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: p.textTertiary, marginBottom: 8 }}>
+                    <span>Вы: <strong style={{ color: p.primary }}>{cb.companyScore}</strong></span>
+                    <span>Средн.: <strong style={{ color: p.orange }}>{cb.nicheAverage}</strong></span>
+                    <span>Лидер: <strong style={{ color: p.green }}>{cb.nicheLeader}</strong></span>
+                    <span>Gap: <strong style={{ color: cb.gap >= 0 ? p.green : p.red }}>{cb.gap >= 0 ? "+" : ""}{cb.gap}</strong></span>
+                  </div>
+                  {cb.insight && <div style={{ fontSize: 12, color: p.textSecondary, lineHeight: 1.5 }}>{cb.insight}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Market metrics */}
+      {data.marketMetrics?.length > 0 && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "700ms" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Рыночные метрики</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  {["Метрика", "Среднее по нише", "Топ-игроки", "Ваша оценка"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: p.textTertiary, borderBottom: `1px solid ${p.borderTertiary}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.marketMetrics.map((m, i) => (
+                  <tr key={i} className="mr-row">
+                    <td style={{ padding: "12px", fontWeight: 600, color: p.textPrimary }}>{m.icon} {m.metric}</td>
+                    <td style={{ padding: "12px", color: p.textSecondary }}>{m.nicheAverage}</td>
+                    <td style={{ padding: "12px", color: p.green, fontWeight: 600 }}>{m.topPlayers}</td>
+                    <td style={{ padding: "12px", color: p.primary, fontWeight: 700 }}>{m.yourEstimate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Growth opportunities */}
+      {data.growthOpportunities?.length > 0 && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "800ms" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Возможности роста</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+            {data.growthOpportunities.map((g, i) => (
+              <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: p.textPrimary, marginBottom: 6 }}>{g.icon} {g.title}</div>
+                <div style={{ fontSize: 12, color: p.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>{g.description}</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${priorityColor(g.potentialImpact)}22`, color: priorityColor(g.potentialImpact) }}>
+                    эффект: {g.potentialImpact}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: p.bgCard, color: p.textTertiary }}>
+                    усилия: {g.effort}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Niche insights */}
+      {data.nicheInsights?.length > 0 && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "900ms" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Инсайты по нише</div>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: p.textPrimary, lineHeight: 1.8 }}>
+            {data.nicheInsights.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
         </div>
       )}
     </div>

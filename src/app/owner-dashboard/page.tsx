@@ -32,6 +32,8 @@ export default function OwnerDashboardPage() {
     smm: null,
     content: null,
     brandbook: null,
+    cjm: null,
+    benchmarks: null,
   });
 
   useEffect(() => {
@@ -58,6 +60,8 @@ export default function OwnerDashboardPage() {
             smm: (d.smm as SMMResult) ?? null,
             content: (d.content as ContentStore) ?? null,
             brandbook: (d.brandbook as BrandBook) ?? null,
+            cjm: (d.cjm as DashboardData["cjm"]) ?? null,
+            benchmarks: (d.benchmarks as DashboardData["benchmarks"]) ?? null,
           });
           if (d.company) loadedFromServer = true;
         }
@@ -77,6 +81,8 @@ export default function OwnerDashboardPage() {
             smm: ls<SMMResult>(`mr_smm_${uid}`),
             content: ls<ContentStore>(`mr_content_${uid}`),
             brandbook: ls<BrandBook>(`mr_brandbook_${uid}`),
+            cjm: ls<DashboardData["cjm"]>(`mr_cjm_${uid}`) as DashboardData["cjm"],
+            benchmarks: ls<DashboardData["benchmarks"]>(`mr_benchmarks_${uid}`) as DashboardData["benchmarks"],
           });
         } catch { /* ignore */ }
       }

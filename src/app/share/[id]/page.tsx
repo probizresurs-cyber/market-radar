@@ -51,6 +51,8 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
             smm: (snap.smm as SMMResult) ?? null,
             content: (snap.content as ContentStore) ?? null,
             brandbook: (snap.brandbook as BrandBook) ?? null,
+            cjm: (snap.cjm as DashboardData["cjm"]) ?? null,
+            benchmarks: (snap.benchmarks as DashboardData["benchmarks"]) ?? null,
           },
         });
       } catch (e) {
