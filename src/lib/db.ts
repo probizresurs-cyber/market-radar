@@ -172,4 +172,18 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC)`);
+
+  // ─── Public shares (дашборд по публичной ссылке, без авторизации) ──────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS public_shares (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      snapshot JSONB NOT NULL,
+      view_count INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_public_shares_user_id ON public_shares(user_id)`);
 }
