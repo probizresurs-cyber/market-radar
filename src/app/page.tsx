@@ -913,10 +913,10 @@ export default function MarketRadarDashboard() {
     return <LandingPageView c={c} theme={theme} setTheme={setTheme} onRegister={() => setAppScreen("register")} onLogin={() => setAppScreen("login")} />;
   }
   if (appScreen === "register") {
-    return <RegisterView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen("onboarding"); }} onLogin={() => setAppScreen("login")} />;
+    return <RegisterView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen("onboarding"); }} onLogin={() => setAppScreen("login")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "login") {
-    return <LoginView c={c} onSuccess={async (user) => { setCurrentUser(user); await loadAndApplyUserData(user.id); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} />;
+    return <LoginView c={c} onSuccess={async (user) => { setCurrentUser(user); await loadAndApplyUserData(user.id); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "onboarding" && currentUser) {
     return <OnboardingView c={c} user={currentUser} onComplete={handleOnboardingComplete} />;

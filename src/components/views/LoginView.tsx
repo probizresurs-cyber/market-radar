@@ -5,10 +5,11 @@ import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
 
-export function LoginView({ c, onSuccess, onRegister }: {
+export function LoginView({ c, onSuccess, onRegister, onBack }: {
   c: Colors;
   onSuccess: (user: UserAccount) => void;
   onRegister: () => void;
+  onBack?: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,9 +52,18 @@ export function LoginView({ c, onSuccess, onRegister }: {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: 20 }}>
       <div className="ds-card-elevated" style={{ width: "100%", maxWidth: 400, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
-          <span style={{ fontWeight: 800, fontSize: 18 }}>MarketRadar</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
+            <span style={{ fontWeight: 800, fontSize: 18 }}>MarketRadar</span>
+          </div>
+          {onBack && (
+            <button onClick={onBack} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 13, display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "var(--muted)10")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+              ← На главную
+            </button>
+          )}
         </div>
         <h1 className="ds-h1" style={{ margin: "0 0 4px" }}>Войти</h1>
         <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>Добро пожаловать обратно</p>
