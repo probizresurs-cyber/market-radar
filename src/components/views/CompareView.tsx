@@ -328,9 +328,12 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </button>
               )}
               {aiInsights && (
+                <div style={{ textAlign: "right" }}>
                 <button onClick={handleGenerateInsights} disabled={aiLoading} style={{ padding: "6px 14px", background: "transparent", color: "var(--muted-foreground)", border: `1px solid var(--border)`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-                  🔄 Обновить
+                  🔄 Актуализировать
                 </button>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в 2 недели</div>
+              </div>
               )}
             </div>
             {aiError && <div style={{ fontSize: 13, color: "var(--destructive)", padding: "10px 14px", background: "color-mix(in oklch, var(--destructive) 6%, transparent)", borderRadius: 10, marginBottom: 12 }}>{aiError}</div>}
@@ -422,56 +425,96 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
             )}
           </div>
 
-          {/* Offers comparison */}
+          {/* Offers comparison table */}
           {(() => {
             const myOffers = loadCachedOffers(myCompany);
-            const competitorOffers = competitors.map(comp => ({ comp, offers: loadCachedOffers(comp) })).filter(x => x.offers);
-            if (!myOffers && competitorOffers.length === 0) return null;
+            const competitorOffersList = competitors.map(comp => ({ comp, offers: loadCachedOffers(comp) }));
+            if (!myOffers && competitorOffersList.every(x => !x.offers)) return null;
+
+            // Build rows: each row is a parameter with values per column
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const getOfferRows = (offers: any | null) => {
+              if (!offers) return { valueProposition: "—", pricingStrategy: "—", strengths: [], weaknesses: [], missingOffers: [] };
+              return {
+                valueProposition: offers.mainValueProposition ?? "—",
+                pricingStrategy: offers.pricingStrategy ?? "—",
+                strengths: (offers.strengths ?? []).slice(0, 3) as string[],
+                weaknesses: (offers.weaknesses ?? []).slice(0, 3) as string[],
+                missingOffers: (offers.missingOffers ?? []).slice(0, 3) as string[],
+              };
+            };
+
+            const myData = getOfferRows(myOffers);
+            const compDataList = competitorOffersList.map(x => getOfferRows(x.offers));
+            const compColors = ["var(--destructive)", "var(--warning)", "var(--success)", "var(--warning)"];
+
+            const rows: Array<{ param: string; myVal: string | string[]; compVals: Array<string | string[]>; isList?: boolean }> = [
+              { param: "Ценностное предложение", myVal: myData.valueProposition, compVals: compDataList.map(d => d.valueProposition) },
+              { param: "Ценовая стратегия", myVal: myData.pricingStrategy, compVals: compDataList.map(d => d.pricingStrategy) },
+              { param: "Сильные стороны", myVal: myData.strengths, compVals: compDataList.map(d => d.strengths), isList: true },
+              { param: "Слабые стороны", myVal: myData.weaknesses, compVals: compDataList.map(d => d.weaknesses), isList: true },
+              { param: "Чего не хватает", myVal: myData.missingOffers, compVals: compDataList.map(d => d.missingOffers), isList: true },
+            ];
+
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}>🏷️ Сравнение офферов</div>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(allCols.length, 3)}, 1fr)`, gap: 14 }}>
-                  {/* My company offers */}
-                  <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid var(--primary)40`, padding: 18, boxShadow: "var(--shadow)" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 12 }}>ВЫ — {myCompany.company.name}</div>
-                    {myOffers ? (
-                      <>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", marginBottom: 6, lineHeight: 1.4 }}>{myOffers.mainValueProposition}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10 }}>{myOffers.pricingStrategy}</div>
-                        {(myOffers.strengths ?? []).slice(0, 3).map((s: string, i: number) => (
-                          <div key={i} style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 3, paddingLeft: 8, borderLeft: `2px solid var(--success)` }}>✓ {s}</div>
+                <div style={{ overflowX: "auto", borderRadius: 14, border: `1px solid var(--border)`, boxShadow: "var(--shadow)" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "var(--background)" }}>
+                        <th style={{ textAlign: "left", padding: "12px 16px", borderBottom: `2px solid var(--border)`, color: "var(--muted-foreground)", fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", width: 160 }}>ПАРАМЕТР</th>
+                        <th style={{ textAlign: "left", padding: "12px 16px", borderBottom: `2px solid var(--border)`, color: "var(--primary)", fontWeight: 700, fontSize: 11, letterSpacing: "0.05em" }}>
+                          ВЫ — {myCompany.company.name.length > 20 ? myCompany.company.name.slice(0, 20) + "…" : myCompany.company.name}
+                        </th>
+                        {competitors.map((comp, ci) => (
+                          <th key={ci} style={{ textAlign: "left", padding: "12px 16px", borderBottom: `2px solid var(--border)`, color: compColors[ci % 4], fontWeight: 700, fontSize: 11, letterSpacing: "0.05em" }}>
+                            {comp.company.name.length > 20 ? comp.company.name.slice(0, 20) + "…" : comp.company.name}
+                          </th>
                         ))}
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Офферы не загружены. Откройте «Дашборд» для загрузки.</div>
-                    )}
-                  </div>
-                  {/* Competitor offers */}
-                  {competitors.map((comp, ci) => {
-                    const compOffers = loadCachedOffers(comp);
-                    const compColor = ["var(--destructive)", "var(--warning)", "var(--success)", "var(--warning)"][ci % 4];
-                    return (
-                      <div key={ci} style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${compColor}30`, padding: 18, boxShadow: "var(--shadow)" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: compColor, marginBottom: 12 }}>
-                          {comp.company.name.length > 20 ? comp.company.name.slice(0, 20) + "…" : comp.company.name}
-                        </div>
-                        {compOffers ? (
-                          <>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", marginBottom: 6, lineHeight: 1.4 }}>{compOffers.mainValueProposition}</div>
-                            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10 }}>{compOffers.pricingStrategy}</div>
-                            {(compOffers.strengths ?? []).slice(0, 3).map((s: string, i: number) => (
-                              <div key={i} style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 3, paddingLeft: 8, borderLeft: `2px solid ${compColor}` }}>✓ {s}</div>
-                            ))}
-                          </>
-                        ) : (
-                          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Откройте профиль конкурента для загрузки офферов.</div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, ri) => (
+                        <tr key={ri} style={{ background: ri % 2 === 0 ? "var(--card)" : "var(--muted)" }}>
+                          <td style={{ padding: "12px 16px", borderBottom: `1px solid var(--border)`, fontWeight: 700, fontSize: 11, color: "var(--muted-foreground)", letterSpacing: "0.03em", verticalAlign: "top" }}>
+                            {row.param}
+                          </td>
+                          <td style={{ padding: "12px 16px", borderBottom: `1px solid var(--border)`, color: "var(--foreground)", verticalAlign: "top" }}>
+                            {row.isList ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                {(row.myVal as string[]).length > 0
+                                  ? (row.myVal as string[]).map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", paddingLeft: 8, borderLeft: `2px solid var(--primary)` }}>{s}</div>)
+                                  : <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>—</span>}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 13, lineHeight: 1.45 }}>{row.myVal as string}</span>
+                            )}
+                          </td>
+                          {compDataList.map((_, ci) => (
+                            <td key={ci} style={{ padding: "12px 16px", borderBottom: `1px solid var(--border)`, color: "var(--foreground)", verticalAlign: "top" }}>
+                              {competitorOffersList[ci].offers ? (
+                                row.isList ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {(row.compVals[ci] as string[]).length > 0
+                                      ? (row.compVals[ci] as string[]).map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", paddingLeft: 8, borderLeft: `2px solid ${compColors[ci % 4]}` }}>{s}</div>)
+                                      : <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>—</span>}
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: 13, lineHeight: 1.45 }}>{row.compVals[ci] as string}</span>
+                                )
+                              ) : (
+                                <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>Не загружено</span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Missing offers comparison */}
+                {/* Missing offers hint */}
                 {myOffers?.missingOffers?.length > 0 && (
                   <div style={{ marginTop: 14, background: "color-mix(in oklch, var(--warning) 3%, transparent)", borderRadius: 12, padding: 16, border: `1px solid var(--warning)25` }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--warning)", marginBottom: 8 }}>💡 Что добавить в ваши офферы</div>

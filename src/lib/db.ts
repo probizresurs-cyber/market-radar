@@ -122,6 +122,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS promo_codes (
       id TEXT PRIMARY KEY,
       code TEXT UNIQUE NOT NULL,
+      name TEXT,
       discount_percent NUMERIC(5,2),
       discount_amount INTEGER,
       valid_from TIMESTAMPTZ,
@@ -133,6 +134,8 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migration: add name column if it doesn't exist yet
+  await query(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS name TEXT`);
 
   // ─── AI Monitoring + Security tables ────────────────────────────────────────
 

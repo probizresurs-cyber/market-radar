@@ -132,9 +132,12 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       {/* Offers analysis */}
       <CollapsibleSection c={c} title="🏷️ Анализ офферов"
         extra={offers && !offersLoading ? (
-          <button onClick={() => loadOffers(true)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
-            🔄 Обновить
-          </button>
+          <div style={{ textAlign: "right" }}>
+            <button onClick={() => loadOffers(true)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
+              🔄 Актуализировать
+            </button>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в неделю</div>
+          </div>
         ) : undefined}>
         {!offers && !offersLoading && (
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, textAlign: "center", boxShadow: "var(--shadow)", marginBottom: 16 }}>

@@ -474,7 +474,6 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
             <div style={{ width: `${progress}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${primary}, var(--success))`, transition: "width 0.3s" }} />
           </div>
           <p style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>{Math.round(progress)}% — Генерация лендинга...</p>
-          <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Google Stitch создаёт дизайн на основе ваших данных</p>
         </div>
       )}
 

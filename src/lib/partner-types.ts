@@ -83,6 +83,7 @@ export interface PartnerBalanceEntry {
 export interface PromoCode {
   id: string;
   code: string;
+  name: string | null;
   discount_percent: number | null;
   discount_amount: number | null; // kopecks
   valid_from: string | null;

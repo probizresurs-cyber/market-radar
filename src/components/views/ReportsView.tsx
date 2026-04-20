@@ -6,10 +6,26 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 
-export function ReportsView({ c, data, taAnalysis, smmAnalysis }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null; smmAnalysis?: SMMResult | null }) {
+type ReportTab = "company" | "ta" | "smm" | "competitors" | "reviews";
+
+export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: { c: Colors; data: AnalysisResult | null; taAnalysis?: TAResult | null; smmAnalysis?: SMMResult | null; competitors?: AnalysisResult[] }) {
+  const [activeReport, setActiveReport] = useState<ReportTab>("company");
   const [taExpanded, setTaExpanded] = useState(false);
   const [compExpanded, setCompExpanded] = useState(false);
   const [smmExpanded, setSmmExpanded] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  const handleShare = async () => {
+    setShareLoading(true);
+    setShareUrl(null);
+    try {
+      const res = await fetch("/api/share/create", { method: "POST" });
+      const json = await res.json();
+      if (json.ok && json.url) setShareUrl(json.url);
+    } catch { /* ignore */ }
+    setShareLoading(false);
+  };
 
   const handlePrintSMM = () => {
     const win = window.open("", "_blank");
@@ -83,12 +99,118 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis }: { c: Colors; d
         }
       `}</style>
 
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Отчёты</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Нажмите на отчёт, чтобы развернуть. Каждый отчёт можно скачать отдельно.</p>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Отчёты</h1>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleShare} disabled={shareLoading} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              {shareLoading ? "⏳ Создаю ссылку..." : "🔗 Открыть по ссылке"}
+            </button>
+          </div>
+        </div>
+        {shareUrl && (
+          <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 10, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Публичная ссылка:</span>
+            <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--primary)", wordBreak: "break-all" }}>{shareUrl}</a>
+            <button onClick={() => { navigator.clipboard.writeText(shareUrl); }} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--muted)", color: "var(--foreground)", fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Копировать</button>
+          </div>
+        )}
+        {/* Horizontal tabs */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", borderBottom: `1px solid var(--border)`, paddingBottom: 0 }}>
+          {([
+            { id: "company", label: "📊 Компания", available: !!data },
+            { id: "ta", label: "🧠 ЦА", available: !!taAnalysis },
+            { id: "smm", label: "📱 СММ", available: !!smmAnalysis },
+            { id: "competitors", label: "🏁 Конкуренты", available: !!(competitors && competitors.length > 0) },
+            { id: "reviews", label: "⭐ Отзывы", available: !!data },
+          ] as { id: ReportTab; label: string; available: boolean }[]).map(tab => (
+            <button key={tab.id} onClick={() => setActiveReport(tab.id)} disabled={!tab.available}
+              style={{ padding: "10px 18px", border: "none", borderBottom: activeReport === tab.id ? `2px solid var(--primary)` : `2px solid transparent`, background: "transparent", color: !tab.available ? "var(--muted-foreground)" : activeReport === tab.id ? "var(--primary)" : "var(--foreground-secondary)", fontWeight: activeReport === tab.id ? 700 : 500, fontSize: 13, cursor: tab.available ? "pointer" : "default", marginBottom: -1, transition: "all 0.15s" }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {taAnalysis && (
+      {/* ── Competitors Report ── */}
+      {activeReport === "competitors" && competitors && competitors.length > 0 && (
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", overflow: "hidden" }}>
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid var(--border)`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>🏁 Отчёт по конкурентам</div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{competitors.length} конкурентов · {today}</div>
+            </div>
+            <button onClick={() => {
+              const win = window.open("", "_blank");
+              if (!win) return;
+              const rows = competitors.map(comp => `<tr><td style="padding:10px;border:1px solid #e0e3ef;">${comp.company.name}</td><td style="padding:10px;border:1px solid #e0e3ef;">${comp.company.url}</td><td style="padding:10px;border:1px solid #e0e3ef;text-align:center;"><b>${comp.company.score}</b>/100</td><td style="padding:10px;border:1px solid #e0e3ef;">${(comp.company.categories ?? []).map((cat: {name:string;score:number}) => `${cat.name}: ${cat.score}`).join(", ")}</td><td style="padding:10px;border:1px solid #e0e3ef;">${(comp.insights ?? []).slice(0,2).join("; ")}</td></tr>`).join("");
+              win.document.write(`<html><head><title>Конкуренты — ${data?.company.name ?? ""}</title><style>body{font-family:sans-serif;padding:32px;} table{width:100%;border-collapse:collapse;} th{background:#f0f2ff;padding:10px;text-align:left;border:1px solid #e0e3ef;}</style></head><body><h1>Анализ конкурентов — ${data?.company.name ?? ""}</h1><p style="color:#888;">${today}</p><table><thead><tr><th>Компания</th><th>Сайт</th><th>Score</th><th>Категории</th><th>Ключевые инсайты</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+              win.document.close(); win.print();
+            }} className="no-print" style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--muted)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🖨 Распечатать</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: "var(--muted)" }}>
+                <th style={{ padding: "10px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600 }}>Компания</th>
+                <th style={{ padding: "10px 16px", textAlign: "center", color: "var(--muted-foreground)", fontWeight: 600 }}>Score</th>
+                <th style={{ padding: "10px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600 }}>SEO</th>
+                <th style={{ padding: "10px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600 }}>Соцсети</th>
+                <th style={{ padding: "10px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600 }}>Контент</th>
+                <th style={{ padding: "10px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600 }}>Инсайт</th>
+              </tr></thead>
+              <tbody>
+                {competitors.map((comp, i) => {
+                  const seo = comp.company.categories?.find((cat: {name:string;score:number}) => cat.name === "SEO")?.score ?? "—";
+                  const social = comp.company.categories?.find((cat: {name:string;score:number}) => cat.name === "Соцсети")?.score ?? "—";
+                  const content = comp.company.categories?.find((cat: {name:string;score:number}) => cat.name === "Контент")?.score ?? "—";
+                  return <tr key={i} style={{ borderBottom: `1px solid var(--border)`, background: i % 2 === 0 ? "transparent" : "var(--muted)" }}>
+                    <td style={{ padding: "12px 16px", fontWeight: 600, color: "var(--foreground)" }}>{comp.company.name}<div style={{ fontSize: 11, color: "var(--muted-foreground)", fontWeight: 400 }}>{comp.company.url}</div></td>
+                    <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 700, color: comp.company.score >= 70 ? "var(--success)" : comp.company.score >= 45 ? "var(--warning)" : "var(--destructive)" }}>{comp.company.score}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--foreground-secondary)" }}>{seo}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--foreground-secondary)" }}>{social}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--foreground-secondary)" }}>{content}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--foreground-secondary)", fontSize: 12 }}>{(comp.insights ?? []).slice(0,1).join("")}</td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reviews Report ── */}
+      {activeReport === "reviews" && data && (
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", overflow: "hidden" }}>
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid var(--border)`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>⭐ Отчёт по отзывам</div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{data.company.name} · {today}</div>
+            </div>
+          </div>
+          <div style={{ padding: "20px 24px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Яндекс", rating: data.social?.yandexRating, reviews: data.social?.yandexReviews, icon: "🔴" },
+                { label: "2ГИС", rating: data.social?.gisRating, reviews: data.social?.gisReviews, icon: "🟢" },
+              ].filter(p => p.rating && p.rating > 0).map((platform, i) => (
+                <div key={i} style={{ background: "var(--muted)", borderRadius: 12, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>{platform.icon} {platform.label}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--foreground)" }}>{platform.rating}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{platform.reviews} отзывов</div>
+                </div>
+              ))}
+            </div>
+            {(data.social?.yandexRating === 0 && data.social?.gisRating === 0) && (
+              <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 13, padding: 32 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>⭐</div>
+                <div>Рейтинги не найдены. Перейдите в «Анализ отзывов» для загрузки данных.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {taAnalysis && activeReport === "ta" && (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", marginBottom: 16, overflow: "hidden" }}>
           {/* TA Report Header — click to expand */}
           <div
@@ -211,7 +333,7 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis }: { c: Colors; d
         </div>
       )}
 
-      {smmAnalysis && (
+      {smmAnalysis && activeReport === "smm" && (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", marginBottom: 16, overflow: "hidden" }}>
           <div
             onClick={() => setSmmExpanded(v => !v)}
@@ -295,9 +417,9 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis }: { c: Colors; d
         </div>
       )}
 
-      {data && (
+      {data && activeReport === "company" && (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow-lg)", marginBottom: 16 }}>
-          {/* Competitor Report Header — click to expand */}
+          {/* Company Report Header — click to expand */}
           <div
             onClick={() => setCompExpanded(v => !v)}
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", cursor: "pointer", userSelect: "none", background: `linear-gradient(135deg, var(--primary)0f, var(--card))` }}

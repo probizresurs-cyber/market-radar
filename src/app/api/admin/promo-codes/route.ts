@@ -35,6 +35,7 @@ export async function POST(req: Request) {
   const {
     id,
     code,
+    name,
     discount_percent,
     discount_amount,
     valid_from,
@@ -52,10 +53,10 @@ export async function POST(req: Request) {
     // Update
     await query(
       `UPDATE promo_codes
-       SET code=$1, discount_percent=$2, discount_amount=$3, valid_from=$4, valid_to=$5,
-           max_uses=$6, partner_id=$7, is_active=$8
-       WHERE id=$9`,
-      [code.toUpperCase(), discount_percent || null, discount_amount || null, valid_from || null, valid_to || null, max_uses || null, partner_id || null, is_active, id]
+       SET code=$1, name=$2, discount_percent=$3, discount_amount=$4, valid_from=$5, valid_to=$6,
+           max_uses=$7, partner_id=$8, is_active=$9
+       WHERE id=$10`,
+      [code.toUpperCase(), name || null, discount_percent || null, discount_amount || null, valid_from || null, valid_to || null, max_uses || null, partner_id || null, is_active, id]
     );
     return NextResponse.json({ ok: true, id });
   }
@@ -63,9 +64,9 @@ export async function POST(req: Request) {
   // Create
   const newId = randomUUID();
   await query(
-    `INSERT INTO promo_codes (id, code, discount_percent, discount_amount, valid_from, valid_to, max_uses, partner_id, is_active)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [newId, code.toUpperCase(), discount_percent || null, discount_amount || null, valid_from || null, valid_to || null, max_uses || null, partner_id || null, is_active]
+    `INSERT INTO promo_codes (id, code, name, discount_percent, discount_amount, valid_from, valid_to, max_uses, partner_id, is_active)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [newId, code.toUpperCase(), name || null, discount_percent || null, discount_amount || null, valid_from || null, valid_to || null, max_uses || null, partner_id || null, is_active]
   );
   return NextResponse.json({ ok: true, id: newId });
 }

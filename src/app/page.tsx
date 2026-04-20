@@ -307,23 +307,10 @@ export default function MarketRadarDashboard() {
       ["mr_avatar_settings_", "avatar"],
     ];
 
-    // Build a snapshot of all localStorage keys once
-    const lsKeys: string[] = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k) lsKeys.push(k);
-      }
-    } catch { /* ignore */ }
-
     const pushed: Record<string, unknown> = {};
     for (const [prefix, srvKey] of migrations) {
       if (serverData[srvKey] != null) continue; // server already has it
-      // Prefer the current uid's key; fall back to any other uid's key
-      const candidates = [
-        `${prefix}${uid}`,
-        ...lsKeys.filter((k) => k.startsWith(prefix) && k !== `${prefix}${uid}`),
-      ];
+      const candidates = [`${prefix}${uid}`];
       for (const lsKey of candidates) {
         try {
           const raw = localStorage.getItem(lsKey);
@@ -1027,7 +1014,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} />}
+        {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} competitors={competitors} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}

@@ -81,6 +81,9 @@ export async function POST(req: Request) {
 Шрифт текста: ${s.fontBody}
 Учитывай стиль "${s.mood}" при написании текстов — подбирай лексику и тон соответственно.`;
     }
+    if (body.customPrompt) {
+      systemPrompt += `\n\nДОПОЛНИТЕЛЬНЫЕ ПОЖЕЛАНИЯ ОТ ПОЛЬЗОВАТЕЛЯ (соблюдать обязательно):\n${body.customPrompt}`;
+    }
 
     const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",

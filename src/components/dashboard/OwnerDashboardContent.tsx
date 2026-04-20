@@ -167,16 +167,21 @@ function deriveStatus(score: number, myScore: number): CompetitorStatus {
 }
 
 // ─── Карточка метрики ──────────────────────────────────────────────────────
-function MetricCard({ p, label, value, change, positive, delayMs, suffix }: {
+function MetricCard({ p, label, value, change, positive, delayMs, suffix, neonColor }: {
   p: Palette; label: string; value: number; change: string;
-  positive: boolean; delayMs: number; suffix?: string;
+  positive: boolean; delayMs: number; suffix?: string; neonColor?: string;
 }) {
   const animated = useCountUp(value, 1200, delayMs + 100);
+  const neonStyle = neonColor ? {
+    border: `1px solid ${neonColor}`,
+    boxShadow: `0 0 20px ${neonColor}40, 0 0 40px ${neonColor}20`,
+    background: "rgba(13, 14, 24, 0.85)",
+  } : {};
   return (
-    <div className="mr-card mr-metric" style={{ animationDelay: `${delayMs}ms` }}>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 10 }}>{label}</div>
-      <div style={{ fontSize: 40, fontWeight: 800, color: p.textPrimary, lineHeight: 1, marginBottom: 12, letterSpacing: -0.5 }}>
-        {animated}{suffix && <span style={{ fontSize: 22, fontWeight: 700, color: p.textTertiary }}>{suffix}</span>}
+    <div className="mr-card mr-metric" style={{ animationDelay: `${delayMs}ms`, ...neonStyle }}>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: neonColor ?? p.textTertiary, marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 40, fontWeight: 800, color: neonColor ?? p.textPrimary, lineHeight: 1, marginBottom: 12, letterSpacing: -0.5 }}>
+        {animated}{suffix && <span style={{ fontSize: 22, fontWeight: 700, color: neonColor ? `${neonColor}CC` : p.textTertiary }}>{suffix}</span>}
       </div>
       <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
         background: positive ? p.greenBg : p.redBg, color: positive ? p.green : p.red }}>
@@ -710,7 +715,15 @@ export function OwnerDashboardContent({
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} className="mr-header-buttons">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }} className="mr-header-buttons">
+              {/* Theme toggle */}
+              <button
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+                style={{ padding: "10px 14px", fontSize: 16, background: p.bgCard, border: `1px solid ${p.borderTertiary}`, borderRadius: 8, cursor: "pointer", lineHeight: 1 }}
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
               {mode === "private" && (
                 <a href="/" style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: p.textSecondary,
                   border: `1px solid ${p.borderTertiary}`, borderRadius: 8, textDecoration: "none", background: p.bgCard }}>
@@ -765,10 +778,10 @@ export function OwnerDashboardContent({
             <>
               {/* Metrics */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }} className="mr-metrics-grid">
-                <MetricCard p={p} label="Конкуренты" value={metrics.competitors} change={metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет"} positive delayMs={100} />
-                <MetricCard p={p} label="Угрозы" value={metrics.threats} change={metrics.threats > 0 ? `${metrics.threats} активных` : "всё спокойно"} positive={metrics.threats === 0} delayMs={250} />
-                <MetricCard p={p} label="Ваша доля" value={metrics.marketShare} change="оценка рынка" positive delayMs={400} suffix="%" />
-                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} />
+                <MetricCard p={p} label="Конкуренты" value={metrics.competitors} change={metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет"} positive delayMs={100} neonColor="#4FC3F7" />
+                <MetricCard p={p} label="Угрозы" value={metrics.threats} change={metrics.threats > 0 ? `${metrics.threats} активных` : "всё спокойно"} positive={metrics.threats === 0} delayMs={250} neonColor="#FF5252" />
+                <MetricCard p={p} label="Ваша доля" value={metrics.marketShare} change="оценка рынка" positive delayMs={400} suffix="%" neonColor="#69FF47" />
+                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" />
               </div>
 
               {/* Main 2-col */}

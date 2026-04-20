@@ -67,10 +67,13 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Customer Journey Map</h1>
           <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: 0 }}>{data.companyName}</p>
         </div>
-        <button onClick={onGenerate} disabled={isGenerating}
-          style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
-          {isGenerating ? "⏳ Обновляю…" : "🔄 Обновить"}
-        </button>
+        <div style={{ textAlign: "right" }}>
+          <button onClick={onGenerate} disabled={isGenerating}
+            style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
+            {isGenerating ? "⏳ Обновляю…" : "🔄 Актуализировать"}
+          </button>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в квартал</div>
+        </div>
       </div>
 
       {error && (
@@ -229,10 +232,13 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Отраслевые бенчмарки</h1>
           <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: 0 }}>{data.niche}</p>
         </div>
-        <button onClick={onGenerate} disabled={isGenerating}
-          style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
-          {isGenerating ? "⏳ Обновляю…" : "🔄 Обновить"}
-        </button>
+        <div style={{ textAlign: "right" }}>
+          <button onClick={onGenerate} disabled={isGenerating}
+            style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
+            {isGenerating ? "⏳ Обновляю…" : "🔄 Актуализировать"}
+          </button>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в месяц</div>
+        </div>
       </div>
 
       {data.summary && (

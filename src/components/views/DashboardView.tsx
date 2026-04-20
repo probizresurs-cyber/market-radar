@@ -135,10 +135,15 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
           {recommendations.map((rec, i) => {
             const dotColor = rec.priority === "high" ? "var(--destructive)" : rec.priority === "medium" ? "var(--warning)" : "var(--success)";
             return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{rec.text}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--success)", background: "color-mix(in oklch, var(--success) 7%, transparent)", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
+              <div key={i} style={{ display: "flex", alignItems: "stretch", padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none", gap: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, width: "50%", paddingRight: 16 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.45 }}>{rec.text}</span>
+                </div>
+                <div style={{ width: 1, background: "var(--muted)", flexShrink: 0 }} />
+                <div style={{ width: "50%", paddingLeft: 16, display: "flex", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--success)", lineHeight: 1.4 }}>{rec.effect}</span>
+                </div>
               </div>
             );
           })}
@@ -147,7 +152,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
       {/* ── Анализ офферов (своей компании) ── */}
       <CollapsibleSection c={c} title="🏷️ Анализ офферов"
-        extra={myOffers && !myOffersLoading ? (
+        extra={myOffers && !myOffersLoading ? (<>
           <button onClick={() => {
             const offersKey = `mr_offers_${company.url || company.name}`;
             try { localStorage.removeItem(offersKey); } catch { /* ignore */ }
@@ -164,9 +169,10 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
               }
             }).catch(() => {/* ignore */}).finally(() => setMyOffersLoading(false));
           }} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
-            🔄 Обновить
+            🔄 Актуализировать
           </button>
-        ) : undefined}>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, textAlign: "right" }}>Рекомендуем раз в месяц</div>
+        </>) : undefined}>
         {myOffersLoading && (
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, textAlign: "center", boxShadow: "var(--shadow)", marginBottom: 16 }}>
             <div style={{ color: "var(--primary)", fontSize: 13 }}>Анализирую офферы с сайта компании...</div>
@@ -403,73 +409,73 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
         </CollapsibleSection>
       )}
 
-      {/* ── Технологии + Найм ── */}
-      <CollapsibleSection c={c} title="⚙️ Технологии и найм">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>⚙️ Технологии</div>
-            {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
-                <span style={{ background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
-              </div>
-            )}
-            {(data.techStack?.analytics ?? []).length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {data.techStack.analytics.map(a => <span key={a} style={{ background: "color-mix(in oklch, var(--success) 8%, transparent)", color: "var(--success)", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
-                </div>
-              </div>
-            )}
-            {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
-                <span style={{ background: "color-mix(in oklch, var(--warning) 8%, transparent)", color: "var(--warning)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
-              </div>
-            )}
-            {(data.techStack?.other ?? []).length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {data.techStack.other.map(o => <span key={o} style={{ background: "var(--muted)", color: "var(--foreground-secondary)", borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid var(--border)` }}>{o}</span>)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>👥 Найм (hh.ru)</div>
-              {data.hiring?.trend && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
-                  background: data.hiring.trend === "growing" ? "color-mix(in oklch, var(--success) 9%, transparent)" : data.hiring.trend === "declining" ? "color-mix(in oklch, var(--destructive) 9%, transparent)" : "var(--muted)",
-                  color: data.hiring.trend === "growing" ? "var(--success)" : data.hiring.trend === "declining" ? "var(--destructive)" : "var(--muted-foreground)"
-                }}>
-                  {data.hiring.trend === "growing" ? "▲ Растёт" : data.hiring.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
-                </span>
-              )}
+      {/* ── Технологии ── */}
+      <CollapsibleSection c={c} title="⚙️ Технологии">
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
+          {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
+              <span style={{ background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.cms}</span>
             </div>
-            {[
-              { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? "—") },
-              { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
-              { label: "Диапазон", value: data.hiring?.salaryRange ?? "—" },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid var(--muted)`, fontSize: 13 }}>
-                <span style={{ color: "var(--foreground-secondary)" }}>{label}</span>
-                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{value}</span>
+          )}
+          {(data.techStack?.analytics ?? []).length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>АНАЛИТИКА</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.analytics.map(a => <span key={a} style={{ background: "color-mix(in oklch, var(--success) 8%, transparent)", color: "var(--success)", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{a}</span>)}
               </div>
-            ))}
-            {(data.hiring?.topRoles ?? []).length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ИЩУТ</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {data.hiring.topRoles.map(r => <span key={r} style={{ background: "var(--background)", color: "var(--foreground-secondary)", borderRadius: 8, padding: "4px 10px", fontSize: 11, border: `1px solid var(--border)` }}>{r}</span>)}
-                </div>
+            </div>
+          )}
+          {data.techStack?.chat && !["None", "Unknown", "—"].includes(data.techStack.chat) && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ЧАТ-ПОДДЕРЖКА</div>
+              <span style={{ background: "color-mix(in oklch, var(--warning) 8%, transparent)", color: "var(--warning)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{data.techStack.chat}</span>
+            </div>
+          )}
+          {(data.techStack?.other ?? []).length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ДРУГОЕ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.techStack.other.map(o => <span key={o} style={{ background: "var(--muted)", color: "var(--foreground-secondary)", borderRadius: 8, padding: "4px 10px", fontSize: 12, border: `1px solid var(--border)` }}>{o}</span>)}
               </div>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* ── Найм ── */}
+      <CollapsibleSection c={c} title="👥 Найм (hh.ru)">
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>👥 Найм (hh.ru)</div>
+            {data.hiring?.trend && (
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                background: data.hiring.trend === "growing" ? "color-mix(in oklch, var(--success) 9%, transparent)" : data.hiring.trend === "declining" ? "color-mix(in oklch, var(--destructive) 9%, transparent)" : "var(--muted)",
+                color: data.hiring.trend === "growing" ? "var(--success)" : data.hiring.trend === "declining" ? "var(--destructive)" : "var(--muted-foreground)"
+              }}>
+                {data.hiring.trend === "growing" ? "▲ Растёт" : data.hiring.trend === "declining" ? "▼ Снижается" : "→ Стабильно"}
+              </span>
             )}
           </div>
+          {[
+            { label: "Открытых вакансий", value: String(data.hiring?.openVacancies ?? "—") },
+            { label: "Средняя зарплата", value: data.hiring?.avgSalary ?? "—" },
+            { label: "Диапазон", value: data.hiring?.salaryRange ?? "—" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid var(--muted)`, fontSize: 13 }}>
+              <span style={{ color: "var(--foreground-secondary)" }}>{label}</span>
+              <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{value}</span>
+            </div>
+          ))}
+          {(data.hiring?.topRoles ?? []).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ИЩУТ</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {data.hiring.topRoles.map(r => <span key={r} style={{ background: "var(--background)", color: "var(--foreground-secondary)", borderRadius: 8, padding: "4px 10px", fontSize: 11, border: `1px solid var(--border)` }}>{r}</span>)}
+              </div>
+            </div>
+          )}
         </div>
       </CollapsibleSection>
 

@@ -35,6 +35,7 @@ const TABS = [
 interface EditCode {
   id?: string;
   code: string;
+  name: string;
   discount_percent: number | null;
   discount_amount: number | null;
   valid_from: string;
@@ -45,7 +46,7 @@ interface EditCode {
 }
 
 const emptyCode: EditCode = {
-  code: "", discount_percent: null, discount_amount: null,
+  code: "", name: "", discount_percent: null, discount_amount: null,
   valid_from: "", valid_to: "", max_uses: null, partner_id: "", is_active: true,
 };
 
@@ -110,6 +111,10 @@ export default function PromoAdmin() {
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: "#f1f5f9" }}>
               {editing.id ? "Редактировать" : "Новый промокод"}
             </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Название промокода</label>
+              <input style={S.input} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} placeholder="Новогодняя акция 2025" />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
                 <label style={S.label}>Код *</label>
@@ -164,6 +169,7 @@ export default function PromoAdmin() {
             <table style={S.table}>
               <thead>
                 <tr>
+                  <th style={S.th}>Название</th>
                   <th style={S.th}>Код</th>
                   <th style={S.th}>Скидка</th>
                   <th style={S.th}>Период</th>
@@ -176,6 +182,9 @@ export default function PromoAdmin() {
               <tbody>
                 {codes.map((c, i) => (
                   <tr key={c.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
+                    <td style={{ ...S.td, color: "#94a3b8", fontSize: 12 }}>
+                      {c.name || <span style={{ color: "#475569" }}>—</span>}
+                    </td>
                     <td style={{ ...S.td, fontFamily: "monospace", fontWeight: 700, color: "#e2e8f0", letterSpacing: "0.05em" }}>
                       {c.code}
                     </td>
@@ -200,7 +209,8 @@ export default function PromoAdmin() {
                     <td style={S.td}>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button style={S.btnSm} onClick={() => setEditing({
-                          id: c.id, code: c.code, discount_percent: c.discount_percent, discount_amount: c.discount_amount,
+                          id: c.id, code: c.code, name: c.name || "",
+                          discount_percent: c.discount_percent, discount_amount: c.discount_amount,
                           valid_from: c.valid_from ? c.valid_from.slice(0, 10) : "", valid_to: c.valid_to ? c.valid_to.slice(0, 10) : "",
                           max_uses: c.max_uses, partner_id: c.partner_id || "", is_active: c.is_active,
                         })}>Ред.</button>

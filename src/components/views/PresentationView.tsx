@@ -84,6 +84,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [paletteOptions, setPaletteOptions] = useState<PresentationStyle[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<PresentationStyle | null>(null);
 
+  // Custom prompt
+  const [customPrompt, setCustomPrompt] = useState("");
+
   // Stage 2: generation
   const [genProgress, setGenProgress] = useState(0);
 
@@ -188,6 +191,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           seo: myCompany.seo,
           nicheForecast: myCompany.nicheForecast,
           hiring: myCompany.hiring,
+          customPrompt: customPrompt.trim() || undefined,
         }),
       });
       const json = await res.json();
@@ -846,10 +850,22 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                 })}
               </div>
               {selectedStyle && (
-                <button onClick={handleGenerate} disabled={!myCompany} style={{ padding: "14px 36px", borderRadius: 10, border: "none",
-                  background: !myCompany ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
-                  Создать презентацию в стиле «{selectedStyle.name}»
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 6 }}>💬 КАСТОМНЫЙ ПРОМПТ (необязательно)</div>
+                    <textarea
+                      value={customPrompt}
+                      onChange={e => setCustomPrompt(e.target.value)}
+                      placeholder="Укажите тематику, акценты или пожелания по содержанию — например: «Сделай упор на кейсы клиентов и ROI», «Добавь слайд про конкурентов», «Аудитория — инвесторы»..."
+                      rows={3}
+                      style={{ width: "100%", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", padding: "10px 14px", fontSize: 13, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <button onClick={handleGenerate} disabled={!myCompany} style={{ alignSelf: "flex-start", padding: "14px 36px", borderRadius: 10, border: "none",
+                    background: !myCompany ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
+                    Создать презентацию в стиле «{selectedStyle.name}»
+                  </button>
+                </div>
               )}
             </div>
           )}
