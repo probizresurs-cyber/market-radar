@@ -7,6 +7,7 @@ import { KeysoDashboardBlock } from "@/components/ui/KeysoDashboardBlock";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
+import { FolderOpen } from "lucide-react";
 
 export function PreviousAnalysesView({ c, history, currentAnalysis }: {
   c: Colors;
@@ -18,12 +19,17 @@ export function PreviousAnalysesView({ c, history, currentAnalysis }: {
 
   if (history.length === 0) {
     return (
-      <div style={{ maxWidth: 900, padding: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Предыдущие анализы</h1>
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📂</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>Пока нет предыдущих анализов</div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>После повторного анализа компании предыдущие результаты сохраняются здесь</div>
+      <div style={{ maxWidth: 700 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Предыдущие анализы</h1>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>История предыдущих анализов компании</p>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+            <FolderOpen size={48} />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Нет предыдущих анализов</div>
+          <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
+            После повторного анализа компании предыдущие результаты сохраняются здесь
+          </div>
         </div>
       </div>
     );

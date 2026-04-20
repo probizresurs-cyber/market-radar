@@ -11,7 +11,19 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  if (!myCompany) return <div style={{ color: "var(--muted-foreground)", fontSize: 14 }}>Сначала проанализируйте свой сайт</div>;
+  if (!myCompany) return (
+    <div style={{ maxWidth: 700 }}>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+          <Scale size={48} />
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Сначала проанализируйте свой сайт</div>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>
+          Запустите анализ своего сайта, чтобы начать сравнение с конкурентами
+        </div>
+      </div>
+    </div>
+  );
 
   // Load offers from localStorage for all companies
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,10 +116,14 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
       )}
 
       {competitors.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 36, marginBottom: 12, color: "var(--muted-foreground)", display:"flex", justifyContent:"center" }}><Scale size={36} /></div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>Добавьте конкурентов для сравнения</div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Перейдите в раздел «Конкуренты» и добавьте сайты</div>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+            <Scale size={48} />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Добавьте конкурентов для сравнения</div>
+          <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>
+            Перейдите в раздел «Конкуренты» и добавьте сайты для сравнительного анализа
+          </div>
         </div>
       ) : (
         <>

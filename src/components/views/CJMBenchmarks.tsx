@@ -26,10 +26,17 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
   const stageColors = ["var(--primary)", "#8b5cf6", "#3b82f6", "#f59e0b", "var(--success)", "#14b8a6", "#ec4899"];
 
   if (!myCompany) return (
-    <div style={{ padding: 40, textAlign: "center", color: "var(--foreground-secondary)" }}>
+    <div style={{ maxWidth: 700 }}>
       <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, color: "var(--muted-foreground)" }}><MapIcon size={36} /></div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>Сначала проанализируйте компанию</div>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+          <MapIcon size={48} />
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Сначала проанализируйте компанию</div>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>
+          Запустите анализ своего сайта, чтобы построить Customer Journey Map
+        </div>
+      </div>
     </div>
   );
 
@@ -187,9 +194,16 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
   error?: string | null;
 }) {
   if (!myCompany) return (
-    <div style={{ padding: 40, textAlign: "center", color: "var(--foreground-secondary)" }}>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, color: "var(--muted-foreground)" }}><BarChart2 size={36} /></div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>Сначала проанализируйте компанию</div>
+    <div style={{ maxWidth: 700 }}>
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+          <BarChart2 size={48} />
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Сначала проанализируйте компанию</div>
+        <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>
+          Запустите анализ своего сайта, чтобы увидеть отраслевые бенчмарки
+        </div>
+      </div>
     </div>
   );
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
+import { Users } from "lucide-react";
 
 export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddCompetitor, isAnalyzing }: {
   c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[];
@@ -60,10 +61,19 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
       )}
 
       {competitors.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🎯</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>Конкуренты ещё не добавлены</div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Добавьте URL сайта конкурента, чтобы увидеть сравнительный анализ</div>
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}>
+            <Users size={48} />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Конкуренты ещё не добавлены</div>
+          <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
+            Добавьте URL сайта конкурента, чтобы увидеть сравнительный анализ
+          </div>
+          <button onClick={() => setShowAdd(true)} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #3b82f640" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Users size={16} /> Добавить конкурента
+            </span>
+          </button>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
