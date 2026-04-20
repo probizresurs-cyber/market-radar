@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { RadarChart } from "@/components/ui/RadarChart";
-import { Scale, Search, Calendar, Zap, Briefcase, Map as MapIcon, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag } from "lucide-react";
+import { Scale, Search, Calendar, Zap, Briefcase, Map as MapIcon, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag, Activity, Clock } from "lucide-react";
 
 export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
   const [aiInsights, setAiInsights] = useState<null | { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] }>(null);
@@ -58,9 +58,50 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
   const getMax = (row: typeof rows[number]) => Math.max(...allCols.map(e => getCellValue(e, row)));
   const getMin = (row: typeof rows[number]) => Math.min(...allCols.map(e => getCellValue(e, row)));
 
+  // ── Monitoring meta for compare view ──────────────────────────────────────
+  const allAnalyzed = [myCompany, ...competitors]
+    .map(c => c.analyzedAt ? new Date(c.analyzedAt).getTime() : null)
+    .filter(Boolean) as number[];
+  const oldestMs = allAnalyzed.length ? Math.min(...allAnalyzed) : null;
+  const compAgeDays = oldestMs ? Math.floor((Date.now() - oldestMs) / 86_400_000) : null;
+  const compNextDays = compAgeDays !== null ? Math.max(0, 30 - compAgeDays) : null;
+  const compStale = compAgeDays !== null && compAgeDays >= 30;
+
   return (
     <div style={{ maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 20px", color: "var(--foreground)" }}>Сравнение</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 12px", color: "var(--foreground)" }}>Сравнение</h1>
+
+      {/* Monitoring status banner */}
+      {compAgeDays !== null && (
+        <div style={{
+          background: "var(--card)", border: `1px solid ${compStale ? "var(--destructive)44" : "var(--border)"}`,
+          borderRadius: 12, padding: "12px 16px", marginBottom: 18, boxShadow: "var(--shadow)",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <div style={{ position: "relative", width: 8, height: 8, flexShrink: 0 }}>
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%",
+              background: compStale ? "var(--destructive)" : "#22c55e", opacity: 0.3,
+              animation: compStale ? "none" : "monPulse 2s ease-in-out infinite" }} />
+            <span style={{ position: "absolute", inset: 1.5, borderRadius: "50%",
+              background: compStale ? "var(--destructive)" : "#22c55e" }} />
+          </div>
+          <Activity size={13} color={compStale ? "var(--destructive)" : "#22c55e"} />
+          <div style={{ flex: 1, fontSize: 12, color: "var(--foreground-secondary)" }}>
+            <span style={{ fontWeight: 700, color: "var(--foreground)" }}>
+              {compStale ? "Данные конкурентов устарели" : "Мониторинг конкурентов активен"}
+            </span>
+            {" · "}
+            {competitors.length + 1} {competitors.length === 0 ? "компания" : competitors.length < 4 ? "компании" : "компаний"} отслеживается
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted-foreground)", flexShrink: 0 }}>
+            <Clock size={11} />
+            {compAgeDays === 0 ? "сегодня" : `${compAgeDays} дн. назад`}
+            {!compStale && compNextDays !== null && (
+              <span style={{ color: "#22c55e", fontWeight: 600 }}>· через {compNextDays} дн.</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {competitors.length === 0 ? (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
@@ -77,11 +118,24 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                   <th style={{ textAlign: "left", padding: "14px 16px", borderBottom: `2px solid var(--border)`, color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", position: "sticky", left: 0, background: "var(--card)", minWidth: 120 }}>
                     МЕТРИКА
                   </th>
-                  {allCols.map((entity, i) => (
-                    <th key={i} style={{ textAlign: "center", padding: "14px 12px", borderBottom: `2px solid var(--border)`, fontWeight: 600, fontSize: 12, color: i === 0 ? "var(--primary)" : "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent", minWidth: 120 }}>
-                      {i === 0 ? "Вы" : entity.company.name.length > 18 ? entity.company.name.slice(0, 18) + "…" : entity.company.name}
-                    </th>
-                  ))}
+                  {allCols.map((entity, i) => {
+                    const entAge = entity.analyzedAt
+                      ? Math.floor((Date.now() - new Date(entity.analyzedAt).getTime()) / 86_400_000)
+                      : null;
+                    const entStale = entAge !== null && entAge >= 30;
+                    return (
+                      <th key={i} style={{ textAlign: "center", padding: "12px", borderBottom: `2px solid var(--border)`, fontWeight: 600, fontSize: 12, color: i === 0 ? "var(--primary)" : "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent", minWidth: 120 }}>
+                        <div>{i === 0 ? "Вы" : entity.company.name.length > 18 ? entity.company.name.slice(0, 18) + "…" : entity.company.name}</div>
+                        {entAge !== null && (
+                          <div style={{ fontSize: 10, fontWeight: 400, color: entStale ? "var(--destructive)" : "var(--muted-foreground)", marginTop: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                            <Clock size={9} />
+                            {entAge === 0 ? "сегодня" : `${entAge} дн. назад`}
+                            {entStale && " ⚠"}
+                          </div>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>

@@ -10,7 +10,7 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
-import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart, Tag, RefreshCw, Search, AlertTriangle, Loader } from "lucide-react";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart, Tag, RefreshCw, Search, AlertTriangle, Loader, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
@@ -91,33 +91,84 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
           )}
         </p>
       </div>
-      {/* ───── Refresh indicator — monitoring, not one-shot audit ───── */}
+      {/* ───── Monitoring Status Bar ───── */}
       {data.analyzedAt && (() => {
+        const CYCLE = 30;
         const now = Date.now();
         const analyzedMs = new Date(data.analyzedAt).getTime();
         const ageDays = Math.floor((now - analyzedMs) / (24 * 60 * 60 * 1000));
-        const nextInDays = Math.max(0, 30 - ageDays);
-        const stale = ageDays > 30;
-        const color = stale ? "var(--warning)" : "var(--muted-foreground)";
+        const nextInDays = Math.max(0, CYCLE - ageDays);
+        const pct = Math.min(100, Math.round((ageDays / CYCLE) * 100));
+        const stale = ageDays >= CYCLE;
+
+        const status = stale ? "stale" : ageDays >= CYCLE * 0.7 ? "aging" : "fresh";
+        const accent = status === "fresh" ? "#22c55e" : status === "aging" ? "#f59e0b" : "var(--destructive)";
+        const nextDateStr = new Date(analyzedMs + CYCLE * 24 * 60 * 60 * 1000)
+          .toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+        const lastDateStr = new Date(analyzedMs)
+          .toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+        const ageLabelShort = ageDays === 0 ? "сегодня" : `${ageDays} дн. назад`;
+
         return (
           <div style={{
-            display: "flex", alignItems: "center", gap: 12, fontSize: 12,
-            color: "var(--muted-foreground)", marginBottom: 14,
-            padding: "6px 12px", background: "var(--muted)", borderRadius: 8, width: "fit-content",
+            background: "var(--card)",
+            border: `1px solid ${stale ? "var(--destructive)44" : "var(--border)"}`,
+            borderRadius: 14,
+            padding: "14px 18px",
+            marginBottom: 18,
+            boxShadow: "var(--shadow)",
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
-            <span>
-              Обновлялся{" "}
-              <span style={{ fontWeight: 600, color: "var(--foreground-secondary)" }}>
-                {ageDays === 0 ? "сегодня" : `${ageDays} ${ageDays === 1 ? "день" : ageDays < 5 ? "дня" : "дней"} назад`}
+            {/* Top row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              {/* Pulsing dot */}
+              <div style={{ position: "relative", width: 10, height: 10, flexShrink: 0 }}>
+                <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: accent, opacity: 0.35,
+                  animation: stale ? "none" : "monPulse 2s ease-in-out infinite" }} />
+                <span style={{ position: "absolute", inset: 2, borderRadius: "50%", background: accent }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Activity size={14} color={accent} />
+                  {stale ? "Данные устарели — нужен новый анализ" : "Мониторинг активен"}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
+                  Score, конкуренты и бенчмарки обновляются каждые {CYCLE} дней автоматически
+                </div>
+              </div>
+
+              {/* Quick stats chips */}
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20,
+                  background: "var(--muted)", fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)" }}>
+                  <Clock size={11} />
+                  {ageLabelShort}
+                </div>
+                {!stale && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20,
+                    background: `color-mix(in srgb, ${accent} 14%, transparent)`,
+                    fontSize: 11, fontWeight: 600, color: accent }}>
+                    <CalendarCheck size={11} />
+                    через {nextInDays} дн.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Timeline bar */}
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ height: 6, borderRadius: 999, background: "var(--muted)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999, transition: "width 0.4s" }} />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--muted-foreground)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Zap size={9} color={accent} /> Анализ: {lastDateStr}</span>
+              <span style={{ fontWeight: 600, color: stale ? "var(--destructive)" : "var(--foreground-secondary)" }}>
+                {stale ? "Обновите сейчас" : `Обновление: ~${nextDateStr}`}
               </span>
-            </span>
-            <span style={{ opacity: 0.4 }}>·</span>
-            <span>
-              {stale
-                ? "Данные устарели — запустите новый анализ"
-                : `Следующее обновление через ${nextInDays} ${nextInDays === 1 ? "день" : nextInDays < 5 ? "дня" : "дней"}`}
-            </span>
+            </div>
+
+            {/* CSS keyframe for pulse */}
+            <style>{`@keyframes monPulse { 0%,100%{transform:scale(1);opacity:.35} 50%{transform:scale(2.2);opacity:0} }`}</style>
           </div>
         );
       })()}
