@@ -98,10 +98,7 @@ export interface PromoCode {
 // ─── Referral commission scales ──────────────────────────────────────────────
 
 export const REFERRAL_SCALES = [
-  { minClients: 1,  maxClients: 2,  rate: 10 },
-  { minClients: 3,  maxClients: 9,  rate: 15 },
-  { minClients: 10, maxClients: 29, rate: 18 },
-  { minClients: 30, maxClients: Infinity, rate: 20 },
+  { minClients: 0, maxClients: Infinity, rate: 20 },
 ];
 
 export const INTEGRATOR_SCALES = [

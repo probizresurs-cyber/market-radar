@@ -126,7 +126,7 @@ export default function PartnerDashboard() {
         <main style={{ ...S.main, maxWidth: 600 }}>
           <div style={{ ...S.h1, textAlign: "center", marginTop: 40 }}>Партнёрская программа</div>
           <div style={{ textAlign: "center", color: "#94a3b8", marginBottom: 32 }}>
-            Зарабатывайте от 10% до 50% с каждого платежа привлечённого клиента
+            Зарабатывайте 20% с каждого платежа привлечённого клиента
           </div>
 
           <div style={S.card}>
@@ -135,7 +135,7 @@ export default function PartnerDashboard() {
             <div style={{ marginBottom: 16 }}>
               <label style={S.label}>Тип партнёрства</label>
               <select style={S.select} value={regType} onChange={e => setRegType(e.target.value as PartnerType)}>
-                <option value="referral">Реферальный партнёр (10-20%)</option>
+                <option value="referral">Реферальный партнёр (20%)</option>
                 <option value="integrator">Интегратор (25-50%)</option>
               </select>
             </div>

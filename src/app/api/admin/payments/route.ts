@@ -88,7 +88,7 @@ export async function POST(req: Request) {
   );
   const partnerId = pcRows.length > 0 ? pcRows[0].partner_id : null;
 
-  // Per document: -20% referral discount for all payments from referred clients
+  // Per document: -10% referral discount for all payments from referred clients
   // Apply automatically when user was attributed via referral link
   let finalAmount = Math.round(Number(amount));
   let referralDiscountApplied = false;
@@ -99,15 +99,15 @@ export async function POST(req: Request) {
       [partnerId]
     );
     if (partnerTypeRows.length > 0 && partnerTypeRows[0].type === "referral") {
-      // -20% discount on the payment
-      finalAmount = Math.round(finalAmount * 0.80);
+      // -10% discount on the payment
+      finalAmount = Math.round(finalAmount * 0.90);
       referralDiscountApplied = true;
     }
   }
 
   const paymentMetadata = {
     ...(metadata || {}),
-    ...(referralDiscountApplied ? { referral_discount: 20, original_amount: amount } : {}),
+    ...(referralDiscountApplied ? { referral_discount: 10, original_amount: amount } : {}),
   };
 
   await query(

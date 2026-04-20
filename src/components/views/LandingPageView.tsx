@@ -323,15 +323,15 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <div style={{ position: "relative", zIndex: 1 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 14 }}>ПАРТНЁРСКАЯ ПРОГРАММА</div>
             <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.02em" }}>
-              До <span style={{ color: accent }}>20%</span> с каждого клиента
+              <span style={{ color: accent }}>20%</span> с каждого платежа клиента
             </h2>
             <p style={{ fontSize: 15, color: muted, maxWidth: 520, margin: "0 auto 32px", lineHeight: 1.65 }}>
               Приводите клиентов и зарабатывайте комиссию с каждой их оплаты.
-              Ставка растёт по мере увеличения базы клиентов — до 20% для рефералов, до 50% для интеграторов.
+              Фиксированная ставка 20% для рефералов, до 50% для интеграторов. Клиент получает скидку 10% на все оплаты.
             </p>
             <div style={{ display: "flex", gap: 24, justifyContent: "center", marginBottom: 32, flexWrap: "wrap" }}>
               {[
-                { label: "Реферал", rates: "10% → 20%", desc: "По числу клиентов" },
+                { label: "Реферал", rates: "20%", desc: "Фиксированная ставка" },
                 { label: "Интегратор", rates: "25% → 50%", desc: "Агентства и партнёры" },
                 { label: "Выплата от", rates: "3 000 ₽", desc: "Ежемесячно" },
               ].map(({ label, rates, desc }) => (
