@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono, Playfair_Display, Montserrat, Nunito, Merriweather } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -13,6 +13,35 @@ const inter = Inter({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Presentation fonts — preloaded so slides render with real typography
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "700", "900"],
+  display: "swap",
+});
+
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "600", "700", "800", "900"],
+  display: "swap",
+});
+
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "600", "700", "800"],
+  display: "swap",
+});
+
+const merriweather = Merriweather({
+  variable: "--font-merriweather",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "700", "900"],
   display: "swap",
 });
 
@@ -39,7 +68,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} ${playfair.variable} ${montserrat.variable} ${nunito.variable} ${merriweather.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

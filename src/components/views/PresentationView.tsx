@@ -27,11 +27,11 @@ interface PresentationSlide {
 }
 
 const PRESET_STYLES: PresentationStyle[] = [
-  { id: "minimalist", name: "Минимализм", colors: ["#1a1a2e", "#f5f5f5", "#6366f1", "#ffffff", "#1a1a2e"], fontHeader: "Inter", fontBody: "Inter", mood: "Чистый, воздушный, элегантный" },
-  { id: "corporate", name: "Корпоративный", colors: ["#0f2b46", "#c7985e", "#2563eb", "#f8f9fc", "#1e293b"], fontHeader: "Georgia", fontBody: "Calibri", mood: "Надёжный, солидный, деловой" },
-  { id: "bright", name: "Яркий", colors: ["#7c3aed", "#f59e0b", "#10b981", "#ffffff", "#18181b"], fontHeader: "Montserrat", fontBody: "Open Sans", mood: "Энергичный, современный, динамичный" },
-  { id: "warm", name: "Тёплый", colors: ["#92400e", "#d97706", "#b45309", "#fffbeb", "#422006"], fontHeader: "Merriweather", fontBody: "Source Sans Pro", mood: "Уютный, натуральный, человечный" },
-  { id: "dark", name: "Премиум", colors: ["#0a0a0a", "#a855f7", "#22d3ee", "#111111", "#f1f5f9"], fontHeader: "Playfair Display", fontBody: "Raleway", mood: "Элитный, технологичный, стильный" },
+  { id: "minimalist", name: "Минимализм", colors: ["#1a1a2e", "#6366f1", "#6366f1", "#ffffff", "#1a1a2e"], fontHeader: "Inter", fontBody: "Inter", mood: "Чистый, воздушный, элегантный" },
+  { id: "corporate", name: "Корпоративный", colors: ["#0f2b46", "#c7985e", "#2563eb", "#f8f9fc", "#1e293b"], fontHeader: "Georgia", fontBody: "Inter", mood: "Надёжный, солидный, деловой" },
+  { id: "bright", name: "Яркий", colors: ["#7c3aed", "#f59e0b", "#10b981", "#ffffff", "#18181b"], fontHeader: "Montserrat", fontBody: "Montserrat", mood: "Энергичный, современный, динамичный" },
+  { id: "warm", name: "Тёплый", colors: ["#92400e", "#d97706", "#b45309", "#fffbeb", "#422006"], fontHeader: "Merriweather", fontBody: "Inter", mood: "Уютный, натуральный, человечный" },
+  { id: "dark", name: "Премиум", colors: ["#18181b", "#a855f7", "#22d3ee", "#111111", "#f1f5f9"], fontHeader: "Playfair Display", fontBody: "Inter", mood: "Элитный, технологичный, стильный" },
   { id: "fresh", name: "Свежий", colors: ["#059669", "#34d399", "#06b6d4", "#f0fdf4", "#064e3b"], fontHeader: "Nunito", fontBody: "Nunito", mood: "Экологичный, лёгкий, оптимистичный" },
 ];
 
@@ -319,333 +319,464 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     const fontH = sty.fontHeader || brandBook.fontHeader || "Georgia";
     const fontB = sty.fontBody || brandBook.fontBody || "Inter";
 
-    const darkenHex = (hex: string, amt: number) => {
-      const h = hex.replace("#", "");
-      const r = Math.round(parseInt(h.slice(0,2),16)*(1-amt));
-      const g = Math.round(parseInt(h.slice(2,4),16)*(1-amt));
-      const b2 = Math.round(parseInt(h.slice(4,6),16)*(1-amt));
-      return `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b2.toString(16).padStart(2,"0")}`;
+    // ── Color helpers ───────────────────────────────────────
+    const hexToRgb = (hex: string) => {
+      const h = (hex || "#6366f1").replace("#", "").padEnd(6, "0");
+      return { r: parseInt(h.slice(0,2),16)||0, g: parseInt(h.slice(2,4),16)||0, b: parseInt(h.slice(4,6),16)||0 };
     };
-    const lightenHex = (hex: string, amt: number) => {
-      const h = hex.replace("#", "");
-      const r = Math.min(255, Math.round(parseInt(h.slice(0,2),16)+(255-parseInt(h.slice(0,2),16))*amt));
-      const g = Math.min(255, Math.round(parseInt(h.slice(2,4),16)+(255-parseInt(h.slice(2,4),16))*amt));
-      const b2 = Math.min(255, Math.round(parseInt(h.slice(4,6),16)+(255-parseInt(h.slice(4,6),16))*amt));
-      return `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b2.toString(16).padStart(2,"0")}`;
+    const rgba = (hex: string, a: number) => { const { r, g, b } = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+    const darken = (hex: string, amt: number) => {
+      const { r, g, b } = hexToRgb(hex);
+      return `#${[r,g,b].map(v => Math.max(0,Math.round(v*(1-amt))).toString(16).padStart(2,"0")).join("")}`;
     };
-    const darkPrimary = darkenHex(primary, 0.28);
-    const lightPrimary = lightenHex(primary, 0.92);
-    const accentColors = [primary, secondary, "#f59e0b", "#10b981", "#e11d48", "#0ea5e9"];
+    const lighten = (hex: string, amt: number) => {
+      const { r, g, b } = hexToRgb(hex);
+      return `#${[r,g,b].map(v => Math.min(255,Math.round(v+(255-v)*amt)).toString(16).padStart(2,"0")).join("")}`;
+    };
 
-    const slideBase: React.CSSProperties = {
-      width: "100%", aspectRatio: "16/9", borderRadius: 14, overflow: "hidden",
-      position: "relative", boxShadow: "0 12px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1)",
+    const dp = darken(primary, 0.32);
+    const lp = lighten(primary, 0.93);
+    const accents = [primary, secondary, "#f59e0b", "#10b981", "#e11d48", "#0ea5e9"];
+
+    const base: React.CSSProperties = {
+      width: "100%", aspectRatio: "16/9", borderRadius: 16, overflow: "hidden",
+      position: "relative",
+      boxShadow: "0 24px 64px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.12)",
       fontFamily: `'${fontB}', system-ui, sans-serif`,
     };
-    const numTag = (dark: boolean) => (
-      <div style={{ position: "absolute", bottom: 14, right: 18, fontSize: 10, fontWeight: 700,
-        color: dark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.15)", letterSpacing: 1.5 }}>
-        {String(idx + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+
+    // Dot grid pattern (subtle texture)
+    const dotGrid = (opacity = 0.05, size = 24) =>
+      `radial-gradient(circle, rgba(255,255,255,${opacity}) 1px, transparent 1px)`;
+    const dotGridStyle = (opacity?: number, size?: number): React.CSSProperties => ({
+      position: "absolute", inset: 0, pointerEvents: "none",
+      backgroundImage: dotGrid(opacity, size),
+      backgroundSize: `${size ?? 24}px ${size ?? 24}px`,
+    });
+
+    // Slide counter
+    const pg = (light: boolean) => (
+      <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 10,
+        fontWeight: 700, letterSpacing: 2, color: light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.14)" }}>
+        {String(idx+1).padStart(2,"0")} / {String(total).padStart(2,"0")}
       </div>
     );
 
-    // ── COVER ─────────────────────────────────────────────────
+    // ── COVER ─────────────────────────────────────────────────────────────
     if (type === "cover") {
       return (
-        <div key={idx} style={{ ...slideBase, background: `linear-gradient(135deg, ${darkPrimary} 0%, ${primary} 55%, ${lightenHex(primary, 0.15)} 100%)`, display: "flex", alignItems: "stretch" }}>
-          {/* Mesh/noise overlay */}
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 80% 20%, ${lightenHex(secondary, 0.1)}44 0%, transparent 55%), radial-gradient(circle at 10% 80%, ${secondary}22 0%, transparent 45%)`, pointerEvents: "none" }} />
-          {/* Left: narrow accent bar */}
-          <div style={{ width: "38%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "32px 28px 26px", position: "relative", zIndex: 2 }}>
-            {brandBook.logoDataUrl
-              ? <img src={brandBook.logoDataUrl} alt="logo" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 10, background: "rgba(255,255,255,0.12)", padding: 4 }} />
-              : <div style={{ display: "flex", gap: 6 }}><div style={{ width: 28, height: 4, borderRadius: 2, background: secondary }} /><div style={{ width: 10, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.25)" }} /></div>
-            }
+        <div key={idx} style={{ ...base,
+          background: `linear-gradient(135deg, ${dp} 0%, ${primary} 58%, ${lighten(primary,0.14)} 100%)`,
+          display: "flex" }}>
+          {/* Ambient orbs */}
+          <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
+            <div style={{ position:"absolute", top:"-35%", right:"-8%", width:"58%", paddingBottom:"58%",
+              borderRadius:"50%", background: rgba(secondary, 0.18), filter:"blur(70px)" }} />
+            <div style={{ position:"absolute", bottom:"-25%", left:"15%", width:"40%", paddingBottom:"40%",
+              borderRadius:"50%", background: rgba(secondary, 0.09), filter:"blur(50px)" }} />
+            <div style={dotGridStyle(0.045, 26)} />
+            {/* Decorative rings */}
+            <div style={{ position:"absolute", right:"-10%", top:"-20%", width:"55%", paddingBottom:"55%",
+              borderRadius:"50%", border:"1px solid rgba(255,255,255,0.06)" }} />
+            <div style={{ position:"absolute", right:"-2%", top:"-8%", width:"36%", paddingBottom:"36%",
+              borderRadius:"50%", border:"1px solid rgba(255,255,255,0.04)" }} />
+          </div>
+
+          {/* Left accent stripe */}
+          <div style={{ width:7, flexShrink:0,
+            background:`linear-gradient(180deg,${secondary},${rgba(secondary,0.25)})` }} />
+
+          {/* Content */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column",
+            justifyContent:"space-between", padding:"34px 48px 28px 34px", position:"relative", zIndex:2 }}>
+            {/* Logo + brand name */}
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              {brandBook.logoDataUrl
+                ? <img src={brandBook.logoDataUrl} alt="logo" style={{ width:38, height:38, objectFit:"contain",
+                    borderRadius:9, background:"rgba(255,255,255,0.12)", padding:4 }} />
+                : <div style={{ width:38, height:38, borderRadius:9, background:"rgba(255,255,255,0.12)",
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <div style={{ width:18, height:18, borderRadius:5, background:secondary }} />
+                  </div>
+              }
+              <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.45)",
+                letterSpacing:2.5, textTransform:"uppercase" }}>
+                {brandBook.brandName || myCompany?.company?.name || "Brand"}
+              </span>
+            </div>
+
+            {/* Main title block */}
             <div>
-              <div style={{ fontSize: 56, fontWeight: 900, color: "rgba(255,255,255,0.06)", lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{String(idx+1).padStart(2,"0")}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 4 }}>{brandBook.brandName || "MarketRadar"}</div>
+              {slide.subtitle && (
+                <div style={{ display:"inline-flex", alignItems:"center", gap:9, marginBottom:16 }}>
+                  <div style={{ width:24, height:2.5, background:secondary, borderRadius:2 }} />
+                  <span style={{ fontSize:11, fontWeight:700, color:secondary,
+                    letterSpacing:2.5, textTransform:"uppercase" }}>{slide.subtitle}</span>
+                </div>
+              )}
+              <h1 style={{ fontSize:42, fontWeight:900, color:"#ffffff", margin:"0 0 16px",
+                lineHeight:1.08, fontFamily:`'${fontH}', Georgia, serif`,
+                letterSpacing:"-0.5px", textShadow:"0 2px 24px rgba(0,0,0,0.25)", maxWidth:520 }}>
+                {slide.title}
+              </h1>
+              {slide.content && (
+                <p style={{ fontSize:13.5, color:"rgba(255,255,255,0.62)",
+                  margin:"0 0 22px", lineHeight:1.72, maxWidth:430 }}>{slide.content}</p>
+              )}
+              {(slide.bullets||[]).length > 0 && (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {(slide.bullets||[]).slice(0,5).map((b,bi) => (
+                    <span key={bi} style={{ padding:"5px 14px", borderRadius:20,
+                      background:"rgba(255,255,255,0.1)", color:"rgba(255,255,255,0.9)",
+                      fontSize:11, fontWeight:600, border:"1px solid rgba(255,255,255,0.2)" }}>{b}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Year */}
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.22)", letterSpacing:1.5 }}>
+              {new Date().getFullYear()}
             </div>
           </div>
-          {/* Right: content */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "36px 44px 36px 8px", position: "relative", zIndex: 2 }}>
-            {slide.subtitle && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
-                <div style={{ width: 20, height: 2, background: secondary, borderRadius: 1 }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: secondary, letterSpacing: 2, textTransform: "uppercase" }}>{slide.subtitle}</span>
-              </div>
-            )}
-            <h1 style={{ fontSize: 30, fontWeight: 900, color: "#fff", margin: "0 0 16px", lineHeight: 1.15, fontFamily: `'${fontH}', serif`, letterSpacing: "-0.5px" }}>{slide.title}</h1>
-            {slide.content && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: 0, lineHeight: 1.7, maxWidth: 320 }}>{slide.content}</p>}
-            {/* Bottom chips */}
-            {(slide.bullets||[]).length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 20 }}>
-                {(slide.bullets||[]).map((b,bi) => <span key={bi} style={{ padding: "4px 12px", borderRadius: 12, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 10, fontWeight: 600, border: "1px solid rgba(255,255,255,0.2)" }}>{b}</span>)}
-              </div>
-            )}
-          </div>
-          {numTag(true)}
+          {pg(true)}
         </div>
       );
     }
 
-    // ── CTA ───────────────────────────────────────────────────
+    // ── CTA ───────────────────────────────────────────────────────────────
     if (type === "cta") {
       return (
-        <div key={idx} style={{ ...slideBase, background: `linear-gradient(140deg, ${darkPrimary} 0%, ${primary} 50%, ${lightenHex(primary,0.12)} 100%)`,
-          display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 20% 50%, ${secondary}18 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${lightenHex(primary,0.3)}22 0%, transparent 50%)`, pointerEvents: "none" }} />
-          {/* Large circle decoration */}
-          <div style={{ position: "absolute", right: "-8%", top: "-20%", width: "55%", paddingBottom: "55%", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.05)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", right: "4%", top: "5%", width: "35%", paddingBottom: "35%", borderRadius: "50%", background: "rgba(255,255,255,0.03)", pointerEvents: "none" }} />
-          <div style={{ position: "relative", zIndex: 2, textAlign: "center", maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 3, borderRadius: 2, background: secondary }} />
-            <h2 style={{ fontSize: 34, fontWeight: 900, color: "#fff", margin: 0, lineHeight: 1.1, fontFamily: `'${fontH}', serif`, letterSpacing: "-0.5px" }}>{slide.title}</h2>
-            {slide.subtitle && <p style={{ fontSize: 16, color: "rgba(255,255,255,0.75)", margin: 0, fontWeight: 500, lineHeight: 1.4 }}>{slide.subtitle}</p>}
-            {slide.content && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", margin: 0, lineHeight: 1.65, maxWidth: 380 }}>{slide.content}</p>}
-            {(slide.bullets||[]).length > 0 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                {(slide.bullets||[]).map((b,bi) => <span key={bi} style={{ padding: "7px 18px", borderRadius: 22, background: "rgba(255,255,255,0.13)", color: "#fff", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.22)" }}>{b}</span>)}
-              </div>
-            )}
+        <div key={idx} style={{ ...base,
+          background:`linear-gradient(140deg,${dp} 0%,${primary} 55%,${lighten(primary,0.1)} 100%)`,
+          display:"flex", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
+          <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
+            <div style={{ position:"absolute", top:"-30%", left:"-10%", width:"60%", paddingBottom:"60%",
+              borderRadius:"50%", background:rgba(secondary,0.12), filter:"blur(70px)" }} />
+            <div style={{ position:"absolute", bottom:"-20%", right:"10%", width:"45%", paddingBottom:"45%",
+              borderRadius:"50%", background:rgba(secondary,0.08), filter:"blur(50px)" }} />
+            <div style={dotGridStyle(0.04, 26)} />
           </div>
-          {numTag(true)}
-        </div>
-      );
-    }
-
-    // ── STATS ────────────────────────────────────────────────
-    if (type === "stats") {
-      const stats = slide.stats || [];
-      // Build CSS bar chart data
-      const numericStats = stats.map(s => ({ ...s, num: parseFloat(s.value.replace(/[^0-9.]/g, "")) || 0 }));
-      const maxVal = Math.max(...numericStats.map(s => s.num), 1);
-      const hasBars = numericStats.some(s => s.num > 0);
-      return (
-        <div key={idx} style={{ ...slideBase, display: "flex", background: bg || "#f8f9fc" }}>
-          {/* Left accent panel */}
-          <div style={{ width: "30%", background: `linear-gradient(180deg, ${primary} 0%, ${darkPrimary} 100%)`, padding: "28px 22px 24px", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", bottom: "-20%", left: "-20%", width: "100%", paddingBottom: "100%", borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
-            <div>
-              <div style={{ width: 24, height: 3, borderRadius: 2, background: secondary, marginBottom: 14 }} />
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.25, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-              {slide.subtitle && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", margin: "8px 0 0", lineHeight: 1.5 }}>{slide.subtitle}</p>}
-            </div>
-            {/* Mini bar chart */}
-            {hasBars && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {numericStats.slice(0,4).map((s,si) => (
-                  <div key={si}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{s.value}</span>
-                    </div>
-                    <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,0.12)" }}>
-                      <div style={{ height: "100%", width: `${(s.num/maxVal)*100}%`, background: accentColors[si % accentColors.length], borderRadius: 3, minWidth: 4 }} />
-                    </div>
-                  </div>
+          <div style={{ position:"relative", zIndex:2, maxWidth:"72%",
+            display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}>
+            <div style={{ width:44, height:3.5, borderRadius:2, background:secondary }} />
+            <h2 style={{ fontSize:40, fontWeight:900, color:"#fff", margin:0, lineHeight:1.08,
+              fontFamily:`'${fontH}', Georgia, serif`, letterSpacing:"-0.5px",
+              textShadow:"0 2px 24px rgba(0,0,0,0.25)" }}>{slide.title}</h2>
+            {slide.subtitle && (
+              <p style={{ fontSize:15, color:"rgba(255,255,255,0.7)", margin:0,
+                lineHeight:1.55, fontWeight:500 }}>{slide.subtitle}</p>
+            )}
+            {slide.content && (
+              <p style={{ fontSize:12, color:"rgba(255,255,255,0.48)", margin:0,
+                lineHeight:1.7, maxWidth:400 }}>{slide.content}</p>
+            )}
+            {(slide.bullets||[]).length > 0 && (
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap", justifyContent:"center", marginTop:4 }}>
+                {(slide.bullets||[]).map((b,bi) => (
+                  <span key={bi} style={{ padding:"9px 22px", borderRadius:26,
+                    background: bi===0 ? secondary : "rgba(255,255,255,0.12)",
+                    color:"#fff", fontSize:12, fontWeight:700,
+                    border: bi===0 ? "none" : "1px solid rgba(255,255,255,0.22)" }}>{b}</span>
                 ))}
               </div>
             )}
-            <div style={{ fontSize: 36, fontWeight: 900, color: "rgba(255,255,255,0.06)", lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{String(idx+1).padStart(2,"0")}</div>
           </div>
-          {/* Right: big number cards */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "22px 22px 18px" }}>
-            {slide.content && <p style={{ fontSize: 11, color: "#666", margin: "0 0 12px", lineHeight: 1.5, paddingBottom: 10, borderBottom: `1px solid ${primary}18` }}>{slide.content}</p>}
-            <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, 1fr)`, gap: 12, alignContent: "stretch" }}>
-              {stats.map((s, si) => {
-                const col = accentColors[si % accentColors.length];
-                return (
-                  <div key={si} style={{ background: "#fff", borderRadius: 12, padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
-                    boxShadow: "0 2px 14px rgba(0,0,0,0.06)", border: `1px solid ${col}20`, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${col}, ${lightenHex(col,0.3)})` }} />
-                    <div style={{ fontSize: 36, fontWeight: 900, color: col, lineHeight: 1, fontFamily: `'${fontH}', serif`, letterSpacing: "-1px" }}>{s.value}</div>
-                    <div style={{ fontSize: 10, color: "#777", textAlign: "center", lineHeight: 1.4, maxWidth: 100 }}>{s.label}</div>
-                    {/* Tiny sparkline bar */}
-                    {numericStats[si].num > 0 && (
-                      <div style={{ width: "60%", height: 3, borderRadius: 2, background: "#f0f0f0" }}>
-                        <div style={{ height: "100%", width: `${(numericStats[si].num/maxVal)*100}%`, background: col, borderRadius: 2 }} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {numTag(false)}
+          {pg(true)}
         </div>
       );
     }
 
-    // ── QUOTE ────────────────────────────────────────────────
-    if (type === "quote") {
+    // ── STATS ─────────────────────────────────────────────────────────────
+    if (type === "stats") {
+      const stats = slide.stats || [];
+      const nums = stats.map(s => ({ ...s, n: parseFloat(s.value.replace(/[^0-9.]/g,""))||0 }));
+      const maxN = Math.max(...nums.map(s => s.n), 1);
       return (
-        <div key={idx} style={{ ...slideBase, background: `linear-gradient(150deg, ${darkPrimary} 0%, ${primary} 60%, ${lightenHex(primary,0.1)} 100%)`, display: "flex" }}>
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 90% 10%, ${secondary}20 0%, transparent 50%)`, pointerEvents: "none" }} />
-          {/* Left: huge quote mark */}
-          <div style={{ width: "22%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ fontSize: 140, color: "rgba(255,255,255,0.07)", fontFamily: "Georgia,serif", fontWeight: 900, lineHeight: 1, userSelect: "none" }}>&ldquo;</div>
-          </div>
-          {/* Right: content */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 50px 40px 0", position: "relative", zIndex: 2 }}>
-            <div style={{ width: 32, height: 3, background: secondary, borderRadius: 2, marginBottom: 20 }} />
-            {slide.quote && (
-              <p style={{ fontSize: 19, fontStyle: "italic", color: "rgba(255,255,255,0.93)", lineHeight: 1.65, margin: "0 0 22px", fontFamily: `'${fontH}', serif`, fontWeight: 400 }}>
-                &ldquo;{slide.quote}&rdquo;
-              </p>
-            )}
-            {slide.content && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", margin: "0 0 12px", lineHeight: 1.5 }}>{slide.content}</p>}
-            <div style={{ fontSize: 11, fontWeight: 700, color: secondary, letterSpacing: 2, textTransform: "uppercase" }}>{slide.title}</div>
-          </div>
-          {numTag(true)}
-        </div>
-      );
-    }
-
-    // ── GRID (feature/service cards) ────────────────────────
-    if (type === "grid") {
-      const items = slide.items || (slide.bullets||[]).map(b => {
-        const [t, ...rest] = b.split(": ");
-        return { title: rest.length ? t : b, description: rest.join(": ") };
-      });
-      return (
-        <div key={idx} style={{ ...slideBase, display: "flex", flexDirection: "column", background: lightPrimary }}>
+        <div key={idx} style={{ ...base, display:"flex", flexDirection:"column", background:"#ffffff" }}>
+          {/* Top gradient accent */}
+          <div style={{ height:5, background:`linear-gradient(90deg,${primary},${secondary})`, flexShrink:0 }} />
           {/* Header */}
-          <div style={{ padding: "20px 28px 14px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            <div style={{ width: 4, height: 28, borderRadius: 2, background: primary }} />
+          <div style={{ padding:"18px 36px 12px", display:"flex", alignItems:"center",
+            gap:14, flexShrink:0, borderBottom:`1px solid ${rgba(primary,0.08)}` }}>
+            <div style={{ width:3.5, height:34, borderRadius:2, background:primary, flexShrink:0 }} />
             <div>
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: primary, margin: 0, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-              {slide.subtitle && <p style={{ fontSize: 11, color: "#666", margin: "2px 0 0" }}>{slide.subtitle}</p>}
+              <h3 style={{ fontSize:22, fontWeight:800, color:"#0f172a", margin:0,
+                fontFamily:`'${fontH}', Georgia, serif` }}>{slide.title}</h3>
+              {slide.subtitle && (
+                <p style={{ fontSize:11, color:"#94a3b8", margin:"3px 0 0", letterSpacing:0.3 }}>{slide.subtitle}</p>
+              )}
             </div>
           </div>
-          {slide.content && <p style={{ fontSize: 12, color: "#555", margin: "0 28px 10px", lineHeight: 1.5 }}>{slide.content}</p>}
-          {/* Cards grid */}
-          <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${Math.min(Math.max(items.length, 1), 3)}, 1fr)`, gap: 12, padding: "0 20px 18px", alignContent: "stretch" }}>
-            {items.slice(0,6).map((item, ii) => {
-              const col = accentColors[ii % accentColors.length];
+          {/* Cards */}
+          <div style={{ flex:1, display:"grid",
+            gridTemplateColumns:`repeat(${Math.min(stats.length||1,4)},1fr)`,
+            gap:12, padding:"14px 26px 18px" }}>
+            {stats.map((s,si) => {
+              const col = accents[si % accents.length];
               return (
-                <div key={ii} style={{ background: "#fff", borderRadius: 12, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 8,
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: `1px solid rgba(0,0,0,0.05)`, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 3, background: `linear-gradient(90deg, ${col}, ${lightenHex(col,0.4)})` }} />
-                  {/* Icon circle */}
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: col + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <div style={{ width: 10, height: 10, borderRadius: 3, background: col }} />
+                <div key={si} style={{ background:rgba(col,0.04), borderRadius:14,
+                  border:`1px solid ${rgba(col,0.14)}`, padding:"18px 14px 14px",
+                  display:"flex", flexDirection:"column",
+                  alignItems:"center", justifyContent:"center", gap:7,
+                  position:"relative", overflow:"hidden" }}>
+                  <div style={{ position:"absolute", top:0, left:0, right:0, height:4,
+                    background:`linear-gradient(90deg,${col},${lighten(col,0.35)})` }} />
+                  {/* Big number */}
+                  <div style={{ fontSize:54, fontWeight:900, color:col, lineHeight:1,
+                    fontFamily:`'${fontH}', Georgia, serif`, letterSpacing:"-2px" }}>{s.value}</div>
+                  {/* Mini progress bar */}
+                  <div style={{ width:"64%", height:3.5, borderRadius:2, background:rgba(col,0.14) }}>
+                    <div style={{ height:"100%", borderRadius:2, background:col, minWidth:6,
+                      width:`${nums[si].n > 0 ? (nums[si].n/maxN)*100 : 100}%` }} />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e", lineHeight: 1.3, fontFamily: `'${fontH}', serif` }}>{item.title}</div>
-                  {item.description && <div style={{ fontSize: 10, color: "#888", lineHeight: 1.55 }}>{item.description}</div>}
+                  <div style={{ fontSize:11, color:"#64748b", textAlign:"center",
+                    lineHeight:1.4, maxWidth:120 }}>{s.label}</div>
                 </div>
               );
             })}
           </div>
-          {numTag(false)}
+          {slide.content && (
+            <div style={{ padding:"0 26px 14px", fontSize:11, color:"#94a3b8", lineHeight:1.6 }}>{slide.content}</div>
+          )}
+          {pg(false)}
         </div>
       );
     }
 
-    // ── TWO-COLUMN ───────────────────────────────────────────
-    if (type === "two-column") {
-      const half = Math.ceil((slide.bullets || []).length / 2);
-      const leftBullets = (slide.bullets || []).slice(0, half);
-      const rightBullets = (slide.bullets || []).slice(half);
-      const leftContent = slide.leftContent || (leftBullets.length ? null : slide.content);
-      const rightContent = slide.rightContent || null;
+    // ── QUOTE ─────────────────────────────────────────────────────────────
+    if (type === "quote") {
       return (
-        <div key={idx} style={{ ...slideBase, display: "flex", background: "#fff" }}>
-          {/* Left col — colored */}
-          <div style={{ width: "48%", background: `linear-gradient(160deg, ${primary} 0%, ${darkPrimary} 100%)`, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "28px 26px 22px", flexShrink: 0, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", bottom: "-18%", right: "-18%", width: "80%", paddingBottom: "80%", borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
-            <div>
-              <div style={{ width: 28, height: 3, borderRadius: 2, background: secondary, marginBottom: 14 }} />
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: "0 0 10px", lineHeight: 1.25, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-              {slide.subtitle && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.5 }}>{slide.subtitle}</p>}
+        <div key={idx} style={{ ...base,
+          background:`linear-gradient(148deg,${dp} 0%,${darken(primary,0.14)} 100%)`,
+          display:"flex", alignItems:"center" }}>
+          <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
+            <div style={{ position:"absolute", top:"-20%", right:"-5%", width:"45%", paddingBottom:"45%",
+              borderRadius:"50%", background:rgba(secondary,0.12), filter:"blur(55px)" }} />
+            <div style={dotGridStyle(0.035, 24)} />
+          </div>
+          {/* Giant decorative quote */}
+          <div style={{ position:"absolute", top:"6%", left:"4%", fontSize:200, lineHeight:1,
+            fontFamily:"Georgia,serif", fontWeight:900, color:"rgba(255,255,255,0.05)",
+            userSelect:"none", pointerEvents:"none" }}>&ldquo;</div>
+          {/* Content */}
+          <div style={{ position:"relative", zIndex:2, flex:1,
+            padding:"40px 68px 40px 56px", display:"flex", flexDirection:"column",
+            justifyContent:"center", gap:20 }}>
+            <div style={{ width:44, height:3.5, background:secondary, borderRadius:2 }} />
+            {slide.quote && (
+              <p style={{ fontSize:20, fontStyle:"italic", color:"rgba(255,255,255,0.92)",
+                lineHeight:1.68, margin:0, fontFamily:`'${fontH}', Georgia, serif`, fontWeight:400 }}>
+                &ldquo;{slide.quote}&rdquo;
+              </p>
+            )}
+            {slide.content && (
+              <p style={{ fontSize:12, color:"rgba(255,255,255,0.42)", margin:0, lineHeight:1.65 }}>{slide.content}</p>
+            )}
+            <div style={{ display:"inline-flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:28, height:1.5, background:secondary, opacity:0.55 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:secondary,
+                letterSpacing:2.5, textTransform:"uppercase" }}>{slide.title}</span>
             </div>
-            {leftContent ? (
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.65, zIndex: 1 }}>{leftContent}</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, zIndex: 1 }}>
-                {leftBullets.map((b,bi) => (
-                  <div key={bi} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, background: "rgba(255,255,255,0.15)", flexShrink: 0, marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: secondary }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", lineHeight: 1.5 }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{ fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.06)", lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{String(idx+1).padStart(2,"0")}</div>
           </div>
-          {/* Right col — white */}
-          <div style={{ flex: 1, background: lightPrimary, display: "flex", flexDirection: "column", justifyContent: "center", padding: "28px 24px" }}>
-            {rightContent ? (
-              <p style={{ fontSize: 12, color: "#444", lineHeight: 1.7, marginBottom: 14 }}>{rightContent}</p>
-            ) : null}
-            {rightBullets.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {rightBullets.map((b,bi) => (
-                  <div key={bi} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 12px", borderRadius: 8, background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                    <div style={{ width: 20, height: 20, borderRadius: 6, background: primary, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{bi+1}</div>
-                    <span style={{ fontSize: 11, color: "#333", lineHeight: 1.5 }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!rightContent && rightBullets.length === 0 && slide.content && (
-              <p style={{ fontSize: 12, color: "#555", lineHeight: 1.7 }}>{slide.content}</p>
-            )}
-          </div>
-          {numTag(false)}
+          {pg(true)}
         </div>
       );
     }
 
-    // ── BULLETS (default) — alternate layouts by even/odd ────
-    const isEven = idx % 2 === 0;
-    return (
-      <div key={idx} style={{ ...slideBase, display: "flex", background: isEven ? "#fff" : lightPrimary }}>
-        {/* Left sidebar */}
-        <div style={{ width: isEven ? "27%" : "30%", background: isEven ? `linear-gradient(180deg, ${primary} 0%, ${darkPrimary} 100%)` : `linear-gradient(180deg, ${darkPrimary} 0%, ${primary} 100%)`,
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-          padding: "26px 20px 18px", flexShrink: 0, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", bottom: "-15%", left: "-15%", width: "80%", paddingBottom: "80%", borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", top: "-10%", right: "-25%", width: "70%", paddingBottom: "70%", borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.06)", pointerEvents: "none" }} />
-          <div>
-            <div style={{ width: 26, height: 3, borderRadius: 2, background: secondary, marginBottom: 14 }} />
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, fontFamily: `'${fontH}', serif` }}>{slide.title}</h3>
-            {slide.subtitle && <p style={{ fontSize: 9.5, color: "rgba(255,255,255,0.5)", margin: "8px 0 0", lineHeight: 1.55 }}>{slide.subtitle}</p>}
+    // ── GRID ──────────────────────────────────────────────────────────────
+    if (type === "grid") {
+      const items = slide.items || (slide.bullets||[]).map(b => {
+        const ci = b.indexOf(": ");
+        return ci > 0 ? { title: b.slice(0,ci), description: b.slice(ci+2) } : { title: b, description: "" };
+      });
+      return (
+        <div key={idx} style={{ ...base, display:"flex", flexDirection:"column", background:lp }}>
+          <div style={{ height:5, background:`linear-gradient(90deg,${primary},${secondary})`, flexShrink:0 }} />
+          {/* Header */}
+          <div style={{ padding:"14px 28px 10px", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+              <div style={{ width:3.5, height:28, borderRadius:2, background:primary, flexShrink:0 }} />
+              <div>
+                <h3 style={{ fontSize:20, fontWeight:800, color:"#0f172a", margin:0,
+                  fontFamily:`'${fontH}', Georgia, serif` }}>{slide.title}</h3>
+                {slide.subtitle && <p style={{ fontSize:11, color:"#64748b", margin:"2px 0 0" }}>{slide.subtitle}</p>}
+              </div>
+            </div>
+            {slide.content && (
+              <p style={{ fontSize:12, color:"#64748b", margin:"8px 0 0 14px", lineHeight:1.55 }}>{slide.content}</p>
+            )}
           </div>
-          {/* Inline mini stats if present */}
+          {/* Cards */}
+          <div style={{ flex:1, display:"grid",
+            gridTemplateColumns:`repeat(${Math.min(Math.max(items.length,1),3)},1fr)`,
+            gap:10, padding:"8px 20px 18px" }}>
+            {items.slice(0,6).map((item,ii) => {
+              const col = accents[ii % accents.length];
+              return (
+                <div key={ii} style={{ background:"#fff", borderRadius:13,
+                  border:"1px solid rgba(0,0,0,0.055)",
+                  boxShadow:"0 2px 14px rgba(0,0,0,0.055)",
+                  padding:"14px 14px 12px",
+                  display:"flex", flexDirection:"column", gap:8,
+                  position:"relative", overflow:"hidden" }}>
+                  <div style={{ position:"absolute", top:0, left:0, right:0, height:3.5, background:col }} />
+                  {/* Icon */}
+                  <div style={{ width:34, height:34, borderRadius:10,
+                    background:rgba(col,0.12), display:"flex",
+                    alignItems:"center", justifyContent:"center" }}>
+                    <div style={{ width:13, height:13, borderRadius:4, background:col }} />
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#1e293b", lineHeight:1.3,
+                    fontFamily:`'${fontH}', serif` }}>{item.title}</div>
+                  {item.description && (
+                    <div style={{ fontSize:10.5, color:"#64748b", lineHeight:1.55 }}>{item.description}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {pg(false)}
+        </div>
+      );
+    }
+
+    // ── TWO-COLUMN ────────────────────────────────────────────────────────
+    if (type === "two-column") {
+      const half = Math.ceil((slide.bullets||[]).length / 2);
+      const leftB = (slide.bullets||[]).slice(0, half);
+      const rightB = (slide.bullets||[]).slice(half);
+      const leftTxt = slide.leftContent || null;
+      const rightTxt = slide.rightContent || null;
+      return (
+        <div key={idx} style={{ ...base, display:"flex", background:"#fff" }}>
+          {/* Left — gradient */}
+          <div style={{ width:"47%", flexShrink:0,
+            background:`linear-gradient(162deg,${primary} 0%,${dp} 100%)`,
+            display:"flex", flexDirection:"column", justifyContent:"space-between",
+            padding:"30px 28px 24px", position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"absolute", bottom:"-25%", right:"-20%", width:"80%",
+              paddingBottom:"80%", borderRadius:"50%", background:"rgba(255,255,255,0.04)" }} />
+            <div style={dotGridStyle(0.04, 20)} />
+            <div style={{ position:"relative", zIndex:2 }}>
+              <div style={{ width:30, height:3, background:secondary, borderRadius:2, marginBottom:16 }} />
+              <h3 style={{ fontSize:20, fontWeight:800, color:"#fff", margin:"0 0 8px",
+                lineHeight:1.2, fontFamily:`'${fontH}', Georgia, serif` }}>{slide.title}</h3>
+              {slide.subtitle && (
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.48)", margin:0, lineHeight:1.55 }}>{slide.subtitle}</p>
+              )}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, position:"relative", zIndex:2 }}>
+              {(leftTxt ? [leftTxt] : leftB).map((b,bi) => (
+                <div key={bi} style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+                  <div style={{ width:20, height:20, borderRadius:6, flexShrink:0, marginTop:1,
+                    background:"rgba(255,255,255,0.14)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:9, fontWeight:800, color:secondary }}>
+                    {leftTxt ? "→" : bi+1}
+                  </div>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.86)", lineHeight:1.55 }}>{b}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize:52, fontWeight:900, color:"rgba(255,255,255,0.05)",
+              lineHeight:1, fontFamily:`'${fontH}', serif`, position:"relative", zIndex:2 }}>
+              {String(idx+1).padStart(2,"0")}
+            </div>
+          </div>
+          {/* Right — light */}
+          <div style={{ flex:1, background:lp,
+            display:"flex", flexDirection:"column", justifyContent:"center", padding:"26px 24px" }}>
+            {rightTxt && (
+              <p style={{ fontSize:13, color:"#374151", lineHeight:1.72, marginBottom:14 }}>{rightTxt}</p>
+            )}
+            {rightB.length > 0 && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {rightB.map((b,bi) => (
+                  <div key={bi} style={{ display:"flex", alignItems:"center", gap:12,
+                    padding:"9px 14px", borderRadius:11, background:"#fff",
+                    boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
+                    border:"1px solid rgba(0,0,0,0.04)" }}>
+                    <div style={{ width:26, height:26, borderRadius:8, background:primary, flexShrink:0,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:10, fontWeight:800, color:"#fff" }}>{bi+1}</div>
+                    <span style={{ fontSize:12, color:"#1e293b", lineHeight:1.45, fontWeight:500 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!rightTxt && rightB.length===0 && slide.content && (
+              <p style={{ fontSize:13, color:"#374151", lineHeight:1.72 }}>{slide.content}</p>
+            )}
+          </div>
+          {pg(false)}
+        </div>
+      );
+    }
+
+    // ── BULLETS (default) ─────────────────────────────────────────────────
+    return (
+      <div key={idx} style={{ ...base, display:"flex", background:"#ffffff" }}>
+        {/* Left sidebar */}
+        <div style={{ width:"27%", flexShrink:0,
+          background:`linear-gradient(175deg,${primary} 0%,${darken(primary,0.26)} 100%)`,
+          display:"flex", flexDirection:"column", justifyContent:"space-between",
+          padding:"28px 22px 20px", position:"relative", overflow:"hidden" }}>
+          <div style={dotGridStyle(0.04, 20)} />
+          <div style={{ position:"absolute", bottom:"-22%", left:"-22%", width:"90%",
+            paddingBottom:"90%", borderRadius:"50%", background:"rgba(255,255,255,0.03)" }} />
+          <div style={{ position:"relative", zIndex:2 }}>
+            <div style={{ width:26, height:3, background:secondary, borderRadius:2, marginBottom:14 }} />
+            <h3 style={{ fontSize:17, fontWeight:800, color:"#fff", margin:0, lineHeight:1.3,
+              fontFamily:`'${fontH}', Georgia, serif` }}>{slide.title}</h3>
+            {slide.subtitle && (
+              <p style={{ fontSize:10, color:"rgba(255,255,255,0.48)", margin:"8px 0 0", lineHeight:1.55 }}>{slide.subtitle}</p>
+            )}
+          </div>
           {(slide.stats||[]).length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, position:"relative", zIndex:2 }}>
               {(slide.stats||[]).slice(0,3).map((s,si) => (
-                <div key={si} style={{ background: "rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.65)" }}>{s.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", fontFamily: `'${fontH}', serif` }}>{s.value}</span>
+                <div key={si} style={{ background:"rgba(255,255,255,0.1)", borderRadius:8,
+                  padding:"7px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:9, color:"rgba(255,255,255,0.58)" }}>{s.label}</span>
+                  <span style={{ fontSize:15, fontWeight:900, color:"#fff",
+                    fontFamily:`'${fontH}', serif` }}>{s.value}</span>
                 </div>
               ))}
             </div>
           )}
-          <div style={{ fontSize: 42, fontWeight: 900, color: "rgba(255,255,255,0.07)", lineHeight: 1, fontFamily: `'${fontH}', serif` }}>{String(idx+1).padStart(2,"0")}</div>
+          <div style={{ fontSize:50, fontWeight:900, color:"rgba(255,255,255,0.055)",
+            lineHeight:1, fontFamily:`'${fontH}', serif`, position:"relative", zIndex:2 }}>
+            {String(idx+1).padStart(2,"0")}
+          </div>
         </div>
         {/* Right content */}
-        <div style={{ flex: 1, padding: "22px 24px 18px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex:1, padding:"24px 28px 20px", display:"flex", flexDirection:"column" }}>
+          <div style={{ height:3.5, background:`linear-gradient(90deg,${primary},${rgba(primary,0)})`,
+            borderRadius:2, marginBottom:14 }} />
           {slide.content && (
-            <p style={{ fontSize: 12, color: "#555", margin: "0 0 12px", lineHeight: 1.65, paddingBottom: 10, borderBottom: `1.5px solid ${primary}14` }}>{slide.content}</p>
+            <p style={{ fontSize:12.5, color:"#475569", margin:"0 0 14px", lineHeight:1.72 }}>{slide.content}</p>
           )}
-          {(slide.bullets || []).length > 0 && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-              {(slide.bullets || []).map((b, bi) => (
-                <div key={bi} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 10px", borderRadius: 8,
-                  background: bi % 2 === 0 ? `${primary}08` : "transparent", transition: "background 0.15s" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 7, background: accentColors[bi % accentColors.length], flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" }}>
-                    {bi + 1}
+          {(slide.bullets||[]).length > 0 && (
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+              {(slide.bullets||[]).map((b,bi) => (
+                <div key={bi} style={{ display:"flex", alignItems:"flex-start", gap:12,
+                  padding:"8px 12px", borderRadius:10,
+                  background: bi%2===0 ? rgba(primary,0.042) : "transparent",
+                  border:`1px solid ${bi%2===0 ? rgba(primary,0.08) : "transparent"}` }}>
+                  <div style={{ width:26, height:26, borderRadius:9, flexShrink:0,
+                    background:accents[bi % accents.length],
+                    boxShadow:`0 3px 8px ${rgba(accents[bi % accents.length],0.38)}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:10, fontWeight:800, color:"#fff" }}>
+                    {bi+1}
                   </div>
-                  <span style={{ fontSize: 12, color: "#2a2a2a", lineHeight: 1.55 }}>{b}</span>
+                  <span style={{ fontSize:13, color:"#1e293b", lineHeight:1.55, fontWeight:500 }}>{b}</span>
                 </div>
               ))}
             </div>
           )}
-          {numTag(false)}
+          {pg(false)}
         </div>
       </div>
     );
@@ -1002,71 +1133,102 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 // Helper: render a single slide as static HTML string for print/PDF
 export function renderSlideHtml(slide: PresentationSlide, i: number, total: number, primary: string, secondary: string, bg: string, textColor: string, fontH: string, fontB: string, logoUrl?: string): string {
   const type = slide.type;
-  const num = `<div style="position:absolute;bottom:14px;right:18px;font-size:10px;font-weight:600;color:rgba(0,0,0,0.18);letter-spacing:1px">${i + 1} / ${total}</div>`;
+  const pg = (light: boolean) => `<div style="position:absolute;bottom:16px;right:20px;font-size:10px;font-weight:700;letter-spacing:2px;color:${light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.15)"}">${i+1} / ${total}</div>`;
   const base = `width:960px;height:540px;position:relative;overflow:hidden;box-sizing:border-box;font-family:'${fontB}',system-ui,sans-serif;`;
 
+  // Color helpers
+  const hexToRgb = (hex: string) => { const h=(hex||"#000").replace("#","").padEnd(6,"0"); return{r:parseInt(h.slice(0,2),16)||0,g:parseInt(h.slice(2,4),16)||0,b:parseInt(h.slice(4,6),16)||0}; };
+  const rgba = (hex: string, a: number) => { const{r,g,b}=hexToRgb(hex); return`rgba(${r},${g},${b},${a})`; };
+  const darken = (hex: string, amt: number) => { const{r,g,b}=hexToRgb(hex); return`#${[r,g,b].map(v=>Math.max(0,Math.round(v*(1-amt))).toString(16).padStart(2,"0")).join("")}`; };
+  const dp = darken(primary, 0.32);
+  const accents = [primary, secondary, "#f59e0b", "#10b981", "#e11d48", "#0ea5e9"];
+
   if (type === "cover" || type === "cta") {
-    return `<div class="slide" style="${base}background:${primary};display:flex;align-items:center;justify-content:center;text-align:center;">
-      <div style="position:absolute;top:-20%;right:-10%;width:55%;padding-bottom:55%;border-radius:50%;background:${secondary};opacity:0.18"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${secondary}"></div>
-      <div style="position:relative;z-index:2;max-width:70%;display:flex;flex-direction:column;align-items:center;gap:12px">
-        ${logoUrl && type !== "cta" ? `<img src="${logoUrl}" style="width:56px;height:56px;border-radius:12px;object-fit:contain;background:rgba(255,255,255,0.15);padding:6px;margin-bottom:4px">` : ""}
-        <h2 style="font-size:36px;font-weight:800;color:#fff;margin:0;line-height:1.15;text-shadow:0 2px 12px rgba(0,0,0,0.25);font-family:'${fontH}',serif">${slide.title}</h2>
-        ${slide.subtitle ? `<p style="font-size:18px;color:rgba(255,255,255,0.82);margin:0;font-weight:500">${slide.subtitle}</p>` : ""}
-        ${slide.content ? `<p style="font-size:14px;color:rgba(255,255,255,0.62);margin:0;max-width:480px;line-height:1.55">${slide.content}</p>` : ""}
+    return `<div class="slide" style="${base}background:linear-gradient(135deg,${dp} 0%,${primary} 58%);display:flex;align-items:center;justify-content:flex-start;">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px"></div>
+      <div style="position:absolute;top:-35%;right:-8%;width:55%;padding-bottom:55%;border-radius:50%;background:${rgba(secondary,0.14)};filter:blur(60px)"></div>
+      <div style="width:7px;height:100%;background:linear-gradient(180deg,${secondary},${rgba(secondary,0.2)});flex-shrink:0"></div>
+      <div style="flex:1;padding:34px 48px 28px 32px;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between;height:100%;box-sizing:border-box">
+        ${logoUrl ? `<img src="${logoUrl}" style="width:38px;height:38px;object-fit:contain;border-radius:9px;background:rgba(255,255,255,0.12);padding:4px">` : `<div style="display:flex;gap:6px"><div style="width:28px;height:3px;border-radius:2px;background:${secondary}"></div></div>`}
+        <div>
+          ${slide.subtitle ? `<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><div style="width:24px;height:2px;background:${secondary};border-radius:2px"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${slide.subtitle}</span></div>` : ""}
+          <h1 style="font-size:42px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;font-family:'${fontH}',Georgia,serif;letter-spacing:-0.5px;text-shadow:0 2px 24px rgba(0,0,0,0.25);max-width:520px">${slide.title}</h1>
+          ${slide.content ? `<p style="font-size:13px;color:rgba(255,255,255,0.62);margin:0;line-height:1.7;max-width:430px">${slide.content}</p>` : ""}
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.22);letter-spacing:1.5px">${new Date().getFullYear()}</div>
       </div>
-      <div style="position:absolute;bottom:14px;right:18px;font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:1px">${i + 1} / ${total}</div>
+      ${pg(true)}
     </div>`;
   }
 
   if (type === "stats") {
-    const statsHtml = (slide.stats || []).map(s => `<div style="flex:1;border-radius:12px;background:#fff;border:1px solid ${primary}22;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 12px;gap:8px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${primary}"></div>
-      <div style="font-size:42px;font-weight:900;color:${primary};line-height:1;font-family:'${fontH}',serif">${s.value}</div>
-      <div style="font-size:12px;color:#666;text-align:center;line-height:1.4;max-width:120px">${s.label}</div>
-    </div>`).join("");
-    return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;padding:28px 36px 24px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-        <div style="width:4px;height:24px;border-radius:2px;background:${primary};flex-shrink:0"></div>
-        <h3 style="font-size:22px;font-weight:700;color:${textColor};margin:0;font-family:'${fontH}',serif">${slide.title}</h3>
+    const nums = (slide.stats||[]).map(s=>({ ...s, n: parseFloat(s.value.replace(/[^0-9.]/g,""))||0 }));
+    const maxN = Math.max(...nums.map(s=>s.n),1);
+    const cols = Math.min((slide.stats||[]).length||1,4);
+    const statsHtml = (slide.stats||[]).map((s,si) => {
+      const col = accents[si % accents.length];
+      const pct = nums[si].n > 0 ? (nums[si].n/maxN)*100 : 100;
+      return `<div style="flex:1;border-radius:14px;background:${rgba(col,0.05)};border:1px solid ${rgba(col,0.14)};padding:18px 14px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col}"></div>
+        <div style="font-size:54px;font-weight:900;color:${col};line-height:1;font-family:'${fontH}',Georgia,serif;letter-spacing:-2px">${s.value}</div>
+        <div style="width:64%;height:3px;border-radius:2px;background:${rgba(col,0.15)}"><div style="height:100%;width:${pct}%;border-radius:2px;background:${col}"></div></div>
+        <div style="font-size:11px;color:#64748b;text-align:center;line-height:1.4;max-width:120px">${s.label}</div>
+      </div>`;
+    }).join("");
+    return `<div class="slide" style="${base}background:#ffffff;display:flex;flex-direction:column;">
+      <div style="height:5px;background:linear-gradient(90deg,${primary},${secondary});flex-shrink:0"></div>
+      <div style="padding:18px 36px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid ${rgba(primary,0.08)}">
+        <div style="width:3px;height:34px;border-radius:2px;background:${primary};flex-shrink:0"></div>
+        <div>
+          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${fontH}',Georgia,serif">${slide.title}</h3>
+          ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${slide.subtitle}</p>` : ""}
+        </div>
       </div>
-      <div style="display:flex;gap:14px;flex:1">${statsHtml}</div>
-      ${slide.content ? `<p style="font-size:13px;color:#777;margin:14px 0 0;line-height:1.5">${slide.content}</p>` : ""}
-      ${num}
+      <div style="flex:1;display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;padding:14px 26px 18px">${statsHtml}</div>
+      ${slide.content ? `<div style="padding:0 26px 14px;font-size:11px;color:#94a3b8;line-height:1.6">${slide.content}</div>` : ""}
+      ${pg(false)}
     </div>`;
   }
 
   if (type === "quote") {
-    return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 60px;text-align:center;">
-      <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,${primary},${secondary})"></div>
-      <div style="position:absolute;top:16px;left:36px;font-size:80px;color:${primary};opacity:0.12;font-family:Georgia,serif;font-weight:900;line-height:1">"</div>
-      <div style="position:relative;z-index:2;max-width:600px">
-        <div style="width:3px;height:40px;background:${primary};margin:0 auto 20px;border-radius:2px"></div>
-        <h3 style="font-size:20px;font-weight:700;color:${textColor};margin:0 0 16px;font-family:'${fontH}',serif">${slide.title}</h3>
-        ${slide.quote ? `<p style="font-size:17px;font-style:italic;color:#444;line-height:1.65;margin:0 0 16px;padding:0 20px">"${slide.quote}"</p>` : ""}
-        ${slide.content ? `<p style="font-size:13px;color:#777;line-height:1.5;margin:0">${slide.content}</p>` : ""}
+    return `<div class="slide" style="${base}background:linear-gradient(148deg,${dp} 0%,${darken(primary,0.14)} 100%);display:flex;align-items:center;">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.035) 1px,transparent 1px);background-size:24px 24px"></div>
+      <div style="position:absolute;top:6%;left:4%;font-size:200px;line-height:1;font-family:Georgia,serif;font-weight:900;color:rgba(255,255,255,0.05)">&ldquo;</div>
+      <div style="position:relative;z-index:2;flex:1;padding:40px 68px 40px 56px;display:flex;flex-direction:column;gap:20px;justify-content:center">
+        <div style="width:44px;height:3px;background:${secondary};border-radius:2px"></div>
+        ${slide.quote ? `<p style="font-size:20px;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.68;margin:0;font-family:'${fontH}',Georgia,serif">&ldquo;${slide.quote}&rdquo;</p>` : ""}
+        ${slide.content ? `<p style="font-size:12px;color:rgba(255,255,255,0.42);margin:0;line-height:1.65">${slide.content}</p>` : ""}
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:1px;background:${secondary};opacity:0.55"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${slide.title}</span></div>
       </div>
-      ${num}
+      ${pg(true)}
     </div>`;
   }
 
-  // Bullets / two-column / default
-  const bulletsHtml = (slide.bullets || []).map((b, bi) => `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:8px;background:${bi % 2 === 0 ? primary + "08" : "transparent"}">
-    <div style="width:20px;height:20px;border-radius:50%;background:${primary};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;margin-top:1px">${bi + 1}</div>
-    <span style="font-size:14px;color:#2d2d2d;line-height:1.5">${b}</span>
-  </div>`).join("");
-  return `<div class="slide" style="${base}background:${bg};display:flex;flex-direction:column;padding:28px 36px 24px;">
-    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,${primary},${secondary})"></div>
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
-      <div style="width:4px;min-height:28px;border-radius:2px;background:${primary};flex-shrink:0;margin-top:2px"></div>
-      <div>
-        <h3 style="font-size:22px;font-weight:700;color:${textColor};margin:0 0 3px;font-family:'${fontH}',serif">${slide.title}</h3>
-        ${slide.subtitle ? `<p style="font-size:12px;color:#999;margin:0">${slide.subtitle}</p>` : ""}
+  // Bullets / two-column / grid / default
+  const bulletsHtml = (slide.bullets||[]).map((b,bi) => {
+    const col = accents[bi % accents.length];
+    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border-radius:10px;background:${bi%2===0 ? rgba(primary,0.042) : "transparent"}">
+      <div style="width:26px;height:26px;border-radius:9px;background:${col};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${bi+1}</div>
+      <span style="font-size:13px;color:#1e293b;line-height:1.55;font-weight:500">${b}</span>
+    </div>`;
+  }).join("");
+
+  return `<div class="slide" style="${base}background:#ffffff;display:flex;">
+    <div style="width:27%;flex-shrink:0;background:linear-gradient(175deg,${primary} 0%,${dp} 100%);display:flex;flex-direction:column;justify-content:space-between;padding:28px 22px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:20px 20px"></div>
+      <div style="position:relative;z-index:2">
+        <div style="width:26px;height:3px;background:${secondary};border-radius:2px;margin-bottom:14px"></div>
+        <h3 style="font-size:17px;font-weight:800;color:#fff;margin:0;line-height:1.3;font-family:'${fontH}',Georgia,serif">${slide.title}</h3>
+        ${slide.subtitle ? `<p style="font-size:10px;color:rgba(255,255,255,0.48);margin:8px 0 0;line-height:1.55">${slide.subtitle}</p>` : ""}
       </div>
+      <div style="font-size:50px;font-weight:900;color:rgba(255,255,255,0.055);line-height:1;font-family:'${fontH}',serif;position:relative;z-index:2">${String(i+1).padStart(2,"0")}</div>
     </div>
-    ${slide.content ? `<p style="font-size:14px;color:#555;margin:0 0 12px;line-height:1.6">${slide.content}</p>` : ""}
-    <div style="flex:1;display:flex;flex-direction:column;gap:8px">${bulletsHtml}</div>
-    ${num}
+    <div style="flex:1;padding:24px 28px 20px;display:flex;flex-direction:column">
+      <div style="height:3px;background:linear-gradient(90deg,${primary},transparent);border-radius:2px;margin-bottom:14px"></div>
+      ${slide.content ? `<p style="font-size:12px;color:#475569;margin:0 0 14px;line-height:1.72">${slide.content}</p>` : ""}
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">${bulletsHtml}</div>
+    </div>
+    ${pg(false)}
   </div>`;
 }
 
