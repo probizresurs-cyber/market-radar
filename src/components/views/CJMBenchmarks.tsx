@@ -77,8 +77,8 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", border: `1px solid var(--destructive)40`, color: "var(--destructive)", fontSize: 13 }}>
-          ⚠️ {error}
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "color-mix(in oklch, var(--warning) 8%, transparent)", border: `1px solid var(--warning)40`, color: "var(--warning)", fontSize: 12 }}>
+          ⚠️ При актуализации возникла ошибка — показаны предыдущие данные. Попробуйте ещё раз.
         </div>
       )}
 

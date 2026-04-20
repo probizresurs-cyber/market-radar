@@ -47,30 +47,53 @@ function extractJson(text: string): unknown {
   const stripped = text
     .replace(/```json\s*/gi, "")
     .replace(/```\s*/g, "")
+    .replace(/^\uFEFF/, "") // strip BOM
     .trim();
+
   const start = stripped.indexOf("{");
   if (start === -1) throw new Error("No JSON object found in AI response");
 
-  const end = stripped.lastIndexOf("}");
-  if (end > start) {
-    try {
-      return JSON.parse(stripped.slice(start, end + 1));
-    } catch {
-      // fall through
+  const candidate = stripped.slice(start);
+
+  // 1. Try clean parse of full slice up to last }
+  const end = candidate.lastIndexOf("}");
+  if (end > 0) {
+    try { return JSON.parse(candidate.slice(0, end + 1)); } catch { /* fall through */ }
+  }
+
+  // 2. Walk backward from end to find last valid closing brace
+  for (let i = candidate.length - 1; i > 0; i--) {
+    if (candidate[i] === "}") {
+      try { return JSON.parse(candidate.slice(0, i + 1)); } catch { /* continue */ }
     }
   }
 
-  // Truncated response — walk backward to find last valid closing brace
-  const partial = stripped.slice(start);
-  for (let i = partial.length - 1; i > 0; i--) {
-    if (partial[i] === "}") {
-      try {
-        return JSON.parse(partial.slice(0, i + 1));
-      } catch {
-        // continue
-      }
+  // 3. Truncated JSON recovery — close any open arrays/objects
+  try {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let lastGoodPos = 0;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{" || ch === "[") { depth++; }
+      if (ch === "}" || ch === "]") { depth--; if (depth === 0) lastGoodPos = i; }
     }
-  }
+    if (lastGoodPos > 0) {
+      try { return JSON.parse(candidate.slice(0, lastGoodPos + 1)); } catch { /* fall through */ }
+    }
+    // Try auto-closing
+    const closing = "}]".repeat(10);
+    for (let trim = candidate.length - 1; trim > 10; trim--) {
+      if (candidate[trim] === "," || candidate[trim] === " ") continue;
+      const attempt = candidate.slice(0, trim + 1) + closing;
+      try { return JSON.parse(attempt); } catch { /* continue */ }
+    }
+  } catch { /* fall through */ }
 
   throw new Error(`Failed to parse AI response as JSON. Preview: ${stripped.slice(0, 200)}`);
 }
@@ -160,7 +183,7 @@ export async function POST(req: Request) {
 
     const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8000,
+      max_tokens: 16000,
       messages: [
         {
           role: "user",
