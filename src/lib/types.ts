@@ -120,6 +120,7 @@ export interface ScrapedData {
 }
 
 export interface AnalysisResult {
+  analyzedAt?: string;
   company: {
     name: string;
     url: string;

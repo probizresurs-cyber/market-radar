@@ -77,7 +77,14 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 15, color: "var(--foreground)" }}>{comp.company.name}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{comp.company.url}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                      {comp.company.url}
+                      {comp.analyzedAt && (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: "var(--muted-foreground)" }}>
+                          · {new Date(comp.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: (sc >= 70 ? "var(--success)" : "var(--warning)") + "18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 18, color: sc >= 70 ? "var(--success)" : "var(--warning)" }}>
                     {sc}

@@ -63,7 +63,14 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
         </div>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>{company.name}</h1>
-          <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{company.url}</div>
+          <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+            {company.url}
+            {data.analyzedAt && (
+              <span style={{ marginLeft: 8, padding: "1px 7px", background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                {new Date(data.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ marginLeft: "auto" }}>
           <ScoreRing score={company.score} size={80} strokeWidth={6} c={c} />
@@ -105,13 +112,34 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       {/* AI Recommendations for this competitor */}
       <CollapsibleSection c={c} title="AI-рекомендации">
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 24 }}>
-          {recommendations.map((rec, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none" }}>
-              <PriorityBadge priority={rec.priority} c={c} />
-              <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)" }}>{rec.text}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--success)", background: "color-mix(in oklch, var(--success) 7%, transparent)", padding: "3px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{rec.effect}</span>
-            </div>
-          ))}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "var(--muted)" }}>
+                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", width: 110 }}>Приоритет</th>
+                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", width: 120 }}>Категория</th>
+                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>Рекомендация</th>
+                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", width: 140 }}>Эффект</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recommendations.map((rec, i) => {
+                const priorityColor = rec.priority === "high" ? "var(--destructive)" : rec.priority === "medium" ? "var(--warning)" : "var(--success)";
+                const priorityLabel = rec.priority === "high" ? "Высокий" : rec.priority === "medium" ? "Средний" : "Низкий";
+                return (
+                  <tr key={i} style={{ borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none" }}>
+                    <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: priorityColor, background: priorityColor + "18", padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap" }}>{priorityLabel}</span>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--muted-foreground)", verticalAlign: "top" }}>{rec.category}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--foreground)", lineHeight: 1.5, verticalAlign: "top" }}>{rec.text}</td>
+                    <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--success)", background: "color-mix(in oklch, var(--success) 7%, transparent)", padding: "3px 9px", borderRadius: 6, display: "inline-block" }}>{rec.effect}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </CollapsibleSection>
 

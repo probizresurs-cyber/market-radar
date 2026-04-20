@@ -81,7 +81,14 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Дашборд</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>{company.name} · {company.url}</p>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>
+          {company.name} · {company.url}
+          {data.analyzedAt && (
+            <span style={{ marginLeft: 10, padding: "2px 8px", background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+              Анализ: {new Date(data.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          )}
+        </p>
       </div>
       <a
         href="/owner-dashboard"
@@ -335,7 +342,10 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
           </div>
 
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>🏢 Бизнес-профиль</div>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--muted)", padding: "2px 8px", borderRadius: 6 }}>Данные: Руспрофайл</span>
+            </div>
             {(() => {
               // Split description: DaData legal line vs actual description
               const descLines = (company.description ?? "").split("\n");

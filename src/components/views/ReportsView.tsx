@@ -22,7 +22,13 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
     try {
       const res = await fetch("/api/share/create", { method: "POST" });
       const json = await res.json();
-      if (json.ok && json.url) setShareUrl(json.url);
+      if (json.ok && json.id) {
+        const url = `${window.location.origin}/share/${json.id}`;
+        setShareUrl(url);
+        window.open(url, "_blank");
+      } else if (json.error) {
+        alert(json.error);
+      }
     } catch { /* ignore */ }
     setShareLoading(false);
   };
@@ -427,7 +433,9 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", letterSpacing: "0.08em", marginBottom: 4 }}>MARKETRADAR · ОТЧЁТ ПО АНАЛИЗУ</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>{data.company.name}</div>
-              <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{data.company.url} · {today}</div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                {data.company.url} · {data.analyzedAt ? new Date(data.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }) : today}
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ textAlign: "center" }}>

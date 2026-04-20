@@ -392,11 +392,12 @@ export default function MarketRadarDashboard() {
 
   // Save company to localStorage and state
   const saveMyCompany = (result: AnalysisResult, userId?: string) => {
-    setMyCompany(result);
+    const resultWithDate: AnalysisResult = { ...result, analyzedAt: new Date().toISOString() };
+    setMyCompany(resultWithDate);
     const uid = userId ?? currentUser?.id;
     if (uid) {
-      try { localStorage.setItem(`mr_company_${uid}`, JSON.stringify(result)); } catch { /* ignore */ }
-      syncToServer("company", result);
+      try { localStorage.setItem(`mr_company_${uid}`, JSON.stringify(resultWithDate)); } catch { /* ignore */ }
+      syncToServer("company", resultWithDate);
     }
   };
 
@@ -440,8 +441,9 @@ export default function MarketRadarDashboard() {
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
+      const resultWithDate: AnalysisResult = { ...result, analyzedAt: new Date().toISOString() };
       setCompetitors(prev => {
-        const updated = [...prev, result];
+        const updated = [...prev, resultWithDate];
         if (currentUser?.id) {
           try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
           syncToServer("competitors", updated);
@@ -842,7 +844,7 @@ export default function MarketRadarDashboard() {
       for (const url of competitorUrls) {
         setCurrentUrl(url);
         const comp = await analyzeUrl(url);
-        compResults.push(comp);
+        compResults.push({ ...comp, analyzedAt: new Date().toISOString() });
         setCompetitors([...compResults]);
       }
       if (compResults.length > 0 && updatedUser.id) {
