@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const TG = `https://api.telegram.org/bot${TOKEN}`;
+const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
+const TG = `${TG_BASE}/bot${TOKEN}`;
 
 export async function GET(req: NextRequest) {
   const host = req.headers.get("host") ?? "";

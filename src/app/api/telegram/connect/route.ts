@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getChatId } from "@/lib/tgStore";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const TG = `https://api.telegram.org/bot${TOKEN}`;
+const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
+const TG = `${TG_BASE}/bot${TOKEN}`;
 
 // GET /api/telegram/connect → returns bot username
 export async function GET() {
