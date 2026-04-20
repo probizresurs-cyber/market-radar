@@ -5,6 +5,10 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import {
+  Smartphone, Rocket, Drama, FileText, Loader2,
+  AlertTriangle,
+} from "lucide-react";
 
 const SMM_PLATFORMS: Array<{ key: keyof SMMSocialLinks; label: string; icon: string; placeholder: string }> = [
   { key: "vk", label: "ВКонтакте", icon: "🟦", placeholder: "https://vk.com/your_page" },
@@ -114,7 +118,10 @@ export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
         onClick={handleSubmit}
         disabled={isAnalyzing}
         style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: isAnalyzing ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #ec489940" }}>
-        {isAnalyzing ? "⏳ Анализируем СММ… (60–90 сек)" : "📱 Провести анализ СММ"}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {isAnalyzing ? <Loader2 size={16} className="mr-spin" /> : <Smartphone size={16} />}
+          {isAnalyzing ? "Анализируем СММ… (60–90 сек)" : "Провести анализ СММ"}
+        </span>
       </button>
       {isAnalyzing && (
         <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12 }}>Разрабатываем стратегию брендинга. Не закрывайте страницу.</p>
@@ -168,7 +175,7 @@ export function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalys
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Дашборд СММ</h1>
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>📱</div>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Smartphone size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Тут пока нет данных</div>
         <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 24px" }}>
           Запустите анализ СММ, чтобы получить стратегию брендинга, контент-план и рекомендации для каждой соцсети
@@ -177,7 +184,7 @@ export function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalys
           onClick={onRunAnalysis}
           style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #ec4899, #f472b6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #ec489940" }}
         >
-          🚀 Запустить анализ СММ
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Rocket size={16} /> Запустить анализ СММ</span>
         </button>
       </div>
     </div>
@@ -218,7 +225,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       )}
 
       {/* Brand Identity */}
-      <CollapsibleSection c={c} title="🎭 Идентичность бренда">
+      <CollapsibleSection c={c} title="Идентичность бренда" icon={<Drama size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>АРХЕТИП</div>
@@ -242,7 +249,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       </CollapsibleSection>
 
       {/* Content Strategy */}
-      <CollapsibleSection c={c} title="📝 Контент-стратегия">
+      <CollapsibleSection c={c} title="Контент-стратегия" icon={<FileText size={16} />}>
         <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, var(--primary)06 100%)` }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
           <p style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.5, margin: "0 0 14px" }}>{data.contentStrategy.bigIdea}</p>
@@ -282,7 +289,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
 
       {/* Platform tabs + strategy */}
       {data.platformStrategies.length > 0 && (
-        <CollapsibleSection c={c} title="📲 Стратегия по платформам">
+        <CollapsibleSection c={c} title="Стратегия по платформам" icon={<Smartphone size={16} />}>
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {data.platformStrategies.map((p, i) => (
               <button key={i} onClick={() => setActivePlatform(i)} style={{
@@ -356,7 +363,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       )}
 
       {/* Quick wins + 30 day plan */}
-      <CollapsibleSection c={c} title="🚀 Quick wins и план на 30 дней">
+      <CollapsibleSection c={c} title="Quick wins и план на 30 дней" icon={<Rocket size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 12, letterSpacing: "0.05em" }}>QUICK WINS — ПЕРВАЯ НЕДЕЛЯ</div>
@@ -370,7 +377,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       </CollapsibleSection>
 
       {/* Red flags + Inspiration */}
-      <CollapsibleSection c={c} title="⚠️ Ошибки и вдохновение">
+      <CollapsibleSection c={c} title="Ошибки и вдохновение" icon={<AlertTriangle size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card style={{ background: "color-mix(in oklch, var(--destructive) 3%, transparent)" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>RED FLAGS</div>

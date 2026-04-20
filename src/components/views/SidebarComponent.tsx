@@ -1,11 +1,34 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X } from "lucide-react";
+import {
+  LayoutDashboard, Users, Sword, BookOpen, BarChart2, BarChart3, Settings, Menu, ChevronRight,
+  Gauge, Building2, Search, TrendingUp, FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil,
+  Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
+  Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut,
+} from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import type { NavItem, NavSection } from "@/lib/nav";
+
+// Map icon names from nav.ts → actual Lucide components.
+// Anything not in this map falls back to rendering the string (legacy emoji support).
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+  LayoutDashboard, Users, BarChart2, BarChart3, Settings, Gauge, Building2, Search, TrendingUp,
+  FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil, Map, Share2, Palette, Star,
+  FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film, Smartphone, Wallet,
+  Globe, Presentation, Link2, BookOpen, Sword,
+};
+
+function NavIcon({ name, size = 15, active }: { name: string; size?: number; active?: boolean }) {
+  const Icon = ICON_MAP[name];
+  if (!Icon) {
+    // Legacy emoji fallback
+    return <span style={{ fontSize: size, lineHeight: 1 }}>{name}</span>;
+  }
+  return <Icon size={size} style={{ color: active ? "#C4B8F5" : "currentColor", strokeWidth: 1.75, opacity: active ? 1 : 0.75 }} />;
+}
 
 
 // ============================================================
@@ -73,7 +96,9 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
           }}
           onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--sidebar-hover)"; }}
           onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
-          <span style={{ fontSize: depth > 0 ? 13 : 15, flexShrink: 0, opacity: isActive || childActive ? 1 : 0.8 }}>{item.icon}</span>
+          <span style={{ width: depth > 0 ? 14 : 16, height: depth > 0 ? 14 : 16, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <NavIcon name={item.icon} size={depth > 0 ? 14 : 16} active={isActive || childActive} />
+          </span>
           <span style={{ flex: 1 }}>{item.label}</span>
           {item.count !== null && !isGroup && (
             <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "rgba(196,184,245,0.15)" : "rgba(255,255,255,0.07)", color: isActive ? "#C4B8F5" : "var(--sidebar-muted)", borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
@@ -96,7 +121,7 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       {/* Logo */}
       <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 10px rgba(124,58,237,0.4)", flexShrink: 0 }}>MR</div>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #1E40AF, #3B82F6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 10px rgba(30,64,175,0.4)", flexShrink: 0 }}>MR</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>MarketRadar</div>
             {companyUrl && <div style={{ fontSize: 10, color: "var(--sidebar-muted)", marginTop: 1 }}>{companyUrl}</div>}
@@ -120,14 +145,16 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--sidebar-fg)", transition: "background 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.background = "var(--sidebar-hover)"}
           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-          <span>{theme === "light" ? "🌙" : theme === "dark" ? "☕" : "☀️"}</span>
+          <span style={{ width: 15, display: "inline-flex", alignItems: "center" }}>
+            {theme === "light" ? <Moon size={15} strokeWidth={1.75} /> : theme === "dark" ? <Coffee size={15} strokeWidth={1.75} /> : <Sun size={15} strokeWidth={1.75} />}
+          </span>
           <span style={{ opacity: 0.85 }}>{theme === "light" ? "Тёмная тема" : theme === "dark" ? "Тёплая тема" : "Светлая тема"}</span>
         </div>
         {user && (
           <div style={{ padding: "10px", borderTop: `1px solid var(--sidebar-border)`, marginTop: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #1E40AF, #3B82F6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13 }}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRadius: "50%", background: "#16A34A", border: `2px solid var(--sidebar-bg)` }} />
@@ -141,7 +168,7 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
               style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#F87171", cursor: "pointer", padding: "5px 0", opacity: 0.85, transition: "opacity 0.15s" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "0.85"}>
-              <span>↩</span><span>Выйти</span>
+              <LogOut size={13} strokeWidth={1.75} /><span>Выйти</span>
             </div>
           </div>
         )}

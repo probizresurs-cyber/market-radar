@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { BrandBook } from "@/lib/content-types";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -19,6 +20,8 @@ function buildBrandBookBlock(bb: BrandBook | null): string {
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const topic: string = body.topic ?? "";
@@ -105,9 +108,16 @@ export async function POST(req: Request) {
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
     const prompt = data.choices[0]?.message?.content?.trim() ?? "";
 
+    await access.log({
+      endpoint: "expand-prompt",
+      model: "gpt-4o-mini",
+      promptTokens: estimateTokens(systemPrompt + userMsg),
+      completionTokens: estimateTokens(prompt),
+    });
     return NextResponse.json({ ok: true, prompt });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "expand-prompt", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

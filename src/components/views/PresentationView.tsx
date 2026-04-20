@@ -6,6 +6,10 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { BrandBook, PresentationStyle } from "@/lib/content-types";
+import {
+  X, Sparkles, Folder, ClipboardList, Trash2, Check, Palette,
+  MessageCircle, Brain, FileText, RefreshCw, Pencil, Mic,
+} from "lucide-react";
 
 interface PresentationSlide {
   title: string;
@@ -683,7 +687,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           ))}
         </div>
         <button onClick={() => setFullscreen(false)} style={{ position: "absolute", top: 16, right: 20, background: "rgba(255,255,255,0.12)",
-          border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 18, cursor: "pointer", borderRadius: 8, padding: "4px 14px" }}>✕</button>
+          border: "1px solid rgba(255,255,255,0.2)", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "8px 14px", display: "inline-flex", alignItems: "center" }}><X size={16} /></button>
         <div style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontSize: 11 }}>← → навигация &nbsp;•&nbsp; ESC выход &nbsp;•&nbsp; клик → далее</div>
       </div>
     );
@@ -697,16 +701,15 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Бренд-презентация</h1>
           <p style={{ color: "var(--foreground-secondary)", fontSize: 14 }}>Профессиональная презентация за 5 минут из ваших данных</p>
         </div>
-        <div style={{ display: "flex", gap: 2, background: "var(--card)", borderRadius: 10, padding: 3, border: `1px solid var(--border)` }}>
-          {(["create", "history"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-                background: tab === t ? "var(--primary)" : "transparent",
-                color: tab === t ? "#fff" : "var(--foreground-secondary)" }}>
-              {t === "create" ? "✦ Создать" : `📁 История (${history.length})`}
-            </button>
-          ))}
-        </div>
+        <button onClick={() => setTab(tab === "history" ? "create" : "history")}
+          style={{ padding: "8px 18px", borderRadius: 10, border: `1px solid var(--border)`, cursor: "pointer", fontSize: 13, fontWeight: 600,
+            background: tab === "history" ? "var(--primary)" : "var(--card)",
+            color: tab === "history" ? "#fff" : "var(--foreground-secondary)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Folder size={12} />
+            {tab === "history" ? "← Назад" : `История (${history.length})`}
+          </span>
+        </button>
       </div>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>{error}</div>}
@@ -716,7 +719,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         <div>
           {history.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted-foreground)" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <div style={{ marginBottom: 12, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><ClipboardList size={40} /></div>
               <p style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground-secondary)", marginBottom: 6 }}>Нет сохранённых презентаций</p>
               <p style={{ fontSize: 13 }}>Создайте первую — она автоматически сохранится</p>
               <button onClick={() => setTab("create")} style={{ marginTop: 16, padding: "9px 22px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Создать презентацию</button>
@@ -751,8 +754,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                           Открыть
                         </button>
                         <button onClick={() => deleteFromHistory(h.id)}
-                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
-                          🗑
+                          aria-label="Удалить"
+                          style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -780,7 +784,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             ].map(item => (
               <span key={item.label} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
                 background: item.ok ? "color-mix(in oklch, var(--success) 8%, transparent)" : "color-mix(in oklch, var(--destructive) 8%, transparent)", color: item.ok ? "var(--success)" : "var(--destructive)" }}>
-                {item.ok ? "✓" : "✗"} {item.label}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{item.ok ? <Check size={11} /> : <X size={11} />} {item.label}</span>
               </span>
             ))}
           </div>
@@ -795,7 +799,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                     opacity: brandBook.colors.length > 0 ? 1 : 0.4, textAlign: "center", boxShadow: "var(--shadow)", transition: "border-color .15s" }}
                   onMouseEnter={e => brandBook.colors.length > 0 && ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
+                  <div style={{ marginBottom: 8, color: "var(--primary)", display: "flex", justifyContent: "center" }}><Palette size={32} /></div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>На основе брендбука</div>
                   <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>Цвета, шрифты и тон из вашего брендбука</div>
                   {brandBook.colors.length > 0 && (
@@ -811,7 +815,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                     textAlign: "center", boxShadow: "var(--shadow)", transition: "border-color .15s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>✨</div>
+                  <div style={{ marginBottom: 8, color: "var(--primary)", display: "flex", justifyContent: "center" }}><Sparkles size={32} /></div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>Выбрать из каталога</div>
                   <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>6 готовых стилей: минимализм, корпоративный, яркий...</div>
                 </div>
@@ -852,7 +856,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               {selectedStyle && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 6 }}>💬 КАСТОМНЫЙ ПРОМПТ (необязательно)</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 6 }}><MessageCircle size={12} /> КАСТОМНЫЙ ПРОМПТ (необязательно)</div>
                     <textarea
                       value={customPrompt}
                       onChange={e => setCustomPrompt(e.target.value)}
@@ -875,7 +879,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       {/* ━━━ STAGE 2: GENERATING ━━━ */}
       {stage === "generating" && (
         <div style={{ background: "var(--card)", borderRadius: 16, padding: 48, boxShadow: "var(--shadow)", textAlign: "center" }}>
-          <div style={{ fontSize: 36, marginBottom: 16 }}>🧠</div>
+          <div style={{ marginBottom: 16, color: "var(--primary)", display: "flex", justifyContent: "center" }}><Brain size={36} /></div>
           <h3 style={{ color: "var(--foreground)", marginBottom: 8 }}>Генерируем презентацию...</h3>
           <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 24 }}>
             AI создаёт слайды на основе анализа компании, ЦА и выбранного стиля
@@ -900,7 +904,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             </button>
             <button onClick={handleExportPdf} disabled={isExportingPdf} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
               background: isExportingPdf ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", cursor: isExportingPdf ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
-              {isExportingPdf ? "Экспорт..." : "📄 PDF"}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><FileText size={12} /> {isExportingPdf ? "Экспорт..." : "PDF"}</span>
             </button>
             <button onClick={handleExportPptx} disabled={isExportingPptx} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
               background: isExportingPptx ? "var(--muted-foreground)" : "#10b981", color: "#fff", cursor: isExportingPptx ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
@@ -908,11 +912,11 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             </button>
             <button onClick={handleExportSlidev} disabled={isExportingSlidev} style={{ padding: "7px 14px", borderRadius: 8, border: "none",
               background: isExportingSlidev ? "var(--muted-foreground)" : "#7c3aed", color: "#fff", cursor: isExportingSlidev ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
-              {isExportingSlidev ? "Экспорт..." : "✦ Slidev .md"}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Sparkles size={12} /> {isExportingSlidev ? "Экспорт..." : "Slidev .md"}</span>
             </button>
             <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`,
               background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
-              🔄 Заново
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} /> Заново</span>
             </button>
           </div>
 
@@ -936,7 +940,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               <div key={i} style={{ position: "relative" }}>
                 {/* Slide number label */}
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: 0.5 }}>
-                  СЛАЙД {i + 1} · {slide.type.toUpperCase()} {slide.isEdited && <span style={{ color: "var(--success)", fontSize: 10 }}>✎ изменён</span>}
+                  СЛАЙД {i + 1} · {slide.type.toUpperCase()} {slide.isEdited && <span style={{ color: "var(--success)", fontSize: 10, display: "inline-flex", alignItems: "center", gap: 4 }}><Pencil size={10} /> изменён</span>}
                 </div>
                 {/* Slide preview */}
                 <div onClick={() => setEditingSlide(editingSlide === i ? null : i)} style={{ cursor: "pointer" }}>
@@ -973,7 +977,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                     )}
                     {slide.note && (
                       <div style={{ fontSize: 11, color: "var(--foreground-secondary)", padding: "6px 10px", background: "var(--background)", borderRadius: 6 }}>
-                        🎤 <b>Заметка:</b> {slide.note}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Mic size={11} /> <b>Заметка:</b> {slide.note}</span>
                       </div>
                     )}
                     <button onClick={() => setEditingSlide(null)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`,

@@ -34,6 +34,20 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // ─── Subscription / Token limits (trial + paid plans) ───────────────────────
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'trial'`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_used INTEGER NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_limit INTEGER NOT NULL DEFAULT 100000`);
+  // Backfill existing users who never had a trial start date: give them 7 days from now
+  await query(`
+    UPDATE users
+    SET plan_started_at = NOW(),
+        plan_expires_at = NOW() + INTERVAL '7 days'
+    WHERE plan = 'trial' AND plan_started_at IS NULL
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS user_data (
       id TEXT PRIMARY KEY,

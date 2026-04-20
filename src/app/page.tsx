@@ -122,6 +122,8 @@ import { ReviewsView } from "@/components/views/ReviewsView";
 import { StoriesView } from "@/components/views/StoriesView";
 import { CJMView, BenchmarksView } from "@/components/views/CJMBenchmarks";
 import { SidebarComponent, MobileBottomNav } from "@/components/views/SidebarComponent";
+import { TrialBanner } from "@/components/views/TrialBanner";
+import { PaywallGuard } from "@/components/views/PaywallGuard";
 import { SEOArticlesView } from "@/components/views/SEOArticlesView";
 import type { NavItem, NavSection } from "@/lib/nav";
 import { NAV_SECTIONS } from "@/lib/nav";
@@ -1010,6 +1012,8 @@ export default function MarketRadarDashboard() {
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+        <TrialBanner userId={currentUser?.id} />
+        <PaywallGuard />
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} />}

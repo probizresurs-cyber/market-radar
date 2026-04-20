@@ -30,7 +30,7 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Конкуренты</h1>
-          <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>{competitors.length} из 3 (Free). Добавьте ещё за ₽100/мес</p>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>Отслеживаемых конкурентов: {competitors.length}</p>
         </div>
         <button onClick={() => setShowAdd(!showAdd)}
           style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>

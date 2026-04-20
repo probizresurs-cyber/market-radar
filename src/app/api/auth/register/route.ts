@@ -6,6 +6,7 @@ import { signToken, setTokenCookie } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { TRIAL_TOKEN_LIMIT, TRIAL_DAYS } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -26,8 +27,12 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 10);
     const id = randomUUID();
     await query(
-      "INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)",
-      [id, email.toLowerCase(), passwordHash, safeName, "user"]
+      `INSERT INTO users
+         (id, email, password_hash, name, role,
+          plan, plan_started_at, plan_expires_at, tokens_used, tokens_limit)
+       VALUES ($1, $2, $3, $4, $5,
+               'trial', NOW(), NOW() + ($6 || ' days')::INTERVAL, 0, $7)`,
+      [id, email.toLowerCase(), passwordHash, safeName, "user", String(TRIAL_DAYS), TRIAL_TOKEN_LIMIT]
     );
 
     // ─── Partner attribution (First-Touch) ──────────────────────────────────

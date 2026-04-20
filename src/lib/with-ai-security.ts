@@ -17,6 +17,16 @@ import { getSessionUser } from "./auth";
 import { checkAiRateLimit, rateLimitHeaders } from "./rate-limit";
 import { query } from "./db";
 import { randomUUID } from "crypto";
+import { getSubscription, recordTokenUsage } from "./subscription";
+
+/**
+ * Грубая оценка количества токенов по тексту (~4 символа на токен для mixed RU/EN).
+ * Для учёта триала этого достаточно — точные числа потом вытащим из usage API.
+ */
+export function estimateTokens(text: string | null | undefined): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
 
 export interface AiAccess {
   allowed: true;
@@ -70,6 +80,34 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
     };
   }
 
+  // Subscription / trial check (skip for admins and unauthenticated calls)
+  if (session?.userId && session.role !== "admin") {
+    const sub = await getSubscription(session.userId).catch(() => null);
+    if (sub && !sub.hasAccess) {
+      const reason = sub.isExpired
+        ? "Пробный период завершён. Оформите подписку, чтобы продолжить."
+        : `Лимит токенов исчерпан (${sub.tokensUsed.toLocaleString("ru-RU")} / ${sub.tokensLimit.toLocaleString("ru-RU")}). Оформите подписку, чтобы продолжить.`;
+      return {
+        allowed: false,
+        response: NextResponse.json(
+          {
+            ok: false,
+            error: reason,
+            subscription: {
+              plan: sub.plan,
+              isExpired: sub.isExpired,
+              isExhausted: sub.isExhausted,
+              tokensUsed: sub.tokensUsed,
+              tokensLimit: sub.tokensLimit,
+              daysLeft: sub.daysLeft,
+            },
+          },
+          { status: 402 }
+        ),
+      };
+    }
+  }
+
   // Build log function (called after AI response)
   const log = async (opts: LogOpts) => {
     try {
@@ -94,6 +132,10 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
           opts.manipulationDetected ?? false,
         ]
       );
+      // Also increment user's subscription usage (only for successful calls)
+      if (session?.userId && totalTokens > 0 && opts.success !== false) {
+        await recordTokenUsage(session.userId, totalTokens);
+      }
     } catch {
       // Never crash the main flow
     }

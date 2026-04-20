@@ -10,6 +10,7 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
@@ -90,31 +91,93 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
           )}
         </p>
       </div>
-      <a
-        href="/owner-dashboard"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
-          background: "linear-gradient(135deg, #534AB7 0%, #7C6BE8 100%)",
-          color: "#fff", padding: "18px 24px", borderRadius: 16, marginBottom: 20,
-          boxShadow: "0 8px 24px rgba(83,74,183,0.25)", textDecoration: "none",
-          transition: "transform 0.15s ease, box-shadow 0.15s ease",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(83,74,183,0.35)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(83,74,183,0.25)"; }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ fontSize: 28, lineHeight: 1 }}>🎯</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Дашборд руководителя</div>
-            <div style={{ fontSize: 12, opacity: 0.9 }}>Конкурентный ландшафт, угрозы и AI-рекомендации — вся картина за 30 секунд</div>
+      {/* ───── Refresh indicator — monitoring, not one-shot audit ───── */}
+      {data.analyzedAt && (() => {
+        const now = Date.now();
+        const analyzedMs = new Date(data.analyzedAt).getTime();
+        const ageDays = Math.floor((now - analyzedMs) / (24 * 60 * 60 * 1000));
+        const nextInDays = Math.max(0, 30 - ageDays);
+        const stale = ageDays > 30;
+        const color = stale ? "var(--warning)" : "var(--muted-foreground)";
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12, fontSize: 12,
+            color: "var(--muted-foreground)", marginBottom: 14,
+            padding: "6px 12px", background: "var(--muted)", borderRadius: 8, width: "fit-content",
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <span>
+              Обновлялся{" "}
+              <span style={{ fontWeight: 600, color: "var(--foreground-secondary)" }}>
+                {ageDays === 0 ? "сегодня" : `${ageDays} ${ageDays === 1 ? "день" : ageDays < 5 ? "дня" : "дней"} назад`}
+              </span>
+            </span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>
+              {stale
+                ? "Данные устарели — запустите новый анализ"
+                : `Следующее обновление через ${nextInDays} ${nextInDays === 1 ? "день" : nextInDays < 5 ? "дня" : "дней"}`}
+            </span>
           </div>
-        </div>
-        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-          Открыть <span style={{ fontSize: 16 }}>→</span>
-        </div>
-      </a>
+        );
+      })()}
+
+      {/* ───── TOP-INSIGHT block: one headline, one first action ───── */}
+      {(() => {
+        const score = company.score ?? 0;
+        const avg = company.avgNiche ?? 0;
+        const gap = avg > 0 ? score - avg : 0;
+        const topRec = (recommendations ?? [])
+          .slice()
+          .sort((a, b) => {
+            const order = { high: 0, medium: 1, low: 2 } as const;
+            return order[a.priority] - order[b.priority];
+          })[0];
+
+        const gapText = gap < 0
+          ? `Вы отстаёте от среднего по нише на ${Math.abs(gap)} баллов.`
+          : gap > 0
+            ? `Вы опережаете среднее по нише на ${gap} баллов.`
+            : `Ваш Score соответствует среднему по нише (${score}).`;
+        const accent = gap < -10 ? "var(--destructive)" : gap < 0 ? "var(--warning)" : "var(--success)";
+
+        return (
+          <div style={{
+            background: "var(--card)",
+            border: `1px solid var(--border)`,
+            borderLeft: `4px solid ${accent}`,
+            borderRadius: 14,
+            padding: "20px 24px",
+            marginBottom: 20,
+            boxShadow: "var(--shadow)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Главный вывод</div>
+              <a
+                href="/owner-dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 12, fontWeight: 600, color: "var(--primary)",
+                  textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+                }}
+              >
+                Дашборд руководителя →
+              </a>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 6 }}>
+              {gapText}
+            </div>
+            {topRec && (
+              <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Первое действие:</span>{" "}
+                {topRec.text}
+                {topRec.effect && <span style={{ color: "var(--muted-foreground)" }}> — {topRec.effect}</span>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
       <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ background: `linear-gradient(160deg, var(--card) 60%, var(--primary)06 100%)`, borderRadius: 16, border: `1px solid var(--border)`, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, boxShadow: "var(--shadow)" }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 16, letterSpacing: "0.03em" }}>ОБЩИЙ SCORE</div>
@@ -236,13 +299,13 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       </CollapsibleSection>
 
       {/* Key.so Dashboard */}
-      <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
+      <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
       </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (
-        <CollapsibleSection c={c} title="🔑 Ключевые слова и позиции"
+        <CollapsibleSection c={c} title="Ключевые слова и позиции" icon={<Key size={16} strokeWidth={1.75} />}
           extra={
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", background: "var(--background)", borderRadius: 8, border: `1px solid var(--border)`, padding: 2 }}>
@@ -343,7 +406,10 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>🏢 Бизнес-профиль</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}>
+                <Building2 size={16} strokeWidth={1.75} style={{ color: "var(--muted-foreground)" }} />
+                Бизнес-профиль
+              </div>
               <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--muted)", padding: "2px 8px", borderRadius: 6 }}>Данные: Руспрофайл</span>
             </div>
             {(() => {
@@ -389,7 +455,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
-        <CollapsibleSection c={c} title="📋 Госконтракты (zakupki.gov.ru)">
+        <CollapsibleSection c={c} title="Госконтракты (zakupki.gov.ru)" icon={<FileText size={16} strokeWidth={1.75} />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
             <div style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 14 }}>
               Найдено <span style={{ fontWeight: 700, color: "var(--foreground)" }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: "var(--primary)" }}>{data.governmentContracts.totalAmount}</span>
@@ -420,7 +486,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       )}
 
       {/* ── Технологии ── */}
-      <CollapsibleSection c={c} title="⚙️ Технологии">
+      <CollapsibleSection c={c} title="Технологии" icon={<Cpu size={16} strokeWidth={1.75} />}>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
           {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
             <div style={{ marginBottom: 12 }}>
@@ -454,10 +520,13 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       </CollapsibleSection>
 
       {/* ── Найм ── */}
-      <CollapsibleSection c={c} title="👥 Найм (hh.ru)">
+      <CollapsibleSection c={c} title="Найм (hh.ru)" icon={<UsersIcon size={16} strokeWidth={1.75} />}>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>👥 Найм (hh.ru)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}>
+              <UsersIcon size={16} strokeWidth={1.75} style={{ color: "var(--muted-foreground)" }} />
+              Найм (hh.ru)
+            </div>
             {data.hiring?.trend && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
@@ -490,7 +559,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       </CollapsibleSection>
 
       {/* ── Соцсети и рейтинги ── */}
-      <CollapsibleSection c={c} title="📱 Соцсети и рейтинги">
+      <CollapsibleSection c={c} title="Соцсети и рейтинги" icon={<Share2 size={16} strokeWidth={1.75} />}>
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
             {data.social?.vk ? (
@@ -549,7 +618,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
-        <CollapsibleSection c={c} title={`📈 Прогноз ниши — ${data.nicheForecast.timeframe}`}>
+        <CollapsibleSection c={c} title={`Прогноз ниши — ${data.nicheForecast.timeframe}`} icon={<LineChart size={16} strokeWidth={1.75} />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
               <div style={{ flex: 1 }}>

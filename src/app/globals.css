@@ -14,8 +14,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.16 0.03 260);
 
-  /* Brand */
-  --primary: oklch(0.54 0.16 280);
+  /* Brand — Stripe/Linear-style navy (premium B2B) */
+  --primary: oklch(0.45 0.17 260);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.005 250);
   --secondary-foreground: oklch(0.22 0.025 260);
@@ -36,7 +36,7 @@
   --border: oklch(0.85 0.01 250);
   --input: oklch(0.85 0.01 250);
   --input-bg: oklch(0.99 0.003 80);
-  --ring: oklch(0.54 0.16 280);
+  --ring: oklch(0.45 0.17 260);
 
   /* Sidebar — ALWAYS DARK across themes */
   --sidebar-bg: oklch(0.16 0.06 260);
@@ -47,7 +47,7 @@
   --sidebar-muted: oklch(0.65 0.02 260);
 
   /* Chart colors (5-slot scale) */
-  --chart-1: oklch(0.54 0.16 280);
+  --chart-1: oklch(0.45 0.17 260);
   --chart-2: oklch(0.6 0.16 145);
   --chart-3: oklch(0.75 0.14 75);
   --chart-4: oklch(0.55 0.22 25);
@@ -72,13 +72,13 @@
 }
 
 .dark {
-  --background: oklch(0.2 0.04 280);
-  --foreground: oklch(0.92 0.008 280);
-  --card: oklch(0.25 0.04 280);
-  --card-foreground: oklch(0.92 0.008 280);
-  --popover: oklch(0.23 0.04 280);
-  --popover-foreground: oklch(0.92 0.008 280);
-  --primary: oklch(0.56 0.18 280);
+  --background: oklch(0.2 0.04 260);
+  --foreground: oklch(0.92 0.008 260);
+  --card: oklch(0.25 0.04 260);
+  --card-foreground: oklch(0.92 0.008 260);
+  --popover: oklch(0.23 0.04 260);
+  --popover-foreground: oklch(0.92 0.008 260);
+  --primary: oklch(0.58 0.17 260);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.28 0.04 280);
   --secondary-foreground: oklch(0.92 0.008 280);
@@ -504,4 +504,13 @@ html, body, .ds-card, .ds-btn, .ds-input, .ds-sidebar, .ds-tab {
 .ds-focus-ring:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* ----- Utility: spinner for Lucide Loader2 ----- */
+@keyframes mr-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.mr-spin {
+  animation: mr-spin 1s linear infinite;
 }

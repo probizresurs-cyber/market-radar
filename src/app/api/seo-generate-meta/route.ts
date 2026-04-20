@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,6 +26,8 @@ function toSlug(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { h1, intro, focusKeyword, platform, topic } = await req.json();
 
@@ -66,9 +69,16 @@ H1: ${h1}
     data.focusKeyword = focusKeyword;
     data.slug = toSlug(h1 || topic);
 
+    await access.log({
+      endpoint: "seo-generate-meta",
+      model: "claude-sonnet-4-6",
+      promptTokens: estimateTokens(prompt),
+      completionTokens: estimateTokens(rawText),
+    });
     return NextResponse.json({ meta: data });
   } catch (e) {
     console.error("seo-generate-meta error:", e);
+    await access.log({ endpoint: "seo-generate-meta", model: "claude-sonnet-4-6", success: false, errorMessage: String(e).slice(0, 200) });
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

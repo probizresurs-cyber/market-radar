@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,6 +25,8 @@ const SYSTEM_PROMPT = `Ты — парсер отзывов. Из скриншо
 Если не можешь разобрать — верни пустой массив reviews.`;
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const screenshot: string | undefined = body.screenshot; // base64 data URL
@@ -93,12 +96,20 @@ export async function POST(req: Request) {
       reply: r.reply,
     }));
 
+    const rawContent = data.choices[0]?.message?.content ?? "";
+    await access.log({
+      endpoint: "extract-reviews",
+      model: "gpt-4o",
+      promptTokens: estimateTokens(SYSTEM_PROMPT + (pastedText ?? "")) + (screenshot ? 1000 : 0),
+      completionTokens: estimateTokens(rawContent),
+    });
     return NextResponse.json({
       ok: true,
       data: { platform: parsed.platform ?? "unknown", reviews },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "extract-reviews", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

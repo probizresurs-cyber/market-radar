@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { TAResult } from "@/lib/ta-types";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -145,6 +146,8 @@ emotionValence: positive|neutral|negative|mixed. Специфика ниши о�
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
 
@@ -324,9 +327,16 @@ export async function POST(req: Request) {
       stages,
     };
 
+    await access.log({
+      endpoint: "generate-cjm",
+      model: "claude-sonnet-4-6",
+      promptTokens: estimateTokens(userPrompt),
+      completionTokens: estimateTokens(rawText),
+    });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "generate-cjm", model: "claude-sonnet-4-6", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult } from "@/lib/types";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -67,6 +68,8 @@ function buildPrompt(myCompany: AnalysisResult, competitors: AnalysisResult[]): 
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const myCompany: AnalysisResult = body.myCompany;
@@ -76,11 +79,12 @@ export async function POST(req: Request) {
     if (competitors.length === 0) return NextResponse.json({ ok: false, error: "Нет конкурентов" }, { status: 400 });
     if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ ok: false, error: "API key не настроен" }, { status: 500 });
 
+    const prompt = buildPrompt(myCompany, competitors);
     const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: "Ты — эксперт по конкурентной разведке. Отвечаешь ТОЛЬКО валидным JSON без markdown. Ответ начинается с { и заканчивается }.",
-      messages: [{ role: "user", content: buildPrompt(myCompany, competitors) }],
+      messages: [{ role: "user", content: prompt }],
       stream: true,
     });
 
@@ -92,9 +96,16 @@ export async function POST(req: Request) {
     }
 
     const parsed = extractJson(text);
+    await access.log({
+      endpoint: "generate-competitor-insights",
+      model: "claude-sonnet-4-6",
+      promptTokens: estimateTokens(prompt),
+      completionTokens: estimateTokens(text),
+    });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "generate-competitor-insights", model: "claude-sonnet-4-6", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

@@ -5,6 +5,10 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import {
+  Brain, Rocket, User, Globe, Zap, AlertTriangle, Flame, Ban,
+  RefreshCw, Sparkles, Target, Loader2, ThumbsUp, ThumbsDown,
+} from "lucide-react";
 
 export function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
   c: Colors; myCompany: AnalysisResult | null;
@@ -76,7 +80,10 @@ export function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
         onClick={handleSubmit}
         disabled={isAnalyzing || !niche.trim()}
         style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isAnalyzing || !niche.trim() ? "var(--muted)" : "linear-gradient(135deg, #6366f1, #818cf8)", color: isAnalyzing || !niche.trim() ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isAnalyzing || !niche.trim() ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #6366f140" }}>
-        {isAnalyzing ? "⏳ Анализируем ЦА… (60–90 сек)" : "🧠 Провести анализ ЦА"}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {isAnalyzing ? <Loader2 size={16} className="mr-spin" /> : <Brain size={16} />}
+          {isAnalyzing ? "Анализируем ЦА… (60–90 сек)" : "Провести анализ ЦА"}
+        </span>
       </button>
       {isAnalyzing && (
         <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12 }}>Проводим глубокий анализ. Не закрывайте страницу.</p>
@@ -95,7 +102,7 @@ export function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysi
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Дашборд ЦА</h1>
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ целевой аудитории ещё не проводился</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🧠</div>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Brain size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Тут пока нет данных</div>
         <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
           Запустите анализ целевой аудитории, чтобы увидеть сегменты, боли, страхи и мотивы ваших клиентов
@@ -104,7 +111,7 @@ export function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysi
           onClick={onRunAnalysis}
           style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #6366f140" }}
         >
-          🚀 Запустить анализ ЦА
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Rocket size={16} /> Запустить анализ ЦА</span>
         </button>
       </div>
     </div>
@@ -181,7 +188,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       )}
 
       {/* Demographics */}
-      <CollapsibleSection c={c} title="👤 Демография и образ жизни">
+      <CollapsibleSection c={c} title="Демография и образ жизни" icon={<User size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>ПЕРСОНА</div>
@@ -213,7 +220,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Worldview */}
-      <CollapsibleSection c={c} title="🌍 Мировоззрение и убеждения">
+      <CollapsibleSection c={c} title="Мировоззрение и убеждения" icon={<Globe size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           {[
             { title: "Надежды и мечты", text: seg.worldview.hopesAndDreams },
@@ -229,7 +236,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Problems & Emotions */}
-      <CollapsibleSection c={c} title="💥 Основные проблемы и эмоции">
+      <CollapsibleSection c={c} title="Основные проблемы и эмоции" icon={<Zap size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>ГЛАВНЫЕ ПРОБЛЕМЫ</div>
@@ -243,7 +250,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Fears */}
-      <CollapsibleSection c={c} title="😰 Страхи (те, что не признают вслух)">
+      <CollapsibleSection c={c} title="Страхи (те, что не признают вслух)" icon={<AlertTriangle size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>ТОП-5 СТРАХОВ</div>
@@ -263,7 +270,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Pain situations */}
-      <CollapsibleSection c={c} title="🔥 Болевые ситуации">
+      <CollapsibleSection c={c} title="Болевые ситуации" icon={<Flame size={16} />}>
         <Card>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>КОНКРЕТНЫЕ МОМЕНТЫ КОГДА КЛИЕНТ ОСОЗНАЁТ ПРОБЛЕМУ</div>
           <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 16 }}>Ситуации которые вызывают желание немедленно решить проблему</p>
@@ -272,7 +279,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Obstacles & Myths */}
-      <CollapsibleSection c={c} title="🧱 Препятствия и мифы">
+      <CollapsibleSection c={c} title="Препятствия и мифы" icon={<Ban size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>ПРЕПЯТСТВИЯ НА ПУТИ К РЕШЕНИЮ</div>
@@ -286,14 +293,14 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Past solutions */}
-      <CollapsibleSection c={c} title="🔄 Прошлый опыт решения проблемы">
+      <CollapsibleSection c={c} title="Прошлый опыт решения проблемы" icon={<RefreshCw size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           {seg.pastSolutions.map((ps, i) => (
             <Card key={i}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>{ps.name}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}>👍 НРАВИЛОСЬ</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}><ThumbsUp size={12} /> НРАВИЛОСЬ</div>
               <p style={{ fontSize: 12, color: "var(--foreground-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>{ps.liked}</p>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 4 }}>👎 НЕ НРАВИЛОСЬ</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}><ThumbsDown size={12} /> НЕ НРАВИЛОСЬ</div>
               <p style={{ fontSize: 12, color: "var(--foreground-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>{ps.disliked}</p>
               <div style={{ borderLeft: `3px solid var(--destructive)`, paddingLeft: 10 }}>
                 <p style={{ fontSize: 12, color: "var(--foreground-secondary)", fontStyle: "italic", margin: 0 }}>«{ps.quote}»</p>
@@ -313,7 +320,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Magic transformation */}
-      <CollapsibleSection c={c} title="✨ Волшебная трансформация">
+      <CollapsibleSection c={c} title="Волшебная трансформация" icon={<Sparkles size={16} />}>
         <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, var(--success)08 100%)` }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 12, letterSpacing: "0.05em" }}>ИДЕАЛЬНЫЙ РЕЗУЛЬТАТ</div>
           <p style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.7, margin: "0 0 16px" }}>{seg.magicTransformation}</p>
@@ -329,7 +336,7 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
       </CollapsibleSection>
 
       {/* Market & Objections */}
-      <CollapsibleSection c={c} title="🎯 Рынок и возражения">
+      <CollapsibleSection c={c} title="Рынок и возражения" icon={<Target size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>ЧТО ДОЛЖЕН УВИДЕТЬ РЫНОК</div>

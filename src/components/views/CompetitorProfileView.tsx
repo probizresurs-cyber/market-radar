@@ -10,6 +10,10 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
+import {
+  TrendingUp, AlertTriangle, Lightbulb, Tag, RefreshCw, Key,
+  Search, Building2, ClipboardList, Settings, Users, Smartphone,
+} from "lucide-react";
 
 export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisResult; onBack: () => void }) {
   const { company, recommendations, insights } = data;
@@ -86,7 +90,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       {/* Strengths & Weaknesses */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--success)", marginBottom: 12 }}>💪 Сильные стороны</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--success)", marginBottom: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><TrendingUp size={14} /> Сильные стороны</div>
           {company.categories.filter(c2 => c2.score >= 60).map(cat => (
             <div key={cat.name} style={{ fontSize: 13, color: "var(--foreground)", marginBottom: 6 }}>
               {cat.icon} {cat.name} — <strong>{cat.score}/100</strong>
@@ -97,7 +101,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
           )}
         </div>
         <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--destructive)", marginBottom: 12 }}>⚠️ Слабые стороны</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><AlertTriangle size={14} /> Слабые стороны</div>
           {company.categories.filter(c2 => c2.score < 50).map(cat => (
             <div key={cat.name} style={{ fontSize: 13, color: "var(--foreground)", marginBottom: 6 }}>
               {cat.icon} {cat.name} — <strong>{cat.score}/100</strong>
@@ -145,7 +149,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
 
       {/* Insights */}
       {insights.length > 0 && (
-        <CollapsibleSection c={c} title="💡 Инсайты">
+        <CollapsibleSection c={c} title="Инсайты" icon={<Lightbulb size={16} />}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
             {insights.map((ins, i) => (
               <div key={i} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
@@ -158,11 +162,11 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       )}
 
       {/* Offers analysis */}
-      <CollapsibleSection c={c} title="🏷️ Анализ офферов"
+      <CollapsibleSection c={c} title="Анализ офферов" icon={<Tag size={16} />}
         extra={offers && !offersLoading ? (
           <div style={{ textAlign: "right" }}>
-            <button onClick={() => loadOffers(true)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
-              🔄 Актуализировать
+            <button onClick={() => loadOffers(true)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <RefreshCw size={11} /> Актуализировать
             </button>
             <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в неделю</div>
           </div>
@@ -217,13 +221,13 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       </CollapsibleSection>
 
       {/* Key.so Dashboard */}
-      <CollapsibleSection c={c} title="📈 Данные Key.so" defaultOpen={true}>
+      <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} />} defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
       </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (
-        <CollapsibleSection c={c} title="🔑 Ключевые слова и позиции">
+        <CollapsibleSection c={c} title="Ключевые слова и позиции" icon={<Key size={16} />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 16 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr style={{ background: "var(--background)" }}>
@@ -253,10 +257,10 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       )}
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
-      <CollapsibleSection c={c} title="🔍 SEO-детали и бизнес-профиль">
+      <CollapsibleSection c={c} title="SEO-детали и бизнес-профиль" icon={<Search size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>🔍 SEO-детали</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 8 }}><Search size={14} /> SEO-детали</div>
             {[
               { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
               { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
@@ -301,7 +305,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
           </div>
 
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>🏢 Бизнес-профиль</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 8 }}><Building2 size={14} /> Бизнес-профиль</div>
             {(() => {
               const descLines = (data.company.description ?? "").split("\n");
               const legalLine = descLines.find((l: string) => l.includes("ИНН:") || l.includes("ОГРН:")) ?? null;
@@ -344,7 +348,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
-        <CollapsibleSection c={c} title="📋 Госконтракты (zakupki.gov.ru)">
+        <CollapsibleSection c={c} title="Госконтракты (zakupki.gov.ru)" icon={<ClipboardList size={16} />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 14 }}>
               Найдено <span style={{ fontWeight: 700, color: "var(--foreground)" }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: "var(--primary)" }}>{data.governmentContracts.totalAmount}</span>
@@ -375,10 +379,10 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       )}
 
       {/* ── Технологии + Найм ── */}
-      <CollapsibleSection c={c} title="⚙️ Технологии и найм">
+      <CollapsibleSection c={c} title="Технологии и найм" icon={<Settings size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>⚙️ Технологии</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 8 }}><Settings size={14} /> Технологии</div>
             {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>CMS</div>
@@ -411,7 +415,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
 
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>👥 Найм (hh.ru)</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", display: "inline-flex", alignItems: "center", gap: 8 }}><Users size={14} /> Найм (hh.ru)</div>
               {data.hiring?.trend && (
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
@@ -446,7 +450,7 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
 
       {/* ── Соцсети ── */}
       {(data.social?.vk || data.social?.telegram || data.social?.yandexRating || data.social?.gisRating) && (
-        <CollapsibleSection c={c} title="📱 Соцсети и отзывы">
+        <CollapsibleSection c={c} title="Соцсети и отзывы" icon={<Smartphone size={16} />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", marginBottom: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {data.social?.vk && (

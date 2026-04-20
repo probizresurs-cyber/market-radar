@@ -260,16 +260,12 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Генератор лендингов</h1>
           <p style={{ color: "var(--foreground-secondary)", fontSize: 14 }}>AI-генерация профессиональных лендингов на основе анализа компании, ЦА и брендбука</p>
         </div>
-        <div style={{ display: "flex", gap: 2, background: "var(--card)", borderRadius: 10, padding: 3, border: `1px solid var(--border)` }}>
-          {(["create", "history"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-                background: tab === t ? "var(--primary)" : "transparent",
-                color: tab === t ? "#fff" : "var(--foreground-secondary)" }}>
-              {t === "create" ? "✦ Создать" : `📁 История (${landingHistory.length})`}
-            </button>
-          ))}
-        </div>
+        <button onClick={() => setTab(tab === "history" ? "create" : "history")}
+          style={{ padding: "8px 18px", borderRadius: 10, border: `1px solid var(--border)`, cursor: "pointer", fontSize: 13, fontWeight: 600,
+            background: tab === "history" ? "var(--primary)" : "var(--card)",
+            color: tab === "history" ? "#fff" : "var(--foreground-secondary)" }}>
+          {tab === "history" ? "← Назад" : `📁 История (${landingHistory.length})`}
+        </button>
       </div>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>{error}</div>}

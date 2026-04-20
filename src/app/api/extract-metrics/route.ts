@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,6 +21,8 @@ const SYSTEM_PROMPT = `Ты — парсер метрик соцсетей. Те
 Возвращай СТРОГО JSON без markdown, без комментариев.`;
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const imageBase64: string = body.imageBase64 ?? ""; // raw base64, без префикса
@@ -122,9 +125,17 @@ ${fieldsHint}
     }
     result.capturedAt = new Date().toISOString();
 
+    await access.log({
+      endpoint: "extract-metrics",
+      model: "gpt-4o",
+      // Vision images are ~1000 tokens regardless of text length
+      promptTokens: estimateTokens(userPrompt + SYSTEM_PROMPT) + 1000,
+      completionTokens: estimateTokens(raw),
+    });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "extract-metrics", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

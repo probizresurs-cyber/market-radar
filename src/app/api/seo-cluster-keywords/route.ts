@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -10,6 +11,8 @@ const client = new Anthropic({
 });
 
 export async function POST(req: NextRequest) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const { topic, companyName, niche, taContext } = await req.json();
 
@@ -60,9 +63,16 @@ frequency: "high" = основной запрос, "medium" = 2-3 раза в т
     }
     if (!data) throw new Error("Не удалось разобрать JSON из ответа модели");
 
+    await access.log({
+      endpoint: "seo-cluster-keywords",
+      model: "claude-sonnet-4-6",
+      promptTokens: estimateTokens(prompt),
+      completionTokens: estimateTokens(rawText),
+    });
     return NextResponse.json({ cluster: data });
   } catch (e) {
     console.error("seo-cluster-keywords error:", e);
+    await access.log({ endpoint: "seo-cluster-keywords", model: "claude-sonnet-4-6", success: false, errorMessage: String(e).slice(0, 200) });
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

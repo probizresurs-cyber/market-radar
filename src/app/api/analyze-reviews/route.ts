@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
 import type { ReviewAnalysis } from "@/lib/review-types";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,6 +45,8 @@ const SYSTEM_PROMPT = `Ты — аналитик отзывов. Получае�
 }`;
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
@@ -96,7 +99,8 @@ ${reviewsDump}
     }
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}");
+    const rawContent = data.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(rawContent);
 
     const analysis: ReviewAnalysis = {
       id: `ra-${Date.now()}`,
@@ -114,9 +118,16 @@ ${reviewsDump}
       analyzedAt: new Date().toISOString(),
     };
 
+    await access.log({
+      endpoint: "analyze-reviews",
+      model: "gpt-4o",
+      promptTokens: estimateTokens(SYSTEM_PROMPT + userPrompt),
+      completionTokens: estimateTokens(rawContent),
+    });
     return NextResponse.json({ ok: true, data: analysis });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    await access.log({ endpoint: "analyze-reviews", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

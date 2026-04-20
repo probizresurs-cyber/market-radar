@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const body = await req.json();
     const apiKey = process.env.OPENAI_API_KEY;
@@ -52,9 +55,18 @@ ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""
     }
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}");
+    const rawContent = data.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(rawContent);
+    await access.log({
+      endpoint: "edit-presentation",
+      model: "gpt-4o",
+      promptTokens: estimateTokens(systemPrompt + JSON.stringify(slides) + wish),
+      completionTokens: estimateTokens(rawContent),
+    });
     return NextResponse.json({ ok: true, slides: parsed.slides ?? [] });
   } catch (err: unknown) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Error" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Error";
+    await access.log({ endpoint: "edit-presentation", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
