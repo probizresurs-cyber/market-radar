@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
     const domainDataPromise = enrichDomainData(cleanDomain, scraped.socialLinks);
 
     // 2. AI analysis (Claude) — самая долгая операция, пока она идет, собираются данные по домену
-    const result = await analyzeWithClaude(scraped);
+    const rawResult = await analyzeWithClaude(scraped);
+    const { _usage, ...result } = rawResult;
+    const promptTokens = _usage?.inputTokens ?? 0;
+    const completionTokens = _usage?.outputTokens ?? 0;
 
     // 3. Дожидаемся доменных данных и запускаем сбор данных по компании (используя полученное AI имя)
     const [domainData, companyData] = await Promise.all([
@@ -155,7 +158,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6" });
+    await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", promptTokens, completionTokens });
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);

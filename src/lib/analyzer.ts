@@ -43,7 +43,7 @@ function safeNum(v: unknown, fallback = 0): number {
   return isFinite(n) ? n : fallback;
 }
 
-export async function analyzeWithClaude(data: ScrapedData): Promise<AnalysisResult> {
+export async function analyzeWithClaude(data: ScrapedData): Promise<AnalysisResult & { _usage?: { inputTokens: number; outputTokens: number } }> {
   const socialList = Object.keys(data.socialLinks);
   const altCoverage = data.imageCount > 0 ? Math.round((data.imagesWithAlt / data.imageCount) * 100) : 0;
 
@@ -201,8 +201,14 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
   });
 
   let responseText = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
   for await (const event of streamResponse) {
-    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+    if (event.type === "message_start") {
+      inputTokens = event.message.usage?.input_tokens ?? 0;
+    } else if (event.type === "message_delta") {
+      outputTokens = event.usage?.output_tokens ?? 0;
+    } else if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
       responseText += event.delta.text;
     }
   }
@@ -414,5 +420,6 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     business,
     nicheForecast,
     aiPerception,
+    _usage: { inputTokens, outputTokens },
   };
 }
