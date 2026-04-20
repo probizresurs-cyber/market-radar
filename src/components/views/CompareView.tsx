@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { RadarChart } from "@/components/ui/RadarChart";
-import { Scale, Search, Calendar, Zap, Briefcase, Map, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag } from "lucide-react";
+import { Scale, Search, Calendar, Zap, Briefcase, Map as MapIcon, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag } from "lucide-react";
 
 export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
   const [aiInsights, setAiInsights] = useState<null | { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] }>(null);
@@ -156,7 +156,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* Yandex rating */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Map size={11}/>Яндекс.Карты</span></td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><MapIcon size={11}/>Яндекс.Карты</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: e.social.yandexRating >= 4.5 ? "var(--success)" : e.social.yandexRating >= 3.5 ? "var(--warning)" : e.social.yandexRating > 0 ? "var(--destructive)" : "var(--muted-foreground)", fontWeight: e.social.yandexRating > 0 ? 600 : 400, background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.social.yandexRating > 0 ? `${e.social.yandexRating}★ (${e.social.yandexReviews})` : "—"}
