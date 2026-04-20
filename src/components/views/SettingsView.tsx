@@ -1,9 +1,29 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Zap, Clock, AlertTriangle, CheckCircle } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
+
+interface SubState {
+  plan: string;
+  tokensUsed: number;
+  tokensLimit: number;
+  tokensLeft: number;
+  daysLeft: number;
+  hasAccess: boolean;
+  isExpired: boolean;
+  isExhausted: boolean;
+  isAdmin?: boolean;
+}
+
+function plural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
 
 const NICHE_LABELS: Record<string, string> = {
   digital: "Digital-агентство",
@@ -22,6 +42,19 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
   const [tg, setTg] = useState(user?.tg || "");
   const [hhUrl, setHhUrl] = useState(user?.hhUrl || "");
   const [saved, setSaved] = useState(false);
+  const [sub, setSub] = useState<SubState | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
+
+  // Load subscription data whenever user opens subscription tab
+  useEffect(() => {
+    if (tab !== "subscription" || !user) return;
+    setSubLoading(true);
+    fetch("/api/subscription", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setSub(d); })
+      .catch(() => {})
+      .finally(() => setSubLoading(false));
+  }, [tab, user]);
 
   const handleSave = () => {
     if (!user) return;
@@ -115,6 +148,74 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
 
       {tab === "subscription" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* ── Token usage card ── */}
+          {subLoading && (
+            <div style={{ background: "var(--card)", borderRadius: 14, border: "1px solid var(--border)", padding: 20, color: "var(--muted-foreground)", fontSize: 13 }}>
+              Загрузка данных подписки…
+            </div>
+          )}
+          {!subLoading && sub && !sub.isAdmin && (
+            (() => {
+              const warning = sub.isExpired || sub.isExhausted;
+              const pct = sub.tokensLimit > 0 ? Math.min(100, Math.round((sub.tokensUsed / sub.tokensLimit) * 100)) : 0;
+              const low = !warning && sub.tokensLeft < sub.tokensLimit * 0.15;
+              const accent = warning ? "var(--destructive)" : low ? "#f59e0b" : "var(--primary)";
+              const planLabel = sub.plan === "trial" ? "Пробный период" : sub.plan === "free" ? "Free" : sub.plan;
+
+              return (
+                <div style={{
+                  background: "var(--card)",
+                  borderRadius: 14,
+                  border: `1px solid ${warning ? "var(--destructive)" : low ? "#f59e0b44" : "var(--border)"}`,
+                  padding: 20,
+                  boxShadow: "var(--shadow)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {warning ? <AlertTriangle size={18} /> : sub.plan !== "trial" ? <CheckCircle size={18} /> : <Zap size={18} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>{planLabel}</div>
+                      <div style={{ fontSize: 12, color: warning ? accent : "var(--muted-foreground)" }}>
+                        {warning
+                          ? (sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
+                          : `Активна · осталось ${sub.daysLeft} ${plural(sub.daysLeft, "день", "дня", "дней")}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tokens row */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                      <Zap size={14} color={accent} />
+                      AI-кредиты (токены)
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+                      {sub.tokensLeft.toLocaleString("ru-RU")} / {sub.tokensLimit.toLocaleString("ru-RU")}
+                    </div>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, background: "var(--muted)", overflow: "hidden", marginBottom: 6 }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999, transition: "width 0.4s" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted-foreground)" }}>
+                    <span>Использовано: {sub.tokensUsed.toLocaleString("ru-RU")}</span>
+                    <span>{pct}%</span>
+                  </div>
+
+                  {/* Days row (only for trial) */}
+                  {sub.plan === "trial" && !warning && (
+                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
+                      <Clock size={13} />
+                      Пробный период заканчивается через {sub.daysLeft} {plural(sub.daysLeft, "день", "дня", "дней")}
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          )}
+
+          {/* ── Plan cards ── */}
           {[
             { name: "Free", price: "₽0", features: ["1 компания", "3 конкурента", "2 анализа/мес", "Базовые рекомендации"], current: true },
             { name: "Starter", price: "₽2 990/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "PDF-отчёты", "Telegram-уведомления"], current: false },
