@@ -28,7 +28,7 @@ MarketRadar — SaaS-платформа для конкурентного ана
 | Видео-аватар | HeyGen API |
 | Карты/отзывы | Google Places API, Yandex Maps Search API, 2GIS Catalog API |
 | Уведомления | Telegram Bot API (webhooks) |
-| Деплой | Railway (Node.js, переменные окружения через Dashboard) |
+| Деплой | Собственный VPS (Moscow, Node.js + PM2, `.env` файл) |
 | Хранилище | localStorage (client-side, per userId) |
 
 ---
@@ -191,7 +191,7 @@ src/
 
 ## Переменные окружения (.env)
 
-Задаются в Railway Dashboard → Variables:
+Задаются в `.env` на VPS (next to `package.json`):
 
 ```
 ANTHROPIC_API_KEY=        # Claude API (основной AI)
@@ -212,13 +212,15 @@ DADATA_API_KEY=           # DaData (реквизиты компаний РФ)
 
 ## Деплой
 
-- **Платформа:** Railway  
-- **Команда сборки:** `npm run build` (Next.js)  
-- **Команда запуска:** `npm start`  
-- **Node.js runtime:** требуется для `pptxgenjs` и серверных API-routes  
-- **Переменные:** задаются через Railway Dashboard → Environment Variables  
-- **Авто-деплой:** при push в ветку `main` на GitHub  
+- **Платформа:** собственный VPS (Moscow, `maria@72.56.241.159`)
+- **Процесс-менеджер:** PM2 (`pm2 restart market-radar`)
+- **Команда сборки:** `npm run build`
+- **Команда запуска:** `npm start` (через PM2)
+- **Node.js runtime:** требуется для `pptxgenjs` и серверных API-routes
+- **Переменные окружения:** `.env` файл в корне проекта
+- **Anthropic proxy:** через Cloudflare Worker (`ANTHROPIC_BASE_URL`) — обход гео-блока РФ
 - **Репозиторий:** `github.com/probizresurs-cyber/market-radar`
+- **Процесс деплоя:** `git pull && npm install && npm run build && pm2 restart market-radar`
 
 ---
 
