@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Zap } from "lucide-react";
 
 const S = {
   wrap: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1117" } as React.CSSProperties,
@@ -41,7 +42,7 @@ export default function AdminLoginPage() {
   return (
     <div style={S.wrap}>
       <div style={S.card}>
-        <div style={S.logo}>⚡ MarketRadar</div>
+        <div style={S.logo}><Zap size={20}/> MarketRadar</div>
         <div style={S.sub}>Панель администратора</div>
         {err && <div style={S.err}>{err}</div>}
         <form onSubmit={submit}>

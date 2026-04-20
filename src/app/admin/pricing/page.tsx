@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { PricingItem, PriceGroup, PriceType } from "@/lib/partner-types";
 import { PRICE_GROUP_LABELS, PRICE_TYPE_LABELS, formatPrice } from "@/lib/partner-types";
+import { ClipboardList } from "lucide-react";
 
 const S = {
   page: { minHeight: "100vh", background: "#0f1117", color: "#e2e8f0" },
@@ -178,7 +179,7 @@ export default function PricingAdmin() {
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+            <div style={{ marginBottom: 12 }}><ClipboardList size={32}/></div>
             <div>Нет тарифов</div>
           </div>
         ) : (

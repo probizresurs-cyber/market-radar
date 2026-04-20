@@ -10,7 +10,7 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
-import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart } from "lucide-react";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart, Tag, RefreshCw, Search, AlertTriangle, Loader } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
@@ -221,7 +221,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       </CollapsibleSection>
 
       {/* ── Анализ офферов (своей компании) ── */}
-      <CollapsibleSection c={c} title="🏷️ Анализ офферов"
+      <CollapsibleSection c={c} title="Анализ офферов" icon={<Tag size={16} strokeWidth={1.75} />}
         extra={myOffers && !myOffersLoading ? (<>
           <button onClick={() => {
             const offersKey = `mr_offers_${company.url || company.name}`;
@@ -239,7 +239,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
               }
             }).catch(() => {/* ignore */}).finally(() => setMyOffersLoading(false));
           }} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
-            🔄 Актуализировать
+            <RefreshCw size={12} strokeWidth={2} style={{ marginRight: 4 }} />Актуализировать
           </button>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, textAlign: "right" }}>Рекомендуем раз в месяц</div>
         </>) : undefined}>
@@ -357,10 +357,10 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       )}
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
-      <CollapsibleSection c={c} title="🔍 SEO-детали и бизнес-профиль">
+      <CollapsibleSection c={c} title="SEO-детали и бизнес-профиль" icon={<Search size={16} strokeWidth={1.75} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>🔍 SEO-детали</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}><Search size={14} strokeWidth={1.75} style={{ color: "var(--muted-foreground)" }} />SEO-детали</div>
             {[
               { label: "Трафик/мес", value: data.seo?.estimatedTraffic ?? "—" },
               { label: "Возраст домена", value: data.seo?.domainAge ?? "—" },
@@ -397,7 +397,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>
                 {data.seo.issues.map((issue, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 6, fontSize: 12, color: "var(--foreground-secondary)" }}>
-                    <span style={{ color: "var(--destructive)", marginTop: 1, flexShrink: 0 }}>⚠</span>{issue}
+                    <AlertTriangle size={13} strokeWidth={2} style={{ color: "var(--destructive)", marginTop: 1, flexShrink: 0 }} />{issue}
                   </div>
                 ))}
               </div>
@@ -598,7 +598,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color }}>{label}</div>
                   {ratingsLoading
-                    ? <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>⏳</span>
+                    ? <Loader size={10} strokeWidth={2} style={{ color: "var(--muted-foreground)" }} />
                     : isLive && <span style={{ fontSize: 10, color: "var(--success)", background: "color-mix(in oklch, var(--success) 9%, transparent)", padding: "1px 6px", borderRadius: 4 }}>live</span>
                   }
                 </div>
@@ -645,13 +645,13 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
             <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55, marginBottom: 20 }}>{data.nicheForecast.direction}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 10 }}>✓ Возможности</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}><TrendingUp size={12} strokeWidth={2} />Возможности</div>
                 {(data.nicheForecast.opportunities ?? []).map((o, i) => (
                   <div key={i} style={{ fontSize: 13, color: "var(--foreground-secondary)", padding: "6px 0", borderBottom: i < (data.nicheForecast.opportunities.length - 1) ? `1px solid var(--muted)` : "none" }}>{o}</div>
                 ))}
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 10 }}>⚠ Угрозы</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={12} strokeWidth={2} />Угрозы</div>
                 {(data.nicheForecast.threats ?? []).map((t, i) => (
                   <div key={i} style={{ fontSize: 13, color: "var(--foreground-secondary)", padding: "6px 0", borderBottom: i < (data.nicheForecast.threats.length - 1) ? `1px solid var(--muted)` : "none" }}>{t}</div>
                 ))}

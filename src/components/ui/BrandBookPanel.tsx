@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { BrandBook } from "@/lib/content-types";
+import { BookOpen } from "lucide-react";
 
 const POPULAR_FONTS = [
   "Inter", "Manrope", "Montserrat", "Roboto", "Open Sans", "Lato", "Poppins",
@@ -63,7 +64,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
         onClick={() => setOpen(!open)}
         style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid var(--muted)` : "none" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>📖 Брендбук</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", display:"inline-flex", alignItems:"center", gap:6 }}><BookOpen size={14}/>Брендбук</div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>{summary}</div>
         </div>
         <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>

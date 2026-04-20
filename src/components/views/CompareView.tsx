@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { RadarChart } from "@/components/ui/RadarChart";
+import { Scale, Search, Calendar, Zap, Briefcase, Map, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag } from "lucide-react";
 
 export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
   const [aiInsights, setAiInsights] = useState<null | { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] }>(null);
@@ -63,7 +64,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
 
       {competitors.length === 0 ? (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
+          <div style={{ fontSize: 36, marginBottom: 12, color: "var(--muted-foreground)", display:"flex", justifyContent:"center" }}><Scale size={36} /></div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>Добавьте конкурентов для сравнения</div>
           <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Перейдите в раздел «Конкуренты» и добавьте сайты</div>
         </div>
@@ -114,7 +115,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 <tr><td colSpan={allCols.length + 1} style={{ padding: "4px 16px", background: "var(--sidebar-bg)", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>ФАКТИЧЕСКИЕ МЕТРИКИ</td></tr>
                 {/* SEO Traffic */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>🔍 SEO-трафик</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Search size={11}/>SEO-трафик</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.seo.estimatedTraffic || "—"}
@@ -123,7 +124,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* Domain age */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>📅 Возраст домена</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Calendar size={11}/>Возраст домена</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.seo.archiveAgeYears ? `${e.seo.archiveAgeYears} лет` : e.seo.domainAge || "—"}
@@ -132,7 +133,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* PageSpeed */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>⚡ PageSpeed</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Zap size={11}/>PageSpeed</span></td>
                   {allCols.map((e, i) => {
                     const ps = e.seo.lighthouseScores?.performance;
                     const psColor = ps === undefined ? "var(--muted-foreground)" : ps >= 80 ? "var(--success)" : ps >= 50 ? "var(--warning)" : "var(--destructive)";
@@ -145,7 +146,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* Vacancies */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>👔 Вакансии</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Briefcase size={11}/>Вакансии</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.hiring.openVacancies > 0 ? `${e.hiring.openVacancies} ` : "0 "}
@@ -155,7 +156,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* Yandex rating */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>🗺️ Яндекс.Карты</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Map size={11}/>Яндекс.Карты</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: e.social.yandexRating >= 4.5 ? "var(--success)" : e.social.yandexRating >= 3.5 ? "var(--warning)" : e.social.yandexRating > 0 ? "var(--destructive)" : "var(--muted-foreground)", fontWeight: e.social.yandexRating > 0 ? 600 : 400, background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.social.yandexRating > 0 ? `${e.social.yandexRating}★ (${e.social.yandexReviews})` : "—"}
@@ -164,7 +165,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* 2GIS rating */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>📍 2GIS</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><MapPin size={11}/>2GIS</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: e.social.gisRating >= 4.5 ? "var(--success)" : e.social.gisRating >= 3.5 ? "var(--warning)" : e.social.gisRating > 0 ? "var(--destructive)" : "var(--muted-foreground)", fontWeight: e.social.gisRating > 0 ? 600 : 400, background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.social.gisRating > 0 ? `${e.social.gisRating}★ (${e.social.gisReviews})` : "—"}
@@ -173,7 +174,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 </tr>
                 {/* VK */}
                 <tr>
-                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}>💙 ВКонтакте</td>
+                  <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 500, color: "var(--foreground-secondary)", fontSize: 12, position: "sticky", left: 0, background: "var(--card)" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,background:"#4a76a8",display:"inline-block"}}/>ВКонтакте</span></td>
                   {allCols.map((e, i) => (
                     <td key={i} style={{ textAlign: "center", padding: "10px 12px", borderBottom: `1px solid var(--muted)`, fontSize: 12, color: "var(--foreground)", background: i === 0 ? "color-mix(in oklch, var(--primary) 3%, transparent)" : "transparent" }}>
                       {e.social.vk ? `${e.social.vk.subscribers.toLocaleString("ru")} ` : "—"}
@@ -202,7 +203,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
 
           {/* Detailed SWOT per competitor */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}>⚔️ Анализ сильных и слабых сторон</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Swords size={14}/>Анализ сильных и слабых сторон</span></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {competitors.map((comp, ci) => {
                 const compColor = ["var(--destructive)", "var(--warning)", "var(--success)", "var(--warning)", "var(--primary)"][ci % 5];
@@ -233,7 +234,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 8 }}>💪 ВЫ ЛУЧШЕ В</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 8 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><TrendingUp size={11}/>ВЫ ЛУЧШЕ В</span></div>
                         {myStrong.length > 0 ? myStrong.map(cat => {
                           const compCat = comp.company.categories.find(cc => cc.name === cat.name);
                           return (
@@ -245,7 +246,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                         }) : <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Нет явного преимущества</div>}
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 8 }}>⚠️ КОНКУРЕНТ ЛУЧШЕ В</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 8 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><AlertTriangle size={11}/>КОНКУРЕНТ ЛУЧШЕ В</span></div>
                         {myWeak.length > 0 ? myWeak.map(cat => {
                           const compCat = comp.company.categories.find(cc => cc.name === cat.name);
                           return (
@@ -276,7 +277,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
             if (keywords.length === 0) return null;
             return (
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}>🔑 Сравнение SEO-позиций</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Key size={14}/>Сравнение SEO-позиций</span></div>
                 <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "auto", boxShadow: "var(--shadow)" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
@@ -317,20 +318,20 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
           {/* AI Competitive Intelligence */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>🤖 AI Конкурентная разведка</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Bot size={14}/>AI Конкурентная разведка</span></div>
               {!aiInsights && (
                 <button
                   onClick={handleGenerateInsights}
                   disabled={aiLoading}
                   style={{ padding: "8px 20px", background: aiLoading ? "var(--sidebar-bg)" : "var(--primary)", color: aiLoading ? "var(--muted-foreground)" : "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: aiLoading ? "not-allowed" : "pointer" }}
                 >
-                  {aiLoading ? "⏳ Анализирую…" : "✨ Сгенерировать анализ"}
+                  {aiLoading ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Loader2 size={13} className="mr-spin"/>Анализирую…</span> : <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Sparkles size={13}/>Сгенерировать анализ</span>}
                 </button>
               )}
               {aiInsights && (
                 <div style={{ textAlign: "right" }}>
                 <button onClick={handleGenerateInsights} disabled={aiLoading} style={{ padding: "6px 14px", background: "transparent", color: "var(--muted-foreground)", border: `1px solid var(--border)`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-                  🔄 Актуализировать
+                  <span style={{display:"inline-flex",alignItems:"center",gap:6}}><RefreshCw size={12}/>Актуализировать</span>
                 </button>
                 <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в 2 недели</div>
               </div>
@@ -339,7 +340,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
             {aiError && <div style={{ fontSize: 13, color: "var(--destructive)", padding: "10px 14px", background: "color-mix(in oklch, var(--destructive) 6%, transparent)", borderRadius: 10, marginBottom: 12 }}>{aiError}</div>}
             {!aiInsights && !aiLoading && (
               <div style={{ background: "var(--card)", borderRadius: 16, border: `1px dashed var(--border)`, padding: 32, textAlign: "center", boxShadow: "var(--shadow)" }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🧠</div>
+                <div style={{ marginBottom: 10, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Brain size={32}/></div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground-secondary)", marginBottom: 6 }}>Claude проведёт глубокий анализ</div>
                 <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Батл-карты, стратегические рекомендации, пробелы рынка и SEO-гэпы</div>
               </div>
@@ -348,11 +349,11 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Positioning + key insight */}
                 <div style={{ background: "color-mix(in oklch, var(--primary) 6%, transparent)", borderRadius: 16, border: `1px solid var(--primary)30`, padding: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 8, letterSpacing: "0.04em" }}>📍 ПОЗИЦИОНИРОВАНИЕ</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 8, letterSpacing: "0.04em" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><MapPin size={11}/>ПОЗИЦИОНИРОВАНИЕ</span></div>
                   <div style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.6, marginBottom: 10 }}>{aiInsights.positioning}</div>
                   {aiInsights.keyInsight && (
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--primary)", background: "var(--card)", padding: "8px 14px", borderRadius: 8, borderLeft: `3px solid var(--primary)` }}>
-                      💡 {aiInsights.keyInsight}
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Lightbulb size={12}/>{aiInsights.keyInsight}</span>
                     </div>
                   )}
                 </div>
@@ -372,21 +373,21 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 6 }}>✅ ВЫ ВЫИГРЫВАЕТЕ</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 6 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><CheckCircle size={11}/>ВЫ ВЫИГРЫВАЕТЕ</span></div>
                           {(card.youWin ?? []).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 8, borderLeft: `2px solid var(--success)`, lineHeight: 1.4 }}>{w}</div>)}
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 6 }}>❌ ОНИ ВЫИГРЫВАЮТ</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 6 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><XCircle size={11}/>ОНИ ВЫИГРЫВАЮТ</span></div>
                           {(card.theyWin ?? []).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 8, borderLeft: `2px solid var(--destructive)`, lineHeight: 1.4 }}>{w}</div>)}
                         </div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                         <div style={{ background: "color-mix(in oklch, var(--destructive) 3%, transparent)", borderRadius: 10, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 4 }}>⚠️ УГРОЗА</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 4 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><AlertTriangle size={11}/>УГРОЗА</span></div>
                           <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.4 }}>{card.mainThreat}</div>
                         </div>
                         <div style={{ background: "color-mix(in oklch, var(--success) 3%, transparent)", borderRadius: 10, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}>🎯 ВОЗМОЖНОСТЬ</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Target size={11}/>ВОЗМОЖНОСТЬ</span></div>
                           <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.4 }}>{card.mainOpportunity}</div>
                         </div>
                       </div>
@@ -397,7 +398,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 {/* Strategic recs + market gaps + SEO gaps */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                   <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 10, letterSpacing: "0.04em" }}>🎯 СТРАТЕГИЯ</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 10, letterSpacing: "0.04em" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Target size={11}/>СТРАТЕГИЯ</span></div>
                     {(aiInsights.strategicRecs ?? []).map((r, i) => (
                       <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 8, display: "flex", gap: 8, lineHeight: 1.4 }}>
                         <span style={{ color: "var(--primary)", fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>{r}
@@ -405,7 +406,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                     ))}
                   </div>
                   <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 10, letterSpacing: "0.04em" }}>💡 ПРОБЕЛЫ РЫНКА</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 10, letterSpacing: "0.04em" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Lightbulb size={11}/>ПРОБЕЛЫ РЫНКА</span></div>
                     {(aiInsights.marketGaps ?? []).map((g, i) => (
                       <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 8, display: "flex", gap: 8, lineHeight: 1.4 }}>
                         <span style={{ color: "var(--success)", flexShrink: 0 }}>○</span>{g}
@@ -413,7 +414,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                     ))}
                   </div>
                   <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", marginBottom: 10, letterSpacing: "0.04em" }}>🔍 SEO-ГЭПЫ</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", marginBottom: 10, letterSpacing: "0.04em" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Search size={11}/>SEO-ГЭПЫ</span></div>
                     {(aiInsights.seoGaps ?? []).map((g, i) => (
                       <div key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 8, display: "flex", gap: 8, lineHeight: 1.4 }}>
                         <span style={{ color: "var(--warning)", flexShrink: 0 }}>○</span>{g}
@@ -458,7 +459,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
 
             return (
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}>🏷️ Сравнение офферов</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 16 }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Tag size={14}/>Сравнение офферов</span></div>
                 <div style={{ overflowX: "auto", borderRadius: 14, border: `1px solid var(--border)`, boxShadow: "var(--shadow)" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -517,7 +518,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
                 {/* Missing offers hint */}
                 {myOffers?.missingOffers?.length > 0 && (
                   <div style={{ marginTop: 14, background: "color-mix(in oklch, var(--warning) 3%, transparent)", borderRadius: 12, padding: 16, border: `1px solid var(--warning)25` }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--warning)", marginBottom: 8 }}>💡 Что добавить в ваши офферы</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--warning)", marginBottom: 8 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Lightbulb size={11}/>Что добавить в ваши офферы</span></div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {(myOffers.missingOffers ?? []).map((m: string, i: number) => (
                         <span key={i} style={{ fontSize: 12, color: "var(--foreground-secondary)", background: "var(--card)", padding: "4px 12px", borderRadius: 20, border: `1px solid var(--border)` }}>{m}</span>

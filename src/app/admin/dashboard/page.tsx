@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import AdminNav from "../components/AdminNav";
+import { Zap, User } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export default async function AdminDashboard() {
   return (
     <div style={S.page}>
       <header style={S.header}>
-        <div style={S.logo}>⚡ MarketRadar Admin</div>
+        <div style={S.logo}><Zap size={18}/> MarketRadar Admin</div>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "#64748b" }}>{session.email}</span>
           <form action="/api/auth/logout" method="POST">
@@ -128,7 +129,7 @@ export default async function AdminDashboard() {
 
         {users.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 0", color: "#475569" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>👤</div>
+            <div style={{ fontSize: 40, marginBottom: 12 }}><User size={32}/></div>
             <div>Нет зарегистрированных пользователей</div>
           </div>
         )}

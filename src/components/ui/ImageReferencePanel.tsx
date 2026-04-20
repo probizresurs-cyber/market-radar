@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { ReferenceImage } from "@/lib/content-types";
+import { Lightbulb } from "lucide-react";
 
 export function ImageReferencePanel({ c, images, onChange }: {
   c: Colors;
@@ -104,8 +105,8 @@ export function ImageReferencePanel({ c, images, onChange }: {
             </div>
           )}
 
-          <div style={{ marginTop: 12, padding: "10px 12px", background: "color-mix(in oklch, var(--primary) 3%, transparent)", borderRadius: 8, fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
-            💡 <b>Как работает:</b> загрузите 1-3 картинки в нужном стиле (например, фирменные фото или референс-изображения). Gemini будет генерировать картинки для постов, ориентируясь на их цвета, композицию и настроение.
+          <div style={{ marginTop: 12, padding: "10px 12px", background: "color-mix(in oklch, var(--primary) 3%, transparent)", borderRadius: 8, fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5, display:"flex", alignItems:"flex-start", gap:6 }}>
+            <Lightbulb size={13} style={{flexShrink:0, marginTop:1}}/><span><b>Как работает:</b> загрузите 1-3 картинки в нужном стиле (например, фирменные фото или референс-изображения). Gemini будет генерировать картинки для постов, ориентируясь на их цвета, композицию и настроение.</span>
           </div>
         </div>
       )}

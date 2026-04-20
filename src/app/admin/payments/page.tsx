@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Payment } from "@/lib/partner-types";
 import { formatPrice } from "@/lib/partner-types";
+import { CreditCard } from "lucide-react";
 
 const S = {
   page: { minHeight: "100vh", background: "#0f1117", color: "#e2e8f0" },
@@ -88,7 +89,7 @@ export default function PaymentsAdmin() {
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
         ) : payments.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
+            <div style={{ marginBottom: 12 }}><CreditCard size={32}/></div>
             <div>Нет платежей</div>
           </div>
         ) : (

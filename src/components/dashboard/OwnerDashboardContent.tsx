@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -487,7 +488,7 @@ function buildThreats(my: AnalysisResult | null, competitors: AnalysisResult[]):
 // ─── Tabs component ────────────────────────────────────────────────────────
 function TabBar({ p, active, onChange, tabs }: {
   p: Palette; active: TabId; onChange: (t: TabId) => void;
-  tabs: Array<{ id: TabId; icon: string; label: string; disabled?: boolean }>;
+  tabs: Array<{ id: TabId; icon: React.ReactNode; label: string; disabled?: boolean }>;
 }) {
   return (
     <div style={{
@@ -506,7 +507,7 @@ function TabBar({ p, active, onChange, tabs }: {
             transition: "background 150ms ease, color 150ms ease",
             display: "inline-flex", alignItems: "center", gap: 6,
           }}>
-          <span>{t.icon}</span>{t.label}
+          {t.icon}{t.label}
         </button>
       ))}
     </div>
@@ -548,14 +549,14 @@ export function OwnerDashboardContent({
   const { company: myCompany, competitors, ta: taAnalysis, smm: smmAnalysis, content, brandbook, cjm, benchmarks } = data;
 
   const tabs = useMemo(() => [
-    { id: "overview" as const, icon: "📊", label: "Обзор" },
-    { id: "company" as const, icon: "🏢", label: "Компания" },
-    { id: "competitors" as const, icon: "🎯", label: "Конкуренты", disabled: competitors.length === 0 },
-    { id: "ta" as const, icon: "🧠", label: "Целевая аудитория", disabled: !taAnalysis },
-    { id: "cjm" as const, icon: "🗺", label: "CJM", disabled: !cjm },
-    { id: "benchmarks" as const, icon: "📈", label: "Бенчмарки", disabled: !benchmarks },
-    { id: "smm" as const, icon: "📱", label: "СММ", disabled: !smmAnalysis },
-    { id: "content" as const, icon: "🏭", label: "Контент", disabled: !content?.plan },
+    { id: "overview" as const, icon: <BarChart2 size={15} strokeWidth={1.75} />, label: "Обзор" },
+    { id: "company" as const, icon: <Building2 size={15} strokeWidth={1.75} />, label: "Компания" },
+    { id: "competitors" as const, icon: <Target size={15} strokeWidth={1.75} />, label: "Конкуренты", disabled: competitors.length === 0 },
+    { id: "ta" as const, icon: <Brain size={15} strokeWidth={1.75} />, label: "Целевая аудитория", disabled: !taAnalysis },
+    { id: "cjm" as const, icon: <Map size={15} strokeWidth={1.75} />, label: "CJM", disabled: !cjm },
+    { id: "benchmarks" as const, icon: <TrendingUp size={15} strokeWidth={1.75} />, label: "Бенчмарки", disabled: !benchmarks },
+    { id: "smm" as const, icon: <Smartphone size={15} strokeWidth={1.75} />, label: "СММ", disabled: !smmAnalysis },
+    { id: "content" as const, icon: <Factory size={15} strokeWidth={1.75} />, label: "Контент", disabled: !content?.plan },
   ], [competitors.length, taAnalysis, smmAnalysis, content?.plan, cjm, benchmarks]);
 
   // ─── Metrics ────────────────────────────────────────────────────────────
@@ -675,7 +676,7 @@ export function OwnerDashboardContent({
       <div style={{ minHeight: "100vh", background: p.bgPage, display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: "'Inter', system-ui, sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 420, padding: 24 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+          <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}><BarChart2 size={36} strokeWidth={1.5} color={p.textTertiary} /></div>
           <div style={{ fontSize: 20, fontWeight: 700, color: p.textPrimary, marginBottom: 8 }}>
             {mode === "public" ? "Данных нет" : "Сначала запустите анализ"}
           </div>
@@ -705,7 +706,7 @@ export function OwnerDashboardContent({
             gap: 16, marginBottom: 20, animationDelay: "0ms", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: p.primary,
-                display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18 }}>🎯</div>
+                display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}><Target size={20} strokeWidth={2} /></div>
               <div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: p.textPrimary, lineHeight: 1.2 }}>
                   {myCompany.company.name}
@@ -720,9 +721,9 @@ export function OwnerDashboardContent({
               <button
                 onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
                 title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
-                style={{ padding: "10px 14px", fontSize: 16, background: p.bgCard, border: `1px solid ${p.borderTertiary}`, borderRadius: 8, cursor: "pointer", lineHeight: 1 }}
+                style={{ padding: "10px 14px", background: p.bgCard, border: `1px solid ${p.borderTertiary}`, borderRadius: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               >
-                {theme === "dark" ? "☀️" : "🌙"}
+                {theme === "dark" ? <Sun size={14} strokeWidth={2} /> : <Moon size={14} strokeWidth={2} />}
               </button>
               {mode === "private" && (
                 <a href="/" style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: p.textSecondary,
@@ -735,7 +736,7 @@ export function OwnerDashboardContent({
                   style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600,
                     color: p.primary, background: p.bgCard, border: `1px solid ${p.primary}`, borderRadius: 8,
                     cursor: sharing ? "wait" : "pointer" }}>
-                  {sharing ? "Создаём…" : "🔗 Поделиться ссылкой"}
+                  {sharing ? "Создаём…" : <><Link2 size={14} strokeWidth={2} style={{ marginRight: 6 }} />Поделиться ссылкой</>}
                 </button>
               )}
               <button onClick={() => window.print()}
@@ -750,7 +751,7 @@ export function OwnerDashboardContent({
           {shareLink && (
             <div className="mr-card" style={{ padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center",
               gap: 12, flexWrap: "wrap", background: p.bgTabActive, borderColor: p.primary }}>
-              <span style={{ fontSize: 18 }}>🔗</span>
+              <Link2 size={18} strokeWidth={1.75} color={p.primary} />
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: p.textSecondary, marginBottom: 2 }}>
                   Публичная ссылка {copied && <span style={{ color: p.green }}>· скопировано ✓</span>}

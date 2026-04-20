@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { PromoCode } from "@/lib/partner-types";
+import { Tag } from "lucide-react";
 
 const S = {
   page: { minHeight: "100vh", background: "#0f1117", color: "#e2e8f0" },
@@ -161,7 +162,7 @@ export default function PromoAdmin() {
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
         ) : codes.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🏷</div>
+            <div style={{ marginBottom: 12 }}><Tag size={32}/></div>
             <div>Нет промокодов</div>
           </div>
         ) : (

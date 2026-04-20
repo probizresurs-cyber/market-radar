@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { KeysoDashboardData } from "@/lib/types";
+import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords } from "lucide-react";
 
 const METRIC_EXPLANATIONS: Record<string, string> = {
   "Трафик с поиска": "Оценочное количество переходов из поисковых систем в месяц по всем ключевым запросам сайта",
@@ -42,7 +43,7 @@ export function KeysoDashboardBlock({ c, dash }: {
 
   const d = y ?? g!;
 
-  const MetricCard = ({ icon, label, value, color }: { icon: string; label: string; value: number | string | undefined; color?: string }) => {
+  const MetricCard = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number | string | undefined; color?: string }) => {
     if (!value && value !== 0) return null;
     const explanation = METRIC_EXPLANATIONS[label];
     const isActive = activeMetric === label;
@@ -51,7 +52,7 @@ export function KeysoDashboardBlock({ c, dash }: {
         onClick={() => setActiveMetric(isActive ? null : label)}
         style={{ background: "var(--card)", borderRadius: 12, border: `1px solid ${isActive ? "var(--primary)" : "var(--border)"}`, padding: "12px 16px", boxShadow: "var(--shadow)", cursor: explanation ? "pointer" : "default", transition: "border-color 0.15s ease" }}
       >
-        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{icon} {label}</div>
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}><span style={{display:"inline-flex",alignItems:"center",gap:5}}>{icon} {label}</span></div>
         <div style={{ fontSize: 20, fontWeight: 800, color: color ?? "var(--foreground)" }}>
           {typeof value === "number" ? value.toLocaleString("ru-RU") : value}
         </div>
@@ -67,7 +68,7 @@ export function KeysoDashboardBlock({ c, dash }: {
   return (
     <div style={{ marginBottom: 8 }}>
       {/* Main header */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>📊 Key.so — данные о поисковом трафике</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={14}/>Key.so — данные о поисковом трафике</span></div>
 
       {/* Позиции в поиске */}
       {(d.top1 || d.top3 || d.top5 || d.top10 || d.top50) ? (
@@ -106,10 +107,10 @@ export function KeysoDashboardBlock({ c, dash }: {
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>ОРГАНИЧЕСКАЯ ВЫДАЧА</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
-          <MetricCard icon="📊" label="Трафик с поиска" value={d.traffic} color={"var(--success)"} />
-          <MetricCard icon="📄" label="Страниц в выдаче" value={d.pagesInOrganic} />
-          <MetricCard icon="👁️" label="Видимость" value={d.visibility} />
-          <MetricCard icon="🎯" label="Рекл. запросов" value={d.adKeys} />
+          <MetricCard icon={<BarChart2 size={12}/>} label="Трафик с поиска" value={d.traffic} color={"var(--success)"} />
+          <MetricCard icon={<FileText size={12}/>} label="Страниц в выдаче" value={d.pagesInOrganic} />
+          <MetricCard icon={<Eye size={12}/>} label="Видимость" value={d.visibility} />
+          <MetricCard icon={<Target size={12}/>} label="Рекл. запросов" value={d.adKeys} />
         </div>
       </div>
 
@@ -118,12 +119,12 @@ export function KeysoDashboardBlock({ c, dash }: {
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>ССЫЛКИ</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
-            <MetricCard icon="🔗" label="Входящие ссылки" value={d.backlinks} />
-            <MetricCard icon="↗️" label="Исходящие ссылки" value={d.outboundLinks} />
-            <MetricCard icon="⭐" label="DR (рейтинг домена)" value={d.dr} color={"var(--warning)"} />
-            <MetricCard icon="🌐" label="Ссылающихся доменов" value={d.referringDomains} />
-            <MetricCard icon="🖥️" label="Исходящих доменов" value={d.outboundDomains} />
-            <MetricCard icon="📡" label="Ссылок по IP" value={d.ipLinks} />
+            <MetricCard icon={<Link2 size={12}/>} label="Входящие ссылки" value={d.backlinks} />
+            <MetricCard icon={<TrendingUp size={12}/>} label="Исходящие ссылки" value={d.outboundLinks} />
+            <MetricCard icon={<Star size={12}/>} label="DR (рейтинг домена)" value={d.dr} color={"var(--warning)"} />
+            <MetricCard icon={<Globe size={12}/>} label="Ссылающихся доменов" value={d.referringDomains} />
+            <MetricCard icon={<Monitor size={12}/>} label="Исходящих доменов" value={d.outboundDomains} />
+            <MetricCard icon={<Radio size={12}/>} label="Ссылок по IP" value={d.ipLinks} />
           </div>
         </div>
       ) : null}
@@ -131,7 +132,7 @@ export function KeysoDashboardBlock({ c, dash }: {
       {/* Конкуренты */}
       {d.competitors && d.competitors.length > 0 && (
         <div style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, padding: "14px 18px", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>⚔️ КОНКУРЕНТЫ В ОРГАНИКЕ</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Swords size={11}/>КОНКУРЕНТЫ В ОРГАНИКЕ</span></div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {d.competitors.map(comp => (
               <span key={comp} style={{ background: "var(--background)", border: `1px solid var(--muted)`, padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "var(--foreground-secondary)", fontWeight: 500 }}>{comp}</span>

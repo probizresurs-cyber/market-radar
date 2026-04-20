@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, ReelMetrics, ReferenceImage } from "@/lib/content-types";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
+import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -79,7 +80,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
   return (
     <div style={{ marginTop: 10, padding: 14, borderRadius: 10, background: "var(--background)", border: "1.5px solid #6366f140" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#6366f1" }}>🎨 Корректор Tone of Voice</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#6366f1" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Palette size={12}/>Корректор Tone of Voice</span></div>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer" }}>×</button>
       </div>
 
@@ -89,16 +90,16 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
           style={{ width: "100%", padding: "9px 16px", borderRadius: 8, border: "none",
             background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff",
             fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 10px #6366f140" }}>
-          🔍 Проверить на соответствие брендбуку
+          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Search size={12}/>Проверить на соответствие брендбуку</span>
         </button>
       )}
       {loading && (
         <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#6366f1", fontWeight: 700 }}>
-          ⏳ GPT-4o проверяет тон…
+          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Loader2 size={12} className="mr-spin"/>GPT-4o проверяет тон…</span>
         </div>
       )}
       {error && (
-        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11 }}>❌ {error}</div>
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11 }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><X size={11}/>{error}</span></div>
       )}
       {result && (
         <div>
@@ -110,7 +111,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)" }}>{result.verdict}</div>
               <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
-                {result.issues.length === 0 ? "✅ Нарушений не найдено" : `${result.issues.length} ${result.issues.length === 1 ? "нарушение" : "нарушения/нарушений"}`}
+                {result.issues.length === 0 ? <span style={{display:"inline-flex",alignItems:"center",gap:4}}><Check size={11}/>Нарушений не найдено</span> : `${result.issues.length} ${result.issues.length === 1 ? "нарушение" : "нарушения/нарушений"}`}
               </div>
             </div>
             <button
@@ -130,7 +131,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
                     <span style={{ fontSize: 11, fontStyle: "italic", color: "var(--muted-foreground)" }}>«{issue.text}»</span>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 3 }}>{issue.explanation}</div>
-                  <div style={{ fontSize: 11, color: "#22c55e" }}>👉 {issue.suggestion}</div>
+                  <div style={{ fontSize: 11, color: "#22c55e" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><TrendingUp size={11}/>{issue.suggestion}</span></div>
                 </div>
               ))}
             </div>
@@ -140,7 +141,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
           <button
             onClick={() => setShowCorrected(v => !v)}
             style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid #6366f140`, background: "#6366f108", color: "#6366f1", fontSize: 11, fontWeight: 700, cursor: "pointer", marginBottom: showCorrected ? 10 : 0 }}>
-            {showCorrected ? "▲ Скрыть исправленную версию" : "✨ Показать исправленную версию"}
+            {showCorrected ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><ChevronUp size={12}/>Скрыть исправленную версию</span> : <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Sparkles size={12}/>Показать исправленную версию</span>}
           </button>
           {showCorrected && (
             <div style={{ padding: 12, background: "#6366f108", borderRadius: 8, border: "1px solid #6366f125", marginBottom: 10 }}>
@@ -150,7 +151,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
               <button
                 onClick={() => onApply({ ...post, hook: result.correctedHook, body: result.correctedBody })}
                 style={{ marginTop: 10, width: "100%", padding: "9px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                ✅ Применить исправления к посту
+                <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Check size={12}/>Применить исправления к посту</span>
               </button>
             </div>
           )}
@@ -286,7 +287,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
             border: `1px dashed ${accent}60`, background: accent + "08",
             color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer", width: "100%",
           }}>
-          📊 Внести метрики (бросьте сюда скрин статистики)
+          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={11}/>Внести метрики (бросьте сюда скрин статистики)</span>
         </button>
       );
     }
@@ -301,15 +302,15 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
           background: accent + "0c", border: `1px solid ${accent}30`,
           cursor: "pointer", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", fontSize: 11,
         }}>
-        <span style={{ fontWeight: 700, color: accent }}>📊</span>
-        {metrics.views != null && <span style={{ color: "var(--foreground-secondary)" }}>▶️ <b>{fmtNumber(metrics.views)}</b></span>}
-        {metrics.reach != null && <span style={{ color: "var(--foreground-secondary)" }}>👁 <b>{fmtNumber(metrics.reach)}</b></span>}
-        {metrics.likes != null && <span style={{ color: "var(--foreground-secondary)" }}>❤️ <b>{fmtNumber(metrics.likes)}</b></span>}
-        {metrics.comments != null && <span style={{ color: "var(--foreground-secondary)" }}>💬 <b>{fmtNumber(metrics.comments)}</b></span>}
-        {metrics.saves != null && <span style={{ color: "var(--foreground-secondary)" }}>🔖 <b>{fmtNumber(metrics.saves)}</b></span>}
+        <span style={{ display:"inline-flex", color: accent }}><BarChart2 size={11}/></span>
+        {metrics.views != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Play size={10}/></span> <b>{fmtNumber(metrics.views)}</b></span>}
+        {metrics.reach != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Eye size={10}/></span> <b>{fmtNumber(metrics.reach)}</b></span>}
+        {metrics.likes != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Heart size={10}/></span> <b>{fmtNumber(metrics.likes)}</b></span>}
+        {metrics.comments != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><MessageSquare size={10}/></span> <b>{fmtNumber(metrics.comments)}</b></span>}
+        {metrics.saves != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Bookmark size={10}/></span> <b>{fmtNumber(metrics.saves)}</b></span>}
         <span style={{ color: "var(--foreground-secondary)" }}>ER: <b style={{ color: accent }}>{erVal}%</b></span>
-        {metrics.leads != null && <span style={{ color: "var(--foreground-secondary)" }}>🎯 <b>{metrics.leads}</b></span>}
-        <span style={{ marginLeft: "auto", color: "var(--muted-foreground)", fontSize: 10 }}>✏️ изменить</span>
+        {metrics.leads != null && <span style={{ color: "var(--foreground-secondary)" }}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Target size={10}/></span> <b>{metrics.leads}</b></span>}
+        <span style={{ marginLeft: "auto", color: "var(--muted-foreground)", fontSize: 10, display:"inline-flex", alignItems:"center", gap:3 }}><Pencil size={10}/>изменить</span>
       </div>
     );
   }
@@ -317,7 +318,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
   return (
     <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "var(--background)", border: `1.5px solid ${accent}40` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: accent }}>📊 Метрики {kind === "reel" ? "рилса" : "поста"}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: accent }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={12}/>Метрики {kind === "reel" ? "рилса" : "поста"}</span></div>
         <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>×</button>
       </div>
 
@@ -336,7 +337,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={screenshotPreview} alt="screenshot" style={{ maxHeight: 80, maxWidth: 140, borderRadius: 6, border: `1px solid var(--border)` }} />
             <div style={{ flex: 1, textAlign: "left", fontSize: 11, color: "var(--foreground-secondary)" }}>
-              {loading ? "🤖 GPT-4o распознаёт метрики…" : "Скрин загружен — поля заполнены ниже"}
+              {loading ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Bot size={11}/>GPT-4o распознаёт метрики…</span> : "Скрин загружен — поля заполнены ниже"}
             </div>
             <label style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
               ↻ заменить
@@ -345,7 +346,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>📸</div>
+            <div style={{ marginBottom: 8, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Camera size={28}/></div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>Бросьте сюда скриншот статистики</div>
             <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 8 }}>VK / Instagram / Telegram / TikTok — GPT-4o распознает все цифры автоматически</div>
             <label style={{ display: "inline-block", padding: "6px 14px", borderRadius: 7, background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -354,8 +355,8 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
             </label>
           </>
         )}
-        {loading && <div style={{ marginTop: 8, fontSize: 11, color: accent, fontWeight: 700 }}>⏳ Распознаём…</div>}
-        {error && <div style={{ marginTop: 8, fontSize: 11, color: "var(--destructive)" }}>❌ {error}</div>}
+        {loading && <div style={{ marginTop: 8, fontSize: 11, color: accent, fontWeight: 700, display:"flex", alignItems:"center", gap:4, justifyContent:"center" }}><Loader2 size={11} className="mr-spin"/>Распознаём…</div>}
+        {error && <div style={{ marginTop: 8, fontSize: 11, color: "var(--destructive)", display:"flex", alignItems:"center", gap:4 }}><X size={11}/>{error}</div>}
       </div>
 
       {draft.source && (
@@ -368,7 +369,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
         {fields.map(f => (
           <div key={String(f.key)}>
             <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 3, letterSpacing: "0.03em" }}>
-              {f.emoji} {f.label.toUpperCase()}
+              {f.label.toUpperCase()}
             </label>
             <input
               type="number"
@@ -410,7 +411,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
         <button
           onClick={handleSave}
           style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-          💾 Сохранить метрики
+          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Save size={12}/>Сохранить метрики</span>
         </button>
         <button
           onClick={() => setOpen(false)}
@@ -421,7 +422,7 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
           <button
             onClick={handleClear}
             style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
-            🗑 Удалить метрики
+            <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Trash2 size={12}/>Удалить метрики</span>
           </button>
         )}
       </div>
@@ -478,7 +479,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
           <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
           {!editing && (
             <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              ✏️
+              <Pencil size={12}/>
             </button>
           )}
         </div>
@@ -503,7 +504,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
                 onClick={() => setImgExpanded(true)}
                 style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid var(--border)`, flexShrink: 0 }}
               />
-              <span style={{ fontSize: 10, color: "var(--muted-foreground)", cursor: "pointer" }} onClick={() => setImgExpanded(true)}>🖼 Нажмите, чтобы открыть картинку</span>
+              <span style={{ fontSize: 10, color: "var(--muted-foreground)", cursor: "pointer" }} onClick={() => setImgExpanded(true)}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Image size={11}/>Нажмите, чтобы открыть картинку</span></span>
             </div>
           )}
         </div>
@@ -526,7 +527,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 Сохранить</button>
+            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Save size={12}/>Сохранить</span></button>
             <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Отмена</button>
             {confirmDelete ? (
               <>
@@ -534,7 +535,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
                 <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, cursor: "pointer" }}>Нет</button>
               </>
             ) : (
-              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🗑 Удалить</button>
+              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Trash2 size={12}/>Удалить</span></button>
             )}
           </div>
         </>
@@ -553,13 +554,13 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             <button
               onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
               style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              📋 Скопировать
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Copy size={10}/>Скопировать</span>
             </button>
             {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
               <button
                 onClick={() => setShowTov(v => !v)}
                 style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                🎨 Tone of Voice
+                <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Palette size={10}/>Tone of Voice</span>
               </button>
             )}
           </div>
@@ -593,7 +594,7 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
       <div style={{ maxWidth: 700 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты</h1>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)", marginTop: 20 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+          <div style={{ marginBottom: 12, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Pencil size={48}/></div>
           <div style={{ fontSize: 14, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
         </div>
       </div>
@@ -603,7 +604,7 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   return (
     <div style={{ maxWidth: 1100 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты ({posts.length})</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>Кликните ✏️ на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>Кликните на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {posts.map(post => (

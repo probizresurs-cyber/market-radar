@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Moon, Sun, Search, Smartphone, Pencil, Settings, Users, Lightbulb, Send, BarChart2, Target, Bot, Globe, Zap, ClipboardList, Microscope, PenLine, Palette } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 
 export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
@@ -64,7 +65,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button className="lp-btn" onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 7, padding: "5px 9px", color: muted, fontSize: 14, fontFamily: "inherit" }}>
-            {theme === "light" ? "🌙" : "☀️"}
+            {theme === "light" ? <Moon size={14}/> : <Sun size={14}/>}
           </button>
           <button className="lp-btn" onClick={onLogin} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: fg, fontFamily: "inherit" }}>
             Войти
@@ -155,7 +156,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 20 }}>
           {[
             {
-              icon: "📊",
+              icon: <BarChart2 size={24}/>,
               emoji_bg: "#6366f1",
               title: "Score компании",
               desc: "Интегральная оценка вашего бизнеса по SEO, соцсетям, контенту, HR-бренду и репутации. Сравнение со средним по нише и ТОП-10%.",
@@ -163,7 +164,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               accent: "#6366f1",
             },
             {
-              icon: "🎯",
+              icon: <Target size={24}/>,
               emoji_bg: "#10b981",
               title: "Анализ конкурентов",
               desc: "Добавьте до 30 конкурентов — получите сравнительный дашборд: сильные и слабые стороны, офферы, SEO-позиции, рейтинги на картах.",
@@ -171,7 +172,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               accent: "#10b981",
             },
             {
-              icon: "🤖",
+              icon: <Bot size={24}/>,
               emoji_bg: "#f59e0b",
               title: "AI-рекомендации",
               desc: "Claude AI формирует 10+ конкретных действий: переформулировки заголовков, новые ключевые слова, правки оффера и контент-идеи.",
@@ -182,7 +183,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <div key={title} className="lp-card" style={{ background: card, borderRadius: 20, border: `1px solid ${border}`, padding: "28px 24px", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,transparent,${ac}80,transparent)` }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
-                <div style={{ width: 50, height: 50, borderRadius: 14, background: `${ac}18`, border: `1px solid ${ac}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{icon}</div>
+                <div style={{ width: 50, height: 50, borderRadius: 14, background: `${ac}18`, border: `1px solid ${ac}30`, display: "flex", alignItems: "center", justifyContent: "center", color: ac }}>{icon}</div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: ac, background: `${ac}15`, padding: "4px 10px", borderRadius: 20 }}>{tag}</span>
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</div>
@@ -200,12 +201,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {[
-            { n: "01", icon: "🌐", title: "Введите URL", desc: "Вставьте адрес своего сайта — мы соберём все публичные данные автоматически через 40+ источников." },
-            { n: "02", icon: "⚡", title: "AI анализирует", desc: "Claude AI обрабатывает SEO, тексты, соцсети, вакансии, отзывы на картах и юридические данные. Занимает ~3 минуты." },
-            { n: "03", icon: "📋", title: "Получите отчёт", desc: "Готовые рекомендации, Score по 10 параметрам, сравнение с конкурентами и конкретные правки для роста." },
+            { n: "01", icon: <Globe size={20}/>, title: "Введите URL", desc: "Вставьте адрес своего сайта — мы соберём все публичные данные автоматически через 40+ источников." },
+            { n: "02", icon: <Zap size={20}/>, title: "AI анализирует", desc: "Claude AI обрабатывает SEO, тексты, соцсети, вакансии, отзывы на картах и юридические данные. Занимает ~3 минуты." },
+            { n: "03", icon: <ClipboardList size={20}/>, title: "Получите отчёт", desc: "Готовые рекомендации, Score по 10 параметрам, сравнение с конкурентами и конкретные правки для роста." },
           ].map(({ n, icon, title, desc }) => (
             <div key={n} style={{ display: "flex", gap: 20, alignItems: "flex-start", background: card, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 24px" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: accentLight, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: accentLight, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, flexShrink: 0 }}>{icon}</div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: accent, letterSpacing: "0.05em" }}>{n}</span>
@@ -226,11 +227,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16 }}>
           {[
-            { label: "Дашборд компании", icon: "📊", desc: "Score, SEO-метрики, соцсети, рейтинги на картах" },
-            { label: "AI-рекомендации", icon: "🤖", desc: "Конкретные действия с приоритетами и примерами" },
+            { label: "Дашборд компании", icon: <BarChart2 size={48}/>, desc: "Score, SEO-метрики, соцсети, рейтинги на картах" },
+            { label: "AI-рекомендации", icon: <Bot size={48}/>, desc: "Конкретные действия с приоритетами и примерами" },
           ].map(({ label, icon, desc }) => (
             <div key={label} style={{ background: card, borderRadius: 20, border: `2px dashed ${border}`, minHeight: 280, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: muted, padding: 32 }}>
-              <div style={{ fontSize: 48 }}>{icon}</div>
+              <div style={{ color: muted }}>{icon}</div>
               <div style={{ fontWeight: 700, fontSize: 16, color: fg }}>{label}</div>
               <div style={{ fontSize: 13, textAlign: "center", lineHeight: 1.5 }}>{desc}</div>
               <div style={{ fontSize: 11, background: `${accent}15`, color: accent, padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>Скриншот появится скоро</div>
@@ -296,12 +297,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div className="lp-services" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
           {[
-            { icon: "🔬", title: "Анализ конкурентов", price: "от 9 900 ₽", desc: "Глубокий разбор до 50 конкурентов: офферы, SEO, отзывы, соцсети", accent: "#6366f1" },
-            { icon: "✍️", title: "Контент-завод", price: "от 4 900 ₽", desc: "Статьи, посты, рилсы, сторис — пакетами от 5 до 100 единиц", accent: "#10b981" },
-            { icon: "🎨", title: "Презентации и лендинги", price: "от 4 900 ₽", desc: "Брендовые презентации и одностраничные лендинги под вашу нишу", accent: "#f59e0b" },
+            { icon: <Microscope size={22}/>, title: "Анализ конкурентов", price: "от 9 900 ₽", desc: "Глубокий разбор до 50 конкурентов: офферы, SEO, отзывы, соцсети", accent: "#6366f1" },
+            { icon: <PenLine size={22}/>, title: "Контент-завод", price: "от 4 900 ₽", desc: "Статьи, посты, рилсы, сторис — пакетами от 5 до 100 единиц", accent: "#10b981" },
+            { icon: <Palette size={22}/>, title: "Презентации и лендинги", price: "от 4 900 ₽", desc: "Брендовые презентации и одностраничные лендинги под вашу нишу", accent: "#f59e0b" },
           ].map(({ icon, title, price, desc, accent: ac }) => (
             <div key={title} className="lp-card" style={{ background: card, borderRadius: 18, border: `1px solid ${border}`, padding: "24px 20px" }}>
-              <div style={{ width: 46, height: 46, borderRadius: 13, background: `${ac}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, marginBottom: 16 }}>{icon}</div>
+              <div style={{ width: 46, height: 46, borderRadius: 13, background: `${ac}18`, display: "flex", alignItems: "center", justifyContent: "center", color: ac, marginBottom: 16 }}>{icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{title}</div>
               <div style={{ fontSize: 14, color: muted, lineHeight: 1.55, marginBottom: 14 }}>{desc}</div>
               <div style={{ fontSize: 17, fontWeight: 800, color: ac }}>{price}</div>
@@ -398,17 +399,17 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОНТАКТЫ</div>
             <div style={{ marginBottom: 8 }}>
               <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                <span>✈</span> Telegram-канал @company24pro
+                <Send size={13}/> Telegram-канал @company24pro
               </a>
             </div>
             <div style={{ marginBottom: 8 }}>
               <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                <span>🤝</span> Партнёрам @market_radar1_bot
+                <Users size={13}/> Партнёрам @market_radar1_bot
               </a>
             </div>
             <div>
               <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                <span>💬</span> Поддержка в боте
+                <Send size={13}/> Поддержка в боте
               </a>
             </div>
           </div>

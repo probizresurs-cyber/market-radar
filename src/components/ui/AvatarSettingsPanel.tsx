@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AvatarSettings } from "@/lib/content-types";
+import { Sparkles, Smartphone, Monitor, Loader2, RefreshCw, ClipboardList } from "lucide-react";
 
 export function AvatarSettingsPanel({ c, settings, onChange }: {
   c: Colors;
@@ -46,7 +47,7 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
         onClick={() => setOpen(!open)}
         style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid var(--muted)` : "none" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>🎭 Настройки аватара и голоса HeyGen</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", display:"inline-flex", alignItems:"center", gap:6 }}><Sparkles size={14}/>Настройки аватара и голоса HeyGen</div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
             {settings.avatarId || settings.voiceId
               ? `Avatar: ${settings.avatarId || "—"} · Voice: ${settings.voiceId || "—"}`
@@ -111,12 +112,12 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
             <button
               onClick={() => update({ aspect: "portrait" })}
               style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "portrait" ? "var(--primary)" : "var(--border)"}`, background: settings.aspect === "portrait" ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", color: settings.aspect === "portrait" ? "var(--primary)" : "var(--foreground-secondary)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              📱 Вертикально (720×1280)
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Smartphone size={12}/>Вертикально (720×1280)</span>
             </button>
             <button
               onClick={() => update({ aspect: "landscape" })}
               style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "landscape" ? "var(--primary)" : "var(--border)"}`, background: settings.aspect === "landscape" ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", color: settings.aspect === "landscape" ? "var(--primary)" : "var(--foreground-secondary)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              🖥 Горизонтально (1280×720)
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Monitor size={12}/>Горизонтально (1280×720)</span>
             </button>
           </div>
 
@@ -125,7 +126,7 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
               onClick={loadLists}
               disabled={loading}
               style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
-              {loading ? "⏳ Загружаем…" : showLists ? "🔄 Обновить списки" : "📋 Загрузить доступные аватары и голоса с HeyGen"}
+              {loading ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Loader2 size={12} className="mr-spin"/>Загружаем…</span> : showLists ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><RefreshCw size={12}/>Обновить списки</span> : <span style={{display:"inline-flex",alignItems:"center",gap:6}}><ClipboardList size={12}/>Загрузить доступные аватары и голоса с HeyGen</span>}
             </button>
           </div>
 

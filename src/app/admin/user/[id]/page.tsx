@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
+import { Zap, User, Inbox } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -9,24 +10,24 @@ interface UserRow { id: string; email: string; name: string | null; role: string
 interface DataRow { key: string; value: unknown; }
 
 // Known data keys and their labels
-const KEY_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  "mr_company":         { label: "Анализ компании",     icon: "🏢", color: "#7c3aed" },
-  "mr_competitors":     { label: "Конкуренты",           icon: "⚔️",  color: "#2563eb" },
-  "mr_ta":              { label: "Анализ ЦА",             icon: "👥", color: "#059669" },
-  "mr_smm":             { label: "SMM-анализ",            icon: "📱", color: "#d97706" },
-  "mr_content":         { label: "Контент-план",          icon: "📝", color: "#dc2626" },
-  "mr_brandbook":       { label: "Брендбук",              icon: "🎨", color: "#7c3aed" },
-  "mr_seo":             { label: "SEO-статьи",            icon: "✍️",  color: "#0891b2" },
-  "mr_analysis_history":{ label: "История анализов",     icon: "📊", color: "#64748b" },
-  "mr_stories":         { label: "Сторис",                icon: "📲", color: "#f59e0b" },
-  "mr_brandsug":        { label: "Рекомендации бренда",  icon: "💡", color: "#8b5cf6" },
+const KEY_LABELS: Record<string, { label: string; color: string }> = {
+  "mr_company":         { label: "Анализ компании",     color: "#7c3aed" },
+  "mr_competitors":     { label: "Конкуренты",           color: "#2563eb" },
+  "mr_ta":              { label: "Анализ ЦА",             color: "#059669" },
+  "mr_smm":             { label: "SMM-анализ",            color: "#d97706" },
+  "mr_content":         { label: "Контент-план",          color: "#dc2626" },
+  "mr_brandbook":       { label: "Брендбук",              color: "#7c3aed" },
+  "mr_seo":             { label: "SEO-статьи",            color: "#0891b2" },
+  "mr_analysis_history":{ label: "История анализов",     color: "#64748b" },
+  "mr_stories":         { label: "Сторис",                color: "#f59e0b" },
+  "mr_brandsug":        { label: "Рекомендации бренда",  color: "#8b5cf6" },
 };
 
 function getKeyInfo(key: string) {
   for (const [prefix, info] of Object.entries(KEY_LABELS)) {
     if (key.startsWith(prefix)) return info;
   }
-  return { label: key, icon: "📄", color: "#475569" };
+  return { label: key, color: "#475569" };
 }
 
 function summarize(value: unknown): string {
@@ -97,14 +98,14 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   return (
     <div style={S.page}>
       <header style={S.header}>
-        <div style={S.logo}>⚡ Admin</div>
+        <div style={S.logo}><Zap size={18}/> Admin</div>
         <Link href="/admin/dashboard" style={S.back}>← Все пользователи</Link>
       </header>
 
       <main style={S.main}>
         {/* User card */}
         <div style={S.userCard}>
-          <div style={S.avatar}>👤</div>
+          <div style={S.avatar}><User size={32}/></div>
           <div style={{ flex: 1 }}>
             <div style={S.email}>
               {user.email}
@@ -125,7 +126,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         {/* Data blocks */}
         {dataRows.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#475569" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+            <div style={{ marginBottom: 8 }}><Inbox size={32}/></div>
             <div>У пользователя нет синхронизированных данных на сервере</div>
             <div style={{ fontSize: 12, marginTop: 6 }}>Данные хранятся в localStorage браузера пользователя</div>
           </div>
@@ -139,7 +140,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 return (
                   <div key={row.key} style={S.dataCard}>
                     <div style={S.cardHeader(info.color)}>
-                      <span>{info.icon}</span>
                       <span style={S.cardTitle}>{info.label}</span>
                       <span style={{ marginLeft: "auto", fontSize: 10, color: "#475569" }}>{row.key}</span>
                     </div>

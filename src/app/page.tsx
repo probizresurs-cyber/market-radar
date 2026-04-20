@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X } from "lucide-react";
+import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X, Moon, Sun, Coffee } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
@@ -953,7 +953,7 @@ export default function MarketRadarDashboard() {
         </div>
         <button onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")} aria-label="Сменить тему"
           style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", fontSize: 18, borderRadius: 8 }}>
-          {theme === "light" ? "🌙" : theme === "dark" ? "☕" : "☀️"}
+          {theme === "light" ? <Moon size={14}/> : theme === "dark" ? <Coffee size={14}/> : <Sun size={14}/>}
         </button>
       </div>
 
