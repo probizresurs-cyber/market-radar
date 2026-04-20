@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { ContentPlan, GeneratedStory, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { Smartphone, Sparkles, Camera, Users, Send, Loader2, RefreshCw } from "lucide-react";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate }: {
   c: Colors;
@@ -54,14 +55,14 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>📱 Сторис-сценарии</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}><Smartphone size={22} /> Сторис-сценарии</h1>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
       </div>
 
       {/* Generator form */}
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow-lg)", marginBottom: 24, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid var(--muted)`, background: `linear-gradient(135deg, var(--card) 50%, ${accent}06 100%)` }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)" }}>✨ Создать серию сторис</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}><Sparkles size={16} /> Создать серию сторис</div>
         </div>
         <div style={{ padding: "18px 20px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
@@ -74,7 +75,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
                     style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${platform === p ? accent : "var(--border)"}`,
                       background: platform === p ? accent + "15" : "var(--background)", color: platform === p ? accent : "var(--foreground-secondary)",
                       fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
-                    {p === "instagram" ? "📸 Insta" : p === "vk" ? "💙 VK" : "✈️ TG"}
+                    {p === "instagram" ? <><Camera size={13} style={{ marginRight: 4 }} />Insta</> : p === "vk" ? <><Users size={13} style={{ color: "#4a76a8", marginRight: 4 }} />VK</> : <><Send size={13} style={{ color: "#229ED9", marginRight: 4 }} />TG</>}
                   </button>
                 ))}
               </div>
@@ -142,7 +143,9 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
               background: generating ? "var(--muted)" : `linear-gradient(135deg, #a855f7, #c084fc)`,
               color: generating ? "var(--muted-foreground)" : "#fff",
               boxShadow: generating ? "none" : `0 4px 16px #a855f740` }}>
-            {generating ? "⏳ Генерируем сценарий…" : "📱 Создать серию сторис"}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {generating ? <><Loader2 size={16} className="spin" /> Генерируем сценарий…</> : <><Smartphone size={16} /> Создать серию сторис</>}
+            </span>
           </button>
         </div>
       </div>
@@ -150,7 +153,8 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
       {/* Stories list */}
       {stories.length === 0 ? (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>📱</div>
+          <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: "var(--muted-foreground)" }}><Smartphone size={40} /></div>
           <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
         </div>
       ) : (
@@ -213,7 +217,11 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
     }
   };
 
-  const platformLabel = { instagram: "📸 Instagram", vk: "💙 VK", telegram: "✈️ Telegram" }[story.platform];
+  const platformLabel = {
+    instagram: <><Camera size={11} style={{ marginRight: 4 }} />Instagram</>,
+    vk: <><Users size={11} style={{ color: "#4a76a8", marginRight: 4 }} />VK</>,
+    telegram: <><Send size={11} style={{ color: "#229ED9", marginRight: 4 }} />Telegram</>,
+  }[story.platform];
 
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", overflow: "hidden" }}>
@@ -307,7 +315,13 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                           cursor: generatingBg === activeSlide ? "not-allowed" : "pointer",
                           opacity: generatingBg === activeSlide ? 0.6 : 1,
                         }}>
-                        {generatingBg === activeSlide ? "⏳ Генерируем…" : slide.backgroundImageUrl ? "🔄 Перегенерировать фон" : "🎨 Сгенерировать фон"}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {generatingBg === activeSlide
+                            ? <><Loader2 size={13} className="spin" /> Генерируем…</>
+                            : slide.backgroundImageUrl
+                              ? <><RefreshCw size={13} /> Перегенерировать фон</>
+                              : <><Sparkles size={13} /> Сгенерировать фон</>}
+                        </span>
                       </button>
                       {bgError && <div style={{ marginTop: 4, fontSize: 10, color: "var(--destructive)" }}>❌ {bgError}</div>}
                     </div>

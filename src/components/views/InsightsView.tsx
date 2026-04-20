@@ -4,15 +4,16 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { Search, Rocket, Swords, PenLine, Target, AlertTriangle, TrendingUp } from "lucide-react";
 
 export function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
-  const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
-    niche: { icon: "🔭", label: "Пустая ниша", color: "var(--primary)" },
-    action: { icon: "🚀", label: "Топ-действие", color: "var(--success)" },
-    battle: { icon: "⚔️", label: "Battle Card", color: "var(--destructive)" },
-    copy: { icon: "✍️", label: "Копирайтинг", color: "var(--warning)" },
-    seo: { icon: "🔍", label: "SEO-возможность", color: "var(--primary)" },
-    offer: { icon: "🎯", label: "Оффер", color: "#9b59b6" },
+  const typeConfig: Record<string, { icon: React.ReactElement; label: string; color: string }> = {
+    niche: { icon: <Search size={16} />, label: "Пустая ниша", color: "var(--primary)" },
+    action: { icon: <Rocket size={16} />, label: "Топ-действие", color: "var(--success)" },
+    battle: { icon: <Swords size={16} />, label: "Battle Card", color: "var(--destructive)" },
+    copy: { icon: <PenLine size={16} />, label: "Копирайтинг", color: "var(--warning)" },
+    seo: { icon: <Search size={16} />, label: "SEO-возможность", color: "var(--primary)" },
+    offer: { icon: <Target size={16} />, label: "Оффер", color: "#9b59b6" },
   };
 
   const pa = data.practicalAdvice;
@@ -33,7 +34,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
           return (
             <div key={i} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 18, boxShadow: "var(--shadow)", borderLeft: `4px solid ${cfg.color}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 16 }}>{cfg.icon}</span>
+                <span style={{ color: cfg.color, display: "inline-flex" }}>{cfg.icon}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.color + "15", padding: "2px 9px", borderRadius: 6 }}>{cfg.label}</span>
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", marginBottom: 5 }}>{ins.title}</div>
@@ -46,9 +47,9 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── Копирайтинг: до / после ── */}
       {(pa?.copyImprovements ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="✍️ Текст сайта: конкретные правки">
+          <CollapsibleSection c={c} title="Текст сайта: конкретные правки">
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: "color-mix(in oklch, var(--warning) 6%, transparent)", border: `1px solid var(--warning)25` }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ flexShrink: 0, display: "inline-flex", color: "var(--warning)" }}><AlertTriangle size={16} /></span>
               <span style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
                 <strong style={{ color: "var(--warning)" }}>Это примеры формулировок от AI</strong> — не копируйте их дословно. Замените выделенные цифры, сроки и детали на актуальные данные вашей компании. Используйте как шаблон для собственного текста.
               </span>
@@ -81,7 +82,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── Оффер и позиционирование ── */}
       {pa?.offerAnalysis && pa.offerAnalysis.currentOffer !== "—" && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="🎯 Оффер и позиционирование">
+          <CollapsibleSection c={c} title="Оффер и позиционирование">
             <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ТЕКУЩИЙ ОФФЕР</div>
@@ -119,7 +120,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── Незанятые ключевые слова ── */}
       {(pa?.keywordGaps ?? []).length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="🔑 Незанятые ключевые слова">
+          <CollapsibleSection c={c} title="Незанятые ключевые слова">
             <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead><tr style={{ background: "var(--background)" }}>
@@ -152,7 +153,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {((pa?.seoActions ?? []).length > 0 || (pa?.contentIdeas ?? []).length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
           {(pa?.seoActions ?? []).length > 0 && (
-            <CollapsibleSection c={c} title="⚡ Быстрые SEO-победы">
+            <CollapsibleSection c={c} title="Быстрые SEO-победы">
               {pa.seoActions.map((action, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: 6, background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
@@ -162,7 +163,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
             </CollapsibleSection>
           )}
           {(pa?.contentIdeas ?? []).length > 0 && (
-            <CollapsibleSection c={c} title="💡 Идеи контента">
+            <CollapsibleSection c={c} title="Идеи контента">
               {pa.contentIdeas.map((idea, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: 6, background: "color-mix(in oklch, var(--success) 8%, transparent)", color: "var(--success)", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
@@ -177,7 +178,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── Battle Cards ── */}
       {competitors.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="⚔️ Battle Cards — сравнение с конкурентами">
+          <CollapsibleSection c={c} title="Battle Cards — сравнение с конкурентами">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {competitors.map((comp, i) => {
                 const myScores = data.company.categories;
@@ -241,7 +242,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="📈 Прогноз ниши">
+          <CollapsibleSection c={c} title="Прогноз ниши">
             <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: data.nicheForecast.trend === "growing" ? "var(--success)" : data.nicheForecast.trend === "declining" ? "var(--destructive)" : "var(--warning)" }}>
@@ -282,7 +283,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       {/* ── AI-восприятие ── */}
       {data.aiPerception && (
         <div style={{ marginBottom: 28 }}>
-          <CollapsibleSection c={c} title="🤖 Как нейросети видят вашу компанию">
+          <CollapsibleSection c={c} title="Как нейросети видят вашу компанию">
             <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 14 }}>Восприятие ChatGPT / Claude / Gemini на основе публичного информационного следа компании</div>
 
             {/* Presence badge + persona */}
@@ -389,7 +390,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
       )}
 
       {/* ── Заезженные формулировки ── */}
-      <CollapsibleSection c={c} title="🗣 Заезженные формулировки в нише">
+      <CollapsibleSection c={c} title="Заезженные формулировки в нише">
         <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
           <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 12 }}>
             Фразы, которые используют все — замените их конкретикой:

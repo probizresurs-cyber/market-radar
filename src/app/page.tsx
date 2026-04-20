@@ -284,7 +284,7 @@ export default function MarketRadarDashboard() {
   // Load server data and apply it — called after login and on init.
   // Also performs a one-time migration: if a key exists in localStorage but
   // NOT on the server, push it up so other devices can see it.
-  const loadAndApplyUserData = React.useCallback(async (uid: string) => {
+  const loadAndApplyUserData = React.useCallback(async (uid: string): Promise<boolean> => {
     let serverData: Record<string, unknown> = {};
     try {
       serverData = (await loadAllFromServer()) ?? {};
@@ -330,7 +330,10 @@ export default function MarketRadarDashboard() {
       }
     }
 
-    applyUserData({ ...pushed, ...serverData }, uid);
+    const mergedData = { ...pushed, ...serverData };
+    const hasCompany = mergedData.company != null;
+    applyUserData(mergedData, uid);
+    return hasCompany;
   }, [applyUserData]);
 
   // Check for existing session + restore saved data on mount
@@ -375,8 +378,24 @@ export default function MarketRadarDashboard() {
       if (!user) return; // not logged in — LandingPage will show
 
       setCurrentUser(user);
-      await loadAndApplyUserData(user.id);
+      const hasCompany = await loadAndApplyUserData(user.id);
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
+
+      // Auto-trigger analysis if user has companyUrl but no analysis yet
+      if (!hasCompany && user.onboardingDone) {
+        const storedUser = authGetCurrentUser();
+        const url = storedUser?.companyUrl || user.companyUrl;
+        if (url) {
+          setStatus("loading");
+          analyzeUrl(url)
+            .then(result => {
+              saveMyCompany(result, user.id);
+              setActiveNav("dashboard");
+            })
+            .catch(() => setActiveNav("new-analysis"))
+            .finally(() => setStatus("done"));
+        }
+      }
     };
     initApp();
   }, [loadAndApplyUserData]);

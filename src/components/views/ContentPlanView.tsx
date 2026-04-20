@@ -9,6 +9,7 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { BrandBookPanel } from "@/components/ui/BrandBookPanel";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
+import { Factory, Smartphone, Rocket } from "lucide-react";
 
 // ============================================================
 // Content Factory views
@@ -20,7 +21,7 @@ export function ContentEmptyView({ c, onRun, hasSmm }: { c: Colors; onRun: () =>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Контент-завод</h1>
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🏭</div>
+        <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Factory size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>
           {hasSmm ? "Запустите контент-завод" : "Сначала проведите анализ СММ"}
         </div>
@@ -32,7 +33,9 @@ export function ContentEmptyView({ c, onRun, hasSmm }: { c: Colors; onRun: () =>
         <button
           onClick={onRun}
           style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #f59e0b, #fb923c)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
-          {hasSmm ? "🏭 Сгенерировать план" : "📱 Перейти к анализу СММ"}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {hasSmm ? <><Rocket size={16}/> Сгенерировать план</> : <><Smartphone size={16}/> Перейти к анализу СММ</>}
+          </span>
         </button>
       </div>
     </div>

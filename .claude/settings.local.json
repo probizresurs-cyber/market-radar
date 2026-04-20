@@ -102,7 +102,17 @@
       "Bash(ssh -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no maria@72.56.241.159 \"echo connected && hostname\")",
       "WebFetch(domain:telegram.probizresurs.workers.dev)",
       "Read(//home/maria/market-radar-bot/app/bot/**)",
-      "Bash(ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no maria@72.56.241.159 \"cat /home/maria/market-radar-bot/app/bot/main.py\")"
+      "Bash(ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no maria@72.56.241.159 \"cat /home/maria/market-radar-bot/app/bot/main.py\")",
+      "Bash(ssh -o ConnectTimeout=10 maria@72.56.241.159 \"cd /home/maria/nextjs-app && git pull origin main 2>&1 | tail -5\")",
+      "Read(//d/Videos/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(py -3 -c \"print\\('ok'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('lucide-react:', p.dependencies['lucide-react']||'NOT INSTALLED'\\); console.log\\('node-cron:', p.dependencies['node-cron']||'NOT INSTALLED'\\);\")",
+      "Bash(node -e \"const l = require\\('/c/Users/User/nextjs-app/node_modules/lucide-react'\\); console.log\\('Moon:', !!l.Moon, 'Sun:', !!l.Sun, 'Coffee:', !!l.Coffee, 'Sunset:', !!l.Sunset\\);\")",
+      "Bash(node -e \"const l = require\\('C:/Users/User/nextjs-app/node_modules/lucide-react'\\); console.log\\('Moon:', !!l.Moon, 'Sun:', !!l.Sun, 'Coffee:', !!l.Coffee, 'Sunset:', !!l.Sunset, 'Send:', !!l.Send, 'Camera:', !!l.Camera, 'Music:', !!l.Music, 'Play:', !!l.Play, 'Globe:', !!l.Globe, 'Search:', !!l.Search, 'Smartphone:', !!l.Smartphone, 'Pencil:', !!l.Pencil, 'Settings:', !!l.Settings, 'Lightbulb:', !!l.Lightbulb, 'Zap:', !!l.Zap, 'User:', !!l.User, 'CreditCard:', !!l.CreditCard, 'Tag:', !!l.Tag, 'ClipboardList:', !!l.ClipboardList, 'Inbox:', !!l.Inbox\\);\")",
+      "Bash(node -e \"const l = require\\('C:/Users/User/nextjs-app/node_modules/lucide-react'\\); console.log\\('BarChart2:', !!l.BarChart2, 'Target:', !!l.Target, 'Bot:', !!l.Bot, 'Globe:', !!l.Globe, 'Zap:', !!l.Zap, 'ClipboardList:', !!l.ClipboardList, 'Microscope:', !!l.Microscope, 'PenLine:', !!l.PenLine, 'Palette:', !!l.Palette, 'FileText:', !!l.FileText\\);\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")"
     ]
   }
 }

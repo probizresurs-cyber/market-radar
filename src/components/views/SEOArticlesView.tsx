@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { PenLine, Plus, Key, X, FileText, Loader2 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
@@ -113,13 +114,13 @@ function SEOLibraryView({
   if (articles.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 400, gap: 16 }}>
-        <div style={{ fontSize: 48 }}>✍️</div>
+        <PenLine size={48} />
         <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>Нет SEO-статей</div>
         <div style={{ color: "var(--muted-foreground)", textAlign: "center", maxWidth: 360 }}>
           Создайте первую SEO-статью — AI составит бриф, структуру и текст
         </div>
         <button className="ds-btn ds-btn-primary" onClick={onNew} style={{ marginTop: 8, gap: 6, display: "flex", alignItems: "center" }}>
-          ➕ Новая статья
+          <Plus size={14}/> Новая статья
         </button>
       </div>
     );
@@ -134,7 +135,7 @@ function SEOLibraryView({
           <div style={{ color: "var(--muted-foreground)", fontSize: 13, marginTop: 2 }}>{articles.length} статей</div>
         </div>
         <button className="ds-btn ds-btn-primary" onClick={onNew} style={{ gap: 6, display: "flex", alignItems: "center" }}>
-          ➕ Новая статья
+          <Plus size={14}/> Новая статья
         </button>
       </div>
 
@@ -179,8 +180,8 @@ function SEOLibraryView({
               {article.seoScore != null && <MiniScore score={article.seoScore} label="SEO" />}
             </div>
 
-            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.5 }}>
-              🔑 {article.brief.focusKeyword}
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.5, display: "flex", alignItems: "center", gap: 4 }}>
+              <Key size={14}/> {article.brief.focusKeyword}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -195,7 +196,7 @@ function SEOLibraryView({
                   onClick={e => { e.stopPropagation(); onDelete(article.id); }}
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--destructive)", fontSize: 14, padding: "2px 4px", opacity: 0.7 }}
                 >
-                  ✕
+                  <X size={14}/>
                 </button>
               </div>
             </div>
@@ -482,7 +483,7 @@ function SEOArticleEditor({
             onChange={e => update({ h1: e.target.value })}
             placeholder="Заголовок H1..."
           />
-          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>🔑 {art.brief.focusKeyword}</div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Key size={14}/> {art.brief.focusKeyword}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -585,7 +586,7 @@ function SEOArticleEditor({
                       disabled={generatingSection === sec.id}
                       onClick={() => generateSection(sec.id)}
                     >
-                      {generatingSection === sec.id ? "⏳" : "✍️"} Написать
+                      {generatingSection === sec.id ? <Loader2 size={14}/> : <PenLine size={14}/>} Написать
                     </button>
                   </div>
                 </div>
@@ -1073,7 +1074,7 @@ function SEONewArticleView({
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", lineHeight: 1.4 }}>{t.title}</div>
                         {t.keyword && (
                           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
-                            🔑 {t.keyword}{t.volume ? ` · ~${t.volume.toLocaleString()} запр/мес` : ""}
+                            <Key size={14}/> {t.keyword}{t.volume ? ` · ~${t.volume.toLocaleString()} запр/мес` : ""}
                           </div>
                         )}
                       </div>
@@ -1188,7 +1189,7 @@ function SEONewArticleView({
       {/* Generating */}
       {step === "generating" && (
         <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✍️</div>
+          <PenLine size={48} style={{ marginBottom: 16 }} />
           <div style={{ fontSize: 18, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>Создаём статью...</div>
           <div style={{ color: "var(--muted-foreground)", fontSize: 14 }}>{progress}</div>
           <div style={{ marginTop: 20 }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Edit2, Save, Trash2, ClipboardList, Mic, X, Loader2 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { GeneratedReel, AvatarSettings, BrandBook } from "@/lib/content-types";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
@@ -77,7 +78,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             <button
               onClick={() => setEditing(true)}
               style={{ padding: "4px 9px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-              ✏️ Редактировать
+              <Edit2 size={12}/> Редактировать
             </button>
           )}
         </div>
@@ -109,7 +110,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              💾 Сохранить
+              <Save size={12}/> Сохранить
             </button>
             <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               Отмена
@@ -121,7 +122,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
               </>
             ) : (
               <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                🗑 Удалить
+                <Trash2 size={12}/> Удалить
               </button>
             )}
           </div>
@@ -131,12 +132,12 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 12 }}>{reel.title}</div>
 
           <details style={{ marginBottom: 10 }}>
-            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}>📋 Раскадровка</summary>
+            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}><ClipboardList size={12}/> Раскадровка</summary>
             <pre style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: "8px 0 0", whiteSpace: "pre-wrap", fontFamily: "inherit", background: "var(--background)", padding: 12, borderRadius: 8, border: `1px solid var(--muted)` }}>{reel.scenario}</pre>
           </details>
 
           <details style={{ marginBottom: 12 }}>
-            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}>🎙 Текст для озвучки</summary>
+            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}><Mic size={12}/> Текст для озвучки</summary>
             <p style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: "8px 0 0", background: "var(--background)", padding: 12, borderRadius: 8, border: `1px solid var(--muted)` }}>{reel.voiceoverScript}</p>
           </details>
 
@@ -147,7 +148,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           </div>
 
           {reel.videoStatus === "failed" && reel.videoError && (
-            <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 10 }}>❌ {reel.videoError}</div>
+            <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}><X size={12}/> {reel.videoError}</div>
           )}
 
           {reel.videoStatus !== "ready" && (
@@ -156,8 +157,8 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
               disabled={busy}
               style={{ width: "100%", padding: "10px 14px", borderRadius: 9, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
               {reel.videoStatus === "generating"
-                ? "⏳ HeyGen генерирует видео… (~2-5 мин)"
-                : busy ? "⏳ Запускаем HeyGen…"
+                ? <><Loader2 size={12}/> HeyGen генерирует видео… (~2-5 мин)</>
+                : busy ? <><Loader2 size={12}/> Запускаем HeyGen…</>
                 : reel.videoStatus === "failed" ? "🔄 Повторить генерацию"
                 : "🎥 Сгенерировать видео с аватаром"}
             </button>
@@ -197,7 +198,7 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   return (
     <div style={{ maxWidth: 1100 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые видео ({reels.length})</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Кликните ✏️ для правки сценария и текста озвучки</p>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px", display: "flex", alignItems: "center", gap: 4 }}>Кликните <Edit2 size={12}/> для правки сценария и текста озвучки</p>
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {reels.map(reel => (

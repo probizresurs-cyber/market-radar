@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Search, Smartphone, PenLine, Settings, Users, Lightbulb } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 
 export function LandingView({ c, theme, setTheme, onAnalyze }: {
@@ -50,7 +51,14 @@ export function LandingView({ c, theme, setTheme, onAnalyze }: {
           {error && <div style={{ marginTop: 10, color: "var(--destructive)", fontSize: 13 }}>{error}</div>}
         </form>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginTop: 24 }}>
-          {[{ i: "🔍", t: "SEO-аудит" }, { i: "📱", t: "Соцсети" }, { i: "✏️", t: "Анализ контента" }, { i: "⚙️", t: "Технологии" }, { i: "👥", t: "HR-бренд" }, { i: "💡", t: "AI-рекомендации" }].map(({ i, t }) => (
+          {([
+            { i: <Search size={14}/>, t: "SEO-аудит" },
+            { i: <Smartphone size={14}/>, t: "Соцсети" },
+            { i: <PenLine size={14}/>, t: "Анализ контента" },
+            { i: <Settings size={14}/>, t: "Технологии" },
+            { i: <Users size={14}/>, t: "HR-бренд" },
+            { i: <Lightbulb size={14}/>, t: "AI-рекомендации" },
+          ] as const).map(({ i, t }) => (
             <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted-foreground)" }}><span>{i}</span><span>{t}</span></div>
           ))}
         </div>

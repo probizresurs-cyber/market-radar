@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { Map as MapIcon, Loader2, RefreshCw, MapPin, MessageCircle, AlertTriangle, Lightbulb, TrendingUp, BarChart2 } from "lucide-react";
 
 export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis, error }: {
   c: Colors;
@@ -26,31 +27,35 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
 
   if (!myCompany) return (
     <div style={{ padding: 40, textAlign: "center", color: "var(--foreground-secondary)" }}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>🗺️</div>
+      <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, color: "var(--muted-foreground)" }}><MapIcon size={36} /></div>
       <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>Сначала проанализируйте компанию</div>
     </div>
   );
 
   if (!data) return (
     <div style={{ maxWidth: 700 }}>
+      <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Customer Journey Map</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         AI построит карту пути клиента — от первого контакта с брендом до повторных покупок и рекомендаций.
         {!!taAnalysis && <span style={{ color: "var(--success)" }}> Данные ЦА будут учтены.</span>}
       </p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 32, boxShadow: "var(--shadow)", textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🗺️</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, color: "var(--muted-foreground)" }}><MapIcon size={48} /></div>
         <div style={{ fontSize: 14, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 480, margin: "0 auto 24px" }}>
           Карта включает 7 этапов: точки касания, эмоции клиента, боли на каждом шаге и возможности для улучшения
         </div>
         <button onClick={onGenerate} disabled={isGenerating}
           style={{ padding: "13px 36px", borderRadius: 12, border: "none", background: isGenerating ? "var(--muted-foreground)" : "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating ? "wait" : "pointer" }}>
-          {isGenerating ? "⏳ Генерирую CJM… (30-60 сек)" : "🗺️ Построить Customer Journey Map"}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {isGenerating ? <><Loader2 size={16} className="spin" /> Генерирую CJM… (30-60 сек)</> : <><MapIcon size={16} /> Построить Customer Journey Map</>}
+          </span>
         </button>
         {isGenerating && <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12 }}>Анализирую путь клиента на основе данных компании{taAnalysis ? " и ЦА" : ""}…</p>}
         {error && (
           <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", border: `1px solid var(--destructive)40`, color: "var(--destructive)", fontSize: 13 }}>
-            ⚠️ {error}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> {error}</span>
           </div>
         )}
       </div>
@@ -70,7 +75,9 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
         <div style={{ textAlign: "right" }}>
           <button onClick={onGenerate} disabled={isGenerating}
             style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
-            {isGenerating ? "⏳ Обновляю…" : "🔄 Актуализировать"}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {isGenerating ? <><Loader2 size={13} className="spin" /> Обновляю…</> : <><RefreshCw size={13} /> Актуализировать</>}
+            </span>
           </button>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в квартал</div>
         </div>
@@ -78,7 +85,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
 
       {error && (
         <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "color-mix(in oklch, var(--warning) 8%, transparent)", border: `1px solid var(--warning)40`, color: "var(--warning)", fontSize: 12 }}>
-          ⚠️ При актуализации возникла ошибка — показаны предыдущие данные. Попробуйте ещё раз.
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> При актуализации возникла ошибка — показаны предыдущие данные. Попробуйте ещё раз.</span>
         </div>
       )}
 
@@ -121,7 +128,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 0 }}>
               {/* Touchpoints */}
               <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em" }}>📍 ТОЧКИ КАСАНИЯ</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> ТОЧКИ КАСАНИЯ</div>
                 {(stage.touchpoints ?? []).map((tp: { icon: string; channel: string; action: string }, j: number) => (
                   <div key={j} style={{ display: "flex", gap: 6, marginBottom: 6, fontSize: 12, color: "var(--foreground-secondary)" }}>
                     <span style={{ flexShrink: 0 }}>{tp.icon}</span>
@@ -132,7 +139,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
 
               {/* Customer thoughts */}
               <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em" }}>💭 МЫСЛИ КЛИЕНТА</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><MessageCircle size={12} /> МЫСЛИ КЛИЕНТА</div>
                 {(stage.customerThoughts ?? []).map((t: string, j: number) => (
                   <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid ${stageColors[i % stageColors.length]}40` }}>«{t}»</div>
                 ))}
@@ -140,7 +147,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
 
               {/* Pain points */}
               <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 8, letterSpacing: "0.04em" }}>⚠️ БАРЬЕРЫ</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={12} /> БАРЬЕРЫ</div>
                 {(stage.painPoints ?? []).map((p: string, j: number) => (
                   <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid var(--destructive)40` }}>{p}</div>
                 ))}
@@ -148,13 +155,13 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
 
               {/* Opportunities */}
               <div style={{ padding: "14px 18px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 8, letterSpacing: "0.04em" }}>💡 ВОЗМОЖНОСТИ</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><Lightbulb size={12} /> ВОЗМОЖНОСТИ</div>
                 {(stage.opportunities ?? []).map((o: string, j: number) => (
                   <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid var(--success)40` }}>{o}</div>
                 ))}
                 {stage.kpi && (
                   <div style={{ marginTop: 8, fontSize: 11, color: "var(--primary)", fontWeight: 600, background: "color-mix(in oklch, var(--primary) 6%, transparent)", padding: "4px 10px", borderRadius: 6 }}>
-                    📈 KPI: {stage.kpi}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><TrendingUp size={12} /> KPI: {stage.kpi}</span>
                   </div>
                 )}
               </div>
@@ -181,7 +188,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 }) {
   if (!myCompany) return (
     <div style={{ padding: 40, textAlign: "center", color: "var(--foreground-secondary)" }}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, color: "var(--muted-foreground)" }}><BarChart2 size={36} /></div>
       <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>Сначала проанализируйте компанию</div>
     </div>
   );
@@ -193,18 +200,20 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
         AI сравнит показатели компании со средними по нише на российском рынке и найдёт зоны роста.
       </p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 32, boxShadow: "var(--shadow)", textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, color: "var(--muted-foreground)" }}><BarChart2 size={48} /></div>
         <div style={{ fontSize: 14, color: "var(--foreground-secondary)", marginBottom: 24, lineHeight: 1.6, maxWidth: 480, margin: "0 auto 24px" }}>
           Получите сравнение по 6+ категориям, рыночные метрики (CAC, LTV, конверсия) и приоритизированные точки роста
         </div>
         <button onClick={onGenerate} disabled={isGenerating}
           style={{ padding: "13px 36px", borderRadius: 12, border: "none", background: isGenerating ? "var(--muted-foreground)" : "linear-gradient(135deg, #0ea5e9, #38bdf8)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating ? "wait" : "pointer" }}>
-          {isGenerating ? "⏳ Анализирую рынок… (30-60 сек)" : "📊 Сгенерировать бенчмарки"}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {isGenerating ? <><Loader2 size={16} className="spin" /> Анализирую рынок… (30-60 сек)</> : <><BarChart2 size={16} /> Сгенерировать бенчмарки</>}
+          </span>
         </button>
         {isGenerating && <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12 }}>Сравниваю с отраслевыми стандартами…</p>}
         {error && (
           <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", border: `1px solid var(--destructive)40`, color: "var(--destructive)", fontSize: 13 }}>
-            ⚠️ {error}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> {error}</span>
           </div>
         )}
       </div>
@@ -235,7 +244,9 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
         <div style={{ textAlign: "right" }}>
           <button onClick={onGenerate} disabled={isGenerating}
             style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 600, cursor: isGenerating ? "wait" : "pointer" }}>
-            {isGenerating ? "⏳ Обновляю…" : "🔄 Актуализировать"}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {isGenerating ? <><Loader2 size={13} className="spin" /> Обновляю…</> : <><RefreshCw size={13} /> Актуализировать</>}
+            </span>
           </button>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>Рекомендуем раз в месяц</div>
         </div>
@@ -270,7 +281,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 
       {/* Category benchmarks */}
       {catBench.length > 0 && (
-        <CollapsibleSection c={c} title="📈 Бенчмарки по категориям">
+        <CollapsibleSection c={c} title="Бенчмарки по категориям">
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             {catBench.map((cat, i) => {
               const gapPositive = (cat.gap ?? 0) >= 0;
@@ -314,7 +325,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 
       {/* Market metrics */}
       {mktMetrics.length > 0 && (
-        <CollapsibleSection c={c} title="💹 Рыночные метрики">
+        <CollapsibleSection c={c} title="Рыночные метрики">
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 16 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
@@ -341,7 +352,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 
       {/* Growth opportunities */}
       {growthOps.length > 0 && (
-        <CollapsibleSection c={c} title="🚀 Точки роста">
+        <CollapsibleSection c={c} title="Точки роста">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
             {growthOps.map((op, i) => {
               const impactColor = op.potentialImpact === "high" ? "var(--success)" : op.potentialImpact === "medium" ? "var(--warning)" : "var(--muted-foreground)";
@@ -368,7 +379,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 
       {/* Niche insights */}
       {(data.nicheInsights ?? []).length > 0 && (
-        <CollapsibleSection c={c} title="🔭 Инсайты по нише">
+        <CollapsibleSection c={c} title="Инсайты по нише">
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             {(data.nicheInsights as string[]).map((ins, i) => (
               <div key={i} style={{ background: "var(--card)", borderRadius: 12, padding: "12px 16px", border: `1px solid var(--border)`, fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.5, display: "flex", gap: 10, alignItems: "flex-start" }}>
