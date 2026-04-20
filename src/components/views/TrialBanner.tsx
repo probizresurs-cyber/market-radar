@@ -22,6 +22,7 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const load = () => {
       fetch("/api/subscription", { cache: "no-store" })
@@ -32,12 +33,23 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
 
     load();
 
+    // Immediate refresh when access is blocked (402)
     const handlePaywall = () => { load(); };
+
+    // Debounced refresh after a successful AI call (tokens were consumed)
+    const handleTokensUsed = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { load(); }, 1500);
+    };
+
     window.addEventListener("mr:paywall", handlePaywall);
+    window.addEventListener("mr:tokens-used", handleTokensUsed);
 
     return () => {
       cancelled = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("mr:paywall", handlePaywall);
+      window.removeEventListener("mr:tokens-used", handleTokensUsed);
     };
     // re-fetch every time userId changes
   }, [userId]);

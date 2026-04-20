@@ -26,8 +26,22 @@ export function PaywallGuard() {
 
     const originalFetch = window.fetch.bind(window);
 
+    // Routes that consume tokens — used to trigger TrialBanner refresh on success
+    const AI_ROUTE_RE = /\/api\/(analyze|generate-|suggest-|check-tov|expand-prompt|extract-)/;
+
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const res = await originalFetch(...args);
+
+      // Derive request URL for pattern matching
+      const rawUrl =
+        typeof args[0] === "string"
+          ? args[0]
+          : args[0] instanceof URL
+          ? args[0].href
+          : args[0] instanceof Request
+          ? args[0].url
+          : "";
+
       if (res.status === 402) {
         // Clone so the caller can still read the body
         try {
@@ -47,7 +61,11 @@ export function PaywallGuard() {
             message: "Пробный доступ завершён",
           });
         }
+      } else if (res.ok && AI_ROUTE_RE.test(rawUrl)) {
+        // Successful AI call — tokens were consumed; tell TrialBanner to refresh
+        window.dispatchEvent(new CustomEvent("mr:tokens-used"));
       }
+
       return res;
     };
   }, []);
