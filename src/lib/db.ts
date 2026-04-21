@@ -190,6 +190,44 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC)`);
 
+  // ─── Feature Flags (включение/отключение модулей платформы админом) ──────
+  await query(`
+    CREATE TABLE IF NOT EXISTS features (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      description TEXT,
+      enabled BOOLEAN NOT NULL DEFAULT true,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Waitlist (пользователи, которые хотят получить уведомление о запуске модуля)
+  await query(`
+    CREATE TABLE IF NOT EXISTS feature_waitlist (
+      id TEXT PRIMARY KEY,
+      feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      email TEXT,
+      note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(feature_id, user_id)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_feature_waitlist_feature_id ON feature_waitlist(feature_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_feature_waitlist_created_at ON feature_waitlist(created_at DESC)`);
+
+  // Seed базовых модулей (idempotent). Позже админ может переключать.
+  await query(`
+    INSERT INTO features (id, label, description, sort_order, enabled) VALUES
+      ('content-factory',    'Контент-завод',    'План контента, посты, рилсы, сторис, ToV-чекер',  1, true),
+      ('brand-presentation', 'Презентации',      'Бренд-презентации: генерация, CSS-рендер, PDF/PPTX', 2, true),
+      ('landing-generator',  'Лендинги',         'Генератор одностраничных лендингов под нишу',      3, true),
+      ('seo-articles',       'SEO-статьи',       'AI-генерация SEO-статей + кластер ключей',         4, true),
+      ('reviews-analysis',   'Рынок и отзывы',   'Сбор и AI-анализ отзывов с карт',                  5, true)
+    ON CONFLICT (id) DO NOTHING
+  `);
+
   // ─── Public shares (дашборд по публичной ссылке, без авторизации) ──────────
   // Каждая генерация ссылки создаёт новую строку со своим UUID.
   await query(`

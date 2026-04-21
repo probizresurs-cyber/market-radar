@@ -9,6 +9,10 @@ interface SubscriptionState {
   tokensLimit: number;
   tokensLeft: number;
   daysLeft: number;
+  hoursLeft: number;
+  totalHoursLeft: number;
+  msLeft: number;
+  planExpiresAt: string | null;
   hasAccess: boolean;
   isExpired: boolean;
   isExhausted: boolean;
@@ -18,6 +22,9 @@ interface SubscriptionState {
 export function TrialBanner({ userId }: { userId: string | undefined }) {
   const [sub, setSub] = useState<SubscriptionState | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // Client-side tick — пересчитываем оставшееся время каждую минуту,
+  // чтобы счётчик визуально уменьшался без запроса к серверу.
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
     if (!userId) return;
@@ -42,12 +49,19 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
       debounceTimer = setTimeout(() => { load(); }, 1500);
     };
 
+    // Tick every 60s so "Xч Yм" visibly decreases during the session
+    const tickInterval = setInterval(() => setNowTick(Date.now()), 60_000);
+    // Full refresh from server every 15 minutes (in case tokens/plan changed elsewhere)
+    const refreshInterval = setInterval(load, 15 * 60_000);
+
     window.addEventListener("mr:paywall", handlePaywall);
     window.addEventListener("mr:tokens-used", handleTokensUsed);
 
     return () => {
       cancelled = true;
       if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(tickInterval);
+      clearInterval(refreshInterval);
       window.removeEventListener("mr:paywall", handlePaywall);
       window.removeEventListener("mr:tokens-used", handleTokensUsed);
     };
@@ -57,10 +71,23 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
   if (!sub || sub.isAdmin || dismissed) return null;
   if (sub.plan !== "trial" && sub.hasAccess) return null;
 
+  // Пересчитываем оставшееся время на клиенте (чтобы счётчик тикал без сервера).
+  // Используем planExpiresAt как источник истины, падаем на серверные поля если null.
+  const DAY = 24 * 60 * 60 * 1000;
+  const HOUR = 60 * 60 * 1000;
+  const MIN = 60 * 1000;
+  const expiresMs = sub.planExpiresAt ? new Date(sub.planExpiresAt).getTime() : null;
+  const liveMs = expiresMs !== null ? Math.max(0, expiresMs - nowTick) : sub.msLeft ?? 0;
+  const liveDays = Math.floor(liveMs / DAY);
+  const liveHoursInDay = Math.floor((liveMs % DAY) / HOUR);
+  const liveTotalHours = Math.floor(liveMs / HOUR);
+  const liveMinutes = Math.floor((liveMs % HOUR) / MIN);
+  const liveIsExpired = liveMs <= 0;
+
   const usedPct = sub.tokensLimit > 0 ? Math.min(100, Math.round((sub.tokensUsed / sub.tokensLimit) * 100)) : 0;
-  const warning = sub.isExpired || sub.isExhausted;
+  const warning = liveIsExpired || sub.isExpired || sub.isExhausted;
   const lowTokens = !warning && sub.tokensLeft < sub.tokensLimit * 0.15;
-  const lowDays = !warning && sub.daysLeft <= 2;
+  const lowDays = !warning && liveDays < 2;
 
   const bg = warning
     ? "color-mix(in srgb, var(--destructive) 12%, var(--card))"
@@ -71,12 +98,24 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
   const accent = warning ? "var(--destructive)" : (lowTokens || lowDays) ? "var(--warning)" : "var(--primary)";
 
   const title = warning
-    ? (sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
+    ? (liveIsExpired || sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
     : "Пробный период";
+
+  // Форматирование оставшегося времени:
+  // >= 1 дня     → "6 дней 14 ч"
+  // < 1 дня       → "14 ч 23 мин"
+  // < 1 часа     → "42 мин"
+  const timeLabel = liveIsExpired
+    ? "0 дней"
+    : liveDays >= 1
+      ? `${liveDays} ${plural(liveDays, "день", "дня", "дней")} ${liveHoursInDay} ч`
+      : liveTotalHours >= 1
+        ? `${liveTotalHours} ч ${liveMinutes} мин`
+        : `${liveMinutes} мин`;
 
   const subtitle = warning
     ? "Оформите подписку, чтобы продолжить пользоваться AI-функциями."
-    : `Осталось ${sub.daysLeft} ${plural(sub.daysLeft, "день", "дня", "дней")} · ${sub.tokensLeft.toLocaleString("ru-RU")} из ${sub.tokensLimit.toLocaleString("ru-RU")} токенов`;
+    : `Осталось ${timeLabel} · ${sub.tokensLeft.toLocaleString("ru-RU")} из ${sub.tokensLimit.toLocaleString("ru-RU")} токенов`;
 
   return (
     <div style={{

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Moon, Sun, Search, Smartphone, Pencil, Settings, Users, Lightbulb, Send, BarChart2, Target, Bot, Globe, Zap, ClipboardList, Microscope, PenLine, Palette } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
+import { VisitTracker } from "@/components/VisitTracker";
 
 export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   c: Colors;
@@ -32,6 +33,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 
   return (
     <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: bg, color: fg, minHeight: "100vh", overflowX: "hidden" }}>
+      <VisitTracker source="landing" />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
@@ -249,10 +251,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div className="lp-plans" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
           {[
-            { name: "Trial", price: "Бесплатно", period: "7 дней", features: ["Анализ компании", "3 конкурента", "AI-рекомендации", "Score компании"], highlight: false, cta: "Начать бесплатно", tag: "" },
-            { name: "Старт", price: "9 900 ₽", period: "/мес", features: ["Безлимит анализов", "10 конкурентов", "Контент-план", "Telegram-уведомления"], highlight: false, cta: "Начать", tag: "" },
-            { name: "Бизнес", price: "24 900 ₽", period: "/мес", features: ["30 конкурентов", "Анализ отзывов", "Контент-завод", "Брендбук + SMM"], highlight: true, cta: "Начать", tag: "Популярный" },
-            { name: "Про", price: "39 900 ₽", period: "/мес", features: ["Мониторинг 24/7", "50 конкурентов", "AI-видео аватар", "Презентации + лендинги"], highlight: false, cta: "Начать", tag: "" },
+            { name: "Free", price: "0 ₽", period: "навсегда", features: ["1 компания", "3 конкурента", "2 анализа / мес", "AI-рекомендации"], highlight: false, cta: "Начать бесплатно", tag: "" },
+            { name: "Starter", price: "2 990 ₽", period: "/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "Telegram-уведомления"], highlight: false, cta: "Начать", tag: "" },
+            { name: "Pro", price: "7 990 ₽", period: "/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "Анализ ЦА и СММ"], highlight: true, cta: "Начать", tag: "Популярный" },
+            { name: "Agency", price: "14 990 ₽", period: "/мес", features: ["10 компаний", "100 конкурентов", "Real-time мониторинг", "Мульти-бренд"], highlight: false, cta: "Начать", tag: "" },
           ].map(plan => (
             <div key={plan.name} className="lp-card" style={{
               background: plan.highlight ? `linear-gradient(145deg,${accent},#4f46e5)` : card,
@@ -297,15 +299,20 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
         <div className="lp-services" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
           {[
-            { icon: <Microscope size={22}/>, title: "Анализ конкурентов", price: "от 9 900 ₽", desc: "Глубокий разбор до 50 конкурентов: офферы, SEO, отзывы, соцсети", accent: "#6366f1" },
-            { icon: <PenLine size={22}/>, title: "Контент-завод", price: "от 4 900 ₽", desc: "Статьи, посты, рилсы, сторис — пакетами от 5 до 100 единиц", accent: "#10b981" },
-            { icon: <Palette size={22}/>, title: "Презентации и лендинги", price: "от 4 900 ₽", desc: "Брендовые презентации и одностраничные лендинги под вашу нишу", accent: "#f59e0b" },
-          ].map(({ icon, title, price, desc, accent: ac }) => (
-            <div key={title} className="lp-card" style={{ background: card, borderRadius: 18, border: `1px solid ${border}`, padding: "24px 20px" }}>
+            { icon: <Microscope size={22}/>, title: "Анализ конкурентов", price: "от 9 900 ₽", desc: "Глубокий разбор до 50 конкурентов: офферы, SEO, отзывы, соцсети", accent: "#6366f1", soon: false },
+            { icon: <PenLine size={22}/>, title: "Контент-завод", price: "Скоро будет", desc: "Статьи, посты, рилсы, сторис — пакетами от 5 до 100 единиц", accent: "#10b981", soon: true },
+            { icon: <Palette size={22}/>, title: "Презентации и лендинги", price: "Скоро будет", desc: "Брендовые презентации и одностраничные лендинги под вашу нишу", accent: "#f59e0b", soon: true },
+          ].map(({ icon, title, price, desc, accent: ac, soon }) => (
+            <div key={title} className="lp-card" style={{ background: card, borderRadius: 18, border: `1px solid ${border}`, padding: "24px 20px", position: "relative" }}>
+              {soon && (
+                <div style={{ position: "absolute", top: 14, right: 14, fontSize: 10, fontWeight: 800, color: "#f59e0b", background: "#f59e0b22", border: "1px solid #f59e0b55", padding: "3px 10px", borderRadius: 20, letterSpacing: "0.06em" }}>
+                  SOON
+                </div>
+              )}
               <div style={{ width: 46, height: 46, borderRadius: 13, background: `${ac}18`, display: "flex", alignItems: "center", justifyContent: "center", color: ac, marginBottom: 16 }}>{icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{title}</div>
               <div style={{ fontSize: 14, color: muted, lineHeight: 1.55, marginBottom: 14 }}>{desc}</div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: ac }}>{price}</div>
+              <div style={{ fontSize: soon ? 14 : 17, fontWeight: 800, color: soon ? muted : ac, fontStyle: soon ? "italic" : "normal" }}>{price}</div>
             </div>
           ))}
         </div>

@@ -22,7 +22,10 @@ export interface Subscription {
   tokensUsed: number;
   tokensLimit: number;
   // Derived
-  daysLeft: number;           // целые дни; 0 если истёк
+  daysLeft: number;           // целые дни (floor); 0 если истёк или <24ч осталось
+  hoursLeft: number;          // остаток часов в последнем неполном дне (0–23)
+  totalHoursLeft: number;     // общее кол-во часов до истечения (для <1 дня)
+  msLeft: number;             // миллисекунды до истечения (для точных расчётов на фронте)
   tokensLeft: number;         // tokens_limit - tokens_used, не ниже 0
   hasAccess: boolean;         // false если истёк или лимит выбран
   isExpired: boolean;
@@ -58,9 +61,12 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
   const isExpired = !!expiresAt && expiresAt.getTime() < now;
   const isExhausted = tokensLimit > 0 && tokensUsed >= tokensLimit;
 
-  const daysLeft = expiresAt
-    ? Math.max(0, Math.ceil((expiresAt.getTime() - now) / (24 * 60 * 60 * 1000)))
-    : 0;
+  const DAY = 24 * 60 * 60 * 1000;
+  const HOUR = 60 * 60 * 1000;
+  const msLeft = expiresAt ? Math.max(0, expiresAt.getTime() - now) : 0;
+  const daysLeft = Math.floor(msLeft / DAY);
+  const hoursLeft = Math.floor((msLeft % DAY) / HOUR);
+  const totalHoursLeft = Math.floor(msLeft / HOUR);
 
   return {
     userId: u.id,
@@ -70,6 +76,9 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
     tokensUsed,
     tokensLimit,
     daysLeft,
+    hoursLeft,
+    totalHoursLeft,
+    msLeft,
     tokensLeft,
     hasAccess: !isExpired && !isExhausted,
     isExpired,

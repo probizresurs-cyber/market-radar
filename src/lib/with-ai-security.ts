@@ -84,7 +84,8 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
   if (session?.userId && session.role !== "admin") {
     const sub = await getSubscription(session.userId).catch(() => null);
     if (sub && !sub.hasAccess) {
-      const reason = sub.isExpired
+      const reasonCode = sub.isExpired ? "expired" : "exhausted";
+      const errorMsg = sub.isExpired
         ? "Пробный период завершён. Оформите подписку, чтобы продолжить."
         : `Лимит токенов исчерпан (${sub.tokensUsed.toLocaleString("ru-RU")} / ${sub.tokensLimit.toLocaleString("ru-RU")}). Оформите подписку, чтобы продолжить.`;
       return {
@@ -92,7 +93,8 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
         response: NextResponse.json(
           {
             ok: false,
-            error: reason,
+            error: errorMsg,
+            reason: reasonCode,
             subscription: {
               plan: sub.plan,
               isExpired: sub.isExpired,

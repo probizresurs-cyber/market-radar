@@ -12,10 +12,28 @@ interface SubState {
   tokensLimit: number;
   tokensLeft: number;
   daysLeft: number;
+  hoursLeft?: number;
+  totalHoursLeft?: number;
+  msLeft?: number;
+  planExpiresAt?: string | null;
   hasAccess: boolean;
   isExpired: boolean;
   isExhausted: boolean;
   isAdmin?: boolean;
+}
+
+function formatTrialTime(sub: SubState): string {
+  const expiresMs = sub.planExpiresAt ? new Date(sub.planExpiresAt).getTime() : null;
+  const ms = expiresMs !== null ? Math.max(0, expiresMs - Date.now()) : (sub.msLeft ?? 0);
+  const DAY = 86400000, HOUR = 3600000, MIN = 60000;
+  const d = Math.floor(ms / DAY);
+  const h = Math.floor((ms % DAY) / HOUR);
+  const totalH = Math.floor(ms / HOUR);
+  const m = Math.floor((ms % HOUR) / MIN);
+  if (ms <= 0) return "0 дней";
+  if (d >= 1) return `${d} ${plural(d, "день", "дня", "дней")} ${h} ч`;
+  if (totalH >= 1) return `${totalH} ч ${m} мин`;
+  return `${m} мин`;
 }
 
 function plural(n: number, one: string, few: string, many: string): string {
@@ -180,7 +198,7 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
                       <div style={{ fontSize: 12, color: warning ? accent : "var(--muted-foreground)" }}>
                         {warning
                           ? (sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
-                          : `Активна · осталось ${sub.daysLeft} ${plural(sub.daysLeft, "день", "дня", "дней")}`}
+                          : `Активна · осталось ${formatTrialTime(sub)}`}
                       </div>
                     </div>
                   </div>
@@ -207,7 +225,7 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
                   {sub.plan === "trial" && !warning && (
                     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
                       <Clock size={13} />
-                      Пробный период заканчивается через {sub.daysLeft} {plural(sub.daysLeft, "день", "дня", "дней")}
+                      Пробный период заканчивается через {formatTrialTime(sub)}
                     </div>
                   )}
                 </div>
