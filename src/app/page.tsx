@@ -165,6 +165,9 @@ export default function MarketRadarDashboard() {
   const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const features = useFeatureFlags();
+  // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов
+  const isInternalUser = (currentUser?.email ?? "").endsWith("@company24.pro") || currentUser?.role === "admin";
+  const featureOn = (featureId: string) => isInternalUser || isFeatureOn(features, featureId);
   const [activeNav, setActiveNav] = useState("new-analysis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const handleNavClick = React.useCallback((id: string) => {
@@ -1063,10 +1066,10 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-analytics" || activeNav === "content-roi") && !isFeatureOn(features, "content-factory") && (
+        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
-        {activeNav === "content-plan" && isFeatureOn(features, "content-factory") && (
+        {activeNav === "content-plan" && featureOn("content-factory") && (
           contentPlan
             ? <ContentPlanView
                 c={c}
@@ -1086,13 +1089,13 @@ export default function MarketRadarDashboard() {
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}
-        {activeNav === "content-posts" && isFeatureOn(features, "content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
-        {activeNav === "content-reels" && isFeatureOn(features, "content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
-        {activeNav === "content-stories" && isFeatureOn(features, "content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
-        {activeNav === "content-analytics" && isFeatureOn(features, "content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
-        {activeNav === "content-roi" && isFeatureOn(features, "content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
+        {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
+        {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
+        {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
+        {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
+        {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords") && (
-          isFeatureOn(features, "seo-articles")
+          featureOn("seo-articles")
             ? <SEOArticlesView
                 c={c}
                 userId={currentUser?.id ?? ""}
@@ -1104,17 +1107,17 @@ export default function MarketRadarDashboard() {
             : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "SEO-статьи"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "reviews-analysis" && (
-          isFeatureOn(features, "reviews-analysis")
+          featureOn("reviews-analysis")
             ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />
             : <ComingSoonView c={c} featureId="reviews-analysis" title={features.labels["reviews-analysis"] ?? "Рынок и отзывы"} description={features.descriptions["reviews-analysis"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "brand-presentation" && (
-          isFeatureOn(features, "brand-presentation")
+          featureOn("brand-presentation")
             ? <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />
             : <ComingSoonView c={c} featureId="brand-presentation" title={features.labels["brand-presentation"] ?? "Презентации"} description={features.descriptions["brand-presentation"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "landing-generator" && (
-          isFeatureOn(features, "landing-generator")
+          featureOn("landing-generator")
             ? <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />
             : <ComingSoonView c={c} featureId="landing-generator" title={features.labels["landing-generator"] ?? "Лендинги"} description={features.descriptions["landing-generator"]} userEmail={currentUser?.email} />
         )}
