@@ -51,7 +51,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
       <div style={{
         maxWidth: 560,
         width: "100%",
-        background: c.card,
+        background: c.bgCard,
         border: `1px solid ${c.border}`,
         borderRadius: 20,
         padding: "40px 36px",
@@ -66,31 +66,31 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
           top: -120, right: -120,
           width: 280, height: 280,
           borderRadius: "50%",
-          background: `radial-gradient(circle, ${c.primary}22 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${c.accent}22 0%, transparent 70%)`,
           pointerEvents: "none",
         }} />
 
         <div style={{ position: "relative" }}>
           <div style={{
             width: 64, height: 64, borderRadius: 18,
-            background: `color-mix(in srgb, ${c.primary} 18%, transparent)`,
-            color: c.primary,
+            background: `color-mix(in srgb, ${c.accent} 18%, transparent)`,
+            color: c.accent,
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             marginBottom: 20,
           }}>
             <Sparkles size={30} />
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: 700, color: c.primary, letterSpacing: "0.14em", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, letterSpacing: "0.14em", marginBottom: 8 }}>
             СКОРО БУДЕТ
           </div>
           <h1 style={{
-            fontSize: 28, fontWeight: 800, color: c.fg,
+            fontSize: 28, fontWeight: 800, color: c.textPrimary,
             margin: "0 0 12px", letterSpacing: "-0.02em",
           }}>
             {title}
           </h1>
-          <p style={{ fontSize: 15, color: c.muted, lineHeight: 1.6, margin: "0 0 28px" }}>
+          <p style={{ fontSize: 15, color: c.textMuted, lineHeight: 1.6, margin: "0 0 28px" }}>
             {description ?? "Модуль в активной разработке. Оставьте заявку — напишем, как только запустим."}
           </p>
 
@@ -104,7 +104,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
               alignItems: "center",
               gap: 12,
               justifyContent: "center",
-              color: c.fg,
+              color: c.textPrimary,
             }}>
               <Check size={20} style={{ color: c.accent }} />
               <span style={{ fontWeight: 600, fontSize: 14 }}>
@@ -125,7 +125,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
                     background: c.bg,
                     border: `1px solid ${c.border}`,
                     borderRadius: 10,
-                    color: c.fg,
+                    color: c.textPrimary,
                     fontSize: 14,
                     fontFamily: "inherit",
                     outline: "none",
@@ -141,7 +141,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
                     background: c.bg,
                     border: `1px solid ${c.border}`,
                     borderRadius: 10,
-                    color: c.fg,
+                    color: c.textPrimary,
                     fontSize: 13,
                     fontFamily: "inherit",
                     outline: "none",
@@ -163,7 +163,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
                 style={{
                   width: "100%",
                   padding: "13px 22px",
-                  background: c.primary,
+                  background: c.accent,
                   color: "#fff",
                   border: "none",
                   borderRadius: 12,
