@@ -106,6 +106,7 @@ export interface ReferralLink {
   trial_days: number;
   discount_pct: number;
   discount_months: number;
+  tokens_limit: number | null;   // per-link AI token cap; NULL = default (100 000)
   valid_to: string | null;
   max_uses: number | null;
   used_count: number;

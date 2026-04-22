@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     const refTs = cookieStore.get("mr_ref_ts")?.value;
 
     let bonusTrialDays = TRIAL_DAYS;
+    let bonusTokensLimit = TRIAL_TOKEN_LIMIT;
     let referralCodeApplied: string | null = null;
     let discountPct = 0;
     let discountMonths = 0;
@@ -44,10 +45,11 @@ export async function POST(req: Request) {
       const refRows = await query<{
         id: string; code: string; trial_days: number;
         discount_pct: number; discount_months: number;
+        tokens_limit: number | null;
         valid_to: string | null; max_uses: number | null;
         used_count: number; is_active: boolean;
       }>(
-        `SELECT id, code, trial_days, discount_pct, discount_months,
+        `SELECT id, code, trial_days, discount_pct, discount_months, tokens_limit,
                 valid_to, max_uses, used_count, is_active
          FROM referral_links WHERE code = $1`,
         [refCode.toUpperCase()],
@@ -58,6 +60,10 @@ export async function POST(req: Request) {
         const underCap = link.max_uses == null || link.used_count < link.max_uses;
         if (link.is_active && notExpired && underCap) {
           bonusTrialDays = Math.max(bonusTrialDays, link.trial_days);
+          // Referral links can only *increase* the trial token cap — never shrink it.
+          if (link.tokens_limit != null && link.tokens_limit > bonusTokensLimit) {
+            bonusTokensLimit = link.tokens_limit;
+          }
           discountPct = link.discount_pct;
           discountMonths = link.discount_months;
           referralCodeApplied = link.code;
@@ -94,7 +100,7 @@ export async function POST(req: Request) {
        )`,
       [
         id, email.toLowerCase(), passwordHash, safeName, "user",
-        String(bonusTrialDays), TRIAL_TOKEN_LIMIT,
+        String(bonusTrialDays), bonusTokensLimit,
         referralCodeApplied, discountPct, String(discountMonths),
         consentIp,
       ],

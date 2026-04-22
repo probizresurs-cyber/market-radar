@@ -44,6 +44,7 @@ interface EditLink {
   trial_days: number;
   discount_pct: number;
   discount_months: number;
+  tokens_limit: number | null;   // null = use default (100 000)
   valid_to: string;
   max_uses: number | null;
   notes: string;
@@ -56,6 +57,7 @@ const emptyLink: EditLink = {
   trial_days: 30,
   discount_pct: 50,
   discount_months: 12,
+  tokens_limit: null,
   valid_to: "",
   max_uses: null,
   notes: "",
@@ -98,6 +100,7 @@ export default function ReferralsAdmin() {
         trial_days: editing.trial_days,
         discount_pct: editing.discount_pct,
         discount_months: editing.discount_months,
+        tokens_limit: editing.tokens_limit,
         valid_to: editing.valid_to || null,
         max_uses: editing.max_uses,
         notes: editing.notes,
@@ -240,6 +243,27 @@ export default function ReferralsAdmin() {
               </div>
             </div>
 
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Лимит токенов на триал</label>
+              <input
+                style={S.input}
+                type="number"
+                min={1000}
+                step={10000}
+                value={editing.tokens_limit ?? ""}
+                onChange={(e) =>
+                  setEditing({
+                    ...editing,
+                    tokens_limit: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+                placeholder="пусто = стандарт 100 000"
+              />
+              <div style={S.hint}>
+                Переопределяет стандартный лимит (100 000 токенов). Например, 500 000 для премиум-партнёров.
+              </div>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
                 <label style={S.label}>Действует до</label>
@@ -315,6 +339,7 @@ export default function ReferralsAdmin() {
                   <th style={S.th}>Название</th>
                   <th style={S.th}>Ссылка</th>
                   <th style={S.th}>Триал</th>
+                  <th style={S.th}>Токены</th>
                   <th style={S.th}>Скидка</th>
                   <th style={S.th}>Действует до</th>
                   <th style={S.th}>Использовано</th>
@@ -353,6 +378,11 @@ export default function ReferralsAdmin() {
                       <td style={{ ...S.td, color: "#4ade80", fontWeight: 600 }}>
                         {l.trial_days}{l.trial_days > 0 ? " дн." : ""}
                       </td>
+                      <td style={{ ...S.td, color: l.tokens_limit ? "#22d3ee" : "#64748b", fontWeight: 600 }}>
+                        {l.tokens_limit
+                          ? l.tokens_limit.toLocaleString("ru-RU")
+                          : <span style={{ fontWeight: 400 }}>100 000<sup style={{ color: "#475569" }}> (станд.)</sup></span>}
+                      </td>
                       <td style={{ ...S.td, color: "#4ade80", fontWeight: 600 }}>
                         {l.discount_pct > 0 && l.discount_months > 0
                           ? `${l.discount_pct}% × ${l.discount_months} мес.`
@@ -389,6 +419,7 @@ export default function ReferralsAdmin() {
                                 trial_days: l.trial_days,
                                 discount_pct: l.discount_pct,
                                 discount_months: l.discount_months,
+                                tokens_limit: l.tokens_limit,
                                 valid_to: l.valid_to ? l.valid_to.slice(0, 10) : "",
                                 max_uses: l.max_uses,
                                 notes: l.notes || "",

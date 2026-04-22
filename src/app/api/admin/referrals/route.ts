@@ -26,7 +26,7 @@ export async function GET() {
 
   await initDb();
   const rows = await query(
-    `SELECT id, code, name, trial_days, discount_pct, discount_months,
+    `SELECT id, code, name, trial_days, discount_pct, discount_months, tokens_limit,
             valid_to, max_uses, used_count, is_active, notes, created_at
      FROM referral_links
      ORDER BY created_at DESC`,
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
     trial_days = 30,
     discount_pct = 0,
     discount_months = 0,
+    tokens_limit,
     valid_to,
     max_uses,
     notes,
@@ -67,15 +68,19 @@ export async function POST(req: Request) {
   const dPct = safeInt(discount_pct, 0, 100, 0);
   const dMonths = safeInt(discount_months, 0, 60, 0);
   const cap = max_uses == null || max_uses === "" ? null : safeInt(max_uses, 1, 1_000_000, 100);
+  // tokens_limit is optional — null/empty means "use default TRIAL_TOKEN_LIMIT at signup".
+  const tokLimit = tokens_limit == null || tokens_limit === ""
+    ? null
+    : safeInt(tokens_limit, 1, 100_000_000, 100_000);
   const vTo = valid_to ? new Date(String(valid_to)).toISOString() : null;
 
   if (id) {
     await query(
       `UPDATE referral_links
          SET name = $1, trial_days = $2, discount_pct = $3, discount_months = $4,
-             valid_to = $5, max_uses = $6, is_active = $7, notes = $8
-       WHERE id = $9`,
-      [name.trim(), tDays, dPct, dMonths, vTo, cap, !!is_active, (notes as string | null) || null, id],
+             tokens_limit = $5, valid_to = $6, max_uses = $7, is_active = $8, notes = $9
+       WHERE id = $10`,
+      [name.trim(), tDays, dPct, dMonths, tokLimit, vTo, cap, !!is_active, (notes as string | null) || null, id],
     );
     return NextResponse.json({ ok: true, id });
   }
@@ -97,9 +102,9 @@ export async function POST(req: Request) {
   const newId = randomUUID();
   await query(
     `INSERT INTO referral_links
-       (id, code, name, trial_days, discount_pct, discount_months, valid_to, max_uses, is_active, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [newId, code, name.trim(), tDays, dPct, dMonths, vTo, cap, !!is_active, (notes as string | null) || null],
+       (id, code, name, trial_days, discount_pct, discount_months, tokens_limit, valid_to, max_uses, is_active, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [newId, code, name.trim(), tDays, dPct, dMonths, tokLimit, vTo, cap, !!is_active, (notes as string | null) || null],
   );
 
   return NextResponse.json({ ok: true, id: newId, code });

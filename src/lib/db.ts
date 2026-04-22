@@ -169,6 +169,9 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_referral_links_code ON referral_links(code)`);
+  // Optional per-link token cap override — NULL = use default TRIAL_TOKEN_LIMIT (100k).
+  // Added retroactively for existing installs.
+  await query(`ALTER TABLE referral_links ADD COLUMN IF NOT EXISTS tokens_limit INTEGER`);
 
   // Track which referral a user came from + post-trial deferred discount
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT`);
