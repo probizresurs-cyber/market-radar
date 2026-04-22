@@ -25,6 +25,7 @@ const TABS = [
   { href: "/admin/pricing", label: "Тарифы" },
   { href: "/admin/payments", label: "Платежи" },
   { href: "/admin/promo", label: "Промокоды" },
+  { href: "/admin/referrals", label: "Рефералки" },
   { href: "/admin/features", label: "Модули" },
   { href: "/admin/visits", label: "Посещаемость" },
 ];

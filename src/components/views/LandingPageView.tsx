@@ -252,8 +252,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         <div className="lp-plans" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
           {[
             { name: "Free", price: "0 ₽", period: "навсегда", features: ["1 компания", "3 конкурента", "2 анализа / мес", "AI-рекомендации"], highlight: false, cta: "Начать бесплатно", tag: "" },
-            { name: "Starter", price: "2 990 ₽", period: "/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "Telegram-уведомления"], highlight: false, cta: "Начать", tag: "" },
-            { name: "Pro", price: "7 990 ₽", period: "/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "Анализ ЦА и СММ"], highlight: true, cta: "Начать", tag: "Популярный" },
+            { name: "Базовый", price: "4 990 ₽", period: "/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "Telegram-уведомления"], highlight: false, cta: "Начать", tag: "" },
+            { name: "PRO", price: "9 990 ₽", period: "/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "Анализ ЦА и СММ"], highlight: true, cta: "Начать", tag: "Популярный" },
             { name: "Agency", price: "14 990 ₽", period: "/мес", features: ["10 компаний", "100 конкурентов", "Real-time мониторинг", "Мульти-бренд"], highlight: false, cta: "Начать", tag: "" },
           ].map(plan => (
             <div key={plan.name} className="lp-card" style={{

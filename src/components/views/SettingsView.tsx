@@ -236,8 +236,8 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
           {/* ── Plan cards ── */}
           {[
             { name: "Free", price: "₽0", features: ["1 компания", "3 конкурента", "2 анализа/мес", "Базовые рекомендации"], current: true },
-            { name: "Starter", price: "₽2 990/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "PDF-отчёты", "Telegram-уведомления"], current: false },
-            { name: "Pro", price: "₽7 990/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "API-доступ", "White-label отчёты"], current: false },
+            { name: "Базовый", price: "₽4 990/мес", features: ["1 компания", "10 конкурентов", "Безлимит анализов", "PDF-отчёты", "Telegram-уведомления"], current: false },
+            { name: "PRO", price: "₽9 990/мес", features: ["3 компании", "30 конкурентов", "Battle cards", "API-доступ", "White-label отчёты"], current: false },
             { name: "Agency", price: "₽14 990/мес", features: ["10 компаний", "100 конкурентов", "Real-time обновление", "5 мест", "Брендированные отчёты"], current: false },
           ].map(plan => (
             <div key={plan.name} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid ${plan.current ? "var(--primary)" : "var(--border)"}`, padding: 20, boxShadow: "var(--shadow)" }}>

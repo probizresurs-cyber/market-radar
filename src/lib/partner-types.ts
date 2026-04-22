@@ -95,6 +95,25 @@ export interface PromoCode {
   created_at: string;
 }
 
+// ─── Referral Links ───────────────────────────────────────────────────────────
+// Admin-generated signup links. A user who registers via ?ref=<code> gets:
+//   • trial extended to `trial_days`
+//   • post-trial discount of `discount_pct`% for `discount_months` months
+export interface ReferralLink {
+  id: string;
+  code: string;
+  name: string;
+  trial_days: number;
+  discount_pct: number;
+  discount_months: number;
+  valid_to: string | null;
+  max_uses: number | null;
+  used_count: number;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
 // ─── Referral commission scales ──────────────────────────────────────────────
 
 export const REFERRAL_SCALES = [

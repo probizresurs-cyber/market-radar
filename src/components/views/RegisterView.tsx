@@ -15,6 +15,7 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px var(--primary)20`; e.currentTarget.style.borderColor = "var(--primary)"; };
   const onBlur = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--border)"; };
@@ -27,12 +28,13 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
     if (!name.trim()) { setError("Введите имя"); return; }
     if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
     if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
+    if (!consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password }),
+        body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password, consent: true }),
         credentials: "include",
       });
       const json = await res.json();
@@ -85,8 +87,28 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
               <input type={f.type} value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder} className="ds-input" />
             </div>
           ))}
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, cursor: "pointer", userSelect: "none" }}>
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={e => setConsent(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer", flexShrink: 0 }}
+            />
+            <span>
+              Я согласен(а) на обработку персональных данных в соответствии с{" "}
+              <a
+                href="https://company24.pro/politicahr2026"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--primary)", textDecoration: "underline" }}
+              >
+                Политикой конфиденциальности
+              </a>
+              .
+            </span>
+          </label>
           {error && <div className="ds-badge ds-badge-destructive" style={{ display: "block", borderRadius: "var(--radius)", padding: "10px 14px" }}>{error}</div>}
-          <button type="submit" disabled={loading} className="ds-btn ds-btn-primary" style={{ height: 44, fontSize: 14 }}>
+          <button type="submit" disabled={loading || !consent} className="ds-btn ds-btn-primary" style={{ height: 44, fontSize: 14, opacity: (loading || !consent) ? 0.6 : 1, cursor: (loading || !consent) ? "not-allowed" : "pointer" }}>
             {loading ? "Создаём аккаунт…" : "Создать аккаунт →"}
           </button>
         </form>

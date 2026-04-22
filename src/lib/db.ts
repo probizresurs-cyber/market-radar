@@ -151,6 +151,35 @@ export async function initDb() {
   // Migration: add name column if it doesn't exist yet
   await query(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS name TEXT`);
 
+  // ─── Referral Links (admin-generated registration links with bonuses) ─────
+  await query(`
+    CREATE TABLE IF NOT EXISTS referral_links (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      trial_days INTEGER NOT NULL DEFAULT 30,
+      discount_pct INTEGER NOT NULL DEFAULT 0,
+      discount_months INTEGER NOT NULL DEFAULT 0,
+      valid_to TIMESTAMPTZ,
+      max_uses INTEGER,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_referral_links_code ON referral_links(code)`);
+
+  // Track which referral a user came from + post-trial deferred discount
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_pct INTEGER NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_expires_at TIMESTAMPTZ`);
+
+  // ─── GDPR / ФЗ-152: consent to processing of personal data ──────────────────
+  // https://company24.pro/politicahr2026 — captured at registration time.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_ip TEXT`);
+
   // ─── AI Monitoring + Security tables ────────────────────────────────────────
 
   await query(`

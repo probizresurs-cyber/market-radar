@@ -16,13 +16,19 @@ export function proxy(request: NextRequest) {
   }
 
   // ─── Referral cookie (First-Touch, 60 days) ─────────────────────────────────
-  const rfCode = request.nextUrl.searchParams.get("rf");
+  // Accept both ?rf= (partner referral) and ?ref= (admin-generated bonus link).
+  // Both codes are stored in the same cookie — the register handler later
+  // checks each against the partners table AND the referral_links table.
+  const rfCode =
+    request.nextUrl.searchParams.get("rf") ||
+    request.nextUrl.searchParams.get("ref");
   let response = NextResponse.next();
 
   if (rfCode && !request.cookies.get("mr_ref")) {
-    // Strip ?rf= from URL to keep it clean
+    // Strip both params from URL to keep it clean
     const cleanUrl = request.nextUrl.clone();
     cleanUrl.searchParams.delete("rf");
+    cleanUrl.searchParams.delete("ref");
     response = NextResponse.redirect(cleanUrl);
     response.cookies.set("mr_ref", rfCode, {
       maxAge: 60 * 60 * 24 * 60, // 60 days
