@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { PenLine, Plus, Key, X, FileText, Loader2 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
@@ -353,12 +353,18 @@ function SEOArticleEditor({
     setArt(prev => ({ ...prev, ...patch }));
   };
 
-  const save = () => {
-    const score = calcSEOScore(art);
-    const wc = calcWordCount(art.fullText);
-    const saved = { ...art, seoScore: score, wordCount: wc, updatedAt: new Date().toISOString() };
+  // Persist article to library. Accepts optional override so callers can save
+  // a fresh computed state without waiting for React's async setArt.
+  const persist = (override?: SEOArticle) => {
+    const target = override ?? art;
+    const score = calcSEOScore(target);
+    const wc = calcWordCount(target.fullText);
+    const saved = { ...target, seoScore: score, wordCount: wc, updatedAt: new Date().toISOString() };
     onSave(saved);
+    return saved;
   };
+
+  const save = () => { persist(); };
 
   // Generate full article
   const generateFull = async () => {
@@ -378,7 +384,14 @@ function SEOArticleEditor({
       });
       const data = await res.json();
       if (data.fullText) {
-        update({ fullText: data.fullText, wordCount: data.wordCount, status: "generated" });
+        const nextArt: SEOArticle = {
+          ...art,
+          fullText: data.fullText,
+          wordCount: data.wordCount,
+          status: "generated",
+        };
+        setArt(nextArt);
+        persist(nextArt);
         setActiveTab("content");
       } else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
@@ -411,7 +424,14 @@ function SEOArticleEditor({
         const fullText = `# ${art.h1}\n\n${art.intro}\n\n` +
           newOutline.map(s => `${"#".repeat(s.level)} ${s.heading}\n\n${s.generatedContent || ""}`).join("\n\n") +
           `\n\n${art.conclusion}`;
-        update({ outline: newOutline, fullText, status: "generated" });
+        const nextArt: SEOArticle = {
+          ...art,
+          outline: newOutline,
+          fullText,
+          status: "generated",
+        };
+        setArt(nextArt);
+        persist(nextArt);
       } else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
     finally { setGeneratingSection(null); }
@@ -432,9 +452,25 @@ function SEOArticleEditor({
         }),
       });
       const data = await res.json();
-      if (data.meta) update({ meta: data.meta });
+      if (data.meta) {
+        const nextArt: SEOArticle = { ...art, meta: data.meta };
+        setArt(nextArt);
+        persist(nextArt);
+      }
     } catch (e) { console.error(e); }
   };
+
+  // Auto-save manual edits (title, intro, conclusion, meta fields) with a
+  // debounce so we don't write to localStorage on every keystroke.
+  const artRef = useRef(art);
+  artRef.current = art;
+  useEffect(() => {
+    const t = setTimeout(() => { persist(artRef.current); }, 800);
+    return () => clearTimeout(t);
+    // We intentionally watch only the serialized form of `art` to avoid
+    // depending on `persist` identity (would loop forever otherwise).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [art]);
 
   const score = calcSEOScore(art);
   const wc = calcWordCount(art.fullText);
