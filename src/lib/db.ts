@@ -183,6 +183,10 @@ export async function initDb() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_ip TEXT`);
 
+  // Company name — captured at registration (required for referral signups,
+  // optional otherwise) and shown in the profile / Settings view.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name TEXT`);
+
   // ─── AI Monitoring + Security tables ────────────────────────────────────────
 
   await query(`

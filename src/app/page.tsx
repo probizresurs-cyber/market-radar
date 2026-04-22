@@ -5,7 +5,7 @@ import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, Che
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
-import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, TovCheckResult, TovIssue, PresentationStyle } from "@/lib/content-types";
+import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, GeneratedCarousel, TovCheckResult, TovIssue, PresentationStyle } from "@/lib/content-types";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
 
 // ─── Shared modules (extracted from this file) ─────────────────────────────────
@@ -120,6 +120,7 @@ import { LandingGeneratorView } from "@/components/views/LandingGeneratorView";
 import { PresentationView } from "@/components/views/PresentationView";
 import { ReviewsView } from "@/components/views/ReviewsView";
 import { StoriesView } from "@/components/views/StoriesView";
+import { GeneratedCarouselsView } from "@/components/views/GeneratedCarouselsView";
 import { CJMView, BenchmarksView } from "@/components/views/CJMBenchmarks";
 import { SidebarComponent, MobileBottomNav } from "@/components/views/SidebarComponent";
 import { TrialBanner } from "@/components/views/TrialBanner";
@@ -231,6 +232,7 @@ export default function MarketRadarDashboard() {
     visualStyle: "",
   });
   const [generatedStories, setGeneratedStories] = useState<GeneratedStory[]>([]);
+  const [generatedCarousels, setGeneratedCarousels] = useState<GeneratedCarousel[]>([]);
   const [analysisHistory, setAnalysisHistory] = useState<Array<AnalysisResult & { analyzedAt: string }>>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brandSuggestions, setBrandSuggestions] = useState<any | null>(null);
@@ -244,7 +246,7 @@ export default function MarketRadarDashboard() {
     setMyCompany(null); setCompetitors([]); setTaAnalysis(null);
     setCjmData(null); setBenchmarksData(null); setSmmAnalysis(null);
     setContentPlan(null); setGeneratedPosts([]); setGeneratedReels([]);
-    setGeneratedStories([]); setAnalysisHistory([]); setBrandSuggestions(null);
+    setGeneratedStories([]); setGeneratedCarousels([]); setAnalysisHistory([]); setBrandSuggestions(null);
 
     const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
     if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
@@ -276,6 +278,9 @@ export default function MarketRadarDashboard() {
 
     const stories = get("stories") ?? JSON.parse(localStorage.getItem(`mr_stories_${uid}`) ?? "null");
     if (Array.isArray(stories)) setGeneratedStories(stories as GeneratedStory[]);
+
+    const carousels = get("carousels") ?? JSON.parse(localStorage.getItem(`mr_carousels_${uid}`) ?? "null");
+    if (Array.isArray(carousels)) setGeneratedCarousels(carousels as GeneratedCarousel[]);
 
     const history = get("history") ?? JSON.parse(localStorage.getItem(`mr_analysis_history_${uid}`) ?? "null");
     if (Array.isArray(history)) setAnalysisHistory(history as Array<AnalysisResult & { analyzedAt: string }>);
@@ -311,6 +316,7 @@ export default function MarketRadarDashboard() {
       ["mr_content_", "content"],
       ["mr_brandbook_", "brandbook"],
       ["mr_stories_", "stories"],
+      ["mr_carousels_", "carousels"],
       ["mr_analysis_history_", "history"],
       ["mr_brandsug_", "brandsug"],
       ["mr_avatar_settings_", "avatar"],
@@ -356,13 +362,17 @@ export default function MarketRadarDashboard() {
         serverReachable = true;
         const meJson = await meRes.json();
         if (meJson.ok && meJson.user) {
+          // Preserve localStorage-only profile fields (phone, niche, social
+          // links, onboarding state, TG prefs) when refreshing from the
+          // server — /api/auth/me only returns the core identity + company.
+          const prior = authGetCurrentUser();
           user = {
+            ...(prior ?? { password: "", onboardingDone: true }),
             id: meJson.user.id,
             name: meJson.user.name ?? "",
             email: meJson.user.email,
-            password: "",
-            onboardingDone: true,
             role: meJson.user.role,
+            companyName: meJson.user.companyName ?? prior?.companyName,
           };
           authSetCurrentUser(user);
         }
@@ -670,6 +680,36 @@ export default function MarketRadarDashboard() {
     });
   };
 
+  const persistCarousels = (carousels: GeneratedCarousel[]) => {
+    if (!currentUser?.id) return;
+    try { localStorage.setItem(`mr_carousels_${currentUser.id}`, JSON.stringify(carousels)); } catch { /* ignore */ }
+    syncToServer("carousels", carousels);
+  };
+
+  const handleAddCarousel = (carousel: GeneratedCarousel) => {
+    setGeneratedCarousels(prev => {
+      const next = [carousel, ...prev];
+      persistCarousels(next);
+      return next;
+    });
+  };
+
+  const handleDeleteCarousel = (carouselId: string) => {
+    setGeneratedCarousels(prev => {
+      const next = prev.filter(c => c.id !== carouselId);
+      persistCarousels(next);
+      return next;
+    });
+  };
+
+  const handleUpdateCarousel = (updated: GeneratedCarousel) => {
+    setGeneratedCarousels(prev => {
+      const next = prev.map(c => c.id === updated.id ? updated : c);
+      persistCarousels(next);
+      return next;
+    });
+  };
+
   const handleGenerateContentPlan = async (niche: string) => {
     if (!smmAnalysis) return;
     setIsGeneratingPlan(true);
@@ -796,6 +836,7 @@ export default function MarketRadarDashboard() {
           script: reel.voiceoverScript,
           avatarId: avatarSettings.avatarId || undefined,
           voiceId: avatarSettings.voiceId || undefined,
+          avatarType: avatarSettings.avatarType ?? "preset",
           aspect: avatarSettings.aspect,
         }),
       });
@@ -1066,7 +1107,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
+        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "content-plan" && featureOn("content-factory") && (
@@ -1092,6 +1133,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
         {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
         {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
+        {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} />}
         {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords") && (

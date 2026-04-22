@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     await initDb();
-    const { name, email, password, consent } = await req.json();
+    const { name, email, password, consent, companyName } = await req.json();
     if (!email || !password || password.length < 6) {
       return NextResponse.json({ ok: false, error: "Некорректные данные" }, { status: 400 });
     }
@@ -72,6 +72,17 @@ export async function POST(req: Request) {
       }
     }
 
+    // Referral signups must provide a company name — surfaced in the admin
+    // dashboard so partners can see who came in through their link.
+    const rawCompanyName = typeof companyName === "string" ? companyName.trim() : "";
+    if (referralLinkId && !rawCompanyName) {
+      return NextResponse.json(
+        { ok: false, error: "Укажите название компании" },
+        { status: 400 },
+      );
+    }
+    const safeCompanyName = rawCompanyName ? sanitizeHtml(rawCompanyName) : null;
+
     const safeName = name ? sanitizeHtml(name) : null;
     const passwordHash = await bcrypt.hash(password, 10);
     const id = randomUUID();
@@ -87,7 +98,7 @@ export async function POST(req: Request) {
          (id, email, password_hash, name, role,
           plan, plan_started_at, plan_expires_at, tokens_used, tokens_limit,
           referral_code, discount_pct, discount_expires_at,
-          consent_accepted_at, consent_ip)
+          consent_accepted_at, consent_ip, company_name)
        VALUES (
          $1, $2, $3, $4, $5,
          'trial', NOW(), NOW() + ($6 || ' days')::INTERVAL, 0, $7,
@@ -96,13 +107,13 @@ export async function POST(req: Request) {
               THEN NOW() + ($6 || ' days')::INTERVAL + ($10 || ' months')::INTERVAL
               ELSE NULL
          END,
-         NOW(), $11
+         NOW(), $11, $12
        )`,
       [
         id, email.toLowerCase(), passwordHash, safeName, "user",
         String(bonusTrialDays), bonusTokensLimit,
         referralCodeApplied, discountPct, String(discountMonths),
-        consentIp,
+        consentIp, safeCompanyName,
       ],
     );
 
@@ -139,7 +150,16 @@ export async function POST(req: Request) {
 
     const token = await signToken({ userId: id, email: email.toLowerCase(), role: "user" });
     const cookie = setTokenCookie(token);
-    const res = NextResponse.json({ ok: true, user: { id, name, email: email.toLowerCase(), role: "user" } });
+    const res = NextResponse.json({
+      ok: true,
+      user: {
+        id,
+        name,
+        email: email.toLowerCase(),
+        role: "user",
+        companyName: safeCompanyName,
+      },
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     res.cookies.set(cookie.name, cookie.value, cookie.options as any);
 

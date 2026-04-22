@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
@@ -15,8 +15,28 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Detect whether the visitor arrived via an admin-issued referral link.
+  // If so, we require "Название компании" — same info the referral partner
+  // will see in the admin dashboard.
+  const [refState, setRefState] = useState<{ hasReferral: boolean; name: string | null }>({
+    hasReferral: false,
+    name: null,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/ref-status", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d.ok) {
+          setRefState({ hasReferral: !!d.hasReferral, name: d.name ?? null });
+        }
+      })
+      .catch(() => { /* silent — fall back to non-referral form */ });
+    return () => { cancelled = true; };
+  }, []);
   const onFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px var(--primary)20`; e.currentTarget.style.borderColor = "var(--primary)"; };
   const onBlur = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--border)"; };
   void onFocus; void onBlur;
@@ -28,13 +48,24 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
     if (!name.trim()) { setError("Введите имя"); return; }
     if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
     if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
+    if (refState.hasReferral && !companyName.trim()) {
+      setError("Укажите название компании");
+      return;
+    }
     if (!consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password, consent: true }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          password,
+          phone: phone.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          consent: true,
+        }),
         credentials: "include",
       });
       const json = await res.json();
@@ -45,6 +76,7 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
         email: json.user.email,
         password: "",
         phone: phone.trim() || undefined,
+        companyName: json.user.companyName || companyName.trim() || undefined,
         onboardingDone: false,
         role: json.user.role,
       };
@@ -75,10 +107,37 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
         </div>
         <h1 className="ds-h1" style={{ margin: "0 0 4px" }}>Создать аккаунт</h1>
         <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>Бесплатно · Без кредитной карты</p>
+        {refState.hasReferral && (
+          <div
+            style={{
+              background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--primary) 40%, var(--border))",
+              borderRadius: 10,
+              padding: "10px 14px",
+              marginBottom: 16,
+              fontSize: 12,
+              color: "var(--foreground)",
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Регистрация по реферальной ссылке</strong>
+            {refState.name ? <> · {refState.name}</> : null}
+            <div style={{ color: "var(--muted-foreground)", marginTop: 2 }}>
+              Расширенный бонус будет применён автоматически после регистрации.
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {[
             { label: "Имя *", type: "text", value: name, setter: setName, placeholder: "Иван Иванов" },
             { label: "Email *", type: "email", value: email, setter: setEmail, placeholder: "ivan@example.com" },
+            {
+              label: refState.hasReferral ? "Название компании *" : "Название компании",
+              type: "text",
+              value: companyName,
+              setter: setCompanyName,
+              placeholder: "ООО Ромашка",
+            },
             { label: "Пароль * (мин. 6 символов)", type: "password", value: password, setter: setPassword, placeholder: "••••••••" },
             { label: "Телефон", type: "tel", value: phone, setter: setPhone, placeholder: "+7 (999) 123-45-67" },
           ].map(f => (
