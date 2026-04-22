@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const script: string = (body.script ?? "").toString().trim();
     const avatarId: string = body.avatarId ?? process.env.HEYGEN_AVATAR_ID ?? DEFAULT_AVATAR_ID;
     const voiceId: string = body.voiceId ?? process.env.HEYGEN_VOICE_ID ?? DEFAULT_VOICE_ID;
+    const avatarType: "preset" | "talking_photo" = body.avatarType === "talking_photo" ? "talking_photo" : "preset";
     const aspect: "portrait" | "landscape" = body.aspect === "landscape" ? "landscape" : "portrait";
 
     if (!script) {
@@ -31,14 +32,14 @@ export async function POST(req: Request) {
       ? { width: 720, height: 1280 }
       : { width: 1280, height: 720 };
 
+    const character = avatarType === "talking_photo"
+      ? { type: "talking_photo", talking_photo_id: avatarId }
+      : { type: "avatar", avatar_id: avatarId, avatar_style: "normal" };
+
     const payload = {
       video_inputs: [
         {
-          character: {
-            type: "avatar",
-            avatar_id: avatarId,
-            avatar_style: "normal",
-          },
+          character,
           voice: {
             type: "text",
             input_text: script,

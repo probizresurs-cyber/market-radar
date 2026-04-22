@@ -148,11 +148,16 @@ export interface PresentationStyle {
 }
 
 export interface AvatarSettings {
-  avatarId: string;            // HeyGen avatar_id
+  avatarId: string;            // HeyGen avatar_id (или talking_photo_id если avatarType = talking_photo)
   voiceId: string;             // HeyGen voice_id
   avatarDescription: string;   // как должен выглядеть аватар (для подсказки в визуале)
   voiceDescription: string;    // каким должен быть голос (тон, темп, эмоция)
   aspect: "portrait" | "landscape";
+  // Тип аватара в HeyGen: preset (стандартный каталог) или talking_photo (свой загруженный).
+  avatarType?: "preset" | "talking_photo";
+  // Пользовательские аватары и голоса (загруженные через upload/clone)
+  customAvatars?: CustomAvatar[];
+  customVoices?: CustomVoice[];
 }
 
 export interface ContentFactoryState {
@@ -184,6 +189,57 @@ export interface GeneratedStory {
   slides: StorySlide[];
   hashtags: string[];
   generatedAt: string;
+}
+
+// ---------- Carousels (Instagram-style swipeable posts) ----------
+
+export type CarouselSlideType = "cover" | "content" | "cta";
+
+export interface CarouselSlide {
+  order: number;
+  slideType: CarouselSlideType;   // cover / content / cta
+  background: string;             // описание картинки для фона слайда
+  backgroundImageUrl?: string;    // сгенерированная картинка (data URL или URL)
+  headlineText: string;           // крупный текст слайда (3-7 слов)
+  bodyText?: string;              // пояснение под заголовком (1-2 предложения)
+  bulletPoints?: string[];        // список тезисов (для content-слайдов)
+  visualNote: string;             // режиссёрская пометка (цвет, шрифт, композиция)
+}
+
+export interface GeneratedCarousel {
+  id: string;
+  pillar: string;
+  platform: "instagram" | "vk" | "telegram";
+  title: string;                  // внутреннее название серии
+  goal: string;                   // цель: охват / прогрев / продажа / обучение
+  slides: CarouselSlide[];
+  caption: string;                // основной текст поста, который публикуется под каруселью
+  hashtags: string[];
+  generatedAt: string;
+}
+
+// ---------- Custom HeyGen assets (user-uploaded) ----------
+
+export type CustomAvatarStatus = "processing" | "ready" | "failed";
+
+export interface CustomAvatar {
+  id: string;                     // локальный id
+  name: string;                   // как пользователь назвал аватар
+  heygenAvatarId?: string;        // photo_id / talking_photo_id из HeyGen (когда готово)
+  status: CustomAvatarStatus;
+  previewUrl?: string;            // base64 / url исходного фото для превью
+  error?: string;
+  createdAt: string;
+}
+
+export interface CustomVoice {
+  id: string;                     // локальный id
+  name: string;                   // как пользователь назвал голос
+  heygenVoiceId?: string;         // voice_id из HeyGen (когда готово)
+  status: CustomAvatarStatus;     // processing / ready / failed
+  previewAudioUrl?: string;       // data URL исходного семпла
+  error?: string;
+  createdAt: string;
 }
 
 // ---------- Tone of Voice check ----------

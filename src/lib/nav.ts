@@ -78,6 +78,7 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "content-posts", icon: "FileEdit", label: "Готовые посты", count: null },
           { id: "content-reels", icon: "Film", label: "Готовые видео", count: null },
           { id: "content-stories", icon: "Smartphone", label: "Сторис-сценарии", count: null },
+          { id: "content-carousels", icon: "Layers", label: "Карусель-посты", count: null },
           { id: "content-analytics", icon: "BarChart3", label: "Аналитика контента", count: null },
           { id: "content-roi", icon: "Wallet", label: "ROI калькулятор", count: null },
         ],
