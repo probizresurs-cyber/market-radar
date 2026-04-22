@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Zap, Clock, AlertTriangle, CheckCircle } from "lucide-react";
+import { Zap, Clock, AlertTriangle, CheckCircle, Gift } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
@@ -20,6 +20,11 @@ interface SubState {
   isExpired: boolean;
   isExhausted: boolean;
   isAdmin?: boolean;
+  // Referral bonus (from ?ref=<code> applied at signup)
+  referralCode?: string | null;
+  discountPct?: number;
+  discountExpiresAt?: string | null;
+  discountMonths?: number;
 }
 
 function formatTrialTime(sub: SubState): string {
@@ -166,6 +171,78 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
 
       {tab === "subscription" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* ── Referral bonus card (only shown when user signed up via a referral link) ── */}
+          {!subLoading && sub && sub.referralCode && ((sub.discountPct ?? 0) > 0 || (sub.daysLeft ?? 0) > 7) && (
+            (() => {
+              const totalTrialDays = sub.planExpiresAt && sub.planExpiresAt
+                ? Math.round((new Date(sub.planExpiresAt).getTime() - Date.now()) / 86400000) + 0
+                : sub.daysLeft;
+              const discountLabel = (sub.discountPct ?? 0) > 0
+                ? ((sub.discountMonths ?? 0) > 0
+                    ? `Скидка ${sub.discountPct}% на ${sub.discountMonths} мес. после триала`
+                    : `Скидка ${sub.discountPct}% после триала`)
+                : null;
+              const discountEnd = sub.discountExpiresAt
+                ? new Date(sub.discountExpiresAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })
+                : null;
+              return (
+                <div style={{
+                  background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, var(--card)), var(--card))",
+                  borderRadius: 14,
+                  border: "1px solid color-mix(in srgb, var(--primary) 35%, var(--border))",
+                  padding: 20,
+                  boxShadow: "var(--shadow)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: "color-mix(in srgb, var(--primary) 22%, transparent)",
+                      color: "var(--primary)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <Gift size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>
+                        Реферальный бонус активирован
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                        Код: <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{sub.referralCode}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Бесплатный триал</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: "var(--primary)", marginTop: 4 }}>
+                        {Math.max(0, totalTrialDays)} {plural(totalTrialDays, "день", "дня", "дней")}
+                      </div>
+                    </div>
+                    {discountLabel && (
+                      <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>После триала</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "var(--success, #16a34a)", marginTop: 4 }}>
+                          −{sub.discountPct}%
+                          {(sub.discountMonths ?? 0) > 0 && (
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted-foreground)", marginLeft: 6 }}>
+                              × {sub.discountMonths} мес.
+                            </span>
+                          )}
+                        </div>
+                        {discountEnd && (
+                          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>
+                            до {discountEnd}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          )}
 
           {/* ── Token usage card ── */}
           {subLoading && (

@@ -3,6 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Gift } from "lucide-react";
 
+// Standard free trial length — used to detect when the user has a referral
+// bonus that extended their trial beyond the default.
+const TRIAL_DAYS_BASELINE = 7;
+
 interface SubscriptionState {
   plan: string;
   tokensUsed: number;
@@ -17,6 +21,11 @@ interface SubscriptionState {
   isExpired: boolean;
   isExhausted: boolean;
   isAdmin?: boolean;
+  // Referral bonus (from ?ref=<code> applied at signup)
+  referralCode?: string | null;
+  discountPct?: number;
+  discountExpiresAt?: string | null;
+  discountMonths?: number;
 }
 
 export function TrialBanner({ userId }: { userId: string | undefined }) {
@@ -97,9 +106,13 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
   const borderColor = warning ? "var(--destructive)" : (lowTokens || lowDays) ? "var(--warning)" : "var(--border)";
   const accent = warning ? "var(--destructive)" : (lowTokens || lowDays) ? "var(--warning)" : "var(--primary)";
 
+  const hasReferralBonus = !!sub.referralCode && ((sub.discountPct ?? 0) > 0 || liveDays > TRIAL_DAYS_BASELINE);
+
   const title = warning
     ? (liveIsExpired || sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
-    : "Пробный период";
+    : hasReferralBonus
+      ? "Реферальный бонус активирован"
+      : "Пробный период";
 
   // Форматирование оставшегося времени:
   // >= 1 дня     → "6 дней 14 ч"
@@ -113,9 +126,20 @@ export function TrialBanner({ userId }: { userId: string | undefined }) {
         ? `${liveTotalHours} ч ${liveMinutes} мин`
         : `${liveMinutes} мин`;
 
-  const subtitle = warning
-    ? "Оформите подписку, чтобы продолжить пользоваться AI-функциями."
-    : `Осталось ${timeLabel} · ${sub.tokensLeft.toLocaleString("ru-RU")} из ${sub.tokensLimit.toLocaleString("ru-RU")} токенов`;
+  let subtitle: string;
+  if (warning) {
+    subtitle = "Оформите подписку, чтобы продолжить пользоваться AI-функциями.";
+  } else if (hasReferralBonus) {
+    const discountNote =
+      (sub.discountPct ?? 0) > 0
+        ? `, дальше скидка ${sub.discountPct}%${
+            (sub.discountMonths ?? 0) > 0 ? ` на ${sub.discountMonths} мес.` : ""
+          }`
+        : "";
+    subtitle = `Осталось ${timeLabel} бесплатно${discountNote} · ${sub.tokensLeft.toLocaleString("ru-RU")} из ${sub.tokensLimit.toLocaleString("ru-RU")} токенов`;
+  } else {
+    subtitle = `Осталось ${timeLabel} · ${sub.tokensLeft.toLocaleString("ru-RU")} из ${sub.tokensLimit.toLocaleString("ru-RU")} токенов`;
+  }
 
   return (
     <div style={{

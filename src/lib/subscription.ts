@@ -30,6 +30,13 @@ export interface Subscription {
   hasAccess: boolean;         // false если истёк или лимит выбран
   isExpired: boolean;
   isExhausted: boolean;
+  // Referral bonus (from admin-generated referral_links applied at signup).
+  // If the user signed up via ?ref=<code>, these carry the bonus details so the
+  // UI can surface "30 дней бесплатно + 50% на 12 мес." instead of the generic trial copy.
+  referralCode: string | null;
+  discountPct: number;              // 0 if no discount
+  discountExpiresAt: Date | null;   // when the post-trial discount window ends
+  discountMonths: number;           // rounded integer months from trial end to discountExpiresAt
 }
 
 interface UserRow {
@@ -39,11 +46,15 @@ interface UserRow {
   plan_expires_at: string | null;
   tokens_used: number;
   tokens_limit: number;
+  referral_code: string | null;
+  discount_pct: number | null;
+  discount_expires_at: string | null;
 }
 
 export async function getSubscription(userId: string): Promise<Subscription | null> {
   const rows = await query<UserRow>(
-    `SELECT id, plan, plan_started_at, plan_expires_at, tokens_used, tokens_limit
+    `SELECT id, plan, plan_started_at, plan_expires_at, tokens_used, tokens_limit,
+            referral_code, discount_pct, discount_expires_at
        FROM users WHERE id = $1`,
     [userId]
   );
@@ -68,6 +79,15 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
   const hoursLeft = Math.floor((msLeft % DAY) / HOUR);
   const totalHoursLeft = Math.floor(msLeft / HOUR);
 
+  const discountPct = Number(u.discount_pct) || 0;
+  const discountExpiresAt = u.discount_expires_at ? new Date(u.discount_expires_at) : null;
+  // Rough months between trial-end and discount-end — for display only ("50% × 12 мес.")
+  let discountMonths = 0;
+  if (discountExpiresAt && expiresAt && discountExpiresAt.getTime() > expiresAt.getTime()) {
+    const ms = discountExpiresAt.getTime() - expiresAt.getTime();
+    discountMonths = Math.round(ms / (30 * DAY));
+  }
+
   return {
     userId: u.id,
     plan: u.plan,
@@ -83,6 +103,10 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
     hasAccess: !isExpired && !isExhausted,
     isExpired,
     isExhausted,
+    referralCode: u.referral_code || null,
+    discountPct,
+    discountExpiresAt,
+    discountMonths,
   };
 }
 

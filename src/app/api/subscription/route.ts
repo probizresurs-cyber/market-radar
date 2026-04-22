@@ -33,6 +33,11 @@ export async function GET() {
       hasAccess: sub.hasAccess,
       isExpired: sub.isExpired,
       isExhausted: sub.isExhausted,
+      // Referral bonus details (only populated when user signed up via ?ref=<code>)
+      referralCode: sub.referralCode,
+      discountPct: sub.discountPct,
+      discountExpiresAt: sub.discountExpiresAt,
+      discountMonths: sub.discountMonths,
       // Admin-ы фактически не ограничены (checkAiAccess их пропускает)
       isAdmin: session.role === "admin",
     });
