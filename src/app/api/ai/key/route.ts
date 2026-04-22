@@ -142,7 +142,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, provider, error: "OPENAI_API_KEY не задан" });
       }
       const start = Date.now();
-      const resp = await fetch("https://api.openai.com/v1/models", {
+      const resp = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/models`, {
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       });
       const duration = Date.now() - start;
