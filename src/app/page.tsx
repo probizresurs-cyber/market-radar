@@ -35,6 +35,7 @@ import { CompetitorsView } from "@/components/views/CompetitorsView";
 import { CompetitorProfileView } from "@/components/views/CompetitorProfileView";
 import { CompareView } from "@/components/views/CompareView";
 import { InsightsView } from "@/components/views/InsightsView";
+import { AIVisibilityView } from "@/components/views/AIVisibilityView";
 import { ReportsView } from "@/components/views/ReportsView";
 import { SourcesView } from "@/components/views/SourcesView";
 
@@ -1178,6 +1179,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
+        {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
         {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} competitors={competitors} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}

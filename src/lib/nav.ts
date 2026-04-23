@@ -31,6 +31,8 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "new-analysis", icon: "Search", label: "Новый анализ", count: null },
           { id: "dashboard", icon: "TrendingUp", label: "Дашборд", count: null },
           { id: "prev-analyses", icon: "FolderOpen", label: "Предыдущие анализы", count: null },
+          { id: "insights", icon: "Lightbulb", label: "AI-инсайты", count: null },
+          { id: "ai-visibility", icon: "Eye", label: "AI Видимость", count: null },
         ],
       },
       {
@@ -38,7 +40,6 @@ export const NAV_SECTIONS: NavSection[] = [
         children: [
           { id: "competitors", icon: "Target", label: "Список конкурентов", count: null },
           { id: "compare", icon: "Scale", label: "Сравнение", count: null },
-          { id: "insights", icon: "Lightbulb", label: "AI-инсайты", count: null },
         ],
       },
       {
