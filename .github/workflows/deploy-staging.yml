@@ -1,0 +1,23 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 72.56.241.159
+          username: maria
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd /var/www/market-radar-staging
+            git fetch origin staging
+            git reset --hard origin/staging
+            npm install
+            npm run build
+            pm2 restart market-radar-staging || pm2 start npm --name "market-radar-staging" -- start -- -p 3002
