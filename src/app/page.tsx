@@ -171,6 +171,21 @@ export default function MarketRadarDashboard() {
   const featureOn = (featureId: string) => isInternalUser || isFeatureOn(features, featureId);
   const [activeNav, setActiveNav] = useState("new-analysis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Если на платформу пришли с ?nav=<id> (например, с дашборда руководителя), переключаемся на эту секцию
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const navParam = params.get("nav");
+      if (navParam) {
+        setActiveNav(navParam);
+        // Очищаем query, чтобы при обновлении не прилипала
+        const url = new URL(window.location.href);
+        url.searchParams.delete("nav");
+        window.history.replaceState({}, "", url.pathname + (url.search ? `?${url.searchParams.toString()}` : "") + url.hash);
+      }
+    } catch { /* ignore */ }
+  }, []);
   const handleNavClick = React.useCallback((id: string) => {
     if (id === "owner-dashboard") {
       if (typeof window !== "undefined") window.open("/owner-dashboard", "_blank");

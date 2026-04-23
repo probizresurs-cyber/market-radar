@@ -99,7 +99,7 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
         @media print {
           body * { visibility: hidden !important; }
           #mr-report, #mr-report * { visibility: visible !important; }
-          #mr-report { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 24px !important; background: #fff !important; }
+          #mr-report { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 24px !important; background: #fff !important; }
           .no-print { display: none !important; }
           @page { margin: 20mm; }
         }
@@ -109,14 +109,15 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Отчёты</h1>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleShare} disabled={shareLoading} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              {shareLoading ? "⏳ Создаю ссылку..." : "🔗 Открыть по ссылке"}
+            <button onClick={handleShare} disabled={shareLoading} title="Создаст публичную ссылку на дашборд руководителя (сокращённая версия для внешних получателей)"
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              {shareLoading ? "⏳ Создаю ссылку..." : "🔗 Поделиться дашбордом"}
             </button>
           </div>
         </div>
         {shareUrl && (
-          <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 10, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Публичная ссылка:</span>
+          <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 10, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Ссылка на публичный дашборд (сокращённая версия для клиентов):</span>
             <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--primary)", wordBreak: "break-all" }}>{shareUrl}</a>
             <button onClick={() => { navigator.clipboard.writeText(shareUrl); }} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--muted)", color: "var(--foreground)", fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Копировать</button>
           </div>
@@ -453,9 +454,9 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
             </div>
           </div>
 
-          {/* Competitor Report Body */}
-          {compExpanded && (
-            <div id="mr-report">
+          {/* Competitor Report Body — всегда в DOM (для корректной работы window.print),
+               но скрываем, пока пользователь не раскрыл карточку */}
+          <div id="mr-report" style={{ display: compExpanded ? "block" : "none" }}>
               {/* Categories */}
               <div style={{ padding: "24px 32px", borderBottom: `1px solid var(--border)` }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>ОЦЕНКИ ПО КАТЕГОРИЯМ</div>
@@ -796,7 +797,6 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
                 <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Сгенерировано {today}</span>
               </div>
             </div>
-          )}
         </div>
       )}
 

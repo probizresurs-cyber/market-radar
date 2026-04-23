@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2 } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -773,6 +773,40 @@ export function OwnerDashboardContent({
 
           {/* Tab bar */}
           <TabBar p={p} active={activeTab} onChange={setActiveTab} tabs={tabs} />
+
+          {/* Ссылка "Открыть полный отчёт на платформе" (только в приватном режиме, для релевантных вкладок) */}
+          {mode === "private" && activeTab !== "overview" && (() => {
+            const navMap: Record<Exclude<TabId, "overview">, { nav: string; label: string }> = {
+              company: { nav: "dashboard", label: "Моя компания" },
+              competitors: { nav: "compare", label: "Сравнение конкурентов" },
+              ta: { nav: "ta-dashboard", label: "Дашборд ЦА" },
+              cjm: { nav: "ta-cjm", label: "Customer Journey Map" },
+              benchmarks: { nav: "ta-benchmarks", label: "Отраслевые бенчмарки" },
+              smm: { nav: "smm-dashboard", label: "Дашборд СММ" },
+              content: { nav: "content-plan", label: "План контента" },
+            };
+            const target = navMap[activeTab as Exclude<TabId, "overview">];
+            if (!target) return null;
+            return (
+              <div style={{ margin: "14px 0 8px", display: "flex", justifyContent: "flex-end" }}>
+                <a
+                  href={`/?nav=${target.nav}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "8px 14px", fontSize: 12, fontWeight: 600,
+                    color: p.primary, background: p.bgCard,
+                    border: `1px solid ${p.primary}`, borderRadius: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <ExternalLink size={13} strokeWidth={2} />
+                  Открыть полный отчёт на платформе: {target.label}
+                </a>
+              </div>
+            );
+          })()}
 
           {/* ═══ OVERVIEW TAB ═══ */}
           {activeTab === "overview" && (
