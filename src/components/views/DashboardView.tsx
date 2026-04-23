@@ -37,8 +37,9 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       .then(r => r.json())
       .then(json => {
         if (json.ok) {
-          setMyOffers(json.data);
-          try { localStorage.setItem(offersKey, JSON.stringify(json.data)); } catch { /* ignore */ }
+          const stamped = { ...json.data, generatedAt: new Date().toISOString() };
+          setMyOffers(stamped);
+          try { localStorage.setItem(offersKey, JSON.stringify(stamped)); } catch { /* ignore */ }
         }
       })
       .catch(() => {/* ignore */})
@@ -264,13 +265,19 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
               body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
             }).then(r => r.json()).then(json => {
               if (json.ok) {
-                setMyOffers(json.data);
-                try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+                const stamped = { ...json.data, generatedAt: new Date().toISOString() };
+                setMyOffers(stamped);
+                try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(stamped)); } catch { /* ignore */ }
               }
             }).catch(() => {/* ignore */}).finally(() => setMyOffersLoading(false));
           }} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 11, cursor: "pointer" }}>
             <RefreshCw size={12} strokeWidth={2} style={{ marginRight: 4 }} />Актуализировать
           </button>
+          {myOffers?.generatedAt && (
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, textAlign: "right" }}>
+              Актуализировано: {new Date(myOffers.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+            </div>
+          )}
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, textAlign: "right" }}>Рекомендуем раз в месяц</div>
         </>) : undefined}>
         {myOffersLoading && (
@@ -319,7 +326,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
               fetch("/api/analyze-offers", { method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
               }).then(r => r.json()).then(json => {
-                if (json.ok) { setMyOffers(json.data); try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(json.data)); } catch {/**/} }
+                if (json.ok) { const stamped = { ...json.data, generatedAt: new Date().toISOString() }; setMyOffers(stamped); try { localStorage.setItem(`mr_offers_${company.url || company.name}`, JSON.stringify(stamped)); } catch {/**/} }
               }).catch(()=>{}).finally(() => setMyOffersLoading(false));
             }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
               Загрузить офферы

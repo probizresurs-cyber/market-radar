@@ -34,7 +34,7 @@ export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSugg
         body: JSON.stringify({ companyName: taData.companyName, niche: taData.niche, segments }),
       });
       const json = await res.json();
-      if (json.ok) setBrandSuggestions(json.data);
+      if (json.ok) setBrandSuggestions({ ...json.data, generatedAt: new Date().toISOString() });
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -115,6 +115,11 @@ export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSugg
 
           {/* Summary */}
           <Card style={{ borderLeft: `4px solid var(--primary)` }}>
+            {brandSuggestions.generatedAt && (
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8 }}>
+                Актуализировано: {new Date(brandSuggestions.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+            )}
             <p style={{ fontSize: 14, color: "var(--foreground)", margin: 0, lineHeight: 1.6, fontWeight: 500 }}>{brandSuggestions.summary}</p>
           </Card>
 

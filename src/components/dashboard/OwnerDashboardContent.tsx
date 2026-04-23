@@ -1256,6 +1256,9 @@ function CJMTab({ p, data }: { p: Palette; data: CJMResult }) {
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>Customer Journey Map</div>
         <div style={{ fontSize: 13, color: p.textSecondary }}>
           Путь клиента от осознания до лояльности · {data.stages.length} этапов
+          {data.generatedAt && (
+            <> · Актуализировано: {new Date(data.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}</>
+          )}
         </div>
       </div>
 
@@ -1320,8 +1323,15 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
       {/* Сводка */}
       {data.summary && (
         <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>
-            Позиция в нише «{data.niche}»
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary }}>
+              Позиция в нише «{data.niche}»
+            </div>
+            {data.generatedAt && (
+              <div style={{ fontSize: 12, color: p.textTertiary }}>
+                Актуализировано: {new Date(data.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 14, color: p.textSecondary, lineHeight: 1.5 }}>{data.summary}</div>
         </div>

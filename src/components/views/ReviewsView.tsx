@@ -502,7 +502,14 @@ export function ReviewsView({ c, companyName }: {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {/* Summary */}
               <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                  <h3 style={{ margin: 0, fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
+                  {analysis.analyzedAt && (
+                    <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                      Актуализировано: {new Date(analysis.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                    </div>
+                  )}
+                </div>
                 <p style={{ fontSize: 15, color: "var(--foreground)", lineHeight: 1.6, margin: 0 }}>{analysis.summary}</p>
               </div>
 
