@@ -20,4 +20,4 @@ jobs:
             git reset --hard origin/staging
             npm install
             npm run build
-            pm2 restart market-radar-staging || pm2 start npm --name "market-radar-staging" -- start -- -p 3002
+            pm2 restart market-radar-staging || pm2 start npm --name "market-radar-staging" -- start -- -p 3003
