@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
-import type { TAResult } from "@/lib/ta-types";
+import type { TAResult, TAAudienceType } from "@/lib/ta-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { DataBadge } from "@/components/ui/DataBadge";
 import {
@@ -11,20 +11,32 @@ import {
   RefreshCw, Sparkles, Target, Loader2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 
-export function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
+export function NewTAView({ c, myCompany, isAnalyzing, existingTypes = [], onAnalyze }: {
   c: Colors; myCompany: AnalysisResult | null;
-  isAnalyzing: boolean; onAnalyze: (niche: string, extra: string) => Promise<void>;
+  isAnalyzing: boolean;
+  /** Какие типы анализа уже сохранены — показываем подсказку, что добавится параллельно. */
+  existingTypes?: TAAudienceType[];
+  onAnalyze: (niche: string, extra: string, audienceType: TAAudienceType) => Promise<void>;
 }) {
   const [niche, setNiche] = useState(myCompany?.company.description?.split("\n")[0]?.slice(0, 200) ?? "");
   const [extra, setExtra] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // По умолчанию выбираем тип, которого ещё нет (если один уже есть) — чтобы упростить "второй анализ".
+  const [audienceType, setAudienceType] = useState<TAAudienceType>(() => {
+    if (existingTypes.includes("b2c") && !existingTypes.includes("b2b")) return "b2b";
+    if (existingTypes.includes("b2b") && !existingTypes.includes("b2c")) return "b2c";
+    return "b2c";
+  });
 
   const handleSubmit = async () => {
     if (!niche.trim()) { setError("Опишите нишу и продукт"); return; }
     setError(null);
-    try { await onAnalyze(niche.trim(), extra.trim()); }
+    try { await onAnalyze(niche.trim(), extra.trim(), audienceType); }
     catch (e) { setError(e instanceof Error ? e.message : "Ошибка"); }
   };
+
+  const willOverwrite = existingTypes.includes(audienceType);
+  const willAddSecond = existingTypes.length > 0 && !willOverwrite;
 
   return (
     <div style={{ maxWidth: 700 }}>
@@ -32,6 +44,54 @@ export function NewTAView({ c, myCompany, isAnalyzing, onAnalyze }: {
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Мы проведём глубокий психологический анализ ЦА: сегменты, боли, страхи, мотивы, возражения и триггеры покупки.
       </p>
+
+      {/* Выбор типа аудитории */}
+      <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>
+          Тип аудитории <span style={{ color: "var(--destructive)" }}>*</span>
+        </label>
+        <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 10px" }}>
+          B2C — продаём физ. лицам. B2B — продаём компаниям (юр. лицам), анализируем ЛПР и DMU.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["b2c", "b2b"] as const).map(t => {
+            const active = audienceType === t;
+            const has = existingTypes.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setAudienceType(t)}
+                style={{
+                  flex: 1, padding: "12px 16px", borderRadius: 10,
+                  border: active ? `2px solid var(--primary)` : `1px solid var(--border)`,
+                  background: active ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "var(--background)",
+                  color: active ? "var(--primary)" : "var(--foreground)",
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4,
+                }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>{t === "b2c" ? "B2C" : "B2B"}</span>
+                  {has && <span style={{ fontSize: 10, fontWeight: 600, color: "var(--success)", background: "color-mix(in oklch, var(--success) 10%, transparent)", padding: "1px 6px", borderRadius: 4 }}>есть</span>}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: active ? "var(--primary)" : "var(--muted-foreground)", textAlign: "left" }}>
+                  {t === "b2c" ? "Физ. лица, частные покупатели" : "Юр. лица, ЛПР, DMU, циклы сделок"}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {willAddSecond && (
+          <div style={{ marginTop: 10, fontSize: 11, color: "var(--primary)", background: "color-mix(in oklch, var(--primary) 6%, transparent)", padding: "6px 10px", borderRadius: 6 }}>
+            У вас уже есть анализ {existingTypes.includes("b2c") ? "B2C" : "B2B"}. Новый анализ {audienceType.toUpperCase()} будет сохранён отдельно — сможете переключаться между ними в дашборде ЦА.
+          </div>
+        )}
+        {willOverwrite && existingTypes.length > 0 && (
+          <div style={{ marginTop: 10, fontSize: 11, color: "var(--warning)", background: "color-mix(in oklch, var(--warning) 8%, transparent)", padding: "6px 10px", borderRadius: 6 }}>
+            Анализ {audienceType.toUpperCase()} уже существует — запуск перезапишет предыдущий. Чтобы добавить второй — выберите другой тип.
+          </div>
+        )}
+      </div>
 
       {myCompany && (
         <div style={{ background: "color-mix(in oklch, var(--primary) 6%, transparent)", border: `1px solid var(--primary)30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13 }}>
@@ -123,8 +183,22 @@ export function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysi
 // TA Dashboard View
 // ============================================================
 
-export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
+export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
+  c: Colors;
+  data: TAResult;
+  altData?: TAResult | null;
+  onSwitchType?: (t: TAAudienceType) => void;
+  onRunNew?: () => void;
+}) {
   const [activeSegment, setActiveSegment] = useState(0);
+
+  // Reset segment index when switching between B2C / B2B
+  const activeType = data.audienceType ?? "b2c";
+  const prevTypeRef = React.useRef(activeType);
+  if (prevTypeRef.current !== activeType) {
+    prevTypeRef.current = activeType;
+    setActiveSegment(0);
+  }
 
   const seg = data.segments[activeSegment];
   if (!seg) return null;
@@ -155,10 +229,56 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
 
   return (
     <div style={{ maxWidth: 1100 }}>
+      {/* B2C / B2B type switcher */}
+      {(altData || onRunNew) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+          {(["b2c", "b2b"] as TAAudienceType[]).map((t) => {
+            const isActive = activeType === t;
+            const hasAlt = altData && (altData.audienceType ?? "b2c") === t;
+            const hasCurrent = isActive;
+            const exists = hasCurrent || hasAlt;
+            return (
+              <button
+                key={t}
+                onClick={() => {
+                  if (isActive) return;
+                  if (hasAlt && onSwitchType) onSwitchType(t);
+                  else if (!exists && onRunNew) onRunNew();
+                }}
+                style={{
+                  padding: "7px 20px",
+                  borderRadius: 10,
+                  border: `2px solid ${isActive ? "var(--primary)" : exists ? "var(--border)" : "var(--muted)"}`,
+                  background: isActive ? "var(--primary)" : "transparent",
+                  color: isActive ? "#fff" : exists ? "var(--foreground-secondary)" : "var(--muted-foreground)",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: isActive ? "default" : "pointer",
+                  opacity: !exists && !onRunNew ? 0.5 : 1,
+                  display: "flex", alignItems: "center", gap: 6,
+                  transition: "all 0.15s",
+                }}
+              >
+                {t.toUpperCase()}
+                {isActive && <span style={{ fontSize: 10, background: "rgba(255,255,255,0.25)", borderRadius: 6, padding: "1px 6px" }}>активен</span>}
+                {!isActive && exists && <span style={{ fontSize: 10, background: "var(--primary)20", color: "var(--primary)", borderRadius: 6, padding: "1px 6px" }}>есть</span>}
+                {!isActive && !exists && <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>+ запустить</span>}
+              </button>
+            );
+          })}
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)", marginLeft: 4 }}>
+            Переключайтесь между B2C и B2B анализами
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Анализ ЦА — {data.companyName}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>
+            Анализ ЦА — {data.companyName}
+            {activeType === "b2b" && <span style={{ marginLeft: 8, fontSize: 14, background: "var(--primary)20", color: "var(--primary)", borderRadius: 8, padding: "2px 10px", fontWeight: 700 }}>B2B</span>}
+          </h1>
           <DataBadge variant="ai" source="Claude" title="Портрет ЦА полностью сгенерирован AI на основе данных о компании и нише." />
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.niche} · {generatedDate}</p>

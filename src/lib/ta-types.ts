@@ -63,6 +63,8 @@ export interface TASegment {
   topObjections: string[];
 }
 
+export type TAAudienceType = "b2c" | "b2b";
+
 export interface TAResult {
   generatedAt: string;
   companyName: string;
@@ -70,4 +72,7 @@ export interface TAResult {
   niche: string;
   summary: string;
   segments: TASegment[];
+  /** Тип ЦА: B2C (конечные потребители) или B2B (юр. лица/ЛПР).
+   * Поле добавлено позже — у старых анализов может отсутствовать (трактуем как b2c). */
+  audienceType?: TAAudienceType;
 }

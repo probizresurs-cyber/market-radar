@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X, Moon, Sun, Coffee } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
-import type { TAResult, TASegment } from "@/lib/ta-types";
+import type { TAResult, TASegment, TAAudienceType } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, GeneratedCarousel, TovCheckResult, TovIssue, PresentationStyle } from "@/lib/content-types";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
@@ -207,7 +207,29 @@ export default function MarketRadarDashboard() {
   const [currentUrl, setCurrentUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedCompetitor, setSelectedCompetitor] = useState<number | null>(null);
+  // ЦА-анализ может существовать в двух вариантах — B2C и B2B.
+  // taAnalysis остаётся "активным" (на который смотрит пользователь) для обратной совместимости
+  // со всеми местами в коде, где используется текущий анализ. taAnalysisAlt — параллельный
+  // (второй, другого типа) — если есть.
+  // ЦА-анализ может существовать в двух вариантах — B2C и B2B.
+  // taAnalysis остаётся "активным" (на который смотрит пользователь) для обратной совместимости
+  // со всеми местами в коде, где используется текущий анализ. taAnalysisAlt — параллельный
+  // (второй, другого типа) — если есть.
   const [taAnalysis, setTaAnalysis] = useState<TAResult | null>(null);
+  const [taAnalysisAlt, setTaAnalysisAlt] = useState<TAResult | null>(null);
+  const taExistingTypes: TAAudienceType[] = [
+    ...(taAnalysis ? [taAnalysis.audienceType ?? "b2c"] : []),
+    ...(taAnalysisAlt ? [taAnalysisAlt.audienceType ?? "b2c"] : []),
+  ];
+  // Переключение между B2C/B2B в дашборде ЦА — swap active ↔ alt.
+  const handleSwitchTAType = React.useCallback((t: TAAudienceType) => {
+    if ((taAnalysis?.audienceType ?? "b2c") === t) return;
+    if (taAnalysisAlt && (taAnalysisAlt.audienceType ?? "b2c") === t) {
+      const cur = taAnalysis;
+      setTaAnalysis(taAnalysisAlt);
+      setTaAnalysisAlt(cur);
+    }
+  }, [taAnalysis, taAnalysisAlt]);
   const [isTAAnalyzing, setIsTAAnalyzing] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [cjmData, setCjmData] = useState<any | null>(null);
@@ -258,7 +280,7 @@ export default function MarketRadarDashboard() {
     const get = (key: string) => data[key] ?? null;
 
     // Reset all state first to prevent stale data from previous session
-    setMyCompany(null); setCompetitors([]); setTaAnalysis(null);
+    setMyCompany(null); setCompetitors([]); setTaAnalysis(null); setTaAnalysisAlt(null);
     setCjmData(null); setBenchmarksData(null); setSmmAnalysis(null);
     setContentPlan(null); setGeneratedPosts([]); setGeneratedReels([]);
     setGeneratedStories([]); setGeneratedCarousels([]); setAnalysisHistory([]); setBrandSuggestions(null);
@@ -269,8 +291,22 @@ export default function MarketRadarDashboard() {
     const comps = get("competitors") ?? JSON.parse(localStorage.getItem(`mr_competitors_${uid}`) ?? "null");
     if (Array.isArray(comps) && comps.length > 0) setCompetitors(comps as AnalysisResult[]);
 
-    const ta = get("ta") ?? JSON.parse(localStorage.getItem(`mr_ta_${uid}`) ?? "null");
-    if (ta) setTaAnalysis(ta as TAResult);
+    // Load TA analysis — supports both new per-type keys and the old single key.
+    // Old single key (mr_ta_<uid>) is migrated: treated as B2C on first load.
+    const taB2c: TAResult | null =
+      JSON.parse(localStorage.getItem(`mr_ta_${uid}_b2c`) ?? "null") ??
+      (() => {
+        // Migrate old key → b2c slot on first access
+        const old = get("ta") ?? JSON.parse(localStorage.getItem(`mr_ta_${uid}`) ?? "null");
+        if (old && !(old as TAResult).audienceType) {
+          (old as TAResult).audienceType = "b2c";
+          try { localStorage.setItem(`mr_ta_${uid}_b2c`, JSON.stringify(old)); } catch { /* ignore */ }
+        }
+        return old as TAResult | null;
+      })();
+    const taB2b: TAResult | null = JSON.parse(localStorage.getItem(`mr_ta_${uid}_b2b`) ?? "null");
+    if (taB2c) setTaAnalysis(taB2c);
+    if (taB2b) setTaAnalysisAlt(taB2b);
 
     const cjm = get("cjm") ?? JSON.parse(localStorage.getItem(`mr_cjm_${uid}`) ?? "null");
     if (cjm) setCjmData(cjm);
@@ -523,7 +559,7 @@ export default function MarketRadarDashboard() {
     }
   };
 
-  const handleTAAnalysis = async (niche: string, extraContext: string) => {
+  const handleTAAnalysis = async (niche: string, extraContext: string, audienceType: TAAudienceType = "b2c") => {
     setIsTAAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-ta", {
@@ -534,14 +570,26 @@ export default function MarketRadarDashboard() {
           companyUrl: myCompany?.company.url ?? "",
           niche,
           extraContext,
+          audienceType,
         }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Ошибка анализа ЦА");
-      setTaAnalysis(json.data);
+      const newAnalysis = json.data as TAResult;
+
+      // Slot management: if existing active analysis is the same type — overwrite it.
+      // Otherwise push current active to alt slot and make the new one active.
+      const curType = taAnalysis?.audienceType ?? "b2c";
+      if (!taAnalysis || curType === audienceType) {
+        setTaAnalysis(newAnalysis);
+      } else {
+        setTaAnalysisAlt(taAnalysis);
+        setTaAnalysis(newAnalysis);
+      }
+
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_ta_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
-        syncToServer("ta", json.data);
+        try { localStorage.setItem(`mr_ta_${currentUser.id}_${audienceType}`, JSON.stringify(newAnalysis)); } catch { /* ignore */ }
+        syncToServer("ta", newAnalysis);
       }
       setActiveNav("ta-dashboard");
     } finally {
@@ -1133,8 +1181,8 @@ export default function MarketRadarDashboard() {
         {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} competitors={competitors} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
-        {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} />}
-        {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
+        {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} existingTypes={taExistingTypes} />}
+        {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} altData={taAnalysisAlt} onSwitchType={handleSwitchTAType} onRunNew={() => setActiveNav("ta-new")} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
         {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={handleGenerateCJM} myCompany={myCompany} taAnalysis={taAnalysis} error={cjmError} />}
         {activeNav === "ta-benchmarks" && <BenchmarksView c={c} data={benchmarksData} isGenerating={isBenchmarksGenerating} onGenerate={handleGenerateBenchmarks} myCompany={myCompany} error={benchmarksError} />}
         {activeNav === "ta-brandbook" && taAnalysis && (
