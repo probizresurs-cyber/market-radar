@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import {
   Eye, Sparkles, Search, TrendingUp, Globe, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, X, BarChart3, Users, Zap, Target, Info,
-  ClipboardList, Bot, Activity,
+  ClipboardList, Bot, Activity, History, Plus,
 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
@@ -168,8 +168,19 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export function AIVisibilityView({ c, myCompany }: Props) {
-  const [view, setView] = useState<"form" | "progress" | "report">("form");
-  const [audit, setAudit] = useState<AIVisibilityAudit | null>(null);
+  // Load the most recent completed audit from localStorage on mount
+  const loadSavedAudits = (): AIVisibilityAudit[] => {
+    try {
+      return JSON.parse(localStorage.getItem("mr_ai_visibility_audits") ?? "[]");
+    } catch { return []; }
+  };
+
+  const lastAudit = loadSavedAudits()[0] ?? null;
+  const [view, setView] = useState<"form" | "progress" | "report" | "history">(
+    lastAudit?.status === "done" ? "report" : "form"
+  );
+  const [audit, setAudit] = useState<AIVisibilityAudit | null>(lastAudit);
+  const [savedAudits, setSavedAudits] = useState<AIVisibilityAudit[]>(() => loadSavedAudits());
 
   // Form
   const [brandName, setBrandName] = useState(myCompany?.company.name ?? "");
@@ -291,7 +302,9 @@ export function AIVisibilityView({ c, myCompany }: Props) {
       try {
         const saved: AIVisibilityAudit[] = JSON.parse(localStorage.getItem("mr_ai_visibility_audits") ?? "[]");
         saved.unshift(completed);
-        localStorage.setItem("mr_ai_visibility_audits", JSON.stringify(saved.slice(0, 10)));
+        const trimmed = saved.slice(0, 10);
+        localStorage.setItem("mr_ai_visibility_audits", JSON.stringify(trimmed));
+        setSavedAudits(trimmed);
       } catch { /* ignore */ }
       setView("report");
     } catch (err) {
@@ -313,12 +326,21 @@ export function AIVisibilityView({ c, myCompany }: Props) {
           }}>
             <Eye size={26} color="#fff" />
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "var(--foreground)" }}>AI Видимость</h1>
             <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
               GEO-аудит: насколько вас знают ChatGPT, YandexGPT, GigaChat и Perplexity
             </p>
           </div>
+          {savedAudits.length > 0 && (
+            <button onClick={() => { setAudit(savedAudits[0]); setView("report"); }} style={{
+              padding: "8px 16px", borderRadius: 10, border: "1px solid var(--border)",
+              background: "transparent", color: "var(--foreground-secondary)", cursor: "pointer", fontSize: 13,
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <History size={14} /> Последний отчёт
+            </button>
+          )}
         </div>
 
         {/* Two-column layout */}
@@ -591,13 +613,24 @@ export function AIVisibilityView({ c, myCompany }: Props) {
               </p>
             </div>
           </div>
-          <button onClick={() => setView("form")} style={{
-            padding: "8px 18px", borderRadius: 10, border: "1px solid var(--border)",
-            background: "transparent", color: "var(--foreground-secondary)", cursor: "pointer", fontSize: 13,
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <Zap size={14} /> Новый аудит
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {savedAudits.length > 1 && (
+              <button onClick={() => setView("history")} style={{
+                padding: "8px 16px", borderRadius: 10, border: "1px solid var(--border)",
+                background: "transparent", color: "var(--foreground-secondary)", cursor: "pointer", fontSize: 13,
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <History size={14} /> История ({savedAudits.length})
+              </button>
+            )}
+            <button onClick={() => { setAudit(null); setView("form"); }} style={{
+              padding: "8px 16px", borderRadius: 10, border: "none",
+              background: "var(--primary)", color: "#fff", cursor: "pointer", fontSize: 13,
+              display: "flex", alignItems: "center", gap: 6, fontWeight: 700,
+            }}>
+              <Plus size={14} /> Новый аудит
+            </button>
+          </div>
         </div>
 
         {/* Block 1: Score */}
@@ -871,6 +904,91 @@ export function AIVisibilityView({ c, myCompany }: Props) {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // ─── HISTORY ─────────────────────────────────────────────────────────────────
+  if (view === "history") {
+    return (
+      <div style={{ maxWidth: 800 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 14,
+              background: "linear-gradient(135deg, var(--primary), #7c3aed)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <History size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: "var(--foreground)" }}>История аудитов</h1>
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{savedAudits.length} сохранённых аудитов</p>
+            </div>
+          </div>
+          <button onClick={() => { setAudit(null); setView("form"); }} style={{
+            padding: "8px 16px", borderRadius: 10, border: "none",
+            background: "var(--primary)", color: "#fff", cursor: "pointer", fontSize: 13,
+            display: "flex", alignItems: "center", gap: 6, fontWeight: 700,
+          }}>
+            <Plus size={14} /> Новый аудит
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {savedAudits.map((a, i) => (
+            <Card key={a.id} style={{ cursor: "pointer" }}>
+              <div
+                onClick={() => { setAudit(a); setView("report"); }}
+                style={{ display: "flex", alignItems: "center", gap: 16 }}
+              >
+                {/* Score circle mini */}
+                <div style={{
+                  width: 60, height: 60, borderRadius: "50%", flexShrink: 0,
+                  border: `3px solid ${scoreColor(a.totalScore ?? 0)}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column",
+                }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: scoreColor(a.totalScore ?? 0), lineHeight: 1 }}>
+                    {a.totalScore ?? "—"}
+                  </span>
+                  <span style={{ fontSize: 9, color: "var(--muted-foreground)" }}>/100</span>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 3 }}>
+                    {a.brandName}
+                    {i === 0 && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6,
+                        background: "var(--primary)20", color: "var(--primary)", fontWeight: 700,
+                      }}>последний</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                    {a.niche} · {new Date(a.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                  </div>
+                  {/* LLM mini scores */}
+                  {a.scoresByLlm && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                      {(["yandex", "giga", "chatgpt", "perplexity"] as LLMName[]).map(llm => (
+                        <span key={llm} style={{
+                          fontSize: 11, padding: "2px 8px", borderRadius: 6,
+                          background: LLM_META[llm].bg, color: LLM_META[llm].color, fontWeight: 700,
+                        }}>
+                          {LLM_META[llm].label}: {a.scoresByLlm![llm]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ color: "var(--muted-foreground)", flexShrink: 0 }}>
+                  <ChevronDown size={18} style={{ transform: "rotate(-90deg)" }} />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
