@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Sword, BookOpen, BarChart2, BarChart3, Settings, Menu, ChevronRight,
   Gauge, Building2, Search, TrendingUp, FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil,
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
-  Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers,
+  Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -18,7 +18,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: Reac
   LayoutDashboard, Users, BarChart2, BarChart3, Settings, Gauge, Building2, Search, TrendingUp,
   FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil, Map, Share2, Palette, Star,
   FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film, Smartphone, Wallet,
-  Globe, Presentation, Link2, BookOpen, Sword, Layers,
+  Globe, Presentation, Link2, BookOpen, Sword, Layers, Eye,
 };
 
 function NavIcon({ name, size = 15, active }: { name: string; size?: number; active?: boolean }) {
