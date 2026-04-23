@@ -10,36 +10,15 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
-import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, Share2, LineChart, Tag, RefreshCw, Search, AlertTriangle, Loader, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
-  const [liveRatings, setLiveRatings] = useState<{
-    google: { rating: number; reviewCount: number } | null;
-    yandex: { rating: number; reviewCount: number } | null;
-    gis: { rating: number; reviewCount: number } | null;
-  } | null>(null);
-  const [ratingsLoading, setRatingsLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [myOffers, setMyOffers] = useState<any>(null);
   const [myOffersLoading, setMyOffersLoading] = useState(false);
-
-  useEffect(() => {
-    if (!company?.name) return;
-    setRatingsLoading(true);
-    fetch("/api/fetch-map-ratings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyName: company.name }),
-    })
-      .then(r => r.json())
-      .then(json => { if (json.ok) setLiveRatings(json.data); })
-      .catch(() => {/* ignore */})
-      .finally(() => setRatingsLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company?.name]);
 
   // Load own offers from cache or API
   useEffect(() => {
@@ -606,64 +585,6 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
               </div>
             </div>
           )}
-        </div>
-      </CollapsibleSection>
-
-      {/* ── Соцсети и рейтинги ── */}
-      <CollapsibleSection c={c} title="Соцсети и рейтинги" icon={<Share2 size={16} strokeWidth={1.75} />}>
-        <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-            {data.social?.vk ? (
-              <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#2787F5", marginBottom: 8 }}>ВКонтакте</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)", lineHeight: 1 }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
-                <div style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "3px 0 8px" }}>подписчиков</div>
-                <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>{data.social.vk.posts30d} постов/мес</div>
-                <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>{data.social.vk.engagement} вовлечённость</div>
-              </div>
-            ) : (
-              <div style={{ background: "var(--card)", borderRadius: 14, border: `1px dashed var(--border)`, padding: 16, opacity: 0.5 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>ВКонтакте</div>
-                <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Не найдено</div>
-              </div>
-            )}
-            {data.social?.telegram ? (
-              <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#229ED9", marginBottom: 8 }}>Telegram</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)", lineHeight: 1 }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
-                <div style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "3px 0 8px" }}>подписчиков</div>
-                <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>{data.social.telegram.posts30d} постов/мес</div>
-              </div>
-            ) : (
-              <div style={{ background: "var(--card)", borderRadius: 14, border: `1px dashed var(--border)`, padding: 16, opacity: 0.5 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>Telegram</div>
-                <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Не найдено</div>
-              </div>
-            )}
-            {[
-              { label: "Яндекс.Карты", rating: liveRatings?.yandex?.rating ?? data.social?.yandexRating ?? 0, reviews: liveRatings?.yandex?.reviewCount ?? data.social?.yandexReviews ?? 0, color: "#FC3F1D", isLive: !!liveRatings?.yandex },
-              { label: "2ГИС", rating: liveRatings?.gis?.rating ?? data.social?.gisRating ?? 0, reviews: liveRatings?.gis?.reviewCount ?? data.social?.gisReviews ?? 0, color: "#04AE30", isLive: !!liveRatings?.gis },
-              { label: "Google Maps", rating: liveRatings?.google?.rating ?? 0, reviews: liveRatings?.google?.reviewCount ?? 0, color: "#4285F4", isLive: !!liveRatings?.google },
-            ].map(({ label, rating, reviews, color, isLive }) => (
-              <div key={label} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 16, boxShadow: "var(--shadow)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color }}>{label}</div>
-                  {ratingsLoading
-                    ? <Loader size={10} strokeWidth={2} style={{ color: "var(--muted-foreground)" }} />
-                    : isLive && <span style={{ fontSize: 10, color: "var(--success)", background: "color-mix(in oklch, var(--success) 9%, transparent)", padding: "1px 6px", borderRadius: 4 }}>live</span>
-                  }
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)", lineHeight: 1 }}>{rating > 0 ? rating.toFixed(1) : "—"}</div>
-                <div style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "3px 0 8px" }}>рейтинг</div>
-                {rating > 0 && (
-                  <div style={{ display: "flex", gap: 1, marginBottom: 4 }}>
-                    {[1, 2, 3, 4, 5].map(s => <span key={s} style={{ fontSize: 12, color: s <= Math.round(rating) ? "#f59e0b" : "var(--muted)" }}>★</span>)}
-                  </div>
-                )}
-                <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>{reviews > 0 ? `${reviews} отзывов` : "нет данных"}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </CollapsibleSection>
 

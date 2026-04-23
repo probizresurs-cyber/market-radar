@@ -21,7 +21,7 @@ export function SourcesView({ c }: { c: Colors }) {
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead><tr>
-            {["Источник", "Метод / API", "Цена", "Фаза"].map(h => (
+            {["Источник", "Метод / API", "Фаза"].map(h => (
               <th key={h} style={{ textAlign: "left", padding: "12px 16px", borderBottom: `2px solid var(--border)`, color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
             ))}
           </tr></thead>
@@ -30,9 +30,6 @@ export function SourcesView({ c }: { c: Colors }) {
               <tr key={i}>
                 <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 600, color: "var(--foreground)" }}>{s.name}</td>
                 <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, color: "var(--foreground-secondary)", fontFamily: "monospace", fontSize: 12 }}>{s.method}</td>
-                <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)` }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 6, background: "color-mix(in oklch, var(--success) 9%, transparent)", color: "var(--success)" }}>{s.price}</span>
-                </td>
                 <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--muted)`, fontWeight: 600, fontSize: 12, color: s.phase === "MVP" ? "var(--primary)" : "var(--muted-foreground)" }}>{s.phase}</td>
               </tr>
             ))}

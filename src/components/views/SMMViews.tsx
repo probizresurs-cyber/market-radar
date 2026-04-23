@@ -7,16 +7,15 @@ import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import {
   Smartphone, Rocket, Drama, FileText, Loader2,
-  AlertTriangle, Users, Camera, Send, Globe, Music, Play,
+  AlertTriangle, Users, Send,
 } from "lucide-react";
 
+// Пока поддерживаем только ВК и Telegram — для них есть реальная статистика
+// через API и адекватные рекомендации под российский рынок. Остальные
+// платформы временно отключены.
 const SMM_PLATFORMS: Array<{ key: keyof SMMSocialLinks; label: string; icon: React.ReactNode; placeholder: string }> = [
   { key: "vk", label: "ВКонтакте", icon: <Users size={16} style={{color:"#4a76a8"}}/>, placeholder: "https://vk.com/your_page" },
-  { key: "instagram", label: "Instagram", icon: <Camera size={16} style={{color:"#e1306c"}}/>, placeholder: "https://instagram.com/your_account" },
   { key: "telegram", label: "Telegram", icon: <Send size={16} style={{color:"#2aabee"}}/>, placeholder: "https://t.me/your_channel" },
-  { key: "facebook", label: "Facebook", icon: <Globe size={16} style={{color:"#1877f2"}}/>, placeholder: "https://facebook.com/your_page" },
-  { key: "tiktok", label: "TikTok", icon: <Music size={16} style={{color:"#000"}}/>, placeholder: "https://tiktok.com/@your_account" },
-  { key: "youtube", label: "YouTube", icon: <Play size={16} style={{color:"#ff0000"}}/>, placeholder: "https://youtube.com/@your_channel" },
 ];
 
 export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {

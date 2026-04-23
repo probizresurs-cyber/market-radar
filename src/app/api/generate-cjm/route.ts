@@ -44,6 +44,37 @@ export interface CJMResult {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Specialised repair for the CJM shape: {"companyName":"…","stages":[{…},{…},…]}
+// If the stream was cut off mid-stage (or mid-string within a stage), find the
+// last *complete* stage object inside the array and truncate to there, then
+// close the array and root object. Returns repaired JSON or null.
+function repairTruncatedCjm(text: string): string | null {
+  const stagesIdx = text.indexOf('"stages"');
+  if (stagesIdx === -1) return null;
+  const arrOpen = text.indexOf("[", stagesIdx);
+  if (arrOpen === -1) return null;
+
+  let depth = 0; // relative to stages[ array open
+  let inString = false;
+  let escape = false;
+  let lastStageClose = -1;
+  for (let i = arrOpen + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{" || ch === "[") depth++;
+    else if (ch === "}" || ch === "]") {
+      depth--;
+      if (depth === 0 && ch === "}") lastStageClose = i;
+      if (depth < 0) break; // we exited the stages array — done
+    }
+  }
+  if (lastStageClose === -1) return null;
+  return text.slice(0, lastStageClose + 1) + "]}";
+}
+
 function extractJson(text: string): unknown {
   const stripped = text
     .replace(/```json\s*/gi, "")
@@ -69,7 +100,7 @@ function extractJson(text: string): unknown {
     }
   }
 
-  // 3. Truncated JSON recovery — close any open arrays/objects
+  // 3. Truncated JSON recovery — close any open arrays/objects at depth 0
   try {
     let depth = 0;
     let inString = false;
@@ -87,7 +118,16 @@ function extractJson(text: string): unknown {
     if (lastGoodPos > 0) {
       try { return JSON.parse(candidate.slice(0, lastGoodPos + 1)); } catch { /* fall through */ }
     }
-    // Try auto-closing
+  } catch { /* fall through */ }
+
+  // 4. CJM-specific repair — keep only fully-complete stages
+  const repaired = repairTruncatedCjm(candidate);
+  if (repaired) {
+    try { return JSON.parse(repaired); } catch { /* fall through */ }
+  }
+
+  // 5. Last-resort auto-closing
+  try {
     const closing = "}]".repeat(10);
     for (let trim = candidate.length - 1; trim > 10; trim--) {
       if (candidate[trim] === "," || candidate[trim] === " ") continue;
@@ -186,7 +226,7 @@ export async function POST(req: Request) {
 
     const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 16000,
+      max_tokens: 24000,
       messages: [
         {
           role: "user",
