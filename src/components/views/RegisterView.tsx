@@ -52,11 +52,9 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
     if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
     if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
     if (!website.trim()) { setError("Введите сайт компании"); return; }
-    if (!contactValue.trim()) {
-      setError(contactType === "phone" ? "Введите номер телефона" : "Введите Telegram");
-      return;
-    }
     if (!consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
+
+    const hasContact = !!contactValue.trim();
 
     setLoading(true);
     try {
@@ -68,8 +66,8 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
           email: email.toLowerCase().trim(),
           password,
           website: website.trim(),
-          contactType,
-          contactValue: contactValue.trim(),
+          contactType: hasContact ? contactType : undefined,
+          contactValue: hasContact ? contactValue.trim() : undefined,
           consent: true,
         }),
         credentials: "include",
@@ -163,7 +161,7 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
 
           {/* Phone / Telegram toggle — one field, icon-driven switch */}
           <div>
-            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Контакт для связи *</label>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Контакт для связи</label>
             <div
               style={{
                 display: "flex",

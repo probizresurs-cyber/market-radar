@@ -60,10 +60,9 @@ export async function POST(req: Request) {
     if (!website || typeof website !== "string" || !website.trim()) {
       return NextResponse.json({ ok: false, error: "Введите сайт компании" }, { status: 400 });
     }
-    if (contactType !== "phone" && contactType !== "telegram") {
-      return NextResponse.json({ ok: false, error: "Укажите телефон или Telegram" }, { status: 400 });
-    }
-    if (!contactValue || typeof contactValue !== "string" || !contactValue.trim()) {
+    // Contact is optional. If provided, type must be valid and value non-empty.
+    const hasContact = typeof contactValue === "string" && contactValue.trim().length > 0;
+    if (hasContact && contactType !== "phone" && contactType !== "telegram") {
       return NextResponse.json({ ok: false, error: "Укажите телефон или Telegram" }, { status: 400 });
     }
 
@@ -125,8 +124,8 @@ export async function POST(req: Request) {
     }
 
     const safeName = sanitizeHtml(name.trim());
-    const phoneValue = contactType === "phone" ? sanitizeHtml(contactValue.trim()) : null;
-    const telegramValue = contactType === "telegram" ? sanitizeHtml(contactValue.trim()) : null;
+    const phoneValue = hasContact && contactType === "phone" ? sanitizeHtml(contactValue.trim()) : null;
+    const telegramValue = hasContact && contactType === "telegram" ? sanitizeHtml(contactValue.trim()) : null;
     const websiteValue = sanitizeHtml(validatedWebsite.url);
 
     const passwordHash = await bcrypt.hash(password, 10);
