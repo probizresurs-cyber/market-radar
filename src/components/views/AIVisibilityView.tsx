@@ -434,14 +434,26 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                     </button>
                   </div>
                 ) : (
-                  <div style={{
-                    padding: "20px", borderRadius: 10, border: "1px dashed var(--border)",
-                    textAlign: "center", color: "var(--muted-foreground)",
-                  }}>
-                    <Search size={20} style={{ margin: "0 auto 8px", display: "block", opacity: 0.4 }} />
-                    <p style={{ fontSize: 13, margin: 0 }}>
-                      Нажмите «Сгенерировать» — Claude создаст 8 типичных запросов для вашей ниши
-                    </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{
+                      padding: "14px 16px", borderRadius: 10, border: "1px dashed var(--border)",
+                      display: "flex", alignItems: "center", gap: 10, color: "var(--muted-foreground)",
+                    }}>
+                      <Search size={16} style={{ flexShrink: 0, opacity: 0.5 }} />
+                      <p style={{ fontSize: 13, margin: 0, flex: 1 }}>
+                        Нажмите «Сгенерировать» или добавьте запросы вручную
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setQueries([""])}
+                      style={{
+                        padding: "8px 14px", borderRadius: 8, border: "1px dashed var(--border)",
+                        background: "transparent", color: "var(--muted-foreground)", cursor: "pointer",
+                        fontSize: 13, display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      <Plus size={14} /> Добавить запрос вручную
+                    </button>
                   </div>
                 )}
               </div>
