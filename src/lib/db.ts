@@ -187,6 +187,13 @@ export async function initDb() {
   // optional otherwise) and shown in the profile / Settings view.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name TEXT`);
 
+  // Website + contact (phone OR telegram) — captured at registration so we
+  // can auto-run the first analysis and reach out to the client. Either
+  // `phone` or `telegram` is filled, not both.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS website TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram TEXT`);
+
   // ─── AI Monitoring + Security tables ────────────────────────────────────────
 
   await query(`

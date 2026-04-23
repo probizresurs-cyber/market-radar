@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Phone, Send } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
+
+type ContactType = "phone" | "telegram";
 
 export function RegisterView({ c, onSuccess, onLogin, onBack }: {
   c: Colors;
@@ -11,16 +14,20 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
   onLogin: () => void;
   onBack?: () => void;
 }) {
+  void c;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [contactType, setContactType] = useState<ContactType>("phone");
+  const [contactValue, setContactValue] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Detect whether the visitor arrived via an admin-issued referral link.
-  // If so, we require "Название компании" — same info the referral partner
-  // will see in the admin dashboard.
+  const [loading, setLoading] = useState(false);
+
+  // Keep the referral banner so visitors coming via an admin-issued referral
+  // link still see what bonus they're about to get — we just no longer ask
+  // for the company name (it's derived from the website).
   const [refState, setRefState] = useState<{ hasReferral: boolean; name: string | null }>({
     hasReferral: false,
     name: null,
@@ -37,22 +44,20 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
       .catch(() => { /* silent — fall back to non-referral form */ });
     return () => { cancelled = true; };
   }, []);
-  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px var(--primary)20`; e.currentTarget.style.borderColor = "var(--primary)"; };
-  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--border)"; };
-  void onFocus; void onBlur;
 
-  const [loading, setLoading] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) { setError("Введите имя"); return; }
     if (!email.trim() || !email.includes("@")) { setError("Введите корректный email"); return; }
     if (password.length < 6) { setError("Пароль минимум 6 символов"); return; }
-    if (refState.hasReferral && !companyName.trim()) {
-      setError("Укажите название компании");
+    if (!website.trim()) { setError("Введите сайт компании"); return; }
+    if (!contactValue.trim()) {
+      setError(contactType === "phone" ? "Введите номер телефона" : "Введите Telegram");
       return;
     }
     if (!consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
@@ -62,8 +67,9 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
           name: name.trim(),
           email: email.toLowerCase().trim(),
           password,
-          phone: phone.trim() || undefined,
-          companyName: companyName.trim() || undefined,
+          website: website.trim(),
+          contactType,
+          contactValue: contactValue.trim(),
           consent: true,
         }),
         credentials: "include",
@@ -75,9 +81,13 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
         name: json.user.name ?? name.trim(),
         email: json.user.email,
         password: "",
-        phone: phone.trim() || undefined,
-        companyName: json.user.companyName || companyName.trim() || undefined,
-        onboardingDone: false,
+        phone: json.user.phone ?? (contactType === "phone" ? contactValue.trim() : undefined),
+        telegram: json.user.telegram ?? (contactType === "telegram" ? contactValue.trim() : undefined),
+        website: json.user.website ?? website.trim(),
+        // Use the website as the company URL so the app can immediately
+        // auto-trigger the first analysis without asking again.
+        companyUrl: json.user.website ?? website.trim(),
+        onboardingDone: true,
         role: json.user.role,
       };
       authSetCurrentUser(user);
@@ -88,6 +98,9 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
       setLoading(false);
     }
   };
+
+  const contactPlaceholder = contactType === "phone" ? "+7 (999) 123-45-67" : "@username";
+  const contactInputType = contactType === "phone" ? "tel" : "text";
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: 20 }}>
@@ -128,24 +141,88 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
           </div>
         )}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {[
-            { label: "Имя *", type: "text", value: name, setter: setName, placeholder: "Иван Иванов" },
-            { label: "Email *", type: "email", value: email, setter: setEmail, placeholder: "ivan@example.com" },
-            {
-              label: refState.hasReferral ? "Название компании *" : "Название компании",
-              type: "text",
-              value: companyName,
-              setter: setCompanyName,
-              placeholder: "ООО Ромашка",
-            },
-            { label: "Пароль * (мин. 6 символов)", type: "password", value: password, setter: setPassword, placeholder: "••••••••" },
-            { label: "Телефон", type: "tel", value: phone, setter: setPhone, placeholder: "+7 (999) 123-45-67" },
-          ].map(f => (
-            <div key={f.label}>
-              <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>{f.label}</label>
-              <input type={f.type} value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder} className="ds-input" />
+          <div>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Имя *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Иван Иванов" className="ds-input" />
+          </div>
+          <div>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Email *</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com" className="ds-input" />
+          </div>
+          <div>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Пароль * (мин. 6 символов)</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="ds-input" />
+          </div>
+          <div>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Сайт компании *</label>
+            <input type="text" value={website} onChange={e => setWebsite(e.target.value)} placeholder="example.ru" className="ds-input" />
+            <div className="ds-caption" style={{ color: "var(--muted-foreground)", marginTop: 4 }}>
+              Мы автоматически определим название компании по сайту
             </div>
-          ))}
+          </div>
+
+          {/* Phone / Telegram toggle — one field, icon-driven switch */}
+          <div>
+            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Контакт для связи *</label>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "stretch",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                background: "var(--background)",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ display: "flex", borderRight: "1px solid var(--border)" }}>
+                {([
+                  { id: "phone" as const, Icon: Phone, label: "Телефон" },
+                  { id: "telegram" as const, Icon: Send, label: "Telegram" },
+                ]).map(({ id, Icon, label }) => {
+                  const active = contactType === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-label={label}
+                      title={label}
+                      onClick={() => { setContactType(id); setContactValue(""); }}
+                      style={{
+                        width: 44,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: active ? "var(--primary)" : "transparent",
+                        color: active ? "#fff" : "var(--muted-foreground)",
+                        border: "none",
+                        cursor: "pointer",
+                        transition: "background 0.15s, color 0.15s",
+                      }}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type={contactInputType}
+                value={contactValue}
+                onChange={e => setContactValue(e.target.value)}
+                placeholder={contactPlaceholder}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "var(--foreground)",
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+          </div>
+
           <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, cursor: "pointer", userSelect: "none" }}>
             <input
               type="checkbox"

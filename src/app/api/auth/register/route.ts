@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import dns from "node:dns/promises";
 import { query, initDb } from "@/lib/db";
 import { signToken, setTokenCookie } from "@/lib/auth";
 import { randomUUID } from "crypto";
@@ -10,18 +11,69 @@ import { TRIAL_TOKEN_LIMIT, TRIAL_DAYS } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
+// Normalise user-entered website to a canonical `https://host` URL and verify
+// the domain resolves. Throws an Error with a user-facing message when the
+// input is unusable — the route turns that into a 400 response.
+async function validateWebsite(raw: string): Promise<{ url: string; host: string }> {
+  const trimmed = raw.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase();
+  const host = trimmed.split("/")[0];
+  if (!host || !host.includes(".") || /\s/.test(host) || host.length > 253) {
+    throw new Error("Проверьте URL сайта");
+  }
+  // Domain label sanity check: a-z 0-9 dot dash, at least one TLD segment.
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(host)) {
+    throw new Error("Проверьте URL сайта");
+  }
+  try {
+    await dns.lookup(host);
+  } catch {
+    throw new Error("Сайт не найден — проверьте URL");
+  }
+  return { url: `https://${trimmed}`, host };
+}
+
 export async function POST(req: Request) {
   try {
     await initDb();
-    const { name, email, password, consent, companyName } = await req.json();
+    const {
+      name,
+      email,
+      password,
+      consent,
+      website,
+      contactType,
+      contactValue,
+    } = await req.json();
+
     if (!email || !password || password.length < 6) {
       return NextResponse.json({ ok: false, error: "Некорректные данные" }, { status: 400 });
+    }
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json({ ok: false, error: "Введите имя" }, { status: 400 });
     }
     if (consent !== true) {
       return NextResponse.json(
         { ok: false, error: "Необходимо согласие на обработку персональных данных" },
         { status: 400 },
       );
+    }
+    if (!website || typeof website !== "string" || !website.trim()) {
+      return NextResponse.json({ ok: false, error: "Введите сайт компании" }, { status: 400 });
+    }
+    if (contactType !== "phone" && contactType !== "telegram") {
+      return NextResponse.json({ ok: false, error: "Укажите телефон или Telegram" }, { status: 400 });
+    }
+    if (!contactValue || typeof contactValue !== "string" || !contactValue.trim()) {
+      return NextResponse.json({ ok: false, error: "Укажите телефон или Telegram" }, { status: 400 });
+    }
+
+    // Website validation (DNS + shape)
+    let validatedWebsite: { url: string; host: string };
+    try {
+      validatedWebsite = await validateWebsite(website);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Проверьте URL сайта";
+      return NextResponse.json({ ok: false, error: msg }, { status: 400 });
     }
 
     const existing = await query("SELECT id FROM users WHERE email = $1", [email.toLowerCase()]);
@@ -72,18 +124,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Referral signups must provide a company name — surfaced in the admin
-    // dashboard so partners can see who came in through their link.
-    const rawCompanyName = typeof companyName === "string" ? companyName.trim() : "";
-    if (referralLinkId && !rawCompanyName) {
-      return NextResponse.json(
-        { ok: false, error: "Укажите название компании" },
-        { status: 400 },
-      );
-    }
-    const safeCompanyName = rawCompanyName ? sanitizeHtml(rawCompanyName) : null;
+    const safeName = sanitizeHtml(name.trim());
+    const phoneValue = contactType === "phone" ? sanitizeHtml(contactValue.trim()) : null;
+    const telegramValue = contactType === "telegram" ? sanitizeHtml(contactValue.trim()) : null;
+    const websiteValue = sanitizeHtml(validatedWebsite.url);
 
-    const safeName = name ? sanitizeHtml(name) : null;
     const passwordHash = await bcrypt.hash(password, 10);
     const id = randomUUID();
     const consentIp =
@@ -98,7 +143,8 @@ export async function POST(req: Request) {
          (id, email, password_hash, name, role,
           plan, plan_started_at, plan_expires_at, tokens_used, tokens_limit,
           referral_code, discount_pct, discount_expires_at,
-          consent_accepted_at, consent_ip, company_name)
+          consent_accepted_at, consent_ip,
+          website, phone, telegram)
        VALUES (
          $1, $2, $3, $4, $5,
          'trial', NOW(), NOW() + ($6 || ' days')::INTERVAL, 0, $7,
@@ -107,13 +153,15 @@ export async function POST(req: Request) {
               THEN NOW() + ($6 || ' days')::INTERVAL + ($10 || ' months')::INTERVAL
               ELSE NULL
          END,
-         NOW(), $11, $12
+         NOW(), $11,
+         $12, $13, $14
        )`,
       [
         id, email.toLowerCase(), passwordHash, safeName, "user",
         String(bonusTrialDays), bonusTokensLimit,
         referralCodeApplied, discountPct, String(discountMonths),
-        consentIp, safeCompanyName,
+        consentIp,
+        websiteValue, phoneValue, telegramValue,
       ],
     );
 
@@ -154,10 +202,12 @@ export async function POST(req: Request) {
       ok: true,
       user: {
         id,
-        name,
+        name: safeName,
         email: email.toLowerCase(),
         role: "user",
-        companyName: safeCompanyName,
+        website: websiteValue,
+        phone: phoneValue,
+        telegram: telegramValue,
       },
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

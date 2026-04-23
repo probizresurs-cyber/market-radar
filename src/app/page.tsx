@@ -366,6 +366,11 @@ export default function MarketRadarDashboard() {
           // links, onboarding state, TG prefs) when refreshing from the
           // server — /api/auth/me only returns the core identity + company.
           const prior = authGetCurrentUser();
+          // `website` is the canonical URL captured at registration. For
+          // backwards compatibility we also mirror it into `companyUrl` —
+          // the rest of the app (auto-analysis, dashboard, settings) still
+          // reads that field.
+          const website = meJson.user.website ?? prior?.website;
           user = {
             ...(prior ?? { password: "", onboardingDone: true }),
             id: meJson.user.id,
@@ -373,6 +378,10 @@ export default function MarketRadarDashboard() {
             email: meJson.user.email,
             role: meJson.user.role,
             companyName: meJson.user.companyName ?? prior?.companyName,
+            website,
+            phone: meJson.user.phone ?? prior?.phone,
+            telegram: meJson.user.telegram ?? prior?.telegram,
+            companyUrl: prior?.companyUrl ?? website,
           };
           authSetCurrentUser(user);
         }
@@ -985,7 +994,25 @@ export default function MarketRadarDashboard() {
     return <LandingPageView c={c} theme={theme} setTheme={setTheme} onRegister={() => setAppScreen("register")} onLogin={() => setAppScreen("login")} />;
   }
   if (appScreen === "register") {
-    return <RegisterView c={c} onSuccess={(user) => { setCurrentUser(user); setAppScreen("onboarding"); }} onLogin={() => setAppScreen("login")} onBack={() => setAppScreen("landing")} />;
+    return <RegisterView c={c} onSuccess={(user) => {
+      // New flow: registration collects the website directly, so we skip
+      // onboarding entirely and go straight to the app. The bootstrap
+      // effect in loadAndApplyUserData will see `companyUrl` set and no
+      // existing analysis → auto-trigger the first analysis.
+      setCurrentUser(user);
+      setAppScreen("app");
+      if (user.companyUrl) {
+        setCurrentUrl(user.companyUrl);
+        setStatus("loading");
+        analyzeUrl(user.companyUrl)
+          .then(result => {
+            saveMyCompany(result, user.id);
+            setActiveNav("dashboard");
+          })
+          .catch(() => setActiveNav("new-analysis"))
+          .finally(() => setStatus("done"));
+      }
+    }} onLogin={() => setAppScreen("login")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "login") {
     return <LoginView c={c} onSuccess={async (user) => { setCurrentUser(user); await loadAndApplyUserData(user.id); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;

@@ -6,6 +6,8 @@ export interface UserAccount {
   email: string;
   password: string;
   phone?: string;
+  telegram?: string;
+  website?: string;
   niche?: string;
   companyName?: string;
   companyUrl?: string;

@@ -10,6 +10,9 @@ interface UserRow {
   name: string | null;
   role: string;
   company_name: string | null;
+  website: string | null;
+  phone: string | null;
+  telegram: string | null;
 }
 
 export async function GET() {
@@ -19,7 +22,7 @@ export async function GET() {
     if (!session) return NextResponse.json({ ok: false, user: null });
 
     const rows = await query<UserRow>(
-      "SELECT id, email, name, role, company_name FROM users WHERE id = $1",
+      "SELECT id, email, name, role, company_name, website, phone, telegram FROM users WHERE id = $1",
       [session.userId],
     );
     const user = rows[0];
@@ -33,6 +36,9 @@ export async function GET() {
         email: user.email,
         role: user.role,
         companyName: user.company_name,
+        website: user.website,
+        phone: user.phone,
+        telegram: user.telegram,
       },
     });
   } catch (e) {
