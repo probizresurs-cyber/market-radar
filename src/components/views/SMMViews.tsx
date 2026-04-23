@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { DataBadge } from "@/components/ui/DataBadge";
 import {
   Smartphone, Rocket, Drama, FileText, Loader2,
   AlertTriangle, Users, Send,
@@ -214,7 +215,10 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>СММ-стратегия — {data.companyName}</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>СММ-стратегия — {data.companyName}</h1>
+          <DataBadge variant="ai" source="Claude" title="Стратегия, архетип, тон голоса и план постов сгенерированы AI. Подписчики соцсетей подтягиваются из реальных источников." />
+        </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
       </div>
 

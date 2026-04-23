@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { TAResult } from "@/lib/ta-types";
 import type { BrandBook } from "@/lib/content-types";
+import { DataBadge } from "@/components/ui/DataBadge";
 
 export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSuggestions, brandBook, onUpdateBrandBook }: {
   c: Colors;
@@ -73,7 +74,10 @@ export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSugg
 
   return (
     <div style={{ padding: 32, maxWidth: 1000, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Рекомендации по брендбуку</h1>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--foreground)", margin: 0 }}>Рекомендации по брендбуку</h1>
+        <DataBadge variant="ai" source="Claude" />
+      </div>
       <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 24 }}>
         AI предлагает цвета, шрифты, тон голоса и визуальный стиль на основе портрета вашей ЦА.
         После генерации нажмите «Применить к брендбуку» — данные перенесутся в план контента.

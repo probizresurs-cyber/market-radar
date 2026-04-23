@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { DataBadge } from "@/components/ui/DataBadge";
 import {
   Brain, Rocket, User, Globe, Zap, AlertTriangle, Flame, Ban,
   RefreshCw, Sparkles, Target, Loader2, ThumbsUp, ThumbsDown,
@@ -156,7 +157,10 @@ export function TADashboardView({ c, data }: { c: Colors; data: TAResult }) {
     <div style={{ maxWidth: 1100 }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Анализ ЦА — {data.companyName}</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Анализ ЦА — {data.companyName}</h1>
+          <DataBadge variant="ai" source="Claude" title="Портрет ЦА полностью сгенерирован AI на основе данных о компании и нише." />
+        </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.niche} · {generatedDate}</p>
       </div>
 

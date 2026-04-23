@@ -10,6 +10,7 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
+import { DataBadge } from "@/components/ui/DataBadge";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
@@ -231,7 +232,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
-      <CollapsibleSection c={c} title="AI-рекомендации">
+      <CollapsibleSection c={c} title="AI-рекомендации" extra={<DataBadge variant="ai" source="Claude" />}>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
           {recommendations.map((rec, i) => {
             const dotColor = rec.priority === "high" ? "var(--destructive)" : rec.priority === "medium" ? "var(--warning)" : "var(--success)";
@@ -447,7 +448,11 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
                 <Building2 size={16} strokeWidth={1.75} style={{ color: "var(--muted-foreground)" }} />
                 Бизнес-профиль
               </div>
-              <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--muted)", padding: "2px 8px", borderRadius: 6 }}>Данные: Руспрофайл</span>
+              <DataBadge variant="real" source="DaData + Руспрофайл" title="Реквизиты и статус — DaData Suggestions API. Выручка и суд. дела — Руспрофайл.ру. Данные обновляются при каждом анализе." />
+            </div>
+            {/* Индикатор, каких полей нет в источнике (AI-подстановка) */}
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10 }}>
+              Если поле не подтянулось из реестра — значение оценено AI на основе сайта и открытых данных.
             </div>
             {(() => {
               // Split description: DaData legal line vs actual description
@@ -492,7 +497,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
       {/* ── Госконтракты ── */}
       {data.governmentContracts && data.governmentContracts.totalContracts > 0 && (
-        <CollapsibleSection c={c} title="Госконтракты (zakupki.gov.ru)" icon={<FileText size={16} strokeWidth={1.75} />}>
+        <CollapsibleSection c={c} title="Госконтракты (zakupki.gov.ru)" icon={<FileText size={16} strokeWidth={1.75} />} extra={<DataBadge variant="real" source="zakupki.gov.ru" />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
             <div style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 14 }}>
               Найдено <span style={{ fontWeight: 700, color: "var(--foreground)" }}>{data.governmentContracts.totalContracts}</span> контрактов на сумму <span style={{ fontWeight: 700, color: "var(--primary)" }}>{data.governmentContracts.totalAmount}</span>
@@ -523,7 +528,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       )}
 
       {/* ── Технологии ── */}
-      <CollapsibleSection c={c} title="Технологии" icon={<Cpu size={16} strokeWidth={1.75} />}>
+      <CollapsibleSection c={c} title="Технологии" icon={<Cpu size={16} strokeWidth={1.75} />} extra={<DataBadge variant="real" source="HTML парсинг" />}>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
           {data.techStack?.cms && data.techStack.cms !== "Unknown" && (
             <div style={{ marginBottom: 12 }}>
@@ -557,7 +562,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       </CollapsibleSection>
 
       {/* ── Найм ── */}
-      <CollapsibleSection c={c} title="Найм (hh.ru)" icon={<UsersIcon size={16} strokeWidth={1.75} />}>
+      <CollapsibleSection c={c} title="Найм (hh.ru)" icon={<UsersIcon size={16} strokeWidth={1.75} />} extra={<DataBadge variant="real" source="hh.ru API" />}>
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}>
@@ -597,7 +602,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
 
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
-        <CollapsibleSection c={c} title={`Прогноз ниши — ${data.nicheForecast.timeframe}`} icon={<LineChart size={16} strokeWidth={1.75} />}>
+        <CollapsibleSection c={c} title={`Прогноз ниши — ${data.nicheForecast.timeframe}`} icon={<LineChart size={16} strokeWidth={1.75} />} extra={<DataBadge variant="ai" source="Claude" />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
               <div style={{ flex: 1 }}>

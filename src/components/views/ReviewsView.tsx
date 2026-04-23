@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
+import { DataBadge } from "@/components/ui/DataBadge";
 
 export function ReviewsView({ c, companyName }: {
   c: Colors;
@@ -503,7 +504,10 @@ export function ReviewsView({ c, companyName }: {
               {/* Summary */}
               <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                  <h3 style={{ margin: 0, fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <h3 style={{ margin: 0, fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
+                    <DataBadge variant="ai" source="Claude" title="Тональность, темы и рекомендации — анализ AI по реальным отзывам из Google/2GIS/Яндекс.Карт." />
+                  </div>
                   {analysis.analyzedAt && (
                     <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
                       Актуализировано: {new Date(analysis.analyzedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
