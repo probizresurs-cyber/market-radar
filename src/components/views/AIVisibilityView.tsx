@@ -43,9 +43,19 @@ const LLM_META: Record<LLMName, { label: string; color: string; bg: string }> = 
   giga:       { label: "GigaChat",   color: "#22c55e", bg: "#22c55e15" },
   chatgpt:    { label: "ChatGPT",    color: "#10b981", bg: "#10b98115" },
   perplexity: { label: "Perplexity", color: "#8b5cf6", bg: "#8b5cf615" },
+  gemini:     { label: "Gemini",     color: "#4285f4", bg: "#4285f415" },
 };
 
-const LLM_WEIGHTS: Record<LLMName, number> = { yandex: 0.35, giga: 0.25, chatgpt: 0.25, perplexity: 0.15 };
+// Веса выровнены так, чтобы сумма = 1: российские LLM получают больший вес
+// (их аудитория ближе к нишевым запросам рынка РФ), Gemini — как
+// дополнительный глобальный сигнал.
+const LLM_WEIGHTS: Record<LLMName, number> = {
+  yandex: 0.32,
+  giga: 0.22,
+  chatgpt: 0.22,
+  perplexity: 0.12,
+  gemini: 0.12,
+};
 
 function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
   const llmMentions = mentions.filter(m => m.llm === llm);
@@ -61,7 +71,7 @@ function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
 }
 
 function calcTotalScore(mentions: AIMention[]): { total: number; byLlm: Record<LLMName, number> } {
-  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity"];
+  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity", "gemini"];
   const byLlm = {} as Record<LLMName, number>;
   let total = 0;
   for (const llm of llms) {
@@ -201,7 +211,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
   const [openRec, setOpenRec] = useState<number | null>(null);
 
   const effectiveNiche = niche === "Другое" ? nicheCustom : niche;
-  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity"];
+  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity", "gemini"];
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "10px 14px", borderRadius: 10, boxSizing: "border-box",
@@ -236,11 +246,12 @@ export function AIVisibilityView({ c, myCompany }: Props) {
     };
     setAudit(newAudit);
 
-    const stageOrder = ["queries", "yandex", "giga", "chatgpt", "perplexity", "site", "recs"];
+    const stageOrder = ["queries", "yandex", "giga", "chatgpt", "perplexity", "gemini", "site", "recs"];
     const stageLabels: Record<string, string> = {
       queries: "Подготовка запросов", yandex: "Опрос YandexGPT",
       giga: "Опрос GigaChat", chatgpt: "Опрос ChatGPT",
-      perplexity: "Опрос Perplexity", site: "Анализ AI-готовности сайта",
+      perplexity: "Опрос Perplexity", gemini: "Опрос Gemini",
+      site: "Анализ AI-готовности сайта",
       recs: "Формирование рекомендаций",
     };
 
@@ -266,7 +277,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
         if (json.ok) allMentions.push(...json.mentions);
       }
 
-      setStages(buildStages("perplexity", "site"));
+      setStages(buildStages("gemini", "site"));
       let siteItems: SiteReadinessItem[] = [];
       try {
         const sr = await fetch("/api/ai-visibility/check-site", {
@@ -982,7 +993,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                   {/* LLM mini scores */}
                   {a.scoresByLlm && (
                     <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                      {(["yandex", "giga", "chatgpt", "perplexity"] as LLMName[]).map(llm => (
+                      {(["yandex", "giga", "chatgpt", "perplexity", "gemini"] as LLMName[]).map(llm => (
                         <span key={llm} style={{
                           fontSize: 11, padding: "2px 8px", borderRadius: 6,
                           background: LLM_META[llm].bg, color: LLM_META[llm].color, fontWeight: 700,

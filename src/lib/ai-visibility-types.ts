@@ -1,4 +1,4 @@
-export type LLMName = "yandex" | "giga" | "chatgpt" | "perplexity";
+export type LLMName = "yandex" | "giga" | "chatgpt" | "perplexity" | "gemini";
 
 export interface AIMention {
   llm: LLMName;

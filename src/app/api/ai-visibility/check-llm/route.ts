@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { AIMention, LLMName } from "@/lib/ai-visibility-types";
+import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 
@@ -79,6 +80,7 @@ async function simulateLLM(
     giga: `Ты — GigaChat от Сбера. Отвечай на вопросы пользователей развёрнуто, по-русски. Ты ориентируешься в российском бизнес-пространстве и можешь рекомендовать конкретные компании.`,
     chatgpt: `You are ChatGPT by OpenAI. Answer in Russian. When asked about services and companies, provide specific recommendations including real company names. Focus on the Russian market context.`,
     perplexity: `Ты — Perplexity AI. Даёшь точные ответы с ссылками на источники. При вопросах о компаниях и сервисах перечисляешь конкретные названия с кратким описанием.`,
+    gemini: `Ты — Google Gemini, AI-ассистент от Google. Отвечай на русском, опираясь на глобальный и российский контекст. При вопросах о компаниях и сервисах давай конкретные рекомендации с названиями.`,
   };
 
   const msg = await anthropic.messages.create({
@@ -160,6 +162,24 @@ async function callYandexGPT(query: string, brandName: string, niche: string): P
   return json.result?.alternatives?.[0]?.message?.text ?? "";
 }
 
+// Real Google Gemini call (text).
+// Использует общий helper с хардкод-ключом + GEMINI_BASE_URL-прокси
+// через Cloudflare Worker — см. src/lib/gemini.ts.
+async function callGemini(query: string, brandName: string, niche: string): Promise<string> {
+  if (!GEMINI_API_KEY) return "";
+  const systemInstruction =
+    `Ты — Google Gemini. Отвечай по-русски, давай конкретные рекомендации ` +
+    `с названиями компаний/сервисов. Ниша: ${niche}. Компания "${brandName}" ` +
+    `может быть в этой нише — упоминай её, если знаешь.`;
+  const result = await generateGeminiText({
+    systemInstruction,
+    prompt: query,
+    maxOutputTokens: 500,
+    temperature: 0.6,
+  });
+  return result.ok ? result.text : "";
+}
+
 // Real GigaChat call
 async function callGigaChat(query: string, brandName: string, niche: string): Promise<string> {
   const authToken = process.env.GIGACHAT_AUTH_TOKEN;
@@ -216,6 +236,9 @@ export async function POST(req: Request) {
         } else if (llm === "giga" && process.env.GIGACHAT_AUTH_TOKEN) {
           response = await callGigaChat(query, brandName, niche);
           usedReal = true;
+        } else if (llm === "gemini" && GEMINI_API_KEY) {
+          response = await callGemini(query, brandName, niche);
+          usedReal = !!response;
         }
 
         if (!response) {

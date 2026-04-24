@@ -3,6 +3,7 @@ import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-ty
 import type { SMMResult } from "@/lib/smm-types";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { generateGeminiImage } from "@/lib/gemini";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -156,51 +157,26 @@ export async function POST(req: Request) {
       hook: string; body: string; hashtags: string[]; imagePrompt: string;
     };
 
-    // 2) Generate image via Gemini — optional (requires billing on the API key)
+    // 2) Generate image via Gemini — opt-in, не фейлим пост, если картинка не вышла.
     let imageUrl: string | undefined;
     const imageError: string | undefined = undefined;
     if (generateImage && parsed.imagePrompt) {
       try {
-        const geminiKey = process.env.GEMINI_API_KEY;
-        if (geminiKey) {
-          const brandVisual = brandBook?.visualStyle?.trim();
-          const brandColors = brandBook?.colors?.length ? `Brand colors: ${brandBook.colors.join(", ")}.` : "";
-          const enrichedPrompt = [parsed.imagePrompt, brandVisual && `Brand visual style: ${brandVisual}.`, brandColors].filter(Boolean).join(" ");
-          type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
-          const parts: GeminiPart[] = [];
-          if (referenceImages.length > 0) {
-            parts.push({
-              text: `Generate an image matching this description: ${enrichedPrompt}\nUse the provided reference images for visual style — color palette, composition, mood, and aesthetic.`,
-            });
-            for (const ref of referenceImages) {
-              const rawData = ref.data.includes(",") ? ref.data.split(",")[1] : ref.data;
-              parts.push({ inlineData: { mimeType: ref.mimeType, data: rawData } });
-            }
-          } else {
-            parts.push({ text: enrichedPrompt });
-          }
+        const brandVisual = brandBook?.visualStyle?.trim();
+        const brandColors = brandBook?.colors?.length
+          ? `Brand colors: ${brandBook.colors.join(", ")}.`
+          : "";
+        const enrichedPrompt = [
+          parsed.imagePrompt,
+          brandVisual && `Brand visual style: ${brandVisual}.`,
+          brandColors,
+        ].filter(Boolean).join(" ");
 
-          const imgRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${geminiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts }],
-                generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-              }),
-            },
-          );
-          if (imgRes.ok) {
-            const imgData = await imgRes.json() as {
-              candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }>;
-            };
-            const imagePart = imgData.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
-            if (imagePart?.inlineData) {
-              imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-            }
-          }
-        }
+        const imgResult = await generateGeminiImage({
+          prompt: enrichedPrompt,
+          referenceImages,
+        });
+        if (imgResult.ok) imageUrl = imgResult.imageUrl;
       } catch { /* image is optional */ }
     }
 
