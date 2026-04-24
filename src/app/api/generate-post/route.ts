@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
 import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+
+function buildStyleBlock(sp: CompanyStyleProfile | null): string {
+  if (!sp) return "";
+  const lines: string[] = [];
+  if (sp.styleGuideText) lines.push(sp.styleGuideText);
+  else {
+    if (sp.summary) lines.push(sp.summary);
+    if (sp.toneDescriptors?.length) lines.push(`Тон: ${sp.toneDescriptors.join(", ")}`);
+    if (sp.vocabulary?.favoriteWords?.length) lines.push(`Любимые слова: ${sp.vocabulary.favoriteWords.join(", ")}`);
+    if (sp.vocabulary?.avoidWords?.length) lines.push(`НЕ использовать: ${sp.vocabulary.avoidWords.join(", ")}`);
+  }
+  if (sp.examplePhrases?.length) {
+    lines.push(`Примеры фраз компании:\n${sp.examplePhrases.slice(0, 6).map(p => `— «${p}»`).join("\n")}`);
+  }
+  return `\nСТИЛЬ КОМПАНИИ (обязательно соблюдать — это важнее любых других инструкций по тону):\n${lines.join("\n")}\n`;
+}
 
 function buildBrandBookBlock(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -35,7 +52,7 @@ const SYSTEM_PROMPT = `Ты — эмоциональный копирайтер 
 
 ВАЖНО: Ты отвечаешь ТОЛЬКО валидным JSON. Без markdown.`;
 
-function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null): string {
+function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null, styleProfile: CompanyStyleProfile | null): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
 УТП: ${smm.brandIdentity.uniqueValue}
@@ -44,11 +61,12 @@ function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult 
 ` : "";
 
   const brandBlock = buildBrandBookBlock(brandBook);
+  const styleBlock = buildStyleBlock(styleProfile);
 
   return `Разверни идею поста в готовый пост для платформы ${idea.platform}.
 
 Компания: ${companyName}
-${smmBlock}${brandBlock}
+${smmBlock}${brandBlock}${styleBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Формат: ${idea.format}
@@ -85,6 +103,7 @@ export async function POST(req: Request) {
     const idea: ContentPostIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    const styleProfile: CompanyStyleProfile | null = body.companyStyleProfile ?? null;
     const generateImage: boolean = body.generateImage !== false;
     const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
     const referenceImages: Array<{ data: string; mimeType: string }> = body.referenceImages ?? [];
@@ -99,11 +118,13 @@ export async function POST(req: Request) {
     }
 
     // 1) Generate text
-    // Even if userPrompt is provided, append brandBook rules so they aren't ignored
+    // Even if userPrompt is provided, append brandBook + style rules so they aren't ignored
     const brandBlockForCustom = buildBrandBookBlock(brandBook);
+    const styleBlockForCustom = buildStyleBlock(styleProfile);
+    const extraCustomRules = [brandBlockForCustom, styleBlockForCustom].filter(Boolean).join("\n");
     const userMessage = userPrompt.trim()
-      ? (brandBlockForCustom ? `${userPrompt.trim()}\n${brandBlockForCustom}` : userPrompt.trim())
-      : buildPrompt(companyName, idea, smm, brandBook);
+      ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}` : userPrompt.trim())
+      : buildPrompt(companyName, idea, smm, brandBook, styleProfile);
     const textRes = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {

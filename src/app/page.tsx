@@ -6,6 +6,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment, TAAudienceType } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import type { ContentPlan, ContentPostIdea, ContentReelIdea, GeneratedPost, GeneratedReel, AvatarSettings, ReferenceImage, BrandBook, PostMetrics, ReelMetrics, GeneratedStory, GeneratedCarousel, TovCheckResult, TovIssue, PresentationStyle } from "@/lib/content-types";
+import type { CompanyStyleState } from "@/lib/company-style-types";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
 
 // ─── Shared modules (extracted from this file) ─────────────────────────────────
@@ -36,6 +37,7 @@ import { CompetitorProfileView } from "@/components/views/CompetitorProfileView"
 import { CompareView } from "@/components/views/CompareView";
 import { InsightsView } from "@/components/views/InsightsView";
 import { AIVisibilityView } from "@/components/views/AIVisibilityView";
+import { CompanyStyleView } from "@/components/views/CompanyStyleView";
 import { ReportsView } from "@/components/views/ReportsView";
 import { SourcesView } from "@/components/views/SourcesView";
 
@@ -271,6 +273,11 @@ export default function MarketRadarDashboard() {
   });
   const [generatedStories, setGeneratedStories] = useState<GeneratedStory[]>([]);
   const [generatedCarousels, setGeneratedCarousels] = useState<GeneratedCarousel[]>([]);
+  const [companyStyleState, setCompanyStyleState] = useState<CompanyStyleState>({
+    docs: [],
+    profile: null,
+    applyToGeneration: false,
+  });
   const [analysisHistory, setAnalysisHistory] = useState<Array<AnalysisResult & { analyzedAt: string }>>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brandSuggestions, setBrandSuggestions] = useState<any | null>(null);
@@ -285,6 +292,7 @@ export default function MarketRadarDashboard() {
     setCjmData(null); setBenchmarksData(null); setSmmAnalysis(null);
     setContentPlan(null); setGeneratedPosts([]); setGeneratedReels([]);
     setGeneratedStories([]); setGeneratedCarousels([]); setAnalysisHistory([]); setBrandSuggestions(null);
+    setCompanyStyleState({ docs: [], profile: null, applyToGeneration: false });
 
     const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
     if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
@@ -342,6 +350,16 @@ export default function MarketRadarDashboard() {
 
     const avatar = get("avatar") ?? JSON.parse(localStorage.getItem(`mr_avatar_settings_${uid}`) ?? "null");
     if (avatar) setAvatarSettings(avatar as AvatarSettings);
+
+    const companyStyle = get("companyStyle") ?? JSON.parse(localStorage.getItem(`mr_company_style_${uid}`) ?? "null");
+    if (companyStyle && typeof companyStyle === "object") {
+      const cs = companyStyle as Partial<CompanyStyleState>;
+      setCompanyStyleState({
+        docs: Array.isArray(cs.docs) ? cs.docs : [],
+        profile: cs.profile ?? null,
+        applyToGeneration: !!cs.applyToGeneration,
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -372,6 +390,7 @@ export default function MarketRadarDashboard() {
       ["mr_analysis_history_", "history"],
       ["mr_brandsug_", "brandsug"],
       ["mr_avatar_settings_", "avatar"],
+      ["mr_company_style_", "companyStyle"],
     ];
 
     const pushed: Record<string, unknown> = {};
@@ -707,6 +726,14 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  const handleUpdateCompanyStyle = (next: CompanyStyleState) => {
+    setCompanyStyleState(next);
+    if (currentUser?.id) {
+      try { localStorage.setItem(`mr_company_style_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      syncToServer("companyStyle", next);
+    }
+  };
+
   const handleUpdateBrandBook = (next: BrandBook) => {
     setBrandBook(next);
     if (currentUser?.id) {
@@ -816,6 +843,7 @@ export default function MarketRadarDashboard() {
           idea,
           smmAnalysis,
           brandBook,
+          companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
           generateImage: true,
           userPrompt: customPrompt,
           referenceImages: referenceImages.map(r => ({ data: r.data, mimeType: r.mimeType })),
@@ -1180,6 +1208,14 @@ export default function MarketRadarDashboard() {
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
+        {activeNav === "content-style" && featureOn("content-factory") && (
+          <CompanyStyleView
+            c={c}
+            state={companyStyleState}
+            onChange={handleUpdateCompanyStyle}
+            companyName={myCompany?.company.name ?? ""}
+          />
+        )}
         {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} competitors={competitors} />}
         {activeNav === "sources" && <SourcesView c={c} />}
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
@@ -1199,7 +1235,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
+        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi" || activeNav === "content-style") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "content-plan" && featureOn("content-factory") && (
@@ -1236,6 +1272,7 @@ export default function MarketRadarDashboard() {
                 analysis={myCompany ?? null}
                 taResult={taAnalysis}
                 brandBook={brandBook}
+                companyStyleProfile={companyStyleState.applyToGeneration ? companyStyleState.profile : null}
                 activeSubNav={activeNav}
               />
             : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "SEO-статьи"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />

@@ -6,6 +6,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { BrandBook } from "@/lib/content-types";
+import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import type {
   SEOArticle, SEOArticleBrief, SEOSection, SEOArticleMeta,
   SEOKeyword, SEOPlatform, SEOArticleType, SEOArticlesState,
@@ -338,10 +339,12 @@ function SEOArticleEditor({
   article,
   onSave,
   onBack,
+  companyStyleProfile,
 }: {
   article: SEOArticle;
   onSave: (updated: SEOArticle) => void;
   onBack: () => void;
+  companyStyleProfile: CompanyStyleProfile | null;
 }) {
   const [art, setArt] = useState<SEOArticle>(article);
   const [activeTab, setActiveTab] = useState<"outline" | "content" | "meta">("outline");
@@ -380,6 +383,7 @@ function SEOArticleEditor({
           sections: art.outline,
           conclusion: art.conclusion,
           mode: "full",
+          companyStyleProfile,
         }),
       });
       const data = await res.json();
@@ -413,6 +417,7 @@ function SEOArticleEditor({
           conclusion: art.conclusion,
           mode: "section",
           sectionId: secId,
+          companyStyleProfile,
         }),
       });
       const data = await res.json();
@@ -1251,6 +1256,7 @@ export function SEOArticlesView({
   analysis,
   taResult,
   brandBook,
+  companyStyleProfile,
   activeSubNav,
 }: {
   c: Colors;
@@ -1258,6 +1264,7 @@ export function SEOArticlesView({
   analysis: AnalysisResult | null;
   taResult: TAResult | null;
   brandBook: BrandBook | null;
+  companyStyleProfile: CompanyStyleProfile | null;
   activeSubNav: string;
 }) {
   void c; // CSS variables handle theming now
@@ -1318,6 +1325,7 @@ export function SEOArticlesView({
           article={currentArticle}
           onSave={handleSave}
           onBack={() => setSubView("library")}
+          companyStyleProfile={companyStyleProfile}
         />
       ) : subView === "new" ? (
         <SEONewArticleView

@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
+import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+
+function buildStyleInstruction(sp: CompanyStyleProfile | null): string {
+  if (!sp) return "";
+  const parts: string[] = [];
+  if (sp.styleGuideText) parts.push(sp.styleGuideText);
+  else if (sp.summary) parts.push(sp.summary);
+  if (sp.toneDescriptors?.length) parts.push(`Тон: ${sp.toneDescriptors.join(", ")}.`);
+  if (sp.vocabulary?.favoriteWords?.length) parts.push(`Используй слова: ${sp.vocabulary.favoriteWords.join(", ")}.`);
+  if (sp.vocabulary?.avoidWords?.length) parts.push(`Не используй: ${sp.vocabulary.avoidWords.join(", ")}.`);
+  if (sp.examplePhrases?.length) {
+    parts.push(`Образцы фраз компании (пиши в этой манере):\n${sp.examplePhrases.slice(0, 6).map(p => `— «${p}»`).join("\n")}`);
+  }
+  return `\nСТИЛЬ КОМПАНИИ (обязательно):\n${parts.join("\n")}\n`;
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -15,7 +30,7 @@ export async function POST(req: NextRequest) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
   try {
-    const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook }
+    const { brief, h1, intro, sections, conclusion, mode, sectionId, brandBook, companyStyleProfile }
       : {
           brief: SEOArticleBrief;
           h1: string;
@@ -26,6 +41,7 @@ export async function POST(req: NextRequest) {
           sectionId?: string;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           brandBook?: any;
+          companyStyleProfile?: CompanyStyleProfile | null;
         }
       = await req.json();
 
@@ -35,6 +51,7 @@ export async function POST(req: NextRequest) {
     const forbidden = brandBook?.forbiddenWords?.length
       ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.`
       : "";
+    const styleBlock = buildStyleInstruction(companyStyleProfile ?? null);
 
     if (mode === "section" && sectionId) {
       // Generate a single section
@@ -51,6 +68,7 @@ export async function POST(req: NextRequest) {
 СТАТЬЯ: ${brief.topic}
 ПЛАТФОРМА: ${brief.platform}
 ${tov} ${forbidden}
+${styleBlock}
 ФОКУС-КЛЮЧ: ${brief.focusKeyword}
 КЛЮЧИ ДЛЯ ЭТОГО РАЗДЕЛА: ${sec.keywords.join(", ")}
 
@@ -92,6 +110,7 @@ ${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevCon
 ЦА: ${brief.audience}
 CTA: ${brief.callToAction}
 ${tov} ${forbidden}
+${styleBlock}
 
 СТРУКТУРА:
 H1: ${h1}
