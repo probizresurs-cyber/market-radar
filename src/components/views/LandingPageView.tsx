@@ -50,6 +50,34 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
     } catch { /* ignore */ }
   }, [setTheme]);
 
+  // ── Scroll-reveal for cards/metrics below the fold ──────────────────────
+  // Mirrors the owner-dashboard pattern (mrFadeUp with staggered delays),
+  // but triggers only when the element enters the viewport so everything
+  // feels "alive" as the user scrolls down the landing.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll<HTMLElement>(".lp-reveal");
+    if (!els.length) return;
+    if (prefersReduced) {
+      els.forEach(el => el.classList.add("lp-reveal-in"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("lp-reveal-in");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" },
+    );
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   function handleUrlAnalyze() {
     if (url.trim()) onRegister();
   }
@@ -68,7 +96,6 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const neonMagenta = "#D500F9";
   const neonGreen = "#69FF47";
   const neonRed = "#FF5252";
-  const neonViolet = "#A78BFA";
 
   // ── FAQ data (used both for render and JSON-LD schema) ──────────────────
   const faqItems: Array<{ q: string; a: string }> = [
@@ -186,6 +213,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         .lp-fade { animation: lp-fade 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
         .lp-fade-up { opacity: 0; animation: lp-fade 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
         .lp-scale-in { animation: lp-scale-in 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+        /* Scroll-revealed entry — triggered via IntersectionObserver.
+           Uses an animation (not transition) so per-element stagger via
+           animation-delay doesn't interfere with hover transitions. */
+        @keyframes lp-reveal { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .lp-reveal { opacity: 0; }
+        .lp-reveal.lp-reveal-in { animation: lp-reveal 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 
         /* ── Neon glow ring that breathes ── */
         @keyframes lp-neon-pulse {
@@ -384,7 +418,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* 2. WHAT MARKETRADAR DOES — 6 feature categories          */}
       {/* ─────────────────────────────────────────────────────── */}
       <section id="features" style={{ padding: "72px 20px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
           <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>30+ источников в одном дашборде</h2>
           <p style={{ fontSize: 15, color: muted, margin: "0 auto", maxWidth: 600 }}>
@@ -395,7 +429,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           {featureCategories.map(({ icon, title, desc, ac }, i) => (
             <div
               key={title}
-              className="lp-card lp-fade-up"
+              className="lp-card lp-reveal"
               style={{
                 background: card,
                 borderRadius: 20,
@@ -438,7 +472,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
 
         {/* What you get as artifacts */}
-        <div style={{ marginTop: 32, padding: "22px 26px", background: accentLight, borderRadius: 16, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div className="lp-reveal" style={{ marginTop: 32, padding: "22px 26px", background: accentLight, borderRadius: 16, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, color: fg, lineHeight: 1.6, maxWidth: 720 }}>
             <span style={{ fontWeight: 700 }}>Готовые артефакты в отчёте:</span> Score по 7 направлениям, портрет целевой аудитории,
             Customer Journey Map, Battle cards для отдела продаж, брендбук, план роста с приоритетами.
@@ -458,7 +492,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <div style={{ position: "absolute", top: "-30%", right: "-10%", width: 440, height: 440, borderRadius: "50%", background: `${accent}12`, filter: "blur(100px)", pointerEvents: "none" }} />
 
           <div style={{ position: "relative", zIndex: 1 }}>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.12em", marginBottom: 14, background: `${accent}18`, padding: "5px 14px", borderRadius: 20, border: `1px solid ${accent}30` }}>
                 <Radio size={11} /> GEO-ПРОДВИЖЕНИЕ
               </div>
@@ -479,7 +513,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               ].map(({ num, label, color }, i) => (
                 <div
                   key={num}
-                  className="lp-card lp-fade-up"
+                  className="lp-card lp-reveal"
                   style={{
                     background: card,
                     borderRadius: 14,
@@ -519,8 +553,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               ].map(({ icon, title, desc, color }, i) => (
                 <div
                   key={title}
-                  className="lp-card lp-fade-up"
-                  style={{ background: card, borderRadius: 14, border: `1px solid ${border}`, padding: "18px 20px", animationDelay: `${350 + i * 120}ms` }}
+                  className="lp-card lp-reveal"
+                  style={{ background: card, borderRadius: 14, border: `1px solid ${border}`, padding: "18px 20px", animationDelay: `${i * 120}ms` }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = `${color}55`;
                     e.currentTarget.style.boxShadow = `0 0 0 1px ${color}30, 0 12px 32px -14px ${color}80`;
@@ -570,7 +604,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* 4. HOW IT WORKS — 3 steps                                */}
       {/* ─────────────────────────────────────────────────────── */}
       <section id="how" style={{ padding: "64px 20px", maxWidth: 820, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>КАК ЭТО РАБОТАЕТ</div>
           <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до плана роста</h2>
         </div>
@@ -579,8 +613,21 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             { n: "01", icon: <Globe size={20} />, title: "Введите URL сайта", desc: "Вставьте адрес — платформа автоматически определит тип бизнеса и соберёт данные из 30+ источников. Бесплатный базовый скан доступен через Telegram-бот." },
             { n: "02", icon: <Zap size={20} />, title: "AI анализирует", desc: "Claude AI обрабатывает SEO, тексты, соцсети, вакансии, отзывы на картах, юр.данные и видимость в нейросетях. Занимает ~3 минуты для стандартного анализа." },
             { n: "03", icon: <ClipboardList size={20} />, title: "Получите отчёт с приоритетами", desc: "30+ рекомендаций с приоритетом по эффекту и сложности. Score по 7 направлениям. Сравнение с ТОП-10% ниши. План внедрения на 30 дней." },
-          ].map(({ n, icon, title, desc }) => (
-            <div key={n} style={{ display: "flex", gap: 20, alignItems: "flex-start", background: card, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 24px" }}>
+          ].map(({ n, icon, title, desc }, i) => (
+            <div
+              key={n}
+              className="lp-reveal"
+              style={{
+                display: "flex",
+                gap: 20,
+                alignItems: "flex-start",
+                background: card,
+                borderRadius: 16,
+                border: `1px solid ${border}`,
+                padding: "22px 24px",
+                animationDelay: `${i * 140}ms`,
+              }}
+            >
               <div style={{ width: 44, height: 44, borderRadius: 12, background: accentLight, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, flexShrink: 0 }}>{icon}</div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
@@ -598,14 +645,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* 5. PRICING — 1-off + 4 subscriptions                    */}
       {/* ─────────────────────────────────────────────────────── */}
       <section id="pricing" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ТАРИФЫ</div>
           <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Начните с разового отчёта</h2>
           <p style={{ fontSize: 14, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
         </div>
 
         {/* One-off row — highlighted banner */}
-        <div className="lp-card" style={{ background: `linear-gradient(135deg,${accent}18,#8b5cf610)`, borderRadius: 18, border: `1px solid ${accent}40`, padding: "22px 26px", marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+        <div className="lp-card lp-reveal" style={{ background: `linear-gradient(135deg,${accent}18,#8b5cf610)`, borderRadius: 18, border: `1px solid ${accent}40`, padding: "22px 26px", marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.08em", marginBottom: 4 }}>РАЗОВЫЙ ОТЧЁТ</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: fg, letterSpacing: "-0.02em", marginBottom: 4 }}>
@@ -624,14 +671,15 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             { name: "Базовый", price: "9 900 ₽", period: "/мес", features: ["3 компании", "30 конкурентов", "12 анализов", "Battle cards + алерты"], highlight: false, cta: "Начать", tag: "" },
             { name: "PRO", price: "19 900 ₽", period: "/мес", features: ["10 компаний", "100 конкурентов", "20 анализов", "API + приоритет"], highlight: true, cta: "Начать", tag: "Популярный" },
             { name: "Agency", price: "39 900 ₽", period: "/мес", features: ["50 компаний", "1000 конкурентов", "60 анализов", "White-label"], highlight: false, cta: "Начать", tag: "" },
-          ].map(plan => (
-            <div key={plan.name} className="lp-card" style={{
+          ].map((plan, i) => (
+            <div key={plan.name} className="lp-card lp-reveal" style={{
               background: plan.highlight ? `linear-gradient(145deg,${accent},#4f46e5)` : card,
               borderRadius: 20,
               border: `1px solid ${plan.highlight ? accent : border}`,
               padding: "26px 20px",
               position: "relative",
               boxShadow: plan.highlight ? `0 8px 40px ${accent}40` : "none",
+              animationDelay: `${i * 110}ms`,
             }}>
               {plan.tag && (
                 <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: "#f59e0b", color: "#000", borderRadius: 20, padding: "3px 14px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
@@ -667,7 +715,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* 6. FAQ — critical for GEO (JSON-LD above)               */}
       {/* ─────────────────────────────────────────────────────── */}
       <section id="faq" style={{ padding: "64px 20px", maxWidth: 820, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ВОПРОСЫ И ОТВЕТЫ</div>
           <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Часто задаваемые вопросы</h2>
           <p style={{ fontSize: 14, color: muted, margin: 0 }}>Ответы на вопросы о платформе, GEO-оптимизации и тарифах</p>
@@ -676,13 +724,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           {faqItems.map(({ q, a }, idx) => (
             <details
               key={idx}
-              className="lp-faq"
+              className="lp-faq lp-reveal"
               style={{
                 background: card,
                 borderRadius: 14,
                 border: `1px solid ${border}`,
                 padding: "18px 22px",
-                transition: "border-color 0.15s",
+                animationDelay: `${idx * 70}ms`,
               }}
             >
               <summary style={{
@@ -714,7 +762,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
 
         {/* Partner program — compact banner after FAQ */}
-        <div id="partner" style={{ marginTop: 40, background: `linear-gradient(135deg,${accent}15,#818cf808)`, borderRadius: 20, border: `1px solid ${accent}25`, padding: "26px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+        <div id="partner" className="lp-reveal" style={{ marginTop: 40, background: `linear-gradient(135deg,${accent}15,#818cf808)`, borderRadius: 20, border: `1px solid ${accent}25`, padding: "26px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div style={{ width: 48, height: 48, borderRadius: 13, background: `${accent}25`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Users size={22} />
@@ -738,7 +786,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section style={{ padding: "72px 20px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at center,${accent}12 0%,transparent 70%)` }} />
-        <div style={{ position: "relative", zIndex: 1 }}>
+        <div className="lp-reveal" style={{ position: "relative", zIndex: 1 }}>
           <h2 style={{ fontSize: "clamp(28px,4vw,40px)", fontWeight: 900, margin: "0 0 14px", letterSpacing: "-0.03em", maxWidth: 680, marginLeft: "auto", marginRight: "auto", lineHeight: 1.15 }}>
             Начните с бесплатного Score — получите картину за 60 секунд
           </h2>
