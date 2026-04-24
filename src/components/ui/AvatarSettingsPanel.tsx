@@ -86,24 +86,33 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
       if (!file.type.startsWith("audio/")) throw new Error("Нужен аудио-файл MP3 / WAV / M4A");
       const dataUrl = await readFileAsDataUrl(file);
       const name = pendingVoiceName.trim() || file.name.replace(/\.[^.]+$/, "") || "Мой голос";
-      const res = await fetch("/api/heygen-clone-voice", {
+      // Клонируем через ElevenLabs (HeyGen voice-clone API отдаёт 404 HTML).
+      // Полученный elevenlabsVoiceId далее используется в /api/generate-reel-video:
+      // там ElevenLabs синтезирует MP3 → MP3 заливается в HeyGen как asset →
+      // HeyGen генерит видео с lip-sync на этом аудио.
+      const res = await fetch("/api/elevenlabs-clone-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
       });
-      const json = await res.json() as { ok: boolean; data?: { heygenVoiceId: string; name: string }; error?: string };
+      const json = await res.json() as { ok: boolean; data?: { elevenlabsVoiceId: string; name: string }; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка клонирования");
 
       const newVoice: CustomVoice = {
         id: `custom-v-${Date.now()}`,
         name: json.data!.name,
-        heygenVoiceId: json.data!.heygenVoiceId,
+        provider: "elevenlabs",
+        elevenlabsVoiceId: json.data!.elevenlabsVoiceId,
         status: "ready",
         previewAudioUrl: dataUrl,
         createdAt: new Date().toISOString(),
       };
       const nextVoices = [newVoice, ...customVoices];
-      update({ customVoices: nextVoices, voiceId: newVoice.heygenVoiceId! });
+      update({
+        customVoices: nextVoices,
+        voiceProvider: "elevenlabs",
+        elevenlabsVoiceId: newVoice.elevenlabsVoiceId!,
+      });
       setPendingVoiceName("");
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Ошибка");
@@ -119,8 +128,16 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
   };
 
   const selectCustomVoice = (v: CustomVoice) => {
-    if (!v.heygenVoiceId) return;
-    update({ voiceId: v.heygenVoiceId });
+    // ElevenLabs-голос: сохраняем elevenlabsVoiceId + provider, voiceId не трогаем
+    // (он остаётся HeyGen-овым для обратной совместимости, но игнорируется на сервере
+    // когда voiceProvider = elevenlabs).
+    if (v.provider === "elevenlabs" && v.elevenlabsVoiceId) {
+      update({ voiceProvider: "elevenlabs", elevenlabsVoiceId: v.elevenlabsVoiceId });
+      return;
+    }
+    if (v.heygenVoiceId) {
+      update({ voiceProvider: "heygen", voiceId: v.heygenVoiceId, elevenlabsVoiceId: undefined });
+    }
   };
 
   const deleteCustomAvatar = (id: string) => {
@@ -162,8 +179,12 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", display:"inline-flex", alignItems:"center", gap:6 }}><Sparkles size={14}/>Настройки аватара и голоса HeyGen</div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
-            {settings.avatarId || settings.voiceId
-              ? `Avatar: ${settings.avatarId || "—"} · Voice: ${settings.voiceId || "—"}`
+            {settings.avatarId || settings.voiceId || settings.elevenlabsVoiceId
+              ? `Avatar: ${settings.avatarId || "—"} · Voice: ${
+                  settings.voiceProvider === "elevenlabs" && settings.elevenlabsVoiceId
+                    ? `${settings.elevenlabsVoiceId} (ElevenLabs)`
+                    : settings.voiceId || "—"
+                }`
               : "Не настроено — будут использованы значения по умолчанию"}
           </div>
         </div>
@@ -182,7 +203,7 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
               <Upload size={13} /> Свой аватар и голос
             </div>
             <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.5 }}>
-              Загрузите своё фото — получите персонального аватара. Загрузите семпл голоса (20–60 сек чистой речи) — получите клон вашего голоса. <b>Требует платного тарифа HeyGen</b>.
+              Загрузите своё фото — получите персонального аватара (HeyGen talking-photo). Загрузите семпл голоса (20–60 сек чистой речи) — получите клон через <b>ElevenLabs</b>, который автоматически подставляется в видео HeyGen как audio-asset.
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
@@ -292,13 +313,23 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
                 <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>МОИ ГОЛОСА ({customVoices.length})</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
                   {customVoices.map(v => {
-                    const selected = settings.voiceId === v.heygenVoiceId;
+                    const selected =
+                      v.provider === "elevenlabs"
+                        ? settings.voiceProvider === "elevenlabs" &&
+                          settings.elevenlabsVoiceId === v.elevenlabsVoiceId
+                        : settings.voiceId === v.heygenVoiceId &&
+                          settings.voiceProvider !== "elevenlabs";
                     return (
                       <div key={v.id}
                         onClick={() => selectCustomVoice(v)}
                         style={{ cursor: "pointer", border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`, borderRadius: 7, padding: "8px 10px", background: selected ? "color-mix(in oklch, var(--primary) 6%, transparent)" : "var(--card)", position: "relative" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden" }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</div>
+                            <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: v.provider === "elevenlabs" ? "color-mix(in oklch, var(--primary) 14%, transparent)" : "color-mix(in oklch, var(--foreground) 8%, transparent)", color: v.provider === "elevenlabs" ? "var(--primary)" : "var(--muted-foreground)", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+                              {v.provider === "elevenlabs" ? "11LABS" : "HEYGEN"}
+                            </span>
+                          </div>
                           <button
                             onClick={e => { e.stopPropagation(); deleteCustomVoice(v.id); }}
                             title="Удалить"

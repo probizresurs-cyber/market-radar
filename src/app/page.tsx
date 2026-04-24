@@ -935,6 +935,8 @@ export default function MarketRadarDashboard() {
     if (!reel) return;
     setGeneratingVideoFor(reelId);
     try {
+      const useElevenLabs =
+        avatarSettings.voiceProvider === "elevenlabs" && !!avatarSettings.elevenlabsVoiceId;
       const res = await fetch("/api/generate-reel-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -944,6 +946,8 @@ export default function MarketRadarDashboard() {
           voiceId: avatarSettings.voiceId || undefined,
           avatarType: avatarSettings.avatarType ?? "preset",
           aspect: avatarSettings.aspect,
+          voiceProvider: useElevenLabs ? "elevenlabs" : "heygen",
+          elevenlabsVoiceId: useElevenLabs ? avatarSettings.elevenlabsVoiceId : undefined,
         }),
       });
       const json = await res.json();

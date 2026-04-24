@@ -149,12 +149,16 @@ export interface PresentationStyle {
 
 export interface AvatarSettings {
   avatarId: string;            // HeyGen avatar_id (или talking_photo_id если avatarType = talking_photo)
-  voiceId: string;             // HeyGen voice_id
+  voiceId: string;             // HeyGen voice_id (используется если voiceProvider = heygen или не задан)
   avatarDescription: string;   // как должен выглядеть аватар (для подсказки в визуале)
   voiceDescription: string;    // каким должен быть голос (тон, темп, эмоция)
   aspect: "portrait" | "landscape";
   // Тип аватара в HeyGen: preset (стандартный каталог) или talking_photo (свой загруженный).
   avatarType?: "preset" | "talking_photo";
+  // Откуда берём голос: heygen (TTS через HeyGen) или elevenlabs (клон через ElevenLabs → MP3 → HeyGen asset)
+  voiceProvider?: VoiceProvider;
+  // ID голоса в ElevenLabs (используется если voiceProvider = elevenlabs)
+  elevenlabsVoiceId?: string;
   // Пользовательские аватары и голоса (загруженные через upload/clone)
   customAvatars?: CustomAvatar[];
   customVoices?: CustomVoice[];
@@ -232,10 +236,14 @@ export interface CustomAvatar {
   createdAt: string;
 }
 
+export type VoiceProvider = "heygen" | "elevenlabs";
+
 export interface CustomVoice {
   id: string;                     // локальный id
   name: string;                   // как пользователь назвал голос
+  provider?: VoiceProvider;       // откуда голос (default: heygen для совместимости со старыми записями)
   heygenVoiceId?: string;         // voice_id из HeyGen (когда готово)
+  elevenlabsVoiceId?: string;     // voice_id из ElevenLabs (для клонов через ElevenLabs)
   status: CustomAvatarStatus;     // processing / ready / failed
   previewAudioUrl?: string;       // data URL исходного семпла
   error?: string;
