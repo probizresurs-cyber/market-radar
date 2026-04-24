@@ -4,6 +4,116 @@ import { useEffect, useState } from "react";
 import type { PricingItem } from "@/lib/partner-types";
 import { formatPrice } from "@/lib/partner-types";
 
+// ─── T-11: 3-tier product structure ──────────────────────────────────────────
+type ProductType = "express_free" | "express_paid" | "full_month";
+
+interface Product {
+  key: ProductType;
+  name: string;
+  tagline: string;
+  basePrice: number;        // rubles (display)
+  originalPrice?: number;
+  channel: string;
+  accessDays: number;
+  includes: string[];
+  cta: string;
+  href: string;
+  highlight?: boolean;
+}
+
+const PRODUCTS: Product[] = [
+  {
+    key: "express_free",
+    name: "Бесплатный экспресс",
+    tagline: "Отчёт в Telegram за 2 минуты",
+    basePrice: 0,
+    channel: "Telegram-бот",
+    accessDays: 0,
+    includes: [
+      "Общий score сайта",
+      "Ключевые инсайты",
+      "5 категорий оценки",
+      "Краткая база конкурентов",
+    ],
+    cta: "Получить в Telegram",
+    href: "https://t.me/marketradar_bot",
+  },
+  {
+    key: "express_paid",
+    name: "Экспресс-отчёт на сайте",
+    tagline: "Полный экспресс с сохранением",
+    basePrice: 1,
+    channel: "Сайт",
+    accessDays: 0,
+    includes: [
+      "Всё из бесплатного",
+      "Сохранение на email",
+      "Удобный просмотр на сайте",
+      "Готовый PDF-файл",
+    ],
+    cta: "Оформить за 1 ₽",
+    href: "/express-report?checkout=express_paid",
+    highlight: true,
+  },
+  {
+    key: "full_month",
+    name: "Полный отчёт + 30 дней",
+    tagline: "Всё для роста в MarketRadar",
+    basePrice: 2900,
+    originalPrice: 4900,
+    channel: "Платформа",
+    accessDays: 30,
+    includes: [
+      "Все 15 решений и рекомендаций",
+      "30 дней доступа в платформу",
+      "Мониторинг 24/7",
+      "Портрет ЦА, CJM, брендбук",
+      "Battle cards для отдела продаж",
+    ],
+    cta: "Купить полный отчёт",
+    href: "/?checkout=full_month",
+  },
+];
+
+// ─── T-10: promo codes ───────────────────────────────────────────────────────
+interface PromoCodeDef {
+  code: string;
+  discountType: "percent" | "fixed";
+  value: number;        // for fixed: final price in rubles
+  productType: ProductType;
+  message: string;
+}
+
+const PROMOS: PromoCodeDef[] = [
+  {
+    code: "START",
+    discountType: "fixed",
+    value: 1,
+    productType: "express_paid",
+    message: "Промокод применён. Вы получите экспресс-отчёт за 1 ₽",
+  },
+];
+
+// ─── T-12: 50% first-month discount tiers ────────────────────────────────────
+interface TierDiscount {
+  key: "mini" | "basic" | "pro" | "agency";
+  name: string;
+  original: number;
+  discounted: number;
+  star?: boolean;
+}
+
+const FIRST_MONTH_DISCOUNTS: TierDiscount[] = [
+  { key: "mini", name: "MINI", original: 4900, discounted: 2450 },
+  { key: "basic", name: "БАЗОВЫЙ", original: 9900, discounted: 4950 },
+  { key: "pro", name: "PRO", original: 19900, discounted: 9950, star: true },
+  { key: "agency", name: "AGENCY", original: 39900, discounted: 19950 },
+];
+
+function fmtRub(n: number): string {
+  return n.toLocaleString("ru-RU") + " ₽";
+}
+
 const GROUP_META: Record<string, { label: string; emoji: string; desc: string }> = {
   A: { label: "Лид-магниты", emoji: "🎁", desc: "Бесплатно — попробуйте без оплаты" },
   B: { label: "Микро-обновления", emoji: "🔄", desc: "Разовые обновления аналитики" },
@@ -34,6 +144,48 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Все");
   const [isDark] = useState(false);
+
+  // ─── T-10 promo state ──────────────────────────────────────────────────────
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<PromoCodeDef | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  const applyPromo = () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    const match = PROMOS.find((p) => p.code === code);
+    if (!match) {
+      setAppliedPromo(null);
+      setPromoError("Промокод не найден");
+      return;
+    }
+    setAppliedPromo(match);
+    setPromoError(null);
+  };
+  const clearPromo = () => {
+    setAppliedPromo(null);
+    setPromoInput("");
+    setPromoError(null);
+  };
+
+  // Show upgrade card if URL contains ?product=full or ?from=<express id> or user has an express report in storage
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("product") === "full" || q.get("from")) {
+        setShowUpgrade(true);
+        return;
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mr_express_")) {
+          setShowUpgrade(true);
+          return;
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetch("/api/pricing")
@@ -107,6 +259,326 @@ export default function PricingPage() {
             {tab === "Все" ? "Все тарифы" : `${GROUP_META[tab]?.emoji} Группа ${tab}`}
           </button>
         ))}
+      </div>
+
+      {/* ─── T-11: 3-tier product structure ─────────────────────────────── */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px 0" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>
+            Как начать с MarketRadar
+          </h2>
+          <p style={{ margin: "6px 0 0", fontSize: 15, color: muted }}>
+            Три варианта — от бесплатного экспресса до полного доступа в платформу
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {PRODUCTS.map((p) => {
+            const promoApplies = appliedPromo && appliedPromo.productType === p.key;
+            const effectivePrice = promoApplies
+              ? appliedPromo!.value
+              : p.basePrice;
+            const priceChanged = promoApplies && effectivePrice !== p.basePrice;
+            return (
+              <div
+                key={p.key}
+                style={{
+                  background: card,
+                  border: `2px solid ${p.highlight ? accent : border}`,
+                  borderRadius: 20,
+                  padding: 28,
+                  position: "relative",
+                  boxShadow: p.highlight
+                    ? `0 8px 32px ${accent}30`
+                    : "0 1px 4px rgba(0,0,0,0.06)",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {p.highlight && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: -12,
+                      left: 20,
+                      background: accent,
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      padding: "4px 12px",
+                      borderRadius: 20,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    По промокоду
+                  </div>
+                )}
+
+                <div style={{ fontSize: 12, color: muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                  {p.channel} · {p.accessDays > 0 ? `${p.accessDays} дней доступа` : "разово"}
+                </div>
+
+                <h3 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>
+                  {p.name}
+                </h3>
+                <div style={{ fontSize: 14, color: muted, marginBottom: 20 }}>
+                  {p.tagline}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 20 }}>
+                  {effectivePrice === 0 ? (
+                    <span style={{ fontSize: 36, fontWeight: 800, color: "#16a34a" }}>
+                      Бесплатно
+                    </span>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 36, fontWeight: 800, color: priceChanged ? "#16a34a" : accent }}>
+                        {fmtRub(effectivePrice)}
+                      </span>
+                      {p.originalPrice && p.originalPrice > effectivePrice && (
+                        <span style={{ fontSize: 18, color: muted, textDecoration: "line-through" }}>
+                          {fmtRub(p.originalPrice)}
+                        </span>
+                      )}
+                      {priceChanged && (
+                        <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
+                          промокод {appliedPromo!.code}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", flex: 1 }}>
+                  {p.includes.map((f) => (
+                    <li
+                      key={f}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                        fontSize: 14,
+                        lineHeight: 1.5,
+                        color: text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <span style={{ color: "#16a34a", fontWeight: 700, flexShrink: 0 }}>✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href={p.href}
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    padding: "12px 20px",
+                    borderRadius: 12,
+                    background: p.highlight ? accent : (p.key === "full_month" ? `linear-gradient(135deg, ${accent}, #8b5cf6)` : card),
+                    color: p.highlight || p.key === "full_month" ? "#fff" : accent,
+                    border: p.highlight || p.key === "full_month" ? "none" : `2px solid ${accent}`,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    textDecoration: "none",
+                    boxShadow: p.key === "full_month" ? `0 4px 16px ${accent}40` : "none",
+                  }}
+                >
+                  {p.cta}
+                </a>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ─── T-10: promo code input ───────────────────────────────────── */}
+        <div
+          style={{
+            marginTop: 20,
+            background: appliedPromo ? "#16a34a10" : card,
+            border: `1px solid ${appliedPromo ? "#16a34a40" : border}`,
+            borderRadius: 16,
+            padding: "16px 20px",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 600, color: text }}>
+            {appliedPromo ? "🎉" : "🎟"} Есть промокод?
+          </div>
+
+          {appliedPromo ? (
+            <>
+              <div style={{ fontSize: 14, color: "#16a34a", fontWeight: 600, flex: 1, minWidth: 200 }}>
+                {appliedPromo.message}
+              </div>
+              <button
+                onClick={clearPromo}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 10,
+                  border: `1px solid ${border}`,
+                  background: card,
+                  color: text,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Сбросить
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={promoInput}
+                onChange={(e) => {
+                  setPromoInput(e.target.value);
+                  setPromoError(null);
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") applyPromo(); }}
+                placeholder="Например, START"
+                style={{
+                  flex: 1,
+                  minWidth: 180,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: `1px solid ${promoError ? "#dc2626" : border}`,
+                  background: "#fff",
+                  color: text,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                }}
+              />
+              <button
+                onClick={applyPromo}
+                disabled={!promoInput.trim()}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: promoInput.trim() ? accent : border,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: promoInput.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Применить
+              </button>
+              {promoError && (
+                <div style={{ fontSize: 13, color: "#dc2626", width: "100%" }}>
+                  {promoError}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ─── T-12: 50% first-month discount upgrade card ──────────────── */}
+        {showUpgrade && (
+          <div
+            style={{
+              marginTop: 32,
+              background: `linear-gradient(135deg, ${accent}15, #8b5cf620)`,
+              border: `2px solid ${accent}50`,
+              borderRadius: 20,
+              padding: "32px 28px",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: -14,
+                left: 24,
+                background: `linear-gradient(135deg, ${accent}, #8b5cf6)`,
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: 1,
+                padding: "6px 14px",
+                borderRadius: 20,
+                textTransform: "uppercase",
+              }}
+            >
+              ⭐ Специальное предложение
+            </div>
+
+            <h3 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800 }}>
+              Первый месяц любого тарифа — скидка 50%
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: muted, maxWidth: 620 }}>
+              Продлите доступ к MarketRadar по специальной цене — скидка действует до окончания текущего периода.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 12,
+              }}
+            >
+              {FIRST_MONTH_DISCOUNTS.map((t) => (
+                <div
+                  key={t.key}
+                  style={{
+                    background: card,
+                    border: `1px solid ${t.star ? accent : border}`,
+                    borderRadius: 14,
+                    padding: 18,
+                    position: "relative",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, color: muted, letterSpacing: 1, marginBottom: 8 }}>
+                    {t.name} {t.star && <span style={{ color: accent }}>⭐</span>}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: accent }}>
+                      {fmtRub(t.discounted)}
+                    </span>
+                    <span style={{ fontSize: 13, color: muted, textDecoration: "line-through" }}>
+                      {fmtRub(t.original)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginBottom: 12 }}>
+                    −50% · первый месяц
+                  </div>
+                  <a
+                    href={`/?checkout=${t.key}&promo=FIRSTMONTH50`}
+                    style={{
+                      display: "block",
+                      textAlign: "center",
+                      padding: "8px 14px",
+                      borderRadius: 10,
+                      background: t.star ? accent : "transparent",
+                      color: t.star ? "#fff" : accent,
+                      border: `1px solid ${accent}`,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Выбрать
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
