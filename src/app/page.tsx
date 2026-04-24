@@ -171,16 +171,26 @@ export default function MarketRadarDashboard() {
   const features = useFeatureFlags();
   // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов
   const isInternalUser = (currentUser?.email ?? "").endsWith("@company24.pro") || currentUser?.role === "admin";
-  // На staging всегда показываем все модули — фичефлаги действуют только на проде
-  const [isStagingHost, setIsStagingHost] = useState(false);
+  // Определяем окружение по хостy. На staging — всё всегда открыто.
+  // На проде — preview-модули жёстко скрыты, независимо от флага в БД,
+  // чтобы ранний функционал не утекал в релиз.
+  const [envHost, setEnvHost] = useState<"staging" | "prod" | "other">("other");
   useEffect(() => {
     if (typeof window === "undefined") return;
     const h = window.location.hostname;
     if (h === "staging.marketradar24.ru" || h.startsWith("staging.") || h === "localhost" || h === "127.0.0.1") {
-      setIsStagingHost(true);
+      setEnvHost("staging");
+    } else if (h === "marketradar24.ru" || h === "www.marketradar24.ru") {
+      setEnvHost("prod");
     }
   }, []);
-  const featureOn = (featureId: string) => isStagingHost || isInternalUser || isFeatureOn(features, featureId);
+  const PROD_HIDDEN_FEATURES = new Set(["content-factory", "seo-articles", "landing-generator", "brand-presentation", "reviews-analysis"]);
+  const featureOn = (featureId: string) => {
+    if (envHost === "staging") return true;
+    if (isInternalUser) return true;
+    if (envHost === "prod" && PROD_HIDDEN_FEATURES.has(featureId)) return false;
+    return isFeatureOn(features, featureId);
+  };
   const [activeNav, setActiveNav] = useState("new-analysis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Если на платформу пришли с ?nav=<id> (например, с дашборда руководителя), переключаемся на эту секцию
@@ -1282,6 +1292,9 @@ export default function MarketRadarDashboard() {
                 taResult={taAnalysis}
                 brandBook={brandBook}
                 companyStyleProfile={companyStyleState.applyToGeneration ? companyStyleState.profile : null}
+                companyStyleState={companyStyleState}
+                onUpdateCompanyStyle={handleUpdateCompanyStyle}
+                onOpenStyleTab={() => setActiveNav("content-style")}
                 activeSubNav={activeNav}
               />
             : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "SEO-статьи"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />

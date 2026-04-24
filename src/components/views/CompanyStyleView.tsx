@@ -203,42 +203,67 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
         </div>
       </div>
 
-      {/* Status strip */}
-      <div
-        style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
-          background: profile ? `${c.accentGreen}14` : c.bgCard,
-          border: `1px solid ${profile ? c.accentGreen : c.borderLight}`,
-          borderRadius: 12, marginBottom: 24,
-        }}
-      >
-        {profile ? <CheckCircle2 size={20} color={c.accentGreen} /> : <AlertCircle size={20} color={c.textMuted} />}
-        <div style={{ flex: 1, fontSize: 13, color: c.textSecondary }}>
-          {profile ? (
+      {/* Status strip — three explicit states */}
+      {(() => {
+        const hasDocs = docs.length > 0;
+        const hasProfile = !!profile;
+        let icon: React.ReactNode;
+        let message: React.ReactNode;
+        let bgCol: string, borderCol: string;
+        if (hasProfile) {
+          icon = <CheckCircle2 size={20} color={c.accentGreen} />;
+          bgCol = `${c.accentGreen}14`;
+          borderCol = c.accentGreen;
+          message = (
             <>
-              Стиль извлечён из <b>{profile.basedOnDocIds.length}</b> документов.{" "}
+              <b>Шаг 3 из 3:</b> стиль извлечён из {profile!.basedOnDocIds.length}{" "}
+              {profile!.basedOnDocIds.length === 1 ? "документа" : "документов"}.{" "}
               {state.applyToGeneration ? (
                 <span style={{ color: c.accentGreen, fontWeight: 600 }}>Применяется к новым постам и статьям.</span>
               ) : (
-                <span style={{ color: c.accentRed }}>Сейчас НЕ применяется — включите тумблер ниже.</span>
+                <span style={{ color: c.accentRed }}>Сейчас НЕ применяется — включите тумблер справа.</span>
               )}
             </>
-          ) : (
-            <>Профиль стиля ещё не собран. Загрузите 2-5 текстовых материалов и запустите анализ.</>
-          )}
-        </div>
-        {profile && (
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: c.textPrimary, fontWeight: 600 }}>
-            <input
-              type="checkbox"
-              checked={state.applyToGeneration}
-              onChange={toggleApply}
-              style={{ width: 18, height: 18, cursor: "pointer" }}
-            />
-            Применять
-          </label>
-        )}
-      </div>
+          );
+        } else if (hasDocs) {
+          icon = <Sparkles size={20} color={c.accentWarm} />;
+          bgCol = `${c.accentWarm}14`;
+          borderCol = c.accentWarm;
+          message = (
+            <>
+              <b>Шаг 2 из 3:</b> загружено {docs.length}{" "}
+              {docs.length === 1 ? "документ" : docs.length < 5 ? "документа" : "документов"}.
+              {" "}Нажмите «Проанализировать стиль» ниже, чтобы AI извлёк из них тон, словарь и приёмы.
+            </>
+          );
+        } else {
+          icon = <AlertCircle size={20} color={c.textMuted} />;
+          bgCol = c.bgCard;
+          borderCol = c.borderLight;
+          message = <><b>Шаг 1 из 3:</b> загрузите 2-5 своих статей, постов или КП — AI изучит вашу манеру письма.</>;
+        }
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+            background: bgCol, border: `1px solid ${borderCol}`,
+            borderRadius: 12, marginBottom: 24,
+          }}>
+            {icon}
+            <div style={{ flex: 1, fontSize: 13, color: c.textSecondary, lineHeight: 1.5 }}>{message}</div>
+            {hasProfile && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: c.textPrimary, fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={state.applyToGeneration}
+                  onChange={toggleApply}
+                  style={{ width: 18, height: 18, cursor: "pointer" }}
+                />
+                Применять
+              </label>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Error / ok */}
       {error && (
@@ -361,25 +386,6 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
             </div>
           )}
 
-          <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${c.borderLight}` }}>
-            <button
-              onClick={runAnalysis}
-              disabled={!docs.length || busy !== "idle"}
-              style={{
-                width: "100%", padding: "12px 18px", borderRadius: 10,
-                background: !docs.length ? c.borderLight : `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`,
-                color: !docs.length ? c.textMuted : "#fff",
-                border: "none", fontSize: 14, fontWeight: 700,
-                cursor: !docs.length || busy !== "idle" ? "not-allowed" : "pointer",
-                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-                boxShadow: !docs.length ? "none" : c.shadow,
-              }}
-            >
-              {busy === "analyze" ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
-              {profile ? "Пересобрать стиль" : "Проанализировать стиль"}
-              {docs.length > 0 && <span style={{ opacity: 0.8, fontWeight: 500 }}>· {docs.length} док.</span>}
-            </button>
-          </div>
         </div>
 
         {/* Right: docs list */}
@@ -443,6 +449,56 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
         </div>
       </div>
 
+      {/* Analyze action — separate step, so upload and analyze don't blur together */}
+      <div
+        style={{
+          background: c.bgCard,
+          border: `2px solid ${docs.length > 0 && !profile ? c.accentWarm : c.borderLight}`,
+          borderRadius: 16, padding: 22, marginBottom: 28,
+          display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap",
+          boxShadow: c.shadow,
+        }}
+      >
+        <div
+          style={{
+            width: 48, height: 48, borderRadius: 12, flexShrink: 0,
+            background: `${c.accent}15`, color: c.accent,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Wand2 size={22} />
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.textPrimary, marginBottom: 4 }}>
+            {profile ? "Пересобрать стиль" : "Проанализировать стиль"}
+          </div>
+          <div style={{ fontSize: 12, color: c.textMuted, lineHeight: 1.5 }}>
+            {docs.length === 0
+              ? "Сначала загрузите хотя бы 1 материал слева. Рекомендуем 2-5 для точного профиля."
+              : profile
+                ? `AI заново пройдёт по ${docs.length} документам и обновит профиль стиля.`
+                : `AI пройдёт по ${docs.length} ${docs.length === 1 ? "документу" : "документам"} и извлечёт тон, словарь, структуру и приёмы.`}
+          </div>
+        </div>
+        <button
+          onClick={runAnalysis}
+          disabled={!docs.length || busy !== "idle"}
+          style={{
+            padding: "12px 22px", borderRadius: 10,
+            background: !docs.length ? c.borderLight : `linear-gradient(135deg, ${c.accent}, ${c.accentWarm})`,
+            color: !docs.length ? c.textMuted : "#fff",
+            border: "none", fontSize: 14, fontWeight: 700,
+            cursor: !docs.length || busy !== "idle" ? "not-allowed" : "pointer",
+            display: "inline-flex", alignItems: "center", gap: 8,
+            boxShadow: !docs.length ? "none" : c.shadow,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {busy === "analyze" ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
+          {busy === "analyze" ? "Анализирую…" : profile ? "Пересобрать" : "Запустить анализ"}
+        </button>
+      </div>
+
       {/* Profile card */}
       {profile && (
         <div
@@ -471,6 +527,31 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
           <p style={{ fontSize: 14, lineHeight: 1.6, color: c.textSecondary, marginTop: 0 }}>
             {profile.summary}
           </p>
+
+          {/* Top 3 summary cards: Tone of Voice / Content specifics / Style */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginTop: 16, marginBottom: 20 }}>
+            <SummaryCard
+              c={c}
+              label="Tone of Voice"
+              emoji="🗣"
+              value={profile.toneDescriptors.slice(0, 4).join(", ") || "—"}
+              sub={`Длина предложений: ${profile.sentenceLength}`}
+            />
+            <SummaryCard
+              c={c}
+              label="Специфика контента"
+              emoji="📌"
+              value={profile.vocabulary.terminology.slice(0, 4).join(", ") || profile.structurePatterns[0] || "—"}
+              sub={profile.structurePatterns.slice(0, 1).join(" ")}
+            />
+            <SummaryCard
+              c={c}
+              label="Стиль"
+              emoji="✍"
+              value={profile.rhetoricalDevices.slice(0, 3).join(", ") || profile.punctuationQuirks[0] || "—"}
+              sub={profile.punctuationQuirks.slice(0, 1).join(" ")}
+            />
+          </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 18 }}>
             <StyleBlock c={c} title="Тон" items={profile.toneDescriptors} accent />
@@ -530,6 +611,31 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
       `}</style>
+    </div>
+  );
+}
+
+function SummaryCard({ c, label, emoji, value, sub }: { c: Colors; label: string; emoji: string; value: string; sub?: string }) {
+  return (
+    <div style={{
+      padding: 14, borderRadius: 12,
+      background: `linear-gradient(135deg, ${c.accent}0C, ${c.accentWarm}0A)`,
+      border: `1px solid ${c.borderLight}`,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 16 }}>{emoji}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: c.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          {label}
+        </span>
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: c.textPrimary, lineHeight: 1.4, wordBreak: "break-word" }}>
+        {value}
+      </div>
+      {sub && sub.trim() && (
+        <div style={{ fontSize: 11, color: c.textMuted, marginTop: 6, lineHeight: 1.4 }}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }

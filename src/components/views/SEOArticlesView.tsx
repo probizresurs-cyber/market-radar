@@ -6,7 +6,8 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { BrandBook } from "@/lib/content-types";
-import type { CompanyStyleProfile } from "@/lib/company-style-types";
+import type { CompanyStyleProfile, CompanyStyleState } from "@/lib/company-style-types";
+import { CompanyStylePanel } from "@/components/views/CompanyStylePanel";
 import type {
   SEOArticle, SEOArticleBrief, SEOSection, SEOArticleMeta,
   SEOKeyword, SEOPlatform, SEOArticleType, SEOArticlesState,
@@ -1257,6 +1258,9 @@ export function SEOArticlesView({
   taResult,
   brandBook,
   companyStyleProfile,
+  companyStyleState,
+  onUpdateCompanyStyle,
+  onOpenStyleTab,
   activeSubNav,
 }: {
   c: Colors;
@@ -1265,6 +1269,9 @@ export function SEOArticlesView({
   taResult: TAResult | null;
   brandBook: BrandBook | null;
   companyStyleProfile: CompanyStyleProfile | null;
+  companyStyleState: CompanyStyleState;
+  onUpdateCompanyStyle: (next: CompanyStyleState) => void;
+  onOpenStyleTab: () => void;
   activeSubNav: string;
 }) {
   void c; // CSS variables handle theming now
@@ -1320,6 +1327,15 @@ export function SEOArticlesView({
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      {/* Company style status — appears on new article + editor screens */}
+      {(subView === "new" || subView === "editor") && (
+        <CompanyStylePanel
+          c={c}
+          state={companyStyleState}
+          onChange={onUpdateCompanyStyle}
+          onOpenStyleTab={onOpenStyleTab}
+        />
+      )}
       {subView === "editor" && currentArticle ? (
         <SEOArticleEditor
           article={currentArticle}
