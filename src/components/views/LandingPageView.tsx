@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import {
   Moon, Sun, Send, Users, BarChart2, Globe, Zap, ClipboardList,
   Star, Briefcase, Share2, Eye, Swords, ArrowRight, ChevronDown,
-  Radio, Building2, MessagesSquare, Check,
+  Radio, Building2, MessagesSquare, Check, ShieldCheck, Target,
+  Map, Palette, TrendingUp, X, FileText, Info,
 } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 import { VisitTracker } from "@/components/VisitTracker";
@@ -101,7 +102,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const faqItems: Array<{ q: string; a: string }> = [
     {
       q: "Что такое MarketRadar?",
-      a: "MarketRadar — это AI-платформа, которая объединяет данные из 30+ сервисов (Keys.so, Руспрофайл, Яндекс.Карты, 2ГИС, Google Maps, hh.ru, ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса) в единый дашборд о вашем бизнесе. За 3 минуты собираем картину по 7 направлениям и даём готовый план роста.",
+      a: "MarketRadar — это AI-платформа, которая объединяет данные из 40+ сервисов (Keys.so, Руспрофайл, Яндекс.Карты, 2ГИС, Google Maps, hh.ru, ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса) в единый дашборд о вашем бизнесе. За 3 минуты собираем полную картину бизнеса и даём готовый план роста.",
     },
     {
       q: "Что такое GEO-оптимизация и зачем она нужна?",
@@ -131,6 +132,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       q: "Есть ли бесплатный вариант попробовать?",
       a: "Да — бесплатный базовый Score через Telegram-бот @market_radar1_bot. Пришлите URL сайта — получите общую оценку бизнеса и список ключевых проблем за 30 секунд, без регистрации и кредитной карты.",
     },
+    {
+      q: "Чем экспресс-отчёт отличается от полного?",
+      a: "Экспресс-отчёт (бесплатно в Telegram или за 1 ₽ по промокоду START) показывает Score, 3–5 главных инсайтов и детализацию по категориям. Полный отчёт (2 900 ₽ вместо 4 900) даёт портрет ЦА, Customer Journey Map, брендбук, решения всех рекомендаций и 30 дней доступа в платформу с мониторингом 24/7.",
+    },
   ];
 
   const faqPageSchema = {
@@ -144,6 +149,28 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         text: a,
       },
     })),
+  };
+
+  // T-38 — Schema.org SoftwareApplication JSON-LD
+  const softwareSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "MarketRadar",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    url: "https://marketradar24.ru",
+    description:
+      "AI-платформа для анализа бизнеса, конкурентов и видимости в нейросетях. 40+ источников данных, 30+ точек роста в отчёте, проверка в ChatGPT, Claude, Gemini, Perplexity, Алисе.",
+    offers: {
+      "@type": "Offer",
+      price: "2900",
+      priceCurrency: "RUB",
+    },
+    provider: {
+      "@type": "Organization",
+      name: "Company24.pro",
+      url: "https://company24.pro",
+    },
   };
 
   // ── Platform feature categories (block 2) ───────────────────────────────
@@ -194,6 +221,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema) }}
+      />
+      {/* JSON-LD SoftwareApplication (T-38) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
 
       <style>{`
@@ -343,10 +375,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         <div style={{ position: "absolute", bottom: "-10%", left: "35%", width: 520, height: 520, borderRadius: "50%", background: `${neonCyan}14`, filter: "blur(130px)", pointerEvents: "none" }} />
 
         <div className="lp-fade" style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto" }}>
-          {/* Radar-style live badge */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: `${accent}15`, color: "#a5b4fc", borderRadius: 24, padding: "6px 18px 6px 10px", fontSize: 12, fontWeight: 600, marginBottom: 28, border: `1px solid ${accent}35`, boxShadow: `0 0 24px ${accent}25` }}>
-            <span className="lp-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: neonGreen, display: "inline-block" }} />
-            Радар активен · сканируем 30+ источников в реальном времени
+          {/* Radar-style live badge (T-05: увеличен шрифт и паддинги) */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, background: `${neonGreen}12`, color: "#6ee7b7", borderRadius: 999, padding: "10px 22px 10px 14px", fontSize: 15, fontWeight: 600, marginBottom: 30, border: `1px solid ${neonGreen}40`, boxShadow: `0 0 24px ${neonGreen}25` }}>
+            <span className="lp-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: neonGreen, display: "inline-block" }} />
+            Радар активен · сканируем 40+ источников в реальном времени
           </div>
 
           {/* H1 — SEO-критичный заголовок, растянут на всю ширину */}
@@ -371,45 +403,84 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             Отчёт на 30+ страниц с планом роста — без дорогих исследований за 300 тысяч и недель ожидания.
           </p>
 
-          {/* Primary CTA — Telegram bot (free entry point) */}
-          <div style={{ marginBottom: 14 }}>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#2AABEE", color: "#fff", borderRadius: 14, padding: "15px 34px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 28px #2AABEE80, 0 0 48px ${neonCyan}30`, fontFamily: "inherit" }}>
-              <Send size={18} />
-              Бесплатный Score через Telegram
-            </a>
-          </div>
-
-          {/* Alt CTA — URL input */}
-          <div style={{ maxWidth: 540, margin: "0 auto 12px" }}>
-            <div className="lp-url-row" style={{ display: "flex", gap: 8, background: card, border: `1px solid ${border}`, borderRadius: 14, padding: "6px 6px 6px 16px", boxShadow: `0 2px 16px ${accent}10` }}>
+          {/* T-03 + T-04 — Primary CTA: URL form + inline price block */}
+          <div style={{ maxWidth: 620, margin: "0 auto 14px" }}>
+            <div className="lp-url-row" style={{ display: "flex", gap: 8, background: card, border: `1px solid ${border}`, borderRadius: 16, padding: "8px 8px 8px 18px", boxShadow: `0 2px 20px ${accent}15`, alignItems: "center" }}>
               <input
                 value={url}
                 onChange={e => setUrl(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleUrlAnalyze()}
                 placeholder="Введите URL вашего сайта..."
-                style={{ flex: 1, border: "none", background: "transparent", fontSize: 14, color: fg, outline: "none", fontFamily: "inherit", minWidth: 0 }}
+                style={{ flex: 1, border: "none", background: "transparent", fontSize: 15, color: fg, outline: "none", fontFamily: "inherit", minWidth: 0, padding: "8px 0" }}
               />
-              <button className="lp-btn" onClick={handleUrlAnalyze} style={{ background: accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 22px", fontWeight: 700, fontSize: 14, fontFamily: "inherit", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                Полный отчёт за 2 900 ₽
-                <ArrowRight size={14} />
+              <button className="lp-btn" onClick={handleUrlAnalyze} style={{ background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "13px 26px", fontWeight: 700, fontSize: 15, fontFamily: "inherit", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 8, boxShadow: `0 4px 18px ${accent}60` }}>
+                Получить экспресс-отчёт
+                <ArrowRight size={16} />
               </button>
             </div>
           </div>
-          <div style={{ fontSize: 12, color: muted }}>Разовая покупка · PDF навсегда · Онлайн-доступ 7 дней</div>
 
-          {/* Key facts strip */}
-          <div className="lp-stats-strip" style={{ display: "flex", justifyContent: "center", marginTop: 56, flexWrap: "wrap", borderTop: `1px solid ${border}`, paddingTop: 40 }}>
+          {/* T-04 — strike-through price + "первые клиенты" disclaimer */}
+          <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", justifyContent: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 32, fontWeight: 900, color: fg, letterSpacing: "-0.03em" }}>2 900 ₽</span>
+            <span style={{ fontSize: 20, color: muted, textDecoration: "line-through" }}>4 900 ₽</span>
+            <span style={{ fontSize: 13, color: muted }}>— цена для первых клиентов</span>
+          </div>
+
+          <div style={{ fontSize: 12, color: muted, marginBottom: 18 }}>
+            Полный отчёт + 30 дней в платформе · PDF навсегда
+          </div>
+
+          {/* T-03 — Telegram secondary link */}
+          <div style={{ fontSize: 13, color: muted }}>
+            Предпочитаете Telegram?{" "}
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "underline" }}>
+              @market_radar1_bot
+            </a>
+          </div>
+
+          {/* T-07 — Disclaimer: real data only (цветные кружки-дивы, без emoji) */}
+          <div className="lp-reveal" style={{ marginTop: 34, maxWidth: 680, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 14, background: `${neonGreen}08`, border: `1px solid ${neonGreen}30`, borderRadius: 14, padding: "14px 18px", textAlign: "left" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${neonGreen}20`, border: `1px solid ${neonGreen}50`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 14px ${neonGreen}40` }}>
+              <ShieldCheck size={18} style={{ color: neonGreen }} />
+            </div>
+            <div style={{ fontSize: 13.5, color: fg, lineHeight: 1.55 }}>
+              <strong style={{ color: fg }}>Только реальные данные</strong> из API и парсинга. Без AI-фантазий.
+              Каждое утверждение маркируется:
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 6 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: neonGreen, display: "inline-block" }} /> факт
+              </span>,
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#60a5fa", display: "inline-block" }} /> AI-гипотеза
+              </span>,
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#facc15", display: "inline-block" }} /> оценка
+              </span>.
+            </div>
+          </div>
+
+          {/* T-06 — Key facts strip: 3 мин / 40+ / 30+ / 6, цифры крупнее */}
+          <div className="lp-stats-strip" style={{ display: "flex", justifyContent: "center", marginTop: 48, flexWrap: "wrap", borderTop: `1px solid ${border}`, paddingTop: 44 }}>
             {[
               { num: "3 мин", label: "первый отчёт", color: neonCyan },
-              { num: "30+", label: "источников данных", color: neonGreen },
-              { num: "20+", label: "точек роста в отчёте", color: "#FFB547" },
-              { num: "5", label: "проверка пятью нейросетями", color: neonMagenta },
+              { num: "40+", label: "источников данных", color: neonGreen },
+              { num: "30+", label: "точек роста в отчёте", color: "#FFB547" },
+              { num: "6", label: "нейросетей проверяем", color: neonMagenta },
             ].map(({ num, label, color }, i) => (
-              <div key={label} className="lp-fade-up" style={{ textAlign: "center", padding: "12px 32px", borderLeft: i > 0 ? `1px solid ${border}` : "none", animationDelay: `${200 + i * 120}ms` }}>
-                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em", color, textShadow: `0 0 20px ${color}55` }}>{num}</div>
-                <div style={{ fontSize: 12, color: muted, marginTop: 4 }}>{label}</div>
+              <div key={label} className="lp-fade-up" style={{ textAlign: "center", padding: "12px 36px", borderLeft: i > 0 ? `1px solid ${border}` : "none", animationDelay: `${200 + i * 120}ms` }}>
+                <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.035em", color, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
+                <div style={{ fontSize: 13, color: muted, marginTop: 8 }}>{label}</div>
               </div>
             ))}
+          </div>
+
+          {/* T-08 — Company24 ecosystem footer micro-line */}
+          <div style={{ fontSize: 12, color: muted, marginTop: 28, textAlign: "center" }}>
+            Продукт экосистемы{" "}
+            <a href="https://company24.pro" target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "underline" }}>
+              Company24.pro
+            </a>
+            {" "}— AI Business OS для вашего бизнеса 24/7
           </div>
         </div>
       </section>
@@ -424,6 +495,41 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <p style={{ fontSize: 15, color: muted, margin: "0 auto", maxWidth: 600 }}>
             Обычно маркетолог вручную собирает данные из 10–15 сервисов в Excel. MarketRadar делает это автоматически и формирует выводы.
           </p>
+        </div>
+
+        {/* T-15 — бегущая строка ниш (перемещена сюда, т.к. появляется после hero) */}
+        <div className="lp-reveal" style={{ marginBottom: 44, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: "22px 0", overflow: "hidden", position: "relative", marginLeft: "-20px", marginRight: "-20px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 36,
+              whiteSpace: "nowrap",
+              animation: "lp-marquee 65s linear infinite",
+              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+              maskImage: "linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+            }}
+          >
+            {[...Array(2)].map((_, dup) => (
+              <div key={dup} style={{ display: "flex", gap: 36, flexShrink: 0 }}>
+                {[
+                  "интернет-магазины", "маркетплейсы", "одежда", "косметика", "мебель",
+                  "рестораны", "кафе", "гостиницы", "салоны красоты", "фитнес-клубы",
+                  "стоматологии", "клиники", "косметологии", "языковые школы",
+                  "онлайн-курсы", "застройщики", "ремонт квартир", "автосервисы",
+                  "digital-агентства", "юридические услуги",
+                ].map((niche, i) => (
+                  <span key={`${dup}-${i}`} style={{ fontSize: 16, color: muted, letterSpacing: "-0.01em", display: "inline-flex", alignItems: "center", gap: 36 }}>
+                    {niche}
+                    <span style={{ width: 3, height: 3, borderRadius: "50%", background: accent }} />
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+          <style>{`@keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+          <div style={{ textAlign: "center", fontSize: 12.5, color: muted, marginTop: 14 }}>
+            Анализируем более 80 ниш бизнеса. AI автоматически определяет специфику вашей.
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 18 }}>
           {featureCategories.map(({ icon, title, desc, ac }, i) => (
@@ -471,15 +577,132 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           ))}
         </div>
 
-        {/* What you get as artifacts */}
-        <div className="lp-reveal" style={{ marginTop: 32, padding: "22px 26px", background: accentLight, borderRadius: 16, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 13, color: fg, lineHeight: 1.6, maxWidth: 720 }}>
-            <span style={{ fontWeight: 700 }}>Готовые артефакты в отчёте:</span> Score по 7 направлениям, портрет целевой аудитории,
-            Customer Journey Map, Battle cards для отдела продаж, брендбук, план роста с приоритетами.
-          </div>
-          <button onClick={onRegister} className="lp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      {/* T-16 — Готовые артефакты в отчёте (6 карточек)          */}
+      {/* ─────────────────────────────────────────────────────── */}
+      <section id="artifacts" style={{ padding: "56px 20px 20px", maxWidth: 1100, margin: "0 auto" }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Готовые артефакты, а не сырые данные</h2>
+          <p style={{ fontSize: 15, color: muted, margin: "0 auto", maxWidth: 620 }}>
+            Всё, что можно сразу использовать в работе: от стратегического обзора до листовок для отдела продаж.
+          </p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+          {[
+            { icon: <Target size={22} />, title: "Score", desc: "Оценка бизнеса 0–100 по 5–7 категориям с разбивкой по подметрикам.", color: neonCyan },
+            { icon: <Users size={22} />, title: "Портрет ЦА", desc: "Персона, ценности, страхи, возражения и язык клиента.", color: neonMagenta },
+            { icon: <Map size={22} />, title: "Customer Journey Map", desc: "Путь клиента на 7 этапов с болями и точками контакта.", color: "#60a5fa" },
+            { icon: <Palette size={22} />, title: "Брендбук", desc: "Цвета, шрифты, тон голоса и формулы для постов.", color: "#f472b6" },
+            { icon: <Swords size={22} />, title: "Battle cards", desc: "Для отдела продаж: как работать с возражениями против конкурентов.", color: neonRed },
+            { icon: <TrendingUp size={22} />, title: "План роста", desc: "30+ рекомендаций с приоритетом по эффекту и сложности.", color: neonGreen },
+          ].map(({ icon, title, desc, color }, i) => (
+            <div
+              key={title}
+              className="lp-card lp-reveal"
+              style={{ background: card, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 20px", animationDelay: `${i * 80}ms` }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = `${color}55`;
+                e.currentTarget.style.boxShadow = `0 0 0 1px ${color}30, 0 12px 30px -14px ${color}80`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = border;
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div className="lp-icon-chip" style={{ width: 42, height: 42, borderRadius: 11, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, boxShadow: `0 0 16px ${color}35` }}>{icon}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, letterSpacing: "-0.01em" }}>{title}</div>
+              <div style={{ fontSize: 13, color: muted, lineHeight: 1.55 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className="lp-reveal" style={{ marginTop: 28, textAlign: "center" }}>
+          <button onClick={onRegister} className="lp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "12px 26px", fontSize: 14, fontWeight: 700, fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8, boxShadow: `0 4px 18px ${accent}55` }}>
             Запустить анализ <ArrowRight size={14} />
           </button>
+        </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      {/* T-17 — Почему не Excel?                                  */}
+      {/* ─────────────────────────────────────────────────────── */}
+      <section style={{ padding: "56px 20px", maxWidth: 900, margin: "0 auto" }}>
+        <div className="lp-reveal" style={{ background: `linear-gradient(145deg, ${neonRed}08, transparent)`, borderRadius: 24, border: `1px solid ${neonRed}22`, padding: "40px 36px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.12em", marginBottom: 12 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
+          <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 22px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+            Да, можно собрать всё вручную. Но это…
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              "20–40 часов каждый месяц (ваше время стоит денег)",
+              "Данные устаревают через неделю после сбора",
+              "Нет анализа — только цифры, выводы делаете сами",
+              "Нет сравнения с ТОП-10% ниши",
+              "Нет видимости в нейросетях — этого никто вручную не сделает",
+              "Нельзя быстро перегенерировать отчёт в том же формате",
+            ].map((item) => (
+              <div key={item} style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 15, color: fg, lineHeight: 1.55 }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${neonRed}18`, border: `1px solid ${neonRed}50`, color: neonRed, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                  <X size={14} />
+                </div>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 24, padding: "18px 20px", borderRadius: 14, background: `${neonGreen}10`, border: `1px solid ${neonGreen}30`, display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${neonGreen}20`, color: neonGreen, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Check size={18} />
+            </div>
+            <div style={{ fontSize: 14.5, color: fg, lineHeight: 1.55 }}>
+              <strong style={{ color: "#6ee7b7" }}>MarketRadar делает это автоматически</strong> — за 3 минуты. И обновляется 24/7 без вашего участия.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      {/* T-18 — Маркеры достоверности                            */}
+      {/* ─────────────────────────────────────────────────────── */}
+      <section style={{ padding: "48px 20px", maxWidth: 1100, margin: "0 auto" }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
+          <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Каждое утверждение — с маркером</h2>
+          <p style={{ fontSize: 14.5, color: muted, margin: "0 auto", maxWidth: 560 }}>
+            Мы не продаём AI-фантазии под видом аналитики. В отчёте вы видите, откуда взята каждая цифра.
+          </p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
+          {[
+            {
+              color: neonGreen,
+              label: "ФАКТ",
+              desc: "Данные из API и парсинга (Keys.so, Руспрофайл, карты, нейросети). Ссылка на источник и дата обновления.",
+            },
+            {
+              color: "#60a5fa",
+              label: "AI-ГИПОТЕЗА",
+              desc: "Сгенерировано AI по архетипу ЦА и паттернам ниши. Требует проверки в CustDev.",
+            },
+            {
+              color: "#facc15",
+              label: "ОЦЕНКА",
+              desc: "Среднее по нише или расчёт с допущениями. Укажите свои цифры — пересчитаем точнее.",
+            },
+          ].map(({ color, label, desc }, i) => (
+            <div
+              key={label}
+              className="lp-card lp-reveal"
+              style={{ background: card, borderRadius: 16, border: `1px solid ${color}30`, padding: "22px 22px", animationDelay: `${i * 100}ms`, boxShadow: `inset 0 0 0 1px ${color}10` }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <span style={{ width: 16, height: 16, borderRadius: "50%", background: color, boxShadow: `0 0 14px ${color}80` }} />
+                <span style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: "0.1em" }}>{label}</span>
+              </div>
+              <div style={{ fontSize: 13.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -504,8 +727,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               </p>
             </div>
 
-            {/* Critical stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginBottom: 36 }}>
+            {/* T-23 — Critical stats, цифры крупнее, подписи крупнее */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16, marginBottom: 36 }}>
               {[
                 { num: "40%", label: "запросов в Google закрываются AI-ответом без клика на сайт", color: neonCyan },
                 { num: "35%", label: "запросов в Яндексе идут через Алису и Нейро", color: neonMagenta },
@@ -516,15 +739,15 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   className="lp-card lp-reveal"
                   style={{
                     background: card,
-                    borderRadius: 14,
+                    borderRadius: 16,
                     border: `1px solid ${color}30`,
-                    padding: "18px 20px",
+                    padding: "24px 24px",
                     boxShadow: `0 0 24px -12px ${color}80, inset 0 1px 0 ${color}20`,
                     animationDelay: `${100 + i * 120}ms`,
                   }}
                 >
-                  <div style={{ fontSize: 34, fontWeight: 900, color, letterSpacing: "-0.03em", marginBottom: 4, textShadow: `0 0 18px ${color}55` }}>{num}</div>
-                  <div style={{ fontSize: 12, color: muted, lineHeight: 1.55 }}>{label}</div>
+                  <div style={{ fontSize: 56, fontWeight: 900, color, letterSpacing: "-0.04em", marginBottom: 8, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
+                  <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.55 }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -588,11 +811,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             </div>
 
             <div style={{ textAlign: "center", marginTop: 32 }}>
-              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: accent, color: "#fff", borderRadius: 12, padding: "13px 28px", fontSize: 14, fontWeight: 700, textDecoration: "none", boxShadow: `0 4px 20px ${accent}50`, fontFamily: "inherit" }}>
-                <Send size={16} />
-                Проверить упоминания в ChatGPT через Telegram
-              </a>
-              <div style={{ fontSize: 11.5, color: muted, marginTop: 10, maxWidth: 520, margin: "10px auto 0" }}>
+              {/* T-24 — button now opens onsite form (URL input), не Telegram */}
+              <button onClick={onRegister} className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 30px", fontSize: 15, fontWeight: 700, boxShadow: `0 4px 20px ${accent}50`, fontFamily: "inherit", cursor: "pointer" }}>
+                <Eye size={16} />
+                Проверить упоминания в нейросетях
+              </button>
+              {/* T-25 — крупнее, italic, светлее */}
+              <div style={{ fontSize: 14, color: "#cbd5e1", marginTop: 16, maxWidth: 620, margin: "16px auto 0", fontStyle: "italic", lineHeight: 1.6 }}>
                 Классические SEO-агентства пока не умеют делать GEO системно. MarketRadar — один из первых сервисов в России, который автоматизирует продвижение в нейросетях.
               </div>
             </div>
@@ -601,39 +826,94 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       </section>
 
       {/* ─────────────────────────────────────────────────────── */}
-      {/* 4. HOW IT WORKS — 3 steps                                */}
+      {/* 4. T-19 — Три шага до результата (горизонтально, со скринами) */}
       {/* ─────────────────────────────────────────────────────── */}
-      <section id="how" style={{ padding: "64px 20px", maxWidth: 820, margin: "0 auto" }}>
-        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
+      <section id="how" style={{ padding: "64px 20px", maxWidth: 1180, margin: "0 auto" }}>
+        <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>КАК ЭТО РАБОТАЕТ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до плана роста</h2>
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до результата</h2>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
           {[
-            { n: "01", icon: <Globe size={20} />, title: "Введите URL сайта", desc: "Вставьте адрес — платформа автоматически определит тип бизнеса и соберёт данные из 30+ источников. Бесплатный базовый скан доступен через Telegram-бот." },
-            { n: "02", icon: <Zap size={20} />, title: "AI анализирует", desc: "Claude AI обрабатывает SEO, тексты, соцсети, вакансии, отзывы на картах, юр.данные и видимость в нейросетях. Занимает ~3 минуты для стандартного анализа." },
-            { n: "03", icon: <ClipboardList size={20} />, title: "Получите отчёт с приоритетами", desc: "30+ рекомендаций с приоритетом по эффекту и сложности. Score по 7 направлениям. Сравнение с ТОП-10% ниши. План внедрения на 30 дней." },
-          ].map(({ n, icon, title, desc }, i) => (
+            {
+              n: "01",
+              icon: <Globe size={22} />,
+              title: "Введите URL сайта",
+              desc: "Вставьте адрес — AI определит тип бизнеса и начнёт анализ. Бесплатный базовый скан — через Telegram-бот.",
+              color: neonCyan,
+              screen: (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#0e1119", border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px", width: "86%" }}>
+                  <Globe size={14} style={{ color: neonCyan }} />
+                  <div style={{ fontSize: 12, color: "#94a3b8", letterSpacing: "-0.01em" }}>example.ru</div>
+                  <div style={{ flex: 1 }} />
+                  <div style={{ background: accent, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff" }}>Анализ</div>
+                </div>
+              ),
+            },
+            {
+              n: "02",
+              icon: <Zap size={22} />,
+              title: "AI анализирует",
+              desc: "Собираем данные из 40+ источников за 3 минуты: SEO, соцсети, карты, вакансии, нейросети, юр.данные.",
+              color: neonMagenta,
+              screen: (
+                <div style={{ width: "86%" }}>
+                  {["SEO · Keys.so", "Карты · Google/2ГИС", "Нейросети · ChatGPT, Алиса", "Репутация · отзывы"].map((s, i) => (
+                    <div key={s} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: muted, marginBottom: 6 }}>
+                      <span className="lp-pulse-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: i === 3 ? "#64748b" : neonGreen, animationDelay: `${i * 300}ms` }} />
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              ),
+            },
+            {
+              n: "03",
+              icon: <ClipboardList size={22} />,
+              title: "Получите отчёт",
+              desc: "30+ рекомендаций с приоритетами. Score, ЦА, CJM, брендбук, Battle cards, план на 30 дней.",
+              color: neonGreen,
+              screen: (
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end", width: "86%", height: 60 }}>
+                  {[36, 52, 28, 64, 80, 48, 72].map((h, i) => (
+                    <div key={i} style={{ flex: 1, background: `linear-gradient(180deg, ${neonGreen}, ${accent})`, height: `${h}%`, borderRadius: 3, opacity: 0.85 }} />
+                  ))}
+                </div>
+              ),
+            },
+          ].map(({ n, icon, title, desc, color, screen }, i) => (
             <div
               key={n}
-              className="lp-reveal"
+              className="lp-card lp-reveal"
               style={{
-                display: "flex",
-                gap: 20,
-                alignItems: "flex-start",
                 background: card,
-                borderRadius: 16,
+                borderRadius: 20,
                 border: `1px solid ${border}`,
-                padding: "22px 24px",
-                animationDelay: `${i * 140}ms`,
+                padding: 0,
+                overflow: "hidden",
+                animationDelay: `${i * 120}ms`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = `${color}55`;
+                e.currentTarget.style.boxShadow = `0 0 0 1px ${color}30, 0 14px 40px -14px ${color}70`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = border;
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: accentLight, border: `1px solid ${accent}25`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, flexShrink: 0 }}>{icon}</div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: accent, letterSpacing: "0.05em" }}>{n}</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>{title}</span>
+              <div style={{ aspectRatio: "16/9", background: `linear-gradient(135deg, ${color}08, ${color}02)`, borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(${color}10 1px, transparent 1px), linear-gradient(90deg, ${color}10 1px, transparent 1px)`, backgroundSize: "22px 22px", opacity: 0.6 }} />
+                <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", justifyContent: "center" }}>
+                  {screen}
                 </div>
+              </div>
+              <div style={{ padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 11, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 16px ${color}30` }}>{icon}</div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color, letterSpacing: "0.08em" }}>ШАГ {n}</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em" }}>{title}</div>
                 <div style={{ fontSize: 13.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
               </div>
             </div>
@@ -686,28 +966,79 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   {plan.tag}
                 </div>
               )}
-              <div style={{ fontSize: 12, fontWeight: 700, color: plan.highlight ? "rgba(255,255,255,0.65)" : muted, marginBottom: 8, letterSpacing: "0.06em" }}>{plan.name.toUpperCase()}</div>
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 900, color: plan.highlight ? "#fff" : fg, letterSpacing: "-0.03em" }}>{plan.price}</span>
+              <div style={{ fontSize: 12, fontWeight: 700, color: plan.highlight ? "rgba(255,255,255,0.65)" : muted, marginBottom: 12, letterSpacing: "0.06em" }}>{plan.name.toUpperCase()}</div>
+              {/* T-20 — цена в одну строку (₽ + /мес вместе) */}
+              <div style={{ marginBottom: 22, display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 28, fontWeight: 900, color: plan.highlight ? "#fff" : fg, letterSpacing: "-0.03em" }}>{plan.price}</span>
+                <span style={{ fontSize: 15, color: plan.highlight ? "rgba(255,255,255,0.6)" : muted, fontWeight: 600 }}>{plan.period}</span>
               </div>
-              <div style={{ fontSize: 12, color: plan.highlight ? "rgba(255,255,255,0.5)" : muted, marginBottom: 20 }}>{plan.period}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+              {/* T-21 — галочки крупнее (16) и текст 14 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
                 {plan.features.map(f => (
-                  <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: plan.highlight ? "rgba(255,255,255,0.85)" : muted }}>
-                    <Check size={14} style={{ color: plan.highlight ? "#a5b4fc" : accent, flexShrink: 0, marginTop: 2 }} />
+                  <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: plan.highlight ? "rgba(255,255,255,0.9)" : fg, lineHeight: 1.45 }}>
+                    <Check size={16} style={{ color: plan.highlight ? "#a5b4fc" : accent, flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </div>
                 ))}
               </div>
-              <button className="lp-btn" onClick={onRegister} style={{ width: "100%", background: plan.highlight ? "#fff" : accent, color: plan.highlight ? accent : "#fff", border: "none", borderRadius: 10, padding: "11px", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}>
+              <button className="lp-btn" onClick={onRegister} style={{ width: "100%", background: plan.highlight ? "#fff" : accent, color: plan.highlight ? accent : "#fff", border: "none", borderRadius: 10, padding: "12px", fontWeight: 700, fontSize: 14, fontFamily: "inherit" }}>
                 {plan.cta}
               </button>
             </div>
           ))}
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: muted }}>
-          Enterprise от 99 900 ₽/мес · скидки за предоплату (3 мес −5%, 6 мес −10%, 12 мес −20%)
+        {/* T-22 — Enterprise в отдельный блок */}
+        <div className="lp-reveal" style={{ marginTop: 40, padding: "32px 36px", background: `linear-gradient(145deg, ${accent}15, ${neonMagenta}08)`, borderRadius: 22, border: `1px solid ${accent}35` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accent}30`, border: `1px solid ${accent}55`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Building2 size={22} />
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>ENTERPRISE</div>
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: fg, letterSpacing: "-0.03em", marginBottom: 14 }}>
+                от 99 900 ₽<span style={{ fontSize: 16, color: muted, fontWeight: 600 }}>/мес</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+                {[
+                  "Неограниченные компании и конкуренты",
+                  "On-premise развёртывание",
+                  "Индивидуальные интеграции",
+                  "SLA, выделенный менеджер",
+                ].map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 14, color: fg }}>
+                    <Check size={16} style={{ color: "#a5b4fc", flexShrink: 0, marginTop: 2 }} />
+                    {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ background: "transparent", color: fg, border: `1.5px solid ${accent}`, borderRadius: 12, padding: "14px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+              Связаться с отделом продаж <ArrowRight size={14} />
+            </a>
+          </div>
+        </div>
+
+        {/* T-22 — Скидки за предоплату (отдельный блок) */}
+        <div className="lp-reveal" style={{ marginTop: 18, padding: "22px 26px", background: card, borderRadius: 16, border: `1px solid ${border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, fontSize: 14, fontWeight: 700, color: fg }}>
+            <Info size={16} style={{ color: "#a5b4fc" }} />
+            Скидки при длительной оплате
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            {[
+              { pct: "−5%", note: "3 месяца", color: muted },
+              { pct: "−10%", note: "6 месяцев", color: "#a5b4fc" },
+              { pct: "−20%", note: "12 месяцев", color: neonGreen },
+            ].map(({ pct, note, color }) => (
+              <div key={note} style={{ textAlign: "center", padding: "14px 8px", background: isDark ? "#0e1119" : "#ffffff", borderRadius: 12, border: `1px solid ${border}` }}>
+                <div style={{ fontSize: 26, fontWeight: 900, color, letterSpacing: "-0.02em", marginBottom: 2 }}>{pct}</div>
+                <div style={{ fontSize: 13, color: muted }}>{note}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -748,8 +1079,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 <ChevronDown size={18} className="lp-faq-chevron" style={{ color: muted, flexShrink: 0, transition: "transform 0.2s" }} />
               </summary>
               <div style={{
-                fontSize: 13.5,
-                color: muted,
+                fontSize: 15,
+                color: "#cbd5e1",
                 lineHeight: 1.7,
                 marginTop: 14,
                 paddingTop: 14,
@@ -761,23 +1092,25 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           ))}
         </div>
 
-        {/* Partner program — compact banner after FAQ */}
-        <div id="partner" className="lp-reveal" style={{ marginTop: 40, background: `linear-gradient(135deg,${accent}15,#818cf808)`, borderRadius: 20, border: `1px solid ${accent}25`, padding: "26px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ width: 48, height: 48, borderRadius: 13, background: `${accent}25`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Users size={22} />
+        {/* T-30 — Мини-плашка партнёрской программы (расширенная) */}
+        <div id="partner" className="lp-reveal" style={{ marginTop: 44, background: `linear-gradient(135deg, ${accent}18, ${neonMagenta}0c)`, borderRadius: 22, border: `1px solid ${accent}35`, padding: "28px 32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: `${accent}25`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 20px ${accent}40` }}>
+              <Users size={26} />
             </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.08em", marginBottom: 2 }}>ПАРТНЁРСКАЯ ПРОГРАММА</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: fg, marginBottom: 4, letterSpacing: "-0.01em" }}>
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.1em", marginBottom: 6 }}>ПАРТНЁРСКАЯ ПРОГРАММА</div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: fg, marginBottom: 6, letterSpacing: "-0.01em" }}>
                 20% комиссии с каждого платежа · до 50% для интеграторов
               </div>
-              <div style={{ fontSize: 13, color: muted }}>Клиент получает скидку 10%. Выплаты ежемесячно от 3 000 ₽.</div>
+              <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.5 }}>
+                Клиент получает скидку 10%. Выплаты ежемесячно от 3 000 ₽.
+              </div>
             </div>
+            <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: accent, color: "#fff", borderRadius: 12, padding: "13px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", whiteSpace: "nowrap", boxShadow: `0 4px 20px ${accent}55` }}>
+              Узнать подробнее <ArrowRight size={14} />
+            </a>
           </div>
-          <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: accent, color: "#fff", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-            <Send size={14} /> Стать партнёром
-          </a>
         </div>
       </section>
 
@@ -803,19 +1136,21 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer style={{ borderTop: `1px solid ${border}`, padding: "40px 32px 28px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 32, marginBottom: 32 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 7, background: `linear-gradient(135deg,${accent},#818cf8)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 10 }}>MR</div>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>MarketRadar</span>
-            </div>
-            <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>
-              Радар вашего бизнеса, рынка и конкурентов. Продукт экосистемы Company24.pro
-            </div>
+      {/* FOOTER — T-31: 4 колонки Продукт / Компания / Контакты / Документы */}
+      <footer style={{ borderTop: `1px solid ${border}`, padding: "48px 32px 28px", maxWidth: 1180, margin: "0 auto" }}>
+        {/* Brand row */}
+        <div style={{ marginBottom: 32, maxWidth: 420 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg,${accent},#818cf8)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12 }}>MR</div>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>MarketRadar</span>
           </div>
+          <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>
+            Радар вашего бизнеса, рынка и конкурентов. Продукт экосистемы{" "}
+            <a href="https://company24.pro" target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "underline" }}>Company24.pro</a>
+          </div>
+        </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 32, marginBottom: 32 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>ПРОДУКТ</div>
             {[
@@ -831,6 +1166,25 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
 
           <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОМПАНИЯ</div>
+            {[
+              { label: "О MarketRadar", href: "#features" },
+              { label: "Партнёрам", href: "#partner" },
+              { label: "Бренд Company24", href: "https://company24.pro", external: true },
+            ].map(({ label, href, external }) => (
+              <div key={label} style={{ marginBottom: 8 }}>
+                <a
+                  href={href}
+                  {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  style={{ fontSize: 13, color: muted, textDecoration: "none" }}
+                >
+                  {label}
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОНТАКТЫ</div>
             <div style={{ marginBottom: 8 }}>
               <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -838,13 +1192,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               </a>
             </div>
             <div style={{ marginBottom: 8 }}>
-              <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Users size={13} /> Партнёрам
+              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <MessagesSquare size={13} /> Поддержка в боте
               </a>
             </div>
             <div>
-              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <MessagesSquare size={13} /> Поддержка в боте
+              <a href="mailto:support@marketradar24.ru" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>
+                support@marketradar24.ru
               </a>
             </div>
           </div>
