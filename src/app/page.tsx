@@ -171,7 +171,16 @@ export default function MarketRadarDashboard() {
   const features = useFeatureFlags();
   // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов
   const isInternalUser = (currentUser?.email ?? "").endsWith("@company24.pro") || currentUser?.role === "admin";
-  const featureOn = (featureId: string) => isInternalUser || isFeatureOn(features, featureId);
+  // На staging всегда показываем все модули — фичефлаги действуют только на проде
+  const [isStagingHost, setIsStagingHost] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const h = window.location.hostname;
+    if (h === "staging.marketradar24.ru" || h.startsWith("staging.") || h === "localhost" || h === "127.0.0.1") {
+      setIsStagingHost(true);
+    }
+  }, []);
+  const featureOn = (featureId: string) => isStagingHost || isInternalUser || isFeatureOn(features, featureId);
   const [activeNav, setActiveNav] = useState("new-analysis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Если на платформу пришли с ?nav=<id> (например, с дашборда руководителя), переключаемся на эту секцию
