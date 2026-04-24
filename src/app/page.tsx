@@ -169,26 +169,12 @@ export default function MarketRadarDashboard() {
   const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const features = useFeatureFlags();
-  // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов
+  // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов в БД.
+  // Всем остальным пользователям модули видны только если они включены в админ-панели,
+  // одинаково на проде и staging. Это единое правило: "выключено в админке = выключено везде".
   const isInternalUser = (currentUser?.email ?? "").endsWith("@company24.pro") || currentUser?.role === "admin";
-  // Определяем окружение по хостy. На staging — всё всегда открыто.
-  // На проде — preview-модули жёстко скрыты, независимо от флага в БД,
-  // чтобы ранний функционал не утекал в релиз.
-  const [envHost, setEnvHost] = useState<"staging" | "prod" | "other">("other");
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const h = window.location.hostname;
-    if (h === "staging.marketradar24.ru" || h.startsWith("staging.") || h === "localhost" || h === "127.0.0.1") {
-      setEnvHost("staging");
-    } else if (h === "marketradar24.ru" || h === "www.marketradar24.ru") {
-      setEnvHost("prod");
-    }
-  }, []);
-  const PROD_HIDDEN_FEATURES = new Set(["content-factory", "seo-articles", "landing-generator", "brand-presentation", "reviews-analysis"]);
   const featureOn = (featureId: string) => {
-    if (envHost === "staging") return true;
     if (isInternalUser) return true;
-    if (envHost === "prod" && PROD_HIDDEN_FEATURES.has(featureId)) return false;
     return isFeatureOn(features, featureId);
   };
   const [activeNav, setActiveNav] = useState("new-analysis");
@@ -1098,7 +1084,40 @@ export default function MarketRadarDashboard() {
                     item.id === "content-reels" ? (generatedReels.length > 0 ? generatedReels.length : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
-  const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
+  // Сопоставление пунктов меню с фичефлагами — если флаг выключен и это не админ,
+  // пункт исчезает из сайдбара целиком (а не показывает ComingSoon-заглушку).
+  const NAV_TO_FEATURE: Record<string, string> = {
+    "content-factory": "content-factory",
+    "content-plan": "content-factory",
+    "content-style": "content-factory",
+    "content-posts": "content-factory",
+    "content-reels": "content-factory",
+    "content-stories": "content-factory",
+    "content-carousels": "content-factory",
+    "content-analytics": "content-factory",
+    "content-roi": "content-factory",
+    "seo-articles": "seo-articles",
+    "seo-new": "seo-articles",
+    "seo-library": "seo-articles",
+    "seo-keywords": "seo-articles",
+    "reviews-analysis": "reviews-analysis",
+    "brand-presentation": "brand-presentation",
+    "landing-generator": "landing-generator",
+  };
+  const navItemAllowed = (id: string) => {
+    const flag = NAV_TO_FEATURE[id];
+    return flag ? featureOn(flag) : true;
+  };
+  const filterNavItems = (items: typeof NAV_SECTIONS[0]["items"]): typeof NAV_SECTIONS[0]["items"] =>
+    items
+      .filter(item => navItemAllowed(item.id))
+      .map(item => ({
+        ...item,
+        children: item.children ? filterNavItems(item.children) : undefined,
+      }));
+  const navSections = NAV_SECTIONS
+    .map(section => ({ ...section, items: filterNavItems(updateCounts(section.items)) }))
+    .filter(section => section.items.length > 0);
 
   // Screen routing
   if (appScreen === "landing") {
