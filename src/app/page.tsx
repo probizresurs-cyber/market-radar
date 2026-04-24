@@ -1084,40 +1084,9 @@ export default function MarketRadarDashboard() {
                     item.id === "content-reels" ? (generatedReels.length > 0 ? generatedReels.length : null) : item.count,
       children: item.children ? updateCounts(item.children) : undefined,
     }));
-  // Сопоставление пунктов меню с фичефлагами — если флаг выключен и это не админ,
-  // пункт исчезает из сайдбара целиком (а не показывает ComingSoon-заглушку).
-  const NAV_TO_FEATURE: Record<string, string> = {
-    "content-factory": "content-factory",
-    "content-plan": "content-factory",
-    "content-style": "content-factory",
-    "content-posts": "content-factory",
-    "content-reels": "content-factory",
-    "content-stories": "content-factory",
-    "content-carousels": "content-factory",
-    "content-analytics": "content-factory",
-    "content-roi": "content-factory",
-    "seo-articles": "seo-articles",
-    "seo-new": "seo-articles",
-    "seo-library": "seo-articles",
-    "seo-keywords": "seo-articles",
-    "reviews-analysis": "reviews-analysis",
-    "brand-presentation": "brand-presentation",
-    "landing-generator": "landing-generator",
-  };
-  const navItemAllowed = (id: string) => {
-    const flag = NAV_TO_FEATURE[id];
-    return flag ? featureOn(flag) : true;
-  };
-  const filterNavItems = (items: typeof NAV_SECTIONS[0]["items"]): typeof NAV_SECTIONS[0]["items"] =>
-    items
-      .filter(item => navItemAllowed(item.id))
-      .map(item => ({
-        ...item,
-        children: item.children ? filterNavItems(item.children) : undefined,
-      }));
-  const navSections = NAV_SECTIONS
-    .map(section => ({ ...section, items: filterNavItems(updateCounts(section.items)) }))
-    .filter(section => section.items.length > 0);
+  // Пункты меню видны всем — отключённые в админке модули показывают заглушку
+  // «В разработке, подпишитесь на уведомления» на своей странице, а не исчезают из сайдбара.
+  const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
 
   // Screen routing
   if (appScreen === "landing") {
