@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  Moon, Sun, Send, Users, BarChart2, Target, Bot, Globe, Zap, ClipboardList,
-  Star, Briefcase, Share2, Eye, Swords, ArrowRight, Sparkles, ChevronDown,
-  TrendingUp, Radio, Building2, MapPin, MessagesSquare, Check,
+  Moon, Sun, Send, Users, BarChart2, Globe, Zap, ClipboardList,
+  Star, Briefcase, Share2, Eye, Swords, ArrowRight, ChevronDown,
+  Radio, Building2, MessagesSquare, Check,
 } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 import { VisitTracker } from "@/components/VisitTracker";
@@ -63,11 +63,18 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const accent = "#6366f1";
   const accentLight = isDark ? "#6366f118" : "#6366f10d";
 
+  // Neon palette borrowed from the owner dashboard — used for glow accents
+  const neonCyan = "#4FC3F7";
+  const neonMagenta = "#D500F9";
+  const neonGreen = "#69FF47";
+  const neonRed = "#FF5252";
+  const neonViolet = "#A78BFA";
+
   // ── FAQ data (used both for render and JSON-LD schema) ──────────────────
   const faqItems: Array<{ q: string; a: string }> = [
     {
       q: "Что такое MarketRadar?",
-      a: "MarketRadar — это AI-платформа, которая объединяет данные из 30+ сервисов (Key.so, Руспрофайл, Яндекс.Карты, 2ГИС, Google Maps, hh.ru, ChatGPT, Claude, Gemini, Перплексити, Яндекс.Алиса) в единый дашборд о вашем бизнесе. За 3 минуты собираем картину по 7 направлениям и даём готовый план роста.",
+      a: "MarketRadar — это AI-платформа, которая объединяет данные из 30+ сервисов (Keys.so, Руспрофайл, Яндекс.Карты, 2ГИС, Google Maps, hh.ru, ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса) в единый дашборд о вашем бизнесе. За 3 минуты собираем картину по 7 направлениям и даём готовый план роста.",
     },
     {
       q: "Что такое GEO-оптимизация и зачем она нужна?",
@@ -91,7 +98,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
     },
     {
       q: "Какие источники данных используются?",
-      a: "Более 30 источников: Key.so, Яндекс, Google, Яндекс.Карты, 2ГИС, Google Maps, ВКонтакте, Telegram, Одноклассники, YouTube, hh.ru, SuperJob, Руспрофайл, DaData, ЕГРЮЛ, ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса.",
+      a: "Более 30 источников: Keys.so, Яндекс, Google, Яндекс.Карты, 2ГИС, Google Maps, ВКонтакте, Telegram, Одноклассники, YouTube, hh.ru, SuperJob, Руспрофайл, DaData, ЕГРЮЛ, ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса.",
     },
     {
       q: "Есть ли бесплатный вариант попробовать?",
@@ -117,38 +124,38 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
     {
       icon: <BarChart2 size={22} />,
       title: "SEO и видимость в поиске",
-      desc: "Key.so: позиции в Яндексе и Google, ключевые слова, ссылочная масса. Технический SEO-аудит. Анализ поисковой выдачи.",
-      ac: "#6366f1",
+      desc: "Keys.so: позиции в Яндексе и Google, ключевые слова, ссылочная масса. Технический SEO-аудит. Анализ поисковой выдачи.",
+      ac: neonCyan,
     },
     {
       icon: <Star size={22} />,
       title: "Репутация на картах",
       desc: "Яндекс.Карты, 2ГИС, Google Maps. Рейтинги, отзывы, тональность, сравнение с конкурентами по каждой локации.",
-      ac: "#f59e0b",
+      ac: "#FFB547",
     },
     {
       icon: <Building2 size={22} />,
       title: "Бизнес-данные и команда",
       desc: "Руспрофайл, DaData, ЕГРЮЛ — финансы и юр.данные. hh.ru и SuperJob — открытые вакансии, зарплаты, HR-бренд.",
-      ac: "#10b981",
+      ac: neonGreen,
     },
     {
       icon: <Share2 size={22} />,
       title: "Соцсети и контент",
       desc: "ВКонтакте, Telegram, Одноклассники, YouTube, VK Видео — аудитория, активность, форматы, упоминания бренда.",
-      ac: "#ec4899",
+      ac: "#FF4FBF",
     },
     {
       icon: <Eye size={22} />,
       title: "Видимость в нейросетях",
       desc: "ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса — проверка, попадаете ли вы в ответы AI по ключевым запросам клиентов.",
-      ac: "#8b5cf6",
+      ac: neonMagenta,
     },
     {
       icon: <Swords size={22} />,
       title: "Конкурентная разведка",
       desc: "Парсинг сайтов конкурентов — офферы, цены, структура. Battle cards, карта Customer Journey, брендбук, план роста.",
-      ac: "#ef4444",
+      ac: neonRed,
     },
   ];
 
@@ -166,15 +173,80 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
         .lp-btn { transition: all 0.15s ease; cursor: pointer; }
-        .lp-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .lp-btn:hover { opacity: 0.92; transform: translateY(-1px); }
         .lp-btn:active { transform: translateY(0); }
-        .lp-card { transition: transform 0.18s, box-shadow 0.18s; }
-        .lp-card:hover { transform: translateY(-3px); }
-        @keyframes lp-fade { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
-        .lp-fade { animation: lp-fade 0.5s ease both; }
+        .lp-card { transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease; }
+        .lp-card:hover { transform: translateY(-4px); }
+
+        /* ── Entry animations (dashboard-style cascade) ── */
+        @keyframes lp-fade { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes lp-fade-in { from{opacity:0} to{opacity:1} }
+        @keyframes lp-scale-in { from{opacity:0;transform:scale(0.94)} to{opacity:1;transform:scale(1)} }
+        @keyframes lp-bar-grow { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+        .lp-fade { animation: lp-fade 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        .lp-fade-up { opacity: 0; animation: lp-fade 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        .lp-scale-in { animation: lp-scale-in 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+        /* ── Neon glow ring that breathes ── */
+        @keyframes lp-neon-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.55), 0 0 18px 0 rgba(99,102,241,0.25); }
+          50%      { box-shadow: 0 0 0 10px rgba(99,102,241,0), 0 0 26px 2px rgba(99,102,241,0.15); }
+        }
+        .lp-pulse-dot { animation: lp-neon-pulse 2.2s ease-in-out infinite; }
+
+        @keyframes lp-float {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-8px); }
+        }
+        .lp-float { animation: lp-float 6s ease-in-out infinite; }
+
+        /* Slow hue-shifting gradient behind hero headline */
+        @keyframes lp-hue {
+          0%   { filter: hue-rotate(0deg); }
+          100% { filter: hue-rotate(30deg); }
+        }
+        .lp-gradient-text { animation: lp-hue 8s ease-in-out infinite alternate; }
+
+        /* Sweep shimmer across card top accent lines */
+        @keyframes lp-sweep {
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
+        }
+        .lp-card-accent {
+          background: linear-gradient(90deg, transparent 0%, currentColor 20%, currentColor 50%, currentColor 80%, transparent 100%);
+          background-size: 200% 100%;
+          animation: lp-sweep 4.5s linear infinite;
+        }
+
+        /* Neon glow on icon chips in the 'Что делает платформа' grid */
+        .lp-icon-chip { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .lp-card:hover .lp-icon-chip { transform: scale(1.08) rotate(-3deg); }
+
+        /* Hero grid — animated scroll for that "scanning radar" feel */
+        @keyframes lp-grid-drift {
+          0%   { background-position: 0 0, 0 0; }
+          100% { background-position: 48px 48px, 48px 48px; }
+        }
+        .lp-hero-grid { animation: lp-grid-drift 24s linear infinite; }
+
         .lp-faq summary::-webkit-details-marker { display: none; }
         .lp-faq summary { list-style: none; }
+        .lp-faq summary:hover { color: #a5b4fc; }
         .lp-faq[open] .lp-faq-chevron { transform: rotate(180deg); }
+        .lp-faq[open] { border-color: rgba(99,102,241,0.35) !important; box-shadow: 0 0 0 1px rgba(99,102,241,0.15), 0 0 28px -8px rgba(99,102,241,0.35); }
+
+        /* Stat numbers — stronger neon tint */
+        .lp-neon-text {
+          background: linear-gradient(135deg, #a5b4fc 0%, #22d3ee 50%, #a78bfa 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .lp-float, .lp-pulse-dot, .lp-gradient-text, .lp-card-accent, .lp-hero-grid { animation: none !important; }
+        }
+
         @media (max-width: 640px) {
           .lp-hero-btns { flex-direction: column !important; }
           .lp-plans { grid-template-columns: 1fr !important; }
@@ -216,36 +288,58 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* 1. HERO                                                 */}
       {/* ─────────────────────────────────────────────────────── */}
       <section style={{ textAlign: "center", padding: "88px 20px 64px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(${border} 1px,transparent 1px),linear-gradient(90deg,${border} 1px,transparent 1px)`, backgroundSize: "48px 48px", opacity: 0.5 }} />
-        <div style={{ position: "absolute", top: "15%", left: "20%", width: 560, height: 560, borderRadius: "50%", background: `${accent}12`, filter: "blur(120px)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", top: "5%", right: "15%", width: 300, height: 300, borderRadius: "50%", background: "#818cf80d", filter: "blur(80px)", pointerEvents: "none" }} />
+        {/* Animated neon grid — brighter than the previous subtle version */}
+        <div
+          className="lp-hero-grid"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: isDark
+              ? `linear-gradient(rgba(99,102,241,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.14) 1px, transparent 1px)`
+              : `linear-gradient(rgba(99,102,241,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.10) 1px, transparent 1px)`,
+            backgroundSize: "48px 48px, 48px 48px",
+            maskImage: "radial-gradient(ellipse at 50% 45%, #000 45%, transparent 80%)",
+            WebkitMaskImage: "radial-gradient(ellipse at 50% 45%, #000 45%, transparent 80%)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Bright neon glow pools */}
+        <div style={{ position: "absolute", top: "10%", left: "12%", width: 620, height: 620, borderRadius: "50%", background: `${accent}26`, filter: "blur(140px)", pointerEvents: "none" }} className="lp-float" />
+        <div style={{ position: "absolute", top: "0%", right: "10%", width: 460, height: 460, borderRadius: "50%", background: `${neonMagenta}18`, filter: "blur(120px)", pointerEvents: "none" }} className="lp-float" />
+        <div style={{ position: "absolute", bottom: "-10%", left: "35%", width: 520, height: 520, borderRadius: "50%", background: `${neonCyan}14`, filter: "blur(130px)", pointerEvents: "none" }} />
 
-        <div className="lp-fade" style={{ position: "relative", zIndex: 1 }}>
-          {/* Badge */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${accent}15`, color: "#818cf8", borderRadius: 24, padding: "5px 16px 5px 8px", fontSize: 12, fontWeight: 600, marginBottom: 28, border: `1px solid ${accent}25` }}>
-            <div style={{ width: 18, height: 18, borderRadius: 5, background: accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-              <Sparkles size={10} />
-            </div>
-            Powered by Claude AI · Company24.pro
+        <div className="lp-fade" style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto" }}>
+          {/* Radar-style live badge */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: `${accent}15`, color: "#a5b4fc", borderRadius: 24, padding: "6px 18px 6px 10px", fontSize: 12, fontWeight: 600, marginBottom: 28, border: `1px solid ${accent}35`, boxShadow: `0 0 24px ${accent}25` }}>
+            <span className="lp-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: neonGreen, display: "inline-block" }} />
+            Радар активен · сканируем 30+ источников в реальном времени
           </div>
 
-          {/* H1 — SEO-критичный заголовок */}
-          <h1 style={{ fontSize: "clamp(34px,5.5vw,64px)", fontWeight: 900, lineHeight: 1.06, margin: "0 auto 22px", maxWidth: 820, letterSpacing: "-0.03em" }}>
-            Узнайте, где вы теряете клиентов
-            <br />
-            <span style={{ background: `linear-gradient(135deg,${accent},#818cf8,#a5b4fc)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+          {/* H1 — SEO-критичный заголовок, растянут на всю ширину */}
+          <h1 style={{ fontSize: "clamp(38px,6.4vw,76px)", fontWeight: 900, lineHeight: 1.04, margin: "0 auto 26px", maxWidth: 1100, letterSpacing: "-0.035em" }}>
+            Узнайте, где вы теряете клиентов{" "}
+            <span
+              className="lp-gradient-text"
+              style={{
+                background: `linear-gradient(135deg, ${accent} 0%, ${neonMagenta} 35%, ${neonCyan} 70%, #a5b4fc 100%)`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                display: "inline-block",
+              }}
+            >
               и где можете зарабатывать больше
             </span>
           </h1>
 
-          <p style={{ fontSize: 17, color: muted, maxWidth: 620, margin: "0 auto 36px", lineHeight: 1.65 }}>
+          <p style={{ fontSize: 18, color: muted, maxWidth: 760, margin: "0 auto 36px", lineHeight: 1.6 }}>
             MarketRadar просканирует ваш бизнес, конкурентов и рынок за 3 минуты.
             Отчёт на 30+ страниц с планом роста — без дорогих исследований за 300 тысяч и недель ожидания.
           </p>
 
           {/* Primary CTA — Telegram bot (free entry point) */}
           <div style={{ marginBottom: 14 }}>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#2AABEE", color: "#fff", borderRadius: 14, padding: "15px 34px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 24px #2AABEE50", fontFamily: "inherit" }}>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#2AABEE", color: "#fff", borderRadius: 14, padding: "15px 34px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 28px #2AABEE80, 0 0 48px ${neonCyan}30`, fontFamily: "inherit" }}>
               <Send size={18} />
               Бесплатный Score через Telegram
             </a>
@@ -272,14 +366,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           {/* Key facts strip */}
           <div className="lp-stats-strip" style={{ display: "flex", justifyContent: "center", marginTop: 56, flexWrap: "wrap", borderTop: `1px solid ${border}`, paddingTop: 40 }}>
             {[
-              { num: "3 мин", label: "первый отчёт" },
-              { num: "30+", label: "источников данных" },
-              { num: "20+", label: "точек роста в отчёте" },
-              { num: "5", label: "нейросетей проверяем" },
-            ].map(({ num, label }, i) => (
-              <div key={label} style={{ textAlign: "center", padding: "12px 32px", borderLeft: i > 0 ? `1px solid ${border}` : "none" }}>
-                <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", color: fg }}>{num}</div>
-                <div style={{ fontSize: 12, color: muted, marginTop: 2 }}>{label}</div>
+              { num: "3 мин", label: "первый отчёт", color: neonCyan },
+              { num: "30+", label: "источников данных", color: neonGreen },
+              { num: "20+", label: "точек роста в отчёте", color: "#FFB547" },
+              { num: "5", label: "проверка пятью нейросетями", color: neonMagenta },
+            ].map(({ num, label, color }, i) => (
+              <div key={label} className="lp-fade-up" style={{ textAlign: "center", padding: "12px 32px", borderLeft: i > 0 ? `1px solid ${border}` : "none", animationDelay: `${200 + i * 120}ms` }}>
+                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em", color, textShadow: `0 0 20px ${color}55` }}>{num}</div>
+                <div style={{ fontSize: 12, color: muted, marginTop: 4 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -298,10 +392,45 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 18 }}>
-          {featureCategories.map(({ icon, title, desc, ac }) => (
-            <div key={title} className="lp-card" style={{ background: card, borderRadius: 20, border: `1px solid ${border}`, padding: "26px 22px", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,transparent,${ac}80,transparent)` }} />
-              <div style={{ width: 46, height: 46, borderRadius: 13, background: `${ac}18`, border: `1px solid ${ac}30`, display: "flex", alignItems: "center", justifyContent: "center", color: ac, marginBottom: 16 }}>{icon}</div>
+          {featureCategories.map(({ icon, title, desc, ac }, i) => (
+            <div
+              key={title}
+              className="lp-card lp-fade-up"
+              style={{
+                background: card,
+                borderRadius: 20,
+                border: `1px solid ${border}`,
+                padding: "26px 22px",
+                position: "relative",
+                overflow: "hidden",
+                animationDelay: `${i * 90}ms`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = `${ac}60`;
+                e.currentTarget.style.boxShadow = `0 0 0 1px ${ac}35, 0 12px 40px -12px ${ac}60, 0 0 50px -20px ${ac}90`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = border;
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div className="lp-card-accent" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, color: ac }} />
+              <div
+                className="lp-icon-chip"
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 13,
+                  background: `${ac}20`,
+                  border: `1px solid ${ac}55`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: ac,
+                  marginBottom: 16,
+                  boxShadow: `0 0 20px ${ac}35, inset 0 0 12px ${ac}20`,
+                }}
+              >{icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em" }}>{title}</div>
               <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>{desc}</div>
             </div>
@@ -344,44 +473,79 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             {/* Critical stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginBottom: 36 }}>
               {[
-                { num: "40%", label: "запросов в Google закрываются AI-ответом без клика на сайт" },
-                { num: "35%", label: "запросов в Яндексе идут через Алису и Нейро" },
-                { num: "250%", label: "рост AI-трафика год к году — это следующий канал продаж" },
-              ].map(({ num, label }) => (
-                <div key={num} style={{ background: card, borderRadius: 14, border: `1px solid ${border}`, padding: "18px 20px" }}>
-                  <div style={{ fontSize: 30, fontWeight: 900, color: "#a5b4fc", letterSpacing: "-0.03em", marginBottom: 4 }}>{num}</div>
+                { num: "40%", label: "запросов в Google закрываются AI-ответом без клика на сайт", color: neonCyan },
+                { num: "35%", label: "запросов в Яндексе идут через Алису и Нейро", color: neonMagenta },
+                { num: "250%", label: "рост AI-трафика год к году — это следующий канал продаж", color: neonGreen },
+              ].map(({ num, label, color }, i) => (
+                <div
+                  key={num}
+                  className="lp-card lp-fade-up"
+                  style={{
+                    background: card,
+                    borderRadius: 14,
+                    border: `1px solid ${color}30`,
+                    padding: "18px 20px",
+                    boxShadow: `0 0 24px -12px ${color}80, inset 0 1px 0 ${color}20`,
+                    animationDelay: `${100 + i * 120}ms`,
+                  }}
+                >
+                  <div style={{ fontSize: 34, fontWeight: 900, color, letterSpacing: "-0.03em", marginBottom: 4, textShadow: `0 0 18px ${color}55` }}>{num}</div>
                   <div style={{ fontSize: 12, color: muted, lineHeight: 1.55 }}>{label}</div>
                 </div>
               ))}
             </div>
 
-            {/* What MarketRadar checks and does */}
+            {/* What MarketRadar checks and does — 3 cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
               {[
                 {
                   icon: <Eye size={18} />,
-                  title: "Упоминаемость в 5 нейросетях",
+                  title: "Проверка пятью нейросетями",
                   desc: "Запускаем 20+ типовых запросов клиентов в ChatGPT, Claude, Perplexity, Gemini, Алису. Показываем: попадаете ли в ответ, на каком месте, в каком контексте.",
+                  color: neonCyan,
                 },
                 {
                   icon: <Swords size={18} />,
                   title: "Конкуренты в AI-выдаче",
                   desc: "Видите компании, которые уже занимают позиции в ответах нейросетей по вашим запросам. Понимаете, у кого учиться.",
+                  color: neonMagenta,
                 },
                 {
                   icon: <ClipboardList size={18} />,
                   title: "План попадания в AI-ответы",
                   desc: "Конкретные шаги: настройка llms.txt, структурирование FAQ, размещения в СМИ, Schema.org-разметка, E-E-A-T-сигналы.",
+                  color: neonGreen,
                 },
-                {
-                  icon: <TrendingUp size={18} />,
-                  title: "Еженедельный мониторинг",
-                  desc: "Отслеживаем динамику упоминаний после внедрения правок. Видите рост или падение в графиках.",
-                },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="lp-card" style={{ background: card, borderRadius: 14, border: `1px solid ${border}`, padding: "18px 20px" }}>
+              ].map(({ icon, title, desc, color }, i) => (
+                <div
+                  key={title}
+                  className="lp-card lp-fade-up"
+                  style={{ background: card, borderRadius: 14, border: `1px solid ${border}`, padding: "18px 20px", animationDelay: `${350 + i * 120}ms` }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = `${color}55`;
+                    e.currentTarget.style.boxShadow = `0 0 0 1px ${color}30, 0 12px 32px -14px ${color}80`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = border;
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: `${accent}18`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+                    <div
+                      className="lp-icon-chip"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 9,
+                        background: `${color}20`,
+                        border: `1px solid ${color}50`,
+                        color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: `0 0 16px ${color}40`,
+                      }}
+                    >{icon}</div>
                     <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.01em" }}>{title}</div>
                   </div>
                   <div style={{ fontSize: 12.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
