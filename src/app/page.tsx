@@ -1215,7 +1215,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
-        {activeNav === "content-style" && featureOn("content-factory") && (
+        {activeNav === "content-style" && (
           <CompanyStyleView
             c={c}
             state={companyStyleState}
@@ -1242,7 +1242,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi" || activeNav === "content-style") && !featureOn("content-factory") && (
+        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "content-plan" && featureOn("content-factory") && (

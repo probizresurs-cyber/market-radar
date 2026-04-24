@@ -64,6 +64,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "ПРОИЗВОДСТВО КОНТЕНТА",
     items: [
+      { id: "content-style", icon: "BookOpen", label: "Стиль компании", count: null },
       {
         id: "seo-articles", icon: "FileText", label: "SEO-статьи", count: null,
         children: [
@@ -76,7 +77,6 @@ export const NAV_SECTIONS: NavSection[] = [
         id: "content-factory", icon: "Factory", label: "Контент-завод", count: null,
         children: [
           { id: "content-plan", icon: "ClipboardList", label: "План контента", count: null },
-          { id: "content-style", icon: "BookOpen", label: "Стиль компании", count: null },
           { id: "content-posts", icon: "FileEdit", label: "Готовые посты", count: null },
           { id: "content-reels", icon: "Film", label: "Готовые видео", count: null },
           { id: "content-stories", icon: "Smartphone", label: "Сторис-сценарии", count: null },
