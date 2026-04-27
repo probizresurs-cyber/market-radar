@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Zap, Clock, AlertTriangle, CheckCircle, Gift } from "lucide-react";
+import { Zap, Clock, AlertTriangle, CheckCircle, Gift, Palette } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
+import { loadWhiteLabel, saveWhiteLabel, ACCENT_PRESETS, type WhiteLabelConfig } from "@/lib/whitelabel";
 
 interface SubState {
   plan: string;
@@ -55,8 +56,8 @@ const NICHE_LABELS: Record<string, string> = {
   other: "Другое",
 };
 
-export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: UserAccount | null; onUpdateUser?: (u: UserAccount) => void }) {
-  const [tab, setTab] = useState<"profile" | "subscription" | "notifications">("profile");
+export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c: Colors; user?: UserAccount | null; onUpdateUser?: (u: UserAccount) => void; onWhiteLabelChange?: (cfg: WhiteLabelConfig) => void }) {
+  const [tab, setTab] = useState<"profile" | "subscription" | "notifications" | "whitelabel">("profile");
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [companyName, setCompanyName] = useState(user?.companyName || "");
@@ -67,6 +68,14 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
   const [saved, setSaved] = useState(false);
   const [sub, setSub] = useState<SubState | null>(null);
   const [subLoading, setSubLoading] = useState(false);
+  const [wl, setWl] = useState<WhiteLabelConfig | null>(null);
+  const [wlSaved, setWlSaved] = useState(false);
+
+  // Load white-label config from localStorage
+  useEffect(() => {
+    if (!user) return;
+    setWl(loadWhiteLabel(user.id));
+  }, [user]);
 
   // Load subscription data whenever user opens subscription tab
   useEffect(() => {
@@ -88,10 +97,19 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const handleSaveWhiteLabel = () => {
+    if (!user || !wl) return;
+    saveWhiteLabel(user.id, wl);
+    onWhiteLabelChange?.(wl);
+    setWlSaved(true);
+    setTimeout(() => setWlSaved(false), 2000);
+  };
+
   const tabs = [
     { id: "profile" as const, label: "Профиль" },
     { id: "subscription" as const, label: "Подписка" },
     { id: "notifications" as const, label: "Уведомления" },
+    { id: "whitelabel" as const, label: "Внешний вид" },
   ];
 
   return (
@@ -338,6 +356,156 @@ export function SettingsView({ c, user, onUpdateUser }: { c: Colors; user?: User
 
       {tab === "notifications" && (
         <NotificationsTab c={c} user={user ?? null} onUpdateUser={onUpdateUser ?? (() => { })} />
+      )}
+
+      {tab === "whitelabel" && wl && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Master toggle */}
+          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(99,102,241,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Palette size={18} style={{ color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>Кастомизация интерфейса</div>
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Цвет акцента и оформление платформы</div>
+                </div>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <div
+                  onClick={() => setWl(w => w ? { ...w, enabled: !w.enabled } : w)}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, position: "relative", cursor: "pointer",
+                    background: wl.enabled ? "var(--primary)" : "var(--muted)",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <div style={{
+                    position: "absolute", top: 3, left: wl.enabled ? 23 : 3,
+                    width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                    transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                  }} />
+                </div>
+                <span style={{ fontSize: 13, color: wl.enabled ? "var(--primary)" : "var(--muted-foreground)", fontWeight: 600 }}>
+                  {wl.enabled ? "Включено" : "Выключено"}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Accent color */}
+          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", opacity: wl.enabled ? 1 : 0.5, pointerEvents: wl.enabled ? "auto" : "none" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Цвет акцента</div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 16 }}>Меняет кнопки, ссылки и активные элементы интерфейса</div>
+
+            {/* Color presets */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+              {ACCENT_PRESETS.map(preset => (
+                <button
+                  key={preset.value}
+                  onClick={() => setWl(w => w ? { ...w, accentColor: preset.value } : w)}
+                  title={preset.label}
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, border: `3px solid ${wl.accentColor === preset.value ? "var(--foreground)" : "transparent"}`,
+                    background: preset.value, cursor: "pointer", flexShrink: 0,
+                    boxShadow: wl.accentColor === preset.value ? "0 0 0 1px var(--background)" : "none",
+                    transition: "border-color 0.15s",
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Custom hex input */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: wl.accentColor, flexShrink: 0, border: "1px solid var(--border)" }} />
+              <div style={{ flex: 1 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Hex-код</label>
+                <input
+                  type="text"
+                  value={wl.accentColor}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setWl(w => w ? { ...w, accentColor: v } : w);
+                  }}
+                  placeholder="#3b82f6"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, fontFamily: "monospace", outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <input
+                type="color"
+                value={wl.accentColor.length === 7 ? wl.accentColor : "#3b82f6"}
+                onChange={e => setWl(w => w ? { ...w, accentColor: e.target.value } : w)}
+                title="Открыть палитру"
+                style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid var(--border)`, cursor: "pointer", padding: 2, background: "var(--card)", flexShrink: 0 }}
+              />
+            </div>
+
+            {/* Live preview */}
+            <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 10 }}>ПРЕДПРОСМОТР</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: wl.accentColor, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "default" }}>Кнопка</button>
+                <span style={{ fontSize: 13, color: wl.accentColor, fontWeight: 600, display: "flex", alignItems: "center" }}>Ссылка</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: wl.accentColor, background: wl.accentColor + "18", padding: "3px 10px", borderRadius: 6 }}>Бейдж</span>
+                <div style={{ width: 60, height: 8, borderRadius: 4, background: wl.accentColor + "33", overflow: "hidden", display: "flex", alignItems: "center" }}>
+                  <div style={{ width: "60%", height: "100%", background: wl.accentColor, borderRadius: 4 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hide branding */}
+          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", opacity: wl.enabled ? 1 : 0.5, pointerEvents: wl.enabled ? "auto" : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 2 }}>Скрыть надпись MarketRadar</div>
+                <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Убирает «MarketRadar» из нижней части сайдбара (для агентств)</div>
+              </div>
+              <div
+                onClick={() => setWl(w => w ? { ...w, hideBranding: !w.hideBranding } : w)}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, position: "relative", cursor: "pointer",
+                  background: wl.hideBranding ? "var(--primary)" : "var(--muted)",
+                  transition: "background 0.2s", flexShrink: 0,
+                }}
+              >
+                <div style={{
+                  position: "absolute", top: 3, left: wl.hideBranding ? 23 : 3,
+                  width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                  transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={handleSaveWhiteLabel}
+              style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            >
+              Сохранить настройки
+            </button>
+            {wlSaved && (
+              <span style={{ fontSize: 13, color: "var(--success)", display: "flex", alignItems: "center", gap: 5 }}>
+                <CheckCircle size={15} /> Сохранено
+              </span>
+            )}
+            <button
+              onClick={() => {
+                const def = { enabled: false, accentColor: "#3b82f6", hideBranding: false };
+                setWl(def);
+                if (user) saveWhiteLabel(user.id, def);
+                onWhiteLabelChange?.(def);
+              }}
+              style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--muted-foreground)", fontWeight: 600, fontSize: 13, cursor: "pointer", marginLeft: "auto" }}
+            >
+              Сбросить
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

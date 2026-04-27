@@ -35,11 +35,12 @@ function NavIcon({ name, size = 15, active }: { name: string; size?: number; act
 // Sidebar Component
 // ============================================================
 
-export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl, user, onLogout }: {
+export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl, user, onLogout, hideBranding }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
   navSections: NavSection[]; companyUrl: string;
   user?: UserAccount | null; onLogout?: () => void;
+  hideBranding?: boolean;
 }) {
   // Auto-expand groups that contain the active item
   const getDefaultExpanded = () => {
@@ -122,10 +123,15 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #1E40AF, #3B82F6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 10px rgba(30,64,175,0.4)", flexShrink: 0 }}>MR</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>MarketRadar</div>
-            {companyUrl && <div style={{ fontSize: 10, color: "var(--sidebar-muted)", marginTop: 1 }}>{companyUrl}</div>}
-          </div>
+          {!hideBranding && (
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>MarketRadar</div>
+              {companyUrl && <div style={{ fontSize: 10, color: "var(--sidebar-muted)", marginTop: 1 }}>{companyUrl}</div>}
+            </div>
+          )}
+          {hideBranding && companyUrl && (
+            <div style={{ fontSize: 10, color: "var(--sidebar-muted)" }}>{companyUrl}</div>
+          )}
         </div>
       </div>
 

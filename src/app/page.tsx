@@ -105,6 +105,7 @@ function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: 
 
 
 import { SettingsView } from "@/components/views/SettingsView";
+import { loadWhiteLabel, saveWhiteLabel, buildAccentCss, type WhiteLabelConfig } from "@/lib/whitelabel";
 import { NewTAView, TAEmptyDashboard, TADashboardView } from "@/components/views/TAViews";
 import { BrandSuggestionsView } from "@/components/views/BrandSuggestionsView";
 import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/views/SMMViews";
@@ -249,6 +250,7 @@ export default function MarketRadarDashboard() {
   const [benchmarksData, setBenchmarksData] = useState<any | null>(null);
   const [isBenchmarksGenerating, setIsBenchmarksGenerating] = useState(false);
   const [benchmarksError, setBenchmarksError] = useState<string | null>(null);
+  const [whiteLabel, setWhiteLabel] = useState<WhiteLabelConfig | null>(null);
   const [smmAnalysis, setSmmAnalysis] = useState<SMMResult | null>(null);
   const [isSMMAnalyzing, setIsSMMAnalyzing] = useState(false);
   const [contentPlan, setContentPlan] = useState<ContentPlan | null>(null);
@@ -482,6 +484,7 @@ export default function MarketRadarDashboard() {
       if (!user) return; // not logged in — LandingPage will show
 
       setCurrentUser(user);
+      setWhiteLabel(loadWhiteLabel(user.id));
       const hasCompany = await loadAndApplyUserData(user.id);
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
 
@@ -1207,9 +1210,12 @@ export default function MarketRadarDashboard() {
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", fontFamily: "'Inter', 'PT Sans', system-ui, sans-serif", background: "var(--background)", color: "var(--foreground)" }}>
       <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
+      {whiteLabel?.enabled && whiteLabel.accentColor.length === 7 && (
+        <style>{buildAccentCss(whiteLabel.accentColor)}</style>
+      )}
       {mobileNav}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} hideBranding={whiteLabel?.enabled && whiteLabel.hideBranding} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <TrialBanner userId={currentUser?.id} />
         <PaywallGuard />
@@ -1232,7 +1238,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "reports" && <ReportsView c={c} data={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} competitors={competitors} />}
         {activeNav === "sources" && <SourcesView c={c} />}
-        {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} />}
+        {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} onWhiteLabelChange={(cfg) => { setWhiteLabel(cfg); if (currentUser) saveWhiteLabel(currentUser.id, cfg); }} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} existingTypes={taExistingTypes} />}
         {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} altData={taAnalysisAlt} onSwitchType={handleSwitchTAType} onRunNew={() => setActiveNav("ta-new")} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
         {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={handleGenerateCJM} myCompany={myCompany} taAnalysis={taAnalysis} error={cjmError} />}
