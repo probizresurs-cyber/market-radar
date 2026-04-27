@@ -271,7 +271,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>AI-ассистент</div>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>
-                  {hasContext ? `Знает о ${myCompany!.company.name}` : "Нет данных — сначала проанализируйте компанию"}
+                  MarketRadar
                 </div>
               </div>
             </div>
