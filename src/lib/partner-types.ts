@@ -137,6 +137,22 @@ export function getCommissionRate(type: PartnerType, activeClients: number): num
   return scales[0].rate;
 }
 
+// ─── Certification ────────────────────────────────────────────────────────────
+
+export interface PartnerCertification {
+  id: string;
+  partner_id: string;
+  score: number;           // 0-100
+  theory_correct: number;  // count out of THEORY_QUESTIONS.length
+  practical: string;       // submitted practical answer
+  passed: boolean;
+  certified_at: string;    // ISO timestamp
+  // joined
+  partner_name?: string;
+  partner_company?: string;
+  referral_code?: string;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function formatPrice(kopecks: number): string {
