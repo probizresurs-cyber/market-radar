@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
 /**
- * T-39 — sitemap.xml for marketradar24.ru.
+ * Sitemap for marketradar24.ru.
  *
- * Only the single-page landing is real right now; the in-app routes
- * (`/dashboard`, etc.) live behind auth and should not be crawled.
- * Anchor sections on the landing aren't separate URLs, but we expose
- * them as hash-fragments so search engines can surface deep links.
+ * Includes the public marketing pages (landing, pricing, partners,
+ * express-report) and key in-page anchors for deep linking.
+ * In-app routes (`/admin`, `/owner-dashboard`, `/partner/*`, `/share/*`)
+ * live behind auth and are excluded.
  */
 const SITE_URL = "https://marketradar24.ru";
 
@@ -14,12 +14,33 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
   return [
+    // ── Public pages ────────────────────────────────────────────────────────
     {
       url: `${SITE_URL}/`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 1.0,
     },
+    {
+      url: `${SITE_URL}/pricing`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/partners`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/express-report`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+
+    // ── Landing anchors ─────────────────────────────────────────────────────
     {
       url: `${SITE_URL}/#features`,
       lastModified: now,
@@ -36,7 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${SITE_URL}/#pricing`,
       lastModified: now,
       changeFrequency: "weekly",
-      priority: 0.9,
+      priority: 0.8,
     },
     {
       url: `${SITE_URL}/#how`,
