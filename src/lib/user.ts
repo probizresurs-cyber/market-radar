@@ -1,5 +1,7 @@
 // ─── User account type ─────────────────────────────────────────────────────────
 
+import type { BusinessType } from "./business-types";
+
 export interface UserAccount {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ export interface UserAccount {
   tgNotifyCompetitors?: boolean;
   tgNotifyVacancies?: boolean;
   tgNotifyDigest?: boolean;
+  businessType?: BusinessType;
 }
 
 // ─── Niche competitor suggestions (used in onboarding) ─────────────────────────

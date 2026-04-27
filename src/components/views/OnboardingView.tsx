@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import { type UserAccount, NICHE_COMPETITORS, authSetCurrentUser } from "@/lib/user";
+import { BUSINESS_TYPES, type BusinessType } from "@/lib/business-types";
 
 export function OnboardingView({ c, user, onComplete }: {
   c: Colors;
@@ -11,7 +12,7 @@ export function OnboardingView({ c, user, onComplete }: {
 }) {
   void c;
   const [step, setStep] = useState(1);
-  const [niche, setNiche] = useState(user.niche || "");
+  const [businessType, setBusinessType] = useState<BusinessType | "">(user.businessType ?? "");
   const [companyName, setCompanyName] = useState(user.companyName || "");
   const [companyUrl, setCompanyUrl] = useState(user.companyUrl || "");
   const [vk, setVk] = useState("");
@@ -21,14 +22,9 @@ export function OnboardingView({ c, user, onComplete }: {
   const [customUrl, setCustomUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const niches = [
-    { id: "digital", icon: "💻", label: "Digital-агентство", desc: "SEO, контекст, SMM, разработка" },
-    { id: "clinic", icon: "🏥", label: "Клиника или салон", desc: "Медицина, красота, здоровье" },
-    { id: "b2b", icon: "🤝", label: "B2B-торговля или SaaS", desc: "Программное обеспечение, услуги" },
-    { id: "other", icon: "🏢", label: "Другое", desc: "Другая ниша или тип бизнеса" },
-  ];
-
-  const suggestions = niche ? (NICHE_COMPETITORS[niche] ?? []) : [];
+  // Map selected business type → niche competitor suggestions
+  const selectedBizConfig = BUSINESS_TYPES.find(t => t.id === businessType);
+  const suggestions = selectedBizConfig ? (NICHE_COMPETITORS[selectedBizConfig.nicheKey] ?? []) : [];
   const MAX_COMPETITORS = 30;
 
   const toggleCompetitor = (url: string) => {
@@ -51,8 +47,14 @@ export function OnboardingView({ c, user, onComplete }: {
 
   const handleFinish = () => {
     const updatedUser: UserAccount = {
-      ...user, niche, companyName: companyName.trim(), companyUrl: companyUrl.trim(),
-      vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hh.trim() || undefined,
+      ...user,
+      niche: selectedBizConfig?.nicheKey ?? "other",
+      businessType: businessType as BusinessType,
+      companyName: companyName.trim(),
+      companyUrl: companyUrl.trim(),
+      vk: vk.trim() || undefined,
+      tg: tg.trim() || undefined,
+      hhUrl: hh.trim() || undefined,
       onboardingDone: true,
     };
     authSetCurrentUser(updatedUser);
@@ -76,32 +78,41 @@ export function OnboardingView({ c, user, onComplete }: {
       </div>
 
       <div className="ds-card-elevated" style={{ width: "100%", maxWidth: 560 }}>
+        {/* ── Step 1: Business Type ── */}
         {step === 1 && (
           <>
-            <h2 className="ds-h2" style={{ margin: "0 0 6px" }}>Выберите вашу нишу</h2>
-            <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>Мы подберём конкурентов и настроим анализ под вашу отрасль</p>
+            <h2 className="ds-h2" style={{ margin: "0 0 6px" }}>Выберите тип бизнеса</h2>
+            <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>
+              Это настроит ИИ под вашу модель — анализ, рекомендации и акценты будут другими
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {niches.map(n => (
-                <div key={n.id} onClick={() => setNiche(n.id)}
+              {BUSINESS_TYPES.map(bt => (
+                <div key={bt.id} onClick={() => setBusinessType(bt.id)}
                   className="ds-card-interactive"
-                  style={{ border: `2px solid ${niche === n.id ? "var(--primary)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: 16, cursor: "pointer", background: niche === n.id ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", position: "relative" }}>
-                  {niche === n.id && (
+                  style={{
+                    border: `2px solid ${businessType === bt.id ? "var(--primary)" : "var(--border)"}`,
+                    borderRadius: "var(--radius)", padding: 16, cursor: "pointer",
+                    background: businessType === bt.id ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent",
+                    position: "relative",
+                  }}>
+                  {businessType === bt.id && (
                     <div style={{ position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>
                     </div>
                   )}
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{n.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{n.label}</div>
-                  <div className="ds-body-sm" style={{ color: "var(--muted-foreground)" }}>{n.desc}</div>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{bt.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{bt.label}</div>
+                  <div className="ds-body-sm" style={{ color: "var(--muted-foreground)" }}>{bt.desc}</div>
                 </div>
               ))}
             </div>
-            <button disabled={!niche} onClick={() => setStep(2)} className="ds-btn ds-btn-primary" style={{ marginTop: 20, width: "100%", height: 44, fontSize: 14 }}>
+            <button disabled={!businessType} onClick={() => setStep(2)} className="ds-btn ds-btn-primary" style={{ marginTop: 20, width: "100%", height: 44, fontSize: 14 }}>
               Далее →
             </button>
           </>
         )}
 
+        {/* ── Step 2: Company details ── */}
         {step === 2 && (
           <>
             <h2 className="ds-h2" style={{ margin: "0 0 6px" }}>Расскажите о компании</h2>
@@ -123,14 +134,19 @@ export function OnboardingView({ c, user, onComplete }: {
             {error && <div className="ds-badge ds-badge-destructive" style={{ display: "block", borderRadius: "var(--radius)", padding: "8px 12px", marginTop: 10 }}>{error}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
               <button onClick={() => { setError(null); setStep(1); }} className="ds-btn ds-btn-secondary" style={{ flex: 1 }}>← Назад</button>
-              <button onClick={() => { setError(null); if (!companyName.trim()) { setError("Введите название компании"); return; } if (!companyUrl.trim()) { setError("Введите URL сайта"); return; } setStep(3); }}
-                className="ds-btn ds-btn-primary" style={{ flex: 2, height: 44 }}>
+              <button onClick={() => {
+                setError(null);
+                if (!companyName.trim()) { setError("Введите название компании"); return; }
+                if (!companyUrl.trim()) { setError("Введите URL сайта"); return; }
+                setStep(3);
+              }} className="ds-btn ds-btn-primary" style={{ flex: 2, height: 44 }}>
                 Далее →
               </button>
             </div>
           </>
         )}
 
+        {/* ── Step 3: Competitors ── */}
         {step === 3 && (
           <>
             <h2 className="ds-h2" style={{ margin: "0 0 4px" }}>Выберите конкурентов</h2>
