@@ -40,6 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
         children: [
           { id: "competitors", icon: "Target", label: "Список конкурентов", count: null },
           { id: "compare", icon: "Scale", label: "Сравнение", count: null },
+          { id: "battle-cards", icon: "Swords", label: "Battle Cards", count: null },
         ],
       },
       {

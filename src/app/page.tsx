@@ -35,6 +35,7 @@ import { DashboardView } from "@/components/views/DashboardView";
 import { CompetitorsView } from "@/components/views/CompetitorsView";
 import { CompetitorProfileView } from "@/components/views/CompetitorProfileView";
 import { CompareView } from "@/components/views/CompareView";
+import { BattleCardsView } from "@/components/views/BattleCardsView";
 import { InsightsView } from "@/components/views/InsightsView";
 import { AIVisibilityView } from "@/components/views/AIVisibilityView";
 import { CompanyStyleView } from "@/components/views/CompanyStyleView";
@@ -1213,6 +1214,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
+        {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
         {activeNav === "content-style" && (
