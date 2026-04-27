@@ -6,9 +6,29 @@
 - [Тарифы и продукты](https://marketradar24.ru/pricing): 3-уровневая структура продуктов, промокод START, скидка 50% на первый месяц
 - [Экспресс-отчёт](https://marketradar24.ru/express-report): онлайн-аудит сайта по URL за 2 минуты, 5 категорий, инсайты, конкуренты
 - [Партнёрская программа](https://marketradar24.ru/partners): реферальная (20%) и интеграторская (до 50%) программы
+- [Блог](https://marketradar24.ru/blog): экспертные статьи о GEO, SEO, анализе конкурентов и ЦА
+- [Словарь терминов](https://marketradar24.ru/glossary): определения GEO, llms.txt, E-E-A-T, ICP, CJM, Battle Cards и др.
 - [GEO-продвижение](https://marketradar24.ru/#geo): оптимизация сайта под ответы нейросетей (ChatGPT, Claude, Gemini, Алиса)
 - [Как это работает](https://marketradar24.ru/#how): три шага до результата
 - [FAQ](https://marketradar24.ru/#faq): часто задаваемые вопросы (14 ответов)
+
+## Блог — ключевые статьи
+- [Что такое GEO-оптимизация и как начать в 2026](https://marketradar24.ru/blog/geo-optimization-2026)
+- [Что такое llms.txt и как его настроить — пошаговый гайд](https://marketradar24.ru/blog/llms-txt-guide)
+- [Как попасть в ответы ChatGPT, Claude и Алисы в 2026](https://marketradar24.ru/blog/get-into-chatgpt-claude-2026)
+- [Анализ конкурентов — пошаговая инструкция](https://marketradar24.ru/blog/competitor-analysis-step-by-step)
+- [Как определить целевую аудиторию для B2B](https://marketradar24.ru/blog/b2b-target-audience)
+
+## Словарь — ключевые термины
+- [GEO-оптимизация](https://marketradar24.ru/glossary/geo): оптимизация под ответы нейросетей
+- [llms.txt](https://marketradar24.ru/glossary/llms-txt): стандарт описания сайта для AI-моделей
+- [E-E-A-T](https://marketradar24.ru/glossary/eeat): Experience, Expertise, Authoritativeness, Trustworthiness
+- [Schema.org](https://marketradar24.ru/glossary/schema-org): структурированная разметка JSON-LD
+- [ICP](https://marketradar24.ru/glossary/icp): идеальный профиль клиента в B2B
+- [Customer Journey Map](https://marketradar24.ru/glossary/cjm): путь клиента на 7 этапов
+- [Battle Cards](https://marketradar24.ru/glossary/battle-cards): карточки по конкурентам для отдела продаж
+- [AI Overviews](https://marketradar24.ru/glossary/ai-overviews): AI-блок в выдаче Google
+- [Perplexity](https://marketradar24.ru/glossary/perplexity): AI-поисковик с цитированием источников
 
 ## Структура продуктов
 - **Бесплатный экспресс в Telegram** — 0 ₽. Отчёт в боте @market_radar1_bot за 2 минуты. Содержит общий Score, ключевые инсайты, 5 категорий оценки, базовое сравнение с конкурентами.
