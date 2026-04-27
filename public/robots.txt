@@ -1,4 +1,127 @@
+# MarketRadar — robots.txt
+# https://marketradar24.ru
+
+# ── Default rule ────────────────────────────────────────────────────────────
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /owner-dashboard
+Disallow: /partner/
+Disallow: /share/
+Disallow: /register
 
+# ── Search engines ──────────────────────────────────────────────────────────
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /owner-dashboard
+Disallow: /partner/
+Disallow: /share/
+
+User-agent: YandexBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /owner-dashboard
+Disallow: /partner/
+Disallow: /share/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /owner-dashboard
+Disallow: /partner/
+Disallow: /share/
+
+# ── AI crawlers (allow indexing of public pages) ────────────────────────────
+# OpenAI ChatGPT — answer-time browsing
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# OpenAI training crawler
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# OpenAI plugin / browse-the-web user agent
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# Anthropic Claude
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Google Gemini / Bard / AI Overviews
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# Yandex AI
+User-agent: YandexAdditional
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# Common Crawl (используется для обучения многих моделей)
+User-agent: CCBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /share/
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Meta AI
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# ── Sitemaps and AI-discovery files ─────────────────────────────────────────
 Sitemap: https://marketradar24.ru/sitemap.xml

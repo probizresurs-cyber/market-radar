@@ -150,18 +150,161 @@ const organizationSchema = {
   "@type": "Organization",
   name: "MarketRadar",
   url: SITE_URL,
+  logo: `${SITE_URL}/og-image.png`,
   description:
     "AI-платформа анализа бизнеса, конкурентов и видимости в нейросетях. Продукт экосистемы Company24.pro",
+  foundingDate: "2025",
+  areaServed: {
+    "@type": "Country",
+    name: "Россия",
+  },
+  knowsLanguage: "ru",
+  parentOrganization: {
+    "@type": "Organization",
+    name: "Company24.pro",
+    url: "https://company24.pro",
+  },
   sameAs: [
     "https://t.me/company24pro",
     "https://t.me/market_radar1_bot",
   ],
-  contactPoint: {
-    "@type": "ContactPoint",
-    contactType: "customer support",
-    availableLanguage: ["ru"],
-    url: "https://t.me/market_radar1_bot",
-  },
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      availableLanguage: ["ru"],
+      url: "https://t.me/market_radar1_bot",
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "sales",
+      availableLanguage: ["ru"],
+      email: "support@marketradar24.ru",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Что такое MarketRadar?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "MarketRadar — AI-платформа для российского рынка, которая автоматически анализирует компанию, её конкурентов, целевую аудиторию и видимость в нейросетях. За 3 минуты выдаёт полный отчёт с планом роста.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Что такое GEO-оптимизация?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "GEO (Generative Engine Optimization) — оптимизация сайта и контента под ответы нейросетей (ChatGPT, Claude, Gemini, Алиса, Яндекс.Нейро). Включает технические правки (schema.org, llms.txt), содержательные (структурированные ответы, факты с цитированием) и внешние сигналы (упоминания на авторитетных площадках).",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Как попасть в ответы ChatGPT в 2026?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Нужны три типа сигналов: технические (schema.org JSON-LD, llms.txt, разрешения для GPTBot/Google-Extended в robots.txt), содержательные (экспертные статьи с фактами, FAQ-разметка, цитируемые источники), внешние (упоминания на Habr, VC.ru, в СМИ).",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Сколько стоит MarketRadar?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Бесплатный экспресс-отчёт в Telegram — 0 ₽. Экспресс на сайте по промокоду START — 1 ₽. Полный отчёт + 30 дней в платформе — 2 900 ₽ (вместо 4 900 ₽). Подписки от 4 900 ₽/мес со скидкой 50% на первый месяц.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Как быстро готов отчёт?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Экспресс-отчёт — 2 минуты. Полный отчёт — 3 минуты для базовой версии, до 5–10 минут с глубокой аналитикой ЦА и CJM.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Откуда берутся данные в отчёте?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Из 40+ официальных API и публичных источников: Keys.so, DaData, hh.ru, Яндекс.Карты, 2ГИС, Google Places, Руспрофайл, ChatGPT, Claude. Каждое утверждение помечается как ФАКТ (с источником), AI-ГИПОТЕЗА (требует проверки) или ОЦЕНКА (расчёт по среднему).",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Что такое Battle Cards?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Battle Cards — компактные карточки по каждому конкуренту: сильные стороны, слабые стороны, типовые возражения от их клиентов и готовые контр-аргументы для отдела продаж. Формат A4 на конкурента, готовый к печати.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Поддерживается ли работа с агентствами?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Да. Тариф AGENCY предусматривает до 30 пользователей и неограниченное количество анализируемых компаний. Дополнительно — партнёрская программа Интегратора с прогрессивной шкалой комиссии до 50%.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Что входит в партнёрскую программу?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Два уровня: Реферал (20% с каждой оплаты привлечённого клиента, клиент получает 10% скидку) и Интегратор (прогрессивная шкала: 1–5 клиентов — 25%, 6–15 — 30%, 16–30 — 40%, 31+ — 50%). Выплаты ежемесячно на карту или расчётный счёт.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Данные хранятся на серверах в России?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Да. Платформа работает на российском VPS в Москве. Все данные хранятся на территории РФ согласно ФЗ-152 о персональных данных. На тарифе Enterprise — on-premise развёртывание внутри инфраструктуры клиента.",
+      },
+    },
+  ],
+};
+
+const softwareOfferSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "MarketRadar — экспресс-отчёт",
+  url: `${SITE_URL}/express-report`,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description: "Бесплатный экспресс-аудит сайта: общий Score, 5 категорий оценки (SEO, скорость, UX, доверие, контент), ключевые инсайты и сравнение с конкурентами за 2 минуты.",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "Бесплатный экспресс в Telegram",
+      price: "0",
+      priceCurrency: "RUB",
+      description: "Экспресс-отчёт через Telegram-бот @market_radar1_bot",
+      url: "https://t.me/market_radar1_bot",
+    },
+    {
+      "@type": "Offer",
+      name: "Экспресс-отчёт на сайте",
+      price: "1",
+      priceCurrency: "RUB",
+      description: "Экспресс-отчёт с сохранением на email и PDF, по промокоду START",
+      url: `${SITE_URL}/express-report`,
+    },
+    {
+      "@type": "Offer",
+      name: "Полный отчёт + 30 дней в платформе",
+      price: "2900",
+      priceCurrency: "RUB",
+      description: "Полный анализ: ЦА, CJM, брендбук, Battle Cards, мониторинг 24/7. Доступ на 30 дней.",
+      url: `${SITE_URL}/pricing`,
+    },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -198,7 +341,7 @@ export default function RootLayout({
             }
           } catch(e) {}
         `}</Script>
-        {/* Structured data — SoftwareApplication + Organization (JSON-LD) */}
+        {/* Structured data JSON-LD — read by Google AI Overviews, Яндекс.Нейро, ChatGPT Search */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
@@ -206,6 +349,14 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareOfferSchema) }}
         />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
