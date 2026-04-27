@@ -335,6 +335,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <a href="#geo" style={{ color: muted, textDecoration: "none" }}>Нейросети</a>
           <a href="#how" style={{ color: muted, textDecoration: "none" }}>Как работает</a>
           <a href="#pricing" style={{ color: muted, textDecoration: "none" }}>Тарифы</a>
+          <a href="/blog" style={{ color: muted, textDecoration: "none" }}>Блог</a>
+          <a href="/glossary" style={{ color: muted, textDecoration: "none" }}>Словарь</a>
           <a href="#faq" style={{ color: muted, textDecoration: "none" }}>FAQ</a>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
