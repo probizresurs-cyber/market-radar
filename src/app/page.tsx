@@ -37,6 +37,7 @@ import { CompetitorProfileView } from "@/components/views/CompetitorProfileView"
 import { CompareView } from "@/components/views/CompareView";
 import { BattleCardsView } from "@/components/views/BattleCardsView";
 import { InsightsView } from "@/components/views/InsightsView";
+import { AIChatWidget } from "@/components/ui/AIChatWidget";
 import { AIVisibilityView } from "@/components/views/AIVisibilityView";
 import { CompanyStyleView } from "@/components/views/CompanyStyleView";
 import { ReportsView } from "@/components/views/ReportsView";
@@ -1310,6 +1311,13 @@ export default function MarketRadarDashboard() {
         )}
       </main>
       </div>
+      {/* AI Chat Widget — floating, always visible when logged in */}
+      <AIChatWidget
+        myCompany={myCompany}
+        competitors={competitors}
+        taAnalysis={taAnalysis}
+        smmAnalysis={smmAnalysis}
+      />
     </div>
   );
 }
