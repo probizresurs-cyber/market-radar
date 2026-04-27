@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveChatId } from "@/lib/tgStore";
+import { canScan, recordScan, formatNextAllowed } from "@/lib/tg-scan-limiter";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
@@ -120,6 +121,15 @@ const URL_RECEIVED = (url: string) =>
   `💎 <b>За 1 ₽ по промокоду START</b> → ${SITE}/express-report?url=${encodeURIComponent(url)}\n\n` +
   `Результат откроется в браузере за 1–2 минуты.`;
 
+const SCAN_LIMIT_REACHED = (nextDate: string) =>
+  `⏳ <b>Лимит на месяц исчерпан</b>\n\n` +
+  `Бесплатный экспресс-аудит — 1 раз в месяц с одного аккаунта. ` +
+  `Следующее сканирование будет доступно с <b>${nextDate}</b>.\n\n` +
+  `Если нужен полный отчёт прямо сейчас — оформите экспресс на сайте за <b>1 ₽</b> по промокоду <code>START</code>:\n` +
+  `${SITE}/express-report\n\n` +
+  `Или полный анализ + 30 дней в платформе за 2 900 ₽:\n` +
+  `${SITE}/pricing`;
+
 const SITE_BUTTONS: InlineButton[][] = [
   [{ text: "🚀 Открыть MarketRadar", url: SITE }],
   [
@@ -192,7 +202,17 @@ export async function POST(req: NextRequest) {
       );
     } else if (extractUrl(text)) {
       const url = extractUrl(text)!;
-      await sendMessage(chatId, URL_RECEIVED(url), EXPRESS_BUTTONS);
+      // 1 scan per chat per calendar month — see src/lib/tg-scan-limiter.ts
+      const quota = await canScan(chatId);
+      if (!quota.allowed) {
+        const nextDate = quota.nextAllowedAt
+          ? formatNextAllowed(quota.nextAllowedAt)
+          : "следующего месяца";
+        await sendMessage(chatId, SCAN_LIMIT_REACHED(nextDate), PRICE_BUTTONS);
+      } else {
+        await recordScan(chatId, url);
+        await sendMessage(chatId, URL_RECEIVED(url), EXPRESS_BUTTONS);
+      }
     } else if (text.startsWith("/")) {
       // Unknown command
       await sendMessage(

@@ -32,6 +32,29 @@ export interface TADontWant {
   quote: string;
 }
 
+// Jungian archetype — one of the 12 classical brand archetypes.
+// Used in copywriting, visual style, and ToV generation.
+export type JungArchetype =
+  | "innocent"      // Простодушный — мечтает о гармонии и счастье
+  | "explorer"      // Искатель — ищет свободу и подлинность
+  | "sage"          // Мудрец — стремится к истине и пониманию
+  | "hero"          // Герой — преодолевает вызовы, доказывает себя
+  | "outlaw"        // Бунтарь — нарушает правила, разрушает старое
+  | "magician"      // Маг — превращает мечты в реальность
+  | "regular"       // Свой парень — ценит принадлежность и простоту
+  | "lover"         // Любовник — ищет близость и удовольствие
+  | "jester"        // Шут — живёт здесь и сейчас, любит юмор
+  | "caregiver"     // Заботливый — защищает и помогает другим
+  | "creator"       // Творец — создаёт новое, выражает себя
+  | "ruler";        // Правитель — контролирует, управляет, преуспевает
+
+export interface TAArchetype {
+  primary: JungArchetype;
+  secondary?: JungArchetype;
+  rationale: string;          // 1-2 sentences why this archetype fits the segment
+  manifestations: string[];   // 3-5 concrete behaviours/preferences
+}
+
 export interface TASegment {
   id: number;
   segmentName: string;
@@ -39,6 +62,7 @@ export interface TASegment {
   goldenReason?: string;     // почему этот сегмент приоритетный
   demographics: TADemographics;
   worldview: TAWorldview;
+  archetype?: TAArchetype;   // Юнг-архетип сегмента (опционально для совместимости)
 
   mainProblems: string[];
   topEmotions: string[];
