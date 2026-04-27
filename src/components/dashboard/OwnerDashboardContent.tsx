@@ -13,6 +13,11 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { ContentPlan, BrandBook } from "@/lib/content-types";
+import {
+  classifyMarketShare,
+  classifyCompetitorCounter,
+  classifyChartHistory,
+} from "@/lib/data-quality";
 
 // ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
 interface CJMTouchpoint { channel: string; action: string; icon: string }
@@ -168,8 +173,8 @@ function deriveStatus(score: number, myScore: number): CompetitorStatus {
 }
 
 // ─── Карточка метрики ──────────────────────────────────────────────────────
-function MetricCard({ p, label, value, change, positive, delayMs, suffix, neonColor }: {
-  p: Palette; label: string; value: number; change: string;
+function MetricCard({ p, label, value, valueOverride, change, positive, delayMs, suffix, neonColor }: {
+  p: Palette; label: string; value: number; valueOverride?: string; change: string;
   positive: boolean; delayMs: number; suffix?: string; neonColor?: string;
 }) {
   const animated = useCountUp(value, 1200, delayMs + 100);
@@ -182,7 +187,8 @@ function MetricCard({ p, label, value, change, positive, delayMs, suffix, neonCo
     <div className="mr-card mr-metric" style={{ animationDelay: `${delayMs}ms`, ...neonStyle }}>
       <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: neonColor ?? p.textTertiary, marginBottom: 10 }}>{label}</div>
       <div style={{ fontSize: 40, fontWeight: 800, color: neonColor ?? p.textPrimary, lineHeight: 1, marginBottom: 12, letterSpacing: -0.5 }}>
-        {animated}{suffix && <span style={{ fontSize: 22, fontWeight: 700, color: neonColor ? `${neonColor}CC` : p.textTertiary }}>{suffix}</span>}
+        {valueOverride ?? animated}
+        {!valueOverride && suffix && <span style={{ fontSize: 22, fontWeight: 700, color: neonColor ? `${neonColor}CC` : p.textTertiary }}>{suffix}</span>}
       </div>
       <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
         background: positive ? p.greenBg : p.redBg, color: positive ? p.green : p.red }}>
@@ -565,15 +571,24 @@ export function OwnerDashboardContent({
     const avgCompScore = competitors.length > 0
       ? Math.round(competitors.reduce((s, c) => s + c.company.score, 0) / competitors.length)
       : 0;
-    const marketShare = myScore > 0 && competitors.length > 0
-      ? Math.round((myScore / (myScore + avgCompScore * competitors.length)) * 100)
-      : 0;
+    const shareInfo = classifyMarketShare(myScore, avgCompScore, competitors.length);
+    // AI-suggested competitor names from Keys.so (per-engine arrays merged).
+    const yandexAiNames = myCompany?.keysoDashboard?.yandex?.competitors ?? [];
+    const googleAiNames = myCompany?.keysoDashboard?.google?.competitors ?? [];
+    const aiSuggestedNames = Array.from(new Set([...yandexAiNames, ...googleAiNames]));
+    const competitorCounter = classifyCompetitorCounter(
+      competitors.length,
+      aiSuggestedNames,
+    );
     const threats = buildThreats(myCompany, competitors);
     const activeThreats = threats.filter(t => t.level === "critical" || t.level === "warning").length;
     return {
       competitors: competitors.length,
+      competitorCounter,
       threats: activeThreats,
-      marketShare,
+      marketShare: shareInfo.numeric,         // for charts (fractional ok)
+      marketShareDisplay: shareInfo.display,  // "<1%", "12%"
+      marketCategory: shareInfo.categoryLabel, // "Микро-игрок"
       score: myScore,
     };
   }, [myCompany, competitors]);
@@ -596,32 +611,29 @@ export function OwnerDashboardContent({
   }, [myCompany, competitors]);
 
   // ─── Trend series ───────────────────────────────────────────────────────
+  // Score-history is collected by the monitoring cron (`/api/cron/refresh-scores`)
+  // and stored on AnalysisResult.scoreHistory. We only render the chart when
+  // there's at least 2 months of real data — otherwise show a placeholder.
+  // Mocking 6 months out of a single point made the chart show data from
+  // before the domain was even registered. See classifyChartHistory.
+  const chartStatus = useMemo(() => {
+    return classifyChartHistory(myCompany?.scoreHistory);
+  }, [myCompany?.scoreHistory]);
+
   const trendSeries = useMemo(() => {
-    if (!myCompany) return [];
-    const mk = (final: number, variance: number): number[] => {
-      const start = final - variance;
-      return Array.from({ length: 6 }, (_, i) => {
-        const t = i / 5;
-        return Math.round(start + (final - start) * (t * t * (3 - 2 * t)) + (Math.random() - 0.5) * 2);
-      });
-    };
+    if (!myCompany || !chartStatus.hasEnoughHistory) return [];
+    const points = (myCompany.scoreHistory ?? []).map((h) => h.score);
     const series: Array<{ name: string; color: string; points: number[]; dashed?: boolean }> = [];
-    series.push({
-      name: myCompany.company.name,
-      color: p.primary,
-      points: mk(myCompany.company.score, 10),
-    });
-    competitors.slice(0, 3).forEach(c => {
+    if (points.length > 0) {
       series.push({
-        name: c.company.name,
-        color: statusColor(p, deriveStatus(c.company.score, myCompany.company.score)),
-        points: mk(c.company.score, 12),
-        dashed: true,
+        name: myCompany.company.name,
+        color: p.primary,
+        points,
       });
-    });
+    }
     return series;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myCompany?.company.score, competitors.length, theme]);
+  }, [myCompany?.scoreHistory, theme, chartStatus.hasEnoughHistory]);
 
   const threats = useMemo(() => buildThreats(myCompany, competitors), [myCompany, competitors]);
   const aiRecs = useMemo(() => (myCompany?.recommendations ?? []).slice(0, 3), [myCompany]);
@@ -813,9 +825,27 @@ export function OwnerDashboardContent({
             <>
               {/* Metrics */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }} className="mr-metrics-grid">
-                <MetricCard p={p} label="Конкуренты" value={metrics.competitors} change={metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет"} positive delayMs={100} neonColor="#4FC3F7" />
+                <MetricCard
+                  p={p}
+                  label="Конкуренты"
+                  value={metrics.competitors}
+                  change={metrics.competitorCounter.hint
+                    ?? (metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет")}
+                  positive
+                  delayMs={100}
+                  neonColor="#4FC3F7"
+                />
                 <MetricCard p={p} label="Угрозы" value={metrics.threats} change={metrics.threats > 0 ? `${metrics.threats} активных` : "всё спокойно"} positive={metrics.threats === 0} delayMs={250} neonColor="#FF5252" />
-                <MetricCard p={p} label="Ваша доля" value={metrics.marketShare} change="оценка рынка" positive delayMs={400} suffix="%" neonColor="#69FF47" />
+                <MetricCard
+                  p={p}
+                  label="Ваша доля"
+                  valueOverride={metrics.marketShareDisplay}
+                  value={metrics.marketShare}
+                  change={metrics.marketCategory}
+                  positive
+                  delayMs={400}
+                  neonColor="#69FF47"
+                />
                 <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" />
               </div>
 
@@ -829,12 +859,31 @@ export function OwnerDashboardContent({
                     ))}
                   </div>
 
-                  {trendSeries.length > 0 && (
-                    <div className="mr-chart-wrap" style={{ marginTop: 28, animationDelay: "1000ms" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary, marginBottom: 12 }}>Динамика позиций</div>
+                  <div className="mr-chart-wrap" style={{ marginTop: 28, animationDelay: "1000ms" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary, marginBottom: 12 }}>Динамика позиций</div>
+                    {chartStatus.hasEnoughHistory && trendSeries.length > 0 ? (
                       <TrendChart p={p} series={trendSeries} />
-                    </div>
-                  )}
+                    ) : (
+                      <div style={{
+                        padding: "32px 20px",
+                        background: p.bgSecondary,
+                        borderRadius: 12,
+                        border: `1px dashed ${p.borderSecondary}`,
+                        textAlign: "center",
+                        color: p.textTertiary,
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                      }}>
+                        <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.55 }}>📈</div>
+                        <div style={{ fontWeight: 600, color: p.textSecondary, marginBottom: 4 }}>
+                          Собираем данные мониторинга
+                        </div>
+                        <div>
+                          {chartStatus.placeholder ?? "График появится через 4–6 недель."}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Ключевые инсайты — закрывают пустое место под графиком */}
                   {keyInsights.length > 0 && (
@@ -900,7 +949,7 @@ export function OwnerDashboardContent({
                     <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Распределение рынка</div>
                     <DonutChart p={p} segments={marketDonut}
                       centerLabel="Ваша доля"
-                      centerValue={`${metrics.marketShare}%`} />
+                      centerValue={metrics.marketShareDisplay} />
                   </div>
                   <div className="mr-card" style={{ padding: 24, animationDelay: "1800ms" }}>
                     <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Прогноз ниши</div>

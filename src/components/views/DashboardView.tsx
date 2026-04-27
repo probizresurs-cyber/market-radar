@@ -11,6 +11,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { classifyRevenue } from "@/lib/data-quality";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
@@ -466,20 +467,48 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
                   if (colonIdx > -1) legalFields.push({ label: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() });
                 });
               }
-              const mainRows = [
-                { label: "Сотрудников", value: data.business?.employees ?? "—" },
-                { label: "Выручка / год", value: data.business?.revenue ?? "—" },
-                { label: "Основана", value: data.business?.founded ?? "—" },
+              const revenueClass = classifyRevenue(data.business?.revenue);
+              const employeesValue = data.business?.employees ?? "—";
+              const employeesIsRange = /\b\d+\s*[-–—]\s*\d+\b/.test(employeesValue);
+              const foundedValue = data.business?.founded ?? "—";
+              const foundedIsApprox = /[~≈]/.test(foundedValue);
+              const mainRows: Array<{
+                label: string;
+                value: string;
+                quality?: "real" | "estimate";
+              }> = [
+                {
+                  label: "Сотрудников",
+                  value: employeesValue,
+                  quality: employeesValue === "—" ? undefined : employeesIsRange ? "estimate" : "real",
+                },
+                ...(revenueClass
+                  ? [{
+                      label: "Выручка / год",
+                      value: revenueClass.value,
+                      quality: revenueClass.quality === "estimate" ? "estimate" as const : "real" as const,
+                    }]
+                  : [{ label: "Выручка / год", value: "—" }]),
+                {
+                  label: "Основана",
+                  value: foundedValue,
+                  quality: foundedValue === "—" ? undefined : foundedIsApprox ? "estimate" : "real",
+                },
                 { label: "Форма", value: data.business?.legalForm ?? "—" },
-                ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases) }] : []),
+                ...(data.business?.courtCases !== undefined ? [{ label: "Арб. дела", value: String(data.business.courtCases), quality: "real" as const }] : []),
                 ...legalFields,
               ];
               return (
                 <>
-                  {mainRows.map(({ label, value }) => (
+                  {mainRows.map(({ label, value, quality }) => (
                     <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid var(--muted)`, fontSize: 13 }}>
                       <span style={{ color: "var(--foreground-secondary)", flexShrink: 0 }}>{label}</span>
-                      <span style={{ fontWeight: 600, color: "var(--foreground)", textAlign: "right", wordBreak: "break-word", maxWidth: "65%" }}>{value}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "65%" }}>
+                        <span style={{ fontWeight: 600, color: "var(--foreground)", textAlign: "right", wordBreak: "break-word" }}>{value}</span>
+                        {quality === "estimate" && value !== "—" && (
+                          <DataBadge variant="estimate" compact title="Диапазон оценки. Для точных цифр подключите интеграцию с Руспрофайлом или укажите вручную." />
+                        )}
+                      </span>
                     </div>
                   ))}
                   {data.business?.rusprofileUrl && (

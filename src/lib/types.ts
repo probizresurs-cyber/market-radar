@@ -202,4 +202,9 @@ export interface AnalysisResult {
     timeframe: string;
   };
   aiPerception: AiPerception;
+  // Score history collected by /api/cron/refresh-scores. Each entry is
+  // an ISO timestamp + the overall score at that moment. The dashboard
+  // chart only renders when we have at least 2 calendar months of data —
+  // otherwise it shows a "Собираем данные" placeholder.
+  scoreHistory?: Array<{ capturedAt: string; score: number }>;
 }

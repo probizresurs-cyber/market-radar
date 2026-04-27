@@ -3,13 +3,29 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
-import type { TAResult, TAAudienceType } from "@/lib/ta-types";
+import type { TAResult, TAAudienceType, JungArchetype } from "@/lib/ta-types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { DataBadge } from "@/components/ui/DataBadge";
 import {
   Brain, Rocket, User, Globe, Zap, AlertTriangle, Flame, Ban,
   RefreshCw, Sparkles, Target, Loader2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
+
+// Russian labels for the 12 Jungian archetypes used in TA segments.
+const ARCHETYPE_LABELS: Record<JungArchetype, string> = {
+  innocent:  "Простодушный",
+  explorer:  "Искатель",
+  sage:      "Мудрец",
+  hero:      "Герой",
+  outlaw:    "Бунтарь",
+  magician:  "Маг",
+  regular:   "Свой парень",
+  lover:     "Любовник",
+  jester:    "Шут",
+  caregiver: "Заботливый",
+  creator:   "Творец",
+  ruler:     "Правитель",
+};
 
 export function NewTAView({ c, myCompany, isAnalyzing, existingTypes = [], onAnalyze }: {
   c: Colors; myCompany: AnalysisResult | null;
@@ -373,8 +389,49 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
         </div>
       </CollapsibleSection>
 
+      {/* Archetype */}
+      {seg.archetype && (
+        <CollapsibleSection c={c} title="Архетип по Юнгу" icon={<Sparkles size={16} />}>
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{
+                fontSize: 13, fontWeight: 700, padding: "5px 12px",
+                borderRadius: 999, background: "var(--primary)15",
+                border: "1px solid var(--primary)40", color: "var(--primary)",
+              }}>
+                {ARCHETYPE_LABELS[seg.archetype.primary] ?? seg.archetype.primary}
+              </div>
+              {seg.archetype.secondary && (
+                <div style={{
+                  fontSize: 12, fontWeight: 600, padding: "4px 10px",
+                  borderRadius: 999, background: "var(--muted)",
+                  color: "var(--foreground-secondary)",
+                }}>
+                  + {ARCHETYPE_LABELS[seg.archetype.secondary] ?? seg.archetype.secondary}
+                </div>
+              )}
+              <DataBadge variant="ai" compact title="Архетип определён AI на основе характеристик сегмента." />
+            </div>
+            <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.65, margin: "0 0 14px" }}>
+              {seg.archetype.rationale}
+            </p>
+            {seg.archetype.manifestations.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>КАК АРХЕТИП ПРОЯВЛЯЕТСЯ В ВЫБОРАХ</div>
+                {seg.archetype.manifestations.map((m, i) => <ListItem key={i} text={m} icon="→" />)}
+              </>
+            )}
+          </Card>
+        </CollapsibleSection>
+      )}
+
       {/* Fears */}
-      <CollapsibleSection c={c} title="Страхи (те, что не признают вслух)" icon={<AlertTriangle size={16} />}>
+      <CollapsibleSection
+        c={c}
+        title="Страхи (те, что не признают вслух)"
+        icon={<AlertTriangle size={16} />}
+        extra={<DataBadge variant="ai" compact title="Страхи — гипотеза AI на основе архетипа. Рекомендуем проверить в CustDev." />}
+      >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 12, letterSpacing: "0.05em" }}>ТОП-5 СТРАХОВ</div>
@@ -386,7 +443,13 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
           </Card>
         </div>
         <Card style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>БОЛЕЗНЕННЫЕ ФРАЗЫ КОТОРЫЕ СЛЫШИТ КЛИЕНТ</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>ВЕРОЯТНЫЕ ФОРМУЛИРОВКИ КЛИЕНТА</div>
+            <DataBadge variant="ai" compact title="Литературные формулировки — гипотезы AI. Сверьте с реальными цитатами CustDev." />
+          </div>
+          <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: "0 0 12px" }}>
+            Используйте как чек-лист для интервью: какие из этих фраз клиенты говорят сами, а какие — AI выдумал.
+          </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
             {seg.painfulPhrases.map((p, i) => <QuoteBlock key={i} text={p.text} from={p.from} />)}
           </div>
@@ -444,7 +507,12 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
       </CollapsibleSection>
 
       {/* Magic transformation */}
-      <CollapsibleSection c={c} title="Волшебная трансформация" icon={<Sparkles size={16} />}>
+      <CollapsibleSection
+        c={c}
+        title="Волшебная трансформация"
+        icon={<Sparkles size={16} />}
+        extra={<DataBadge variant="ai" compact title="Трансформация — гипотеза AI. Реальные результаты клиентов могут отличаться." />}
+      >
         <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, var(--success)08 100%)` }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", marginBottom: 12, letterSpacing: "0.05em" }}>ИДЕАЛЬНЫЙ РЕЗУЛЬТАТ</div>
           <p style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.7, margin: "0 0 16px" }}>{seg.magicTransformation}</p>
@@ -460,7 +528,12 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
       </CollapsibleSection>
 
       {/* Market & Objections */}
-      <CollapsibleSection c={c} title="Рынок и возражения" icon={<Target size={16} />}>
+      <CollapsibleSection
+        c={c}
+        title="Рынок и возражения"
+        icon={<Target size={16} />}
+        extra={<DataBadge variant="ai" compact title="Возражения — гипотеза AI. Сверьте с реальными возражениями из звонков продаж." />}
+      >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           <Card>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>ЧТО ДОЛЖЕН УВИДЕТЬ РЫНОК</div>
