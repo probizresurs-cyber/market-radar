@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice, AiPerception } from "./types";
+import type { BusinessType } from "./business-types";
+import { buildBusinessTypePromptHint } from "./business-types";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -43,13 +45,16 @@ function safeNum(v: unknown, fallback = 0): number {
   return isFinite(n) ? n : fallback;
 }
 
-export async function analyzeWithClaude(data: ScrapedData): Promise<AnalysisResult & { _usage?: { inputTokens: number; outputTokens: number } }> {
+export async function analyzeWithClaude(data: ScrapedData, businessType?: BusinessType): Promise<AnalysisResult & { _usage?: { inputTokens: number; outputTokens: number } }> {
   const socialList = Object.keys(data.socialLinks);
   const altCoverage = data.imageCount > 0 ? Math.round((data.imagesWithAlt / data.imageCount) * 100) : 0;
+
+  const businessTypeHint = buildBusinessTypePromptHint(businessType);
 
   const prompt = `Ты эксперт по цифровому маркетингу, SEO и конкурентному анализу для российского рынка.
 Проанализируй сайт по собранным данным и верни ТОЛЬКО валидный JSON без markdown и без пояснений.
 Если данных не хватает — делай обоснованные экспертные оценки по типу и нише бизнеса.
+${businessTypeHint}
 
 === ДАННЫЕ САЙТА: ${data.url} ===
 HTTPS: ${data.isHttps ? "да" : "нет"}

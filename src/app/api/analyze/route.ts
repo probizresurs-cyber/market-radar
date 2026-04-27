@@ -3,6 +3,7 @@ import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import type { BusinessType } from "@/lib/business-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,10 +14,12 @@ export async function POST(request: NextRequest) {
   if (!access.allowed) return access.response;
 
   let url: string;
+  let businessType: BusinessType | undefined;
 
   try {
     const body = await request.json();
     url = (body.url ?? "").toString().trim();
+    businessType = body.businessType as BusinessType | undefined;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request body" }, { status: 400 });
   }
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
     const domainDataPromise = enrichDomainData(cleanDomain, scraped.socialLinks);
 
     // 2. AI analysis (Claude) — самая долгая операция, пока она идет, собираются данные по домену
-    const rawResult = await analyzeWithClaude(scraped);
+    const rawResult = await analyzeWithClaude(scraped, businessType);
     const { _usage, ...result } = rawResult;
     const promptTokens = _usage?.inputTokens ?? 0;
     const completionTokens = _usage?.outputTokens ?? 0;

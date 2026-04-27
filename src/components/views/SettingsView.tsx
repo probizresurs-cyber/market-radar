@@ -6,6 +6,7 @@ import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
 import { loadWhiteLabel, saveWhiteLabel, ACCENT_PRESETS, type WhiteLabelConfig } from "@/lib/whitelabel";
+import { BUSINESS_TYPES, type BusinessType } from "@/lib/business-types";
 
 interface SubState {
   plan: string;
@@ -49,12 +50,6 @@ function plural(n: number, one: string, few: string, many: string): string {
   return many;
 }
 
-const NICHE_LABELS: Record<string, string> = {
-  digital: "Digital-агентство",
-  clinic: "Клиника или салон",
-  b2b: "B2B-торговля или SaaS",
-  other: "Другое",
-};
 
 export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c: Colors; user?: UserAccount | null; onUpdateUser?: (u: UserAccount) => void; onWhiteLabelChange?: (cfg: WhiteLabelConfig) => void }) {
   const [tab, setTab] = useState<"profile" | "subscription" | "notifications" | "whitelabel">("profile");
@@ -65,6 +60,7 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
   const [vk, setVk] = useState(user?.vk || "");
   const [tg, setTg] = useState(user?.tg || "");
   const [hhUrl, setHhUrl] = useState(user?.hhUrl || "");
+  const [businessType, setBusinessType] = useState<BusinessType | "">(user?.businessType ?? "");
   const [saved, setSaved] = useState(false);
   const [sub, setSub] = useState<SubState | null>(null);
   const [subLoading, setSubLoading] = useState(false);
@@ -90,7 +86,17 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
 
   const handleSave = () => {
     if (!user) return;
-    const updated: UserAccount = { ...user, name: name.trim(), phone: phone.trim() || undefined, companyName: companyName.trim() || undefined, companyUrl: companyUrl.trim() || undefined, vk: vk.trim() || undefined, tg: tg.trim() || undefined, hhUrl: hhUrl.trim() || undefined };
+    const updated: UserAccount = {
+      ...user,
+      name: name.trim(),
+      phone: phone.trim() || undefined,
+      companyName: companyName.trim() || undefined,
+      companyUrl: companyUrl.trim() || undefined,
+      vk: vk.trim() || undefined,
+      tg: tg.trim() || undefined,
+      hhUrl: hhUrl.trim() || undefined,
+      businessType: (businessType || undefined) as BusinessType | undefined,
+    };
     authSetCurrentUser(updated);
     onUpdateUser?.(updated);
     setSaved(true);
@@ -126,16 +132,10 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
 
       {tab === "profile" && (
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
-          {/* Read-only: email + niche */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20, padding: "14px 16px", borderRadius: 10, background: "var(--background)", border: `1px solid var(--muted)` }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 3 }}>Email</div>
-              <div style={{ fontSize: 14, color: "var(--foreground)" }}>{user?.email || "—"}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 3 }}>Ниша</div>
-              <div style={{ fontSize: 14, color: "var(--foreground)" }}>{user?.niche ? NICHE_LABELS[user.niche] ?? user.niche : "—"}</div>
-            </div>
+          {/* Read-only: email */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 10, background: "var(--background)", border: `1px solid var(--muted)` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 3 }}>Email</div>
+            <div style={{ fontSize: 14, color: "var(--foreground)" }}>{user?.email || "—"}</div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -164,6 +164,32 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
                   style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
               </div>
             ))}
+
+            {/* Business Type */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginTop: 4 }}>ТИП БИЗНЕСА</div>
+            <div>
+              <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 10px" }}>
+                Влияет на акценты ИИ-анализа, рекомендации и инсайты. Применяется при следующем анализе.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {BUSINESS_TYPES.map(bt => (
+                  <div key={bt.id} onClick={() => setBusinessType(bt.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", borderRadius: 10, cursor: "pointer",
+                      border: `2px solid ${businessType === bt.id ? "var(--primary)" : "var(--border)"}`,
+                      background: businessType === bt.id ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent",
+                      transition: "all 0.15s",
+                    }}>
+                    <span style={{ fontSize: 20 }}>{bt.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: businessType === bt.id ? "var(--primary)" : "var(--foreground)" }}>{bt.label}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{bt.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Social */}
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginTop: 4 }}>СОЦСЕТИ</div>
