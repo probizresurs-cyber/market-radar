@@ -23,6 +23,7 @@ const PTABS = [
   { href: "/partner", label: "Дашборд" },
   { href: "/partner/clients", label: "Клиенты" },
   { href: "/partner/payouts", label: "Выплаты" },
+  { href: "/partner/certification", label: "Сертификация 🏆" },
 ];
 
 export default function PartnerClients() {
