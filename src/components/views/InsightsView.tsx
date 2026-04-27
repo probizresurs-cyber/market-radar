@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Search, Rocket, Swords, PenLine, Target, AlertTriangle, TrendingUp } from "lucide-react";
+import { OrderCTA } from "@/components/ui/OrderCTA";
 
 export function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const typeConfig: Record<string, { icon: React.ReactElement; label: string; color: string }> = {
@@ -33,9 +34,12 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
           const cfg = typeConfig[ins.type] ?? typeConfig.action;
           return (
             <div key={i} style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 18, boxShadow: "var(--shadow)", borderLeft: `4px solid ${cfg.color}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ color: cfg.color, display: "inline-flex" }}>{cfg.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.color + "15", padding: "2px 9px", borderRadius: 6 }}>{cfg.label}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: cfg.color, display: "inline-flex" }}>{cfg.icon}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.color + "15", padding: "2px 9px", borderRadius: 6 }}>{cfg.label}</span>
+                </div>
+                <OrderCTA category={ins.type} text={`${ins.title} ${ins.text}`} compact />
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", marginBottom: 5 }}>{ins.title}</div>
               <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>{ins.text}</div>

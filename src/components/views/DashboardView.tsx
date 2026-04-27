@@ -11,6 +11,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { OrderCTA } from "@/components/ui/OrderCTA";
 import { classifyRevenue } from "@/lib/data-quality";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
@@ -238,14 +239,17 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
           {recommendations.map((rec, i) => {
             const dotColor = rec.priority === "high" ? "var(--destructive)" : rec.priority === "medium" ? "var(--warning)" : "var(--success)";
             return (
-              <div key={i} style={{ display: "flex", alignItems: "stretch", padding: "14px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none", gap: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, width: "50%", paddingRight: 16 }}>
+              <div key={i} style={{ display: "flex", alignItems: "stretch", padding: "12px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none", gap: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, width: "45%", paddingRight: 16 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.45 }}>{rec.text}</span>
                 </div>
                 <div style={{ width: 1, background: "var(--muted)", flexShrink: 0 }} />
-                <div style={{ width: "50%", paddingLeft: 16, display: "flex", alignItems: "center" }}>
+                <div style={{ width: "40%", paddingLeft: 16, display: "flex", alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: "var(--success)", lineHeight: 1.4 }}>{rec.effect}</span>
+                </div>
+                <div style={{ width: "15%", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  <OrderCTA category={rec.category} text={rec.text} />
                 </div>
               </div>
             );
