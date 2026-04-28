@@ -142,7 +142,19 @@ export interface AnalysisResult {
     estimatedTraffic: string;
     positions: SeoPosition[];
     issues: string[];
-    lighthouseScores?: { performance: number; seo: number; accessibility: number };
+    lighthouseScores?: {
+      performance: number;
+      seo: number;
+      accessibility: number;
+      bestPractices?: number;
+      // Core Web Vitals
+      lcp?: { value: number; display: string; score: number };   // Largest Contentful Paint
+      fcp?: { value: number; display: string; score: number };   // First Contentful Paint
+      cls?: { value: number; display: string; score: number };   // Cumulative Layout Shift
+      tbt?: { value: number; display: string; score: number };   // Total Blocking Time
+      si?:  { value: number; display: string; score: number };   // Speed Index
+      tti?: { value: number; display: string; score: number };   // Time to Interactive
+    };
     firstArchiveDate?: string;
     archiveAgeYears?: number;
     googlePositions?: SeoPosition[];
