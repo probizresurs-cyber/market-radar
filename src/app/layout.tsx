@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono, Playfair_Display, Montserrat, Nunito, Merriweather } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { DeploymentRefresher } from "@/components/DeploymentRefresher";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -359,7 +360,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareOfferSchema) }}
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <DeploymentRefresher />
+        {children}
+      </body>
     </html>
   );
 }
