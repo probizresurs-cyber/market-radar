@@ -58,7 +58,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const els = document.querySelectorAll<HTMLElement>(".lp-reveal");
+    const els = document.querySelectorAll<HTMLElement>(".lp-reveal, .lp-reveal-s");
     if (!els.length) return;
     if (prefersReduced) {
       els.forEach(el => el.classList.add("lp-reveal-in"));
@@ -73,7 +73,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           }
         });
       },
-      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" },
+      { threshold: 0.10, rootMargin: "0px 0px -40px 0px" },
     );
     els.forEach(el => io.observe(el));
     return () => io.disconnect();
@@ -86,7 +86,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const isDark = theme === "dark";
   const bg = isDark ? "#0a0b0f" : "#ffffff";
   const fg = isDark ? "#f1f5f9" : "#0f172a";
-  const muted = isDark ? "#64748b" : "#64748b";
+  const muted = isDark ? "#94a3b8" : "#64748b";  // brighter in dark mode
   const card = isDark ? "#111318" : "#f8fafc";
   const border = isDark ? "#1e2433" : "#e2e8f0";
   const accent = "#6366f1";
@@ -249,9 +249,19 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         /* Scroll-revealed entry — triggered via IntersectionObserver.
            Uses an animation (not transition) so per-element stagger via
            animation-delay doesn't interfere with hover transitions. */
-        @keyframes lp-reveal { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        .lp-reveal { opacity: 0; }
-        .lp-reveal.lp-reveal-in { animation: lp-reveal 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        @keyframes lp-reveal        { from { opacity: 0; transform: translateY(28px); }              to { opacity: 1; transform: translateY(0); } }
+        @keyframes lp-reveal-left   { from { opacity: 0; transform: translateX(-22px); }             to { opacity: 1; transform: translateX(0); } }
+        @keyframes lp-reveal-scale  { from { opacity: 0; transform: scale(0.92) translateY(14px); }  to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes lp-reveal-spring {
+          0%   { opacity: 0; transform: translateY(32px) scale(0.96); }
+          55%  { opacity: 1; transform: translateY(-6px) scale(1.01); }
+          75%  { transform: translateY(3px) scale(0.995); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        .lp-reveal        { opacity: 0; }
+        .lp-reveal-s      { opacity: 0; }
+        .lp-reveal.lp-reveal-in   { animation: lp-reveal        0.62s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        .lp-reveal-s.lp-reveal-in { animation: lp-reveal-spring 0.7s  cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 
         /* ── Neon glow ring that breathes ── */
         @keyframes lp-neon-pulse {
@@ -384,8 +394,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
 
           {/* H1 — SEO-критичный заголовок, растянут на всю ширину */}
-          <h1 style={{ fontSize: "clamp(38px,6.4vw,76px)", fontWeight: 900, lineHeight: 1.04, margin: "0 auto 26px", maxWidth: 1100, letterSpacing: "-0.035em" }}>
-            Узнайте, где вы теряете клиентов{" "}
+          <h1 style={{ fontSize: "clamp(36px,6.2vw,74px)", fontWeight: 900, lineHeight: 1.06, margin: "0 auto 26px", maxWidth: 1080, letterSpacing: "-0.035em" }}>
+            Пока вы читаете это —{" "}
             <span
               className="lp-gradient-text"
               style={{
@@ -396,13 +406,15 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 display: "inline-block",
               }}
             >
-              и где можете зарабатывать больше
+              конкуренты анализируют ваш рынок
             </span>
           </h1>
 
-          <p style={{ fontSize: 18, color: muted, maxWidth: 760, margin: "0 auto 36px", lineHeight: 1.6 }}>
-            MarketRadar просканирует ваш бизнес, конкурентов и рынок за 3 минуты.
-            Отчёт на 30+ страниц с планом роста — без дорогих исследований за 300 тысяч и недель ожидания.
+          <p style={{ fontSize: 19, color: isDark ? "#cbd5e1" : "#334155", maxWidth: 780, margin: "0 auto 14px", lineHeight: 1.6, fontWeight: 400 }}>
+            MarketRadar сканирует <strong style={{ color: fg }}>40+ источников</strong> за 3 минуты: SEO, карты, отзывы, вакансии, видимость в ChatGPT.
+          </p>
+          <p style={{ fontSize: 15, color: muted, maxWidth: 680, margin: "0 auto 30px", lineHeight: 1.6 }}>
+            Получите отчёт на 30+ страниц с готовым планом роста — вместо агентского счёта на 300 000 ₽ и месяца ожидания.
           </p>
 
           {/* T-03 + T-04 — Primary CTA: URL form + inline price block */}
@@ -499,45 +511,46 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </p>
         </div>
 
-        {/* T-15 — бегущая строка ниш (перемещена сюда, т.к. появляется после hero) */}
-        <div className="lp-reveal" style={{ marginBottom: 44, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: "22px 0", overflow: "hidden", position: "relative", marginLeft: "-20px", marginRight: "-20px" }}>
+        {/* T-15 — бегущая строка ниш */}
+        <div className="lp-reveal" style={{ marginBottom: 44, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: "20px 0", overflow: "hidden", position: "relative", marginLeft: "-20px", marginRight: "-20px" }}>
           <div
             style={{
               display: "flex",
-              gap: 36,
+              gap: 0,
               whiteSpace: "nowrap",
-              animation: "lp-marquee 65s linear infinite",
-              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%)",
-              maskImage: "linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+              animation: "lp-marquee 70s linear infinite",
+              animationDelay: "-35s",          /* start mid-stream so it looks alive on load */
+              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%)",
+              maskImage: "linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%)",
             }}
           >
-            {[...Array(2)].map((_, dup) => (
-              <div key={dup} style={{ display: "flex", gap: 36, flexShrink: 0 }}>
+            {[...Array(3)].map((_, dup) => (
+              <div key={dup} style={{ display: "flex", gap: 0, flexShrink: 0 }}>
                 {[
-                  "интернет-магазины", "маркетплейсы", "одежда", "косметика", "мебель",
-                  "рестораны", "кафе", "гостиницы", "салоны красоты", "фитнес-клубы",
-                  "стоматологии", "клиники", "косметологии", "языковые школы",
-                  "онлайн-курсы", "застройщики", "ремонт квартир", "автосервисы",
-                  "digital-агентства", "юридические услуги",
+                  "ecommerce", "SaaS / PaaS", "логистика", "FinTech", "медтех", "EdTech",
+                  "B2B-дистрибуция", "ритейл-сети", "HR-tech", "PropTech", "телемедицина",
+                  "IT-аутсорс", "кибербезопасность", "digital-агентства", "промышленность",
+                  "застройщики", "автодилеры", "юридический сервис", "консалтинг", "страхование",
+                  "агрохолдинги", "CleanTech", "маркетплейсы", "LegalTech",
                 ].map((niche, i) => (
-                  <span key={`${dup}-${i}`} style={{ fontSize: 16, color: muted, letterSpacing: "-0.01em", display: "inline-flex", alignItems: "center", gap: 36 }}>
+                  <span key={`${dup}-${i}`} style={{ fontSize: 15, color: muted, letterSpacing: "0em", display: "inline-flex", alignItems: "center", padding: "0 22px" }}>
                     {niche}
-                    <span style={{ width: 3, height: 3, borderRadius: "50%", background: accent }} />
+                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: `${accent}80`, marginLeft: 22, display: "inline-block" }} />
                   </span>
                 ))}
               </div>
             ))}
           </div>
-          <style>{`@keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+          <style>{`@keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }`}</style>
           <div style={{ textAlign: "center", fontSize: 12.5, color: muted, marginTop: 14 }}>
-            Анализируем более 80 ниш бизнеса. AI автоматически определяет специфику вашей.
+            Анализируем 80+ ниш бизнеса — AI автоматически определяет специфику вашей.
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 18 }}>
           {featureCategories.map(({ icon, title, desc, ac }, i) => (
             <div
               key={title}
-              className="lp-card lp-reveal"
+              className="lp-card lp-reveal-s"
               style={{
                 background: card,
                 borderRadius: 20,
@@ -573,8 +586,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   boxShadow: `0 0 20px ${ac}35, inset 0 0 12px ${ac}20`,
                 }}
               >{icon}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em" }}>{title}</div>
-              <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>{desc}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em", color: fg }}>{title}</div>
+              <div style={{ fontSize: 14, color: muted, lineHeight: 1.65 }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -603,7 +616,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           ].map(({ icon, title, desc, color }, i) => (
             <div
               key={title}
-              className="lp-card lp-reveal"
+              className="lp-card lp-reveal-s"
               style={{ background: card, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 20px", animationDelay: `${i * 80}ms` }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = `${color}55`;
@@ -638,7 +651,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[
-              "20–40 часов каждый месяц (ваше время стоит денег)",
+              "150 000–300 000 ₽ агентству — и ждать результата 3–4 недели",
+              "20–40 часов в месяц сотрудника на сбор данных вручную",
               "Данные устаревают через неделю после сбора",
               "Нет анализа — только цифры, выводы делаете сами",
               "Нет сравнения с ТОП-10% ниши",
@@ -886,7 +900,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           ].map(({ n, icon, title, desc, color, screen }, i) => (
             <div
               key={n}
-              className="lp-card lp-reveal"
+              className="lp-card lp-reveal-s"
               style={{
                 background: card,
                 borderRadius: 20,
