@@ -38,23 +38,21 @@ const NICHES = [
   "Другое",
 ];
 
-const LLM_META: Record<LLMName, { label: string; color: string; bg: string }> = {
-  yandex:     { label: "YandexGPT",  color: "#ef4444", bg: "#ef444415" },
-  giga:       { label: "GigaChat",   color: "#22c55e", bg: "#22c55e15" },
-  chatgpt:    { label: "ChatGPT",    color: "#10b981", bg: "#10b98115" },
-  perplexity: { label: "Perplexity", color: "#8b5cf6", bg: "#8b5cf615" },
-  gemini:     { label: "Gemini",     color: "#4285f4", bg: "#4285f415" },
+const LLM_META: Record<LLMName, { label: string; color: string; bg: string; realApi: boolean }> = {
+  yandex:     { label: "YandexGPT",  color: "#ef4444", bg: "#ef444415", realApi: false },
+  claude:     { label: "Claude",     color: "#d97706", bg: "#d9770615", realApi: true  },
+  chatgpt:    { label: "ChatGPT",    color: "#10b981", bg: "#10b98115", realApi: true  },
+  perplexity: { label: "Perplexity", color: "#8b5cf6", bg: "#8b5cf615", realApi: false },
+  gemini:     { label: "Gemini",     color: "#4285f4", bg: "#4285f415", realApi: false },
 };
 
-// Веса выровнены так, чтобы сумма = 1: российские LLM получают больший вес
-// (их аудитория ближе к нишевым запросам рынка РФ), Gemini — как
-// дополнительный глобальный сигнал.
+// Веса: российский YandexGPT важен для РФ-рынка; Claude и ChatGPT — глобальные.
 const LLM_WEIGHTS: Record<LLMName, number> = {
-  yandex: 0.32,
-  giga: 0.22,
-  chatgpt: 0.22,
-  perplexity: 0.12,
-  gemini: 0.12,
+  yandex:     0.30,
+  claude:     0.25,
+  chatgpt:    0.25,
+  perplexity: 0.10,
+  gemini:     0.10,
 };
 
 function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
@@ -71,7 +69,7 @@ function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
 }
 
 function calcTotalScore(mentions: AIMention[]): { total: number; byLlm: Record<LLMName, number> } {
-  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity", "gemini"];
+  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
   const byLlm = {} as Record<LLMName, number>;
   let total = 0;
   for (const llm of llms) {
@@ -211,7 +209,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
   const [openRec, setOpenRec] = useState<number | null>(null);
 
   const effectiveNiche = niche === "Другое" ? nicheCustom : niche;
-  const llms: LLMName[] = ["yandex", "giga", "chatgpt", "perplexity", "gemini"];
+  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "10px 14px", borderRadius: 10, boxSizing: "border-box",
@@ -246,10 +244,10 @@ export function AIVisibilityView({ c, myCompany }: Props) {
     };
     setAudit(newAudit);
 
-    const stageOrder = ["queries", "yandex", "giga", "chatgpt", "perplexity", "gemini", "site", "recs"];
+    const stageOrder = ["queries", "yandex", "claude", "chatgpt", "perplexity", "gemini", "site", "recs"];
     const stageLabels: Record<string, string> = {
       queries: "Подготовка запросов", yandex: "Опрос YandexGPT",
-      giga: "Опрос GigaChat", chatgpt: "Опрос ChatGPT",
+      claude: "Опрос Claude", chatgpt: "Опрос ChatGPT",
       perplexity: "Опрос Perplexity", gemini: "Опрос Gemini",
       site: "Анализ AI-готовности сайта",
       recs: "Формирование рекомендаций",
@@ -340,7 +338,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "var(--foreground)" }}>AI Видимость</h1>
             <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
-              GEO-аудит: насколько вас знают ChatGPT, YandexGPT, GigaChat и Perplexity
+              GEO-аудит: честная проверка — знают ли вас ChatGPT, Claude, YandexGPT, Perplexity, Gemini
             </p>
           </div>
           {savedAudits.length > 0 && (
@@ -493,7 +491,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
               Запустить AI-аудит
             </button>
             <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
-              ~2–4 минуты · 4 AI-ассистента · анализ сайта
+              ~2–4 минуты · 5 AI-ассистентов · анализ сайта · честные запросы без биас-подсказок
             </p>
           </Card>
 
@@ -516,7 +514,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                 Что проверяем
               </h3>
               {[
-                { icon: <Bot size={16} />, title: "4 AI-ассистента", desc: "YandexGPT, GigaChat, ChatGPT, Perplexity" },
+                { icon: <Bot size={16} />, title: "5 AI-ассистентов", desc: "YandexGPT, Claude, ChatGPT, Perplexity, Gemini" },
                 { icon: <BarChart3 size={16} />, title: "Share of Voice", desc: "Частота упоминаний vs конкуренты" },
                 { icon: <Globe size={16} />, title: "AI-готовность сайта", desc: "Schema.org, llms.txt, FAQ, robots.txt" },
                 { icon: <Target size={16} />, title: "Рекомендации", desc: "Приоритизированный план улучшений" },
@@ -543,8 +541,9 @@ export function AIVisibilityView({ c, myCompany }: Props) {
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <Sparkles size={16} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
                 <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.65, margin: 0 }}>
-                  Claude генерирует запросы, имитирует ответы YandexGPT/GigaChat/Perplexity и создаёт
-                  рекомендации. Реальный OpenAI GPT-4o подключается автоматически при наличии ключа.
+                  Запросы идут <b>без подсказок о вашем бренде</b> — только так можно честно измерить
+                  реальную AI-видимость. ChatGPT и Claude вызываются напрямую через API.
+                  Там, где реальный API недоступен, Claude симулирует ответ — ячейка помечается «симуляция».
                 </p>
               </div>
             </Card>
@@ -718,17 +717,24 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                       if (!m) return <td key={llm} style={{ textAlign: "center", padding: "10px 12px", color: "var(--muted-foreground)" }}>—</td>;
                       return (
                         <td key={llm} style={{ textAlign: "center", padding: "10px 12px" }}>
-                          <button onClick={() => setModalMention(m)} style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
-                            background: m.mentioned ? "#22c55e20" : "#ef444420",
-                            color: m.mentioned ? "#22c55e" : "#ef4444",
-                            fontSize: 12, fontWeight: 700,
-                          }}>
-                            {m.mentioned
-                              ? <><CheckCircle2 size={12} />{m.position ? `#${m.position}` : "упомянут"}</>
-                              : <><X size={12} />нет</>}
-                          </button>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                            <button onClick={() => setModalMention(m)} style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
+                              background: m.mentioned ? "#22c55e20" : "#ef444420",
+                              color: m.mentioned ? "#22c55e" : "#ef4444",
+                              fontSize: 12, fontWeight: 700,
+                            }}>
+                              {m.mentioned
+                                ? <><CheckCircle2 size={12} />{m.position ? `#${m.position}` : "упомянут"}</>
+                                : <><X size={12} />нет</>}
+                            </button>
+                            {m.isSimulated && (
+                              <span style={{ fontSize: 9, color: "var(--muted-foreground)", background: "var(--muted)", padding: "1px 5px", borderRadius: 4, letterSpacing: "0.03em" }}>
+                                симуляция
+                              </span>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
@@ -923,6 +929,23 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                     Тональность: {modalMention.sentiment === "positive" ? "позитивная" : modalMention.sentiment === "negative" ? "негативная" : "нейтральная"}
                   </span>
                 )}
+                {modalMention.isSimulated ? (
+                  <span style={{
+                    padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                    background: "#f59e0b20", color: "#f59e0b",
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    ⚠️ Симуляция — реальный API недоступен
+                  </span>
+                ) : (
+                  <span style={{
+                    padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                    background: "#22c55e15", color: "#22c55e",
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    ✓ Реальный ответ API
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -993,7 +1016,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                   {/* LLM mini scores */}
                   {a.scoresByLlm && (
                     <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                      {(["yandex", "giga", "chatgpt", "perplexity", "gemini"] as LLMName[]).map(llm => (
+                      {(["yandex", "claude", "chatgpt", "perplexity", "gemini"] as LLMName[]).map(llm => (
                         <span key={llm} style={{
                           fontSize: 11, padding: "2px 8px", borderRadius: 6,
                           background: LLM_META[llm].bg, color: LLM_META[llm].color, fontWeight: 700,

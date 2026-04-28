@@ -1,16 +1,36 @@
+/**
+ * /api/ai-visibility/check-llm
+ *
+ * Честная проверка: упоминает ли нейросеть бренд в реальном ответе?
+ *
+ * ВАЖНО: здесь НЕТ подсказок модели «если знаешь бренд — упоминай».
+ * Запросы идут чистыми, ровно так, как их задаёт реальный пользователь.
+ * Только так можно честно измерить AI-видимость.
+ *
+ * Модели:
+ *   chatgpt    — реальный OpenAI GPT-4o-mini (если OPENAI_API_KEY)
+ *   claude     — реальный Anthropic claude-haiku-4-5 (если ANTHROPIC_API_KEY)
+ *   gemini     — реальный Google Gemini (если GEMINI_API_KEY)
+ *   yandex     — реальный YandexGPT (если YANDEX_GPT_IAM_TOKEN + YANDEX_GPT_FOLDER_ID)
+ *   perplexity — реальный Perplexity sonar (если PERPLEXITY_API_KEY)
+ *
+ * Если реального ключа нет → Claude симулирует «как мог бы ответить» тот ассистент,
+ * но БЕЗ биас-подсказок. Ответ помечается isSimulated: true.
+ */
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { AIMention, LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   baseURL: process.env.ANTHROPIC_BASE_URL,
 });
 
-// Parse LLM response to extract brand mentions, position, sentiment, competitors
+// ── Парсинг ответа ─────────────────────────────────────────────────────────────
 function parseResponse(response: string, brandName: string): {
   mentioned: boolean;
   position: number | null;
@@ -19,84 +39,70 @@ function parseResponse(response: string, brandName: string): {
 } {
   const lower = response.toLowerCase();
   const brandLower = brandName.toLowerCase();
+
+  // Проверяем наличие бренда
   const mentioned = lower.includes(brandLower);
 
-  // Try to determine position in a list
+  // Позиция в нумерованном списке
   let position: number | null = null;
   if (mentioned) {
     const lines = response.split("\n");
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].toLowerCase().includes(brandLower)) {
-        // Check if this line starts with a number
         const numMatch = lines[i].match(/^\s*(\d+)[.)]/);
-        position = numMatch ? parseInt(numMatch[1]) : i + 1;
+        position = numMatch ? parseInt(numMatch[1]) : null;
         break;
       }
     }
-    if (position === null) position = 1;
   }
 
-  // Sentiment heuristics
+  // Тональность
   let sentiment: "positive" | "neutral" | "negative" | null = null;
   if (mentioned) {
-    const positiveWords = ["лучш", "рекоменд", "топ", "отлично", "надёжн", "популярн", "качествен", "ведущ"];
-    const negativeWords = ["плохо", "недостатки", "минусы", "критик", "проблем", "не рекоменд"];
     const nearBrandIdx = lower.indexOf(brandLower);
-    const context = lower.slice(Math.max(0, nearBrandIdx - 100), nearBrandIdx + 200);
-    const isPositive = positiveWords.some(w => context.includes(w));
-    const isNegative = negativeWords.some(w => context.includes(w));
-    sentiment = isNegative ? "negative" : isPositive ? "positive" : "neutral";
+    const context = lower.slice(Math.max(0, nearBrandIdx - 150), nearBrandIdx + 300);
+    const positive = ["лучш", "рекоменд", "топ", "отлично", "надёжн", "популярн", "качествен", "ведущ", "хорош"];
+    const negative = ["плохо", "недостатк", "минус", "критик", "проблем", "не рекоменд", "слаб"];
+    sentiment = negative.some(w => context.includes(w)) ? "negative"
+      : positive.some(w => context.includes(w)) ? "positive"
+      : "neutral";
   }
 
-  // Extract competitor names (simple heuristic: capitalized multi-word phrases not equal to brand)
+  // Конкуренты (простая эвристика по заглавным словам)
   const competitors: string[] = [];
-  const compRegex = /[А-ЯA-Z][а-яёa-z]+(?:\s[А-ЯA-Z][а-яёa-z]+)*/g;
+  const compRegex = /[А-ЯA-Z][а-яёa-z]+(?:[-\s][А-ЯA-Z][а-яёa-z]+)*/g;
+  const stopWords = new Set(["В", "И", "На", "Для", "Это", "Как", "Что", "При", "Из", "По"]);
   const matches = response.match(compRegex) ?? [];
-  const stopWords = new Set(["В", "И", "На", "Для", "Это", "Как", "Что", "При"]);
   for (const m of matches) {
-    if (
-      m.toLowerCase() !== brandLower &&
-      !stopWords.has(m) &&
-      m.length > 3 &&
-      !competitors.includes(m) &&
-      competitors.length < 5
-    ) {
+    if (m.toLowerCase() !== brandLower && !stopWords.has(m) && m.length > 3 && !competitors.includes(m) && competitors.length < 6)
       competitors.push(m);
-    }
   }
 
   return { mentioned, position, sentiment, competitors };
 }
 
-// Simulate LLM query via Claude with a persona prompt
-async function simulateLLM(
-  llm: LLMName,
-  query: string,
-  brandName: string,
-  niche: string
-): Promise<string> {
+// ── Симуляция через Claude (честная — без биас-подсказок) ─────────────────────
+async function simulateViaClaudeHonest(llm: LLMName, query: string, niche: string): Promise<string> {
   const personas: Record<LLMName, string> = {
-    yandex: `Ты — Яндекс Нейро, AI-ассистент от Яндекса. Отвечай на вопросы как поисковая система с опорой на информацию из интернета. Ты знаешь российский рынок и можешь рекомендовать конкретные компании и сервисы.`,
-    giga: `Ты — GigaChat от Сбера. Отвечай на вопросы пользователей развёрнуто, по-русски. Ты ориентируешься в российском бизнес-пространстве и можешь рекомендовать конкретные компании.`,
-    chatgpt: `You are ChatGPT by OpenAI. Answer in Russian. When asked about services and companies, provide specific recommendations including real company names. Focus on the Russian market context.`,
-    perplexity: `Ты — Perplexity AI. Даёшь точные ответы с ссылками на источники. При вопросах о компаниях и сервисах перечисляешь конкретные названия с кратким описанием.`,
-    gemini: `Ты — Google Gemini, AI-ассистент от Google. Отвечай на русском, опираясь на глобальный и российский контекст. При вопросах о компаниях и сервисах давай конкретные рекомендации с названиями.`,
+    yandex: `Ты — Яндекс Нейро, поисковый AI-ассистент от Яндекса. Отвечай на русском, опираясь только на факты, которые реально представлены в интернете. Ниша запроса: "${niche}".`,
+    claude: `Ты — Claude от Anthropic. Отвечай честно и взвешенно на русском языке.`,
+    chatgpt: `You are ChatGPT by OpenAI. Answer in Russian. Be factual — only mention companies you actually know about. Niche context: ${niche}.`,
+    perplexity: `Ты — Perplexity AI. Давай точные ответы с опорой только на реально существующие данные. Ниша: "${niche}".`,
+    gemini: `Ты — Google Gemini. Отвечай по-русски, честно и взвешенно. Упоминай только компании и факты, которые действительно известны. Ниша: "${niche}".`,
   };
 
   const msg = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 400,
-    system: personas[llm] + `\n\nКонтекст: ниша "${niche}". Бренд "${brandName}" существует в этой нише. Если ты знаешь этот бренд — упоминай его там, где это уместно.`,
-    messages: [
-      { role: "user", content: query },
-    ],
+    model: "claude-haiku-4-5",
+    max_tokens: 450,
+    // Нет system-prompt с подсказкой «упоминай бренд»
+    system: personas[llm],
+    messages: [{ role: "user", content: query }],
   });
-
   return (msg.content[0] as { type: string; text: string }).text;
 }
 
-// Real OpenAI GPT-4o call
-async function callChatGPT(query: string, brandName: string, niche: string): Promise<string> {
+// ── Реальный ChatGPT ──────────────────────────────────────────────────────────
+async function callChatGPT(query: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return "";
   const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com";
@@ -104,22 +110,30 @@ async function callChatGPT(query: string, brandName: string, niche: string): Pro
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "gpt-4o",
-      max_tokens: 400,
-      messages: [
-        {
-          role: "system",
-          content: `Ты — ChatGPT. Отвечай по-русски. Ниша: ${niche}. Если знаешь компанию "${brandName}" — упоминай её при необходимости.`,
-        },
-        { role: "user", content: query },
-      ],
+      model: "gpt-4o-mini",
+      max_tokens: 450,
+      temperature: 0.7,
+      // Никакого system-prompt с подсказкой о бренде
+      messages: [{ role: "user", content: query }],
     }),
   });
+  if (!res.ok) return "";
   const json = await res.json();
   return json.choices?.[0]?.message?.content ?? "";
 }
 
-// Real Perplexity call (sonar model)
+// ── Реальный Claude (напрямую, без симуляции) ─────────────────────────────────
+async function callClaudeDirect(query: string): Promise<string> {
+  const msg = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 450,
+    // Нет системного промпта — честный ответ Claude
+    messages: [{ role: "user", content: query }],
+  });
+  return (msg.content[0] as { type: string; text: string }).text;
+}
+
+// ── Реальный Perplexity ───────────────────────────────────────────────────────
 async function callPerplexity(query: string): Promise<string> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) return "";
@@ -134,12 +148,13 @@ async function callPerplexity(query: string): Promise<string> {
       ],
     }),
   });
+  if (!res.ok) return "";
   const json = await res.json();
   return json.choices?.[0]?.message?.content ?? "";
 }
 
-// Real YandexGPT call
-async function callYandexGPT(query: string, brandName: string, niche: string): Promise<string> {
+// ── Реальный YandexGPT ────────────────────────────────────────────────────────
+async function callYandexGPT(query: string): Promise<string> {
   const iamToken = process.env.YANDEX_GPT_IAM_TOKEN;
   const folderId = process.env.YANDEX_GPT_FOLDER_ID;
   if (!iamToken || !folderId) return "";
@@ -148,62 +163,31 @@ async function callYandexGPT(query: string, brandName: string, niche: string): P
     headers: { Authorization: `Bearer ${iamToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       modelUri: `gpt://${folderId}/yandexgpt-lite`,
-      completionOptions: { stream: false, temperature: 0.6, maxTokens: 400 },
+      completionOptions: { stream: false, temperature: 0.6, maxTokens: 450 },
       messages: [
-        {
-          role: "system",
-          text: `Ты поисковый ассистент Яндекс Нейро. Отвечай как будто это поиск по интернету. Ниша: ${niche}. Компания ${brandName} может быть в этой нише.`,
-        },
+        { role: "system", text: "Ты — Яндекс Нейро. Отвечай честно, опираясь на реальные данные." },
         { role: "user", text: query },
       ],
     }),
   });
+  if (!res.ok) return "";
   const json = await res.json();
   return json.result?.alternatives?.[0]?.message?.text ?? "";
 }
 
-// Real Google Gemini call (text).
-// Использует общий helper с хардкод-ключом + GEMINI_BASE_URL-прокси
-// через Cloudflare Worker — см. src/lib/gemini.ts.
-async function callGemini(query: string, brandName: string, niche: string): Promise<string> {
+// ── Реальный Gemini ───────────────────────────────────────────────────────────
+async function callGemini(query: string): Promise<string> {
   if (!GEMINI_API_KEY) return "";
-  const systemInstruction =
-    `Ты — Google Gemini. Отвечай по-русски, давай конкретные рекомендации ` +
-    `с названиями компаний/сервисов. Ниша: ${niche}. Компания "${brandName}" ` +
-    `может быть в этой нише — упоминай её, если знаешь.`;
   const result = await generateGeminiText({
-    systemInstruction,
+    systemInstruction: "Отвечай по-русски. Упоминай только реально известные тебе компании и факты.",
     prompt: query,
-    maxOutputTokens: 500,
+    maxOutputTokens: 450,
     temperature: 0.6,
   });
   return result.ok ? result.text : "";
 }
 
-// Real GigaChat call
-async function callGigaChat(query: string, brandName: string, niche: string): Promise<string> {
-  const authToken = process.env.GIGACHAT_AUTH_TOKEN;
-  if (!authToken) return "";
-  // GigaChat requires OAuth token refresh; simplified for MVP
-  const res = await fetch("https://gigachat.devices.sberbank.ru/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "GigaChat-Pro",
-      messages: [
-        {
-          role: "system",
-          content: `Ты GigaChat от Сбера. Ниша: ${niche}. Компания ${brandName} может быть в этой нише.`,
-        },
-        { role: "user", content: query },
-      ],
-      max_tokens: 400,
-    }),
-  });
-  const json = await res.json();
-  return json.choices?.[0]?.message?.content ?? "";
-}
-
+// ── Handler ───────────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
     const { llm, queries, brandName, niche } = await req.json() as {
@@ -221,33 +205,35 @@ export async function POST(req: Request) {
 
     for (const query of queries) {
       let response = "";
-      let usedReal = false;
+      let isSimulated = false;
 
       try {
-        if (llm === "chatgpt" && process.env.OPENAI_API_KEY) {
-          response = await callChatGPT(query, brandName, niche);
-          usedReal = true;
-        } else if (llm === "perplexity" && process.env.PERPLEXITY_API_KEY) {
+        // Сначала пробуем реальный API
+        if (llm === "chatgpt") {
+          response = await callChatGPT(query);
+        } else if (llm === "claude") {
+          response = await callClaudeDirect(query);
+        } else if (llm === "perplexity") {
           response = await callPerplexity(query);
-          usedReal = true;
-        } else if (llm === "yandex" && process.env.YANDEX_GPT_IAM_TOKEN) {
-          response = await callYandexGPT(query, brandName, niche);
-          usedReal = true;
-        } else if (llm === "giga" && process.env.GIGACHAT_AUTH_TOKEN) {
-          response = await callGigaChat(query, brandName, niche);
-          usedReal = true;
-        } else if (llm === "gemini" && GEMINI_API_KEY) {
-          response = await callGemini(query, brandName, niche);
-          usedReal = !!response;
+        } else if (llm === "yandex") {
+          response = await callYandexGPT(query);
+        } else if (llm === "gemini") {
+          response = await callGemini(query);
         }
 
+        // Если реальный API недоступен — симулируем честно
         if (!response) {
-          // Fallback: simulate with Claude
-          response = await simulateLLM(llm, query, brandName, niche);
+          response = await simulateViaClaudeHonest(llm, query, niche);
+          isSimulated = true;
         }
       } catch {
-        // On error, simulate
-        response = await simulateLLM(llm, query, brandName, niche);
+        try {
+          response = await simulateViaClaudeHonest(llm, query, niche);
+          isSimulated = true;
+        } catch {
+          response = "Не удалось получить ответ.";
+          isSimulated = true;
+        }
       }
 
       const parsed = parseResponse(response, brandName);
@@ -259,7 +245,7 @@ export async function POST(req: Request) {
         sentiment: parsed.sentiment,
         fullResponse: response,
         competitorsMentioned: parsed.competitors,
-        ...(usedReal ? {} : {}),  // could add a flag here
+        isSimulated,
       });
     }
 

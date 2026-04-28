@@ -7,7 +7,46 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Search, Rocket, Swords, PenLine, Target, AlertTriangle, TrendingUp } from "lucide-react";
 import { OrderCTA } from "@/components/ui/OrderCTA";
 
+interface LiveCheckResult {
+  llm: string;
+  query: string;
+  response: string;
+  mentioned: boolean;
+  isReal: boolean;
+}
+
 export function InsightsView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
+  const [liveCheckLoading, setLiveCheckLoading] = useState(false);
+  const [liveCheckResults, setLiveCheckResults] = useState<LiveCheckResult[] | null>(null);
+  const [liveCheckError, setLiveCheckError] = useState<string | null>(null);
+
+  const runLiveCheck = async () => {
+    setLiveCheckLoading(true);
+    setLiveCheckError(null);
+    setLiveCheckResults(null);
+    try {
+      const res = await fetch("/api/check-ai-mention", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: data.company.name,
+          niche: (data.company as Record<string, unknown>).niche as string | undefined,
+          url: data.company.url,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setLiveCheckResults(json.results as LiveCheckResult[]);
+      } else {
+        setLiveCheckError(json.error ?? "Ошибка проверки");
+      }
+    } catch {
+      setLiveCheckError("Не удалось выполнить проверку");
+    } finally {
+      setLiveCheckLoading(false);
+    }
+  };
+
   const typeConfig: Record<string, { icon: React.ReactElement; label: string; color: string }> = {
     niche: { icon: <Search size={16} />, label: "Пустая ниша", color: "var(--primary)" },
     action: { icon: <Rocket size={16} />, label: "Топ-действие", color: "var(--success)" },
@@ -332,25 +371,89 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
               </div>
             </div>
 
-            {/* Simulated AI answer */}
+            {/* Live AI check */}
             <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 12 }}>
-              <div style={{ padding: "12px 18px", borderBottom: `1px solid var(--muted)`, display: "flex", alignItems: "center", gap: 10, background: "color-mix(in oklch, var(--primary) 3%, transparent)" }}>
+              {/* Header */}
+              <div style={{ padding: "12px 18px", borderBottom: `1px solid var(--muted)`, display: "flex", alignItems: "center", gap: 10, background: "color-mix(in oklch, var(--primary) 3%, transparent)", flexWrap: "wrap" }}>
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✦</div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>Смоделированный ответ нейросети</span>
-                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>— «Расскажи о {data.company.name}»</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>Проверка в нейросетях — «Расскажи о {data.company.name}»</span>
+                <button
+                  onClick={runLiveCheck}
+                  disabled={liveCheckLoading}
+                  style={{ marginLeft: "auto", padding: "6px 16px", borderRadius: 8, border: "none", background: liveCheckLoading ? "var(--muted)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: liveCheckLoading ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+                >
+                  {liveCheckLoading ? (
+                    <>
+                      <style>{`@keyframes mr-spin-ai { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                      <div style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "mr-spin-ai 0.8s linear infinite" }} />
+                      Проверяем…
+                    </>
+                  ) : liveCheckResults ? "Проверить снова" : "🔍 Проверить сейчас"}
+                </button>
               </div>
-              {/* Disclaimer */}
-              <div style={{ padding: "10px 18px", background: "color-mix(in oklch, var(--warning) 6%, transparent)", borderBottom: `1px solid color-mix(in oklch, var(--warning) 20%, transparent)`, display: "flex", alignItems: "flex-start", gap: 8 }}>
-                <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠️</span>
-                <div style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
-                  <strong>Это не реальный ответ ChatGPT.</strong> Текст смоделирован на основе публичного информационного следа компании (сайт, соцсети, СМИ, отзывы). Для проверки реального присутствия введите запрос с названием компании прямо в ChatGPT или Яндекс&nbsp;Нейро.
+
+              {/* Not yet checked — show the AI-generated estimate with warning */}
+              {!liveCheckResults && !liveCheckLoading && !liveCheckError && (
+                <>
+                  <div style={{ padding: "10px 18px", background: "color-mix(in oklch, var(--warning) 6%, transparent)", borderBottom: `1px solid color-mix(in oklch, var(--warning) 20%, transparent)`, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+                    <div style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+                      <strong>Ниже — прогнозная оценка, не реальный ответ ChatGPT.</strong> Нажмите «Проверить сейчас» — мы зададим вопрос напрямую в ChatGPT и Claude без подсказок о вашей компании и покажем честный результат.
+                    </div>
+                  </div>
+                  <div style={{ padding: "16px 18px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>ПРОГНОЗНАЯ ОЦЕНКА НА ОСНОВЕ ИНФОРМАЦИОННОГО СЛЕДА</div>
+                    <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.7, background: "var(--background)", borderRadius: 10, padding: "14px 16px", border: `1px solid var(--muted)`, fontStyle: "italic" }}>
+                      {data.aiPerception.sampleAnswer}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Loading */}
+              {liveCheckLoading && (
+                <div style={{ padding: "28px 18px", textAlign: "center", color: "var(--muted-foreground)" }}>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>Отправляем запросы в ChatGPT и Claude…</div>
+                  <div style={{ fontSize: 11 }}>Без подсказок о компании — честный ответ</div>
                 </div>
-              </div>
-              <div style={{ padding: "16px 18px" }}>
-                <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.7, background: "var(--background)", borderRadius: 10, padding: "14px 16px", border: `1px solid var(--muted)`, fontStyle: "italic" }}>
-                  {data.aiPerception.sampleAnswer}
+              )}
+
+              {/* Error */}
+              {liveCheckError && (
+                <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 8, color: "var(--destructive)", fontSize: 13 }}>
+                  <span>⚠️</span> {liveCheckError}
                 </div>
-              </div>
+              )}
+
+              {/* Real results */}
+              {liveCheckResults && (
+                <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+                  {liveCheckResults.map((r, i) => (
+                    <div key={i} style={{ borderRadius: 12, border: `1px solid var(--border)`, overflow: "hidden" }}>
+                      {/* LLM header */}
+                      <div style={{ padding: "9px 14px", background: "var(--background)", borderBottom: `1px solid var(--border)`, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)" }}>{r.llm}</span>
+                        <span style={{ fontSize: 11, color: "var(--muted-foreground)", flex: 1 }}>— «{r.query.slice(0, 70)}{r.query.length > 70 ? "…" : ""}»</span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                          background: r.mentioned ? "#22c55e20" : "#ef444420",
+                          color: r.mentioned ? "#22c55e" : "#ef4444",
+                          display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+                        }}>
+                          {r.mentioned ? "✓ Упоминается" : "✕ Не упоминается"}
+                        </span>
+                        <span style={{ fontSize: 10, background: r.isReal ? "#22c55e15" : "#f59e0b15", color: r.isReal ? "#22c55e" : "#f59e0b", padding: "1px 6px", borderRadius: 4, fontWeight: 600, flexShrink: 0 }}>
+                          {r.isReal ? "реальный ответ" : "симуляция"}
+                        </span>
+                      </div>
+                      {/* Response text */}
+                      <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.7, background: r.mentioned ? "color-mix(in oklch, var(--success) 2%, var(--card))" : "var(--card)", maxHeight: 200, overflowY: "auto", whiteSpace: "pre-wrap" }}>
+                        {r.response || "Нет ответа"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* E-E-A-T + Keywords side by side */}

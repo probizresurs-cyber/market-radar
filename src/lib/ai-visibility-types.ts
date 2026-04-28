@@ -1,4 +1,4 @@
-export type LLMName = "yandex" | "giga" | "chatgpt" | "perplexity" | "gemini";
+export type LLMName = "yandex" | "claude" | "chatgpt" | "perplexity" | "gemini";
 
 export interface AIMention {
   llm: LLMName;
@@ -8,6 +8,8 @@ export interface AIMention {
   sentiment: "positive" | "neutral" | "negative" | null;
   fullResponse: string;
   competitorsMentioned: string[];
+  /** true = ответ смоделирован Claude-симулятором; false = реальный API-вызов */
+  isSimulated?: boolean;
 }
 
 export interface SiteReadinessItem {
