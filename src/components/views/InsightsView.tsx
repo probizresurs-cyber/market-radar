@@ -311,6 +311,22 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
                   );
                 })()}
               </div>
+
+              {/* Prominent "not found" banner for weak/minimal presence */}
+              {(data.aiPerception.knowledgePresence === "minimal" || data.aiPerception.knowledgePresence === "weak") && (
+                <div style={{ background: "color-mix(in oklch, var(--destructive) 6%, transparent)", border: `1px solid color-mix(in oklch, var(--destructive) 25%, transparent)`, borderRadius: 10, padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>🔍</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--destructive)", marginBottom: 3 }}>
+                      Компания не обнаружена в реальных AI-ответах
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+                      При проверке публичного информационного следа компания практически не упоминается в контексте, который нейросети используют для ответов. Данные ниже — прогнозная оценка на основе имеющегося контента.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div style={{ fontSize: 12, color: "var(--foreground-secondary)", fontStyle: "italic", marginBottom: 0 }}>
                 {data.aiPerception.persona}
               </div>
@@ -320,8 +336,15 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
             <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 12 }}>
               <div style={{ padding: "12px 18px", borderBottom: `1px solid var(--muted)`, display: "flex", alignItems: "center", gap: 10, background: "color-mix(in oklch, var(--primary) 3%, transparent)" }}>
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✦</div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>Симуляция ответа нейросети</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>Смоделированный ответ нейросети</span>
                 <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>— «Расскажи о {data.company.name}»</span>
+              </div>
+              {/* Disclaimer */}
+              <div style={{ padding: "10px 18px", background: "color-mix(in oklch, var(--warning) 6%, transparent)", borderBottom: `1px solid color-mix(in oklch, var(--warning) 20%, transparent)`, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+                <div style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+                  <strong>Это не реальный ответ ChatGPT.</strong> Текст смоделирован на основе публичного информационного следа компании (сайт, соцсети, СМИ, отзывы). Для проверки реального присутствия введите запрос с названием компании прямо в ChatGPT или Яндекс&nbsp;Нейро.
+                </div>
               </div>
               <div style={{ padding: "16px 18px" }}>
                 <div style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.7, background: "var(--background)", borderRadius: 10, padding: "14px 16px", border: `1px solid var(--muted)`, fontStyle: "italic" }}>

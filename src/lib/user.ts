@@ -57,6 +57,13 @@ export const NICHE_COMPETITORS: Record<string, Array<{ name: string; url: string
     { name: "ВКонтакте", url: "vk.com" },
     { name: "Тинькофф", url: "tinkoff.ru" },
   ],
+  products: [
+    { name: "Tiu.ru", url: "tiu.ru" },
+    { name: "Пульс цен", url: "pulscen.ru" },
+    { name: "Метпром", url: "metprom.ru" },
+    { name: "ОптЛист", url: "optlist.ru" },
+    { name: "Поставщики.ру", url: "postavshhiki.ru" },
+  ],
 };
 
 // ─── Server sync helpers ────────────────────────────────────────────────────────

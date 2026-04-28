@@ -1,7 +1,7 @@
 // ─── Business Type definitions ────────────────────────────────────────────────
 // Sprint 5: 4 types that shape AI analysis prompts and scoring emphasis.
 
-export type BusinessType = "b2c-retail" | "b2c-experience" | "b2b-services" | "b2b-saas";
+export type BusinessType = "b2c-retail" | "b2c-experience" | "b2b-services" | "b2b-saas" | "b2b-products";
 
 export interface BusinessTypeConfig {
   id: BusinessType;
@@ -9,7 +9,7 @@ export interface BusinessTypeConfig {
   label: string;
   desc: string;
   /** Key into NICHE_COMPETITORS for competitor suggestions */
-  nicheKey: "other" | "clinic" | "digital" | "b2b";
+  nicheKey: "other" | "clinic" | "digital" | "b2b" | "products";
 }
 
 export const BUSINESS_TYPES: BusinessTypeConfig[] = [
@@ -40,6 +40,13 @@ export const BUSINESS_TYPES: BusinessTypeConfig[] = [
     label: "B2B / SaaS",
     desc: "Программный продукт, платформа, подписка",
     nicheKey: "b2b",
+  },
+  {
+    id: "b2b-products",
+    icon: "📦",
+    label: "B2B / Товары",
+    desc: "Производство, оптовые поставки, дистрибуция",
+    nicheKey: "products",
   },
 ];
 
@@ -103,6 +110,18 @@ export function buildBusinessTypePromptHint(type: BusinessType | undefined): str
 - Social proof: кейсы ROI с конкретными метриками, логотипы клиентов, G2/Capterra рейтинги
 - Документация и поддержка: база знаний, status page, SLA поддержки
 В recommendations и insights фокусируйся на: MRR-рост, снижении churn, product-led growth, trial-to-paid конверсии, NPS, ARPU, стратегии выхода на Enterprise-сегмент.`;
+
+    case "b2b-products":
+      return `
+=== ТИП БИЗНЕСА: B2B / ТОВАРЫ (производство, оптовые поставки, дистрибуция) ===
+Оценивай сайт с точки зрения привлечения корпоративных покупателей товаров с акцентом на оптовые сделки, дистрибуцию и логистику. Акцентируй внимание:
+- Каталог продукции: полнота, структура, технические характеристики, фото, сертификаты, ГОСТы
+- Коммерческие условия: оптовые цены, минимальный заказ, условия доставки, самовывоз, дилерские программы
+- Доверие и надёжность: производство (фото завода/склада), лицензии, сертификаты качества, давно на рынке
+- Логистика: собственный автопарк, склады, зоны доставки, сроки, расчёт стоимости доставки
+- B2B-сервис: персональный менеджер, личный кабинет оптовика, отсрочка платежа, EDI-интеграция
+- Дилерская / партнёрская сеть: есть ли дилерская программа, преимущества, как стать партнёром
+В recommendations и insights фокусируйся на: привлечение дилеров и дистрибьюторов, автоматизация обработки заказов, онлайн-каталог с оптовыми ценами, тендерное участие, присутствие на B2B-маркетплейсах (Яндекс.Бизнес, СБИС, ЭТП).`;
 
     default:
       return "";

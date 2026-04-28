@@ -9,13 +9,15 @@ import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
 import { FolderOpen } from "lucide-react";
 
-export function PreviousAnalysesView({ c, history, currentAnalysis }: {
+export function PreviousAnalysesView({ c, history, currentAnalysis, onDeleteHistory }: {
   c: Colors;
   history: Array<AnalysisResult & { analyzedAt: string }>;
   currentAnalysis: AnalysisResult | null;
+  onDeleteHistory?: (idx: number) => void;
 }) {
   const [compareIdx, setCompareIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null);
 
   if (history.length === 0) {
     return (
@@ -94,6 +96,26 @@ export function PreviousAnalysesView({ c, history, currentAnalysis }: {
                   >
                     {isCompare ? "✓ Сравнение" : "Сравнить"}
                   </button>
+                  {/* Delete button */}
+                  {confirmDeleteIdx === i ? (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>Удалить?</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteHistory?.(i); setConfirmDeleteIdx(null); if (compareIdx === i) setCompareIdx(null); if (expandedIdx === i) setExpandedIdx(null); }}
+                        style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "var(--destructive)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                      >Да</button>
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteIdx(null); }}
+                        style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontWeight: 600, fontSize: 11, cursor: "pointer" }}
+                      >Нет</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); setConfirmDeleteIdx(i); }}
+                      title="Удалить анализ"
+                      style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}
+                    >✕</button>
+                  )}
                   <span style={{ fontSize: 16, color: "var(--muted-foreground)", userSelect: "none", width: 20, textAlign: "center" }}>
                     {isExpanded ? "▲" : "▼"}
                   </span>

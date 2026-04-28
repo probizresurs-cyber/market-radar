@@ -564,6 +564,30 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  // Delete history entry
+  const handleDeleteHistory = (idx: number) => {
+    setAnalysisHistory(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (currentUser?.id) {
+        try { localStorage.setItem(`mr_analysis_history_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+        syncToServer("history", next);
+      }
+      return next;
+    });
+  };
+
+  // Delete competitor
+  const handleDeleteCompetitor = (idx: number) => {
+    setCompetitors(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (currentUser?.id) {
+        try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+        syncToServer("competitors", next);
+      }
+      return next;
+    });
+  };
+
   // Add competitor
   const handleAddCompetitor = async (url: string) => {
     setIsAnalyzing(true);
@@ -1222,8 +1246,8 @@ export default function MarketRadarDashboard() {
         <VisitTracker source="platform" />
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
-        {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} />}
-        {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} isAnalyzing={isAnalyzing} />}
+        {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
+        {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}

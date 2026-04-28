@@ -6,12 +6,14 @@ export interface WhiteLabelConfig {
   enabled: boolean;
   accentColor: string;    // hex, e.g. "#7c3aed"
   hideBranding: boolean;  // hide "MarketRadar" credit in sidebar/exports
+  logoUrl?: string;       // base64 data URL of agency logo
 }
 
 export const WL_DEFAULTS: WhiteLabelConfig = {
   enabled: false,
   accentColor: "#3b82f6",  // default matches --primary in globals.css
   hideBranding: false,
+  logoUrl: undefined,
 };
 
 export const ACCENT_PRESETS = [

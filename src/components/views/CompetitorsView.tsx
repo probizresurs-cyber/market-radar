@@ -5,13 +5,16 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { Users } from "lucide-react";
 
-export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddCompetitor, isAnalyzing }: {
+export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddCompetitor, onDeleteCompetitor, isAnalyzing }: {
   c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[];
-  onSelectCompetitor: (i: number) => void; onAddCompetitor: (url: string) => Promise<void>; isAnalyzing: boolean;
+  onSelectCompetitor: (i: number) => void; onAddCompetitor: (url: string) => Promise<void>;
+  onDeleteCompetitor?: (i: number) => void;
+  isAnalyzing: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,10 +83,25 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
           {competitors.map((comp, i) => {
             const sc = comp.company.score;
             return (
-              <div key={i} onClick={() => onSelectCompetitor(i)}
-                style={{ background: "var(--card)", borderRadius: 14, padding: 16, border: `1px solid var(--border)`, cursor: "pointer", transition: "box-shadow 0.2s, transform 0.2s" }}
+              <div key={i}
+                style={{ background: "var(--card)", borderRadius: 14, padding: 16, border: `1px solid var(--border)`, transition: "box-shadow 0.2s, transform 0.2s", position: "relative" }}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-lg)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
+                {/* Delete / confirm */}
+                {confirmDeleteIdx === i ? (
+                  <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4, alignItems: "center", background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 8, padding: "4px 8px", boxShadow: "var(--shadow)", zIndex: 5 }}>
+                    <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Удалить?</span>
+                    <button onClick={e => { e.stopPropagation(); onDeleteCompetitor?.(i); setConfirmDeleteIdx(null); }} style={{ padding: "3px 8px", borderRadius: 5, border: "none", background: "var(--destructive)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Да</button>
+                    <button onClick={e => { e.stopPropagation(); setConfirmDeleteIdx(null); }} style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 11, cursor: "pointer" }}>Нет</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={e => { e.stopPropagation(); setConfirmDeleteIdx(i); }}
+                    title="Удалить конкурента"
+                    style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 7, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, zIndex: 5, opacity: 0.7 }}
+                  >✕</button>
+                )}
+                <div onClick={() => onSelectCompetitor(i)} style={{ cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 15, color: "var(--foreground)" }}>{comp.company.name}</div>
@@ -122,6 +140,7 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                     )}
                   </div>
                 )}
+                </div>{/* end clickable wrapper */}
               </div>
             );
           })}

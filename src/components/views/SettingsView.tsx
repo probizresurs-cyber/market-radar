@@ -73,16 +73,17 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
     setWl(loadWhiteLabel(user.id));
   }, [user]);
 
-  // Load subscription data whenever user opens subscription tab
+  // Load subscription data whenever user opens subscription or whitelabel tab
   useEffect(() => {
-    if (tab !== "subscription" || !user) return;
+    if ((tab !== "subscription" && tab !== "whitelabel") || !user) return;
+    if (sub) return; // already loaded
     setSubLoading(true);
     fetch("/api/subscription", { cache: "no-store" })
       .then(r => r.json())
       .then(d => { if (d.ok) setSub(d); })
       .catch(() => {})
       .finally(() => setSubLoading(false));
-  }, [tab, user]);
+  }, [tab, user, sub]);
 
   const handleSave = () => {
     if (!user) return;
@@ -384,7 +385,24 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
         <NotificationsTab c={c} user={user ?? null} onUpdateUser={onUpdateUser ?? (() => { })} />
       )}
 
-      {tab === "whitelabel" && wl && (
+      {tab === "whitelabel" && wl && subLoading && (
+        <div style={{ padding: 32, textAlign: "center", color: "var(--muted-foreground)", fontSize: 13 }}>Загрузка…</div>
+      )}
+
+      {tab === "whitelabel" && wl && !subLoading && sub && sub.plan !== "agency" && sub.plan !== "admin" && (
+        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 32, textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Доступно на тарифе Агентство</div>
+          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 20, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 20px" }}>
+            White Label — кастомизация интерфейса для агентств: свой цвет акцента, логотип и скрытие брендинга MarketRadar.
+          </div>
+          <a href="/pricing" style={{ display: "inline-block", padding: "10px 24px", borderRadius: 10, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+            Перейти к тарифам →
+          </a>
+        </div>
+      )}
+
+      {tab === "whitelabel" && wl && !subLoading && (!sub || sub.plan === "agency" || sub.plan === "admin") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* Master toggle */}
@@ -426,21 +444,27 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Цвет акцента</div>
             <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 16 }}>Меняет кнопки, ссылки и активные элементы интерфейса</div>
 
-            {/* Color presets */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {ACCENT_PRESETS.map(preset => (
-                <button
-                  key={preset.value}
-                  onClick={() => setWl(w => w ? { ...w, accentColor: preset.value } : w)}
-                  title={preset.label}
-                  style={{
-                    width: 36, height: 36, borderRadius: 10, border: `3px solid ${wl.accentColor === preset.value ? "var(--foreground)" : "transparent"}`,
-                    background: preset.value, cursor: "pointer", flexShrink: 0,
-                    boxShadow: wl.accentColor === preset.value ? "0 0 0 1px var(--background)" : "none",
-                    transition: "border-color 0.15s",
-                  }}
-                />
-              ))}
+            {/* Color presets — circles */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+              {ACCENT_PRESETS.map(preset => {
+                const isActive = wl.accentColor === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    onClick={() => setWl(w => w ? { ...w, accentColor: preset.value } : w)}
+                    title={preset.label}
+                    style={{
+                      width: 34, height: 34, borderRadius: "50%",
+                      border: `3px solid ${isActive ? "var(--foreground)" : "transparent"}`,
+                      outline: isActive ? `2px solid ${preset.value}` : "none",
+                      outlineOffset: 2,
+                      background: preset.value, cursor: "pointer", flexShrink: 0,
+                      boxShadow: isActive ? `0 0 0 2px var(--background)` : "0 2px 6px rgba(0,0,0,0.15)",
+                      transition: "all 0.15s", padding: 0,
+                    }}
+                  />
+                );
+              })}
             </div>
 
             {/* Custom hex input */}
@@ -478,6 +502,55 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
                 <div style={{ width: 60, height: 8, borderRadius: 4, background: wl.accentColor + "33", overflow: "hidden", display: "flex", alignItems: "center" }}>
                   <div style={{ width: "60%", height: "100%", background: wl.accentColor, borderRadius: 4 }} />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Logo upload */}
+          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", opacity: wl.enabled ? 1 : 0.5, pointerEvents: wl.enabled ? "auto" : "none" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Логотип агентства</div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 16 }}>Загрузите логотип — он будет отображаться в сайдбаре вместо названия MarketRadar</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {/* Preview */}
+              <div style={{ width: 80, height: 80, borderRadius: 14, border: `2px dashed var(--border)`, background: "var(--background)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+                {wl.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={wl.logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                ) : (
+                  <span style={{ fontSize: 28, opacity: 0.35 }}>🖼️</span>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 9, border: `1.5px solid var(--border)`,
+                  background: "transparent", color: "var(--foreground)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+                }}>
+                  <span>📤</span> Загрузить логотип
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const dataUrl = ev.target?.result as string;
+                        setWl(w => w ? { ...w, logoUrl: dataUrl } : w);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                {wl.logoUrl && (
+                  <button
+                    onClick={() => setWl(w => w ? { ...w, logoUrl: undefined } : w)}
+                    style={{ marginLeft: 10, padding: "9px 14px", borderRadius: 9, border: `1.5px solid var(--destructive)30`, background: "transparent", color: "var(--destructive)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                  >
+                    Удалить
+                  </button>
+                )}
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8 }}>PNG, SVG или JPG · до 2 МБ · рекомендуем 200×60 px</div>
               </div>
             </div>
           </div>
@@ -521,7 +594,7 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
             )}
             <button
               onClick={() => {
-                const def = { enabled: false, accentColor: "#3b82f6", hideBranding: false };
+                const def = { enabled: false, accentColor: "#3b82f6", hideBranding: false, logoUrl: undefined };
                 setWl(def);
                 if (user) saveWhiteLabel(user.id, def);
                 onWhiteLabelChange?.(def);
