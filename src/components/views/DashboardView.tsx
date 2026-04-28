@@ -13,6 +13,7 @@ import { RadarChart } from "@/components/ui/RadarChart";
 import { DataBadge } from "@/components/ui/DataBadge";
 import { OrderCTA } from "@/components/ui/OrderCTA";
 import { classifyRevenue } from "@/lib/data-quality";
+import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
@@ -341,6 +342,14 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
         )}
       </CollapsibleSection>
 
+      {/* ── PageSpeed Insights ── */}
+      {data.seo?.lighthouseScores && (
+        <CollapsibleSection c={c} title="Скорость сайта" icon={<Zap size={16} strokeWidth={1.75} />} defaultOpen={true}
+          extra={<span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "rgba(6,182,212,0.12)", color: "#22d3ee" }}>REAL DATA</span>}>
+          <PageSpeedWidget scores={data.seo.lighthouseScores} url={data.company?.url} />
+        </CollapsibleSection>
+      )}
+
       {/* Key.so Dashboard */}
       <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
@@ -415,26 +424,7 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
                 <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{value}</span>
               </div>
             ))}
-            {data.seo?.lighthouseScores && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>LIGHTHOUSE (MOBILE)</div>
-                <div style={{ display: "flex", gap: 12 }}>
-                  {([
-                    { label: "Скорость", value: data.seo.lighthouseScores.performance },
-                    { label: "SEO", value: data.seo.lighthouseScores.seo },
-                    { label: "Доступность", value: data.seo.lighthouseScores.accessibility },
-                  ] as { label: string; value: number }[]).map(s => {
-                    const lhColor = s.value >= 90 ? "#34d399" : s.value >= 50 ? "#fbbf24" : "#f87171";
-                    return (
-                      <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: lhColor + "12", border: `1px solid ${lhColor}25` }}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: lhColor }}>{s.value}</div>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)", marginTop: 2 }}>{s.label}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* PageSpeed виджет вынесен в отдельную карту ниже */}
             {(data.seo?.issues ?? []).length > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>ПРОБЛЕМЫ</div>

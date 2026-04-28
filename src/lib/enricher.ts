@@ -363,25 +363,57 @@ export async function getRealDaData(companyName: string, domain: string): Promis
   }
 }
 
-// ─── Google PageSpeed Insights — real Lighthouse scores ─────────────────────
+// ─── Google PageSpeed Insights — real Lighthouse scores + Core Web Vitals ───
+
+export interface CWVMetric {
+  value: number;
+  display: string;
+  score: number; // 0=poor, 0.5=needs improvement, 1=good
+}
 
 export interface PageSpeedResult {
   performance: number;
   seo: number;
   accessibility: number;
+  bestPractices?: number;
+  lcp?: CWVMetric;
+  fcp?: CWVMetric;
+  cls?: CWVMetric;
+  tbt?: CWVMetric;
+  si?:  CWVMetric;
+  tti?: CWVMetric;
+}
+
+function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric | undefined {
+  const a = audits[key] as { numericValue?: number; displayValue?: string; score?: number } | undefined;
+  if (!a || a.numericValue === undefined) return undefined;
+  return {
+    value: a.numericValue,
+    display: a.displayValue ?? String(Math.round(a.numericValue)),
+    score: a.score ?? 0,
+  };
 }
 
 export async function getPageSpeedScores(url: string): Promise<PageSpeedResult | null> {
   try {
     const fullUrl = url.startsWith("http") ? url : `https://${url}`;
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility`;
-    const data = await fetchJson(apiUrl, FETCH_HEADERS, 25000) as Record<string, unknown>;
-    const cats = (data?.lighthouseResult as Record<string, unknown>)?.categories as Record<string, { score?: number }> | undefined;
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices`;
+    const data = await fetchJson(apiUrl, FETCH_HEADERS, 30000) as Record<string, unknown>;
+    const lr = data?.lighthouseResult as Record<string, unknown> | undefined;
+    const cats = lr?.categories as Record<string, { score?: number }> | undefined;
     if (!cats) return null;
+    const audits = (lr?.audits ?? {}) as Record<string, unknown>;
     return {
-      performance: Math.round((cats.performance?.score ?? 0) * 100),
-      seo: Math.round((cats.seo?.score ?? 0) * 100),
+      performance:   Math.round((cats.performance?.score   ?? 0) * 100),
+      seo:           Math.round((cats.seo?.score           ?? 0) * 100),
       accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
+      bestPractices: Math.round(((cats["best-practices"] as { score?: number } | undefined)?.score ?? 0) * 100),
+      lcp: extractAudit(audits, "largest-contentful-paint"),
+      fcp: extractAudit(audits, "first-contentful-paint"),
+      cls: extractAudit(audits, "cumulative-layout-shift"),
+      tbt: extractAudit(audits, "total-blocking-time"),
+      si:  extractAudit(audits, "speed-index"),
+      tti: extractAudit(audits, "interactive"),
     };
   } catch {
     return null;
