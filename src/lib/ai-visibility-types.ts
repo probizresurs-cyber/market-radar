@@ -10,6 +10,8 @@ export interface AIMention {
   competitorsMentioned: string[];
   /** true = ответ смоделирован Claude-симулятором; false = реальный API-вызов */
   isSimulated?: boolean;
+  /** true = реальный API недоступен (ключ не настроен) — результат не засчитывается */
+  unavailable?: boolean;
 }
 
 export interface SiteReadinessItem {

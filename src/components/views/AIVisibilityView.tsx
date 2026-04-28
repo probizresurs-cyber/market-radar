@@ -56,8 +56,8 @@ const LLM_WEIGHTS: Record<LLMName, number> = {
 };
 
 function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
-  const llmMentions = mentions.filter(m => m.llm === llm);
-  if (!llmMentions.length) return 0;
+  const llmMentions = mentions.filter(m => m.llm === llm && !m.unavailable);
+  if (!llmMentions.length) return -1; // -1 = нет данных (ключ не настроен)
   const mentioned = llmMentions.filter(m => m.mentioned);
   const mentionRate = mentioned.length / llmMentions.length;
   const avgPos = mentioned.length
@@ -71,12 +71,17 @@ function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
 function calcTotalScore(mentions: AIMention[]): { total: number; byLlm: Record<LLMName, number> } {
   const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
   const byLlm = {} as Record<LLMName, number>;
-  let total = 0;
+  let weightedSum = 0;
+  let totalWeight = 0;
   for (const llm of llms) {
-    byLlm[llm] = calcScoreForLLM(mentions, llm);
-    total += byLlm[llm] * LLM_WEIGHTS[llm];
+    const score = calcScoreForLLM(mentions, llm);
+    byLlm[llm] = score;
+    if (score >= 0) { // только если данные есть
+      weightedSum += score * LLM_WEIGHTS[llm];
+      totalWeight += LLM_WEIGHTS[llm];
+    }
   }
-  return { total: Math.round(total), byLlm };
+  return { total: totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0, byLlm };
 }
 
 function extractTopCompetitors(mentions: AIMention[]): Array<{ name: string; count: number }> {
@@ -665,25 +670,34 @@ export function AIVisibilityView({ c, myCompany }: Props) {
             </div>
             <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(2, 1fr)" }}>
               {llms.map(llm => {
-                const score = scoresByLlm?.[llm] ?? 0;
+                const score = scoresByLlm?.[llm] ?? -1;
                 const meta = LLM_META[llm];
+                const noData = score < 0;
                 return (
                   <div key={llm} style={{
                     padding: 16, borderRadius: 12,
-                    border: `1px solid ${meta.color}30`, background: meta.bg,
+                    border: `1px solid ${noData ? "var(--border)" : meta.color + "30"}`,
+                    background: noData ? "var(--muted)" : meta.bg,
+                    opacity: noData ? 0.6 : 1,
                   }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: meta.color, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: noData ? "var(--muted-foreground)" : meta.color, marginBottom: 8 }}>
                       {meta.label}
                     </div>
-                    <div style={{ fontSize: 32, fontWeight: 900, color: scoreColor(score), lineHeight: 1 }}>{score}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8 }}>/100</div>
-                    <div style={{ height: 5, borderRadius: 3, background: "rgba(0,0,0,0.1)" }}>
-                      <div style={{
-                        height: "100%", borderRadius: 3,
-                        width: `${score}%`, background: scoreColor(score),
-                        transition: "width 1s ease",
-                      }} />
-                    </div>
+                    {noData ? (
+                      <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.4 }}>Ключ<br/>не настроен</div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: scoreColor(score), lineHeight: 1 }}>{score}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8 }}>/100</div>
+                        <div style={{ height: 5, borderRadius: 3, background: "rgba(0,0,0,0.1)" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 3,
+                            width: `${score}%`, background: scoreColor(score),
+                            transition: "width 1s ease",
+                          }} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -715,6 +729,13 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                     {llms.map(llm => {
                       const m = mentions.find(x => x.llm === llm && x.query === query);
                       if (!m) return <td key={llm} style={{ textAlign: "center", padding: "10px 12px", color: "var(--muted-foreground)" }}>—</td>;
+                      if (m.unavailable) return (
+                        <td key={llm} style={{ textAlign: "center", padding: "10px 12px" }}>
+                          <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--muted)", padding: "3px 8px", borderRadius: 6 }}>
+                            ключ не настроен
+                          </span>
+                        </td>
+                      );
                       return (
                         <td key={llm} style={{ textAlign: "center", padding: "10px 12px" }}>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>

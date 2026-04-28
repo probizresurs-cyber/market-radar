@@ -203,16 +203,27 @@ export async function POST(req: Request) {
 
     const mentions: AIMention[] = [];
 
+    // ChatGPT и Claude — только реальный API, никакой симуляции.
+    // Yandex, Perplexity, Gemini — симулируем, если ключа нет.
+    const realApiOnly = llm === "chatgpt" || llm === "claude";
+
     for (const query of queries) {
       let response = "";
       let isSimulated = false;
+      let unavailable = false;
 
       try {
-        // Сначала пробуем реальный API
         if (llm === "chatgpt") {
-          response = await callChatGPT(query);
+          if (!process.env.OPENAI_API_KEY) {
+            unavailable = true;
+          } else {
+            response = await callChatGPT(query);
+            if (!response) unavailable = true;
+          }
         } else if (llm === "claude") {
+          // Claude всегда доступен — у нас есть ключ Anthropic
           response = await callClaudeDirect(query);
+          if (!response) unavailable = true;
         } else if (llm === "perplexity") {
           response = await callPerplexity(query);
         } else if (llm === "yandex") {
@@ -221,31 +232,37 @@ export async function POST(req: Request) {
           response = await callGemini(query);
         }
 
-        // Если реальный API недоступен — симулируем честно
-        if (!response) {
+        // Для chatgpt/claude — если нет ответа, не симулируем
+        if (!response && !unavailable && !realApiOnly) {
           response = await simulateViaClaudeHonest(llm, query, niche);
           isSimulated = true;
         }
-      } catch {
-        try {
-          response = await simulateViaClaudeHonest(llm, query, niche);
-          isSimulated = true;
-        } catch {
-          response = "Не удалось получить ответ.";
-          isSimulated = true;
+      } catch (err) {
+        if (realApiOnly) {
+          unavailable = true;
+          response = `Ошибка вызова API: ${err instanceof Error ? err.message : "unknown"}`;
+        } else {
+          try {
+            response = await simulateViaClaudeHonest(llm, query, niche);
+            isSimulated = true;
+          } catch {
+            response = "Не удалось получить ответ.";
+            isSimulated = true;
+          }
         }
       }
 
-      const parsed = parseResponse(response, brandName);
+      const parsed = unavailable ? { mentioned: false, position: null, sentiment: null, competitors: [] } : parseResponse(response, brandName);
       mentions.push({
         llm,
         query,
         mentioned: parsed.mentioned,
         position: parsed.position,
         sentiment: parsed.sentiment,
-        fullResponse: response,
+        fullResponse: unavailable ? "" : response,
         competitorsMentioned: parsed.competitors,
         isSimulated,
+        unavailable,
       });
     }
 

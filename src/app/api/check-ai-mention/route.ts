@@ -54,7 +54,35 @@ export async function POST(req: Request) {
       `Какие компании${nicheCtx} ты можешь порекомендовать? Назови 5–7 лучших вариантов с кратким описанием.`,
     ];
 
-    // ── 1. Реальный ChatGPT (если есть ключ) ──────────────────────────
+    // ── 1. Claude — всегда реальный (ключ Anthropic есть на сервере) ──
+    for (const query of queries.slice(0, 1)) {
+      try {
+        const msg = await anthropic.messages.create({
+          model: "claude-haiku-4-5",
+          max_tokens: 600,
+          // Нет system-prompt с подсказкой о бренде — честный ответ
+          messages: [{ role: "user", content: query }],
+        });
+        const text = (msg.content[0] as { type: string; text: string }).text;
+        results.push({
+          llm: "Claude",
+          query,
+          response: text,
+          mentioned: detectMention(text, companyName),
+          isReal: true,
+        });
+      } catch {
+        results.push({
+          llm: "Claude",
+          query,
+          response: "",
+          mentioned: false,
+          isReal: false,
+        });
+      }
+    }
+
+    // ── 2. ChatGPT — только если ключ настроен, без симуляции ─────────
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey) {
       const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com";
@@ -70,10 +98,8 @@ export async function POST(req: Request) {
               model: "gpt-4o-mini",
               max_tokens: 600,
               temperature: 0.7,
-              messages: [
-                // Никакого system-prompt с подсказками о бренде!
-                { role: "user", content: query },
-              ],
+              // Никакого system-prompt с подсказками о бренде!
+              messages: [{ role: "user", content: query }],
             }),
           });
 
@@ -87,42 +113,15 @@ export async function POST(req: Request) {
               mentioned: detectMention(text, companyName),
               isReal: true,
             });
+          } else {
+            results.push({ llm: "ChatGPT", query, response: "", mentioned: false, isReal: false });
           }
         } catch {
-          // skip on error
+          results.push({ llm: "ChatGPT", query, response: "", mentioned: false, isReal: false });
         }
       }
     }
-
-    // ── 2. Claude — только честный запрос без биас-промпта ────────────
-    // (Используем claude-haiku для скорости и дешевизны)
-    for (const query of queries.slice(0, 1)) {
-      try {
-        const msg = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
-          max_tokens: 600,
-          messages: [{ role: "user", content: query }],
-        });
-        const text = (msg.content[0] as { type: string; text: string }).text;
-        results.push({
-          llm: "Claude",
-          query,
-          response: text,
-          mentioned: detectMention(text, companyName),
-          isReal: true,
-        });
-      } catch {
-        // skip
-      }
-    }
-
-    // ── Если совсем нет реальных данных — вернём ошибку ───────────────
-    if (results.length === 0) {
-      return NextResponse.json({
-        ok: false,
-        error: "Нет доступных AI-ключей для проверки",
-      }, { status: 503 });
-    }
+    // Если OPENAI_API_KEY не настроен — ChatGPT просто не включается в результаты
 
     return NextResponse.json({ ok: true, results });
   } catch (err) {
