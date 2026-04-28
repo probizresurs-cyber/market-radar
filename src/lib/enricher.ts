@@ -397,11 +397,16 @@ function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric |
 export async function getPageSpeedScores(url: string): Promise<PageSpeedResult | null> {
   try {
     const fullUrl = url.startsWith("http") ? url : `https://${url}`;
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices`;
+    const apiKey = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_PLACES_API_KEY || "";
+    const keyParam = apiKey ? `&key=${apiKey}` : "";
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
     const data = await fetchJson(apiUrl, FETCH_HEADERS, 30000) as Record<string, unknown>;
     const lr = data?.lighthouseResult as Record<string, unknown> | undefined;
     const cats = lr?.categories as Record<string, { score?: number }> | undefined;
-    if (!cats) return null;
+    if (!cats) {
+      console.warn("[PageSpeed] No categories in response. error:", (data as Record<string,unknown>)?.error);
+      return null;
+    }
     const audits = (lr?.audits ?? {}) as Record<string, unknown>;
     return {
       performance:   Math.round((cats.performance?.score   ?? 0) * 100),
@@ -415,7 +420,8 @@ export async function getPageSpeedScores(url: string): Promise<PageSpeedResult |
       si:  extractAudit(audits, "speed-index"),
       tti: extractAudit(audits, "interactive"),
     };
-  } catch {
+  } catch (err) {
+    console.warn("[PageSpeed] fetch failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
