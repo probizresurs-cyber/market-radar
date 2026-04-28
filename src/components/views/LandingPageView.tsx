@@ -73,7 +73,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           }
         });
       },
-      { threshold: 0.10, rootMargin: "0px 0px -40px 0px" },
+      // Positive rootMargin fires 120px BEFORE the element enters viewport
+      // so animation is already in progress when it scrolls into view — no flash.
+      { threshold: 0, rootMargin: "0px 0px 120px 0px" },
     );
     els.forEach(el => io.observe(el));
     return () => io.disconnect();
@@ -249,19 +251,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         /* Scroll-revealed entry — triggered via IntersectionObserver.
            Uses an animation (not transition) so per-element stagger via
            animation-delay doesn't interfere with hover transitions. */
-        @keyframes lp-reveal        { from { opacity: 0; transform: translateY(28px); }              to { opacity: 1; transform: translateY(0); } }
-        @keyframes lp-reveal-left   { from { opacity: 0; transform: translateX(-22px); }             to { opacity: 1; transform: translateX(0); } }
-        @keyframes lp-reveal-scale  { from { opacity: 0; transform: scale(0.92) translateY(14px); }  to { opacity: 1; transform: scale(1) translateY(0); } }
-        @keyframes lp-reveal-spring {
-          0%   { opacity: 0; transform: translateY(32px) scale(0.96); }
-          55%  { opacity: 1; transform: translateY(-6px) scale(1.01); }
-          75%  { transform: translateY(3px) scale(0.995); }
-          100% { transform: translateY(0) scale(1); }
-        }
-        .lp-reveal        { opacity: 0; }
-        .lp-reveal-s      { opacity: 0; }
-        .lp-reveal.lp-reveal-in   { animation: lp-reveal        0.62s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
-        .lp-reveal-s.lp-reveal-in { animation: lp-reveal-spring 0.7s  cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        @keyframes lp-reveal  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes lp-reveal-s { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .lp-reveal   { opacity: 0; }
+        .lp-reveal-s { opacity: 0; }
+        .lp-reveal.lp-reveal-in   { animation: lp-reveal   0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .lp-reveal-s.lp-reveal-in { animation: lp-reveal-s 0.6s  cubic-bezier(0.16, 1, 0.3, 1) both; }
 
         /* ── Neon glow ring that breathes ── */
         @keyframes lp-neon-pulse {
@@ -434,15 +429,17 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             </div>
           </div>
 
-          {/* T-04 — strike-through price + "первые клиенты" disclaimer */}
-          <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", justifyContent: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 32, fontWeight: 900, color: fg, letterSpacing: "-0.03em" }}>2 900 ₽</span>
-            <span style={{ fontSize: 20, color: muted, textDecoration: "line-through" }}>4 900 ₽</span>
-            <span style={{ fontSize: 13, color: muted }}>— цена для первых клиентов</span>
-          </div>
-
-          <div style={{ fontSize: 12, color: muted, marginBottom: 18 }}>
-            Полный отчёт + 30 дней в платформе · PDF навсегда
+          {/* Price pill — prominent, readable */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, background: isDark ? "#1a1d2e" : "#f0f0ff", border: `1px solid ${accent}35`, borderRadius: 16, padding: "14px 22px", marginBottom: 18, flexWrap: "wrap", justifyContent: "center" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 40, fontWeight: 900, color: fg, letterSpacing: "-0.04em", lineHeight: 1 }}>2 900 ₽</span>
+              <span style={{ fontSize: 22, color: muted, textDecoration: "line-through", lineHeight: 1 }}>4 900 ₽</span>
+            </div>
+            <div style={{ height: 36, width: 1, background: border }} />
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: fg }}>Полный отчёт + 30 дней</div>
+              <div style={{ fontSize: 12, color: muted }}>PDF навсегда · для первых клиентов</div>
+            </div>
           </div>
 
           {/* T-03 — Telegram secondary link */}
@@ -533,7 +530,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   "застройщики", "автодилеры", "юридический сервис", "консалтинг", "страхование",
                   "агрохолдинги", "CleanTech", "маркетплейсы", "LegalTech",
                 ].map((niche, i) => (
-                  <span key={`${dup}-${i}`} style={{ fontSize: 15, color: muted, letterSpacing: "0em", display: "inline-flex", alignItems: "center", padding: "0 22px" }}>
+                  <span key={`${dup}-${i}`} style={{ fontSize: 15, color: isDark ? "#cbd5e1" : "#475569", letterSpacing: "0em", display: "inline-flex", alignItems: "center", padding: "0 22px", fontWeight: 500 }}>
                     {niche}
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: `${accent}80`, marginLeft: 22, display: "inline-block" }} />
                   </span>
@@ -1172,7 +1169,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             {[
               { label: "Возможности", href: "#features" },
               { label: "GEO-продвижение", href: "#geo" },
-              { label: "Тарифы", href: "#pricing" },
+              { label: "Тарифы", href: "/pricing" },
               { label: "FAQ", href: "#faq" },
             ].map(({ label, href }) => (
               <div key={label} style={{ marginBottom: 8 }}>
@@ -1185,7 +1182,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОМПАНИЯ</div>
             {[
               { label: "О MarketRadar", href: "#features" },
-              { label: "Партнёрам", href: "#partner" },
+              { label: "Партнёрам", href: "/partners" },
               { label: "Бренд Company24", href: "https://company24.pro", external: true },
             ].map(({ label, href, external }) => (
               <div key={label} style={{ marginBottom: 8 }}>
