@@ -114,12 +114,12 @@ function fmtRub(n: number): string {
   return n.toLocaleString("ru-RU") + " ₽";
 }
 
-const GROUP_META: Record<string, { label: string; emoji: string; desc: string }> = {
-  A: { label: "Лид-магниты", emoji: "🎁", desc: "Бесплатно — попробуйте без оплаты" },
-  B: { label: "Микро-обновления", emoji: "🔄", desc: "Разовые обновления аналитики" },
-  C: { label: "Глубокий анализ", emoji: "🔬", desc: "Подробные разовые исследования" },
-  D: { label: "Производство контента", emoji: "✍️", desc: "Статьи, посты, лендинги, презентации" },
-  E: { label: "Подписки и мониторинг", emoji: "📡", desc: "Постоянное наблюдение за рынком" },
+const GROUP_META: Record<string, { label: string; icon: string; desc: string }> = {
+  A: { label: "Лид-магниты",          icon: "gift",    desc: "Бесплатно — попробуйте без оплаты" },
+  B: { label: "Микро-обновления",      icon: "refresh", desc: "Разовые обновления аналитики" },
+  C: { label: "Глубокий анализ",       icon: "search",  desc: "Подробные разовые исследования" },
+  D: { label: "Производство контента", icon: "edit",    desc: "Статьи, посты, лендинги, презентации" },
+  E: { label: "Подписки и мониторинг", icon: "radio",   desc: "Постоянное наблюдение за рынком" },
 };
 
 const TABS = ["Все", "A", "B", "C", "D", "E"] as const;
@@ -143,7 +143,13 @@ export default function PricingPage() {
   const [items, setItems] = useState<PricingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Все");
-  const [isDark] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mr_theme");
+      if (saved === "dark") setIsDark(true);
+    } catch {}
+  }, []);
 
   // ─── T-10 promo state ──────────────────────────────────────────────────────
   const [promoInput, setPromoInput] = useState("");
@@ -235,6 +241,14 @@ export default function PricingPage() {
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.15)", borderRadius: 32, padding: "10px 20px", fontSize: 15 }}>
           🎁 Первый анализ, 3 конкурента и 5 постов — <strong>бесплатно</strong>
         </div>
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+          <button
+            onClick={() => { const next = !isDark; setIsDark(next); try { localStorage.setItem("mr_theme", next ? "dark" : "light"); } catch {} }}
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            {isDark ? "☀️ Светлая тема" : "🌙 Тёмная тема"}
+          </button>
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -256,7 +270,7 @@ export default function PricingPage() {
               transition: "all 0.15s",
             }}
           >
-            {tab === "Все" ? "Все тарифы" : `${GROUP_META[tab]?.emoji} Группа ${tab}`}
+            {tab === "Все" ? "Все тарифы" : `Группа ${tab} · ${GROUP_META[tab]?.label ?? ""}`}
           </button>
         ))}
       </div>
@@ -272,131 +286,70 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 20,
-          }}
-        >
-          {PRODUCTS.map((p) => {
-            const promoApplies = appliedPromo && appliedPromo.productType === p.key;
-            const effectivePrice = promoApplies
-              ? appliedPromo!.value
-              : p.basePrice;
-            const priceChanged = promoApplies && effectivePrice !== p.basePrice;
-            return (
-              <div
-                key={p.key}
-                style={{
-                  background: card,
-                  border: `2px solid ${p.highlight ? accent : border}`,
-                  borderRadius: 20,
-                  padding: 28,
-                  position: "relative",
-                  boxShadow: p.highlight
-                    ? `0 8px 32px ${accent}30`
-                    : "0 1px 4px rgba(0,0,0,0.06)",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {p.highlight && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: -12,
-                      left: 20,
-                      background: accent,
-                      color: "#fff",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: 1,
-                      padding: "4px 12px",
-                      borderRadius: 20,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    По промокоду
-                  </div>
-                )}
-
-                <div style={{ fontSize: 12, color: muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
-                  {p.channel} · {p.accessDays > 0 ? `${p.accessDays} дней доступа` : "разово"}
-                </div>
-
-                <h3 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>
-                  {p.name}
-                </h3>
-                <div style={{ fontSize: 14, color: muted, marginBottom: 20 }}>
-                  {p.tagline}
-                </div>
-
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 20 }}>
-                  {effectivePrice === 0 ? (
-                    <span style={{ fontSize: 36, fontWeight: 800, color: "#16a34a" }}>
-                      Бесплатно
-                    </span>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 36, fontWeight: 800, color: priceChanged ? "#16a34a" : accent }}>
-                        {fmtRub(effectivePrice)}
-                      </span>
-                      {p.originalPrice && p.originalPrice > effectivePrice && (
-                        <span style={{ fontSize: 18, color: muted, textDecoration: "line-through" }}>
-                          {fmtRub(p.originalPrice)}
-                        </span>
-                      )}
-                      {priceChanged && (
-                        <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
-                          промокод {appliedPromo!.code}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", flex: 1 }}>
-                  {p.includes.map((f) => (
-                    <li
-                      key={f}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 8,
-                        fontSize: 14,
-                        lineHeight: 1.5,
-                        color: text,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <span style={{ color: "#16a34a", fontWeight: 700, flexShrink: 0 }}>✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <a
-                  href={p.href}
-                  style={{
-                    display: "block",
-                    textAlign: "center",
-                    padding: "12px 20px",
-                    borderRadius: 12,
-                    background: p.highlight ? accent : (p.key === "full_month" ? `linear-gradient(135deg, ${accent}, #8b5cf6)` : card),
-                    color: p.highlight || p.key === "full_month" ? "#fff" : accent,
-                    border: p.highlight || p.key === "full_month" ? "none" : `2px solid ${accent}`,
-                    fontWeight: 700,
-                    fontSize: 15,
-                    textDecoration: "none",
-                    boxShadow: p.key === "full_month" ? `0 4px 16px ${accent}40` : "none",
-                  }}
-                >
-                  {p.cta}
-                </a>
-              </div>
-            );
-          })}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr>
+                <th style={{ padding: "12px 16px", textAlign: "left", color: muted, fontWeight: 600, fontSize: 12, borderBottom: `2px solid ${border}`, width: "40%" }}>
+                  Что входит
+                </th>
+                {PRODUCTS.map(p => (
+                  <th key={p.key} style={{ padding: "12px 16px", textAlign: "center", borderBottom: `2px solid ${p.highlight ? accent : border}`, borderTop: p.highlight ? `3px solid ${accent}` : "3px solid transparent", background: p.highlight ? `${accent}08` : "transparent" }}>
+                    <div style={{ fontSize: 11, color: muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{p.channel}</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: text, marginBottom: 6 }}>{p.name}</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: p.highlight ? accent : text }}>
+                      {appliedPromo && appliedPromo.productType === p.key ? `${appliedPromo.value} ₽` : p.basePrice === 0 ? "0 ₽" : `${p.basePrice.toLocaleString("ru-RU")} ₽`}
+                    </div>
+                    {p.originalPrice && <div style={{ fontSize: 12, color: muted, textDecoration: "line-through" }}>{p.originalPrice.toLocaleString("ru-RU")} ₽</div>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                "Общий score сайта",
+                "Ключевые инсайты",
+                "5 категорий оценки",
+                "Краткая база конкурентов",
+                "Сохранение на email",
+                "Удобный просмотр на сайте",
+                "Готовый PDF-файл",
+                "Все 15 решений и рекомендаций",
+                "30 дней доступа в платформу",
+                "Мониторинг 24/7",
+                "Портрет ЦА, CJM, брендбук",
+                "Battle cards для отдела продаж",
+              ].map((feature, i) => {
+                const inProduct: Record<string, string[]> = {
+                  express_free: ["Общий score сайта","Ключевые инсайты","5 категорий оценки","Краткая база конкурентов"],
+                  express_paid: ["Общий score сайта","Ключевые инсайты","5 категорий оценки","Краткая база конкурентов","Сохранение на email","Удобный просмотр на сайте","Готовый PDF-файл"],
+                  full_month: ["Общий score сайта","Ключевые инсайты","5 категорий оценки","Краткая база конкурентов","Сохранение на email","Удобный просмотр на сайте","Готовый PDF-файл","Все 15 решений и рекомендаций","30 дней доступа в платформу","Мониторинг 24/7","Портрет ЦА, CJM, брендбук","Battle cards для отдела продаж"],
+                };
+                return (
+                  <tr key={feature} style={{ background: i % 2 === 0 ? "transparent" : (isDark ? "#ffffff05" : "#f8fafc") }}>
+                    <td style={{ padding: "11px 16px", color: text, borderBottom: `1px solid ${border}` }}>{feature}</td>
+                    {PRODUCTS.map(p => (
+                      <td key={p.key} style={{ padding: "11px 16px", textAlign: "center", borderBottom: `1px solid ${border}`, background: p.highlight ? `${accent}05` : "transparent" }}>
+                        {inProduct[p.key].includes(feature)
+                          ? <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 18 }}>✓</span>
+                          : <span style={{ color: border, fontSize: 18 }}>—</span>}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+              <tr>
+                <td style={{ padding: "16px" }} />
+                {PRODUCTS.map(p => (
+                  <td key={p.key} style={{ padding: "12px 16px", textAlign: "center", background: p.highlight ? `${accent}08` : "transparent" }}>
+                    <a href={p.href} style={{ display: "inline-block", padding: "10px 22px", borderRadius: 10, background: p.highlight ? accent : (p.key === "full_month" ? `linear-gradient(135deg, ${accent}, #8b5cf6)` : "transparent"), color: p.highlight || p.key === "full_month" ? "#fff" : accent, border: p.highlight || p.key === "full_month" ? "none" : `2px solid ${accent}`, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+                      {p.cta}
+                    </a>
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* ─── T-10: promo code input ───────────────────────────────────── */}
@@ -414,7 +367,7 @@ export default function PricingPage() {
           }}
         >
           <div style={{ fontSize: 15, fontWeight: 600, color: text }}>
-            {appliedPromo ? "🎉" : "🎟"} Есть промокод?
+            Есть промокод?
           </div>
 
           {appliedPromo ? (
@@ -585,12 +538,12 @@ export default function PricingPage() {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 24px 80px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: muted }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
+            <div style={{ fontSize: 16, marginBottom: 16, fontWeight: 600 }}>Загрузка...</div>
             <div>Загрузка тарифов...</div>
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: muted }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
+            <div style={{ fontSize: 16, marginBottom: 16, fontWeight: 600 }}>Нет тарифов</div>
             <div>Тарифы пока не опубликованы</div>
           </div>
         ) : (
@@ -607,7 +560,7 @@ export default function PricingPage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 22,
                     }}>
-                      {meta?.emoji}
+                      {meta?.icon}
                     </div>
                     <div>
                       <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>

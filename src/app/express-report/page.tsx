@@ -93,7 +93,7 @@ function makeMockReport(id: string, url: string): ExpressReport {
 function ExpressReportInner() {
   const params = useSearchParams();
   const id = params.get("id") ?? "demo";
-  const urlFromQuery = params.get("url") ?? "example.com";
+  const urlFromQuery = params.get("url") ?? "";
 
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   useEffect(() => {
@@ -104,11 +104,16 @@ function ExpressReportInner() {
     } catch { /* ignore */ }
   }, []);
 
+  const [analysisUrl, setAnalysisUrl] = useState(urlFromQuery);
+  const [urlSubmitted, setUrlSubmitted] = useState(!!urlFromQuery);
+  const [urlInput, setUrlInput] = useState(urlFromQuery);
+
   const [stage, setStage] = useState<number>(0); // 0..STAGES.length means "done"
   const [report, setReport] = useState<ExpressReport | null>(null);
 
   // Try to pick up a real report persisted by the landing form; fall back to mock.
   useEffect(() => {
+    if (!urlSubmitted) return;
     if (typeof window === "undefined") return;
     let cancelled = false;
 
@@ -131,13 +136,13 @@ function ExpressReportInner() {
       if (nextStage < STAGES.length) {
         setTimeout(tick, 220);
       } else {
-        setReport(stored ?? makeMockReport(id, urlFromQuery));
+        setReport(stored ?? makeMockReport(id, analysisUrl));
       }
     };
     tick();
 
     return () => { cancelled = true; };
-  }, [id, urlFromQuery]);
+  }, [id, urlSubmitted, analysisUrl]);
 
   const isDark = theme === "dark";
   const bg = isDark ? "#0a0b0f" : "#ffffff";
@@ -194,13 +199,44 @@ function ExpressReportInner() {
         </div>
       </nav>
 
+      {!urlSubmitted ? (
+        <section style={{ maxWidth: 680, margin: "80px auto", padding: "0 32px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: muted, letterSpacing: 2, marginBottom: 12, textTransform: "uppercase" }}>
+            Экспресс-анализ сайта
+          </div>
+          <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 10px", lineHeight: 1.2 }}>
+            Введите URL вашего сайта
+          </h1>
+          <p style={{ fontSize: 15, color: muted, margin: "0 0 32px", lineHeight: 1.6 }}>
+            AI проанализирует SEO, скорость, конкурентов и видимость в нейросетях за 60 секунд
+          </p>
+          <div style={{ display: "flex", gap: 8, background: card, border: `1px solid ${border}`, borderRadius: 14, padding: "8px 8px 8px 18px", boxShadow: `0 2px 20px ${accent}15`, alignItems: "center", marginBottom: 16 }}>
+            <input
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && urlInput.trim()) { setAnalysisUrl(urlInput.trim()); setUrlSubmitted(true); } }}
+              placeholder="example.ru"
+              style={{ flex: 1, border: "none", background: "transparent", fontSize: 16, color: fg, outline: "none", fontFamily: "inherit", padding: "8px 0" }}
+              autoFocus
+            />
+            <button
+              onClick={() => { if (urlInput.trim()) { setAnalysisUrl(urlInput.trim()); setUrlSubmitted(true); } }}
+              disabled={!urlInput.trim()}
+              style={{ background: accent, color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontWeight: 700, fontSize: 15, fontFamily: "inherit", cursor: urlInput.trim() ? "pointer" : "not-allowed", opacity: urlInput.trim() ? 1 : 0.6 }}
+            >
+              Анализировать →
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
       {/* ─── HERO: URL + progress bar ────────────────────────────────── */}
       <section style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 32px 24px" }}>
         <div style={{ fontSize: 13, color: muted, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>
           Экспресс-отчёт · AI-анализ
         </div>
         <h1 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 6px", lineHeight: 1.15 }}>
-          {report?.url ?? urlFromQuery}
+          {report?.url ?? analysisUrl}
         </h1>
         <div style={{ fontSize: 14, color: muted }}>
           {isLoading ? "Генерируем отчёт — обычно 30-60 секунд" :
@@ -471,6 +507,8 @@ function ExpressReportInner() {
               })}
             </div>
           </section>
+        </>
+      )}
         </>
       )}
 
