@@ -4,7 +4,8 @@ import React, { useState, useCallback } from "react";
 import {
   Eye, Sparkles, Search, TrendingUp, Globe, CheckCircle2, AlertTriangle,
   ChevronDown, ChevronUp, X, BarChart3, Users, Zap, Target, Info,
-  ClipboardList, Bot, Activity, History, Plus,
+  ClipboardList, Bot, Activity, History, Plus, MessageSquare, ListChecks,
+  Code2, FileText, Award, Rocket, RefreshCw,
 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
@@ -212,6 +213,34 @@ export function AIVisibilityView({ c, myCompany }: Props) {
   // Report
   const [modalMention, setModalMention] = useState<AIMention | null>(null);
   const [openRec, setOpenRec] = useState<number | null>(null);
+
+  // Direct mentions ("Расскажи о компании X")
+  interface DirectMention {
+    llm: LLMName; query: string; response: string;
+    mentioned: boolean; isReal: boolean; isSimulated: boolean; unavailable: boolean;
+  }
+  const [directMentions, setDirectMentions] = useState<DirectMention[] | null>(null);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [directError, setDirectError] = useState<string | null>(null);
+  const [directExpanded, setDirectExpanded] = useState<number | null>(null);
+
+  const runDirectMentions = useCallback(async () => {
+    if (!audit?.brandName) return;
+    setDirectLoading(true); setDirectError(null);
+    try {
+      const res = await fetch("/api/ai-visibility/direct-mentions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandName: audit.brandName, websiteUrl: audit.websiteUrl }),
+      });
+      const json = await res.json();
+      if (json.ok) setDirectMentions(json.mentions);
+      else setDirectError(json.error ?? "Ошибка");
+    } catch {
+      setDirectError("Не удалось выполнить запрос");
+    } finally {
+      setDirectLoading(false);
+    }
+  }, [audit]);
 
   const effectiveNiche = niche === "Другое" ? nicheCustom : niche;
   const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
@@ -769,6 +798,155 @@ export function AIVisibilityView({ c, myCompany }: Props) {
           </p>
         </Card>
 
+        {/* Block 2.5: Direct mentions — "Расскажи о компании X" */}
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--primary)15", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                <MessageSquare size={18} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Прямые ответы AI о компании</h2>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                  Что каждая нейросеть говорит, если у неё спросить «Расскажи о {audit.brandName}»
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={runDirectMentions}
+              disabled={directLoading}
+              style={{
+                padding: "9px 18px", borderRadius: 10, border: "none",
+                background: directLoading ? "var(--muted)" : "var(--primary)",
+                color: directLoading ? "var(--muted-foreground)" : "#fff",
+                fontWeight: 700, fontSize: 13, cursor: directLoading ? "default" : "pointer",
+                display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+              }}
+            >
+              {directLoading ? (
+                <><RefreshCw size={14} className="mr-spin" /> Опрашиваем…</>
+              ) : directMentions ? (
+                <><RefreshCw size={14} /> Обновить</>
+              ) : (
+                <><Zap size={14} /> Запросить ответы</>
+              )}
+            </button>
+          </div>
+          <style>{`@keyframes mr-aiv-spin { to { transform: rotate(360deg); } } .mr-spin { animation: mr-aiv-spin 0.9s linear infinite; }`}</style>
+
+          {directError && (
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ef444415", color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <AlertTriangle size={14} /> {directError}
+            </div>
+          )}
+
+          {!directMentions && !directLoading && !directError && (
+            <div style={{ padding: "20px 16px", borderRadius: 12, background: "var(--background)", border: "1px dashed var(--border)", textAlign: "center" }}>
+              <Bot size={32} style={{ opacity: 0.3, marginBottom: 8, color: "var(--muted-foreground)" }} />
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.6 }}>
+                Нажмите «Запросить ответы» — пошлём запрос<br/>
+                «Расскажи о компании <b style={{ color: "var(--foreground)" }}>{audit.brandName}</b>» во все 5 нейросетей.<br/>
+                <span style={{ fontSize: 12 }}>ChatGPT и Claude отвечают через реальный API.</span>
+              </p>
+            </div>
+          )}
+
+          {directLoading && (
+            <div style={{ padding: "30px 16px", textAlign: "center", color: "var(--muted-foreground)" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                <RefreshCw size={18} className="mr-spin" />
+                Опрашиваем 5 нейросетей параллельно (15–25 сек)…
+              </div>
+            </div>
+          )}
+
+          {directMentions && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 12 }}>
+              {directMentions.map((m, i) => {
+                const meta = LLM_META[m.llm];
+                const isOpen = directExpanded === i;
+                const trimmed = m.response.length > 200 ? m.response.slice(0, 200) + "…" : m.response;
+                return (
+                  <div key={i} style={{
+                    borderRadius: 14, border: `1.5px solid ${m.unavailable ? "var(--border)" : meta.color + "40"}`,
+                    background: m.unavailable ? "var(--muted)" : "var(--card)",
+                    overflow: "hidden", display: "flex", flexDirection: "column",
+                    opacity: m.unavailable ? 0.7 : 1,
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      padding: "10px 14px",
+                      background: m.unavailable ? "transparent" : meta.bg,
+                      borderBottom: `1px solid ${m.unavailable ? "var(--border)" : meta.color + "30"}`,
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: m.unavailable ? "var(--muted-foreground)" : meta.color }}>
+                        {meta.label}
+                      </span>
+                      {m.unavailable ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5, background: "var(--muted)", color: "var(--muted-foreground)" }}>
+                          ключ не настроен
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", gap: 5 }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
+                            background: m.mentioned ? "#22c55e25" : "#ef444425",
+                            color: m.mentioned ? "#22c55e" : "#ef4444",
+                            display: "flex", alignItems: "center", gap: 3,
+                          }}>
+                            {m.mentioned ? <><CheckCircle2 size={10} /> знает</> : <><X size={10} /> не знает</>}
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
+                            background: m.isReal ? "#22c55e15" : "#f59e0b15",
+                            color: m.isReal ? "#22c55e" : "#f59e0b",
+                          }}>
+                            {m.isReal ? "API" : "симуляция"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Body */}
+                    <div style={{ padding: "12px 14px", flex: 1, fontSize: 12, lineHeight: 1.65, color: "var(--foreground-secondary)", whiteSpace: "pre-wrap" }}>
+                      {m.unavailable ? (
+                        <span style={{ color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                          Реальный API не настроен. Добавьте OPENAI_API_KEY на сервер чтобы получить честный ответ ChatGPT.
+                        </span>
+                      ) : (
+                        <>
+                          {isOpen ? m.response : trimmed}
+                          {m.response.length > 200 && (
+                            <button
+                              onClick={() => setDirectExpanded(isOpen ? null : i)}
+                              style={{
+                                display: "block", marginTop: 8, padding: 0, border: "none", background: "transparent",
+                                color: meta.color, fontWeight: 700, fontSize: 12, cursor: "pointer",
+                              }}
+                            >
+                              {isOpen ? "← свернуть" : "развернуть полностью →"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {directMentions && (
+            <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "var(--primary)08", border: "1px solid var(--primary)20", fontSize: 12, color: "var(--foreground-secondary)", display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <Info size={14} style={{ flexShrink: 0, marginTop: 1, color: "var(--primary)" }} />
+              <span>
+                Если ни одна нейросеть не «знает» компанию — это нормально для среднего бизнеса.
+                Чтобы попасть в ответы, выполняйте действия из <b>чек-листа ниже</b>: чем больше упоминаний на авторитетных площадках и чем лучше структурирован сайт — тем выше шанс попасть в обучающие данные следующих версий моделей.
+              </span>
+            </div>
+          )}
+        </Card>
+
         {/* Blocks 3 & 4 side by side */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           {/* Block 3: Competitors */}
@@ -899,6 +1077,181 @@ export function AIVisibilityView({ c, myCompany }: Props) {
             </div>
           </Card>
         )}
+
+        {/* Block 6: GEO Checklist — what to do to appear in AI answers */}
+        {(() => {
+          const checks = new Map(siteReadiness.map(it => [it.key, it.passed]));
+          const checklist: Array<{
+            category: string;
+            icon: React.ReactNode;
+            color: string;
+            items: Array<{ label: string; done?: boolean; how: string; auto?: boolean }>;
+          }> = [
+            {
+              category: "Технические основы",
+              icon: <Code2 size={16} />,
+              color: "#3b82f6",
+              items: [
+                { label: "Schema.org JSON-LD разметка", auto: true, done: checks.get("schemaOrg") ?? false,
+                  how: "Добавьте <script type=\"application/ld+json\"> с типом Organization в <head> главной страницы — описание, URL, контакты, соцсети." },
+                { label: "Organization schema", auto: true, done: checks.get("orgSchema") ?? false,
+                  how: "В JSON-LD укажите @type:\"Organization\" с полями name, url, logo, sameAs (соцсети), contactPoint." },
+                { label: "FAQPage schema", auto: true, done: checks.get("faqSchema") ?? false,
+                  how: "Если на сайте есть FAQ — оберните его в @type:\"FAQPage\" с массивом mainEntity (Question/Answer). Это самый цитируемый формат для AI." },
+                { label: "Файл /llms.txt в корне сайта", auto: true, done: checks.get("llmsTxt") ?? false,
+                  how: "Создайте /llms.txt — новый стандарт для AI-ботов. Структура как у README: # Название\\n> описание\\n## Разделы\\n- [Имя](url): пояснение." },
+                { label: "robots.txt разрешает GPTBot, ClaudeBot, PerplexityBot", auto: true, done: checks.get("robotsTxt") ?? false,
+                  how: "Откройте /robots.txt и убедитесь что НЕТ строк \"User-agent: GPTBot Disallow: /\" и аналогичных для ClaudeBot, PerplexityBot, Google-Extended." },
+                { label: "sitemap.xml — актуальный, со всеми страницами", how: "Сгенерируйте sitemap.xml через Next.js или XML-Sitemaps; добавьте ссылку Sitemap: в robots.txt." },
+                { label: "Open Graph + Twitter Cards", how: "Добавьте og:title, og:description, og:image, twitter:card на каждую страницу — AI-парсеры читают эти теги для preview." },
+              ],
+            },
+            {
+              category: "Контент и структура",
+              icon: <FileText size={16} />,
+              color: "#10b981",
+              items: [
+                { label: "FAQ-блоки с реальными вопросами клиентов", auto: true, done: checks.get("faqBlocks") ?? false,
+                  how: "Соберите 8–15 типовых вопросов клиентов. Ответы — короткие, конкретные, с цифрами. Это материал #1 для AI-цитат." },
+                { label: "H2-заголовки в виде вопросов", auto: true, done: checks.get("h2Questions") ?? false,
+                  how: "Перепишите H2: вместо «Преимущества» → «Чем мы отличаемся от X?»; вместо «Услуги» → «Что входит в услугу X?». LLM выбирают такие фрагменты." },
+                { label: "Цифры и факты в первых 200 словах", auto: true, done: checks.get("numbersFirst200") ?? false,
+                  how: "На главной странице в первом блоке: «12 лет на рынке», «250+ клиентов», «средний срок 14 дней». Конкретика > общие фразы." },
+                { label: "Атрибуция авторов (E-E-A-T)", auto: true, done: checks.get("author") ?? false,
+                  how: "К каждой статье / экспертному материалу добавьте имя автора с meta name=\"author\" и желательно ссылку на профиль (Habr, LinkedIn)." },
+                { label: "Страница «О компании» с фактами", how: "Год основания, команда, миссия, конкретные цифры (выручка, клиенты, награды), сертификаты, юр-реквизиты." },
+                { label: "Цены/тарифы открыто", how: "Закрытые цены = нет цитат от AI. Опубликуйте прайс или хотя бы вилки «от X ₽»." },
+                { label: "Кейсы с измеримыми результатами", how: "Минимум 5 кейсов в формате: «Клиент / Задача / Что сделали / Результат с цифрами»." },
+              ],
+            },
+            {
+              category: "Внешние сигналы (авторитет)",
+              icon: <Award size={16} />,
+              color: "#f59e0b",
+              items: [
+                { label: "Упоминания на Habr / VC.ru / RB.ru", how: "Опубликуйте 2–3 экспертные статьи в год на Habr или VC. AI-модели обучаются на этих доменах активно." },
+                { label: "Профиль на агрегаторах ниши", how: "Ruward / Tagline / Workspace для digital; Roem.ru, CRMRating, SoftwareSuggest — в зависимости от ниши." },
+                { label: "Отзывы 50+ на 2GIS / Яндекс.Картах / Google Maps", how: "Активно собирайте отзывы. AI цитирует именно эти платформы для оценки репутации." },
+                { label: "Цитаты экспертов компании в СМИ", how: "Pressfeed / Deadline / журналистские запросы — отвечайте регулярно. Каждое цитирование = упоминание в обучении." },
+                { label: "Pres-release дистрибуция", how: "B2Blogger, Pressfeed, ExpoPromoter — публикация ≥ 1 пресс-релиза в квартал." },
+                { label: "Wikipedia / Crunchbase профиль (для крупных)", how: "Если есть пресса и значимость — заведите страницу на Wikipedia (требует независимых источников). Crunchbase — опционально." },
+                { label: "Подкасты / выступления / вебинары", how: "Транскрипты подкастов и видео — попадают в обучающие наборы. Запишите 4–6 выступлений в год." },
+              ],
+            },
+            {
+              category: "Оптимизация под AI-поиск",
+              icon: <Sparkles size={16} />,
+              color: "#8b5cf6",
+              items: [
+                { label: "Прямые ответы на типовые вопросы клиентов", how: "Создайте отдельную страницу /knowledge или /faq с короткими (50–150 слов) ответами на 30+ вопросов из ниши." },
+                { label: "Цитируемая статистика и факты со ссылками", how: "В статьях указывайте источник: «По данным Data Insight, 2025…». AI любит верифицируемые факты." },
+                { label: "Глоссарий терминов ниши", how: "Раздел /glossary с короткими определениями. Часто появляется в выдаче AI на запросы «что такое X»." },
+                { label: "Структурированный контент: списки, таблицы", how: "Маркированные списки, нумерация шагов, сравнительные таблицы — они выбираются LLM как готовые блоки для ответа." },
+                { label: "Альтернативный текст у изображений", how: "alt=\"...\" с описанием смысла, а не «image1.png». Influence на multimodal-модели (GPT-4o, Gemini)." },
+              ],
+            },
+          ];
+
+          const totalDone = checklist.flatMap(c => c.items).filter(i => i.done).length;
+          const totalAuto = checklist.flatMap(c => c.items).filter(i => i.auto).length;
+
+          return (
+            <Card style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--primary)15", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                    <ListChecks size={18} />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>
+                      Чек-лист: что сделать чтобы попасть в ответы AI
+                    </h2>
+                    <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                      Полный план GEO-оптимизации по 4 категориям. Автопроверка: <b style={{ color: "var(--success)" }}>{totalDone}</b> из {totalAuto} технических пунктов выполнено.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 14 }}>
+                {checklist.map((cat) => (
+                  <div key={cat.category} style={{
+                    borderRadius: 14, border: `1.5px solid ${cat.color}30`,
+                    background: `${cat.color}06`, padding: 16,
+                  }}>
+                    {/* Category header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${cat.color}20` }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${cat.color}20`, color: cat.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {cat.icon}
+                      </div>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>{cat.category}</h3>
+                      <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted-foreground)" }}>
+                        {cat.items.filter(i => i.done).length}/{cat.items.filter(i => i.auto).length || cat.items.length}
+                      </span>
+                    </div>
+
+                    {/* Items */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {cat.items.map((item, i) => {
+                        const isAuto = !!item.auto;
+                        const isDone = item.done;
+                        return (
+                          <details key={i} style={{
+                            background: "var(--card)", borderRadius: 10,
+                            border: `1px solid ${isDone ? "#22c55e30" : isAuto ? "#ef444430" : "var(--border)"}`,
+                            overflow: "hidden",
+                          }}>
+                            <summary style={{ padding: "9px 12px", cursor: "pointer", listStyle: "none", display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                              <div style={{
+                                width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                background: isDone ? "#22c55e" : isAuto ? "#ef444415" : "var(--muted)",
+                                color: isDone ? "#fff" : isAuto ? "#ef4444" : "var(--muted-foreground)",
+                                border: isDone ? "none" : `1.5px solid ${isAuto ? "#ef444450" : "var(--border)"}`,
+                              }}>
+                                {isDone ? <CheckCircle2 size={13} /> : isAuto ? <X size={11} /> : ""}
+                              </div>
+                              <span style={{ flex: 1, color: "var(--foreground)", fontWeight: isDone ? 500 : 600, textDecoration: isDone ? "line-through" : "none", opacity: isDone ? 0.7 : 1 }}>
+                                {item.label}
+                              </span>
+                              {isAuto && !isDone && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#ef444415", color: "#ef4444" }}>
+                                  не выполнено
+                                </span>
+                              )}
+                              {!isAuto && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "var(--muted)", color: "var(--muted-foreground)" }}>
+                                  вручную
+                                </span>
+                              )}
+                              <ChevronDown size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
+                            </summary>
+                            <div style={{ padding: "0 12px 12px 42px", fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.65 }}>
+                              <div style={{ padding: "10px 12px", borderRadius: 8, background: `${cat.color}08`, borderLeft: `3px solid ${cat.color}` }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 4 }}>КАК СДЕЛАТЬ</div>
+                                {item.how}
+                              </div>
+                            </div>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom note */}
+              <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "var(--primary)08", border: "1px solid var(--primary)25", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <Rocket size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.65 }}>
+                  <b style={{ color: "var(--foreground)" }}>Реалистичный таймлайн:</b> технические пункты — 1–2 недели разработки;
+                  контент и сайт — 1 месяц; внешние сигналы — 3–6 месяцев. Эффект (рост AI-видимости) виден через
+                  3–6 мес после старта работ — модели обновляют обучающие данные с задержкой.
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Response modal */}
         {modalMention && (
