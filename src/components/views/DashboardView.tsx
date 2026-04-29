@@ -17,7 +17,7 @@ import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
 import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart } from "lucide-react";
 
-export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
+export function DashboardView({ c, data, competitors, onUpdateData }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void }) {
   const { company, recommendations } = data;
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
@@ -351,9 +351,24 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
         </CollapsibleSection>
       )}
 
-      {/* Key.so Dashboard */}
+      {/* Key.so Dashboard with refresh capability */}
       <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={true}>
-        <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
+        <KeysoDashboardBlock
+          c={c}
+          dash={data.keysoDashboard}
+          domain={onUpdateData ? data.company.url : undefined}
+          onRefresh={onUpdateData ? (result) => {
+            onUpdateData({
+              ...data,
+              keysoDashboard: result.keysoDashboard,
+              seo: {
+                ...data.seo,
+                positions: result.positions ?? data.seo.positions,
+                googlePositions: result.googlePositions ?? data.seo.googlePositions,
+              },
+            });
+          } : undefined}
+        />
       </CollapsibleSection>
 
       {/* Market share — only if we have at least 1 competitor */}

@@ -589,6 +589,27 @@ export default function MarketRadarDashboard() {
     });
   };
 
+  // Update myCompany — partial refresh from a single block (e.g. Keys.so refresh)
+  const handleUpdateMyCompany = (next: AnalysisResult) => {
+    setMyCompany(next);
+    if (currentUser?.id) {
+      try { localStorage.setItem(`mr_company_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      syncToServer("company", next);
+    }
+  };
+
+  // Update single competitor in array
+  const handleUpdateCompetitor = (idx: number, next: AnalysisResult) => {
+    setCompetitors(prev => {
+      const updated = prev.map((c, i) => i === idx ? next : c);
+      if (currentUser?.id) {
+        try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
+        syncToServer("competitors", updated);
+      }
+      return updated;
+    });
+  };
+
   // Add competitor
   const handleAddCompetitor = async (url: string) => {
     setIsAnalyzing(true);
@@ -1228,7 +1249,12 @@ export default function MarketRadarDashboard() {
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
           <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
           <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
-            <CompetitorProfileView c={c} data={competitors[selectedCompetitor]} onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }} />
+            <CompetitorProfileView
+              c={c}
+              data={competitors[selectedCompetitor]}
+              onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }}
+              onUpdateData={(next) => handleUpdateCompetitor(selectedCompetitor, next)}
+            />
           </main>
         </div>
       </div>
@@ -1250,7 +1276,7 @@ export default function MarketRadarDashboard() {
         <PaywallGuard />
         <VisitTracker source="platform" />
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
-        {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
+        {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}

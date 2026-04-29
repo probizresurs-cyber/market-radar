@@ -16,7 +16,7 @@ import {
   Search, Building2, ClipboardList, Settings, Users, Smartphone,
 } from "lucide-react";
 
-export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: AnalysisResult; onBack: () => void }) {
+export function CompetitorProfileView({ c, data, onBack, onUpdateData }: { c: Colors; data: AnalysisResult; onBack: () => void; onUpdateData?: (next: AnalysisResult) => void }) {
   const { company, recommendations, insights } = data;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [offers, setOffers] = useState<any>(null);
@@ -221,9 +221,24 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
         )}
       </CollapsibleSection>
 
-      {/* Key.so Dashboard */}
+      {/* Key.so Dashboard with refresh capability */}
       <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} />} defaultOpen={true}>
-        <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
+        <KeysoDashboardBlock
+          c={c}
+          dash={data.keysoDashboard}
+          domain={onUpdateData ? data.company.url : undefined}
+          onRefresh={onUpdateData ? (result) => {
+            onUpdateData({
+              ...data,
+              keysoDashboard: result.keysoDashboard,
+              seo: {
+                ...data.seo,
+                positions: result.positions ?? data.seo.positions,
+                googlePositions: result.googlePositions ?? data.seo.googlePositions,
+              },
+            });
+          } : undefined}
+        />
       </CollapsibleSection>
 
       {/* Реклама Я.Директ конкурента */}

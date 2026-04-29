@@ -3,7 +3,7 @@
  *
  * Документация: https://apidoc.keys.so/
  *
- * Авторизация: header `Authorization: <token>` (без "Bearer")
+ * Авторизация: header `X-Keyso-TOKEN: <token>` (тот же что в существующем enricher.ts)
  * Регионы (base):
  *   msk     — Яндекс Москва
  *   spb     — Яндекс СПб
@@ -40,7 +40,7 @@ export async function keysoFetch<T = unknown>(
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: {
-        Authorization: token,
+        "X-Keyso-TOKEN": token,
         Accept: "application/json",
         "User-Agent": "MarketRadar/1.0",
       },

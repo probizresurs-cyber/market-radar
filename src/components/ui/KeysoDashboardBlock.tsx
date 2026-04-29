@@ -1,9 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
-import type { KeysoDashboardData } from "@/lib/types";
-import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords } from "lucide-react";
+import type { KeysoDashboardData, SeoPosition } from "@/lib/types";
+import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
+
+export interface KeysoRefreshResult {
+  keysoDashboard: { yandex?: KeysoDashboardData; google?: KeysoDashboardData };
+  positions: SeoPosition[];
+  googlePositions: SeoPosition[];
+  refreshedAt: string;
+}
 
 // Короткое описание для каждой метрики — отображается постоянно,
 // чтобы пользователь не гадал, что значит столбец.
@@ -26,10 +33,44 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "Ссылок по IP": "Количество ссылок с IP-адресов, связанных с сайтом (proxy-метрика спам-активности)",
 };
 
-export function KeysoDashboardBlock({ c, dash }: {
+export function KeysoDashboardBlock({ c, dash, domain, onRefresh }: {
   c: Colors;
   dash?: { yandex?: KeysoDashboardData; google?: KeysoDashboardData } | null;
+  /** Если указан — показывается кнопка «Обновить» вверху блока */
+  domain?: string;
+  /** Callback с новыми данными после успешного обновления через /api/keyso/refresh */
+  onRefresh?: (result: KeysoRefreshResult) => void;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+
+  const handleRefresh = async () => {
+    if (!domain || !onRefresh) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch("/api/keyso/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        onRefresh(json as KeysoRefreshResult);
+        setRefreshedAt(json.refreshedAt);
+        // Reset success indicator after 4 seconds
+        setTimeout(() => setRefreshedAt(prev => prev === json.refreshedAt ? null : prev), 4000);
+      } else {
+        setRefreshError(json.error ?? "Ошибка обновления");
+      }
+    } catch {
+      setRefreshError("Не удалось связаться с Keys.so");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const y = dash?.yandex;
   const g = dash?.google;
 
@@ -76,11 +117,49 @@ export function KeysoDashboardBlock({ c, dash }: {
 
   return (
     <div style={{ marginBottom: 8 }}>
-      {/* Main header */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <BarChart2 size={14} />Key.so — данные о поисковом трафике
-        </span>
+      {/* Main header with optional refresh button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <BarChart2 size={14} />Key.so — данные о поисковом трафике
+          </span>
+        </div>
+        {domain && onRefresh && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {refreshError && (
+              <span style={{ fontSize: 11, color: "var(--destructive)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <AlertTriangle size={12} /> {refreshError}
+              </span>
+            )}
+            {refreshedAt && !refreshError && (
+              <span style={{ fontSize: 11, color: "var(--success)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <CheckCircle2 size={12} /> Обновлено
+              </span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Обновить только данные Keys.so без перезапуска полного анализа"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 8,
+                border: `1px solid var(--border)`,
+                background: refreshing ? "var(--muted)" : "var(--card)",
+                color: refreshing ? "var(--muted-foreground)" : "var(--foreground-secondary)",
+                fontWeight: 600, fontSize: 12,
+                cursor: refreshing ? "default" : "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.15s, border-color 0.15s",
+              }}
+              onMouseEnter={(e) => { if (!refreshing) e.currentTarget.style.borderColor = "var(--primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+            >
+              <RefreshCw size={12} style={{ animation: refreshing ? "ksb-spin 0.8s linear infinite" : "none" }} />
+              {refreshing ? "Обновление…" : "Обновить"}
+            </button>
+            <style>{`@keyframes ksb-spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
       </div>
 
       {/* Позиции в поиске */}
