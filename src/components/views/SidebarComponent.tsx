@@ -11,6 +11,7 @@ import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import type { NavItem, NavSection } from "@/lib/nav";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 
 // Map icon names from nav.ts → actual Lucide components.
 // Anything not in this map falls back to rendering the string (legacy emoji support).
@@ -122,10 +123,12 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       {/* Logo */}
       <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #1E40AF, #3B82F6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.02em", boxShadow: "0 2px 10px rgba(30,64,175,0.4)", flexShrink: 0 }}>MR</div>
+          <MarketRadarLogo size={32} variant="dark" animated />
           {!hideBranding && (
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>MarketRadar</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>
+                <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+              </div>
               {companyUrl && <div style={{ fontSize: 10, color: "var(--sidebar-muted)", marginTop: 1 }}>{companyUrl}</div>}
             </div>
           )}

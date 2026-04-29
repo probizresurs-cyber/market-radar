@@ -21,6 +21,7 @@ import { LoginView } from "@/components/views/LoginView";
 import { OnboardingView } from "@/components/views/OnboardingView";
 import { LandingView } from "@/components/views/LandingView";
 import { LoadingView } from "@/components/views/LoadingView";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 
 // ─── Extracted UI components ──────────────────────────────────────────────────
 import { ScoreRing } from "@/components/ui/ScoreRing";
@@ -1174,8 +1175,10 @@ export default function MarketRadarDashboard() {
           <Menu size={22} />
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11 }}>MR</div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>MarketRadar</span>
+          <MarketRadarLogo size={28} variant={theme === "light" ? "light" : "dark"} animated />
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>
+            <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+          </span>
         </div>
         <button onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")} aria-label="Сменить тему"
           style={{ background: "transparent", border: "none", width: 40, height: 40, cursor: "pointer", fontSize: 18, borderRadius: 8 }}>
@@ -1196,8 +1199,10 @@ export default function MarketRadarDashboard() {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${COLORS.dark.sidebarBorder}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #7C3AED, #A855F7)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11 }}>MR</div>
-            <span style={{ fontWeight: 700, fontSize: 13, color: COLORS.dark.sidebarText }}>MarketRadar</span>
+            <MarketRadarLogo size={30} variant="dark" animated />
+            <span style={{ fontWeight: 700, fontSize: 13, color: COLORS.dark.sidebarText }}>
+              <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+            </span>
           </div>
           <button onClick={() => setMobileMenuOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: COLORS.dark.sidebarTextMuted, borderRadius: 6, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={18} />

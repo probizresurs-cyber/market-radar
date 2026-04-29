@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 import { VisitTracker } from "@/components/VisitTracker";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 
 /**
  * MarketRadar landing page — 7 semantic blocks, SEO+GEO optimized.
@@ -332,8 +333,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ── NAV ─────────────────────────────────────────────── */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 60, borderBottom: `1px solid ${border}`, background: bg + "f0", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg,${accent},#818cf8)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12 }}>MR</div>
-          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.02em" }}>MarketRadar</span>
+          <MarketRadarLogo size={36} variant={isDark ? "dark" : "light"} animated />
+          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.02em" }}>
+            <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+          </span>
         </div>
         <div className="nav-links" style={{ display: "flex", gap: 28, fontSize: 13, color: muted }}>
           <a href="#features" style={{ color: muted, textDecoration: "none" }}>Возможности</a>
@@ -1154,8 +1157,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         {/* Brand row */}
         <div style={{ marginBottom: 32, maxWidth: 420 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg,${accent},#818cf8)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 12 }}>MR</div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>MarketRadar</span>
+            <MarketRadarLogo size={36} variant={isDark ? "dark" : "light"} animated />
+            <span style={{ fontWeight: 700, fontSize: 15 }}>
+              <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+            </span>
           </div>
           <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>
             Радар вашего бизнеса, рынка и конкурентов. Продукт экосистемы{" "}
