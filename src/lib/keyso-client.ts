@@ -17,10 +17,13 @@ const KEYSO_TIMEOUT_MS = 25000;
 
 export type KeysoBase = "msk" | "spb" | "ru" | "goo_ru" | "gru";
 
-/** Низкоуровневый запрос к Keys.so. Возвращает null при ошибке (не бросает). */
+/** Низкоуровневый запрос к Keys.so. Возвращает null при ошибке (не бросает).
+ *  method: "GET" (default) кладёт params в query string; "POST" — в JSON body.
+ */
 export async function keysoFetch<T = unknown>(
   path: string,
   params: Record<string, string | number | undefined> = {},
+  method: "GET" | "POST" = "GET",
 ): Promise<T | null> {
   const token = process.env.KEYSO_API_TOKEN;
   if (!token) {
@@ -28,23 +31,48 @@ export async function keysoFetch<T = unknown>(
     return null;
   }
 
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== "") qs.append(k, String(v));
-  }
-  const url = `${KEYSO_BASE_URL}${path}?${qs.toString()}`;
-
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), KEYSO_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
+
+  let url: string;
+  let fetchInit: RequestInit;
+
+  if (method === "POST") {
+    url = `${KEYSO_BASE_URL}${path}`;
+    // Убираем undefined-значения
+    const body: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") body[k] = v;
+    }
+    fetchInit = {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        "X-Keyso-TOKEN": token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "MarketRadar/1.0",
+      },
+      body: JSON.stringify(body),
+    };
+  } else {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") qs.append(k, String(v));
+    }
+    url = `${KEYSO_BASE_URL}${path}?${qs.toString()}`;
+    fetchInit = {
       signal: ctrl.signal,
       headers: {
         "X-Keyso-TOKEN": token,
         Accept: "application/json",
         "User-Agent": "MarketRadar/1.0",
       },
-    });
+    };
+  }
+
+  try {
+    const res = await fetch(url, fetchInit);
     if (!res.ok) {
       console.warn(`[Keyso] HTTP ${res.status} ${path} — ${await res.text().then(t => t.slice(0, 150)).catch(() => "")}`);
       return null;
@@ -367,6 +395,7 @@ export async function fetchAnchors(
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/anchors",
     { domain: cleanDomain, page: 1, per_page: limit },
+    "POST",
   );
   if (!data?.data) return [];
   const items = data.data.slice(0, limit).map((a) => ({
@@ -386,6 +415,7 @@ export async function fetchReferringDomains(
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/referring_domains",
     { domain: cleanDomain, page: 1, per_page: limit },
+    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((d) => ({
@@ -405,6 +435,7 @@ export async function fetchPopularPages(
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/popular_pages",
     { domain: cleanDomain, page: 1, per_page: limit },
+    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((p) => ({
@@ -423,6 +454,7 @@ export async function fetchMainTopics(
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/main_topics",
     { domain: cleanDomain, base },
+    "POST",
   );
   if (!data?.data) return [];
   return data.data.map((t) => ({
