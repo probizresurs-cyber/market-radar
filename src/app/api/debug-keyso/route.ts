@@ -12,20 +12,21 @@ async function keysoRaw(path: string, params: Record<string, string | number>, t
   const text = await res.text();
   let parsed: unknown = null;
   try { parsed = JSON.parse(text); } catch { /* */ }
-  // Return first item of data array with all keys for inspection
   let sample: unknown = null;
+  let total: number | string = 0;
   if (parsed && typeof parsed === "object" && "data" in (parsed as object)) {
     const d = (parsed as Record<string, unknown>).data;
-    if (Array.isArray(d) && d.length > 0) sample = d[0];
+    if (Array.isArray(d)) {
+      total = d.length;
+      sample = d[0] ?? null;
+    } else {
+      total = "not-array";
+      sample = d;
+    }
+  } else {
+    total = "no-data-key";
   }
-  return {
-    status: res.status,
-    total: parsed && typeof parsed === "object" && "data" in (parsed as object)
-      ? (Array.isArray((parsed as Record<string,unknown>).data) ? (parsed as Record<string,unknown[]>).data.length : "not-array")
-      : "no-data-key",
-    sample,
-    rawStart: text.slice(0, 600),
-  };
+  return { status: res.status, total, sample, rawStart: text.slice(0, 600) };
 }
 
 export async function GET(req: Request) {
@@ -42,19 +43,19 @@ export async function GET(req: Request) {
   const [pages, lost, anchors, refDomains, popPages, topics] = await Promise.all([
     keysoRaw("/report/simple/organic/sitepages/withkeys", p, token),
     keysoRaw("/report/simple/organic/lost_keywords", p, token),
-    keysoRaw("/report/simple/links/anchors", pLinks, token),
-    keysoRaw("/report/simple/links/referring-domains", pLinks, token),
-    keysoRaw("/report/simple/links/popular-pages", pLinks, token),
-    keysoRaw("/report/site/main-topics", { domain, base }, token),
+    keysoRaw("/report/simple/anchors", pLinks, token),
+    keysoRaw("/report/simple/referring_domains", pLinks, token),
+    keysoRaw("/report/simple/popular_pages", pLinks, token),
+    keysoRaw("/report/simple/main_topics", { domain, base }, token),
   ]);
 
   return NextResponse.json({
     domain,
-    "sitepages/withkeys": pages,
-    "lost_keywords": lost,
-    "links/anchors": anchors,
-    "links/referring-domains": refDomains,
-    "links/popular-pages": popPages,
-    "site/main-topics": topics,
+    "organic/sitepages/withkeys": pages,
+    "organic/lost_keywords": lost,
+    "anchors": anchors,
+    "referring_domains": refDomains,
+    "popular_pages": popPages,
+    "main_topics": topics,
   });
 }

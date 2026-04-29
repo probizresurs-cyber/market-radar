@@ -299,24 +299,42 @@ export interface KeysoTopic {
   weight: number;  // 0..1
 }
 
-/** Топовые страницы сайта по органическому трафику. */
+/** Топовые страницы сайта по органическому трафику.
+ *  /sitepages/withkeys возвращает строки (keyword × page) — группируем по url.
+ */
 export async function fetchTopPages(
   domain: string,
   base: KeysoBase = "msk",
   limit = 15,
 ): Promise<KeysoTopPage[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  // per_page побольше, чтобы захватить несколько страниц после группировки
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/organic/sitepages/withkeys",
-    { domain: cleanDomain, base, page: 1, per_page: limit },
+    { domain: cleanDomain, base, page: 1, per_page: 100 },
   );
   if (!data?.data) return [];
-  return data.data.slice(0, limit).map((p) => ({
-    url: String(p.url ?? p.page ?? ""),
-    traffic: Number(p.traffic ?? p.vis ?? 0),
-    keysCount: Number(p.keys_count ?? p.keysCnt ?? p.keysCount ?? 0),
-    topKeyword: typeof p.top_keyword === "string" ? p.top_keyword : (typeof p.topKw === "string" ? p.topKw : undefined),
-  })).filter(p => p.url);
+
+  // Группируем по URL: keysCount = кол-во ключей, traffic = vis (одинаков для всей страницы)
+  const map = new Map<string, { traffic: number; keysCount: number; topKeyword?: string }>();
+  for (const row of data.data) {
+    const url = String(row.url ?? row.page ?? row.path ?? "").trim();
+    if (!url) continue;
+    const vis = Number(row.vis ?? row.traffic ?? 0);
+    const word = typeof row.word === "string" ? row.word : undefined;
+    if (!map.has(url)) {
+      map.set(url, { traffic: vis, keysCount: 1, topKeyword: word });
+    } else {
+      const entry = map.get(url)!;
+      entry.keysCount += 1;
+      if (vis > entry.traffic) entry.traffic = vis; // берём максимум vis
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([url, v]) => ({ url, ...v }))
+    .sort((a, b) => b.traffic - a.traffic)
+    .slice(0, limit);
 }
 
 /** Потерянные ключевые слова — рейтинги что упали. */
@@ -332,9 +350,10 @@ export async function fetchLostKeywords(
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((k) => ({
-    keyword: String(k.word ?? k.keyword ?? ""),
-    oldPosition: Number(k.old_pos ?? k.posOld ?? 0),
-    newPosition: k.new_pos === null || k.new_pos === undefined ? null : Number(k.new_pos),
+    keyword: String(k.word ?? k.keyword ?? k.phrase ?? ""),
+    // lost_keywords endpoint has `pos` = was-position; no new position (they dropped out)
+    oldPosition: Number(k.pos ?? k.old_pos ?? k.posOld ?? 0),
+    newPosition: k.new_pos !== undefined ? (k.new_pos === null ? null : Number(k.new_pos)) : null,
     volume: Number(k.wsk ?? k.ws ?? k.volume ?? 0),
   })).filter(k => k.keyword);
 }
@@ -346,13 +365,13 @@ export async function fetchAnchors(
 ): Promise<KeysoAnchor[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/links/anchors",
+    "/report/simple/anchors",
     { domain: cleanDomain, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   const items = data.data.slice(0, limit).map((a) => ({
-    anchor: String(a.anchor ?? a.text ?? ""),
-    count: Number(a.count ?? a.cnt ?? 0),
+    anchor: String(a.anchor ?? a.text ?? a.ankor ?? ""),
+    count: Number(a.count ?? a.cnt ?? a.links ?? 0),
   })).filter(a => a.anchor && a.count > 0);
   const total = items.reduce((s, x) => s + x.count, 0);
   return items.map(x => ({ ...x, share: total > 0 ? Math.round((x.count / total) * 1000) / 10 : undefined }));
@@ -365,14 +384,14 @@ export async function fetchReferringDomains(
 ): Promise<KeysoReferringDomain[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/links/referring-domains",
+    "/report/simple/referring_domains",
     { domain: cleanDomain, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((d) => ({
-    domain: String(d.domain ?? d.host ?? ""),
-    dr: typeof d.dr === "number" ? d.dr : undefined,
-    links: Number(d.links ?? d.cnt ?? 0),
+    domain: String(d.domain ?? d.host ?? d.from_domain ?? ""),
+    dr: typeof d.dr === "number" ? d.dr : (typeof d.domain_rating === "number" ? d.domain_rating : undefined),
+    links: Number(d.links ?? d.cnt ?? d.count ?? 0),
     firstSeen: typeof d.first_seen === "string" ? d.first_seen : (typeof d.firstSeen === "string" ? d.firstSeen : undefined),
   })).filter(d => d.domain);
 }
@@ -384,14 +403,14 @@ export async function fetchPopularPages(
 ): Promise<KeysoPopularPage[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/links/popular-pages",
+    "/report/simple/popular_pages",
     { domain: cleanDomain, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((p) => ({
-    url: String(p.url ?? p.page ?? ""),
-    backlinks: Number(p.backlinks ?? p.links ?? 0),
-    refDomains: Number(p.ref_domains ?? p.refDomains ?? 0),
+    url: String(p.url ?? p.page ?? p.path ?? ""),
+    backlinks: Number(p.backlinks ?? p.links ?? p.cnt ?? 0),
+    refDomains: Number(p.ref_domains ?? p.refDomains ?? p.domains ?? 0),
   })).filter(p => p.url);
 }
 
@@ -402,13 +421,15 @@ export async function fetchMainTopics(
 ): Promise<KeysoTopic[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/site/main-topics",
+    "/report/simple/main_topics",
     { domain: cleanDomain, base },
   );
   if (!data?.data) return [];
   return data.data.map((t) => ({
-    topic: String(t.topic ?? t.name ?? ""),
-    weight: typeof t.weight === "number" ? t.weight : (typeof t.share === "number" ? t.share : 0),
+    topic: String(t.topic ?? t.name ?? t.theme ?? t.category ?? ""),
+    weight: typeof t.weight === "number" ? t.weight
+      : (typeof t.share === "number" ? t.share
+      : (typeof t.vis === "number" ? t.vis : 0)),
   })).filter(t => t.topic).sort((a, b) => b.weight - a.weight);
 }
 

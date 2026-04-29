@@ -13,7 +13,7 @@ interface Share {
 interface Props {
   /** Текущая компания (наш домен) */
   myDomain: string;
-  /** Домены конкурентов */
+  /** Домены конкурентов (из ручного анализа) — может быть пустым */
   competitorDomains: string[];
 }
 
@@ -23,20 +23,43 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
   const [shares, setShares] = useState<Share[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usedAutoCompetitors, setUsedAutoCompetitors] = useState(false);
 
   const fetchShares = async () => {
+    if (!myDomain) return;
     setLoading(true);
     setError(null);
     try {
-      const domains = [myDomain, ...competitorDomains].filter(Boolean).slice(0, 15);
+      let domains: string[] = [myDomain, ...competitorDomains].filter(Boolean);
+      let autoMode = false;
+
+      // Если нет ручных конкурентов — подтягиваем SEO-конкурентов из Keys.so
+      if (competitorDomains.length === 0) {
+        const compRes = await fetch("/api/keyso/competitors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: myDomain, base: "msk", limit: 10 }),
+        });
+        const compJson = await compRes.json();
+        if (compJson.ok && Array.isArray(compJson.competitors) && compJson.competitors.length > 0) {
+          const keysoCompetitorDomains = compJson.competitors
+            .slice(0, 9)
+            .map((c: { domain: string }) => c.domain)
+            .filter(Boolean);
+          domains = [myDomain, ...keysoCompetitorDomains];
+          autoMode = true;
+        }
+      }
+
       const res = await fetch("/api/keyso/market-share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domains, base: "msk" }),
+        body: JSON.stringify({ domains: domains.slice(0, 15), base: "msk" }),
       });
       const json = await res.json();
       if (json.ok) {
         setShares(json.shares);
+        setUsedAutoCompetitors(autoMode);
       } else {
         setError(json.error ?? "Не удалось получить данные");
       }
@@ -47,7 +70,8 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
     }
   };
 
-  const myDomainNorm = myDomain.replace(/^www\./, "").toLowerCase();
+  const myDomainNorm = myDomain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+  const hasCompetitors = competitorDomains.length > 0;
 
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 22, boxShadow: "var(--shadow)" }}>
@@ -65,13 +89,13 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
         </div>
         <button
           onClick={fetchShares}
-          disabled={loading || competitorDomains.length === 0}
+          disabled={loading || !myDomain}
           style={{
             padding: "8px 16px", borderRadius: 10, border: "none",
-            background: loading || competitorDomains.length === 0 ? "var(--muted)" : "var(--primary)",
-            color: loading || competitorDomains.length === 0 ? "var(--muted-foreground)" : "#fff",
+            background: loading || !myDomain ? "var(--muted)" : "var(--primary)",
+            color: loading || !myDomain ? "var(--muted-foreground)" : "#fff",
             fontWeight: 700, fontSize: 13,
-            cursor: loading || competitorDomains.length === 0 ? "default" : "pointer",
+            cursor: loading || !myDomain ? "default" : "pointer",
             display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
           }}
         >
@@ -79,9 +103,10 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
         </button>
       </div>
 
-      {competitorDomains.length === 0 && !shares && (
-        <div style={{ marginTop: 14, padding: "12px 16px", background: "var(--muted)", borderRadius: 10, fontSize: 13, color: "var(--muted-foreground)" }}>
-          Сначала добавьте конкурентов — потом сможем посчитать доли рынка.
+      {/* Подсказка если нет ручных конкурентов (и данных ещё нет) */}
+      {!hasCompetitors && !shares && !loading && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted-foreground)", padding: "8px 0" }}>
+          Конкуренты подтянутся автоматически из Keys.so
         </div>
       )}
 
@@ -93,11 +118,18 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
 
       {shares && shares.length > 0 && (
         <>
+          {usedAutoCompetitors && (
+            <div style={{ marginBottom: 14, padding: "6px 12px", background: "var(--muted)", borderRadius: 8, fontSize: 11, color: "var(--muted-foreground)" }}>
+              Конкуренты взяты из SEO-анализа Keys.so. Добавьте своих в разделе «Конкуренты» для точного сравнения.
+            </div>
+          )}
+
           {/* Bar chart */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {shares.map((s, i) => {
               const color = PALETTE[i % PALETTE.length];
-              const isMe = s.domain.replace(/^www\./, "").toLowerCase() === myDomainNorm;
+              const domNorm = s.domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+              const isMe = domNorm === myDomainNorm;
               return (
                 <div key={s.domain}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
@@ -135,14 +167,14 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
           {/* Insight */}
           <div style={{ marginTop: 18, padding: "12px 16px", background: "var(--primary)08", border: "1px solid var(--primary)20", borderRadius: 10, fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.6 }}>
             {(() => {
-              const me = shares.find(s => s.domain.replace(/^www\./, "").toLowerCase() === myDomainNorm);
+              const me = shares.find(s => s.domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase() === myDomainNorm);
               const leader = shares[0];
               if (!me) {
                 return (
                   <>Ваш домен не входит в топ Keys.so по этой нише. Это означает что у вас низкая SEO-видимость относительно конкурентов — нужно работать над ключевыми словами и контентом.</>
                 );
               }
-              const myPos = shares.findIndex(s => s.domain.replace(/^www\./, "").toLowerCase() === myDomainNorm) + 1;
+              const myPos = shares.findIndex(s => s.domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase() === myDomainNorm) + 1;
               if (me.domain === leader.domain) {
                 return (
                   <>Вы <b>лидер ниши</b> с долей <b>{me.share}%</b>. Удерживайте позиции — мониторьте ключевые слова и реагируйте на падения.</>
