@@ -29,22 +29,49 @@ export async function GET(req: Request) {
 
   const p = { domain, base, page: 1, per_page: 3 };
 
-  const [pages, lost, anchors, refDomains, popPages, topics] = await Promise.all([
+  // Test 4 broken endpoints with both me-dent.ru AND a large domain (sber.ru) to distinguish path errors from missing data
+  const bigDomain = "sber.ru";
+  const pBig = { domain: bigDomain, base, page: 1, per_page: 3 };
+
+  const [pages, lost, anchors, refDomains, popPages, topics,
+    anchBig, refBig, popBig, topBig,
+    // Also try alternative path variants
+    anchAlt, refAlt, popAlt, topAlt,
+  ] = await Promise.all([
     keysoRaw("/report/simple/organic/sitepages/withkeys", p, token),
     keysoRaw("/report/simple/organic/lost_keywords", p, token),
+    // me-dent.ru with doc paths
     keysoRaw("/report/simple/links/anchors", p, token),
     keysoRaw("/report/simple/links/refdomains", p, token),
     keysoRaw("/report/simple/links/popular", p, token),
     keysoRaw("/report/simple/site_topics", { domain, base }, token),
+    // sber.ru with same paths (to test if path is wrong or data missing)
+    keysoRaw("/report/simple/links/anchors", pBig, token),
+    keysoRaw("/report/simple/links/refdomains", pBig, token),
+    keysoRaw("/report/simple/links/popular", pBig, token),
+    keysoRaw("/report/simple/site_topics", { domain: bigDomain, base }, token),
+    // Alt path variants
+    keysoRaw("/report/simple/links/anchors_list", p, token),
+    keysoRaw("/report/simple/links/referring_domains", p, token),
+    keysoRaw("/report/simple/links/popular_pages", p, token),
+    keysoRaw("/report/simple/domain_dashboard/topics", { domain, base }, token),
   ]);
 
   return NextResponse.json({
     domain,
     "sitepages/withkeys": pages,
     "lost_keywords": lost,
-    "links/anchors": anchors,
-    "links/refdomains": refDomains,
-    "links/popular": popPages,
-    "site_topics": topics,
+    "[me-dent] links/anchors": anchors,
+    "[me-dent] links/refdomains": refDomains,
+    "[me-dent] links/popular": popPages,
+    "[me-dent] site_topics": topics,
+    "[sber.ru] links/anchors": anchBig,
+    "[sber.ru] links/refdomains": refBig,
+    "[sber.ru] links/popular": popBig,
+    "[sber.ru] site_topics": topBig,
+    "[alt] links/anchors_list": anchAlt,
+    "[alt] links/referring_domains": refAlt,
+    "[alt] links/popular_pages": popAlt,
+    "[alt] domain_dashboard/topics": topAlt,
   });
 }
