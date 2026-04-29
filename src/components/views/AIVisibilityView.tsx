@@ -242,6 +242,48 @@ export function AIVisibilityView({ c, myCompany }: Props) {
     }
   }, [audit]);
 
+  // Keys.so AI mentions in Yandex Neuro/Alice — реальные данные
+  interface KeysoAiMention {
+    query: string;
+    mentioned: boolean;
+    position?: number | null;
+    answer?: string;
+  }
+  interface KeysoAiCompetitor {
+    domain: string;
+    mentions: number;
+    share?: number;
+  }
+  interface KeysoAiData {
+    stats: { totalQueries: number; mentionedCount: number; mentionRate: number };
+    mentions: KeysoAiMention[];
+    competitors: KeysoAiCompetitor[];
+  }
+  const [keysoAi, setKeysoAi] = useState<KeysoAiData | null>(null);
+  const [keysoAiLoading, setKeysoAiLoading] = useState(false);
+  const [keysoAiError, setKeysoAiError] = useState<string | null>(null);
+  const [keysoMentionsLimit, setKeysoMentionsLimit] = useState(8);
+
+  const runKeysoAi = useCallback(async () => {
+    if (!audit?.websiteUrl) return;
+    setKeysoAiLoading(true);
+    setKeysoAiError(null);
+    try {
+      const res = await fetch("/api/keyso/ai-mentions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: audit.websiteUrl, base: "msk", limit: 25 }),
+      });
+      const json = await res.json();
+      if (json.ok) setKeysoAi({ stats: json.stats, mentions: json.mentions, competitors: json.competitors });
+      else setKeysoAiError(json.error ?? "Не удалось получить данные");
+    } catch {
+      setKeysoAiError("Ошибка запроса к Keys.so");
+    } finally {
+      setKeysoAiLoading(false);
+    }
+  }, [audit]);
+
   const effectiveNiche = niche === "Другое" ? nicheCustom : niche;
   const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
 
@@ -944,6 +986,158 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                 Чтобы попасть в ответы, выполняйте действия из <b>чек-листа ниже</b>: чем больше упоминаний на авторитетных площадках и чем лучше структурирован сайт — тем выше шанс попасть в обучающие данные следующих версий моделей.
               </span>
             </div>
+          )}
+        </Card>
+
+        {/* Block 2.7: Real Yandex Neuro / Alice mentions from Keys.so */}
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#ef444415", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444" }}>
+                <Search size={18} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>Упоминания в Яндекс Алисе и Нейро</h2>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                  Реальные данные от Keys.so — где Алиса/Нейро упоминают <b>{audit.websiteUrl}</b>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={runKeysoAi}
+              disabled={keysoAiLoading}
+              style={{
+                padding: "9px 18px", borderRadius: 10, border: "none",
+                background: keysoAiLoading ? "var(--muted)" : "#ef4444",
+                color: keysoAiLoading ? "var(--muted-foreground)" : "#fff",
+                fontWeight: 700, fontSize: 13, cursor: keysoAiLoading ? "default" : "pointer",
+                display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+              }}
+            >
+              {keysoAiLoading ? "Загружаем…" : keysoAi ? "Обновить" : "Загрузить из Keys.so"}
+            </button>
+          </div>
+
+          {keysoAiError && (
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ef444415", color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <AlertTriangle size={14} /> {keysoAiError}
+            </div>
+          )}
+
+          {!keysoAi && !keysoAiLoading && !keysoAiError && (
+            <div style={{ padding: "16px", borderRadius: 12, background: "var(--background)", border: "1px dashed var(--border)", textAlign: "center" }}>
+              <Search size={32} style={{ opacity: 0.3, marginBottom: 8, color: "var(--muted-foreground)" }} />
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.55 }}>
+                Нажмите «Загрузить из Keys.so» — увидим реальные ответы Яндекс Нейро/Алисы<br/>
+                по запросам, в которых ваша ниша упоминается, и есть ли там ваш домен.
+              </p>
+            </div>
+          )}
+
+          {keysoAi && (
+            <>
+              {/* Stats row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, fontWeight: 600 }}>ВСЕГО ЗАПРОСОВ</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)" }}>{keysoAi.stats.totalQueries}</div>
+                </div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "#22c55e08", border: "1px solid #22c55e25" }}>
+                  <div style={{ fontSize: 11, color: "#22c55e", marginBottom: 4, fontWeight: 600 }}>ВЫ УПОМЯНУТЫ</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e" }}>{keysoAi.stats.mentionedCount}</div>
+                </div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--primary)08", border: "1px solid var(--primary)25" }}>
+                  <div style={{ fontSize: 11, color: "var(--primary)", marginBottom: 4, fontWeight: 600 }}>ДОЛЯ УПОМИНАНИЙ</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{keysoAi.stats.mentionRate}%</div>
+                </div>
+              </div>
+
+              {/* Top queries */}
+              {keysoAi.mentions.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginBottom: 10 }}>
+                    ЗАПРОСЫ В ЯНДЕКС НЕЙРО
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {keysoAi.mentions.slice(0, keysoMentionsLimit).map((m, i) => (
+                      <div key={i} style={{
+                        padding: "10px 14px", borderRadius: 10,
+                        background: m.mentioned ? "#22c55e08" : "var(--background)",
+                        border: `1px solid ${m.mentioned ? "#22c55e30" : "var(--border)"}`,
+                        display: "flex", alignItems: "center", gap: 10,
+                      }}>
+                        <div style={{
+                          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                          background: m.mentioned ? "#22c55e" : "var(--muted)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: m.mentioned ? "#fff" : "var(--muted-foreground)",
+                          fontSize: 11, fontWeight: 800,
+                        }}>
+                          {m.mentioned ? <CheckCircle2 size={12} /> : <X size={11} />}
+                        </div>
+                        <div style={{ flex: 1, fontSize: 13, color: "var(--foreground)", fontWeight: m.mentioned ? 600 : 400 }}>
+                          «{m.query}»
+                        </div>
+                        {m.position !== null && m.position !== undefined && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
+                            background: "var(--primary)15", color: "var(--primary)",
+                          }}>
+                            #{m.position}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {keysoAi.mentions.length > keysoMentionsLimit && (
+                    <button
+                      onClick={() => setKeysoMentionsLimit(prev => prev + 10)}
+                      style={{ marginTop: 10, padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                    >
+                      Показать ещё ({keysoAi.mentions.length - keysoMentionsLimit})
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: "20px 0", textAlign: "center", fontSize: 13, color: "var(--muted-foreground)" }}>
+                  Keys.so не нашёл AI-запросов где упоминается ваш домен.
+                </div>
+              )}
+
+              {/* Competitors in AI answers */}
+              {keysoAi.competitors.length > 0 && (
+                <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", marginBottom: 10 }}>
+                    КТО УПОМИНАЕТСЯ РЯДОМ В AI-ОТВЕТАХ
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                    {keysoAi.competitors.map((comp, i) => (
+                      <div key={i} style={{
+                        padding: "9px 12px", borderRadius: 9, background: "var(--background)", border: "1px solid var(--border)",
+                        display: "flex", alignItems: "center", gap: 9,
+                      }}>
+                        <div style={{
+                          width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                          background: i === 0 ? "#f59e0b25" : "var(--muted)",
+                          color: i === 0 ? "#f59e0b" : "var(--muted-foreground)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 11, fontWeight: 800,
+                        }}>{i + 1}</div>
+                        <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {comp.domain}
+                        </div>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+                          background: "var(--primary)15", color: "var(--primary)", flexShrink: 0,
+                        }}>
+                          {comp.mentions}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </Card>
 

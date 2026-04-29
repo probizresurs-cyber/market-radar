@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { KeysoDashboardBlock } from "@/components/ui/KeysoDashboardBlock";
+import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
@@ -224,6 +225,11 @@ export function CompetitorProfileView({ c, data, onBack }: { c: Colors; data: An
       <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} />} defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
       </CollapsibleSection>
+
+      {/* Реклама Я.Директ конкурента */}
+      <div style={{ marginTop: 16 }}>
+        <CompetitorAdsBlock domain={data.company.url} />
+      </div>
 
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (

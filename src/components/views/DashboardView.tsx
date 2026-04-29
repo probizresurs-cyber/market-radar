@@ -14,7 +14,8 @@ import { DataBadge } from "@/components/ui/DataBadge";
 import { OrderCTA } from "@/components/ui/OrderCTA";
 import { classifyRevenue } from "@/lib/data-quality";
 import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
-import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap } from "lucide-react";
+import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart } from "lucide-react";
 
 export function DashboardView({ c, data, competitors }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[] }) {
   const { company, recommendations } = data;
@@ -353,6 +354,14 @@ export function DashboardView({ c, data, competitors }: { c: Colors; data: Analy
       {/* Key.so Dashboard */}
       <CollapsibleSection c={c} title="Данные Key.so" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={true}>
         <KeysoDashboardBlock c={c} dash={data.keysoDashboard} />
+      </CollapsibleSection>
+
+      {/* Market share — only if we have at least 1 competitor */}
+      <CollapsibleSection c={c} title="Доли рынка" icon={<PieChart size={16} strokeWidth={1.75} />} defaultOpen={false}>
+        <MarketShareBlock
+          myDomain={data.company.url}
+          competitorDomains={competitors.map(c => c.company.url).filter(Boolean)}
+        />
       </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
