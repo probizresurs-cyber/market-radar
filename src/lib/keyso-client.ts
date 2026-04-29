@@ -259,6 +259,159 @@ export async function fetchAiCompetitors(
   return items.map(x => ({ ...x, share: total > 0 ? Math.round((x.mentions / total) * 1000) / 10 : undefined }));
 }
 
+// ─── Расширенные данные о компании ────────────────────────────────────────────
+
+export interface KeysoTopPage {
+  url: string;
+  traffic: number;
+  keysCount: number;
+  topKeyword?: string;
+}
+
+export interface KeysoLostKeyword {
+  keyword: string;
+  oldPosition: number;
+  newPosition: number | null;  // null = выпало из топ-100
+  volume: number;
+}
+
+export interface KeysoAnchor {
+  anchor: string;
+  count: number;
+  share?: number;
+}
+
+export interface KeysoReferringDomain {
+  domain: string;
+  dr?: number;
+  links: number;
+  firstSeen?: string;
+}
+
+export interface KeysoPopularPage {
+  url: string;
+  backlinks: number;
+  refDomains: number;
+}
+
+export interface KeysoTopic {
+  topic: string;
+  weight: number;  // 0..1
+}
+
+/** Топовые страницы сайта по органическому трафику. */
+export async function fetchTopPages(
+  domain: string,
+  base: KeysoBase = "msk",
+  limit = 15,
+): Promise<KeysoTopPage[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/simple/organic/sitepages/withkeys",
+    { domain: cleanDomain, base, page: 1, per_page: limit },
+  );
+  if (!data?.data) return [];
+  return data.data.slice(0, limit).map((p) => ({
+    url: String(p.url ?? p.page ?? ""),
+    traffic: Number(p.traffic ?? p.vis ?? 0),
+    keysCount: Number(p.keys_count ?? p.keysCnt ?? p.keysCount ?? 0),
+    topKeyword: typeof p.top_keyword === "string" ? p.top_keyword : (typeof p.topKw === "string" ? p.topKw : undefined),
+  })).filter(p => p.url);
+}
+
+/** Потерянные ключевые слова — рейтинги что упали. */
+export async function fetchLostKeywords(
+  domain: string,
+  base: KeysoBase = "msk",
+  limit = 20,
+): Promise<KeysoLostKeyword[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/simple/organic/lost_keywords",
+    { domain: cleanDomain, base, page: 1, per_page: limit },
+  );
+  if (!data?.data) return [];
+  return data.data.slice(0, limit).map((k) => ({
+    keyword: String(k.word ?? k.keyword ?? ""),
+    oldPosition: Number(k.old_pos ?? k.posOld ?? 0),
+    newPosition: k.new_pos === null || k.new_pos === undefined ? null : Number(k.new_pos),
+    volume: Number(k.wsk ?? k.ws ?? k.volume ?? 0),
+  })).filter(k => k.keyword);
+}
+
+/** Распределение анкорного текста бэклинков. */
+export async function fetchAnchors(
+  domain: string,
+  limit = 15,
+): Promise<KeysoAnchor[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/simple/links/anchors",
+    { domain: cleanDomain, page: 1, per_page: limit },
+  );
+  if (!data?.data) return [];
+  const items = data.data.slice(0, limit).map((a) => ({
+    anchor: String(a.anchor ?? a.text ?? ""),
+    count: Number(a.count ?? a.cnt ?? 0),
+  })).filter(a => a.anchor && a.count > 0);
+  const total = items.reduce((s, x) => s + x.count, 0);
+  return items.map(x => ({ ...x, share: total > 0 ? Math.round((x.count / total) * 1000) / 10 : undefined }));
+}
+
+/** Качество ссылающихся доменов (с разбивкой по DR). */
+export async function fetchReferringDomains(
+  domain: string,
+  limit = 25,
+): Promise<KeysoReferringDomain[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/simple/links/referring-domains",
+    { domain: cleanDomain, page: 1, per_page: limit },
+  );
+  if (!data?.data) return [];
+  return data.data.slice(0, limit).map((d) => ({
+    domain: String(d.domain ?? d.host ?? ""),
+    dr: typeof d.dr === "number" ? d.dr : undefined,
+    links: Number(d.links ?? d.cnt ?? 0),
+    firstSeen: typeof d.first_seen === "string" ? d.first_seen : (typeof d.firstSeen === "string" ? d.firstSeen : undefined),
+  })).filter(d => d.domain);
+}
+
+/** Топовые страницы по количеству бэклинков (link magnets). */
+export async function fetchPopularPages(
+  domain: string,
+  limit = 10,
+): Promise<KeysoPopularPage[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/simple/links/popular-pages",
+    { domain: cleanDomain, page: 1, per_page: limit },
+  );
+  if (!data?.data) return [];
+  return data.data.slice(0, limit).map((p) => ({
+    url: String(p.url ?? p.page ?? ""),
+    backlinks: Number(p.backlinks ?? p.links ?? 0),
+    refDomains: Number(p.ref_domains ?? p.refDomains ?? 0),
+  })).filter(p => p.url);
+}
+
+/** Основные темы сайта по мнению Яндекса. */
+export async function fetchMainTopics(
+  domain: string,
+  base: KeysoBase = "msk",
+): Promise<KeysoTopic[]> {
+  const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+    "/report/site/main-topics",
+    { domain: cleanDomain, base },
+  );
+  if (!data?.data) return [];
+  return data.data.map((t) => ({
+    topic: String(t.topic ?? t.name ?? ""),
+    weight: typeof t.weight === "number" ? t.weight : (typeof t.share === "number" ? t.share : 0),
+  })).filter(t => t.topic).sort((a, b) => b.weight - a.weight);
+}
+
 /** Проверка лимитов аккаунта Keys.so — для UI-индикатора */
 export async function fetchKeysoLimits(): Promise<{ used: number; limit: number; resetAt?: string } | null> {
   const data = await keysoFetch<{ data?: Record<string, unknown> }>("/report/tools/limits", {});

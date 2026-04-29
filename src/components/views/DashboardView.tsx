@@ -16,6 +16,7 @@ import { classifyRevenue } from "@/lib/data-quality";
 import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
 import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
 import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
+import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart } from "lucide-react";
 
 export function DashboardView({ c, data, competitors, onUpdateData }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void }) {
@@ -383,6 +384,11 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
       {/* Yandex Direct — own ads audit */}
       <CollapsibleSection c={c} title="Реклама в Я.Директ" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
         <CompetitorAdsBlock domain={data.company.url} />
+      </CollapsibleSection>
+
+      {/* Расширенные SEO-детали из Keys.so — топ страницы, потерянные ключи, бэклинки, темы */}
+      <CollapsibleSection c={c} title="SEO детали (Keys.so)" icon={<FileText size={16} strokeWidth={1.75} />} defaultOpen={false}>
+        <KeysoSiteInsightsBlock domain={data.company.url} />
       </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
