@@ -180,38 +180,38 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const featureCategories = [
     {
       icon: <BarChart2 size={22} />,
-      title: "SEO и видимость в поиске",
-      desc: "Keys.so: позиции в Яндексе и Google, ключевые слова, ссылочная масса. Технический SEO-аудит. Анализ поисковой выдачи.",
+      title: "SEO и поиск",
+      desc: "Позиции в Яндексе и Google, ключевые слова, ссылочная масса. Технический аудит сайта.",
       ac: neonCyan,
     },
     {
       icon: <Star size={22} />,
       title: "Репутация на картах",
-      desc: "Яндекс.Карты, 2ГИС, Google Maps. Рейтинги, отзывы, тональность, сравнение с конкурентами по каждой локации.",
+      desc: "Яндекс.Карты, 2ГИС, Google Maps. Рейтинги, отзывы, сравнение с конкурентами по локациям.",
       ac: "#FFB547",
     },
     {
       icon: <Building2 size={22} />,
-      title: "Бизнес-данные и команда",
-      desc: "Руспрофайл, DaData, ЕГРЮЛ — финансы и юр.данные. hh.ru и SuperJob — открытые вакансии, зарплаты, HR-бренд.",
+      title: "Бизнес и команда",
+      desc: "Финансы, ЕГРЮЛ, открытые вакансии, зарплаты, HR-бренд.",
       ac: neonGreen,
     },
     {
       icon: <Share2 size={22} />,
       title: "Соцсети и контент",
-      desc: "ВКонтакте, Telegram, Одноклассники, YouTube, VK Видео — аудитория, активность, форматы, упоминания бренда.",
+      desc: "ВКонтакте, Telegram, YouTube. Аудитория, активность, упоминания бренда.",
       ac: "#FF4FBF",
     },
     {
       icon: <Eye size={22} />,
       title: "Видимость в нейросетях",
-      desc: "ChatGPT, Claude, Gemini, Perplexity, Яндекс.Алиса — проверка, попадаете ли вы в ответы AI по ключевым запросам клиентов.",
+      desc: "ChatGPT, Claude, Gemini, Perplexity, Алиса. Попадаете ли вы в ответы AI.",
       ac: neonMagenta,
     },
     {
       icon: <Swords size={22} />,
       title: "Конкурентная разведка",
-      desc: "Парсинг сайтов конкурентов — офферы, цены, структура. Battle cards, карта Customer Journey, брендбук, план роста.",
+      desc: "Офферы, цены, структура сайтов конкурентов. Battle cards и план роста.",
       ac: neonRed,
     },
   ];
@@ -458,17 +458,17 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${neonGreen}20`, border: `1px solid ${neonGreen}50`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 14px ${neonGreen}40` }}>
               <ShieldCheck size={18} style={{ color: neonGreen }} />
             </div>
-            <div style={{ fontSize: 13.5, color: fg, lineHeight: 1.55 }}>
+            <div style={{ fontSize: 14.5, color: fg, lineHeight: 1.6 }}>
               <strong style={{ color: fg }}>Только реальные данные</strong> из API и парсинга. Без AI-фантазий.
               Каждое утверждение маркируется:
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 6 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: neonGreen, display: "inline-block" }} /> факт
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 6 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: neonGreen, display: "inline-block" }} /> факт
               </span>,
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#60a5fa", display: "inline-block" }} /> AI-гипотеза
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#60a5fa", display: "inline-block" }} /> AI-гипотеза
               </span>,
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#facc15", display: "inline-block" }} /> оценка
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#facc15", display: "inline-block" }} /> оценка
               </span>.
             </div>
           </div>
@@ -482,14 +482,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               { num: "6", label: "нейросетей проверяем", color: neonMagenta },
             ].map(({ num, label, color }, i) => (
               <div key={label} className="lp-fade-up" style={{ textAlign: "center", padding: "12px 36px", borderLeft: i > 0 ? `1px solid ${border}` : "none", animationDelay: `${200 + i * 120}ms` }}>
-                <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.035em", color, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
-                <div style={{ fontSize: 13, color: muted, marginTop: 8 }}>{label}</div>
+                <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: "-0.035em", color, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
+                <div style={{ fontSize: 14, color: muted, marginTop: 10, fontWeight: 500 }}>{label}</div>
               </div>
             ))}
           </div>
 
           {/* T-08 — Company24 ecosystem footer micro-line */}
-          <div style={{ fontSize: 12, color: muted, marginTop: 28, textAlign: "center" }}>
+          <div style={{ fontSize: 13.5, color: muted, marginTop: 32, textAlign: "center" }}>
             Продукт экосистемы{" "}
             <a href="https://company24.pro" target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "underline" }}>
               Company24.pro
@@ -504,28 +504,27 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section id="features" style={{ padding: "72px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>30+ источников в одном дашборде</h2>
-          <p style={{ fontSize: 15, color: muted, margin: "0 auto", maxWidth: 600 }}>
-            Обычно маркетолог вручную собирает данные из 10–15 сервисов в Excel. MarketRadar делает это автоматически и формирует выводы.
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
+          <h2 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em" }}>30+ источников в одном дашборде</h2>
+          <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.55 }}>
+            Маркетолог обычно собирает это вручную из 10–15 сервисов в Excel. MarketRadar делает автоматически и сразу формирует выводы.
           </p>
         </div>
 
-        {/* T-15 — бегущая строка ниш */}
-        <div className="lp-reveal" style={{ marginBottom: 44, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: "20px 0", overflow: "hidden", position: "relative", marginLeft: "-20px", marginRight: "-20px" }}>
+        {/* T-15 — бегущая строка ниш (исправленное центрирование) */}
+        <div className="lp-reveal" style={{ marginBottom: 44, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: "22px 0", overflow: "hidden", position: "relative" }}>
           <div
+            className="lp-marquee-track"
             style={{
               display: "flex",
-              gap: 0,
               whiteSpace: "nowrap",
-              animation: "lp-marquee 70s linear infinite",
-              animationDelay: "-35s",          /* start mid-stream so it looks alive on load */
-              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%)",
-              maskImage: "linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%)",
+              willChange: "transform",
+              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%)",
+              maskImage: "linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%)",
             }}
           >
-            {[...Array(3)].map((_, dup) => (
-              <div key={dup} style={{ display: "flex", gap: 0, flexShrink: 0 }}>
+            {[...Array(2)].map((_, dup) => (
+              <div key={dup} style={{ display: "flex", flexShrink: 0 }} aria-hidden={dup === 1}>
                 {[
                   "ecommerce", "SaaS / PaaS", "логистика", "FinTech", "медтех", "EdTech",
                   "B2B-дистрибуция", "ритейл-сети", "HR-tech", "PropTech", "телемедицина",
@@ -533,20 +532,32 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   "застройщики", "автодилеры", "юридический сервис", "консалтинг", "страхование",
                   "агрохолдинги", "CleanTech", "маркетплейсы", "LegalTech",
                 ].map((niche, i) => (
-                  <span key={`${dup}-${i}`} style={{ fontSize: 15, color: isDark ? "#cbd5e1" : "#475569", letterSpacing: "0em", display: "inline-flex", alignItems: "center", padding: "0 22px", fontWeight: 500 }}>
+                  <span key={`${dup}-${i}`} style={{ fontSize: 16, color: isDark ? "#cbd5e1" : "#334155", display: "inline-flex", alignItems: "center", padding: "0 26px", fontWeight: 600, letterSpacing: "-0.005em" }}>
                     {niche}
-                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: `${accent}80`, marginLeft: 22, display: "inline-block" }} />
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: `${accent}cc`, marginLeft: 26, display: "inline-block", boxShadow: `0 0 10px ${accent}99` }} />
                   </span>
                 ))}
               </div>
             ))}
           </div>
-          <style>{`@keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }`}</style>
-          <div style={{ textAlign: "center", fontSize: 12.5, color: muted, marginTop: 14 }}>
+          <style>{`
+            @keyframes lp-marquee-loop {
+              from { transform: translate3d(0, 0, 0); }
+              to   { transform: translate3d(-50%, 0, 0); }
+            }
+            .lp-marquee-track {
+              animation: lp-marquee-loop 60s linear infinite;
+            }
+            .lp-marquee-track:hover { animation-play-state: paused; }
+            @media (prefers-reduced-motion: reduce) {
+              .lp-marquee-track { animation: none; }
+            }
+          `}</style>
+          <div style={{ textAlign: "center", fontSize: 14, color: muted, marginTop: 16 }}>
             Анализируем 80+ ниш бизнеса — AI автоматически определяет специфику вашей.
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 18 }}>
           {featureCategories.map(({ icon, title, desc, ac }, i) => (
             <div
               key={title}
@@ -555,7 +566,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 background: card,
                 borderRadius: 20,
                 border: `1px solid ${border}`,
-                padding: "26px 22px",
+                padding: "28px 24px",
                 position: "relative",
                 overflow: "hidden",
                 animationDelay: `${i * 90}ms`,
@@ -569,25 +580,26 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div className="lp-card-accent" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, color: ac }} />
+              {/* Static accent line — without sweep animation (less visual noise) */}
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent 0%, ${ac}80 30%, ${ac}80 70%, transparent 100%)`, opacity: 0.6 }} />
               <div
                 className="lp-icon-chip"
                 style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 13,
+                  width: 50,
+                  height: 50,
+                  borderRadius: 14,
                   background: `${ac}20`,
                   border: `1px solid ${ac}55`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: ac,
-                  marginBottom: 16,
-                  boxShadow: `0 0 20px ${ac}35, inset 0 0 12px ${ac}20`,
+                  marginBottom: 18,
+                  boxShadow: `0 0 22px ${ac}40, inset 0 0 14px ${ac}25`,
                 }}
               >{icon}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em", color: fg }}>{title}</div>
-              <div style={{ fontSize: 14, color: muted, lineHeight: 1.65 }}>{desc}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, letterSpacing: "-0.012em", color: fg, lineHeight: 1.3 }}>{title}</div>
+              <div style={{ fontSize: 15.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -599,25 +611,25 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section id="artifacts" style={{ padding: "56px 20px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Готовые артефакты, а не сырые данные</h2>
-          <p style={{ fontSize: 15, color: muted, margin: "0 auto", maxWidth: 620 }}>
-            Всё, что можно сразу использовать в работе: от стратегического обзора до листовок для отдела продаж.
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
+          <h2 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em" }}>Готовые артефакты, а не сырые данные</h2>
+          <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.55 }}>
+            Всё, что можно сразу использовать в работе — от стратегического обзора до листовок для отдела продаж.
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16 }}>
           {[
-            { icon: <Target size={22} />, title: "Score", desc: "Оценка бизнеса 0–100 по 5–7 категориям с разбивкой по подметрикам.", color: neonCyan },
-            { icon: <Users size={22} />, title: "Портрет ЦА", desc: "Персона, ценности, страхи, возражения и язык клиента.", color: neonMagenta },
-            { icon: <Map size={22} />, title: "Customer Journey Map", desc: "Путь клиента на 7 этапов с болями и точками контакта.", color: "#60a5fa" },
-            { icon: <Palette size={22} />, title: "Брендбук", desc: "Цвета, шрифты, тон голоса и формулы для постов.", color: "#f472b6" },
-            { icon: <Swords size={22} />, title: "Battle cards", desc: "Для отдела продаж: как работать с возражениями против конкурентов.", color: neonRed },
-            { icon: <TrendingUp size={22} />, title: "План роста", desc: "30+ рекомендаций с приоритетом по эффекту и сложности.", color: neonGreen },
+            { icon: <Target size={24} />, title: "Score", desc: "Оценка 0–100 по 5–7 категориям бизнеса.", color: neonCyan },
+            { icon: <Users size={24} />, title: "Портрет ЦА", desc: "Персона, страхи, возражения, язык клиента.", color: neonMagenta },
+            { icon: <Map size={24} />, title: "Customer Journey Map", desc: "Путь клиента на 7 этапов с болями и точками контакта.", color: "#60a5fa" },
+            { icon: <Palette size={24} />, title: "Брендбук", desc: "Цвета, шрифты, тон голоса, формулы для постов.", color: "#f472b6" },
+            { icon: <Swords size={24} />, title: "Battle cards", desc: "Возражения против конкурентов — для отдела продаж.", color: neonRed },
+            { icon: <TrendingUp size={24} />, title: "План роста", desc: "30+ рекомендаций с приоритетом по эффекту.", color: neonGreen },
           ].map(({ icon, title, desc, color }, i) => (
             <div
               key={title}
               className="lp-card lp-reveal-s"
-              style={{ background: card, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 20px", animationDelay: `${i * 80}ms` }}
+              style={{ background: card, borderRadius: 18, border: `1px solid ${border}`, padding: "26px 22px", animationDelay: `${i * 80}ms` }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = `${color}55`;
                 e.currentTarget.style.boxShadow = `0 0 0 1px ${color}30, 0 12px 30px -14px ${color}80`;
@@ -627,9 +639,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div className="lp-icon-chip" style={{ width: 42, height: 42, borderRadius: 11, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, boxShadow: `0 0 16px ${color}35` }}>{icon}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, letterSpacing: "-0.01em" }}>{title}</div>
-              <div style={{ fontSize: 13, color: muted, lineHeight: 1.55 }}>{desc}</div>
+              <div className="lp-icon-chip" style={{ width: 48, height: 48, borderRadius: 13, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, boxShadow: `0 0 18px ${color}40` }}>{icon}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.012em", lineHeight: 1.3 }}>{title}</div>
+              <div style={{ fontSize: 15, color: muted, lineHeight: 1.6 }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -645,7 +657,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section style={{ padding: "56px 20px", maxWidth: 900, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ background: `linear-gradient(145deg, ${neonRed}08, transparent)`, borderRadius: 24, border: `1px solid ${neonRed}22`, padding: "40px 36px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.12em", marginBottom: 12 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.14em", marginBottom: 14 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
           <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 22px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
             Да, можно собрать всё вручную. Но это…
           </h2>
@@ -659,9 +671,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               "Нет видимости в нейросетях — этого никто вручную не сделает",
               "Нельзя быстро перегенерировать отчёт в том же формате",
             ].map((item) => (
-              <div key={item} style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 15, color: fg, lineHeight: 1.55 }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${neonRed}18`, border: `1px solid ${neonRed}50`, color: neonRed, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                  <X size={14} />
+              <div key={item} style={{ display: "flex", gap: 14, alignItems: "flex-start", fontSize: 16, color: fg, lineHeight: 1.55 }}>
+                <div style={{ width: 26, height: 26, borderRadius: "50%", background: `${neonRed}18`, border: `1px solid ${neonRed}50`, color: neonRed, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                  <X size={15} />
                 </div>
                 <span>{item}</span>
               </div>
@@ -671,7 +683,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${neonGreen}20`, color: neonGreen, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Check size={18} />
             </div>
-            <div style={{ fontSize: 14.5, color: fg, lineHeight: 1.55 }}>
+            <div style={{ fontSize: 15.5, color: fg, lineHeight: 1.6 }}>
               <strong style={{ color: "#6ee7b7" }}>MarketRadar делает это автоматически</strong> — за 3 минуты. И обновляется 24/7 без вашего участия.
             </div>
           </div>
@@ -683,9 +695,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section style={{ padding: "48px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
-          <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Каждое утверждение — с маркером</h2>
-          <p style={{ fontSize: 14.5, color: muted, margin: "0 auto", maxWidth: 560 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Каждое утверждение — с маркером</h2>
+          <p style={{ fontSize: 16, color: muted, margin: "0 auto", maxWidth: 600, lineHeight: 1.55 }}>
             Мы не продаём AI-фантазии под видом аналитики. В отчёте вы видите, откуда взята каждая цифра.
           </p>
         </div>
@@ -712,11 +724,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               className="lp-card lp-reveal"
               style={{ background: card, borderRadius: 16, border: `1px solid ${color}30`, padding: "22px 22px", animationDelay: `${i * 100}ms`, boxShadow: `inset 0 0 0 1px ${color}10` }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                <span style={{ width: 16, height: 16, borderRadius: "50%", background: color, boxShadow: `0 0 14px ${color}80` }} />
-                <span style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: "0.1em" }}>{label}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <span style={{ width: 18, height: 18, borderRadius: "50%", background: color, boxShadow: `0 0 14px ${color}80` }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color, letterSpacing: "0.1em" }}>{label}</span>
               </div>
-              <div style={{ fontSize: 13.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
+              <div style={{ fontSize: 15, color: muted, lineHeight: 1.6 }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -846,8 +858,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section id="how" style={{ padding: "64px 20px", maxWidth: 1180, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>КАК ЭТО РАБОТАЕТ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до результата</h2>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>КАК ЭТО РАБОТАЕТ</div>
+          <h2 style={{ fontSize: 36, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до результата</h2>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
           {[
@@ -855,14 +867,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               n: "01",
               icon: <Globe size={22} />,
               title: "Введите URL сайта",
-              desc: "Вставьте адрес — AI определит тип бизнеса и начнёт анализ. Бесплатный базовый скан — через Telegram-бот.",
+              desc: "Вставьте адрес — AI определит тип бизнеса и начнёт анализ.",
               color: neonCyan,
               screen: (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#0e1119", border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px", width: "86%" }}>
-                  <Globe size={14} style={{ color: neonCyan }} />
-                  <div style={{ fontSize: 12, color: "#94a3b8", letterSpacing: "-0.01em" }}>example.ru</div>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", background: "#0e1119", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", width: "86%", boxShadow: `0 0 24px -8px ${neonCyan}50` }}>
+                  <Globe size={20} style={{ color: neonCyan }} />
+                  <div style={{ fontSize: 16, color: "#cbd5e1", letterSpacing: "-0.01em", fontWeight: 500 }}>example.ru</div>
                   <div style={{ flex: 1 }} />
-                  <div style={{ background: accent, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff" }}>Анализ</div>
+                  <div style={{ background: accent, borderRadius: 8, padding: "8px 16px", fontSize: 14, fontWeight: 700, color: "#fff", boxShadow: `0 4px 14px ${accent}55` }}>Анализ</div>
                 </div>
               ),
             },
@@ -870,13 +882,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               n: "02",
               icon: <Zap size={22} />,
               title: "AI анализирует",
-              desc: "Собираем данные из 40+ источников за 3 минуты: SEO, соцсети, карты, вакансии, нейросети, юр.данные.",
+              desc: "Собираем данные из 40+ источников за 3 минуты: SEO, соцсети, карты, вакансии, нейросети.",
               color: neonMagenta,
               screen: (
                 <div style={{ width: "86%" }}>
-                  {["SEO · Keys.so", "Карты · Google/2ГИС", "Нейросети · ChatGPT, Алиса", "Репутация · отзывы"].map((s, i) => (
-                    <div key={s} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: muted, marginBottom: 6 }}>
-                      <span className="lp-pulse-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: i === 3 ? "#64748b" : neonGreen, animationDelay: `${i * 300}ms` }} />
+                  {["SEO · Keys.so", "Карты · Google / 2ГИС", "Нейросети · ChatGPT, Алиса", "Репутация · отзывы"].map((s, i) => (
+                    <div key={s} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: isDark ? "#cbd5e1" : "#475569", marginBottom: 11, fontWeight: 500 }}>
+                      <span className="lp-pulse-dot" style={{ width: 11, height: 11, borderRadius: "50%", background: i === 3 ? "#64748b" : neonGreen, animationDelay: `${i * 300}ms`, boxShadow: i === 3 ? "none" : `0 0 12px ${neonGreen}99` }} />
                       {s}
                     </div>
                   ))}
@@ -887,12 +899,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               n: "03",
               icon: <ClipboardList size={22} />,
               title: "Получите отчёт",
-              desc: "30+ рекомендаций с приоритетами. Score, ЦА, CJM, брендбук, Battle cards, план на 30 дней.",
+              desc: "30+ рекомендаций. Score, ЦА, CJM, брендбук, Battle cards, план на 30 дней.",
               color: neonGreen,
               screen: (
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-end", width: "86%", height: 60 }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-end", width: "86%", height: 90 }}>
                   {[36, 52, 28, 64, 80, 48, 72].map((h, i) => (
-                    <div key={i} style={{ flex: 1, background: `linear-gradient(180deg, ${neonGreen}, ${accent})`, height: `${h}%`, borderRadius: 3, opacity: 0.85 }} />
+                    <div key={i} style={{ flex: 1, background: `linear-gradient(180deg, ${neonGreen}, ${accent})`, height: `${h}%`, borderRadius: 5, opacity: 0.92, boxShadow: `0 0 14px -2px ${neonGreen}80` }} />
                   ))}
                 </div>
               ),
@@ -924,13 +936,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                   {screen}
                 </div>
               </div>
-              <div style={{ padding: "22px 24px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 11, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 16px ${color}30` }}>{icon}</div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color, letterSpacing: "0.08em" }}>ШАГ {n}</span>
+              <div style={{ padding: "26px 26px 28px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}20`, border: `1px solid ${color}50`, color, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 18px ${color}40` }}>{icon}</div>
+                  <span style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: "0.1em" }}>ШАГ {n}</span>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em" }}>{title}</div>
-                <div style={{ fontSize: 13.5, color: muted, lineHeight: 1.6 }}>{desc}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, letterSpacing: "-0.012em", lineHeight: 1.25 }}>{title}</div>
+                <div style={{ fontSize: 15, color: muted, lineHeight: 1.6 }}>{desc}</div>
               </div>
             </div>
           ))}
@@ -942,7 +954,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section id="pricing" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ТАРИФЫ</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ТАРИФЫ</div>
           <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Начните с разового отчёта</h2>
           <p style={{ fontSize: 14, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
         </div>
