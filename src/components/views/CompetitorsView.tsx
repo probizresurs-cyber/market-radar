@@ -30,8 +30,9 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [addingDomain, setAddingDomain] = useState<string | null>(null);
+  const [autoFetchedFor, setAutoFetchedFor] = useState<string | null>(null);
 
-  const fetchSuggested = async () => {
+  const fetchSuggested = React.useCallback(async () => {
     if (!myCompany?.company.url) return;
     setSuggestLoading(true);
     setSuggestError(null);
@@ -59,7 +60,16 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
     } finally {
       setSuggestLoading(false);
     }
-  };
+  }, [myCompany?.company.url, competitors]);
+
+  // Auto-fetch suggested competitors on mount (and when myCompany changes)
+  // — пользователю не нужно жать кнопку
+  useEffect(() => {
+    if (!myCompany?.company.url) return;
+    if (autoFetchedFor === myCompany.company.url) return; // уже подгружено для этой компании
+    setAutoFetchedFor(myCompany.company.url);
+    fetchSuggested();
+  }, [myCompany?.company.url, autoFetchedFor, fetchSuggested]);
 
   const handleAddSuggested = async (domain: string) => {
     setAddingDomain(domain);

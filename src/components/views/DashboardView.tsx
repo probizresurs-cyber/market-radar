@@ -15,6 +15,7 @@ import { OrderCTA } from "@/components/ui/OrderCTA";
 import { classifyRevenue } from "@/lib/data-quality";
 import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
 import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
+import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart } from "lucide-react";
 
 export function DashboardView({ c, data, competitors, onUpdateData }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void }) {
@@ -377,6 +378,11 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
           myDomain={data.company.url}
           competitorDomains={competitors.map(c => c.company.url).filter(Boolean)}
         />
+      </CollapsibleSection>
+
+      {/* Yandex Direct — own ads audit */}
+      <CollapsibleSection c={c} title="Реклама в Я.Директ" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+        <CompetitorAdsBlock domain={data.company.url} />
       </CollapsibleSection>
 
       {/* ── Ключевые слова ── */}
