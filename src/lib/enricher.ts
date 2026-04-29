@@ -395,35 +395,56 @@ function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric |
 }
 
 export async function getPageSpeedScores(url: string): Promise<PageSpeedResult | null> {
-  try {
-    const fullUrl = url.startsWith("http") ? url : `https://${url}`;
-    const apiKey = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_PLACES_API_KEY || "";
-    const keyParam = apiKey ? `&key=${apiKey}` : "";
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
-    const data = await fetchJson(apiUrl, FETCH_HEADERS, 30000) as Record<string, unknown>;
-    const lr = data?.lighthouseResult as Record<string, unknown> | undefined;
-    const cats = lr?.categories as Record<string, { score?: number }> | undefined;
-    if (!cats) {
-      console.warn("[PageSpeed] No categories in response. error:", (data as Record<string,unknown>)?.error);
+  const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+  // Используем только PAGESPEED_API_KEY (без fallback на GOOGLE_PLACES_API_KEY,
+  // у которого HTTP referrer-restriction → server-side даёт 403)
+  const apiKey = process.env.PAGESPEED_API_KEY || "";
+  const keyParam = apiKey ? `&key=${apiKey}` : "";
+  const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
+
+  // Lighthouse для production-сайтов часто занимает 30-90 секунд.
+  // Для тяжёлых сайтов с большим объёмом JS — до 120s.
+  // Делаем 1 ретрай на 5xx ошибки (Google API периодически возвращает 500).
+  const TIMEOUT_MS = 120_000;
+  const MAX_ATTEMPTS = 2;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const data = await fetchJson(apiUrl, FETCH_HEADERS, TIMEOUT_MS) as Record<string, unknown>;
+      const lr = data?.lighthouseResult as Record<string, unknown> | undefined;
+      const cats = lr?.categories as Record<string, { score?: number }> | undefined;
+      if (!cats) {
+        const apiError = (data as Record<string, unknown>)?.error;
+        console.warn(`[PageSpeed] No categories in response (attempt ${attempt}/${MAX_ATTEMPTS}). error:`, apiError);
+        if (attempt < MAX_ATTEMPTS) continue;
+        return null;
+      }
+      const audits = (lr?.audits ?? {}) as Record<string, unknown>;
+      return {
+        performance:   Math.round((cats.performance?.score   ?? 0) * 100),
+        seo:           Math.round((cats.seo?.score           ?? 0) * 100),
+        accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
+        bestPractices: Math.round(((cats["best-practices"] as { score?: number } | undefined)?.score ?? 0) * 100),
+        lcp: extractAudit(audits, "largest-contentful-paint"),
+        fcp: extractAudit(audits, "first-contentful-paint"),
+        cls: extractAudit(audits, "cumulative-layout-shift"),
+        tbt: extractAudit(audits, "total-blocking-time"),
+        si:  extractAudit(audits, "speed-index"),
+        tti: extractAudit(audits, "interactive"),
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTransient = /HTTP 5\d\d/.test(msg) || msg.includes("aborted") || msg.includes("ECONNRESET");
+      console.warn(`[PageSpeed] attempt ${attempt}/${MAX_ATTEMPTS} failed: ${msg}`);
+      if (attempt < MAX_ATTEMPTS && isTransient) {
+        // Backoff before retry
+        await new Promise(r => setTimeout(r, 2_000));
+        continue;
+      }
       return null;
     }
-    const audits = (lr?.audits ?? {}) as Record<string, unknown>;
-    return {
-      performance:   Math.round((cats.performance?.score   ?? 0) * 100),
-      seo:           Math.round((cats.seo?.score           ?? 0) * 100),
-      accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
-      bestPractices: Math.round(((cats["best-practices"] as { score?: number } | undefined)?.score ?? 0) * 100),
-      lcp: extractAudit(audits, "largest-contentful-paint"),
-      fcp: extractAudit(audits, "first-contentful-paint"),
-      cls: extractAudit(audits, "cumulative-layout-shift"),
-      tbt: extractAudit(audits, "total-blocking-time"),
-      si:  extractAudit(audits, "speed-index"),
-      tti: extractAudit(audits, "interactive"),
-    };
-  } catch (err) {
-    console.warn("[PageSpeed] fetch failed:", err instanceof Error ? err.message : err);
-    return null;
   }
+  return null;
 }
 
 // ─── Wayback Machine — real first archive date ──────────────────────────────
