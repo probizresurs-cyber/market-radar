@@ -48,12 +48,13 @@ const LLM_META: Record<LLMName, { label: string; color: string; bg: string; real
 };
 
 // Веса: российский YandexGPT важен для РФ-рынка; Claude и ChatGPT — глобальные.
+// Perplexity исключён из аудита (Keys.so для Яндекс Нейро/Алисы покрывает русский AI-сегмент).
 const LLM_WEIGHTS: Record<LLMName, number> = {
-  yandex:     0.30,
-  claude:     0.25,
-  chatgpt:    0.25,
-  perplexity: 0.10,
-  gemini:     0.10,
+  yandex:     0.32,
+  claude:     0.27,
+  chatgpt:    0.27,
+  perplexity: 0,     // не используется — оставлено для совместимости старых отчётов
+  gemini:     0.14,
 };
 
 function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
@@ -70,7 +71,8 @@ function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
 }
 
 function calcTotalScore(mentions: AIMention[]): { total: number; byLlm: Record<LLMName, number> } {
-  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
+  // Perplexity исключён из аудита (Yandex Neuro/Alice покрываются Keys.so отдельным блоком).
+  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "gemini"];
   const byLlm = {} as Record<LLMName, number>;
   let weightedSum = 0;
   let totalWeight = 0;
@@ -285,7 +287,8 @@ export function AIVisibilityView({ c, myCompany }: Props) {
   }, [audit]);
 
   const effectiveNiche = niche === "Другое" ? nicheCustom : niche;
-  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
+  // Perplexity исключён из аудита (Yandex Neuro/Alice покрываются Keys.so отдельным блоком).
+  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "gemini"];
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "10px 14px", borderRadius: 10, boxSizing: "border-box",
@@ -320,11 +323,11 @@ export function AIVisibilityView({ c, myCompany }: Props) {
     };
     setAudit(newAudit);
 
-    const stageOrder = ["queries", "yandex", "claude", "chatgpt", "perplexity", "gemini", "site", "recs"];
+    const stageOrder = ["queries", "yandex", "claude", "chatgpt", "gemini", "site", "recs"];
     const stageLabels: Record<string, string> = {
       queries: "Подготовка запросов", yandex: "Опрос YandexGPT",
       claude: "Опрос Claude", chatgpt: "Опрос ChatGPT",
-      perplexity: "Опрос Perplexity", gemini: "Опрос Gemini",
+      gemini: "Опрос Gemini",
       site: "Анализ AI-готовности сайта",
       recs: "Формирование рекомендаций",
     };
@@ -414,7 +417,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "var(--foreground)" }}>AI Видимость</h1>
             <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
-              GEO-аудит: честная проверка — знают ли вас ChatGPT, Claude, YandexGPT, Perplexity, Gemini
+              GEO-аудит: честная проверка — знают ли вас ChatGPT, Claude, YandexGPT, Gemini + реальные данные Я.Нейро/Алисы из Keys.so
             </p>
           </div>
           {savedAudits.length > 0 && (
@@ -567,7 +570,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
               Запустить AI-аудит
             </button>
             <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
-              ~2–4 минуты · 5 AI-ассистентов · анализ сайта · честные запросы без биас-подсказок
+              ~2–3 минуты · 4 AI-ассистента + Keys.so для Алисы/Нейро · честные запросы без биас-подсказок
             </p>
           </Card>
 
@@ -590,7 +593,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                 Что проверяем
               </h3>
               {[
-                { icon: <Bot size={16} />, title: "5 AI-ассистентов", desc: "YandexGPT, Claude, ChatGPT, Perplexity, Gemini" },
+                { icon: <Bot size={16} />, title: "4 AI-ассистента + Keys.so", desc: "YandexGPT, Claude, ChatGPT, Gemini + Алиса/Нейро через Keys.so" },
                 { icon: <BarChart3 size={16} />, title: "Share of Voice", desc: "Частота упоминаний vs конкуренты" },
                 { icon: <Globe size={16} />, title: "AI-готовность сайта", desc: "Schema.org, llms.txt, FAQ, robots.txt" },
                 { icon: <Target size={16} />, title: "Рекомендации", desc: "Приоритизированный план улучшений" },
@@ -1584,7 +1587,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
                   {/* LLM mini scores */}
                   {a.scoresByLlm && (
                     <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                      {(["yandex", "claude", "chatgpt", "perplexity", "gemini"] as LLMName[]).map(llm => (
+                      {(["yandex", "claude", "chatgpt", "gemini"] as LLMName[]).map(llm => (
                         <span key={llm} style={{
                           fontSize: 11, padding: "2px 8px", borderRadius: 6,
                           background: LLM_META[llm].bg, color: LLM_META[llm].color, fontWeight: 700,

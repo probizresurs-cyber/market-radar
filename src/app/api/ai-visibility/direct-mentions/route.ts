@@ -145,10 +145,11 @@ export async function POST(req: Request) {
 
     const query = `Расскажи мне о компании "${brandName}"${websiteUrl ? ` (сайт: ${websiteUrl})` : ""}. Что ты о ней знаешь? Если не знаешь — так и напиши, не придумывай.`;
 
-    const llms: LLMName[] = ["yandex", "claude", "chatgpt", "perplexity", "gemini"];
+    // Perplexity исключён — Yandex Neuro/Алиса покрываются Keys.so отдельным блоком.
+    const llms: LLMName[] = ["yandex", "claude", "chatgpt", "gemini"];
     const realApiOnly = (l: LLMName) => l === "chatgpt" || l === "claude";
 
-    // Параллельно опрашиваем все 5
+    // Параллельно опрашиваем все 4
     const tasks = llms.map<Promise<DirectMention>>(async (llm) => {
       let response = "";
       let isReal = false;
