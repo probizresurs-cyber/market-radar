@@ -555,6 +555,7 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
             </div>
           </div>
 
+
           {/* Hide branding */}
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", opacity: wl.enabled ? 1 : 0.5, pointerEvents: wl.enabled ? "auto" : "none" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
