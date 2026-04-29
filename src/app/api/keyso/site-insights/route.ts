@@ -37,9 +37,9 @@ export async function POST(req: Request) {
     const [topPages, lostKeywords, anchors, referringDomains, popularPages, topics] = await Promise.all([
       fetchTopPages(domain, base, 12),
       fetchLostKeywords(domain, base, 15),
-      fetchAnchors(domain, 12),
-      fetchReferringDomains(domain, 20),
-      fetchPopularPages(domain, 8),
+      fetchAnchors(domain, base, 12),
+      fetchReferringDomains(domain, base, 20),
+      fetchPopularPages(domain, base, 8),
       fetchMainTopics(domain, base),
     ]);
 

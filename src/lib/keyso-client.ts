@@ -389,13 +389,13 @@ export async function fetchLostKeywords(
 /** Распределение анкорного текста бэклинков. */
 export async function fetchAnchors(
   domain: string,
+  base: KeysoBase = "msk",
   limit = 15,
 ): Promise<KeysoAnchor[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/anchors",
-    { domain: cleanDomain, page: 1, per_page: limit },
-    "POST",
+    "/report/simple/links/anchors",
+    { domain: cleanDomain, base, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   const items = data.data.slice(0, limit).map((a) => ({
@@ -409,13 +409,13 @@ export async function fetchAnchors(
 /** Качество ссылающихся доменов (с разбивкой по DR). */
 export async function fetchReferringDomains(
   domain: string,
+  base: KeysoBase = "msk",
   limit = 25,
 ): Promise<KeysoReferringDomain[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/referring_domains",
-    { domain: cleanDomain, page: 1, per_page: limit },
-    "POST",
+    "/report/simple/links/refdomains",
+    { domain: cleanDomain, base, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((d) => ({
@@ -429,13 +429,13 @@ export async function fetchReferringDomains(
 /** Топовые страницы по количеству бэклинков (link magnets). */
 export async function fetchPopularPages(
   domain: string,
+  base: KeysoBase = "msk",
   limit = 10,
 ): Promise<KeysoPopularPage[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/popular_pages",
-    { domain: cleanDomain, page: 1, per_page: limit },
-    "POST",
+    "/report/simple/links/popular",
+    { domain: cleanDomain, base, page: 1, per_page: limit },
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((p) => ({
@@ -452,9 +452,8 @@ export async function fetchMainTopics(
 ): Promise<KeysoTopic[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/main_topics",
+    "/report/simple/site_topics",
     { domain: cleanDomain, base },
-    "POST",
   );
   if (!data?.data) return [];
   return data.data.map((t) => ({
