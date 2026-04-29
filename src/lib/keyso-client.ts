@@ -303,29 +303,13 @@ export interface KeysoLostKeyword {
   volume: number;
 }
 
-export interface KeysoAnchor {
-  anchor: string;
-  count: number;
-  share?: number;
-}
-
-export interface KeysoReferringDomain {
-  domain: string;
-  dr?: number;
-  links: number;
-  firstSeen?: string;
-}
-
-export interface KeysoPopularPage {
-  url: string;
-  backlinks: number;
-  refDomains: number;
-}
-
-export interface KeysoTopic {
-  topic: string;
-  weight: number;  // 0..1
-}
+// NOTE: Backlinks endpoints (/links/anchors, /links/refdomains, /links/popular,
+// /site_topics) require a separate async report flow (POST /report/site/...)
+// which is not yet implemented. These types are kept for future reference.
+export interface KeysoAnchor { anchor: string; count: number; share?: number; }
+export interface KeysoReferringDomain { domain: string; dr?: number; links: number; firstSeen?: string; }
+export interface KeysoPopularPage { url: string; backlinks: number; refDomains: number; }
+export interface KeysoTopic { topic: string; weight: number; }
 
 /** Топовые страницы сайта по органическому трафику.
  *  /sitepages/withkeys возвращает строки (keyword × page) — группируем по url.
@@ -386,7 +370,8 @@ export async function fetchLostKeywords(
   })).filter(k => k.keyword);
 }
 
-/** Распределение анкорного текста бэклинков. */
+/** @deprecated Endpoint недоступен — требует async report/site flow. Kept for future use.
+ *  Распределение анкорного текста бэклинков. */
 export async function fetchAnchors(
   domain: string,
   base: KeysoBase = "msk",
@@ -406,7 +391,8 @@ export async function fetchAnchors(
   return items.map(x => ({ ...x, share: total > 0 ? Math.round((x.count / total) * 1000) / 10 : undefined }));
 }
 
-/** Качество ссылающихся доменов (с разбивкой по DR). */
+/** @deprecated Endpoint недоступен — требует async report/site flow.
+ *  Качество ссылающихся доменов. */
 export async function fetchReferringDomains(
   domain: string,
   base: KeysoBase = "msk",
@@ -426,7 +412,8 @@ export async function fetchReferringDomains(
   })).filter(d => d.domain);
 }
 
-/** Топовые страницы по количеству бэклинков (link magnets). */
+/** @deprecated Endpoint недоступен — требует async report/site flow.
+ *  Топовые страницы по количеству бэклинков. */
 export async function fetchPopularPages(
   domain: string,
   base: KeysoBase = "msk",
@@ -445,7 +432,8 @@ export async function fetchPopularPages(
   })).filter(p => p.url);
 }
 
-/** Основные темы сайта по мнению Яндекса. */
+/** @deprecated Endpoint недоступен — требует async report/site flow.
+ *  Основные темы сайта. */
 export async function fetchMainTopics(
   domain: string,
   base: KeysoBase = "msk",

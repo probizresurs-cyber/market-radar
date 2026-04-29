@@ -2,27 +2,19 @@
 
 import React, { useState } from "react";
 import {
-  FileText, AlertTriangle, Tag, Globe, Link2, Layers,
-  Sparkles, ExternalLink, RefreshCw, TrendingDown, TrendingUp as TrendingUpIcon,
+  FileText, AlertTriangle, Layers,
+  Sparkles, ExternalLink, RefreshCw, TrendingDown,
 } from "lucide-react";
 
 interface TopPage { url: string; traffic: number; keysCount: number; topKeyword?: string; }
 interface LostKeyword { keyword: string; oldPosition: number; newPosition: number | null; volume: number; }
-interface Anchor { anchor: string; count: number; share?: number; }
-interface ReferringDomain { domain: string; dr?: number; links: number; firstSeen?: string; }
-interface PopularPage { url: string; backlinks: number; refDomains: number; }
-interface Topic { topic: string; weight: number; }
 
 interface InsightsData {
   topPages: TopPage[];
   lostKeywords: LostKeyword[];
-  anchors: Anchor[];
-  referringDomains: ReferringDomain[];
-  popularPages: PopularPage[];
-  topics: Topic[];
 }
 
-type TabId = "pages" | "lost" | "anchors" | "domains" | "popular" | "topics";
+type TabId = "pages" | "lost";
 
 interface Tab {
   id: TabId;
@@ -32,12 +24,8 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: "pages",   label: "Топ страниц",       icon: <FileText size={14} />,        countOf: d => d.topPages.length },
-  { id: "lost",    label: "Потерянные ключи",  icon: <TrendingDown size={14} />,    countOf: d => d.lostKeywords.length },
-  { id: "anchors", label: "Анкоры ссылок",     icon: <Tag size={14} />,             countOf: d => d.anchors.length },
-  { id: "domains", label: "Реф. домены",       icon: <Globe size={14} />,           countOf: d => d.referringDomains.length },
-  { id: "popular", label: "Топ ссылаемых",     icon: <Link2 size={14} />,           countOf: d => d.popularPages.length },
-  { id: "topics",  label: "Темы сайта",        icon: <Layers size={14} />,          countOf: d => d.topics.length },
+  { id: "pages", label: "Топ страниц",      icon: <FileText size={14} />,     countOf: d => d.topPages.length },
+  { id: "lost",  label: "Потерянные ключи", icon: <TrendingDown size={14} />, countOf: d => d.lostKeywords.length },
 ];
 
 export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
@@ -60,20 +48,10 @@ export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
         setData({
           topPages: json.topPages ?? [],
           lostKeywords: json.lostKeywords ?? [],
-          anchors: json.anchors ?? [],
-          referringDomains: json.referringDomains ?? [],
-          popularPages: json.popularPages ?? [],
-          topics: json.topics ?? [],
         });
         // Автоматически выбираем первый таб где есть данные
-        const firstNonEmpty = TABS.find(t => t.countOf({
-          topPages: json.topPages ?? [],
-          lostKeywords: json.lostKeywords ?? [],
-          anchors: json.anchors ?? [],
-          referringDomains: json.referringDomains ?? [],
-          popularPages: json.popularPages ?? [],
-          topics: json.topics ?? [],
-        }) > 0);
+        const d = { topPages: json.topPages ?? [], lostKeywords: json.lostKeywords ?? [] };
+        const firstNonEmpty = TABS.find(t => t.countOf(d) > 0);
         if (firstNonEmpty) setActiveTab(firstNonEmpty.id);
       } else {
         setError(json.error ?? "Не удалось получить данные");
@@ -96,7 +74,7 @@ export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--foreground)" }}>SEO детали по сайту</div>
             <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-              Топ страницы, потерянные ключи, ссылочный профиль, темы — из Keys.so
+              Топ страницы по органике и потерянные ключи — из Keys.so
             </div>
           </div>
         </div>
@@ -130,7 +108,7 @@ export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
 
       {!data && !loading && !error && (
         <div style={{ marginTop: 14, padding: "16px", borderRadius: 12, background: "var(--background)", border: "1px dashed var(--border)", textAlign: "center", fontSize: 13, color: "var(--muted-foreground)" }}>
-          6 параллельных запросов к Keys.so — займёт 5-10 секунд
+          Запросы к Keys.so — займёт несколько секунд
         </div>
       )}
 
@@ -175,10 +153,6 @@ export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
           {/* Tab contents */}
           {activeTab === "pages" && <TopPagesTab pages={data.topPages} />}
           {activeTab === "lost" && <LostKeywordsTab items={data.lostKeywords} />}
-          {activeTab === "anchors" && <AnchorsTab items={data.anchors} />}
-          {activeTab === "domains" && <ReferringDomainsTab items={data.referringDomains} />}
-          {activeTab === "popular" && <PopularPagesTab items={data.popularPages} />}
-          {activeTab === "topics" && <TopicsTab items={data.topics} />}
         </>
       )}
     </div>
@@ -246,96 +220,6 @@ function LostKeywordsTab({ items }: { items: LostKeyword[] }) {
   );
 }
 
-function AnchorsTab({ items }: { items: Anchor[] }) {
-  if (!items.length) return <EmptyState text="Анкоров не найдено — Keys.so не вернул данных" />;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {items.map((a, i) => (
-        <div key={i} style={{ padding: "10px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-          <Tag size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
-          <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {a.anchor.length > 80 ? a.anchor.slice(0, 80) + "…" : a.anchor}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <div style={{ width: 60, height: 5, borderRadius: 3, background: "var(--muted)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${a.share ?? 0}%`, background: "var(--primary)", borderRadius: 3 }} />
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", minWidth: 36, textAlign: "right" }}>
-              {a.share ? `${a.share}%` : a.count}
-            </span>
-          </div>
-        </div>
-      ))}
-      <div style={{ marginTop: 6, padding: "10px 14px", borderRadius: 10, background: "var(--primary)08", border: "1px solid var(--primary)20", fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>
-        💡 Если один анкор &gt; 30% — риск переоптимизации. Естественное распределение: бренд + URL должны быть в топе.
-      </div>
-    </div>
-  );
-}
-
-function ReferringDomainsTab({ items }: { items: ReferringDomain[] }) {
-  if (!items.length) return <EmptyState text="Ссылающихся доменов не найдено" />;
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
-      {items.map((d, i) => {
-        const drColor = (d.dr ?? 0) >= 60 ? "#22c55e" : (d.dr ?? 0) >= 30 ? "#f59e0b" : "var(--muted-foreground)";
-        return (
-          <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 7, background: `${drColor}15`, color: drColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
-              {d.dr ?? "—"}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {d.domain}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{d.links.toLocaleString("ru-RU")} ссылок</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function PopularPagesTab({ items }: { items: PopularPage[] }) {
-  if (!items.length) return <EmptyState text="Топовых ссылаемых страниц не найдено" />;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {items.map((p, i) => (
-        <div key={i} style={{ padding: "10px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-          <Link2 size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
-          <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 13, color: "var(--foreground)", textDecoration: "none", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {p.url.replace(/^https?:\/\//, "").slice(0, 70)}
-          </a>
-          <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted-foreground)", flexShrink: 0 }}>
-            <span><b style={{ color: "var(--foreground)" }}>{p.backlinks.toLocaleString("ru-RU")}</b> ссылок</span>
-            <span><b style={{ color: "var(--foreground)" }}>{p.refDomains}</b> доменов</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TopicsTab({ items }: { items: Topic[] }) {
-  if (!items.length) return <EmptyState text="Темы сайта не определены" />;
-  const maxWeight = Math.max(...items.map(t => t.weight), 1);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {items.map((t, i) => (
-        <div key={i} style={{ padding: "10px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{t.topic}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)" }}>{Math.round(t.weight * 100)}%</span>
-          </div>
-          <div style={{ height: 5, borderRadius: 3, background: "var(--muted)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(t.weight / maxWeight) * 100}%`, background: "var(--primary)", borderRadius: 3 }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function EmptyState({ text, success = false }: { text: string; success?: boolean }) {
   return (

@@ -1,29 +1,18 @@
 /**
- * /api/keyso/site-insights — агрегированные расширенные данные о компании
+ * /api/keyso/site-insights — SEO детали о компании
  *
- * Параллельно тянет:
- *   - топовые страницы (с трафиком и ключами)
- *   - потерянные ключи (что упало в позициях)
- *   - распределение анкоров бэклинков
- *   - ссылающиеся домены (с DR)
- *   - топовые акцепторы (link magnets)
- *   - основные темы сайта
- *
- * Используется блоком "SEO детали" на главном дашборде.
+ * Топовые страницы по органике + потерянные ключи.
+ * (Бэклинки/анкоры/темы — только через асинхронный report/site/... flow, не реализован)
  */
 import { NextResponse } from "next/server";
 import {
   fetchTopPages,
   fetchLostKeywords,
-  fetchAnchors,
-  fetchReferringDomains,
-  fetchPopularPages,
-  fetchMainTopics,
   type KeysoBase,
 } from "@/lib/keyso-client";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
@@ -33,14 +22,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "domain required" }, { status: 400 });
     }
 
-    // Параллельно (не последовательно!) — все 6 запросов одновременно
-    const [topPages, lostKeywords, anchors, referringDomains, popularPages, topics] = await Promise.all([
+    const [topPages, lostKeywords] = await Promise.all([
       fetchTopPages(domain, base, 12),
       fetchLostKeywords(domain, base, 15),
-      fetchAnchors(domain, base, 12),
-      fetchReferringDomains(domain, base, 20),
-      fetchPopularPages(domain, base, 8),
-      fetchMainTopics(domain, base),
     ]);
 
     return NextResponse.json({
@@ -48,17 +32,9 @@ export async function POST(req: Request) {
       domain,
       topPages,
       lostKeywords,
-      anchors,
-      referringDomains,
-      popularPages,
-      topics,
       stats: {
         topPagesCount: topPages.length,
         lostKeywordsCount: lostKeywords.length,
-        anchorsCount: anchors.length,
-        refDomainsCount: referringDomains.length,
-        popularPagesCount: popularPages.length,
-        topicsCount: topics.length,
       },
     });
   } catch (err) {
