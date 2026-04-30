@@ -22,6 +22,18 @@ const S = {
   td: { padding: "12px 14px", border: "1px solid #1e2737", verticalAlign: "top" as const },
   badge: (color: string) => ({ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: color + "22", color, display: "inline-block" }),
   link: { color: "#7c3aed", textDecoration: "none", fontWeight: 600 } as React.CSSProperties,
+  filterBtn: (active: boolean) => ({
+    background: active ? "#7c3aed" : "#1a1f2e",
+    color: active ? "#fff" : "#94a3b8",
+    border: "1px solid #2d3748", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600,
+  } as React.CSSProperties),
+  sectionTab: (active: boolean) => ({
+    padding: "8px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", borderRadius: 8,
+    background: active ? "#7c3aed" : "transparent",
+    color: active ? "#fff" : "#64748b",
+    border: active ? "1px solid #7c3aed" : "1px solid #2d3748",
+    transition: "all 0.15s",
+  } as React.CSSProperties),
 };
 
 const TABS = [
@@ -49,26 +61,75 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Отклонён",
 };
 
+const APP_STATUS_COLORS: Record<string, string> = {
+  new: "#60a5fa",
+  contacted: "#f59e0b",
+  converted: "#4ade80",
+  rejected: "#64748b",
+};
+
+const APP_STATUS_LABELS: Record<string, string> = {
+  new: "Новая",
+  contacted: "Contacted",
+  converted: "Конвертирован",
+  rejected: "Отклонена",
+};
+
 const TYPE_LABELS: Record<string, string> = {
   referral: "Реферал",
   integrator: "Интегратор",
 };
 
+interface PartnerApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company_name?: string;
+  website?: string;
+  type: "referral" | "integrator";
+  description?: string;
+  client_price_amount?: number;
+  status: "new" | "contacted" | "converted" | "rejected";
+  admin_notes?: string;
+  created_at: string;
+}
+
 export default function PartnersAdmin() {
+  const [section, setSection] = useState<"partners" | "applications">("partners");
+
+  // Partners state
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [partnersLoading, setPartnersLoading] = useState(true);
   const [filter, setFilter] = useState("");
 
-  async function load() {
-    setLoading(true);
+  // Applications state
+  const [applications, setApplications] = useState<PartnerApplication[]>([]);
+  const [appsLoading, setAppsLoading] = useState(false);
+  const [appsFilter, setAppsFilter] = useState("");
+  const [editingApp, setEditingApp] = useState<string | null>(null);
+  const [notesInput, setNotesInput] = useState("");
+
+  async function loadPartners() {
+    setPartnersLoading(true);
     const url = filter ? `/api/admin/partners?status=${filter}` : "/api/admin/partners";
     const r = await fetch(url);
     const d = await r.json();
     if (d.ok) setPartners(d.partners);
-    setLoading(false);
+    setPartnersLoading(false);
   }
 
-  useEffect(() => { load(); }, [filter]);
+  async function loadApplications() {
+    setAppsLoading(true);
+    const url = appsFilter ? `/api/admin/partners/applications?status=${appsFilter}` : "/api/admin/partners/applications";
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.ok) setApplications(d.applications);
+    setAppsLoading(false);
+  }
+
+  useEffect(() => { loadPartners(); }, [filter]);
+  useEffect(() => { if (section === "applications") loadApplications(); }, [section, appsFilter]);
 
   async function updateStatus(partnerId: string, status: string) {
     await fetch("/api/admin/partners", {
@@ -76,13 +137,25 @@ export default function PartnersAdmin() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ partnerId, status }),
     });
-    load();
+    loadPartners();
+  }
+
+  async function updateAppStatus(id: string, status: string, admin_notes?: string) {
+    await fetch("/api/admin/partners/applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status, admin_notes }),
+    });
+    setEditingApp(null);
+    loadApplications();
   }
 
   const total = partners.length;
   const active = partners.filter(p => p.status === "active").length;
   const referrals = partners.filter(p => p.type === "referral").length;
   const integrators = partners.filter(p => p.type === "integrator").length;
+
+  const newApps = applications.filter(a => a.status === "new").length;
 
   return (
     <div style={S.page}>
@@ -94,98 +167,265 @@ export default function PartnersAdmin() {
       </nav>
 
       <main style={S.main}>
-        <div style={S.h1}>Партнёры</div>
-
-        <div style={S.statRow}>
-          <div style={S.stat}><div style={S.statNum}>{total}</div><div style={S.statLabel}>Всего</div></div>
-          <div style={S.stat}><div style={{ ...S.statNum, color: "#4ade80" }}>{active}</div><div style={S.statLabel}>Активных</div></div>
-          <div style={S.stat}><div style={{ ...S.statNum, color: "#60a5fa" }}>{referrals}</div><div style={S.statLabel}>Рефералы</div></div>
-          <div style={S.stat}><div style={{ ...S.statNum, color: "#c084fc" }}>{integrators}</div><div style={S.statLabel}>Интеграторы</div></div>
-        </div>
-
-        {/* Filter */}
-        <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-          {["", "pending", "active", "suspended", "rejected"].map(s => (
-            <button key={s} onClick={() => setFilter(s)} style={{
-              background: filter === s ? "#7c3aed" : "#1a1f2e",
-              color: filter === s ? "#fff" : "#94a3b8",
-              border: "1px solid #2d3748", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-            }}>
-              {s ? STATUS_LABELS[s] : "Все"}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={S.h1}>Партнёры</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={S.sectionTab(section === "partners")} onClick={() => setSection("partners")}>
+              Партнёры
             </button>
-          ))}
+            <button style={S.sectionTab(section === "applications")} onClick={() => setSection("applications")}>
+              Заявки {newApps > 0 && <span style={{ background: "#ef4444", color: "#fff", borderRadius: "50%", padding: "0 6px", fontSize: 11, marginLeft: 4 }}>{newApps}</span>}
+            </button>
+          </div>
         </div>
 
-        {/* Table */}
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
-        ) : partners.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
-            <div>Нет партнёров</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  <th style={S.th}>Партнёр</th>
-                  <th style={S.th}>Тип</th>
-                  <th style={S.th}>Статус</th>
-                  <th style={S.th}>Код</th>
-                  <th style={S.th}>Ставка</th>
-                  <th style={S.th}>Клиенты</th>
-                  <th style={S.th}>Заработано</th>
-                  <th style={S.th}>Дата</th>
-                  <th style={S.th}>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partners.map((p, i) => (
-                  <tr key={p.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
-                    <td style={S.td}>
-                      <div style={{ fontWeight: 600, color: "#e2e8f0" }}>{p.email}</div>
-                      <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{p.company_name || p.name || "—"}</div>
-                    </td>
-                    <td style={S.td}>
-                      <span style={S.badge(p.type === "integrator" ? "#c084fc" : "#60a5fa")}>
-                        {TYPE_LABELS[p.type]}
-                      </span>
-                    </td>
-                    <td style={S.td}>
-                      <span style={S.badge(STATUS_COLORS[p.status] || "#475569")}>
-                        {STATUS_LABELS[p.status] || p.status}
-                      </span>
-                    </td>
-                    <td style={{ ...S.td, fontFamily: "monospace", fontSize: 12, color: "#94a3b8" }}>{p.referral_code}</td>
-                    <td style={{ ...S.td, fontWeight: 700, color: "#f59e0b" }}>{p.commission_rate}%</td>
-                    <td style={{ ...S.td, fontWeight: 600, color: "#4ade80" }}>{p.client_count || 0}</td>
-                    <td style={{ ...S.td, fontWeight: 600 }}>{formatPrice(Number(p.total_earned) || 0)}</td>
-                    <td style={{ ...S.td, color: "#64748b", fontSize: 12 }}>
-                      {new Date(p.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "short", year: "numeric" })}
-                    </td>
-                    <td style={S.td}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        <Link href={`/admin/partners/${p.id}`} style={S.link}>Подробнее</Link>
-                        {p.status === "pending" && (
-                          <>
-                            <button onClick={() => updateStatus(p.id, "active")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Одобрить</button>
-                            <button onClick={() => updateStatus(p.id, "rejected")} style={{ background: "none", color: "#ef4444", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Отклонить</button>
-                          </>
+        {section === "partners" && (
+          <>
+            <div style={S.statRow}>
+              <div style={S.stat}><div style={S.statNum}>{total}</div><div style={S.statLabel}>Всего</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#4ade80" }}>{active}</div><div style={S.statLabel}>Активных</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#60a5fa" }}>{referrals}</div><div style={S.statLabel}>Рефералы</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#c084fc" }}>{integrators}</div><div style={S.statLabel}>Интеграторы</div></div>
+            </div>
+
+            {/* Filter */}
+            <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+              {["", "pending", "active", "suspended", "rejected"].map(s => (
+                <button key={s} onClick={() => setFilter(s)} style={S.filterBtn(filter === s)}>
+                  {s ? STATUS_LABELS[s] : "Все"}
+                </button>
+              ))}
+            </div>
+
+            {/* Partners Table */}
+            {partnersLoading ? (
+              <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
+            ) : partners.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
+                <div>Нет партнёров</div>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>Партнёр</th>
+                      <th style={S.th}>Тип</th>
+                      <th style={S.th}>Статус</th>
+                      <th style={S.th}>Код</th>
+                      <th style={S.th}>Ставка</th>
+                      <th style={S.th}>Клиенты</th>
+                      <th style={S.th}>Заработано</th>
+                      <th style={S.th}>Дата</th>
+                      <th style={S.th}>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {partners.map((p, i) => (
+                      <tr key={p.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
+                        <td style={S.td}>
+                          <div style={{ fontWeight: 600, color: "#e2e8f0" }}>{p.email}</div>
+                          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{p.company_name || p.name || "—"}</div>
+                        </td>
+                        <td style={S.td}>
+                          <span style={S.badge(p.type === "integrator" ? "#c084fc" : "#60a5fa")}>
+                            {TYPE_LABELS[p.type]}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={S.badge(STATUS_COLORS[p.status] || "#475569")}>
+                            {STATUS_LABELS[p.status] || p.status}
+                          </span>
+                        </td>
+                        <td style={{ ...S.td, fontFamily: "monospace", fontSize: 12, color: "#94a3b8" }}>{p.referral_code}</td>
+                        <td style={{ ...S.td, fontWeight: 700, color: "#f59e0b" }}>{p.commission_rate}%</td>
+                        <td style={{ ...S.td, fontWeight: 600, color: "#4ade80" }}>{p.client_count || 0}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{formatPrice(Number(p.total_earned) || 0)}</td>
+                        <td style={{ ...S.td, color: "#64748b", fontSize: 12 }}>
+                          {new Date(p.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "short", year: "numeric" })}
+                        </td>
+                        <td style={S.td}>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            <Link href={`/admin/partners/${p.id}`} style={S.link}>Подробнее</Link>
+                            {p.status === "pending" && (
+                              <>
+                                <button onClick={() => updateStatus(p.id, "active")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Одобрить</button>
+                                <button onClick={() => updateStatus(p.id, "rejected")} style={{ background: "none", color: "#ef4444", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Отклонить</button>
+                              </>
+                            )}
+                            {p.status === "active" && (
+                              <button onClick={() => updateStatus(p.id, "suspended")} style={{ background: "none", color: "#f59e0b", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Приостановить</button>
+                            )}
+                            {p.status === "suspended" && (
+                              <button onClick={() => updateStatus(p.id, "active")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Возобновить</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {section === "applications" && (
+          <>
+            <div style={{ ...S.statRow, gridTemplateColumns: "repeat(4, 1fr)" }}>
+              <div style={S.stat}><div style={S.statNum}>{applications.length}</div><div style={S.statLabel}>Всего заявок</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#60a5fa" }}>{applications.filter(a => a.status === "new").length}</div><div style={S.statLabel}>Новых</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#f59e0b" }}>{applications.filter(a => a.status === "contacted").length}</div><div style={S.statLabel}>В обработке</div></div>
+              <div style={S.stat}><div style={{ ...S.statNum, color: "#4ade80" }}>{applications.filter(a => a.status === "converted").length}</div><div style={S.statLabel}>Конвертировано</div></div>
+            </div>
+
+            {/* Apps Filter */}
+            <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+              {(["", "new", "contacted", "converted", "rejected"] as const).map(s => (
+                <button key={s} onClick={() => setAppsFilter(s)} style={S.filterBtn(appsFilter === s)}>
+                  {s ? APP_STATUS_LABELS[s] : "Все"}
+                </button>
+              ))}
+            </div>
+
+            {/* Applications Table */}
+            {appsLoading ? (
+              <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>Загрузка...</div>
+            ) : applications.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 60, color: "#475569" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+                <div>Нет заявок</div>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>Заявитель</th>
+                      <th style={S.th}>Тип</th>
+                      <th style={S.th}>Контакты</th>
+                      <th style={S.th}>Описание</th>
+                      <th style={S.th}>Цена клиенту</th>
+                      <th style={S.th}>Статус</th>
+                      <th style={S.th}>Дата</th>
+                      <th style={S.th}>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {applications.map((a, i) => (
+                      <>
+                        <tr key={a.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
+                          <td style={S.td}>
+                            <div style={{ fontWeight: 600, color: "#e2e8f0" }}>{a.name}</div>
+                            <div style={{ fontSize: 11, color: "#7c3aed", marginTop: 2 }}>{a.email}</div>
+                            {a.company_name && <div style={{ fontSize: 11, color: "#475569", marginTop: 1 }}>{a.company_name}</div>}
+                          </td>
+                          <td style={S.td}>
+                            <span style={S.badge(a.type === "integrator" ? "#c084fc" : "#60a5fa")}>
+                              {TYPE_LABELS[a.type]}
+                            </span>
+                          </td>
+                          <td style={S.td}>
+                            {a.phone && <div style={{ fontSize: 12, color: "#94a3b8" }}>{a.phone}</div>}
+                            {a.website && (
+                              <a href={a.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7c3aed", textDecoration: "none" }}>
+                                {a.website.replace(/^https?:\/\//, "")}
+                              </a>
+                            )}
+                            {!a.phone && !a.website && <span style={{ color: "#334155" }}>—</span>}
+                          </td>
+                          <td style={{ ...S.td, maxWidth: 260 }}>
+                            {a.description ? (
+                              <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5, wordBreak: "break-word" }}>
+                                {a.description.length > 120 ? a.description.slice(0, 120) + "…" : a.description}
+                              </div>
+                            ) : <span style={{ color: "#334155" }}>—</span>}
+                          </td>
+                          <td style={S.td}>
+                            {a.client_price_amount ? (
+                              <div>
+                                <div style={{ fontWeight: 700, color: "#f59e0b" }}>{(a.client_price_amount / 100).toLocaleString("ru-RU")} ₽/мес</div>
+                                <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>
+                                  наценка: +{((a.client_price_amount / 100) - 3900).toLocaleString("ru-RU")} ₽
+                                </div>
+                              </div>
+                            ) : <span style={{ color: "#334155" }}>—</span>}
+                          </td>
+                          <td style={S.td}>
+                            <span style={S.badge(APP_STATUS_COLORS[a.status] || "#475569")}>
+                              {APP_STATUS_LABELS[a.status] || a.status}
+                            </span>
+                            {a.admin_notes && (
+                              <div style={{ fontSize: 10, color: "#475569", marginTop: 4, fontStyle: "italic" }}>
+                                {a.admin_notes.length > 60 ? a.admin_notes.slice(0, 60) + "…" : a.admin_notes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ ...S.td, color: "#64748b", fontSize: 12 }}>
+                            {new Date(a.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "short", year: "numeric" })}
+                          </td>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {a.status === "new" && (
+                                <button onClick={() => updateAppStatus(a.id, "contacted")} style={{ background: "none", color: "#f59e0b", border: "1px solid #2d3748", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" }}>
+                                  ✉ Связались
+                                </button>
+                              )}
+                              {(a.status === "new" || a.status === "contacted") && (
+                                <button onClick={() => updateAppStatus(a.id, "converted")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" }}>
+                                  ✓ Конвертировать
+                                </button>
+                              )}
+                              {a.status !== "rejected" && (
+                                <button onClick={() => updateAppStatus(a.id, "rejected")} style={{ background: "none", color: "#ef4444", border: "1px solid #2d3748", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11 }}>
+                                  ✕ Отклонить
+                                </button>
+                              )}
+                              <button
+                                onClick={() => { setEditingApp(editingApp === a.id ? null : a.id); setNotesInput(a.admin_notes || ""); }}
+                                style={{ background: "none", color: "#94a3b8", border: "1px solid #2d3748", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11 }}
+                              >
+                                ✎ Заметка
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {editingApp === a.id && (
+                          <tr key={a.id + "_note"} style={{ background: "#0d1020" }}>
+                            <td colSpan={8} style={{ padding: "12px 14px", border: "1px solid #1e2737" }}>
+                              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                <textarea
+                                  value={notesInput}
+                                  onChange={e => setNotesInput(e.target.value)}
+                                  placeholder="Заметка к заявке..."
+                                  style={{ flex: 1, background: "#11131c", border: "1px solid #2d3748", borderRadius: 8, color: "#e2e8f0", padding: "8px 12px", fontSize: 13, minHeight: 60, resize: "vertical", outline: "none" }}
+                                />
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <button
+                                    onClick={() => updateAppStatus(a.id, a.status, notesInput)}
+                                    style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                                  >
+                                    Сохранить
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingApp(null)}
+                                    style={{ background: "none", color: "#64748b", border: "1px solid #2d3748", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: 12 }}
+                                  >
+                                    Отмена
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                        {p.status === "active" && (
-                          <button onClick={() => updateStatus(p.id, "suspended")} style={{ background: "none", color: "#f59e0b", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Приостановить</button>
-                        )}
-                        {p.status === "suspended" && (
-                          <button onClick={() => updateStatus(p.id, "active")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>Возобновить</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

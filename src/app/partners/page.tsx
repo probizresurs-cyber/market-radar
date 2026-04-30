@@ -129,7 +129,7 @@ export default function PartnersPage() {
           <Link href="/" className="pp-btn" style={{ color: muted, textDecoration: "none", fontSize: 13, padding: "7px 14px" }}>
             ← На главную
           </Link>
-          <Link href="/partner" className="pp-btn" style={{ background: accent, border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 13, fontWeight: 700, color: "#fff", textDecoration: "none", boxShadow: `0 2px 12px ${accent}50` }}>
+          <Link href="/partner/apply" className="pp-btn" style={{ background: accent, border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 13, fontWeight: 700, color: "#fff", textDecoration: "none", boxShadow: `0 2px 12px ${accent}50` }}>
             Стать партнёром
           </Link>
         </div>
@@ -162,7 +162,7 @@ export default function PartnersPage() {
           </p>
 
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 44 }}>
-            <Link href="/partner" className="pp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 30px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 24px ${accent}55`, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Link href="/partner/apply" className="pp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 30px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 24px ${accent}55`, display: "inline-flex", alignItems: "center", gap: 8 }}>
               Зарегистрироваться <ArrowRight size={16} />
             </Link>
             <a href="#how" className="pp-btn" style={{ background: "transparent", color: fg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 30px", fontWeight: 600, fontSize: 15, textDecoration: "none" }}>
@@ -278,7 +278,7 @@ export default function PartnersPage() {
                 </div>
               ))}
             </div>
-            <Link href="/partner" className="pp-btn" style={{ background: neonCyan, color: "#0a0b0f", border: "none", borderRadius: 12, padding: "12px 24px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Link href="/partner/apply" className="pp-btn" style={{ background: neonCyan, color: "#0a0b0f", border: "none", borderRadius: 12, padding: "12px 24px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
               Стать реферальным партнёром <ArrowRight size={14} />
             </Link>
           </div>
@@ -330,7 +330,7 @@ export default function PartnersPage() {
                 </div>
               ))}
             </div>
-            <Link href="/partner" className="pp-btn" style={{ background: "#fff", color: accent, border: "none", borderRadius: 12, padding: "12px 24px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Link href="/partner/apply" className="pp-btn" style={{ background: "#fff", color: accent, border: "none", borderRadius: 12, padding: "12px 24px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
               Стать интегратором <ArrowRight size={14} />
             </Link>
           </div>
@@ -412,7 +412,7 @@ export default function PartnersPage() {
           <p style={{ fontSize: 16, color: muted, margin: "0 0 32px", lineHeight: 1.55 }}>
             Регистрация бесплатная. Модерация до 24 часов. Не нужно ИП — можно работать как самозанятый.
           </p>
-          <Link href="/partner" className="pp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 14, padding: "15px 34px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 28px ${accent}60`, display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Link href="/partner/apply" className="pp-btn" style={{ background: accent, color: "#fff", border: "none", borderRadius: 14, padding: "15px 34px", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: `0 4px 28px ${accent}60`, display: "inline-flex", alignItems: "center", gap: 8 }}>
             Подать заявку <ArrowRight size={16} />
           </Link>
         </div>
@@ -423,7 +423,7 @@ export default function PartnersPage() {
         <div>© 2026 MarketRadar · Company24.pro</div>
         <div style={{ display: "flex", gap: 18 }}>
           <Link href="/" style={{ color: muted, textDecoration: "none" }}>На главную</Link>
-          <Link href="/partner" style={{ color: muted, textDecoration: "none" }}>Кабинет партнёра</Link>
+          <Link href="/partner/apply" style={{ color: muted, textDecoration: "none" }}>Кабинет партнёра</Link>
           <a href="mailto:support@marketradar24.ru" style={{ color: muted, textDecoration: "none" }}>support@marketradar24.ru</a>
         </div>
       </footer>

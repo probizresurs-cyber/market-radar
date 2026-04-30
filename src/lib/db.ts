@@ -285,4 +285,29 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_public_shares_user_id ON public_shares(user_id)`);
+
+  // ─── Partner applications (публичные заявки без учётной записи) ──────────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS partner_applications (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      company_name TEXT,
+      website TEXT,
+      type TEXT NOT NULL DEFAULT 'referral' CHECK (type IN ('referral','integrator')),
+      description TEXT,
+      client_price_amount INTEGER,
+      status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','converted','rejected')),
+      admin_notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_partner_applications_status ON partner_applications(status)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_partner_applications_email ON partner_applications(email)`);
+
+  // ─── Добавляем client_price_amount к partners (если ещё нет) ─────────────────
+  await query(`
+    ALTER TABLE partners ADD COLUMN IF NOT EXISTS client_price_amount INTEGER
+  `);
 }
