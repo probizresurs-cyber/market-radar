@@ -4,13 +4,17 @@
  */
 import { NextResponse } from "next/server";
 import { query, initDb } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
+function admin403() {
+  return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+}
+
 export async function GET(req: Request) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const session = await getSessionUser();
+  if (!session || session.role !== "admin") return admin403();
 
   await initDb();
   const { searchParams } = new URL(req.url);
@@ -27,8 +31,8 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const session = await getSessionUser();
+  if (!session || session.role !== "admin") return admin403();
 
   await initDb();
   const { id, status, admin_notes } = await req.json() as {
