@@ -74,8 +74,84 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   userId: string;
 }) {
   // Tab
-  const [tab, setTab] = useState<"create" | "history">("create");
+  const [tab, setTab] = useState<"create" | "premium" | "history">("create");
   const [history, setHistory] = useState<SavedPresentation[]>([]);
+
+  // ── Premium AI agent state ──────────────────────────────
+  const [premiumDesignNotes, setPremiumDesignNotes] = useState("");
+  const [premiumSlides, setPremiumSlides] = useState(10);
+  const [premiumModel, setPremiumModel] = useState<"claude-sonnet-4-5" | "claude-opus-4-1">("claude-sonnet-4-5");
+  const [premiumStyle, setPremiumStyle] = useState<"premium-dark" | "minimal" | "corporate" | "bold-startup" | "custom">("premium-dark");
+  const [premiumRefFiles, setPremiumRefFiles] = useState<File[]>([]);
+  const [premiumJobId, setPremiumJobId] = useState<string | null>(null);
+  const [premiumJob, setPremiumJob] = useState<{
+    status: "queued" | "running" | "succeeded" | "failed";
+    log: string[];
+    outputFiles: string[];
+    error?: string;
+    durationSec: number;
+  } | null>(null);
+  const [premiumSubmitting, setPremiumSubmitting] = useState(false);
+  const [premiumError, setPremiumError] = useState("");
+
+  // Poll premium job
+  useEffect(() => {
+    if (!premiumJobId || !premiumJob || premiumJob.status === "succeeded" || premiumJob.status === "failed") return;
+    const t = setInterval(async () => {
+      const r = await fetch(`/api/agent/job/${premiumJobId}`);
+      const d = await r.json();
+      if (d.ok) setPremiumJob(d.job);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [premiumJobId, premiumJob]);
+
+  async function handlePremiumGenerate() {
+    if (!myCompany) { setPremiumError("Сначала проведите анализ компании"); return; }
+    setPremiumSubmitting(true);
+    setPremiumError("");
+    setPremiumJob(null);
+    setPremiumJobId(null);
+
+    const fullData = {
+      company: myCompany.company,
+      mission: myCompany.business?.mission,
+      services: myCompany.business?.services,
+      target_audience: taAnalysis,
+      smm: smmAnalysis,
+      brandBook,
+      seo: myCompany.seo,
+      social: myCompany.social,
+    };
+
+    const fd = new FormData();
+    fd.set("companyName", myCompany.company.name);
+    fd.set("niche", myCompany.business?.industry || "");
+    fd.set("data", JSON.stringify(fullData));
+    fd.set("style", premiumStyle);
+    fd.set("customDesignNotes", premiumDesignNotes);
+    fd.set("slides", String(premiumSlides));
+    fd.set("model", premiumModel);
+    premiumRefFiles.forEach(f => fd.append("references", f));
+
+    const r = await fetch("/api/agent/generate-presentation", { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.ok) {
+      setPremiumJobId(d.jobId);
+      setPremiumJob({ status: "queued", log: [], outputFiles: [], durationSec: 0 });
+    } else {
+      setPremiumError(d.error || "Ошибка запуска");
+    }
+    setPremiumSubmitting(false);
+  }
+
+  function onPremiumDropImages(files: FileList | null) {
+    if (!files) return;
+    const newFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+    setPremiumRefFiles(prev => [...prev, ...newFiles].slice(0, 8));
+  }
+
+  const premiumPptxFile = premiumJob?.outputFiles.find(f => f.endsWith(".pptx"));
+  const premiumSlideFiles = (premiumJob?.outputFiles.filter(f => f.match(/^slides\/slide-\d+\.png$/)) || []).sort();
 
   // Multi-stage wizard
   const [stage, setStage] = useState<"style" | "generating" | "review">("style");
@@ -832,18 +908,234 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Бренд-презентация</h1>
           <p style={{ color: "var(--foreground-secondary)", fontSize: 14 }}>Профессиональная презентация за 5 минут из ваших данных</p>
         </div>
-        <button onClick={() => setTab(tab === "history" ? "create" : "history")}
-          style={{ padding: "8px 18px", borderRadius: 10, border: `1px solid var(--border)`, cursor: "pointer", fontSize: 13, fontWeight: 600,
-            background: tab === "history" ? "var(--primary)" : "var(--card)",
-            color: tab === "history" ? "#fff" : "var(--foreground-secondary)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Folder size={12} />
-            {tab === "history" ? "← Назад" : `История (${history.length})`}
-          </span>
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setTab("create")}
+            style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid var(--border)`, cursor: "pointer", fontSize: 13, fontWeight: 600,
+              background: tab === "create" ? "var(--primary)" : "var(--card)",
+              color: tab === "create" ? "#fff" : "var(--foreground-secondary)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Sparkles size={12} /> Стандарт
+            </span>
+          </button>
+          <button onClick={() => setTab("premium")}
+            style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${tab === "premium" ? "var(--primary)" : "var(--border)"}`, cursor: "pointer", fontSize: 13, fontWeight: 700,
+              background: tab === "premium" ? "linear-gradient(135deg, #7c3aed, #22d3ee)" : "var(--card)",
+              color: tab === "premium" ? "#fff" : "var(--foreground-secondary)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Brain size={12} /> Premium AI
+            </span>
+          </button>
+          <button onClick={() => setTab("history")}
+            style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid var(--border)`, cursor: "pointer", fontSize: 13, fontWeight: 600,
+              background: tab === "history" ? "var(--primary)" : "var(--card)",
+              color: tab === "history" ? "#fff" : "var(--foreground-secondary)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Folder size={12} /> История ({history.length})
+            </span>
+          </button>
+        </div>
       </div>
 
       {error && <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+      {/* ── PREMIUM AI TAB ── */}
+      {tab === "premium" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          {/* LEFT — Form */}
+          <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 14, padding: "24px 26px" }}>
+            <div style={{ marginBottom: 18 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", marginBottom: 4 }}>
+                Премиум-генерация через AI-агента
+              </h3>
+              <p style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>
+                Агент сам пишет код презентации, создаёт визуальный QA через скриншоты, итерирует. 3–7 минут / ₽30–₽200.
+              </p>
+            </div>
+
+            {!myCompany && (
+              <div style={{ padding: 12, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 14, fontSize: 13 }}>
+                Сначала проведите анализ компании
+              </div>
+            )}
+
+            {/* Style preset */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Стиль</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {([
+                  { id: "premium-dark", label: "Premium Dark" },
+                  { id: "minimal", label: "Minimal" },
+                  { id: "corporate", label: "Corporate" },
+                  { id: "bold-startup", label: "Bold" },
+                  { id: "custom", label: "Свой" },
+                ] as const).map(s => (
+                  <button key={s.id} onClick={() => setPremiumStyle(s.id)}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      border: `1px solid ${premiumStyle === s.id ? "var(--primary)" : "var(--border)"}`,
+                      background: premiumStyle === s.id ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "var(--card)",
+                      color: premiumStyle === s.id ? "var(--primary)" : "var(--foreground-secondary)",
+                    }}>{s.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom design notes */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Доп. инструкции по дизайну</label>
+              <textarea
+                value={premiumDesignNotes}
+                onChange={e => setPremiumDesignNotes(e.target.value)}
+                placeholder="Например: используй палитру с лавандовым акцентом, заголовки в Playfair Display, сделай как у Stripe..."
+                style={{ width: "100%", minHeight: 70, padding: "10px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, resize: "vertical", outline: "none", fontFamily: "system-ui", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {/* Image references */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Визуальные референсы (до 8)</label>
+              <div
+                onClick={() => document.getElementById("premium-ref-input")?.click()}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={e => { e.preventDefault(); e.stopPropagation(); onPremiumDropImages(e.dataTransfer.files); }}
+                style={{
+                  border: `2px dashed var(--border)`, borderRadius: 10, padding: 16, textAlign: "center", cursor: "pointer",
+                  color: "var(--foreground-secondary)", fontSize: 12, background: "var(--background)",
+                }}
+              >
+                {premiumRefFiles.length === 0
+                  ? "Перетащите изображения или нажмите для выбора"
+                  : `Загружено: ${premiumRefFiles.length} / 8`}
+              </div>
+              <input
+                id="premium-ref-input" type="file" multiple accept="image/*"
+                style={{ display: "none" }}
+                onChange={e => onPremiumDropImages(e.target.files)}
+              />
+              {premiumRefFiles.length > 0 && (
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                  {premiumRefFiles.map((f, i) => (
+                    <div key={i} style={{ position: "relative", width: 64, height: 64 }}>
+                      <img src={URL.createObjectURL(f)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: `1px solid var(--border)` }} />
+                      <button
+                        onClick={() => setPremiumRefFiles(prev => prev.filter((_, idx) => idx !== i))}
+                        style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "var(--destructive)", color: "#fff", border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, lineHeight: 1 }}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Slides + model */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
+              <div>
+                <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Слайдов</label>
+                <input type="number" min={6} max={20} value={premiumSlides} onChange={e => setPremiumSlides(Number(e.target.value))}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Модель</label>
+                <select value={premiumModel} onChange={e => setPremiumModel(e.target.value as typeof premiumModel)}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", cursor: "pointer", boxSizing: "border-box" }}>
+                  <option value="claude-sonnet-4-5">Sonnet 4.5 (~₽30)</option>
+                  <option value="claude-opus-4-1">Opus 4.1 (~₽200)</option>
+                </select>
+              </div>
+            </div>
+
+            {premiumError && <div style={{ padding: 10, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", marginBottom: 12, fontSize: 13 }}>{premiumError}</div>}
+
+            <button
+              onClick={handlePremiumGenerate}
+              disabled={premiumSubmitting || premiumJob?.status === "running" || !myCompany}
+              style={{
+                width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
+                fontSize: 14, fontWeight: 700, color: "#fff",
+                background: "linear-gradient(135deg, #7c3aed, #22d3ee)",
+                opacity: (premiumSubmitting || premiumJob?.status === "running" || !myCompany) ? 0.6 : 1,
+              }}
+            >
+              {premiumSubmitting ? "Запуск..." : premiumJob?.status === "running" ? "Генерация..." : "Сгенерировать через AI →"}
+            </button>
+          </div>
+
+          {/* RIGHT — Progress + output */}
+          <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 14, padding: "24px 26px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)" }}>Прогресс</h3>
+              {premiumJob && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 10, letterSpacing: "0.04em",
+                    background: premiumJob.status === "succeeded" ? "color-mix(in oklch, var(--success) 18%, transparent)" :
+                      premiumJob.status === "failed" ? "color-mix(in oklch, var(--destructive) 18%, transparent)" :
+                      "color-mix(in oklch, var(--primary) 18%, transparent)",
+                    color: premiumJob.status === "succeeded" ? "var(--success)" :
+                      premiumJob.status === "failed" ? "var(--destructive)" : "var(--primary)",
+                  }}>
+                    {premiumJob.status === "queued" ? "В ОЧЕРЕДИ" : premiumJob.status === "running" ? "ГЕНЕРАЦИЯ" : premiumJob.status === "succeeded" ? "ГОТОВО" : "ОШИБКА"}
+                  </span>
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{premiumJob.durationSec}s</span>
+                </div>
+              )}
+            </div>
+
+            {!premiumJob ? (
+              <div style={{ textAlign: "center", padding: 60, color: "var(--muted-foreground)" }}>
+                <Brain size={36} style={{ marginBottom: 12, opacity: 0.4 }} />
+                <div style={{ fontSize: 13 }}>Заполните форму и запустите генерацию</div>
+                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>Агент будет писать код, рендерить, делать visual QA</div>
+              </div>
+            ) : (
+              <>
+                {/* Log */}
+                <div style={{ background: "var(--background)", border: `1px solid var(--border)`, borderRadius: 10, padding: "12px 14px", maxHeight: 240, overflowY: "auto", marginBottom: 14, fontFamily: "ui-monospace, monospace" }}>
+                  {premiumJob.log.map((line, i) => (
+                    <div key={i} style={{
+                      fontSize: 11, padding: "2px 0", paddingLeft: 8,
+                      borderLeft: i === premiumJob.log.length - 1 ? "2px solid var(--primary)" : "2px solid transparent",
+                      color: i === premiumJob.log.length - 1 ? "var(--primary)" : "var(--muted-foreground)",
+                    }}>{line}</div>
+                  ))}
+                </div>
+
+                {/* Slide thumbnails */}
+                {premiumSlideFiles.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-secondary)", marginBottom: 8, letterSpacing: "0.04em" }}>ПРЕВЬЮ ({premiumSlideFiles.length})</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
+                      {premiumSlideFiles.map(f => (
+                        <a key={f} href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(f)}`} target="_blank" rel="noopener noreferrer">
+                          <img src={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(f)}`} alt="" style={{ width: "100%", borderRadius: 6, border: `1px solid var(--border)` }} />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Download button */}
+                {premiumPptxFile && premiumJob.status === "succeeded" && (
+                  <a
+                    href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPptxFile)}`}
+                    download
+                    style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 14, background: "var(--success)", color: "#fff" }}
+                  >
+                    ⬇ Скачать .pptx
+                  </a>
+                )}
+
+                {premiumJob.status === "failed" && premiumJob.error && (
+                  <div style={{ padding: 10, borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 9%, transparent)", color: "var(--destructive)", fontSize: 13 }}>
+                    {premiumJob.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
