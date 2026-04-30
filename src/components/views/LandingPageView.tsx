@@ -1235,14 +1235,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>ДОКУМЕНТЫ</div>
-            <div style={{ marginBottom: 8 }}>
-              <a href="/oferta" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>Публичная оферта</a>
-            </div>
-            <div style={{ marginBottom: 8 }}>
-              <a href="/privacy" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>Политика конфиденциальности</a>
-            </div>
             <div>
-              <a href="/terms" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>Пользовательское соглашение</a>
+              <a href="https://company24.pro/politicahr2026" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>Политика конфиденциальности</a>
             </div>
           </div>
         </div>
