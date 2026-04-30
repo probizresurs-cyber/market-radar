@@ -26,6 +26,8 @@ const S = {
   input: { background: "#0a0b0f", border: "1px solid #2d3748", borderRadius: 10, color: "#e2e8f0", padding: "12px 16px", fontSize: 16, width: "100%", outline: "none", boxSizing: "border-box" as const },
   btn: { background: "linear-gradient(135deg, #22d3ee, #0891b2)", color: "#0a0b0f", border: "none", borderRadius: 9, padding: "12px 28px", cursor: "pointer", fontWeight: 800, fontSize: 14, letterSpacing: "-0.01em" } as React.CSSProperties,
   row: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1e2737" } as React.CSSProperties,
+  table: { width: "100%", borderCollapse: "collapse" as const, fontSize: 13 },
+  th: { textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" },
 };
 
 const ITABS = [
@@ -171,11 +173,11 @@ export default function IntegratorPricing() {
             <table style={{ ...S.table, fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" }}>Клиентов</th>
-                  <th style={{ textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" }}>Ставка</th>
-                  <th style={{ textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" }}>Комиссия / мес</th>
-                  <th style={{ textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" }}>Наценка / мес</th>
-                  <th style={{ textAlign: "left" as const, padding: "10px 14px", background: "#0d0f18", color: "#475569", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", border: "1px solid #1e2737" }}>Итого / мес</th>
+                  <th style={S.th}>Клиентов</th>
+                  <th style={S.th}>Ставка</th>
+                  <th style={S.th}>Комиссия / мес</th>
+                  <th style={S.th}>Наценка / мес</th>
+                  <th style={S.th}>Итого / мес</th>
                 </tr>
               </thead>
               <tbody>
