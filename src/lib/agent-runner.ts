@@ -13,6 +13,11 @@ import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync } from "fs"
 import { join } from "path";
 import { randomBytes } from "crypto";
 
+export interface ContextFile {
+  name: string;
+  content: string | Buffer;
+}
+
 const RUN_ROOT = "/tmp/agent-runs";
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -66,7 +71,7 @@ function collectOutputFiles(cwd: string): string[] {
  */
 export function startAgentJob(opts: {
   prompt: string;
-  contextFiles?: { name: string; content: string }[];
+  contextFiles?: ContextFile[];
   model?: string;
   systemPrompt?: string;
   maxTurns?: number;
@@ -80,7 +85,17 @@ export function startAgentJob(opts: {
   // with its Read tool (avoids stuffing them into the prompt).
   if (opts.contextFiles) {
     for (const f of opts.contextFiles) {
-      writeFileSync(join(cwd, f.name), f.content, "utf-8");
+      const filePath = join(cwd, f.name);
+      // Ensure subdirectories exist (e.g. references/ref-1.jpg)
+      const dir = filePath.substring(0, filePath.lastIndexOf("/"));
+      if (dir && dir !== cwd && !existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      if (typeof f.content === "string") {
+        writeFileSync(filePath, f.content, "utf-8");
+      } else {
+        writeFileSync(filePath, f.content);
+      }
     }
   }
 
