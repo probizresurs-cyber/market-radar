@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
+import { sendEmail, partnerWelcomeEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -126,13 +127,25 @@ export async function POST(req: Request) {
     [application_id]
   );
 
+  // Send welcome email (non-blocking — don't fail if email fails)
+  const isExistingUser = existingUsers.length > 0;
+  const { subject, html } = partnerWelcomeEmail({
+    name: app.name,
+    type: app.type as "referral" | "integrator",
+    email: app.email,
+    tempPassword,
+    isExistingUser,
+  });
+  const emailSent = await sendEmail({ to: app.email, subject, html });
+
   return NextResponse.json({
     ok: true,
     email: app.email,
-    tempPassword,        // null if user already existed
-    isExistingUser: existingUsers.length > 0,
+    tempPassword,
+    isExistingUser,
     partnerId,
     type: app.type,
     loginUrl: app.type === "integrator" ? "/integrator" : "/partner",
+    emailSent,
   });
 }

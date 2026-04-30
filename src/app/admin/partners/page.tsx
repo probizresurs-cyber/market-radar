@@ -101,6 +101,7 @@ interface ConvertResult {
   isExistingUser: boolean;
   type: string;
   loginUrl: string;
+  emailSent?: boolean;
 }
 
 export default function PartnersAdmin() {
@@ -323,9 +324,20 @@ export default function PartnersAdmin() {
                 )}
               </div>
 
-              <div style={{ background: "#7c3aed11", border: "1px solid #7c3aed33", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#a78bfa" }}>
+              <div style={{ background: "#7c3aed11", border: "1px solid #7c3aed33", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: "#a78bfa" }}>
                 Ссылка для входа:{" "}
                 <strong style={{ color: "#c4b5fd" }}>marketradar24.ru{convertResult.loginUrl}</strong>
+              </div>
+
+              <div style={{
+                background: convertResult.emailSent ? "#4ade8011" : "#f59e0b11",
+                border: `1px solid ${convertResult.emailSent ? "#4ade8033" : "#f59e0b33"}`,
+                borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12,
+                color: convertResult.emailSent ? "#4ade80" : "#f59e0b",
+              }}>
+                {convertResult.emailSent
+                  ? "✓ Письмо с данными для входа отправлено партнёру на email"
+                  : "⚠ Email не отправлен — добавьте RESEND_API_KEY в .env на VPS"}
               </div>
 
               <div style={{ display: "flex", gap: 10 }}>
