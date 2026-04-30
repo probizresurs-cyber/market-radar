@@ -76,6 +76,11 @@ export default function PartnerDashboard() {
     if (!d.partner) {
       setNotPartner(true);
     } else {
+      // Redirect integrators to their own cabinet
+      if (d.partner.type === "integrator") {
+        window.location.href = "/integrator";
+        return;
+      }
       setPartner(d.partner);
       setStats(d.stats);
       setBalances(d.recentBalances || []);

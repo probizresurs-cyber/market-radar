@@ -32,6 +32,7 @@ export interface Partner {
   company_name: string | null;
   website: string | null;
   description: string | null;
+  client_price_amount: number | null; // kopecks — integrator's custom price for their clients
   created_at: string;
   // joined fields
   email?: string;
