@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     status && status !== "all" ? [status] : []
   );
 
-  return NextResponse.json({ ok: true, applications: rows.rows });
+  return NextResponse.json({ ok: true, applications: rows });
 }
 
 export async function PATCH(req: Request) {
