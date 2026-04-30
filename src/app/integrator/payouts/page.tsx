@@ -62,6 +62,7 @@ export default function IntegratorPayouts() {
     setLoading(true);
     const r = await fetch("/api/partner/dashboard");
     const d = await r.json();
+    if (!d.ok) { window.location.href = "/partner/login"; return; }
     if (d.ok && d.partner) {
       setStats(d.stats);
       setBalances(d.recentBalances || []);

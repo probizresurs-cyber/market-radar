@@ -69,8 +69,7 @@ export default function PartnerDashboard() {
     const r = await fetch("/api/partner/dashboard");
     const d = await r.json();
     if (!d.ok) {
-      // Not logged in
-      window.location.href = "/";
+      window.location.href = "/partner/login";
       return;
     }
     if (!d.partner) {

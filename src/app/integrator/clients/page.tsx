@@ -49,6 +49,7 @@ export default function IntegratorClients() {
         fetch("/api/partner/clients").then(r => r.json()),
         fetch("/api/partner/dashboard").then(r => r.json()),
       ]);
+      if (!dr.ok) { window.location.href = "/partner/login"; return; }
       if (cr.ok) setClients(cr.clients);
       if (dr.ok && dr.partner) {
         setClientPrice(dr.partner.client_price_amount ? dr.partner.client_price_amount / 100 : 0);

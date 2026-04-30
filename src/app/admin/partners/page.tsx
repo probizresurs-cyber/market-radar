@@ -95,6 +95,14 @@ interface PartnerApplication {
   created_at: string;
 }
 
+interface ConvertResult {
+  email: string;
+  tempPassword: string | null;
+  isExistingUser: boolean;
+  type: string;
+  loginUrl: string;
+}
+
 export default function PartnersAdmin() {
   const [section, setSection] = useState<"partners" | "applications">("partners");
 
@@ -109,6 +117,8 @@ export default function PartnersAdmin() {
   const [appsFilter, setAppsFilter] = useState("");
   const [editingApp, setEditingApp] = useState<string | null>(null);
   const [notesInput, setNotesInput] = useState("");
+  const [converting, setConverting] = useState<string | null>(null);
+  const [convertResult, setConvertResult] = useState<ConvertResult | null>(null);
 
   async function loadPartners() {
     setPartnersLoading(true);
@@ -148,6 +158,23 @@ export default function PartnersAdmin() {
     });
     setEditingApp(null);
     loadApplications();
+  }
+
+  async function convertApplication(id: string) {
+    setConverting(id);
+    const r = await fetch("/api/admin/partners/applications/convert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ application_id: id }),
+    });
+    const d = await r.json();
+    setConverting(null);
+    if (d.ok) {
+      setConvertResult(d);
+      loadApplications();
+    } else {
+      alert(d.error || "Ошибка конвертации");
+    }
   }
 
   const total = partners.length;
@@ -271,6 +298,57 @@ export default function PartnersAdmin() {
           </>
         )}
 
+        {/* Convert result modal */}
+        {convertResult && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: 16, padding: "32px 36px", maxWidth: 480, width: "100%" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 }}>✓ Аккаунт создан!</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24 }}>
+                {convertResult.isExistingUser
+                  ? "Пользователь с таким email уже существовал — партнёрская запись активирована."
+                  : "Новый аккаунт создан. Передайте партнёру следующие данные для входа:"}
+              </div>
+
+              <div style={{ background: "#0f1117", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: "#475569", fontWeight: 600, marginBottom: 4 }}>EMAIL</div>
+                  <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e2e8f0", fontWeight: 700 }}>{convertResult.email}</div>
+                </div>
+                {convertResult.tempPassword && (
+                  <div>
+                    <div style={{ fontSize: 11, color: "#475569", fontWeight: 600, marginBottom: 4 }}>ВРЕМЕННЫЙ ПАРОЛЬ</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 20, color: "#4ade80", fontWeight: 800, letterSpacing: "0.1em" }}>{convertResult.tempPassword}</div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>Партнёр сможет сменить пароль в настройках</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: "#7c3aed11", border: "1px solid #7c3aed33", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#a78bfa" }}>
+                Ссылка для входа:{" "}
+                <strong style={{ color: "#c4b5fd" }}>marketradar24.ru{convertResult.loginUrl}</strong>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => {
+                    const text = `Вход в партнёрский кабинет MarketRadar:\nСсылка: https://marketradar24.ru${convertResult.loginUrl}\nEmail: ${convertResult.email}${convertResult.tempPassword ? `\nПароль: ${convertResult.tempPassword}` : ""}`;
+                    navigator.clipboard.writeText(text);
+                  }}
+                  style={{ flex: 1, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "10px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+                >
+                  Копировать данные
+                </button>
+                <button
+                  onClick={() => setConvertResult(null)}
+                  style={{ background: "none", color: "#64748b", border: "1px solid #2d3748", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 13 }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {section === "applications" && (
           <>
             <div style={{ ...S.statRow, gridTemplateColumns: "repeat(4, 1fr)" }}>
@@ -373,8 +451,12 @@ export default function PartnersAdmin() {
                                 </button>
                               )}
                               {(a.status === "new" || a.status === "contacted") && (
-                                <button onClick={() => updateAppStatus(a.id, "converted")} style={{ background: "none", color: "#4ade80", border: "1px solid #2d3748", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" }}>
-                                  ✓ Конвертировать
+                                <button
+                                  onClick={() => convertApplication(a.id)}
+                                  disabled={converting === a.id}
+                                  style={{ background: "#4ade8022", color: "#4ade80", border: "1px solid #4ade8044", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11, whiteSpace: "nowrap", fontWeight: 700, opacity: converting === a.id ? 0.6 : 1 }}
+                                >
+                                  {converting === a.id ? "..." : "✓ Одобрить + создать аккаунт"}
                                 </button>
                               )}
                               {a.status !== "rejected" && (

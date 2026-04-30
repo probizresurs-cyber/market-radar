@@ -66,7 +66,7 @@ export default function IntegratorDashboard() {
     setLoading(true);
     const r = await fetch("/api/partner/dashboard");
     const d = await r.json();
-    if (!d.ok) { window.location.href = "/"; return; }
+    if (!d.ok) { window.location.href = "/partner/login"; return; }
     if (!d.partner) { setNotPartner(true); setLoading(false); return; }
     if (d.partner.type !== "integrator") { setWrongType(true); setLoading(false); return; }
     setPartner(d.partner);
