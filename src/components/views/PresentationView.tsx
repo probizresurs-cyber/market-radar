@@ -114,18 +114,20 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 
     const fullData = {
       company: myCompany.company,
-      mission: myCompany.business?.mission,
-      services: myCompany.business?.services,
+      description: myCompany.company.description,
+      business: myCompany.business,
       target_audience: taAnalysis,
       smm: smmAnalysis,
       brandBook,
       seo: myCompany.seo,
       social: myCompany.social,
+      recommendations: myCompany.recommendations,
+      insights: myCompany.insights,
     };
 
     const fd = new FormData();
     fd.set("companyName", myCompany.company.name);
-    fd.set("niche", myCompany.business?.industry || "");
+    fd.set("niche", "");
     fd.set("data", JSON.stringify(fullData));
     fd.set("style", premiumStyle);
     fd.set("customDesignNotes", premiumDesignNotes);
