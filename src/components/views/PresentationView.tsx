@@ -153,6 +153,8 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   }
 
   const premiumPptxFile = premiumJob?.outputFiles.find(f => f.endsWith(".pptx"));
+  const premiumPdfFile = premiumJob?.outputFiles.find(f => f.endsWith(".pdf"));
+  const premiumHtmlFile = premiumJob?.outputFiles.find(f => f === "presentation/index.html");
   const premiumSlideFiles = (premiumJob?.outputFiles.filter(f => f.match(/^slides\/slide-\d+\.png$/)) || []).sort();
 
   // Multi-stage wizard
@@ -1117,15 +1119,38 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                   </div>
                 )}
 
-                {/* Download button */}
-                {premiumPptxFile && premiumJob.status === "succeeded" && (
-                  <a
-                    href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPptxFile)}`}
-                    download
-                    style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 14, background: "var(--success)", color: "#fff" }}
-                  >
-                    ⬇ Скачать .pptx
-                  </a>
+                {/* Download buttons */}
+                {premiumJob.status === "succeeded" && (
+                  <div style={{ display: "grid", gridTemplateColumns: premiumHtmlFile ? "1fr 1fr 1fr" : "1fr 1fr", gap: 8 }}>
+                    {premiumPptxFile && (
+                      <a
+                        href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPptxFile)}`}
+                        download
+                        style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, background: "var(--success)", color: "#fff" }}
+                      >
+                        ⬇ .pptx
+                      </a>
+                    )}
+                    {premiumPdfFile && (
+                      <a
+                        href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPdfFile)}`}
+                        download
+                        style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, background: "#dc2626", color: "#fff" }}
+                      >
+                        ⬇ .pdf
+                      </a>
+                    )}
+                    {premiumHtmlFile && (
+                      <a
+                        href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumHtmlFile)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, background: "#7c3aed", color: "#fff" }}
+                      >
+                        ↗ HTML
+                      </a>
+                    )}
+                  </div>
                 )}
 
                 {premiumJob.status === "failed" && premiumJob.error && (
