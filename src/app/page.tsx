@@ -13,6 +13,7 @@ import type { Review, ReviewAnalysis } from "@/lib/review-types";
 import { COLORS, type Theme, type Colors } from "@/lib/colors";
 import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification } from "@/lib/user";
 import { SOURCES_FREE } from "@/lib/data/sources";
+import { trackGoal } from "@/lib/metrika";
 
 // ─── Extracted view components ────────────────────────────────────────────────
 import { LandingPageView } from "@/components/views/LandingPageView";
@@ -509,6 +510,7 @@ export default function MarketRadarDashboard() {
   }, [loadAndApplyUserData]);
 
   const analyzeUrl = async (url: string): Promise<AnalysisResult> => {
+    trackGoal("analyze_start", { url });
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -516,6 +518,7 @@ export default function MarketRadarDashboard() {
     });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
+    trackGoal("analyze_complete", { score: json.data?.company?.score });
     return json.data;
   };
 

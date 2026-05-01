@@ -10,6 +10,7 @@ import {
 import type { Colors, Theme } from "@/lib/colors";
 import { VisitTracker } from "@/components/VisitTracker";
 import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
+import { trackGoal } from "@/lib/metrika";
 
 /**
  * MarketRadar landing page — 7 semantic blocks, SEO+GEO optimized.
@@ -41,6 +42,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const TG_BOT = "https://t.me/market_radar1_bot";
   const TG_CHANNEL = "https://t.me/company24pro";
   const TG_PARTNER_BOT = "https://t.me/market_radar1_bot";
+
+  const trackTgClick = (target: "bot" | "channel" | "partner_bot") => () =>
+    trackGoal("telegram_click", { target });
 
   // Force dark theme on first landing visit if user hasn't chosen yet —
   // dark is the primary marketing aesthetic for MarketRadar.
@@ -83,7 +87,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   }, []);
 
   function handleUrlAnalyze() {
-    if (url.trim()) onRegister();
+    if (url.trim()) {
+      trackGoal("express_report", { url: url.trim() });
+      onRegister();
+    }
   }
 
   const isDark = theme === "dark";
@@ -1135,7 +1142,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 Клиент получает скидку 10%. Выплаты ежемесячно от 3 000 ₽.
               </div>
             </div>
-            <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: accent, color: "#fff", borderRadius: 12, padding: "13px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", whiteSpace: "nowrap", boxShadow: `0 4px 20px ${accent}55` }}>
+            <a href={TG_PARTNER_BOT} target="_blank" rel="noopener noreferrer" onClick={trackTgClick("partner_bot")} className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: accent, color: "#fff", borderRadius: 12, padding: "13px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", whiteSpace: "nowrap", boxShadow: `0 4px 20px ${accent}55` }}>
               Узнать подробнее <ArrowRight size={14} />
             </a>
           </div>
@@ -1153,7 +1160,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </h2>
           <p style={{ fontSize: 15, color: muted, margin: "0 0 32px" }}>Пришлите URL в Telegram-бот — без регистрации и кредитной карты</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2AABEE", color: "#fff", borderRadius: 12, padding: "14px 30px", fontWeight: 700, fontSize: 15, textDecoration: "none", fontFamily: "inherit" }}>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" onClick={trackTgClick("bot")} className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2AABEE", color: "#fff", borderRadius: 12, padding: "14px 30px", fontWeight: 700, fontSize: 15, textDecoration: "none", fontFamily: "inherit" }}>
               <Send size={18} />
               Бесплатный Score в Telegram
             </a>

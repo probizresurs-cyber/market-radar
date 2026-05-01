@@ -10,6 +10,7 @@ import {
   X, Sparkles, Folder, ClipboardList, Trash2, Check, Palette,
   MessageCircle, Brain, FileText, RefreshCw, Pencil, Mic,
 } from "lucide-react";
+import { trackGoal } from "@/lib/metrika";
 
 interface PresentationSlide {
   title: string;
@@ -1253,6 +1254,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                       <a
                         href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPptxFile)}`}
                         download
+                        onClick={() => trackGoal("premium_deck", { format: "pptx", style: premiumStyle })}
                         style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, background: "var(--success)", color: "#fff" }}
                       >
                         ⬇ .pptx
@@ -1262,6 +1264,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                       <a
                         href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumPdfFile)}`}
                         download
+                        onClick={() => trackGoal("premium_deck", { format: "pdf", style: premiumStyle })}
                         style={{ display: "block", padding: "12px", borderRadius: 10, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, background: "#dc2626", color: "#fff" }}
                       >
                         ⬇ .pdf

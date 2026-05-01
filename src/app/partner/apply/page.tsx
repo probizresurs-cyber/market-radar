@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ArrowLeft } from "lucide-react";
+import { trackGoal } from "@/lib/metrika";
 
 const S = {
   page: { minHeight: "100vh", background: "#0a0b0f", color: "#e2e8f0", fontFamily: "system-ui, -apple-system, sans-serif" } as React.CSSProperties,
@@ -66,6 +67,7 @@ export default function PartnerApplyPage() {
       });
       const json = await res.json();
       if (json.ok) {
+        trackGoal("partner_apply", { type, has_client_price: type === "integrator" && clientPriceNum > 0 });
         setDone(true);
       } else {
         setError(json.error || "Ошибка отправки");

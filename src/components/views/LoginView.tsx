@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
+import { trackGoal, setUserId } from "@/lib/metrika";
 
 export function LoginView({ c, onSuccess, onRegister, onBack }: {
   c: Colors;
@@ -41,6 +42,8 @@ export function LoginView({ c, onSuccess, onRegister, onBack }: {
         role: json.user.role,
       };
       authSetCurrentUser(user);
+      setUserId(user.id);
+      trackGoal("login", { role: user.role });
       onSuccess(user);
     } catch {
       setError("Ошибка соединения с сервером");

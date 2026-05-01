@@ -5,6 +5,7 @@ import { Phone, Send } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
+import { trackGoal, setUserId } from "@/lib/metrika";
 
 type ContactType = "phone" | "telegram";
 
@@ -89,6 +90,8 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
         role: json.user.role,
       };
       authSetCurrentUser(user);
+      setUserId(user.id);
+      trackGoal("signup");
       onSuccess(user);
     } catch {
       setError("Ошибка соединения с сервером");
