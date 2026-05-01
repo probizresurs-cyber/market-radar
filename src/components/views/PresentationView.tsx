@@ -83,6 +83,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [premiumModel, setPremiumModel] = useState<"claude-sonnet-4-5" | "claude-opus-4-1">("claude-sonnet-4-5");
   const [premiumStyle, setPremiumStyle] = useState<"premium-dark" | "minimal" | "corporate" | "bold-startup" | "custom">("premium-dark");
   const [premiumRefFiles, setPremiumRefFiles] = useState<File[]>([]);
+  const [premiumLogo, setPremiumLogo] = useState<File | null>(null);
   const [premiumJobId, setPremiumJobId] = useState<string | null>(null);
   const [premiumJob, setPremiumJob] = useState<{
     status: "queued" | "running" | "succeeded" | "failed";
@@ -93,6 +94,25 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   } | null>(null);
   const [premiumSubmitting, setPremiumSubmitting] = useState(false);
   const [premiumError, setPremiumError] = useState("");
+  const [premiumViewer, setPremiumViewer] = useState<number | null>(null);
+  const [premiumHistory, setPremiumHistory] = useState<Array<{
+    id: string;
+    jobId: string;
+    title: string;
+    style: string;
+    slides: number;
+    createdAt: string;
+    slideThumb?: string;
+  }>>([]);
+
+  // Load premium history
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const saved = localStorage.getItem(`mr_premium_decks_${userId}`);
+      if (saved) setPremiumHistory(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, [userId]);
 
   // Poll premium job
   useEffect(() => {
@@ -104,6 +124,25 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     }, 3000);
     return () => clearInterval(t);
   }, [premiumJobId, premiumJob]);
+
+  // Auto-save Premium run to history when succeeded
+  useEffect(() => {
+    if (!userId || !premiumJobId || !premiumJob || premiumJob.status !== "succeeded") return;
+    if (premiumHistory.some(h => h.jobId === premiumJobId)) return;
+    const firstSlide = premiumJob.outputFiles.find(f => f.match(/^slides\/slide-001\.png$/));
+    const entry = {
+      id: Date.now().toString(),
+      jobId: premiumJobId,
+      title: myCompany?.company.name || "Презентация",
+      style: premiumStyle,
+      slides: (premiumJob.outputFiles.filter(f => f.match(/^slides\/slide-\d+\.png$/)) || []).length,
+      createdAt: new Date().toISOString(),
+      slideThumb: firstSlide ? `/api/agent/file/${premiumJobId}?path=${encodeURIComponent(firstSlide)}` : undefined,
+    };
+    const updated = [entry, ...premiumHistory].slice(0, 30);
+    setPremiumHistory(updated);
+    try { localStorage.setItem(`mr_premium_decks_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+  }, [premiumJob, premiumJobId, userId, myCompany, premiumStyle, premiumHistory]);
 
   async function handlePremiumGenerate() {
     if (!myCompany) { setPremiumError("Сначала проведите анализ компании"); return; }
@@ -133,6 +172,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     fd.set("customDesignNotes", premiumDesignNotes);
     fd.set("slides", String(premiumSlides));
     fd.set("model", premiumModel);
+    if (premiumLogo) fd.set("logo", premiumLogo);
     premiumRefFiles.forEach(f => fd.append("references", f));
 
     const r = await fetch("/api/agent/generate-presentation", { method: "POST", body: fd });
@@ -904,8 +944,58 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     );
   }
 
+  // Premium fullscreen slideshow viewer
+  const premiumViewerNode = premiumViewer !== null && premiumSlideFiles.length > 0 && (
+    <div
+      onClick={() => setPremiumViewer(null)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setPremiumViewer(null);
+        else if (e.key === "ArrowRight" || e.key === " ") setPremiumViewer(v => v === null ? 0 : Math.min(premiumSlideFiles.length - 1, v + 1));
+        else if (e.key === "ArrowLeft") setPremiumViewer(v => v === null ? 0 : Math.max(0, v - 1));
+      }}
+      tabIndex={-1}
+      ref={el => { el?.focus(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 40, outline: "none",
+      }}
+    >
+      <img
+        src={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(premiumSlideFiles[premiumViewer])}`}
+        alt=""
+        onClick={(e) => { e.stopPropagation(); setPremiumViewer(v => v === null ? 0 : Math.min(premiumSlideFiles.length - 1, v + 1)); }}
+        style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", cursor: "pointer" }}
+      />
+      {/* Prev */}
+      {premiumViewer > 0 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setPremiumViewer(v => Math.max(0, (v ?? 0) - 1)); }}
+          style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", width: 48, height: 48, borderRadius: "50%", cursor: "pointer", fontSize: 22, lineHeight: 1 }}
+        >‹</button>
+      )}
+      {/* Next */}
+      {premiumViewer < premiumSlideFiles.length - 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setPremiumViewer(v => Math.min(premiumSlideFiles.length - 1, (v ?? 0) + 1)); }}
+          style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", width: 48, height: 48, borderRadius: "50%", cursor: "pointer", fontSize: 22, lineHeight: 1 }}
+        >›</button>
+      )}
+      {/* Close */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setPremiumViewer(null); }}
+        style={{ position: "absolute", top: 16, right: 20, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "8px 14px", display: "inline-flex", alignItems: "center" }}
+      ><X size={16} /></button>
+      {/* Counter + hint */}
+      <div style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", color: "rgba(255,255,255,0.5)", fontSize: 12, display: "flex", gap: 16, alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: "#fff" }}>{premiumViewer + 1} / {premiumSlideFiles.length}</span>
+        <span>← → стрелки   ESC — выход</span>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
+      {premiumViewerNode}
       {/* Header + tab bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
@@ -993,6 +1083,36 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                 placeholder="Например: используй палитру с лавандовым акцентом, заголовки в Playfair Display, сделай как у Stripe..."
                 style={{ width: "100%", minHeight: 70, padding: "10px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, resize: "vertical", outline: "none", fontFamily: "system-ui", boxSizing: "border-box" }}
               />
+            </div>
+
+            {/* Logo upload */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Логотип компании</label>
+              {!premiumLogo ? (
+                <div
+                  onClick={() => document.getElementById("premium-logo-input")?.click()}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={e => {
+                    e.preventDefault(); e.stopPropagation();
+                    const f = e.dataTransfer.files[0];
+                    if (f && f.type.startsWith("image/")) setPremiumLogo(f);
+                  }}
+                  style={{
+                    border: `2px dashed var(--border)`, borderRadius: 10, padding: 12, textAlign: "center", cursor: "pointer",
+                    color: "var(--foreground-secondary)", fontSize: 12, background: "var(--background)",
+                  }}
+                >
+                  Загрузите логотип (.png, .svg) — попадёт на cover и CTA
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, background: "var(--background)", borderRadius: 8, border: `1px solid var(--border)` }}>
+                  <img src={URL.createObjectURL(premiumLogo)} alt="logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, background: "#fff" }} />
+                  <div style={{ flex: 1, fontSize: 12, color: "var(--foreground-secondary)" }}>{premiumLogo.name}</div>
+                  <button onClick={() => setPremiumLogo(null)} style={{ background: "transparent", border: "none", color: "var(--destructive)", cursor: "pointer", fontSize: 13, padding: "4px 10px", fontWeight: 600 }}>Убрать</button>
+                </div>
+              )}
+              <input id="premium-logo-input" type="file" accept="image/png,image/svg+xml,image/jpeg" style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) setPremiumLogo(f); }} />
             </div>
 
             {/* Image references */}
@@ -1105,15 +1225,22 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                   ))}
                 </div>
 
-                {/* Slide thumbnails */}
+                {/* Slide thumbnails — click to open slideshow */}
                 {premiumSlideFiles.length > 0 && (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-secondary)", marginBottom: 8, letterSpacing: "0.04em" }}>ПРЕВЬЮ ({premiumSlideFiles.length})</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-secondary)", letterSpacing: "0.04em" }}>ПРЕВЬЮ ({premiumSlideFiles.length})</span>
+                      <button onClick={() => setPremiumViewer(0)}
+                        style={{ background: "transparent", border: `1px solid var(--border)`, color: "var(--primary)", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 6 }}>
+                        ▶ Слайдшоу
+                      </button>
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
-                      {premiumSlideFiles.map(f => (
-                        <a key={f} href={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(f)}`} target="_blank" rel="noopener noreferrer">
-                          <img src={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(f)}`} alt="" style={{ width: "100%", borderRadius: 6, border: `1px solid var(--border)` }} />
-                        </a>
+                      {premiumSlideFiles.map((f, i) => (
+                        <div key={f} onClick={() => setPremiumViewer(i)} style={{ cursor: "pointer", position: "relative" }}>
+                          <img src={`/api/agent/file/${premiumJobId}?path=${encodeURIComponent(f)}`} alt="" style={{ width: "100%", borderRadius: 6, border: `1px solid var(--border)`, display: "block" }} />
+                          <div style={{ position: "absolute", bottom: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 6px", borderRadius: 4 }}>{i + 1}</div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1167,7 +1294,65 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
         <div>
-          {history.length === 0 ? (
+          {/* Premium AI history */}
+          {premiumHistory.length > 0 && (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <Brain size={14} style={{ color: "var(--primary)" }} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Premium AI ({premiumHistory.length})</h3>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+                {premiumHistory.map(h => (
+                  <div key={h.id} style={{ background: "var(--card)", borderRadius: 12, border: `1px solid var(--border)`, overflow: "hidden" }}>
+                    <div style={{ aspectRatio: "16/9", background: "#0a0b0f", overflow: "hidden" }}>
+                      {h.slideThumb ? (
+                        <img src={h.slideThumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #7c3aed, #22d3ee)", color: "#fff", fontWeight: 700, fontSize: 14 }}>{h.title}</div>
+                      )}
+                    </div>
+                    <div style={{ padding: "12px 14px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>{h.title}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10 }}>
+                        {h.style} • {h.slides} слайдов • {new Date(h.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short" })}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <a href={`/api/agent/file/${h.jobId}?path=presentation.pptx`} download
+                          style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: "var(--success)", color: "#fff", fontWeight: 600, fontSize: 11, cursor: "pointer", textAlign: "center", textDecoration: "none" }}>
+                          .pptx
+                        </a>
+                        <a href={`/api/agent/file/${h.jobId}?path=presentation.pdf`} download
+                          style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: "#dc2626", color: "#fff", fontWeight: 600, fontSize: 11, cursor: "pointer", textAlign: "center", textDecoration: "none" }}>
+                          .pdf
+                        </a>
+                        <button onClick={() => {
+                          const updated = premiumHistory.filter(x => x.id !== h.id);
+                          setPremiumHistory(updated);
+                          try { localStorage.setItem(`mr_premium_decks_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+                        }}
+                          aria-label="Удалить"
+                          style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 10, fontStyle: "italic" }}>
+                Файлы хранятся на сервере временно — скачайте сейчас если они нужны позже
+              </div>
+            </div>
+          )}
+
+          {/* Стандарт history (existing) */}
+          {history.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Sparkles size={14} style={{ color: "var(--foreground-secondary)" }} />
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Стандарт ({history.length})</h3>
+            </div>
+          )}
+          {history.length === 0 && premiumHistory.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted-foreground)" }}>
               <div style={{ marginBottom: 12, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><ClipboardList size={40} /></div>
               <p style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground-secondary)", marginBottom: 6 }}>Нет сохранённых презентаций</p>

@@ -6,12 +6,8 @@
 #
 # Outputs in <out-dir> (defaults to dirname of html):
 #   slides/slide-001.png … slide-NNN.png
-#   presentation.pdf
-#   presentation.pptx
-#
-# Prerequisites on VPS:
-#   - playwright (global) + chromium browser
-#   - python-pptx, Pillow
+#   presentation.pdf   (rendered via Playwright, reliable)
+#   presentation.pptx  (PNG slides as backgrounds)
 
 set -euo pipefail
 
@@ -27,14 +23,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "$SLIDES_DIR"
 
-echo "→ Rendering HTML to PNG slides..."
-node "$SCRIPT_DIR/html-to-pngs.mjs" "$HTML" "$SLIDES_DIR"
+echo "→ Rendering HTML to PNG slides + PDF..."
+node "$SCRIPT_DIR/html-to-pngs.mjs" "$HTML" "$SLIDES_DIR" "$OUT_DIR/presentation.pdf"
 
 echo "→ Building PPTX..."
 python3 "$SCRIPT_DIR/pngs-to-pptx.py" "$SLIDES_DIR" "$OUT_DIR/presentation.pptx"
-
-echo "→ Building PDF..."
-python3 "$SCRIPT_DIR/pngs-to-pdf.py" "$SLIDES_DIR" "$OUT_DIR/presentation.pdf"
 
 echo ""
 echo "✓ Done. Files in $OUT_DIR:"

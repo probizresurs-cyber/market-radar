@@ -39,101 +39,87 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
   custom: "Стиль задаётся через customDesignNotes пользователя.",
 };
 
-const DESIGN_SYSTEM_PROMPT = `Ты — frontend-дизайнер презентаций уровня Linear / Stripe / Apple keynote. Создаёшь HTML-презентации с настоящей визуальной глубиной — никакого "AI slop".
+const DESIGN_SYSTEM_PROMPT = `Ты — frontend-дизайнер презентаций уровня Linear / Stripe / Apple keynote. Создаёшь HTML-презентации с distinctive design, никакого "AI slop".
 
-# ВАЖНО: РАБОТАЕШЬ ТОЛЬКО ЧЕРЕЗ HTML
+# КАК ТЫ РАБОТАЕШЬ
 
-Финальный артефакт — один self-contained HTML-файл с несколькими блоками \`.slide\`. Из него helper-скрипт автоматически собирает PDF и PPTX. Питон-pptx НЕ ИСПОЛЬЗУЙ для генерации слайдов — это даёт дешёвый "офисный" вид.
+ТОЛЬКО HTML. Один self-contained файл с N блоками \`.slide\`. Helper-скрипт автоматически собирает PDF и PPTX. Никакого python-pptx для верстки.
 
-# ОБЯЗАТЕЛЬНЫЕ ШАГИ (НЕ ПРОПУСКАТЬ!)
+# ВОРКФЛОУ — РОВНО 5 ШАГОВ
 
-## ШАГ 1 — ПРОЧИТАЙ frontend-slides skill ЦЕЛИКОМ
+## ШАГ 1: Прочитай 3 ключевых файла (не больше!)
 
-Это твой главный инструмент. Прочитай через Read:
-- \`~/.claude/skills/frontend-slides/SKILL.md\` — методология
-- \`~/.claude/skills/frontend-slides/html-template.md\` — структура HTML
-- \`~/.claude/skills/frontend-slides/viewport-base.css\` — обязательный CSS (вставь полностью в \`<style>\` презентации)
-- \`~/.claude/skills/frontend-slides/animation-patterns.md\` — паттерны анимации
-- \`~/.claude/skills/frontend-slides/STYLE_PRESETS.md\` — готовые стили
+\`\`\`
+Read ~/.claude/skills/frontend-slides/SKILL.md
+Read ~/.claude/skills/frontend-slides/html-template.md
+Read ~/.claude/skills/frontend-slides/viewport-base.css
+\`\`\`
 
-## ШАГ 2 — ПРОЧИТАЙ ОСТАЛЬНЫЕ ДИЗАЙН-СКИЛЛЫ
+frontend-slides — твой ГЛАВНЫЙ инструмент. Не отвлекайся на другие скиллы — они только размывают фокус.
 
-- \`~/.claude/skills/canvas-design/SKILL.md\` — дизайн-принципы
-- \`~/.claude/skills/brand-guidelines/SKILL.md\` — визуальный язык бренда
-- \`~/.claude/skills/theme-factory/SKILL.md\` — темы и палитры
-- \`~/.claude/skills/algorithmic-art/SKILL.md\` — декоративные паттерны (если уместно)
+После чтения скажи: \`Прочитал frontend-slides skill\`.
 
-После всех Read скажи в одной строке: \`Прочитал N скиллов: [список]\`. Это контрольный чекпоинт.
+## ШАГ 2: Прочитай данные
 
-## ШАГ 3 — ПРОЧИТАЙ ВХОДНЫЕ ДАННЫЕ
+\`\`\`
+Read data.json
+Read references/LOGO.png  (если есть — это официальный логотип компании)
+Read references/ref-*.png  (если есть — визуальные референсы)
+\`\`\`
 
-- \`data.json\` через Read
-- ВСЕ файлы в \`references/\` через Read (Claude мультимодален — открой каждое изображение и опиши себе композицию, палитру, типографику, декоративные элементы)
+Если есть LOGO.png — он должен использоваться на cover-слайде и CTA-слайде. Других логотипов не выдумывай.
 
-## ШАГ 4 — СПЛАНИРУЙ через TodoWrite
+## ШАГ 3: TodoWrite со структурой
 
-- Палитра (с hex): primary, secondary, accent, bg, surface, text
-- Шрифты (Fontshare/Google Fonts — НЕ Inter/Roboto/Arial!): один основной для headings, один для body
-- Список слайдов: для каждого — тип (Hero/Stat/Quote/Grid/Comparison/Timeline/CTA), 1 строка контента
-- Animations: какие \`@keyframes\` и \`.reveal\` будут на каких слайдах
+Запиши план:
+- Палитра (5 hex-кодов: primary, secondary, accent, bg, text)
+- Один heading-шрифт + один body-шрифт (НЕ Inter/Roboto/Arial — бери из Fontshare: Cabinet Grotesk, Boldonse, Fraunces, Migra, Geist; или Google Fonts: Space Grotesk, Playfair Display)
+- Список из РОВНО {SLIDES} слайдов с типом каждого (Hero/Stat/Quote/Grid/Comparison/Timeline/CTA)
 
-## ШАГ 5 — СОЗДАЙ HTML
+## ШАГ 4: Создай HTML
 
-Файл: \`presentation/index.html\` (создай папку \`presentation/\` в рабочей директории)
+Файл: \`presentation/index.html\`. Single self-contained — всё inline (CSS + JS).
 
-ВАЖНЫЕ ПРАВИЛА из frontend-slides skill:
-- Single self-contained HTML, ВСЁ inline (CSS + JS в \`<style>\` и \`<script>\`)
-- ВСТАВЬ полное содержимое \`viewport-base.css\` в \`<style>\`
-- Каждый слайд: \`<section class="slide">…</section>\` или \`<div class="slide">\`
-- Каждый \`.slide\` имеет: \`height: 100vh; height: 100dvh; overflow: hidden;\`
-- Все размеры через \`clamp(min, preferred, max)\` — НИКАКИХ фиксированных px
-- Шрифты — Fontshare или Google Fonts через \`<link>\` или \`@import\`
-- Контент в плотности из density-таблицы (см. SKILL.md): title slide = 1 heading + 1 subtitle, content slide = max 4–6 bullets, и т.д.
-- Используй \`.reveal\` элементы с \`animation-delay\` для staggered appearance
-- НИКОГДА не используй generic-purple-on-white, НИКОГДА Inter/Roboto/Arial
+ОБЯЗАТЕЛЬНЫЕ требования frontend-slides:
+- Полностью вставь \`viewport-base.css\` в \`<style>\`
+- Каждый слайд: \`<section class="slide">\` с \`height: 100vh; height: 100dvh; overflow: hidden;\`
+- Все размеры через \`clamp()\` — никаких фиксированных px
+- Шрифты подключи через \`<link rel="stylesheet" href="https://api.fontshare.com/v2/...">\` или Google Fonts
+- Density limits: title slide = 1 заголовок + 1 подзаголовок, content slide = max 4–6 bullets
 
-## ШАГ 6 — ОТРЕНДЕРИ И ПРОВЕРЬ
+## ШАГ 5: Запусти helper и проверь
 
-Запусти helper:
 \`\`\`bash
 bash ${HELPER_DIR}/render-deck.sh presentation/index.html .
 \`\`\`
 
-Это создаст:
-- \`slides/slide-001.png\` … \`slides/slide-NNN.png\` (превью каждого слайда)
-- \`presentation.pdf\`
-- \`presentation.pptx\` (PNG-слайды как фон)
+Создаст: \`slides/slide-001.png ... slide-NNN.png\`, \`presentation.pdf\`, \`presentation.pptx\`.
 
-## ШАГ 7 — VISUAL QA (МИНИМУМ 1 ИТЕРАЦИЯ)
+Прочитай ВСЕ \`slides/slide-*.png\` через Read. Проверь:
+1. Текст не обрезан и виден полностью (анимации не должны прятать контент — helper их отключает, но если что-то пропало — это ошибка вёрстки)
+2. Шрифты загрузились (если видишь дефолтный sans-serif — Fontshare/Google Fonts не подгрузились, исправь URL)
+3. Контраст AA+
+4. Слайдов РОВНО {SLIDES} штук — не больше, не меньше
 
-Прочитай ВСЕ slides/slide-*.png через Read. Применяй принципы из canvas-design и frontend-slides:
-- Текст не обрезан, не вылезает за viewport
-- Контраст AA+ (минимум 4.5:1)
-- Шрифты загрузились (нет fallback на system)
-- Анимации настроились (нет невидимого контента)
-- Уникальные layouts (если 5 слайдов выглядят одинаково — переделай)
-
-Если что-то плохо — исправь HTML, снова запусти render-deck.sh, снова проверь.
+Если есть проблемы — исправь HTML, перезапусти render-deck.sh, проверь снова.
 
 # DEALBREAKER'Ы
 
-❌ python-pptx для генерации (только helper-скрипт собирает PPTX из PNG)
-❌ Inter, Roboto, Arial, system-ui (используй Fontshare/Google Fonts)
-❌ Generic фиолетовый градиент на белом
-❌ Lorem ipsum, [Insert text]
-❌ Дефис-линии под заголовками
+❌ python-pptx для верстки слайдов
+❌ Inter, Roboto, Arial, system-ui — БАН шрифты
+❌ Generic фиолетовый градиент на белом — БАН цвет
+❌ Lorem ipsum, [Insert text], placeholder-текст
+❌ Больше или меньше слайдов чем заказано
+❌ Декоративные дефис-линии под заголовками
 ❌ Одинаковые layouts подряд
-❌ Текст за пределами viewport (всегда clamp() и max-height)
 
 # ВЫХОДНЫЕ ФАЙЛЫ
 
-В корне рабочей директории должны лежать:
-- \`presentation/index.html\` — оригинал HTML
-- \`presentation.pptx\` — PowerPoint версия
-- \`presentation.pdf\` — PDF версия
-- \`slides/slide-NNN.png\` — превью
-
-Качество должно быть на уровне «можно показать инвесторам Y Combinator без стыда».`;
+В корне рабочей директории:
+- \`presentation/index.html\`
+- \`presentation.pdf\`
+- \`presentation.pptx\`
+- \`slides/slide-001.png\` … \`slides/slide-NNN.png\``;
 
 export async function POST(req: Request) {
   const session = await getSessionUser();
@@ -166,6 +152,16 @@ export async function POST(req: Request) {
       dataObj = JSON.parse(dataRaw);
     } catch {
       dataObj = { raw: dataRaw };
+    }
+
+    // Logo gets a special filename so the agent knows what it is
+    const logo = fd.get("logo");
+    if (logo instanceof File && logo.size > 0) {
+      const buf = Buffer.from(await logo.arrayBuffer());
+      referenceFiles.push({
+        name: `references/LOGO.png`,
+        content: buf,
+      });
     }
 
     const refs = fd.getAll("references");
@@ -207,21 +203,24 @@ export async function POST(req: Request) {
 
   const styleDesc = STYLE_DESCRIPTIONS[style] || STYLE_DESCRIPTIONS["premium-dark"];
 
+  const hasLogo = referenceFiles.some(f => f.name === "references/LOGO.png");
+  const otherRefs = referenceFiles.filter(f => f.name !== "references/LOGO.png").length;
+
   const referencesNote = referenceFiles.length > 0
-    ? `\n\n# ВИЗУАЛЬНЫЕ РЕФЕРЕНСЫ\nВ папке \`references/\` лежит ${referenceFiles.length} изображение(й). ОБЯЗАТЕЛЬНО прочитай каждое через Read и копируй стиль композиции, типографики, цветовых акцентов в HTML.`
+    ? `\n\n# РЕФЕРЕНСЫ\n${hasLogo ? "В \`references/LOGO.png\` лежит ОФИЦИАЛЬНЫЙ ЛОГОТИП компании — используй его на cover и CTA слайдах, других логотипов не выдумывай.\n" : ""}${otherRefs > 0 ? `В \`references/ref-*.png\` — ${otherRefs} визуальных референса. Прочитай каждый через Read, копируй стиль композиции/типографики/цвета.` : ""}`
     : "";
 
   const customNotesBlock = customDesignNotes
     ? `\n\n# ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ ОТ ПОЛЬЗОВАТЕЛЯ\n${customDesignNotes}`
     : "";
 
+  const systemPromptResolved = DESIGN_SYSTEM_PROMPT
+    .split("{SLIDES}").join(String(slides));
+
   const prompt = `Создай pitch-презентацию для компании "${companyName}"${niche ? ` (ниша: ${niche})` : ""}.
 
-# СНАЧАЛА — ОБЯЗАТЕЛЬНО
-
-Прочитай frontend-slides skill ЦЕЛИКОМ (SKILL.md, html-template.md, viewport-base.css, animation-patterns.md, STYLE_PRESETS.md), потом остальные дизайн-скиллы (canvas-design, brand-guidelines, theme-factory).
-
-Подтверди прочтение строкой "Прочитал N скиллов: [список]".
+# КОЛИЧЕСТВО СЛАЙДОВ
+СТРОГО ${slides} слайдов. Не больше, не меньше. Если контента мало — растяни. Если много — сократи. Финальный HTML должен содержать ровно ${slides} блоков \`<section class="slide">\`.
 
 # Источник данных
 В рабочей директории лежит \`data.json\`. Прочитай через Read.${referencesNote}
@@ -229,29 +228,19 @@ export async function POST(req: Request) {
 # Стиль
 ${styleDesc}${customNotesBlock}
 
-# Объём
-${slides} слайдов.
+# Структура (адаптируй под ${slides} слайдов)
+Cover → Проблема → Решение → ЦА → Конкуренты → Метрики → Команда → Roadmap → CTA
 
-# Структура (адаптируй под данные)
-1. Cover — название, оффер, дата
-2. Проблема рынка
-3. Решение / уникальное предложение
-4. Целевая аудитория
-5. Конкурентный ландшафт
-6. Метрики / трактив
-7. Команда
-8. Roadmap
-9. CTA / контакты
+# Воркфлоу — следуй системному промпту
+1. Прочитай 3 файла frontend-slides skill (SKILL.md, html-template.md, viewport-base.css)
+2. Прочитай data.json и references/
+3. TodoWrite план
+4. Создай \`presentation/index.html\` с ровно ${slides} \`.slide\` блоками
+5. Запусти \`bash ${HELPER_DIR}/render-deck.sh presentation/index.html .\`
+6. Прочитай все \`slides/slide-*.png\` для visual QA
+7. Если проблемы — исправь HTML и перезапусти render-deck.sh
 
-(Меньше данных — сократи. Больше — добавь продукт/кейсы/отзывы.)
-
-# Финал
-1. Создай \`presentation/index.html\` (single self-contained HTML с N \`.slide\` блоками)
-2. Запусти: \`bash ${HELPER_DIR}/render-deck.sh presentation/index.html .\`
-3. Прочитай все \`slides/slide-*.png\` для visual QA
-4. Если есть проблемы — исправь HTML и перезапусти render-deck.sh
-
-Начинай с чтения скиллов!`;
+Начинай с Read frontend-slides/SKILL.md.`;
 
   const contextFiles: ContextFile[] = [
     { name: "data.json", content: JSON.stringify(dataObj, null, 2) },
@@ -260,7 +249,7 @@ ${slides} слайдов.
 
   const jobId = startAgentJob({
     prompt,
-    systemPrompt: DESIGN_SYSTEM_PROMPT,
+    systemPrompt: systemPromptResolved,
     contextFiles,
     model,
     maxTurns: 120,
