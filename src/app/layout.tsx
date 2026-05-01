@@ -330,6 +330,16 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Yandex.Metrika counter — id 108999924 */}
+        <Script id="yandex-metrika" strategy="afterInteractive">{`
+          (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+          })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108999924', 'ym');
+          ym(108999924, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+        `}</Script>
         {/* Apply saved theme before paint to avoid FOUC */}
         <Script id="mr-theme-init" strategy="beforeInteractive">{`
           try {
@@ -361,6 +371,16 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Yandex.Metrika noscript fallback */}
+        <noscript>
+          <div>
+            <img
+              src="https://mc.yandex.ru/watch/108999924"
+              style={{ position: "absolute", left: "-9999px" }}
+              alt=""
+            />
+          </div>
+        </noscript>
         <DeploymentRefresher />
         {children}
       </body>
