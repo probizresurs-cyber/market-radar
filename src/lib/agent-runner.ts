@@ -8,7 +8,29 @@
  * the agent creates can be saved and later served.
  */
 
-import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SDKMessage = any;
+// Lazy runtime import so Next.js build doesn't fail when the package
+// isn't installed locally (it IS installed on the VPS production server).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _sdkQuery: ((opts: any) => AsyncIterable<any>) | null = null;
+async function getSdkQuery() {
+  if (_sdkQuery) return _sdkQuery;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require("@anthropic-ai/claude-agent-sdk") as { query: (opts: any) => AsyncIterable<any> };
+    _sdkQuery = mod.query;
+  } catch {
+    throw new Error("@anthropic-ai/claude-agent-sdk not installed. Run: npm install @anthropic-ai/claude-agent-sdk");
+  }
+  return _sdkQuery;
+}
+function query(opts: Parameters<NonNullable<typeof _sdkQuery>>[0]) {
+  return (async function* () {
+    const fn = await getSdkQuery();
+    yield* fn(opts);
+  })();
+}
 import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";

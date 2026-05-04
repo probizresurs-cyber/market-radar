@@ -113,6 +113,7 @@ import { BrandSuggestionsView } from "@/components/views/BrandSuggestionsView";
 import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/views/SMMViews";
 
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
+import { ContentTrendsView } from "@/components/views/ContentTrendsView";
 import { GeneratedPostsView } from "@/components/views/GeneratedPostsView";
 import { GeneratedReelsView } from "@/components/views/GeneratedReelsView";
 import { ContentAnalyticsView, ROICalculatorView } from "@/components/views/ContentAnalyticsView";
@@ -1313,6 +1314,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
+        {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} />}
         {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
@@ -1342,7 +1344,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} />}
         {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
-        {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords") && (
+        {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords" || activeNav === "seo-expand" || activeNav === "seo-paa" || activeNav === "seo-tech-audit") && (
           featureOn("seo-articles")
             ? <SEOArticlesView
                 c={c}

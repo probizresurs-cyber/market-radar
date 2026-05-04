@@ -69,14 +69,18 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "seo-articles", icon: "FileText", label: "SEO-статьи", count: null,
         children: [
-          { id: "seo-new",      icon: "Plus",    label: "Новая статья",       count: null },
-          { id: "seo-library",  icon: "Library", label: "Библиотека статей",  count: null },
-          { id: "seo-keywords", icon: "Key",     label: "Кластер ключей",     count: null },
+          { id: "seo-new",        icon: "Plus",       label: "Новая статья",       count: null },
+          { id: "seo-library",    icon: "Library",    label: "Библиотека статей",  count: null },
+          { id: "seo-keywords",   icon: "Key",        label: "Кластер ключей",     count: null },
+          { id: "seo-expand",     icon: "Network",    label: "Расширить семантику",count: null },
+          { id: "seo-paa",        icon: "HelpCircle", label: "Что спрашивают",     count: null },
+          { id: "seo-tech-audit", icon: "ScanLine",   label: "Тех-аудит страницы", count: null },
         ],
       },
       {
         id: "content-factory", icon: "Factory", label: "Контент-завод", count: null,
         children: [
+          { id: "content-trends", icon: "TrendingUp", label: "Тренды по нише", count: null },
           { id: "content-plan", icon: "ClipboardList", label: "План контента", count: null },
           { id: "content-posts", icon: "FileEdit", label: "Готовые посты", count: null },
           { id: "content-reels", icon: "Film", label: "Готовые видео", count: null },
