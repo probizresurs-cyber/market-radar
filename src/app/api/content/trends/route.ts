@@ -293,57 +293,60 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
 // ── SocialCrawl (TikTok + Instagram) ─────────────────────────────────────────
 // Free 100 credits, no CC — sign up at https://www.socialcrawl.dev/
 // Set SOCIALCRAWL_API_KEY in .env to enable these sources.
+// Endpoints: GET /v1/tiktok/search?query=... and GET /v1/instagram/search/reels?query=...
 
-async function fetchSocialCrawl(
-  platform: "tiktok" | "instagram",
+const SOCIALCRAWL_BASE = "https://api.socialcrawl.dev";
+
+async function fetchSocialCrawlEndpoint(
+  endpoint: string,
   query: string,
+  sourceName: string,
   limit = 12
 ): Promise<TrendItem[]> {
   const key = process.env.SOCIALCRAWL_API_KEY;
   if (!key) return [];
   try {
-    const res = await fetch("https://api.socialcrawl.dev/search", {
-      method: "POST",
+    const params = new URLSearchParams({ query, count: String(limit) });
+    const res = await fetch(`${SOCIALCRAWL_BASE}${endpoint}?${params}`, {
+      method: "GET",
       headers: {
         "x-api-key": key,
-        "Content-Type": "application/json",
         "User-Agent": UA,
+        "Accept": "application/json",
       },
-      body: JSON.stringify({ platform, query, limit }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
-    const data = await res.json();
-    const results: Array<{
-      title?: string;
-      caption?: string;
-      description?: string;
-      url?: string;
-      link?: string;
-      created_at?: string;
-      published_at?: string;
-      author?: string;
-      username?: string;
-    }> = Array.isArray(data?.results) ? data.results : Array.isArray(data?.data) ? data.data : [];
+    const json = await res.json();
 
-    return results.map(item => ({
-      title: item.title || item.caption || item.description || "(без заголовка)",
-      link: item.url || item.link || "#",
-      source: platform === "tiktok" ? "TikTok" : "Instagram",
-      publishedAt: item.created_at || item.published_at || new Date().toISOString(),
-      description: item.description?.slice(0, 280) || undefined,
-    })).filter(i => i.title && i.link !== "#").slice(0, limit);
+    // Unified SocialCrawl schema: { data: { items: [...] } } or { data: [...] }
+    const raw = json?.data?.items ?? json?.data ?? json?.items ?? json?.results ?? [];
+    const items: Array<Record<string, unknown>> = Array.isArray(raw) ? raw : [];
+
+    return items.map(item => {
+      const text = String(item.text ?? item.description ?? item.caption ?? item.title ?? "");
+      const url = String(item.share_url ?? item.url ?? item.link ?? item.video_url ?? "");
+      const createdAt = String(item.created_at ?? item.published_at ?? item.timestamp ?? "");
+      const author = String(item.author?.username ?? item.username ?? item.author ?? "");
+      return {
+        title: text.slice(0, 200) || `${sourceName} пост`,
+        link: url || `https://www.${sourceName.toLowerCase()}.com`,
+        source: sourceName,
+        publishedAt: createdAt ? new Date(Number(createdAt) > 1e10 ? Number(createdAt) * 1000 : createdAt).toISOString() : new Date().toISOString(),
+        description: author ? `@${author}` : undefined,
+      };
+    }).filter(i => i.link && !i.link.endsWith(".com")).slice(0, limit);
   } catch {
     return [];
   }
 }
 
 async function fetchTikTok(query: string): Promise<TrendItem[]> {
-  return fetchSocialCrawl("tiktok", query);
+  return fetchSocialCrawlEndpoint("/v1/tiktok/search", query, "TikTok");
 }
 
 async function fetchInstagram(query: string): Promise<TrendItem[]> {
-  return fetchSocialCrawl("instagram", query);
+  return fetchSocialCrawlEndpoint("/v1/instagram/search/reels", query, "Instagram");
 }
 
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
