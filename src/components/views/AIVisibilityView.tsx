@@ -15,6 +15,7 @@ import type {
   LLMName,
   SiteReadinessItem,
   AIRecommendation,
+  AIReadinessReport,
 } from "@/lib/ai-visibility-types";
 
 interface Props {
@@ -178,6 +179,188 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
         color: "var(--primary)",
       }}>{icon}</div>
       <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>{title}</h2>
+    </div>
+  );
+}
+
+// ─── ReadinessReportBlock — extended UI for AIReadinessReport ─────────────
+const CATEGORY_LABELS: Record<string, string> = {
+  "ai-bots": "AI-боты и доступ",
+  "structured-data": "Schema.org разметка",
+  "metadata": "Meta-теги и preview",
+  "content": "Контент и структура",
+  "technical": "Техническая база",
+};
+
+const SNIPPET_LABELS: Record<string, { title: string; filename: string; lang: string }> = {
+  llmsTxt: { title: "Создать /llms.txt", filename: "llms.txt", lang: "markdown" },
+  robotsTxt: { title: "Обновить /robots.txt", filename: "robots.txt", lang: "text" },
+  organizationSchema: { title: "Organization Schema (вставить в <head>)", filename: "organization-schema.html", lang: "html" },
+  faqSchema: { title: "FAQPage Schema (на FAQ-странице)", filename: "faq-schema.html", lang: "html" },
+};
+
+function ReadinessReportBlock({ report }: { report: AIReadinessReport }) {
+  const [openSnippet, setOpenSnippet] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const scoreColor = report.score >= 80 ? "#22c55e" : report.score >= 50 ? "#f59e0b" : "#ef4444";
+  const scoreLabel = report.score >= 80 ? "Отлично" : report.score >= 50 ? "Средне" : "Требует работы";
+
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2000);
+    } catch { /* ignore */ }
+  };
+
+  // Snippets actually present
+  const availableSnippets = Object.entries(report.snippets)
+    .filter(([, v]) => !!v)
+    .map(([k, v]) => ({ key: k, content: v as string, ...SNIPPET_LABELS[k] }));
+
+  // Group items by category
+  const grouped: Record<string, SiteReadinessItem[]> = {};
+  for (const item of report.items) {
+    const cat = item.category ?? "technical";
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  }
+
+  return (
+    <div>
+      {/* Score banner */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16,
+        padding: "16px 18px", borderRadius: 12, marginBottom: 16,
+        background: `${scoreColor}10`, border: `1px solid ${scoreColor}40`,
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%",
+          background: scoreColor, color: "#fff",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em",
+          flexShrink: 0,
+        }}>{report.score}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: scoreColor, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>
+            AI-Readiness Score
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+            {scoreLabel}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            {report.items.filter(i => i.passed).length} из {report.items.length} проверок пройдено
+          </div>
+        </div>
+      </div>
+
+      {/* Category scores */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 18 }}>
+        {Object.entries(report.byCategory).map(([cat, val]) => {
+          const c = val >= 80 ? "#22c55e" : val >= 50 ? "#f59e0b" : "#ef4444";
+          return (
+            <div key={cat} style={{
+              padding: "10px 12px", borderRadius: 10, background: "var(--background)",
+              border: "1px solid var(--border)",
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+                {CATEGORY_LABELS[cat] ?? cat}
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: c, letterSpacing: "-0.02em" }}>{val}</span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>/ 100</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Items grouped by category */}
+      {Object.entries(grouped).map(([cat, items]) => (
+        <div key={cat} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-secondary)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+            {CATEGORY_LABELS[cat] ?? cat}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {items.map(item => (
+              <div key={item.key} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+                  background: item.passed ? "#22c55e25" : "#ef444425",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: item.passed ? "#22c55e" : "#ef4444",
+                }}>
+                  {item.passed ? <CheckCircle2 size={11} /> : <X size={11} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>{item.label}</div>
+                  {item.detail && !item.passed && (
+                    <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>{item.detail}</div>
+                  )}
+                </div>
+                {!item.passed && item.weight && (
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }}>
+                    +{item.weight}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Snippets to copy */}
+      {availableSnippets.length > 0 && (
+        <div style={{
+          marginTop: 8, padding: "14px 16px", borderRadius: 12,
+          background: "var(--primary)08", border: "1px solid var(--primary)30",
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>
+            Готовые фиксы — копируйте и вставляйте
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 12 }}>
+            Сгенерировано на основе данных вашего сайта. Просто вставьте в нужное место.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {availableSnippets.map(s => (
+              <div key={s.key} style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+                <div
+                  onClick={() => setOpenSnippet(openSnippet === s.key ? null : s.key)}
+                  style={{
+                    padding: "10px 14px", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    borderBottom: openSnippet === s.key ? "1px solid var(--border)" : "none",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{s.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>{s.filename}</div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(s.content, s.key); }}
+                    style={{
+                      padding: "5px 12px", borderRadius: 6, border: "1px solid var(--border)",
+                      background: "var(--background)", color: "var(--foreground)",
+                      fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    {copied === s.key ? "Скопировано ✓" : "Копировать"}
+                  </button>
+                </div>
+                {openSnippet === s.key && (
+                  <pre style={{
+                    margin: 0, padding: "12px 14px", fontSize: 11, lineHeight: 1.5,
+                    background: "var(--background)", color: "var(--foreground)",
+                    overflowX: "auto", maxHeight: 280, fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                    whiteSpace: "pre-wrap", wordBreak: "break-word",
+                  }}>{s.content}</pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -356,13 +539,21 @@ export function AIVisibilityView({ c, myCompany }: Props) {
 
       setStages(buildStages("gemini", "site"));
       let siteItems: SiteReadinessItem[] = [];
+      let readinessReport: AIReadinessReport | undefined;
       try {
         const sr = await fetch("/api/ai-visibility/check-site", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ websiteUrl }),
+          body: JSON.stringify({
+            websiteUrl,
+            brandName,
+            description: myCompany?.company.description || effectiveNiche,
+          }),
         });
         const sj = await sr.json();
-        if (sj.ok) siteItems = sj.items;
+        if (sj.ok) {
+          siteItems = sj.items;
+          readinessReport = sj.report;
+        }
       } catch { /* ignore */ }
 
       const { total, byLlm } = calcTotalScore(allMentions);
@@ -384,7 +575,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
       const completed: AIVisibilityAudit = {
         ...newAudit, status: "done", completedAt: new Date().toISOString(),
         totalScore: total, scoresByLlm: byLlm, mentions: allMentions,
-        siteReadiness: siteItems, recommendations, topCompetitors,
+        siteReadiness: siteItems, readinessReport, recommendations, topCompetitors,
       };
       setAudit(completed);
       try {
@@ -684,7 +875,7 @@ export function AIVisibilityView({ c, myCompany }: Props) {
 
   // ─── REPORT ──────────────────────────────────────────────────────────────────
   if (view === "report" && audit?.status === "done") {
-    const { totalScore = 0, scoresByLlm, mentions = [], siteReadiness = [], recommendations = [], topCompetitors = [] } = audit;
+    const { totalScore = 0, scoresByLlm, mentions = [], siteReadiness = [], readinessReport, recommendations = [], topCompetitors = [] } = audit;
     const uniqueQueries = [...new Set(mentions.map(m => m.query))];
 
     const priorityMeta = {
@@ -1186,35 +1377,39 @@ export function AIVisibilityView({ c, myCompany }: Props) {
           <Card>
             <SectionTitle icon={<Globe size={18} />} title="AI-готовность сайта" />
             {siteReadiness.length > 0 ? (
-              <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                  {siteReadiness.map((item) => (
-                    <div key={item.key} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                      <div style={{
-                        width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 1,
-                        background: item.passed ? "#22c55e20" : "#ef444420",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: item.passed ? "#22c55e" : "#ef4444",
-                      }}>
-                        {item.passed ? <CheckCircle2 size={13} /> : <X size={13} />}
+              readinessReport ? (
+                <ReadinessReportBlock report={readinessReport} />
+              ) : (
+                <>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                    {siteReadiness.map((item) => (
+                      <div key={item.key} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{
+                          width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+                          background: item.passed ? "#22c55e20" : "#ef444420",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: item.passed ? "#22c55e" : "#ef4444",
+                        }}>
+                          {item.passed ? <CheckCircle2 size={13} /> : <X size={13} />}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>{item.label}</div>
+                          {item.detail && !item.passed && (
+                            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>{item.detail}</div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>{item.label}</div>
-                        {item.detail && !item.passed && (
-                          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 1 }}>{item.detail}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{
-                  padding: "8px 12px", borderRadius: 8,
-                  background: "var(--primary)10", border: "1px solid var(--primary)30",
-                  fontSize: 13, fontWeight: 700, color: "var(--primary)",
-                }}>
-                  {siteReadiness.filter(i => i.passed).length}/{siteReadiness.length} пунктов выполнено
-                </div>
-              </>
+                    ))}
+                  </div>
+                  <div style={{
+                    padding: "8px 12px", borderRadius: 8,
+                    background: "var(--primary)10", border: "1px solid var(--primary)30",
+                    fontSize: 13, fontWeight: 700, color: "var(--primary)",
+                  }}>
+                    {siteReadiness.filter(i => i.passed).length}/{siteReadiness.length} пунктов выполнено
+                  </div>
+                </>
+              )
             ) : (
               <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted-foreground)" }}>
                 <Globe size={28} style={{ opacity: 0.3, margin: "0 auto 8px", display: "block" }} />

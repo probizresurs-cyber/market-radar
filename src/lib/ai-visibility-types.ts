@@ -19,6 +19,34 @@ export interface SiteReadinessItem {
   label: string;
   passed: boolean;
   detail?: string;
+  /** Категория для группировки в UI */
+  category?: "ai-bots" | "structured-data" | "metadata" | "content" | "technical";
+  /** Баллы которые даёт пройденная проверка (0-15) */
+  weight?: number;
+  /** Готовый сниппет для копирования (если применимо) */
+  fixSnippet?: string;
+}
+
+export interface AIReadinessReport {
+  /** Общий скор 0-100 */
+  score: number;
+  /** Скоры по категориям */
+  byCategory: {
+    "ai-bots": number;
+    "structured-data": number;
+    "metadata": number;
+    "content": number;
+    "technical": number;
+  };
+  /** Все проверки */
+  items: SiteReadinessItem[];
+  /** Сгенерированные снипеты на основе анализа сайта */
+  snippets: {
+    llmsTxt?: string;
+    robotsTxt?: string;
+    organizationSchema?: string;
+    faqSchema?: string;
+  };
 }
 
 export interface AIRecommendation {
@@ -47,6 +75,8 @@ export interface AIVisibilityAudit {
   scoresByLlm?: Record<LLMName, number>;
   mentions?: AIMention[];
   siteReadiness?: SiteReadinessItem[];
+  /** Расширенный отчёт со скором, категориями и сниппетами для копирования */
+  readinessReport?: AIReadinessReport;
   recommendations?: AIRecommendation[];
   topCompetitors?: Array<{ name: string; count: number }>;
 }
