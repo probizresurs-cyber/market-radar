@@ -167,12 +167,139 @@ async function fetchCossa(query: string): Promise<TrendItem[]> {
     .slice(0, 8);
 }
 
+async function fetchReddit(query: string): Promise<TrendItem[]> {
+  // Reddit's public JSON API — no auth required, just a User-Agent
+  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=20&type=link&t=month`;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA, "Accept": "application/json" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const posts = data?.data?.children ?? [];
+    return posts
+      .filter((p: { data: { score: number } }) => p.data.score > 0)
+      .map((p: { data: { title: string; url: string; subreddit_name_prefixed: string; created_utc: number; selftext: string; permalink: string } }) => ({
+        title: p.data.title,
+        link: p.data.url.startsWith("http") ? p.data.url : `https://reddit.com${p.data.permalink}`,
+        source: `Reddit / ${p.data.subreddit_name_prefixed}`,
+        publishedAt: new Date(p.data.created_utc * 1000).toISOString(),
+        description: p.data.selftext?.slice(0, 280) || undefined,
+      }))
+      .slice(0, 15);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRedditRu(query: string): Promise<TrendItem[]> {
+  // Russian subreddits — better coverage for RU topics
+  const subreddits = ["ru", "russia", "russianbusiness", "marketing"];
+  const allResults: TrendItem[] = [];
+  await Promise.all(
+    subreddits.map(async (sub) => {
+      const url = `https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(query)}&sort=new&restrict_sr=1&limit=8&t=month`;
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": UA, "Accept": "application/json" },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const posts = data?.data?.children ?? [];
+        for (const p of posts) {
+          if (p.data.score > 0) {
+            allResults.push({
+              title: p.data.title,
+              link: `https://reddit.com${p.data.permalink}`,
+              source: `Reddit / r/${sub}`,
+              publishedAt: new Date(p.data.created_utc * 1000).toISOString(),
+              description: p.data.selftext?.slice(0, 280) || undefined,
+            });
+          }
+        }
+      } catch { /* ignore */ }
+    })
+  );
+  return allResults.slice(0, 15);
+}
+
+async function fetchPikabu(query: string): Promise<TrendItem[]> {
+  // Pikabu — Russian Reddit alternative, has full RSS feed
+  const url = `https://pikabu.ru/rss.php`;
+  const xml = await fetchText(url);
+  if (!xml) return [];
+  const all = parseRss(xml, "Pikabu");
+  if (!query) return all.slice(0, 10);
+  const q = query.toLowerCase();
+  const filtered = all.filter(
+    i => i.title.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q)
+  );
+  // If no direct match, return top recent posts (general audience content)
+  return (filtered.length > 0 ? filtered : all).slice(0, 10);
+}
+
+async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
+  // YouTube search page — parse video titles from initial data JSON blob
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=CAISAhAB`; // sp = upload date filter
+  try {
+    const res = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    // Extract ytInitialData JSON
+    const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!match) return [];
+
+    let ytData: Record<string, unknown>;
+    try { ytData = JSON.parse(match[1]); } catch { return []; }
+
+    // Navigate to video results
+    const contents =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ytData as any)?.contents?.twoColumnSearchResultsRenderer?.primaryContents
+        ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents ?? [];
+
+    const items: TrendItem[] = [];
+    for (const item of contents) {
+      const vr = item?.videoRenderer;
+      if (!vr) continue;
+      const title = vr.title?.runs?.[0]?.text ?? "";
+      const videoId = vr.videoId ?? "";
+      if (!title || !videoId) continue;
+      const published = vr.publishedTimeText?.simpleText ?? "";
+      items.push({
+        title,
+        link: `https://www.youtube.com/watch?v=${videoId}`,
+        source: "YouTube",
+        publishedAt: new Date().toISOString(), // exact date not in initial data
+        description: published ? `Опубликовано: ${published}` : undefined,
+      });
+      if (items.length >= 10) break;
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   yandex_news: fetchYandexNews,
   google_news_en: fetchGoogleNewsEn,
   habr: fetchHabr,
   vc: fetchVcRu,
   cossa: fetchCossa,
+  reddit: fetchReddit,
+  reddit_ru: fetchRedditRu,
+  pikabu: fetchPikabu,
+  youtube: fetchYouTubeTrends,
 };
 
 export async function POST(req: Request) {

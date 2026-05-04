@@ -13,11 +13,15 @@ interface TrendItem {
 }
 
 const SOURCE_OPTIONS = [
-  { id: "yandex_news", label: "Google News RU" },
-  { id: "google_news_en", label: "Google News EN" },
-  { id: "habr", label: "Habr" },
-  { id: "vc", label: "VC.ru" },
-  { id: "cossa", label: "Cossa" },
+  { id: "yandex_news",  label: "Google News RU", group: "Новости" },
+  { id: "google_news_en", label: "Google News EN", group: "Новости" },
+  { id: "habr",         label: "Habr",           group: "Блоги" },
+  { id: "vc",           label: "VC.ru",          group: "Блоги" },
+  { id: "cossa",        label: "Cossa",          group: "Блоги" },
+  { id: "reddit",       label: "Reddit (EN)",    group: "Соцсети 🌐" },
+  { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐" },
+  { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐" },
+  { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐" },
 ];
 
 function timeAgo(isoDate: string): string {
@@ -100,22 +104,30 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
           </button>
         </div>
 
-        {/* Source toggles */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {SOURCE_OPTIONS.map(s => (
-            <button
-              key={s.id}
-              onClick={() => toggleSource(s.id)}
-              style={{
-                padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.15s",
-                background: sources.includes(s.id) ? "var(--primary)" : "var(--card)",
-                color: sources.includes(s.id) ? "var(--primary-foreground)" : "var(--muted-foreground)",
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
+        {/* Source toggles grouped */}
+        {(["Новости", "Блоги", "Соцсети 🌐"] as const).map(group => (
+          <div key={group} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>{group}</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {SOURCE_OPTIONS.filter(s => s.group === group).map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => toggleSource(s.id)}
+                  style={{
+                    padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.15s",
+                    background: sources.includes(s.id) ? "var(--primary)" : "var(--card)",
+                    color: sources.includes(s.id) ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, fontStyle: "italic" }}>
+          Instagram и TikTok не имеют публичного API — Reddit, Pikabu и YouTube охватывают те же тренды
         </div>
 
         {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
