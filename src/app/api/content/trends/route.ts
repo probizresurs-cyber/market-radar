@@ -295,7 +295,10 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
 // Set SOCIALCRAWL_API_KEY in .env to enable these sources.
 // Endpoints: GET /v1/tiktok/search?query=... and GET /v1/instagram/search/reels?query=...
 
-const SOCIALCRAWL_BASE = "https://api.socialcrawl.dev";
+// Use SOCIALCRAWL_PROXY_URL (a Cloudflare Worker) when set to bypass Russian IP geo-blocks.
+// Fall back to direct API if not set (works in non-blocked environments).
+const SOCIALCRAWL_BASE =
+  process.env.SOCIALCRAWL_PROXY_URL?.replace(/\/$/, "") ?? "https://api.socialcrawl.dev";
 
 async function fetchSocialCrawlEndpoint(
   endpoint: string,
@@ -314,15 +317,13 @@ async function fetchSocialCrawlEndpoint(
         "User-Agent": UA,
         "Accept": "application/json",
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      console.error(`[SocialCrawl] ${endpoint} HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+      console.error(`[SocialCrawl] ${endpoint} HTTP ${res.status}`);
       return [];
     }
     const json = await res.json();
-    console.log(`[SocialCrawl] ${endpoint} raw keys:`, JSON.stringify(Object.keys(json ?? {})));
-    console.log(`[SocialCrawl] ${endpoint} response sample:`, JSON.stringify(json)?.slice(0, 400));
 
     // Unified SocialCrawl schema: { data: { items: [...] } } or { data: [...] }
     const raw = json?.data?.items ?? json?.data ?? json?.items ?? json?.results ?? json?.videos ?? json?.posts ?? [];
