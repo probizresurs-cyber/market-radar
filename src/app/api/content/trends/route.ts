@@ -290,6 +290,62 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
   }
 }
 
+// ── SocialCrawl (TikTok + Instagram) ─────────────────────────────────────────
+// Free 100 credits, no CC — sign up at https://www.socialcrawl.dev/
+// Set SOCIALCRAWL_API_KEY in .env to enable these sources.
+
+async function fetchSocialCrawl(
+  platform: "tiktok" | "instagram",
+  query: string,
+  limit = 12
+): Promise<TrendItem[]> {
+  const key = process.env.SOCIALCRAWL_API_KEY;
+  if (!key) return [];
+  try {
+    const res = await fetch("https://api.socialcrawl.dev/search", {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "Content-Type": "application/json",
+        "User-Agent": UA,
+      },
+      body: JSON.stringify({ platform, query, limit }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results: Array<{
+      title?: string;
+      caption?: string;
+      description?: string;
+      url?: string;
+      link?: string;
+      created_at?: string;
+      published_at?: string;
+      author?: string;
+      username?: string;
+    }> = Array.isArray(data?.results) ? data.results : Array.isArray(data?.data) ? data.data : [];
+
+    return results.map(item => ({
+      title: item.title || item.caption || item.description || "(без заголовка)",
+      link: item.url || item.link || "#",
+      source: platform === "tiktok" ? "TikTok" : "Instagram",
+      publishedAt: item.created_at || item.published_at || new Date().toISOString(),
+      description: item.description?.slice(0, 280) || undefined,
+    })).filter(i => i.title && i.link !== "#").slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchTikTok(query: string): Promise<TrendItem[]> {
+  return fetchSocialCrawl("tiktok", query);
+}
+
+async function fetchInstagram(query: string): Promise<TrendItem[]> {
+  return fetchSocialCrawl("instagram", query);
+}
+
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   yandex_news: fetchYandexNews,
   google_news_en: fetchGoogleNewsEn,
@@ -300,6 +356,8 @@ const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   reddit_ru: fetchRedditRu,
   pikabu: fetchPikabu,
   youtube: fetchYouTubeTrends,
+  tiktok: fetchTikTok,
+  instagram: fetchInstagram,
 };
 
 export async function POST(req: Request) {

@@ -13,15 +13,17 @@ interface TrendItem {
 }
 
 const SOURCE_OPTIONS = [
-  { id: "yandex_news",  label: "Google News RU", group: "Новости" },
-  { id: "google_news_en", label: "Google News EN", group: "Новости" },
-  { id: "habr",         label: "Habr",           group: "Блоги" },
-  { id: "vc",           label: "VC.ru",          group: "Блоги" },
-  { id: "cossa",        label: "Cossa",          group: "Блоги" },
-  { id: "reddit",       label: "Reddit (EN)",    group: "Соцсети 🌐" },
-  { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐" },
-  { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐" },
-  { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐" },
+  { id: "yandex_news",  label: "Google News RU", group: "Новости",     needsKey: false },
+  { id: "google_news_en", label: "Google News EN", group: "Новости",   needsKey: false },
+  { id: "habr",         label: "Habr",           group: "Блоги",       needsKey: false },
+  { id: "vc",           label: "VC.ru",          group: "Блоги",       needsKey: false },
+  { id: "cossa",        label: "Cossa",          group: "Блоги",       needsKey: false },
+  { id: "reddit",       label: "Reddit (EN)",    group: "Соцсети 🌐",  needsKey: false },
+  { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐",  needsKey: false },
+  { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐",  needsKey: false },
+  { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
+  { id: "tiktok",       label: "TikTok 🔑",      group: "Соцсети 🌐",  needsKey: true  },
+  { id: "instagram",    label: "Instagram 🔑",   group: "Соцсети 🌐",  needsKey: true  },
 ];
 
 function timeAgo(isoDate: string): string {
@@ -126,8 +128,12 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
             </div>
           </div>
         ))}
-        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, fontStyle: "italic" }}>
-          Instagram и TikTok не имеют публичного API — Reddit, Pikabu и YouTube охватывают те же тренды
+        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6, padding: "8px 10px", borderRadius: 8, background: "var(--muted)", lineHeight: 1.5 }}>
+          🔑 TikTok и Instagram работают через{" "}
+          <a href="https://www.socialcrawl.dev/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontWeight: 600 }}>SocialCrawl</a>
+          {" "}— бесплатно 100 кредитов, без карты. Зарегистрируйся → получи ключ → добавь{" "}
+          <code style={{ background: "var(--card)", padding: "1px 5px", borderRadius: 4, fontSize: 10 }}>SOCIALCRAWL_API_KEY=...</code>
+          {" "}в .env на VPS.
         </div>
 
         {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
