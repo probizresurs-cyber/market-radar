@@ -316,11 +316,16 @@ async function fetchSocialCrawlEndpoint(
       },
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[SocialCrawl] ${endpoint} HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+      return [];
+    }
     const json = await res.json();
+    console.log(`[SocialCrawl] ${endpoint} raw keys:`, JSON.stringify(Object.keys(json ?? {})));
+    console.log(`[SocialCrawl] ${endpoint} response sample:`, JSON.stringify(json)?.slice(0, 400));
 
     // Unified SocialCrawl schema: { data: { items: [...] } } or { data: [...] }
-    const raw = json?.data?.items ?? json?.data ?? json?.items ?? json?.results ?? [];
+    const raw = json?.data?.items ?? json?.data ?? json?.items ?? json?.results ?? json?.videos ?? json?.posts ?? [];
     const items: Array<Record<string, unknown>> = Array.isArray(raw) ? raw : [];
 
     return items.map(item => {
