@@ -23,7 +23,6 @@ const SOURCE_OPTIONS = [
   { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐",  needsKey: false },
   { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
   { id: "tiktok",       label: "TikTok",         group: "Соцсети 🌐",  needsKey: false },
-  { id: "instagram",    label: "Instagram",      group: "Соцсети 🌐",  needsKey: false },
 ];
 
 function timeAgo(isoDate: string): string {
