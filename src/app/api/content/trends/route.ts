@@ -168,8 +168,8 @@ async function fetchCossa(query: string): Promise<TrendItem[]> {
 }
 
 async function fetchReddit(query: string): Promise<TrendItem[]> {
-  // Reddit's public JSON API — no auth required, just a User-Agent
-  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=20&type=link&t=month`;
+  // Reddit's public JSON API — sort by top (popularity) within last month
+  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&limit=25&t=month`;
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": UA, "Accept": "application/json" },
@@ -179,8 +179,9 @@ async function fetchReddit(query: string): Promise<TrendItem[]> {
     const data = await res.json();
     const posts = data?.data?.children ?? [];
     return posts
-      .filter((p: { data: { score: number } }) => p.data.score > 0)
-      .map((p: { data: { title: string; url: string; subreddit_name_prefixed: string; created_utc: number; selftext: string; permalink: string } }) => ({
+      .filter((p: { data: { score: number } }) => p.data.score > 1)
+      .sort((a: { data: { score: number } }, b: { data: { score: number } }) => b.data.score - a.data.score)
+      .map((p: { data: { title: string; url: string; subreddit_name_prefixed: string; created_utc: number; selftext: string; permalink: string; score: number } }) => ({
         title: p.data.title,
         link: p.data.url.startsWith("http") ? p.data.url : `https://reddit.com${p.data.permalink}`,
         source: `Reddit / ${p.data.subreddit_name_prefixed}`,
@@ -242,7 +243,8 @@ async function fetchPikabu(query: string): Promise<TrendItem[]> {
 
 async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
   // YouTube search page — parse video titles from initial data JSON blob
-  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=CAISAhAB`; // sp = upload date filter
+  // sp=CAM%3D sorts by view count (popularity); EgIQAQ%3D%3D filters to videos only
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=CAMSAhAB`;
   try {
     const res = await fetch(searchUrl, {
       headers: {
@@ -274,15 +276,17 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
       const title = vr.title?.runs?.[0]?.text ?? "";
       const videoId = vr.videoId ?? "";
       if (!title || !videoId) continue;
+      const viewCount = vr.viewCountText?.simpleText ?? "";
       const published = vr.publishedTimeText?.simpleText ?? "";
+      const descParts = [viewCount && `👁 ${viewCount}`, published && `📅 ${published}`].filter(Boolean);
       items.push({
         title,
         link: `https://www.youtube.com/watch?v=${videoId}`,
         source: "YouTube",
         publishedAt: new Date().toISOString(), // exact date not in initial data
-        description: published ? `Опубликовано: ${published}` : undefined,
+        description: descParts.length > 0 ? descParts.join(" · ") : undefined,
       });
-      if (items.length >= 10) break;
+      if (items.length >= 15) break;
     }
     return items;
   } catch {
@@ -300,10 +304,11 @@ async function fetchVK(query: string): Promise<TrendItem[]> {
   try {
     const params = new URLSearchParams({
       q: query,
-      count: "20",
+      count: "50",   // fetch more to filter down to quality posts
       access_token: token,
       v: "5.131",
       extended: "1",
+      fields: "name",
     });
     const res = await fetch(
       `https://api.vk.com/method/newsfeed.search?${params}`,
@@ -329,23 +334,35 @@ async function fetchVK(query: string): Promise<TrendItem[]> {
       profiles[Number(p.id)] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
     }
 
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     return items
       .map(item => {
         const ownerId = Number(item.owner_id ?? item.from_id ?? 0);
         const postId = Number(item.id ?? 0);
         const text = String(item.text ?? "").trim();
         const date = Number(item.date ?? 0);
+        const likes = Number((item.likes as Record<string, unknown>)?.count ?? 0);
+        const reposts = Number((item.reposts as Record<string, unknown>)?.count ?? 0);
+        const comments = Number((item.comments as Record<string, unknown>)?.count ?? 0);
+        const engagement = likes + reposts * 2 + comments;
         const author = groups[ownerId] ?? profiles[ownerId] ?? `id${Math.abs(ownerId)}`;
-        return {
-          title: text.slice(0, 200) || "ВКонтакте пост",
-          link: `https://vk.com/wall${ownerId}_${postId}`,
-          source: "ВКонтакте",
-          publishedAt: date ? new Date(date * 1000).toISOString() : new Date().toISOString(),
-          description: author || undefined,
-        };
+        return { text, ownerId, postId, date, engagement, author };
       })
-      .filter(i => i.title !== "ВКонтакте пост" || i.link.includes("wall"))
-      .slice(0, 20);
+      // Filter: must have meaningful text and contain at least one query word
+      .filter(p =>
+        p.text.length > 30 &&
+        queryWords.some(w => p.text.toLowerCase().includes(w))
+      )
+      // Sort by engagement (likes + reposts + comments)
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 20)
+      .map(p => ({
+        title: p.text.slice(0, 200),
+        link: `https://vk.com/wall${p.ownerId}_${p.postId}`,
+        source: "ВКонтакте",
+        publishedAt: p.date ? new Date(p.date * 1000).toISOString() : new Date().toISOString(),
+        description: p.author || undefined,
+      }));
   } catch {
     return [];
   }
@@ -361,12 +378,12 @@ async function fetchTikTok(query: string): Promise<TrendItem[]> {
   try {
     const params = new URLSearchParams({
       keywords: query,
-      count: "15",
+      count: "20",
       cursor: "0",
       region: "",
       priority_region: "",
       publish_time: "0",
-      sort_type: "0",
+      sort_type: "1", // 1 = most liked
     });
     const res = await fetch(
       `https://tiktok-scraper7.p.rapidapi.com/feed/search?${params}`,
@@ -439,12 +456,8 @@ async function fetchInstagram(query: string): Promise<TrendItem[]> {
         signal: AbortSignal.timeout(15000),
       }
     );
-    if (!res.ok) {
-      console.error(`[Instagram] HTTP ${res.status}`);
-      return [];
-    }
+    if (!res.ok) return [];
     const json = await res.json();
-    console.log(`[Instagram] keys:`, JSON.stringify(Object.keys(json ?? {})).slice(0, 200));
 
     // instagram-scraper2 schema: { data: { top_posts: [...], recent_posts: [...] } }
     const items: Array<Record<string, unknown>> =
