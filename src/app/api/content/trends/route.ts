@@ -368,7 +368,7 @@ async function fetchInstagram(query: string): Promise<TrendItem[]> {
 
     const params = new URLSearchParams({ hashtag, count: "15" });
     const res = await fetch(
-      `https://instagram-scraper-stable-api.p.rapidapi.com/v1/hashtag/posts?${params}`,
+      `https://instagram-scraper-stable-api.p.rapidapi.com/v1/hashtag/top_posts?${params}`,
       {
         method: "GET",
         headers: {
