@@ -22,8 +22,8 @@ const SOURCE_OPTIONS = [
   { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐",  needsKey: false },
   { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐",  needsKey: false },
   { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
-  { id: "tiktok",       label: "TikTok 🔑",      group: "Соцсети 🌐",  needsKey: true  },
-  { id: "instagram",    label: "Instagram 🔑",   group: "Соцсети 🌐",  needsKey: true  },
+  { id: "tiktok",       label: "TikTok",         group: "Соцсети 🌐",  needsKey: false },
+  { id: "instagram",    label: "Instagram",      group: "Соцсети 🌐",  needsKey: false },
 ];
 
 function timeAgo(isoDate: string): string {
@@ -128,13 +128,6 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
             </div>
           </div>
         ))}
-        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6, padding: "8px 10px", borderRadius: 8, background: "var(--muted)", lineHeight: 1.5 }}>
-          🔑 TikTok и Instagram работают через{" "}
-          <a href="https://www.socialcrawl.dev/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontWeight: 600 }}>SocialCrawl</a>
-          {" "}— бесплатно 100 кредитов, без карты. Зарегистрируйся → получи ключ → добавь{" "}
-          <code style={{ background: "var(--card)", padding: "1px 5px", borderRadius: 4, fontSize: 10 }}>SOCIALCRAWL_API_KEY=...</code>
-          {" "}в .env на VPS.
-        </div>
 
         {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
       </div>

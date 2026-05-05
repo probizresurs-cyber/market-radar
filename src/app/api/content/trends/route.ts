@@ -354,9 +354,68 @@ async function fetchTikTok(query: string): Promise<TrendItem[]> {
   }
 }
 
-// ── Instagram — disabled (no accessible free API from RU IPs) ─────────────────
-async function fetchInstagram(_query: string): Promise<TrendItem[]> {
-  return [];
+// ── Instagram via RapidAPI instagram-scraper-stable-api ──────────────────────
+// Subscribe at rapidapi.com — same RAPIDAPI_KEY as TikTok
+// Uses hashtag posts search (best for trend discovery by topic)
+
+async function fetchInstagram(query: string): Promise<TrendItem[]> {
+  const key = process.env.RAPIDAPI_KEY;
+  if (!key) return [];
+  try {
+    // Use first significant word of query as hashtag (no spaces)
+    const hashtag = query.trim().split(/\s+/)[0].replace(/[^a-zа-яё0-9]/gi, "").toLowerCase();
+    if (!hashtag) return [];
+
+    const params = new URLSearchParams({ hashtag, count: "15" });
+    const res = await fetch(
+      `https://instagram-scraper-stable-api.p.rapidapi.com/v1/hashtag/posts?${params}`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": key,
+          "x-rapidapi-host": "instagram-scraper-stable-api.p.rapidapi.com",
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+
+    // Schema: { data: { items: [...] } } or { data: [...] }
+    const items: Array<Record<string, unknown>> =
+      json?.data?.items ?? json?.data ?? json?.items ?? [];
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .map(item => {
+        const caption = String(
+          (item.caption as Record<string, unknown>)?.text ??
+          item.caption ?? item.text ?? item.description ?? ""
+        );
+        const code = String(item.code ?? item.shortcode ?? "");
+        const link = code
+          ? `https://www.instagram.com/p/${code}/`
+          : String(item.url ?? item.link ?? "");
+        const username = String(
+          (item.user as Record<string, unknown>)?.username ??
+          (item.owner as Record<string, unknown>)?.username ??
+          item.username ?? ""
+        );
+        const takenAt = Number(item.taken_at ?? item.timestamp ?? item.created_at ?? 0);
+        return {
+          title: caption.slice(0, 200) || "Instagram пост",
+          link,
+          source: "Instagram",
+          publishedAt: takenAt ? new Date(takenAt * 1000).toISOString() : new Date().toISOString(),
+          description: username ? `@${username}` : undefined,
+        };
+      })
+      .filter(i => i.link && i.link.startsWith("http"))
+      .slice(0, 15);
+  } catch {
+    return [];
+  }
 }
 
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
