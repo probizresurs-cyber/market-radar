@@ -290,69 +290,73 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
   }
 }
 
-// ── SocialCrawl (TikTok + Instagram) ─────────────────────────────────────────
-// Free 100 credits, no CC — sign up at https://www.socialcrawl.dev/
-// Set SOCIALCRAWL_API_KEY in .env to enable these sources.
-// Endpoints: GET /v1/tiktok/search?query=... and GET /v1/instagram/search/reels?query=...
+// ── TikTok via RapidAPI tiktok-scraper7 ──────────────────────────────────────
+// Sign up at rapidapi.com, subscribe to "Tiktok Scraper" (tiktok-scraper7)
+// Set RAPIDAPI_KEY in .env to enable TikTok source.
 
-// Use SOCIALCRAWL_PROXY_URL (a Cloudflare Worker) when set to bypass Russian IP geo-blocks.
-// Fall back to direct API if not set (works in non-blocked environments).
-const SOCIALCRAWL_BASE =
-  process.env.SOCIALCRAWL_PROXY_URL?.replace(/\/$/, "") ?? "https://api.socialcrawl.dev";
-
-async function fetchSocialCrawlEndpoint(
-  endpoint: string,
-  query: string,
-  sourceName: string,
-  limit = 12
-): Promise<TrendItem[]> {
-  const key = process.env.SOCIALCRAWL_API_KEY;
+async function fetchTikTok(query: string): Promise<TrendItem[]> {
+  const key = process.env.RAPIDAPI_KEY;
   if (!key) return [];
   try {
-    const params = new URLSearchParams({ query, count: String(limit) });
-    const res = await fetch(`${SOCIALCRAWL_BASE}${endpoint}?${params}`, {
-      method: "GET",
-      headers: {
-        "x-api-key": key,
-        "User-Agent": UA,
-        "Accept": "application/json",
-      },
-      signal: AbortSignal.timeout(15000),
+    const params = new URLSearchParams({
+      keywords: query,
+      count: "15",
+      cursor: "0",
+      region: "",
+      priority_region: "",
+      publish_time: "0",
+      sort_type: "0",
     });
-    if (!res.ok) {
-      console.error(`[SocialCrawl] ${endpoint} HTTP ${res.status}`);
-      return [];
-    }
+    const res = await fetch(
+      `https://tiktok-scraper7.p.rapidapi.com/feed/search?${params}`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": key,
+          "x-rapidapi-host": "tiktok-scraper7.p.rapidapi.com",
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+    if (!res.ok) return [];
     const json = await res.json();
 
-    // Unified SocialCrawl schema: { data: { items: [...] } } or { data: [...] }
-    const raw = json?.data?.items ?? json?.data ?? json?.items ?? json?.results ?? json?.videos ?? json?.posts ?? [];
-    const items: Array<Record<string, unknown>> = Array.isArray(raw) ? raw : [];
+    // tiktok-scraper7 schema: { data: { videos: [...] } }
+    const videos: Array<Record<string, unknown>> =
+      json?.data?.videos ?? json?.data ?? [];
+    if (!Array.isArray(videos)) return [];
 
-    return items.map(item => {
-      const text = String(item.text ?? item.description ?? item.caption ?? item.title ?? "");
-      const url = String(item.share_url ?? item.url ?? item.link ?? item.video_url ?? "");
-      const createdAt = String(item.created_at ?? item.published_at ?? item.timestamp ?? "");
-      const author = String(item.author?.username ?? item.username ?? item.author ?? "");
-      return {
-        title: text.slice(0, 200) || `${sourceName} пост`,
-        link: url || `https://www.${sourceName.toLowerCase()}.com`,
-        source: sourceName,
-        publishedAt: createdAt ? new Date(Number(createdAt) > 1e10 ? Number(createdAt) * 1000 : createdAt).toISOString() : new Date().toISOString(),
-        description: author ? `@${author}` : undefined,
-      };
-    }).filter(i => i.link && !i.link.endsWith(".com")).slice(0, limit);
+    return videos
+      .map(v => {
+        const desc = String(v.title ?? v.desc ?? "");
+        const author = String(
+          (v.author as Record<string, unknown>)?.unique_id ??
+          (v.author as Record<string, unknown>)?.nickname ?? ""
+        );
+        const videoId = String(v.video_id ?? v.id ?? "");
+        const shareUrl = String(v.share_url ?? (videoId ? `https://www.tiktok.com/video/${videoId}` : ""));
+        const createTime = Number(v.create_time ?? 0);
+        return {
+          title: desc.slice(0, 200) || "TikTok видео",
+          link: shareUrl,
+          source: "TikTok",
+          publishedAt: createTime
+            ? new Date(createTime * 1000).toISOString()
+            : new Date().toISOString(),
+          description: author ? `@${author}` : undefined,
+        };
+      })
+      .filter(i => i.link && i.link.startsWith("http"))
+      .slice(0, 15);
   } catch {
     return [];
   }
 }
 
-async function fetchTikTok(query: string): Promise<TrendItem[]> {
-  return fetchSocialCrawlEndpoint("/v1/tiktok/search", query, "TikTok");
-}
-
-async function fetchInstagram(query: string): Promise<TrendItem[]> {
-  return fetchSocialCrawlEndpoint("/v1/instagram/search/reels", query, "Instagram");
+// ── Instagram — disabled (no accessible free API from RU IPs) ─────────────────
+async function fetchInstagram(_query: string): Promise<TrendItem[]> {
+  return [];
 }
 
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
