@@ -379,8 +379,13 @@ async function fetchInstagram(query: string): Promise<TrendItem[]> {
         signal: AbortSignal.timeout(15000),
       }
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[Instagram] HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+      return [];
+    }
     const json = await res.json();
+    console.log(`[Instagram] keys:`, JSON.stringify(Object.keys(json ?? {})));
+    console.log(`[Instagram] sample:`, JSON.stringify(json)?.slice(0, 300));
 
     // Schema: { data: { items: [...] } } or { data: [...] }
     const items: Array<Record<string, unknown>> =
