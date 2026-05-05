@@ -354,55 +354,46 @@ async function fetchTikTok(query: string): Promise<TrendItem[]> {
   }
 }
 
-// ── Instagram via RapidAPI instagram-scraper-stable-api ──────────────────────
+// ── Instagram via RapidAPI instagram-scraper2 ────────────────────────────────
 // Subscribe at rapidapi.com — same RAPIDAPI_KEY as TikTok
-// Uses hashtag posts search (best for trend discovery by topic)
+// https://rapidapi.com/ugoBest/api/instagram-scraper2
 
 async function fetchInstagram(query: string): Promise<TrendItem[]> {
   const key = process.env.RAPIDAPI_KEY;
   if (!key) return [];
   try {
-    // Use first significant word of query as hashtag (no spaces)
     const hashtag = query.trim().split(/\s+/)[0].replace(/[^a-zа-яё0-9]/gi, "").toLowerCase();
     if (!hashtag) return [];
 
-    // Try two endpoints: recent_posts first, fall back to top_posts
-    const endpoints = [
-      `/v1/hashtag/recent_posts?hashtag=${encodeURIComponent(hashtag)}&count=15`,
-      `/v1/hashtag/top_posts?hashtag=${encodeURIComponent(hashtag)}&count=15`,
-      `/v1/hashtag?hashtag=${encodeURIComponent(hashtag)}`,
-    ];
-
-    let json: Record<string, unknown> | null = null;
-    for (const ep of endpoints) {
-      const res = await fetch(`https://instagram-scraper-stable-api.p.rapidapi.com${ep}`, {
+    // instagram-scraper2 primary endpoint for hashtag posts
+    const res = await fetch(
+      `https://instagram-scraper2.p.rapidapi.com/hashtag?name=${encodeURIComponent(hashtag)}`,
+      {
         method: "GET",
         headers: {
           "x-rapidapi-key": key,
-          "x-rapidapi-host": "instagram-scraper-stable-api.p.rapidapi.com",
+          "x-rapidapi-host": "instagram-scraper2.p.rapidapi.com",
           "Accept": "application/json",
         },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (res.ok) {
-        json = await res.json();
-        console.log(`[Instagram] OK ${ep} keys:`, JSON.stringify(Object.keys(json ?? {})));
-        break;
+        signal: AbortSignal.timeout(15000),
       }
-      console.error(`[Instagram] ${ep} → ${res.status}`);
+    );
+    if (!res.ok) {
+      console.error(`[Instagram] HTTP ${res.status}`);
+      return [];
     }
-    if (!json) return [];
+    const json = await res.json();
+    console.log(`[Instagram] keys:`, JSON.stringify(Object.keys(json ?? {})).slice(0, 200));
 
-    // Schema variations: data.items / data.posts / data / items / top_posts / recent_posts
+    // instagram-scraper2 schema: { data: { top_posts: [...], recent_posts: [...] } }
     const items: Array<Record<string, unknown>> =
-      json?.data?.items ??
-      json?.data?.posts ??
       json?.data?.top_posts ??
       json?.data?.recent_posts ??
+      json?.data?.items ??
       json?.data ??
-      json?.items ??
-      json?.posts ??
       json?.top_posts ??
+      json?.recent_posts ??
+      json?.items ??
       [];
     if (!Array.isArray(items)) return [];
 
