@@ -366,30 +366,44 @@ async function fetchInstagram(query: string): Promise<TrendItem[]> {
     const hashtag = query.trim().split(/\s+/)[0].replace(/[^a-zа-яё0-9]/gi, "").toLowerCase();
     if (!hashtag) return [];
 
-    const params = new URLSearchParams({ hashtag, count: "15" });
-    const res = await fetch(
-      `https://instagram-scraper-stable-api.p.rapidapi.com/v1/hashtag/top_posts?${params}`,
-      {
+    // Try two endpoints: recent_posts first, fall back to top_posts
+    const endpoints = [
+      `/v1/hashtag/recent_posts?hashtag=${encodeURIComponent(hashtag)}&count=15`,
+      `/v1/hashtag/top_posts?hashtag=${encodeURIComponent(hashtag)}&count=15`,
+      `/v1/hashtag?hashtag=${encodeURIComponent(hashtag)}`,
+    ];
+
+    let json: Record<string, unknown> | null = null;
+    for (const ep of endpoints) {
+      const res = await fetch(`https://instagram-scraper-stable-api.p.rapidapi.com${ep}`, {
         method: "GET",
         headers: {
           "x-rapidapi-key": key,
           "x-rapidapi-host": "instagram-scraper-stable-api.p.rapidapi.com",
           "Accept": "application/json",
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        json = await res.json();
+        console.log(`[Instagram] OK ${ep} keys:`, JSON.stringify(Object.keys(json ?? {})));
+        break;
       }
-    );
-    if (!res.ok) {
-      console.error(`[Instagram] HTTP ${res.status}: ${await res.text().catch(() => "")}`);
-      return [];
+      console.error(`[Instagram] ${ep} → ${res.status}`);
     }
-    const json = await res.json();
-    console.log(`[Instagram] keys:`, JSON.stringify(Object.keys(json ?? {})));
-    console.log(`[Instagram] sample:`, JSON.stringify(json)?.slice(0, 300));
+    if (!json) return [];
 
-    // Schema: { data: { items: [...] } } or { data: [...] }
+    // Schema variations: data.items / data.posts / data / items / top_posts / recent_posts
     const items: Array<Record<string, unknown>> =
-      json?.data?.items ?? json?.data ?? json?.items ?? [];
+      json?.data?.items ??
+      json?.data?.posts ??
+      json?.data?.top_posts ??
+      json?.data?.recent_posts ??
+      json?.data ??
+      json?.items ??
+      json?.posts ??
+      json?.top_posts ??
+      [];
     if (!Array.isArray(items)) return [];
 
     return items
