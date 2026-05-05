@@ -23,7 +23,7 @@
  * Returns: { ok, data: { imageUrl, usedPrompt } }
  */
 import { NextResponse } from "next/server";
-import { checkAiAccess } from "@/lib/ai-access";
+import { checkAiAccess } from "@/lib/with-ai-security";
 import Anthropic from "@anthropic-ai/sdk";
 import { generateGeminiImage } from "@/lib/gemini";
 
