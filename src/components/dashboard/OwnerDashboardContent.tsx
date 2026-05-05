@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -138,7 +138,7 @@ export interface DashboardData {
   benchmarks: BenchmarksResult | null;
 }
 
-type TabId = "overview" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content";
+type TabId = "overview" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content" | "ai-visibility";
 
 type CompetitorStatus = "leader" | "growing" | "stable" | "new" | "declining";
 
@@ -563,7 +563,8 @@ export function OwnerDashboardContent({
     { id: "benchmarks" as const, icon: <TrendingUp size={15} strokeWidth={1.75} />, label: "Бенчмарки", disabled: !benchmarks },
     { id: "smm" as const, icon: <Smartphone size={15} strokeWidth={1.75} />, label: "СММ", disabled: !smmAnalysis },
     { id: "content" as const, icon: <Factory size={15} strokeWidth={1.75} />, label: "Контент", disabled: !content?.plan },
-  ], [competitors.length, taAnalysis, smmAnalysis, content?.plan, cjm, benchmarks]);
+    { id: "ai-visibility" as const, icon: <Zap size={15} strokeWidth={1.75} />, label: "ИИ-видимость", disabled: !myCompany },
+  ], [competitors.length, taAnalysis, smmAnalysis, content?.plan, cjm, benchmarks, myCompany]);
 
   // ─── Metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -796,6 +797,7 @@ export function OwnerDashboardContent({
               benchmarks: { nav: "ta-benchmarks", label: "Отраслевые бенчмарки" },
               smm: { nav: "smm-dashboard", label: "Дашборд СММ" },
               content: { nav: "content-plan", label: "План контента" },
+              "ai-visibility": { nav: "dashboard", label: "ИИ-видимость" },
             };
             const target = navMap[activeTab as Exclude<TabId, "overview">];
             if (!target) return null;
@@ -1007,6 +1009,11 @@ export function OwnerDashboardContent({
           {/* ═══ CONTENT TAB ═══ */}
           {activeTab === "content" && content?.plan && <ContentTab p={p} plan={content.plan} />}
 
+          {/* ═══ AI-VISIBILITY TAB ═══ */}
+          {activeTab === "ai-visibility" && myCompany && (
+            <AIVisibilityTab p={p} data={myCompany} competitors={competitors} />
+          )}
+
           {/* Footer */}
           <div style={{ textAlign: "center", marginTop: 40, fontSize: 12, color: p.textTertiary, paddingBottom: 20 }}>
             {mode === "public" ? (
@@ -1027,8 +1034,25 @@ export function OwnerDashboardContent({
 // ─── CompanyTab ───────────────────────────────────────────────────────────
 function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; brandbook: BrandBook | null }) {
   const cats = data.company.categories ?? [];
+  const kwCount = data.seo?.keywords?.length ?? 0;
+  const vkSubs = data.social?.vk?.subscribers ?? 0;
+  const tgSubs = data.social?.telegram?.subscribers ?? 0;
+  const totalFollowers = vkSubs + tgSubs;
+  const avgRating = (() => {
+    const ratings = [data.social?.yandexRating, data.social?.gisRating].filter(r => r && r > 0) as number[];
+    if (ratings.length === 0) return 0;
+    return Math.round((ratings.reduce((s, r) => s + r, 0) / ratings.length) * 10) / 10;
+  })();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Метрики компании */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="Общий балл" value={data.company.score} change="из 100" positive delayMs={0} neonColor="#7C6BE8" />
+        <MetricCard p={p} label="Ключевых слов" value={kwCount} change={kwCount > 0 ? "в SEO-индексе" : "нет данных"} positive={kwCount > 0} delayMs={120} neonColor="#4FC3F7" />
+        <MetricCard p={p} label="Подписчики" value={totalFollowers} change={totalFollowers > 0 ? "VK + Telegram" : "нет соцсетей"} positive={totalFollowers > 0} delayMs={240} neonColor="#69FF47" />
+        <MetricCard p={p} label="Рейтинг" valueOverride={avgRating > 0 ? `★ ${avgRating.toFixed(1)}` : "—"} value={avgRating * 20} change={avgRating > 0 ? "на картах" : "нет данных"} positive={avgRating >= 4} delayMs={360} neonColor="#FBBF24" />
+      </div>
+
       {/* Категории */}
       <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Оценка по категориям</div>
@@ -1118,8 +1142,22 @@ function KV({ p, k, v }: { p: Palette; k: string; v: React.ReactNode }) {
 
 // ─── CompetitorsTab ───────────────────────────────────────────────────────
 function CompetitorsTab({ p, myCompany, competitors }: { p: Palette; myCompany: AnalysisResult; competitors: AnalysisResult[] }) {
+  const myScore = myCompany.company.score;
+  const bestScore = competitors.length > 0 ? Math.max(...competitors.map(c => c.company.score)) : 0;
+  const avgScore = competitors.length > 0
+    ? Math.round(competitors.reduce((s, c) => s + c.company.score, 0) / competitors.length)
+    : 0;
+  const gap = myScore - avgScore;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Метрики конкурентов */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="Конкурентов" value={competitors.length} change="отслеживается" positive delayMs={0} neonColor="#4FC3F7" />
+        <MetricCard p={p} label="Ваш балл" value={myScore} change="из 100" positive delayMs={120} neonColor="#7C6BE8" />
+        <MetricCard p={p} label="Сильнейший" value={bestScore} change={bestScore > myScore ? "обгоняет вас" : "вы впереди"} positive={bestScore <= myScore} delayMs={240} neonColor={bestScore > myScore ? "#F87171" : "#69FF47"} />
+        <MetricCard p={p} label="Разрыв" valueOverride={gap >= 0 ? `+${gap}` : `${gap}`} value={Math.abs(gap)} change={gap >= 0 ? "вы выше среднего" : "ниже среднего"} positive={gap >= 0} delayMs={360} neonColor={gap >= 0 ? "#69FF47" : "#F87171"} />
+      </div>
+
       {/* Score comparison bar chart */}
       <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Сравнение балла</div>
@@ -1197,8 +1235,20 @@ function CompetitorsTab({ p, myCompany, competitors }: { p: Palette; myCompany: 
 
 // ─── TATab ────────────────────────────────────────────────────────────────
 function TATab({ p, data }: { p: Palette; data: TAResult }) {
+  const segments = data.segments ?? [];
+  const goldenCount = segments.filter(s => s.isGolden).length;
+  const totalPains = segments.reduce((s, seg) => s + (seg.mainProblems?.length ?? 0), 0);
+  const totalObjections = segments.reduce((s, seg) => s + (seg.topObjections?.length ?? 0), 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Метрики ЦА */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="Сегментов ЦА" value={segments.length} change="выявлено" positive delayMs={0} neonColor="#7C6BE8" />
+        <MetricCard p={p} label="Золотых клиентов" value={goldenCount} change="приоритетных" positive={goldenCount > 0} delayMs={120} neonColor="#FBBF24" />
+        <MetricCard p={p} label="Болей" value={totalPains} change="задокументировано" positive delayMs={240} neonColor="#F87171" />
+        <MetricCard p={p} label="Возражений" value={totalObjections} change="для отработки" positive delayMs={360} neonColor="#4FC3F7" />
+      </div>
+
       <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Целевая аудитория</div>
         <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 16 }}>{data.summary}</div>
@@ -1249,8 +1299,20 @@ function TATab({ p, data }: { p: Palette; data: TAResult }) {
 
 // ─── SMMTab ───────────────────────────────────────────────────────────────
 function SMMTab({ p, data }: { p: Palette; data: SMMResult }) {
+  const platforms = data.platformStrategies?.length ?? 0;
+  const quickWins = data.quickWins?.length ?? 0;
+  const tovTraits = data.brandIdentity?.toneOfVoice?.length ?? 0;
+  const archetype = data.brandIdentity?.archetype ?? "—";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Метрики СММ */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="Платформ" value={platforms} change="в стратегии" positive={platforms > 0} delayMs={0} neonColor="#7C6BE8" />
+        <MetricCard p={p} label="Quick Wins" value={quickWins} change="быстрых побед" positive={quickWins > 0} delayMs={120} neonColor="#69FF47" />
+        <MetricCard p={p} label="ToV-черты" value={tovTraits} change="тона голоса" positive={tovTraits > 0} delayMs={240} neonColor="#4FC3F7" />
+        <MetricCard p={p} label="Архетип" valueOverride={archetype !== "—" ? archetype.slice(0, 14) : "—"} value={0} change={archetype !== "—" ? "бренд-архетип" : "не определён"} positive={archetype !== "—"} delayMs={360} neonColor="#FBBF24" />
+      </div>
+
       <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Архетип бренда</div>
         <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 12 }}>
@@ -1297,8 +1359,20 @@ function SMMTab({ p, data }: { p: Palette; data: SMMResult }) {
 
 // ─── ContentTab ───────────────────────────────────────────────────────────
 function ContentTab({ p, plan }: { p: Palette; plan: ContentPlan }) {
+  const pillarsCount = plan.pillars?.length ?? 0;
+  const postIdeasCount = plan.postIdeas?.length ?? 0;
+  const calendarCount = plan.thirtyDayCalendar?.length ?? 0;
+  const reelIdeasCount = plan.reelIdeas?.length ?? 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Метрики контента */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="Контент-столпы" value={pillarsCount} change="темы контента" positive={pillarsCount > 0} delayMs={0} neonColor="#7C6BE8" />
+        <MetricCard p={p} label="Идей постов" value={postIdeasCount} change="в плане" positive={postIdeasCount > 0} delayMs={120} neonColor="#4FC3F7" />
+        <MetricCard p={p} label="Идей рилс" value={reelIdeasCount} change="сценариев" positive={reelIdeasCount > 0} delayMs={240} neonColor="#EC4899" />
+        <MetricCard p={p} label="Дней плана" value={calendarCount} change="контент-календарь" positive={calendarCount > 0} delayMs={360} neonColor="#69FF47" />
+      </div>
+
       <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Большая идея</div>
         <div style={{ fontSize: 15, color: p.textPrimary, lineHeight: 1.5, fontStyle: "italic" }}>{plan.bigIdea}</div>
@@ -1528,6 +1602,215 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── AIVisibilityTab ──────────────────────────────────────────────────────
+function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisResult; competitors: AnalysisResult[] }) {
+  const yandex = data.keysoDashboard?.yandex;
+  const google = data.keysoDashboard?.google;
+
+  // Compute overall AI visibility score (0-100) from top positions + traffic
+  const yScore = yandex ? Math.min(100, Math.round(
+    (yandex.top1 ?? 0) * 4 +
+    (yandex.top3 ?? 0) * 2 +
+    (yandex.top10 ?? 0) * 0.5 +
+    Math.min(40, (yandex.traffic ?? 0) / 25)
+  )) : 0;
+  const gScore = google ? Math.min(100, Math.round(
+    (google.top1 ?? 0) * 4 +
+    (google.top3 ?? 0) * 2 +
+    (google.top10 ?? 0) * 0.5 +
+    Math.min(40, (google.traffic ?? 0) / 25)
+  )) : 0;
+  const visibilityScore = yandex || google ? Math.max(yScore, gScore) : 0;
+
+  const totalKeywords = (yandex?.top50 ?? 0) + (google?.top50 ?? 0);
+  const top3Count = (yandex?.top3 ?? 0) + (google?.top3 ?? 0);
+  const dailyTraffic = (yandex?.traffic ?? 0) + (google?.traffic ?? 0);
+
+  // Competitor AI visibility comparison
+  const compVisibility = competitors.slice(0, 5).map(c => {
+    const cy = c.keysoDashboard?.yandex;
+    const cg = c.keysoDashboard?.google;
+    const cs = cy || cg ? Math.min(100, Math.round(
+      ((cy?.top3 ?? 0) + (cg?.top3 ?? 0)) * 2.5 +
+      ((cy?.top10 ?? 0) + (cg?.top10 ?? 0)) * 0.4 +
+      Math.min(30, ((cy?.traffic ?? 0) + (cg?.traffic ?? 0)) / 30)
+    )) : Math.floor(c.company.score * 0.6);
+    return { name: c.company.name, score: cs };
+  });
+
+  const engineCards = [
+    { label: "Яндекс", icon: "🔍", data: yandex, color: "#FF5500" },
+    { label: "Google", icon: "🌐", data: google, color: "#4285F4" },
+  ];
+
+  const aiSearchSources = [
+    { name: "ChatGPT / GPT-4", icon: "🤖", note: "LLM-ответы на запросы пользователей" },
+    { name: "Perplexity AI", icon: "🔮", note: "AI-поиск с ссылками на источники" },
+    { name: "Яндекс ИИ (Алиса)", icon: "🗣️", note: "Голосовой поиск + Я.GPT" },
+    { name: "Google AI Overview", icon: "✨", note: "AI-резюме в поисковой выдаче" },
+    { name: "Microsoft Copilot", icon: "💼", note: "Поиск Bing с AI-ответами" },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Ключевые метрики */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="mr-metrics-grid">
+        <MetricCard p={p} label="ИИ-видимость" value={visibilityScore} change="из 100" positive={visibilityScore > 30} delayMs={0} suffix="" neonColor="#D500F9" />
+        <MetricCard p={p} label="Запросов в топ-3" value={top3Count} change="Яндекс + Google" positive={top3Count > 0} delayMs={120} neonColor="#69FF47" />
+        <MetricCard p={p} label="Запросов в топ-50" value={totalKeywords} change="общий охват" positive={totalKeywords > 0} delayMs={240} neonColor="#4FC3F7" />
+        <MetricCard p={p} label="Трафик/сутки" value={dailyTraffic} change="оценка поиска" positive={dailyTraffic > 0} delayMs={360} neonColor="#FBBF24" />
+      </div>
+
+      {/* Поисковые системы — детали */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="mr-main-grid">
+        {engineCards.map(({ label, icon, data: eng, color }) => (
+          <div key={label} className="mr-card" style={{ padding: 24, animationDelay: "400ms" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <span style={{ fontSize: 20 }}>{icon}</span>
+              <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>{label}</div>
+              {!eng && <span style={{ marginLeft: "auto", fontSize: 11, padding: "2px 8px", borderRadius: 10, background: p.grayBg, color: p.gray }}>нет данных</span>}
+            </div>
+            {eng ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <KV p={p} k="Трафик (сутки)" v={eng.traffic?.toLocaleString("ru-RU") ?? "—"} />
+                <KV p={p} k="Страниц в выдаче" v={eng.pagesInOrganic?.toLocaleString("ru-RU") ?? "—"} />
+                <KV p={p} k="Топ-1" v={<span style={{ color, fontWeight: 700 }}>{eng.top1 ?? 0}</span>} />
+                <KV p={p} k="Топ-3" v={<span style={{ color, fontWeight: 700 }}>{eng.top3 ?? 0}</span>} />
+                <KV p={p} k="Топ-10" v={eng.top10 ?? 0} />
+                <KV p={p} k="Топ-50" v={eng.top50 ?? 0} />
+                {eng.adKeys > 0 && <KV p={p} k="Контекстных запросов" v={eng.adKeys} />}
+                {(eng.dr ?? 0) > 0 && <KV p={p} k="Domain Rating" v={<span style={{ fontWeight: 700, color: p.primary }}>{eng.dr}</span>} />}
+                {/* Position bar */}
+                <div style={{ marginTop: 14 }}>
+                  {[
+                    { label: "Топ-1", val: eng.top1 ?? 0, color: "#D500F9" },
+                    { label: "Топ-3", val: eng.top3 ?? 0, color: color },
+                    { label: "Топ-10", val: eng.top10 ?? 0, color: p.primary },
+                    { label: "Топ-50", val: eng.top50 ?? 0, color: p.textTertiary },
+                  ].map(bar => (
+                    <div key={bar.label} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: p.textTertiary, marginBottom: 3 }}>
+                        <span>{bar.label}</span>
+                        <span style={{ fontWeight: 700, color: p.textSecondary }}>{bar.val}</span>
+                      </div>
+                      <div style={{ height: 6, background: p.bgSecondary, borderRadius: 4 }}>
+                        <div className="mr-bar-fill" style={{ width: `${Math.min(100, (bar.val / Math.max(1, eng.top50 ?? 1)) * 100)}%`, height: "100%", background: bar.color, borderRadius: 4 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: p.textTertiary, lineHeight: 1.6 }}>
+                Данные появятся после запуска анализа с подключённым Key.so API.
+                <br /><br />
+                <div style={{ padding: 12, background: p.bgSecondary, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: p.textSecondary, marginBottom: 4 }}>Что отслеживается:</div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: p.textTertiary, lineHeight: 1.7 }}>
+                    <li>Позиции по ключевым словам</li>
+                    <li>Органический трафик</li>
+                    <li>Страниц в индексе</li>
+                    <li>Рейтинг домена (DR)</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ИИ-поиск — статус присутствия */}
+      <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <Zap size={18} style={{ color: p.primary }} strokeWidth={2} />
+          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>Присутствие в ИИ-поиске</div>
+        </div>
+        <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 16 }}>
+          Современные LLM и ИИ-поисковики формируют ответы на основе авторитетности контента в сети.
+          Ваша поисковая видимость напрямую влияет на то, упоминает ли ИИ вашу компанию.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+          {aiSearchSources.map((src, i) => {
+            // Estimate likelihood based on visibility score
+            const likelihood = visibilityScore >= 70 ? "высокая" : visibilityScore >= 40 ? "средняя" : visibilityScore > 0 ? "низкая" : "неизвестно";
+            const likelihoodColor = visibilityScore >= 70 ? p.green : visibilityScore >= 40 ? p.orange : p.red;
+            return (
+              <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{src.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: p.textPrimary, marginBottom: 3 }}>{src.name}</div>
+                  <div style={{ fontSize: 11, color: p.textTertiary, marginBottom: 6 }}>{src.note}</div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: `${likelihoodColor}22`, color: likelihoodColor }}>
+                    вероятность упоминания: {likelihood}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Сравнение с конкурентами */}
+      {compVisibility.length > 0 && (
+        <div className="mr-card" style={{ padding: 24, animationDelay: "800ms" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>ИИ-видимость vs конкуренты</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* My company */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: p.textPrimary }}>{data.company.name} (вы)</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: p.primary }}>{visibilityScore}</span>
+              </div>
+              <div style={{ height: 8, background: p.bgSecondary, borderRadius: 4 }}>
+                <div className="mr-bar-fill" style={{ width: `${visibilityScore}%`, height: "100%", background: `linear-gradient(90deg, ${p.primary} 0%, ${p.primaryLight} 100%)`, borderRadius: 4 }} />
+              </div>
+            </div>
+            {compVisibility.map((cv, i) => {
+              const ahead = cv.score > visibilityScore;
+              const barColor = ahead ? p.red : p.green;
+              return (
+                <div key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: p.textSecondary }}>{cv.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: ahead ? p.red : p.green }}>{cv.score}</span>
+                  </div>
+                  <div style={{ height: 8, background: p.bgSecondary, borderRadius: 4 }}>
+                    <div className="mr-bar-fill" style={{ width: `${cv.score}%`, height: "100%", background: barColor, borderRadius: 4 }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Рекомендации по улучшению */}
+      <div className="mr-card" style={{ padding: 24, animationDelay: "1000ms" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <Search size={16} style={{ color: p.primary }} strokeWidth={2} />
+          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>Как улучшить ИИ-видимость</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+          {[
+            { icon: "📝", title: "Экспертный контент", text: "Публикуйте глубокие статьи, кейсы, руководства — LLM-модели обучены на таком контенте и чаще цитируют авторитетные источники." },
+            { icon: "🔗", title: "Ссылочная масса", text: "Увеличивайте DR (Domain Rating). Сайты с высоким DR чаще попадают в ответы AI-поисковиков как авторитетные источники." },
+            { icon: "⭐", title: "Отзывы и рейтинги", text: "Google AI, Perplexity и Яндекс ИИ используют отзывы с платформ при формировании ответов о компаниях и продуктах." },
+            { icon: "🗂️", title: "Структурированные данные", text: "Используйте Schema.org разметку (FAQ, Product, LocalBusiness) — это помогает LLM понимать ваш контент точнее." },
+            { icon: "📱", title: "Социальные сигналы", text: "Активность в соцсетях и упоминания бренда формируют «социальный граф» — LLM учитывает его при оценке авторитетности." },
+            { icon: "🎯", title: "Точечные запросы", text: "Оптимизируйте под длинные запросы (long-tail). Именно на них пользователи задают вопросы AI-поисковикам." },
+          ].map((rec, i) => (
+            <div key={i} className="mr-ai-rec" style={{ animationDelay: `${1050 + i * 100}ms`, padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
+              <div style={{ fontSize: 20, marginBottom: 8 }}>{rec.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>{rec.title}</div>
+              <div style={{ fontSize: 12, color: p.textSecondary, lineHeight: 1.5 }}>{rec.text}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
