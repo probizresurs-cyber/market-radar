@@ -290,6 +290,67 @@ async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
   }
 }
 
+// ── VKontakte via VK API ──────────────────────────────────────────────────────
+// Free service token: vk.com/dev → My Apps → Create App (Standalone) → Settings → Service token
+// Set VK_ACCESS_TOKEN in .env to enable VK source.
+
+async function fetchVK(query: string): Promise<TrendItem[]> {
+  const token = process.env.VK_ACCESS_TOKEN;
+  if (!token) return [];
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      count: "20",
+      access_token: token,
+      v: "5.131",
+      extended: "1",
+    });
+    const res = await fetch(
+      `https://api.vk.com/method/newsfeed.search?${params}`,
+      {
+        headers: { "Accept": "application/json" },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    if (json?.error) return [];
+
+    const items: Array<Record<string, unknown>> = json?.response?.items ?? [];
+    if (!Array.isArray(items)) return [];
+
+    // Build lookup maps for owner names
+    const groups: Record<number, string> = {};
+    const profiles: Record<number, string> = {};
+    for (const g of (json?.response?.groups ?? []) as Array<Record<string, unknown>>) {
+      groups[-(Number(g.id))] = String(g.name ?? "");
+    }
+    for (const p of (json?.response?.profiles ?? []) as Array<Record<string, unknown>>) {
+      profiles[Number(p.id)] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+    }
+
+    return items
+      .map(item => {
+        const ownerId = Number(item.owner_id ?? item.from_id ?? 0);
+        const postId = Number(item.id ?? 0);
+        const text = String(item.text ?? "").trim();
+        const date = Number(item.date ?? 0);
+        const author = groups[ownerId] ?? profiles[ownerId] ?? `id${Math.abs(ownerId)}`;
+        return {
+          title: text.slice(0, 200) || "ВКонтакте пост",
+          link: `https://vk.com/wall${ownerId}_${postId}`,
+          source: "ВКонтакте",
+          publishedAt: date ? new Date(date * 1000).toISOString() : new Date().toISOString(),
+          description: author || undefined,
+        };
+      })
+      .filter(i => i.title !== "ВКонтакте пост" || i.link.includes("wall"))
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
 // ── TikTok via RapidAPI tiktok-scraper7 ──────────────────────────────────────
 // Sign up at rapidapi.com, subscribe to "Tiktok Scraper" (tiktok-scraper7)
 // Set RAPIDAPI_KEY in .env to enable TikTok source.
@@ -438,6 +499,7 @@ const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   reddit_ru: fetchRedditRu,
   pikabu: fetchPikabu,
   youtube: fetchYouTubeTrends,
+  vk: fetchVK,
   tiktok: fetchTikTok,
   instagram: fetchInstagram,
 };

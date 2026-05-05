@@ -22,6 +22,7 @@ const SOURCE_OPTIONS = [
   { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐",  needsKey: false },
   { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐",  needsKey: false },
   { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
+  { id: "vk",           label: "ВКонтакте",      group: "Соцсети 🌐",  needsKey: false },
   { id: "tiktok",       label: "TikTok",         group: "Соцсети 🌐",  needsKey: false },
 ];
 
