@@ -6,11 +6,13 @@
  * Открывается кнопкой снизу справа. Знает всё о компании:
  * анализ, конкуренты, ЦА, СММ.
  *
- * Используется в app/page.tsx — принимает весь контекст как props.
+ * Новое: proactive bubble — через 5 с после открытия платформы
+ * показывает всплывашку «Нужна помощь?» с кнопкой запуска
+ * workflow-гида в зависимости от прогресса пользователя.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, X, Send, Loader2, Sparkles, Trash2, ChevronDown } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, Sparkles, Trash2, ChevronDown, MapPin, ArrowRight } from "lucide-react";
 import type { DashboardContext, ChatMessage } from "@/app/api/chat/route";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
@@ -53,15 +55,82 @@ function buildContext(
   };
 }
 
+// ─── Workflow step calculator ─────────────────────────────────────────────────
+
+function calcWorkflowStep(
+  myCompany: AnalysisResult | null,
+  competitors: AnalysisResult[],
+  taAnalysis: TAResult | null,
+  smmAnalysis: SMMResult | null,
+): { step: number; total: number; nextAction: string; nextNav: string; greeting: string } {
+  if (!myCompany) return {
+    step: 0, total: 6,
+    nextAction: "Запустить анализ компании",
+    nextNav: "new-analysis",
+    greeting: "Добро пожаловать в MarketRadar! 👋 Давайте начнём с анализа вашего сайта.",
+  };
+  if (competitors.length === 0) return {
+    step: 1, total: 6,
+    nextAction: "Добавить конкурентов",
+    nextNav: "competitors",
+    greeting: `Отличный старт — ${myCompany.company.name} проанализирован! 🎯 Следующий шаг: добавьте конкурентов.`,
+  };
+  if (!taAnalysis) return {
+    step: 2, total: 6,
+    nextAction: "Сгенерировать портрет ЦА",
+    nextNav: "ta",
+    greeting: "Конкуренты добавлены! 👍 Теперь разберёмся с целевой аудиторией.",
+  };
+  if (!smmAnalysis) return {
+    step: 3, total: 6,
+    nextAction: "Запустить анализ СММ",
+    nextNav: "smm",
+    greeting: "ЦА готова! 📊 Теперь выстроим SMM-стратегию на основе аудитории.",
+  };
+  return {
+    step: 5, total: 6,
+    nextAction: "Создать план контента",
+    nextNav: "content-plan",
+    greeting: "Все ключевые анализы готовы! 🚀 Теперь составим план контента и запустим производство.",
+  };
+}
+
+function buildWorkflowPrompt(
+  myCompany: AnalysisResult | null,
+  competitors: AnalysisResult[],
+  taAnalysis: TAResult | null,
+  smmAnalysis: SMMResult | null,
+): string {
+  const { step, total } = calcWorkflowStep(myCompany, competitors, taAnalysis, smmAnalysis);
+  const done = [
+    myCompany && "✅ Анализ компании",
+    competitors.length > 0 && `✅ Конкуренты (${competitors.length})`,
+    taAnalysis && "✅ Целевая аудитория",
+    smmAnalysis && "✅ СММ-стратегия",
+  ].filter(Boolean).join(", ") || "пока ничего";
+
+  return `Покажи мне оптимальный порядок работы на платформе MarketRadar.
+
+Мой прогресс (шаг ${step}/${total}): ${done}.
+
+Объясни:
+1. Что уже сделано и что это даёт
+2. Что делать дальше и зачем (конкретный следующий шаг)
+3. Какой порядок всех шагов рекомендуешь и почему
+4. Что получу в итоге после завершения всех этапов
+
+Отвечай кратко, по пунктам. Конкретные действия — ссылки на разделы платформы.`;
+}
+
 // ─── Starter prompts ──────────────────────────────────────────────────────────
 
 const STARTERS = [
+  "Покажи оптимальный порядок работы с платформой",
   "Какие 3 действия дадут быстрый рост?",
   "В чём мы сильнее конкурентов?",
   "На какой сегмент ЦА нацелиться в первую очередь?",
   "Что улучшить в SEO прямо сейчас?",
   "Напиши стратегию на следующий квартал",
-  "Как повысить рейтинг с карт?",
 ];
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
@@ -128,6 +197,7 @@ interface AIChatWidgetProps {
 }
 
 const STORAGE_KEY = "mr_chat_history";
+const BUBBLE_SEEN_KEY = "mr_nav_bubble_seen";
 
 function loadHistory(): ChatMessage[] {
   try {
@@ -147,13 +217,22 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [showBubble, setShowBubble] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Hydrate from localStorage
   useEffect(() => {
-    setMessages(loadHistory());
+    const history = loadHistory();
+    setMessages(history);
     setHydrated(true);
+
+    // Show proactive bubble after 5s if: no chat history AND bubble not yet seen this session
+    const bubbleSeen = sessionStorage.getItem(BUBBLE_SEEN_KEY);
+    if (!bubbleSeen && history.length === 0) {
+      const timer = setTimeout(() => setShowBubble(true), 5000);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   // Scroll to bottom when new messages arrive
@@ -167,6 +246,20 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
+  const dismissBubble = () => {
+    setShowBubble(false);
+    try { sessionStorage.setItem(BUBBLE_SEEN_KEY, "1"); } catch { /* ignore */ }
+  };
+
+  const openWithWorkflow = () => {
+    dismissBubble();
+    setOpen(true);
+    // Small delay to let chat open, then auto-send the workflow question
+    setTimeout(() => {
+      sendMessage(buildWorkflowPrompt(myCompany, competitors, taAnalysis, smmAnalysis));
+    }, 300);
+  };
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -186,7 +279,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: messages.slice(-16), // last 16 for context window
+          history: messages.slice(-16),
           context: buildContext(myCompany, competitors, taAnalysis, smmAnalysis),
         }),
       });
@@ -220,14 +313,93 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
 
   const hasContext = !!myCompany;
   const unread = !open && messages.length > 0 && messages[messages.length - 1]?.role === "assistant";
+  const workflow = calcWorkflowStep(myCompany, competitors, taAnalysis, smmAnalysis);
 
   if (!hydrated) return null;
 
   return (
     <>
+      <style>{`
+        @keyframes chatSlideIn { from { opacity:0; transform:translateY(16px) scale(0.97); } to { opacity:1; transform:none; } }
+        @keyframes bubbleIn { from { opacity:0; transform:translateY(12px) scale(0.95); } to { opacity:1; transform:none; } }
+      `}</style>
+
+      {/* ── Proactive navigation bubble ── */}
+      {showBubble && !open && (
+        <div style={{
+          position: "fixed", bottom: 88, right: 24, zIndex: 1001,
+          width: 300,
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 18,
+          boxShadow: "0 8px 32px rgba(124,58,237,0.22)",
+          overflow: "hidden",
+          animation: "bubbleIn 0.25s ease",
+        }}>
+          {/* Bubble header */}
+          <div style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <MapPin size={16} style={{ color: "#fff" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Навигатор по платформе</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Шаг {workflow.step + 1} из {workflow.total}</div>
+            </div>
+            <button onClick={dismissBubble} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+              <X size={13} />
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height: 3, background: "rgba(124,58,237,0.15)" }}>
+            <div style={{ height: "100%", background: "linear-gradient(90deg,#7c3aed,#a855f7)", width: `${Math.round((workflow.step / workflow.total) * 100)}%`, transition: "width 0.4s" }} />
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.5, marginBottom: 12 }}>
+              {workflow.greeting}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={openWithWorkflow}
+                style={{
+                  flex: 1, padding: "9px 14px", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg,#7c3aed,#a855f7)",
+                  color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}
+              >
+                <Sparkles size={12} /> Показать план работы
+              </button>
+              <button
+                onClick={() => {
+                  dismissBubble();
+                  // Navigate to next action
+                  if (workflow.nextNav && typeof window !== "undefined") {
+                    window.location.href = `/?nav=${workflow.nextNav}`;
+                  }
+                }}
+                style={{
+                  padding: "9px 12px", borderRadius: 10,
+                  border: "1px solid var(--border)", background: "var(--background)",
+                  color: "var(--foreground)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+              >
+                <ArrowRight size={12} /> Перейти
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 10, textAlign: "center" }}>
+              Следующий шаг: <strong>{workflow.nextAction}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating button */}
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { setOpen(o => !o); if (showBubble) dismissBubble(); }}
         title="AI-ассистент"
         style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 1000,
@@ -242,8 +414,8 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
         onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,0.4)"; }}
       >
         {open ? <ChevronDown size={22} /> : <MessageCircle size={22} />}
-        {unread && (
-          <div style={{ position: "absolute", top: 8, right: 8, width: 10, height: 10, borderRadius: "50%", background: "#22d3ee", border: "2px solid white" }} />
+        {(unread || showBubble) && (
+          <div style={{ position: "absolute", top: 8, right: 8, width: 10, height: 10, borderRadius: "50%", background: showBubble ? "#f59e0b" : "#22d3ee", border: "2px solid white" }} />
         )}
       </button>
 
@@ -260,9 +432,6 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
           overflow: "hidden",
           animation: "chatSlideIn 0.2s ease",
         }}>
-          <style>{`
-            @keyframes chatSlideIn { from { opacity:0; transform:translateY(16px) scale(0.97); } to { opacity:1; transform:none; } }
-          `}</style>
 
           {/* Header */}
           <div style={{ padding: "14px 16px", background: "linear-gradient(135deg,#7c3aed,#a855f7)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
@@ -271,7 +440,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>AI-ассистент</div>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>
-                  MarketRadar
+                  MarketRadar · Шаг {workflow.step + 1}/{workflow.total}
                 </div>
               </div>
             </div>
@@ -285,6 +454,11 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
                 <X size={16} />
               </button>
             </div>
+          </div>
+
+          {/* Progress bar in header */}
+          <div style={{ height: 2, background: "rgba(124,58,237,0.15)", flexShrink: 0 }}>
+            <div style={{ height: "100%", background: "linear-gradient(90deg,#7c3aed,#a855f7)", width: `${Math.round((workflow.step / workflow.total) * 100)}%` }} />
           </div>
 
           {/* Messages */}
@@ -302,6 +476,25 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
                       : "Сначала запустите анализ своего сайта, чтобы я мог давать персональные советы"}
                   </div>
                 </div>
+
+                {/* Next step banner */}
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(168,85,247,0.08))",
+                  border: "1px solid rgba(124,58,237,0.2)", borderRadius: 12,
+                  padding: "12px 14px", marginBottom: 14,
+                  cursor: "pointer",
+                }}
+                  onClick={() => sendMessage(buildWorkflowPrompt(myCompany, competitors, taAnalysis, smmAnalysis))}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <MapPin size={13} style={{ color: "#7c3aed", flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)" }}>Следующий шаг: {workflow.nextAction}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)", paddingLeft: 21 }}>
+                    Нажмите, чтобы получить пошаговый план работы с платформой
+                  </div>
+                </div>
+
                 {hasContext && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {STARTERS.map((s, i) => (
