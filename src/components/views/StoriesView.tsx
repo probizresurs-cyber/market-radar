@@ -198,10 +198,16 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
         "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
       ].filter(Boolean).join(" ");
 
-      const res = await fetch("/api/generate-image", {
+      const res = await fetch("/api/generate-image-anthropic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          postText: prompt,
+          format: "сторис",
+          platform: story.platform,
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
       });
       const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");

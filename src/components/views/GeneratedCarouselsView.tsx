@@ -199,10 +199,17 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
         "Square 1:1 format. Clean, modern, space for text overlay at top/center.",
       ].filter(Boolean).join(" ");
 
-      const res = await fetch("/api/generate-image", {
+      const res = await fetch("/api/generate-image-anthropic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          postText: prompt,
+          hook: slide.headlineText,
+          format: "карусель",
+          platform: carousel.platform,
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
       });
       const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");

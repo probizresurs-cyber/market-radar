@@ -444,6 +444,34 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
   const [showTov, setShowTov] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageGenError, setImageGenError] = useState("");
+
+  const handleGenerateImage = async () => {
+    setGeneratingImage(true);
+    setImageGenError("");
+    try {
+      const res = await fetch("/api/generate-image-anthropic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postText: post.body,
+          hook: post.hook,
+          format: "пост",
+          platform: post.platform ?? "instagram",
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
+      });
+      const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
+      onUpdate({ ...post, imageUrl: json.data!.imageUrl });
+    } catch (e) {
+      setImageGenError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
 
   const isCarousel = post.body.includes("---");
 
@@ -563,7 +591,20 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
                 <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Palette size={10}/>Tone of Voice</span>
               </button>
             )}
+            {/* Image generation button */}
+            <button
+              onClick={handleGenerateImage}
+              disabled={generatingImage}
+              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer", opacity: generatingImage ? 0.6 : 1 }}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                {generatingImage ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <Image size={10}/>}
+                {post.imageUrl ? "Переделать фото" : "Сгенерировать фото"}
+              </span>
+            </button>
           </div>
+          {imageGenError && (
+            <div style={{ fontSize: 11, color: "var(--destructive)", marginTop: 6 }}>{imageGenError}</div>
+          )}
           {showTov && brandBook && (
             <TovPanel
               c={c}

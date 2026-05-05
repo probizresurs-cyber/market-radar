@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2 } from "lucide-react";
+import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 
 interface TrendItem {
@@ -12,25 +12,115 @@ interface TrendItem {
   description?: string;
 }
 
+interface TrendContentIdea {
+  id: string;
+  format: "пост" | "карусель" | "рилс" | "сторис";
+  topic: string;
+  hook: string;
+  prompt: string;
+  trendBasis: string;
+}
+
 const SOURCE_OPTIONS = [
-  { id: "yandex_news",  label: "Google News RU", group: "Новости",     needsKey: false },
-  { id: "google_news_en", label: "Google News EN", group: "Новости",   needsKey: false },
-  { id: "habr",         label: "Habr",           group: "Блоги",       needsKey: false },
-  { id: "vc",           label: "VC.ru",          group: "Блоги",       needsKey: false },
-  { id: "cossa",        label: "Cossa",          group: "Блоги",       needsKey: false },
-  { id: "reddit",       label: "Reddit (EN)",    group: "Соцсети 🌐",  needsKey: false },
-  { id: "reddit_ru",    label: "Reddit (RU)",    group: "Соцсети 🌐",  needsKey: false },
-  { id: "pikabu",       label: "Pikabu",         group: "Соцсети 🌐",  needsKey: false },
-  { id: "youtube",      label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
-  { id: "vk",           label: "ВКонтакте",      group: "Соцсети 🌐",  needsKey: false },
-  { id: "tiktok",       label: "TikTok",         group: "Соцсети 🌐",  needsKey: false },
+  { id: "yandex_news",    label: "Google News RU", group: "Новости",     needsKey: false },
+  { id: "google_news_en", label: "Google News EN", group: "Новости",     needsKey: false },
+  { id: "habr",           label: "Habr",           group: "Блоги",       needsKey: false },
+  { id: "vc",             label: "VC.ru",          group: "Блоги",       needsKey: false },
+  { id: "cossa",          label: "Cossa",          group: "Блоги",       needsKey: false },
+  { id: "reddit",         label: "Reddit (EN)",    group: "Соцсети 🌐",  needsKey: false },
+  { id: "reddit_ru",      label: "Reddit (RU)",    group: "Соцсети 🌐",  needsKey: false },
+  { id: "youtube",        label: "YouTube",        group: "Соцсети 🌐",  needsKey: false },
+  { id: "vk",             label: "ВКонтакте",      group: "Соцсети 🌐",  needsKey: false },
+  { id: "tiktok",         label: "TikTok",         group: "Соцсети 🌐",  needsKey: false },
 ];
+
+const FORMAT_ICON: Record<string, React.ReactNode> = {
+  "пост":     <FileText size={11} />,
+  "карусель": <Layout size={11} />,
+  "рилс":     <Film size={11} />,
+  "сторис":   <Image size={11} />,
+};
+
+const FORMAT_COLOR: Record<string, string> = {
+  "пост":     "#3b82f6",
+  "карусель": "#8b5cf6",
+  "рилс":     "#ec4899",
+  "сторис":   "#f59e0b",
+};
 
 function timeAgo(isoDate: string): string {
   const diff = (Date.now() - new Date(isoDate).getTime()) / 1000;
   if (diff < 3600) return `${Math.round(diff / 60)} мин назад`;
   if (diff < 86400) return `${Math.round(diff / 3600)} ч назад`;
   return `${Math.round(diff / 86400)} д назад`;
+}
+
+function IdeaCard({ idea }: { idea: TrendContentIdea }) {
+  const [copied, setCopied] = useState(false);
+  const color = FORMAT_COLOR[idea.format] ?? "#6366f1";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(idea.prompt).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  return (
+    <div className="ds-card" style={{ padding: "14px 16px", borderLeft: `3px solid ${color}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Format badge + topic */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+              background: color + "18", color,
+            }}>
+              {FORMAT_ICON[idea.format]} {idea.format.toUpperCase()}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.3 }}>
+              {idea.topic}
+            </span>
+          </div>
+
+          {/* Hook */}
+          <div style={{ fontSize: 12, fontStyle: "italic", color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
+            «{idea.hook}»
+          </div>
+
+          {/* Prompt */}
+          <div style={{
+            fontSize: 12, color: "var(--foreground)", lineHeight: 1.55,
+            background: "var(--background)", borderRadius: 8,
+            padding: "10px 12px", border: "1px solid var(--border)",
+            marginBottom: 8,
+          }}>
+            {idea.prompt}
+          </div>
+
+          {/* Trend basis */}
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.4 }}>
+            📰 <span style={{ fontStyle: "italic" }}>{idea.trendBasis}</span>
+          </div>
+        </div>
+
+        {/* Copy button */}
+        <button
+          onClick={handleCopy}
+          title="Скопировать промпт"
+          style={{
+            flexShrink: 0, padding: "6px 8px", borderRadius: 8,
+            border: "1px solid var(--border)", background: copied ? "#22c55e15" : "var(--card)",
+            color: copied ? "#22c55e" : "var(--muted-foreground)",
+            cursor: "pointer", transition: "all 0.15s",
+          }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | null }) {
@@ -42,13 +132,18 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
   const [result, setResult] = useState<{ query: string; total: number; items: TrendItem[] } | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
+  // Trend analysis state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeErr, setAnalyzeErr] = useState("");
+  const [ideas, setIdeas] = useState<TrendContentIdea[] | null>(null);
+
   const toggleSource = (id: string) => {
     setSources(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
 
   const run = async () => {
     if (!query.trim()) return;
-    setLoading(true); setErr(""); setResult(null);
+    setLoading(true); setErr(""); setResult(null); setIdeas(null);
     try {
       const res = await fetch("/api/content/trends", {
         method: "POST",
@@ -60,6 +155,27 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
       else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
     finally { setLoading(false); }
+  };
+
+  const analyze = async () => {
+    if (!result || result.items.length === 0) return;
+    setAnalyzing(true); setAnalyzeErr(""); setIdeas(null);
+    try {
+      const res = await fetch("/api/content/trends/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: result.items,
+          query: result.query,
+          companyName: analysis?.company?.name ?? "",
+          niche: analysis?.company?.niche ?? "",
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) setIdeas(data.ideas);
+      else setAnalyzeErr(data.error || "Ошибка анализа");
+    } catch (e) { setAnalyzeErr(String(e)); }
+    finally { setAnalyzing(false); }
   };
 
   const displayedItems = result
@@ -135,17 +251,31 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
       {/* Results */}
       {result && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontWeight: 700, color: "var(--foreground)", fontSize: 15 }}>
               {result.total} публикаций по «{result.query}»
             </div>
-            <button
-              className="ds-btn ds-btn-secondary"
-              style={{ fontSize: 12, gap: 6, display: "flex", alignItems: "center" }}
-              onClick={run}
-            >
-              <RefreshCw size={12} /> Обновить
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              {/* Analyze button */}
+              <button
+                className="ds-btn ds-btn-primary"
+                style={{ fontSize: 12, gap: 6, display: "flex", alignItems: "center" }}
+                onClick={analyze}
+                disabled={analyzing}
+              >
+                {analyzing
+                  ? <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Анализирую…</>
+                  : <><Sparkles size={12} /> Создать идеи из трендов</>
+                }
+              </button>
+              <button
+                className="ds-btn ds-btn-secondary"
+                style={{ fontSize: 12, gap: 6, display: "flex", alignItems: "center" }}
+                onClick={run}
+              >
+                <RefreshCw size={12} /> Обновить
+              </button>
+            </div>
           </div>
 
           {/* Source filter tabs */}
@@ -164,6 +294,35 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
                   {src} ({result.items.filter(i => i.source === src).length})
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* AI Ideas panel */}
+          {(analyzing || ideas || analyzeErr) && (
+            <div className="ds-card" style={{ marginBottom: 20, background: "color-mix(in oklch, var(--primary) 5%, var(--card))", borderColor: "color-mix(in oklch, var(--primary) 20%, var(--border))" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 12 }}>
+                <Sparkles size={15} style={{ color: "var(--primary)" }} />
+                Идеи для контента на основе трендов
+              </div>
+
+              {analyzing && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted-foreground)", fontSize: 13 }}>
+                  <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                  Claude анализирует тренды и создаёт идеи…
+                </div>
+              )}
+
+              {analyzeErr && (
+                <div style={{ color: "var(--destructive)", fontSize: 12 }}>{analyzeErr}</div>
+              )}
+
+              {ideas && ideas.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {ideas.map(idea => (
+                    <IdeaCard key={idea.id} idea={idea} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

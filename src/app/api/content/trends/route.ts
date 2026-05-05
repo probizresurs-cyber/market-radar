@@ -226,20 +226,6 @@ async function fetchRedditRu(query: string): Promise<TrendItem[]> {
   return allResults.slice(0, 15);
 }
 
-async function fetchPikabu(query: string): Promise<TrendItem[]> {
-  // Pikabu — Russian Reddit alternative, has full RSS feed
-  const url = `https://pikabu.ru/rss.php`;
-  const xml = await fetchText(url);
-  if (!xml) return [];
-  const all = parseRss(xml, "Pikabu");
-  if (!query) return all.slice(0, 10);
-  const q = query.toLowerCase();
-  const filtered = all.filter(
-    i => i.title.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q)
-  );
-  // If no direct match, return top recent posts (general audience content)
-  return (filtered.length > 0 ? filtered : all).slice(0, 10);
-}
 
 async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
   // YouTube search page — parse video titles from initial data JSON blob
@@ -510,7 +496,6 @@ const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   cossa: fetchCossa,
   reddit: fetchReddit,
   reddit_ru: fetchRedditRu,
-  pikabu: fetchPikabu,
   youtube: fetchYouTubeTrends,
   vk: fetchVK,
   tiktok: fetchTikTok,
