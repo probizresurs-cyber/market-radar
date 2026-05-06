@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare, Banknote, Users as UsersIcon, Briefcase, Scale, FileText as FileTextIcon, Calendar } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -138,7 +138,7 @@ export interface DashboardData {
   benchmarks: BenchmarksResult | null;
 }
 
-type TabId = "overview" | "actions" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content" | "ai-visibility" | "reputation";
+type TabId = "overview" | "actions" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content" | "ai-visibility" | "reputation" | "finance" | "hr";
 
 type CompetitorStatus = "leader" | "growing" | "stable" | "new" | "declining";
 
@@ -565,6 +565,8 @@ export function OwnerDashboardContent({
     { id: "overview" as const, icon: <BarChart2 size={17} strokeWidth={1.85} />, label: "Обзор" },
     { id: "actions" as const, icon: <ListTodo size={17} strokeWidth={1.85} />, label: "Действия", disabled: !myCompany },
     { id: "reputation" as const, icon: <Star size={17} strokeWidth={1.85} />, label: "Репутация", disabled: !myCompany },
+    { id: "finance" as const, icon: <Banknote size={17} strokeWidth={1.85} />, label: "Финансы", disabled: !myCompany },
+    { id: "hr" as const, icon: <UsersIcon size={17} strokeWidth={1.85} />, label: "Команда / Найм", disabled: !myCompany },
     { id: "company" as const, icon: <Building2 size={17} strokeWidth={1.85} />, label: "Компания" },
     { id: "competitors" as const, icon: <Target size={17} strokeWidth={1.85} />, label: "Конкуренты", disabled: competitors.length === 0 },
     { id: "ta" as const, icon: <Brain size={17} strokeWidth={1.85} />, label: "Целевая аудитория", disabled: !taAnalysis },
@@ -801,6 +803,8 @@ export function OwnerDashboardContent({
             const navMap: Record<Exclude<TabId, "overview">, { nav: string; label: string }> = {
               actions: { nav: "dashboard", label: "Список действий" },
               reputation: { nav: "reviews", label: "Отзывы" },
+              finance: { nav: "dashboard", label: "Финансы компании" },
+              hr: { nav: "dashboard", label: "Команда и найм" },
               company: { nav: "dashboard", label: "Моя компания" },
               competitors: { nav: "compare", label: "Сравнение конкурентов" },
               ta: { nav: "ta-dashboard", label: "Дашборд ЦА" },
@@ -1033,6 +1037,16 @@ export function OwnerDashboardContent({
           {/* ═══ REPUTATION TAB ═══ */}
           {activeTab === "reputation" && myCompany && (
             <ReputationTab p={p} data={myCompany} competitors={competitors} />
+          )}
+
+          {/* ═══ FINANCE TAB ═══ */}
+          {activeTab === "finance" && myCompany && (
+            <FinanceTab p={p} data={myCompany} competitors={competitors} />
+          )}
+
+          {/* ═══ HR TAB ═══ */}
+          {activeTab === "hr" && myCompany && (
+            <HRTab p={p} data={myCompany} competitors={competitors} />
           )}
 
           {/* Footer */}
@@ -2022,6 +2036,442 @@ function RatingRow({ p, name, rating, reviews, maxRating, highlight }: {
       <div style={{ height: 10, background: p.bgSecondary, borderRadius: 6 }}>
         <div className="mr-bar-fill" style={{
           width: `${(rating / maxRating) * 100}%`, height: "100%",
+          background: highlight ? `linear-gradient(90deg, ${color} 0%, ${p.primaryLight} 100%)` : color,
+          borderRadius: 6,
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── FinanceTab ────────────────────────────────────────────────────────────
+// Финансово-юридический портрет компании из DaData/Руспрофайл.
+// Hero — выручка, плюс блоки: размер бизнеса, юр.информация, госконтракты,
+// сравнение с конкурентами по обороту/штату.
+function FinanceTab({ p, data, competitors }: {
+  p: Palette;
+  data: AnalysisResult;
+  competitors: AnalysisResult[];
+}) {
+  const business = data.business ?? null;
+  const gov = data.governmentContracts ?? null;
+
+  const revenue = business?.revenue ?? "";
+  const employees = business?.employees ?? "";
+  const founded = business?.founded ?? "";
+  const legalForm = business?.legalForm ?? "";
+  const courtCases = business?.courtCases ?? 0;
+  const rusprofileUrl = business?.rusprofileUrl ?? null;
+
+  const hasFinanceData = !!(revenue || employees || founded);
+  const govContracts = gov?.totalContracts ?? 0;
+  const govAmount = gov?.totalAmount ?? "";
+
+  // Возраст компании в годах — из founded
+  const companyAge = (() => {
+    if (!founded) return null;
+    const m = founded.match(/(\d{4})/);
+    if (!m) return null;
+    return new Date().getFullYear() - parseInt(m[1], 10);
+  })();
+
+  // Сравнение с конкурентами: сколько у нас vs сколько в среднем у них
+  const competitorRevenues = competitors
+    .map(c => c.business?.revenue ?? "")
+    .filter(r => r && /\d/.test(r));
+  const competitorEmployees = competitors
+    .map(c => c.business?.employees ?? "")
+    .filter(e => e && /\d/.test(e));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Hero — выручка / возраст / штат */}
+      <div className="mr-card" style={{ padding: 32, animationDelay: "0ms" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 14 }}>
+          Финансовый портрет
+        </div>
+        {hasFinanceData ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 28 }}>
+            <FinanceMetric p={p} label="Выручка" value={revenue || "—"} icon={<Banknote size={26} />} accent={p.green} hero />
+            <FinanceMetric p={p} label="Сотрудников" value={employees || "—"} icon={<UsersIcon size={26} />} accent={p.primary} />
+            <FinanceMetric p={p} label="Возраст бизнеса" value={companyAge !== null ? `${companyAge} ${companyAge === 1 ? "год" : companyAge < 5 ? "года" : "лет"}` : (founded || "—")} icon={<Calendar size={26} />} accent={p.blue} />
+            <FinanceMetric p={p} label="Форма" value={legalForm || "—"} icon={<Briefcase size={26} />} accent={p.orange} />
+          </div>
+        ) : (
+          <div style={{ padding: 24, textAlign: "center", color: p.textSecondary, fontSize: 15 }}>
+            Финансовые данные подтянутся при следующем анализе (DaData/Руспрофайл).
+          </div>
+        )}
+      </div>
+
+      {/* Юридическая информация + риски */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
+        {/* Court cases */}
+        <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: courtCases > 0 ? p.redBg : p.greenBg, color: courtCases > 0 ? p.red : p.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Scale size={22} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>Судебные дела</div>
+          </div>
+          <div style={{ fontSize: 48, fontWeight: 800, color: courtCases > 0 ? p.red : p.green, lineHeight: 1, marginBottom: 8, letterSpacing: -1 }}>
+            {courtCases}
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary, lineHeight: 1.5 }}>
+            {courtCases === 0
+              ? "Открытых производств не найдено — компания без юридических рисков."
+              : courtCases <= 3
+                ? "Несколько дел — обычно нормально для активного бизнеса."
+                : "Много открытых дел — стоит проанализировать причины с юристом."}
+          </div>
+        </div>
+
+        {/* Government contracts */}
+        <div className="mr-card" style={{ padding: 28, animationDelay: "200ms" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: p.bgTabActive, color: p.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FileTextIcon size={22} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>Госконтракты</div>
+          </div>
+          <div style={{ fontSize: 48, fontWeight: 800, color: govContracts > 0 ? p.primary : p.textTertiary, lineHeight: 1, marginBottom: 8, letterSpacing: -1 }}>
+            {govContracts}
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary, lineHeight: 1.5 }}>
+            {govContracts === 0
+              ? "Нет данных о госконтрактах. Возможно, компания не работает с госсектором."
+              : govAmount
+                ? <>Общий объём: <strong style={{ color: p.textPrimary }}>{govAmount}</strong></>
+                : "Контракты найдены, объём уточняется."}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent gov contracts */}
+      {gov && gov.recentContracts && gov.recentContracts.length > 0 && (
+        <div className="mr-card" style={{ padding: 28, animationDelay: "300ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>
+            Последние госконтракты
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {gov.recentContracts.slice(0, 5).map((c, i) => (
+              <div key={i} style={{
+                padding: "16px 18px", borderRadius: 12, background: p.bgSecondary,
+                display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap",
+              }}>
+                <div style={{ minWidth: 100 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: p.textTertiary, marginBottom: 4 }}>{c.date}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: p.green }}>{c.amount}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>{c.subject}</div>
+                  <div style={{ fontSize: 14, color: p.textSecondary }}>Заказчик: {c.customer}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Сравнение с конкурентами */}
+      {competitors.length > 0 && (competitorRevenues.length > 0 || competitorEmployees.length > 0) && (
+        <div className="mr-card" style={{ padding: 28, animationDelay: "400ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>
+            Размер компании vs конкуренты
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 540, borderCollapse: "collapse", fontSize: 14 }}>
+              <thead>
+                <tr>
+                  {["Компания", "Выручка", "Штат", "Возраст", "Форма"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "12px 14px", fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: p.textTertiary, borderBottom: `1px solid ${p.borderTertiary}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "14px", fontWeight: 800, color: p.primary, borderBottom: `1px solid ${p.borderTertiary}` }}>{data.company.name} (вы)</td>
+                  <td style={{ padding: "14px", fontWeight: 700, color: p.textPrimary, borderBottom: `1px solid ${p.borderTertiary}` }}>{revenue || "—"}</td>
+                  <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{employees || "—"}</td>
+                  <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{companyAge !== null ? `${companyAge} лет` : "—"}</td>
+                  <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{legalForm || "—"}</td>
+                </tr>
+                {competitors.slice(0, 5).map((c, i) => {
+                  const cAge = c.business?.founded?.match(/(\d{4})/)?.[1];
+                  const cAgeYears = cAge ? new Date().getFullYear() - parseInt(cAge, 10) : null;
+                  return (
+                    <tr key={i}>
+                      <td style={{ padding: "14px", fontWeight: 600, color: p.textPrimary, borderBottom: `1px solid ${p.borderTertiary}` }}>{c.company.name}</td>
+                      <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{c.business?.revenue || "—"}</td>
+                      <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{c.business?.employees || "—"}</td>
+                      <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{cAgeYears !== null ? `${cAgeYears} лет` : "—"}</td>
+                      <td style={{ padding: "14px", color: p.textSecondary, borderBottom: `1px solid ${p.borderTertiary}` }}>{c.business?.legalForm || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* External links */}
+      {rusprofileUrl && (
+        <a href={rusprofileUrl} target="_blank" rel="noopener noreferrer" style={{
+          display: "block", padding: "20px 24px", background: p.bgSecondary,
+          border: `1px solid ${p.borderTertiary}`, borderRadius: 14,
+          color: p.textPrimary, textDecoration: "none",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: p.bgCard, color: p.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ExternalLink size={20} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>
+                Подробнее на Руспрофайл
+              </div>
+              <div style={{ fontSize: 14, color: p.textSecondary }}>
+                Финансовая отчётность, налоги, бенефициары, аффилированные лица
+              </div>
+            </div>
+            <ArrowRight size={20} style={{ color: p.primary }} />
+          </div>
+        </a>
+      )}
+    </div>
+  );
+}
+
+function FinanceMetric({ p, label, value, icon, accent, hero }: {
+  p: Palette; label: string; value: string; icon: React.ReactNode; accent: string; hero?: boolean;
+}) {
+  // Если value содержит цифры — выделяем число крупнее
+  const isNumeric = /^[\d\s.,млр₽\-—]+$/i.test(value);
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, color: accent }}>
+        {icon}
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: p.textTertiary }}>
+          {label}
+        </span>
+      </div>
+      <div style={{
+        fontSize: hero ? 32 : isNumeric ? 28 : 22,
+        fontWeight: 800,
+        color: p.textPrimary,
+        lineHeight: 1.15,
+        letterSpacing: -0.5,
+        wordBreak: "break-word",
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// ─── HRTab ─────────────────────────────────────────────────────────────────
+// Команда и найм: открытые вакансии (hh.ru), средняя зарплата, тренд найма,
+// ключевые роли, сравнение с конкурентами.
+function HRTab({ p, data, competitors }: {
+  p: Palette;
+  data: AnalysisResult;
+  competitors: AnalysisResult[];
+}) {
+  const hiring = data.hiring ?? null;
+  const employees = data.business?.employees ?? "";
+  const openVacancies = hiring?.openVacancies ?? 0;
+  const avgSalary = hiring?.avgSalary ?? "";
+  const salaryRange = hiring?.salaryRange ?? "";
+  const topRoles = hiring?.topRoles ?? [];
+  const trend = hiring?.trend ?? "stable";
+
+  const trendMeta = {
+    growing: { label: "Активный найм", color: p.green, icon: "↑", desc: "Компания растёт — это привлекательно для кандидатов и говорит о здоровье бизнеса." },
+    stable: { label: "Стабильный штат", color: p.blue, icon: "→", desc: "Найм идёт ровно. Хорошо для удержания, но без рывков." },
+    declining: { label: "Сокращение", color: p.red, icon: "↓", desc: "Вакансии сокращаются. Стоит проанализировать причины." },
+  }[trend];
+
+  // Сравнение по найму с конкурентами
+  const compHiring = competitors.map(c => ({
+    name: c.company.name,
+    vacancies: c.hiring?.openVacancies ?? 0,
+    salary: c.hiring?.avgSalary ?? "",
+    employees: c.business?.employees ?? "",
+    trend: c.hiring?.trend ?? "stable",
+  }));
+
+  const totalCompVacancies = compHiring.reduce((s, c) => s + c.vacancies, 0);
+  const avgCompVacancies = compHiring.length > 0 ? Math.round(totalCompVacancies / compHiring.length) : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Hero — открытые вакансии */}
+      <div className="mr-card" style={{ padding: 32, animationDelay: "0ms" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 280px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 14 }}>
+              Открытые вакансии (hh.ru)
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 64, fontWeight: 800, color: p.textPrimary, lineHeight: 1, letterSpacing: -1.5 }}>
+                {openVacancies}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: trendMeta.color, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {trendMeta.icon} {trendMeta.label}
+              </div>
+            </div>
+            <div style={{ fontSize: 15, color: p.textSecondary, lineHeight: 1.55, maxWidth: 480 }}>
+              {trendMeta.desc}
+            </div>
+          </div>
+
+          {avgCompVacancies > 0 && (
+            <div style={{
+              flex: "0 0 200px",
+              padding: 20,
+              borderRadius: 12,
+              background: p.bgSecondary,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: p.textTertiary, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+                В среднем у конкурентов
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 800, color: p.textPrimary, lineHeight: 1, marginBottom: 6 }}>
+                {avgCompVacancies}
+              </div>
+              <div style={{ fontSize: 13, color: openVacancies >= avgCompVacancies ? p.green : p.red, fontWeight: 700 }}>
+                {openVacancies >= avgCompVacancies
+                  ? `Вы нанимаете на ${openVacancies - avgCompVacancies} больше`
+                  : `Они нанимают на ${avgCompVacancies - openVacancies} больше`}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Salary + Employees */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: p.greenBg, color: p.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Banknote size={22} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>Средняя зарплата</div>
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: p.textPrimary, lineHeight: 1.15, marginBottom: 8, letterSpacing: -0.5 }}>
+            {avgSalary || "—"}
+          </div>
+          {salaryRange && <div style={{ fontSize: 14, color: p.textSecondary }}>Диапазон: {salaryRange}</div>}
+        </div>
+
+        <div className="mr-card" style={{ padding: 28, animationDelay: "200ms" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: p.bgTabActive, color: p.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <UsersIcon size={22} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>Размер команды</div>
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: p.textPrimary, lineHeight: 1.15, marginBottom: 8, letterSpacing: -0.5 }}>
+            {employees || "—"}
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary }}>По данным DaData / hh.ru</div>
+        </div>
+      </div>
+
+      {/* Top roles */}
+      {topRoles.length > 0 && (
+        <div className="mr-card" style={{ padding: 28, animationDelay: "300ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>
+            Кого ищут сейчас
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {topRoles.slice(0, 12).map((role, i) => (
+              <div key={i} style={{
+                padding: "10px 16px",
+                borderRadius: 24,
+                background: p.bgSecondary,
+                fontSize: 15,
+                fontWeight: 600,
+                color: p.textPrimary,
+                border: `1px solid ${p.borderTertiary}`,
+              }}>
+                {role}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary, marginTop: 14, lineHeight: 1.55 }}>
+            💡 Эти позиции активно ищет компания на hh.ru. По ним можно понять, в какие отделы инвестируется компания.
+          </div>
+        </div>
+      )}
+
+      {/* Сравнение с конкурентами */}
+      {compHiring.length > 0 && (
+        <div className="mr-card" style={{ padding: 28, animationDelay: "400ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>
+            Найм vs конкуренты
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Я */}
+            <HiringRow p={p} name={`${data.company.name} (вы)`} vacancies={openVacancies} salary={avgSalary} employees={employees} max={Math.max(openVacancies, ...compHiring.map(c => c.vacancies))} highlight />
+            {compHiring.slice(0, 5).map((c, i) => (
+              <HiringRow key={i} p={p} name={c.name} vacancies={c.vacancies} salary={c.salary} employees={c.employees} max={Math.max(openVacancies, ...compHiring.map(x => x.vacancies))} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CTA */}
+      <a
+        href="https://hh.ru/search/employer"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "block", padding: "20px 24px",
+          background: p.bgSecondary,
+          border: `1px solid ${p.borderTertiary}`,
+          borderRadius: 14,
+          color: p.textPrimary, textDecoration: "none",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: p.bgCard, color: "#D6001C", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Briefcase size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>
+              Открыть профиль на hh.ru
+            </div>
+            <div style={{ fontSize: 14, color: p.textSecondary }}>
+              Все вакансии, отзывы кандидатов, рейтинг работодателя
+            </div>
+          </div>
+          <ArrowRight size={20} style={{ color: p.primary }} />
+        </div>
+      </a>
+    </div>
+  );
+}
+
+function HiringRow({ p, name, vacancies, salary, employees, max, highlight }: {
+  p: Palette; name: string; vacancies: number; salary: string; employees: string; max: number; highlight?: boolean;
+}) {
+  const pct = max > 0 ? (vacancies / max) * 100 : 0;
+  const color = highlight ? p.primary : (vacancies > max * 0.7 ? p.green : vacancies > max * 0.3 ? p.blue : p.gray);
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 15, fontWeight: highlight ? 800 : 600, color: highlight ? p.textPrimary : p.textSecondary }}>
+          {name}
+        </span>
+        <div style={{ display: "flex", gap: 16, fontSize: 13, alignItems: "baseline" }}>
+          {salary && <span style={{ color: p.textSecondary }}>{salary}</span>}
+          {employees && <span style={{ color: p.textTertiary, fontSize: 12 }}>{employees}</span>}
+          <span style={{ fontSize: 18, fontWeight: 800, color }}>{vacancies}</span>
+        </div>
+      </div>
+      <div style={{ height: 8, background: p.bgSecondary, borderRadius: 6 }}>
+        <div className="mr-bar-fill" style={{
+          width: `${pct}%`, height: "100%",
           background: highlight ? `linear-gradient(90deg, ${color} 0%, ${p.primaryLight} 100%)` : color,
           borderRadius: 6,
         }} />

@@ -496,45 +496,49 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   };
 
   return (
-    <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 16, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
+    <div style={{ background: "var(--card)", borderRadius: 16, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 20, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px" }}>{post.platform}</span>
-          {isCarousel && <span style={{ fontSize: 10, fontWeight: 700, background: "#6366f115", color: "#818cf8", borderRadius: 6, padding: "3px 8px" }}>КАРУСЕЛЬ</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, background: "#f59e0b18", color: "#f59e0b", borderRadius: 8, padding: "5px 11px", textTransform: "capitalize" }}>{post.platform}</span>
+          {isCarousel && <span style={{ fontSize: 12, fontWeight: 700, background: "#6366f118", color: "#818cf8", borderRadius: 8, padding: "5px 11px" }}>Карусель</span>}
+          {post.imageUrl && (
+            <span title="Картинка готова" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#22c55e", padding: "5px 10px", borderRadius: 8, background: "#22c55e15" }}>
+              <Image size={12}/> готово
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}</span>
           {!editing && (
-            <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              <Pencil size={12}/>
+            <button onClick={() => setEditing(true)} title="Редактировать" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Pencil size={13}/>
             </button>
           )}
         </div>
       </div>
 
-      {/* Compact image thumbnail */}
+      {/* Image preview — full width if exists */}
       {post.imageUrl && !editing && (
-        <div style={{ marginBottom: 10 }}>
-          {imgExpanded ? (
-            <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, objectFit: "cover", maxHeight: 320 }} />
-              <button onClick={() => setImgExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>
-                Свернуть
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.imageUrl} alt={post.hook}
-                onClick={() => setImgExpanded(true)}
-                style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid var(--border)`, flexShrink: 0 }}
-              />
-              <span style={{ fontSize: 10, color: "var(--muted-foreground)", cursor: "pointer" }} onClick={() => setImgExpanded(true)}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Image size={11}/>Нажмите, чтобы открыть картинку</span></span>
-            </div>
-          )}
+        <div style={{ marginBottom: 14 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imageUrl} alt={post.hook}
+            onClick={() => setImgExpanded(v => !v)}
+            style={{
+              width: "100%",
+              maxHeight: imgExpanded ? 480 : 220,
+              borderRadius: 12,
+              objectFit: "cover",
+              cursor: "pointer",
+              border: "1px solid var(--border)",
+              transition: "max-height 0.25s ease",
+              display: "block",
+            }}
+          />
+          <button onClick={() => setImgExpanded(v => !v)} style={{ marginTop: 6, padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
+            {imgExpanded ? "Свернуть" : "Развернуть"}
+          </button>
         </div>
       )}
 
@@ -569,41 +573,38 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 12, letterSpacing: -0.2 }}>{post.hook}</div>
+          <div style={{ marginBottom: 14, fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>
             <CarouselBody c={c} body={post.body} />
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {post.hashtags.map((h, i) => (
-              <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+              <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             <button
               onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Copy size={10}/>Скопировать</span>
+              style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Copy size={14}/>Скопировать
             </button>
             {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
               <button
                 onClick={() => setShowTov(v => !v)}
-                style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Palette size={10}/>Tone of Voice</span>
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Palette size={14}/>Tone of Voice
               </button>
             )}
-            {/* Image generation button */}
             <button
               onClick={handleGenerateImage}
               disabled={generatingImage}
-              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer", opacity: generatingImage ? 0.6 : 1 }}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
-                {generatingImage ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <Image size={10}/>}
-                {post.imageUrl ? "Переделать фото" : "Сгенерировать фото"}
-              </span>
+              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "none", background: post.imageUrl ? "transparent" : "var(--primary)", color: post.imageUrl ? "var(--foreground-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: generatingImage ? "wait" : "pointer", opacity: generatingImage ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {generatingImage ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Image size={14}/>}
+              {generatingImage ? "Рисую…" : post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
             </button>
           </div>
           {imageGenError && (
-            <div style={{ fontSize: 11, color: "var(--destructive)", marginTop: 6 }}>{imageGenError}</div>
+            <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{imageGenError}</div>
           )}
           {showTov && brandBook && (
             <TovPanel
