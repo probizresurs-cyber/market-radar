@@ -36,13 +36,66 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
       });
       const json = await res.json() as { ok: boolean; data?: GeneratedStory; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      onAdd(json.data!);
+      const story = json.data!;
+      // Сначала добавляем серию в список — пользователь сразу видит превью с текстом.
+      onAdd(story);
       setBrief("");
+
+      // Затем параллельно генерируем фоны для всех слайдов в фоне.
+      // Каждый успешный bg прокидываем через onUpdate, чтобы UI прогрессивно обновлялся.
+      void autoGenerateBackgrounds(story);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setGenerating(false);
     }
+  };
+
+  // Параллельная авто-генерация фонов для всех слайдов серии.
+  // Не дожидаемся каждого — каждый завершившийся obновляет свою карточку.
+  const autoGenerateBackgrounds = async (story: GeneratedStory) => {
+    const brandVisual = brandBook?.visualStyle?.trim();
+    const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+
+    // Локальная копия слайдов — каждый промис мутирует именно её и шлёт onUpdate.
+    let working = story;
+
+    await Promise.all(story.slides.map(async (slide, i) => {
+      try {
+        const prompt = [
+          `Story background for ${story.platform}: ${slide.background}.`,
+          slide.visualNote && `Mood: ${slide.visualNote}.`,
+          brandVisual && `Brand visual style: ${brandVisual}.`,
+          brandColors,
+          "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
+        ].filter(Boolean).join(" ");
+
+        const res = await fetch("/api/generate-image-anthropic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            postText: prompt,
+            format: "сторис",
+            platform: story.platform,
+            brandColors: brandBook?.colors ?? [],
+            brandStyle: brandBook?.visualStyle ?? "",
+          }),
+        });
+        const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
+        if (!j.ok || !j.data?.imageUrl) return;
+
+        // Мерджим картинку в i-й слайд и пушим обновление.
+        working = {
+          ...working,
+          slides: working.slides.map((s, idx) =>
+            idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl } : s,
+          ),
+        };
+        onUpdate(working);
+      } catch {
+        // Тихий отказ — пользователь сможет дотыкнуть «Перегенерировать» вручную.
+      }
+    }));
   };
 
   const inputStyle: React.CSSProperties = {

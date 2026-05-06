@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout } from "lucide-react";
+import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 
 interface TrendItem {
@@ -12,14 +12,23 @@ interface TrendItem {
   description?: string;
 }
 
-interface TrendContentIdea {
+export type TrendIdeaFormat = "пост" | "карусель" | "рилс" | "сторис";
+
+export interface TrendContentIdea {
   id: string;
-  format: "пост" | "карусель" | "рилс" | "сторис";
+  format: TrendIdeaFormat;
   topic: string;
   hook: string;
   prompt: string;
   trendBasis: string;
 }
+
+const FORMAT_ACTION: Record<TrendIdeaFormat, string> = {
+  "пост":     "Создать пост",
+  "карусель": "Создать карусель",
+  "рилс":     "Создать рилс",
+  "сторис":   "Создать сторис",
+};
 
 const SOURCE_OPTIONS = [
   { id: "yandex_news",    label: "Google News RU", group: "Новости",     needsKey: false },
@@ -55,7 +64,11 @@ function timeAgo(isoDate: string): string {
   return `${Math.round(diff / 86400)} д назад`;
 }
 
-function IdeaCard({ idea }: { idea: TrendContentIdea }) {
+function IdeaCard({ idea, onCreate, creating }: {
+  idea: TrendContentIdea;
+  onCreate?: (idea: TrendContentIdea) => void | Promise<void>;
+  creating?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const color = FORMAT_COLOR[idea.format] ?? "#6366f1";
 
@@ -71,7 +84,7 @@ function IdeaCard({ idea }: { idea: TrendContentIdea }) {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Format badge + topic */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
             <span style={{
               display: "inline-flex", alignItems: "center", gap: 4,
               fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
@@ -103,27 +116,59 @@ function IdeaCard({ idea }: { idea: TrendContentIdea }) {
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.4 }}>
             📰 <span style={{ fontStyle: "italic" }}>{idea.trendBasis}</span>
           </div>
-        </div>
 
-        {/* Copy button */}
-        <button
-          onClick={handleCopy}
-          title="Скопировать промпт"
-          style={{
-            flexShrink: 0, padding: "6px 8px", borderRadius: 8,
-            border: "1px solid var(--border)", background: copied ? "#22c55e15" : "var(--card)",
-            color: copied ? "#22c55e" : "var(--muted-foreground)",
-            cursor: "pointer", transition: "all 0.15s",
-          }}
-        >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-        </button>
+          {/* Action row — primary: Create, secondary: Copy */}
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {onCreate && (
+              <button
+                onClick={() => !creating && onCreate(idea)}
+                disabled={creating}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px", borderRadius: 8,
+                  border: "none",
+                  background: creating ? color + "55" : color,
+                  color: "#fff", fontWeight: 700, fontSize: 12.5,
+                  cursor: creating ? "wait" : "pointer",
+                  transition: "all 0.15s",
+                  boxShadow: creating ? "none" : `0 2px 8px ${color}40`,
+                }}
+              >
+                {creating
+                  ? <><Loader2 size={13} className="spin" style={{ animation: "spin 1s linear infinite" }} /> Создаю…</>
+                  : <><Wand2 size={13} /> {FORMAT_ACTION[idea.format]}</>
+                }
+              </button>
+            )}
+            <button
+              onClick={handleCopy}
+              title="Скопировать промпт"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 12px", borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: copied ? "#22c55e15" : "var(--card)",
+                color: copied ? "#22c55e" : "var(--muted-foreground)",
+                fontWeight: 600, fontSize: 12.5,
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              {copied ? <><Check size={13} /> Скопировано</> : <><Copy size={13} /> Промпт</>}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | null }) {
+export function ContentTrendsView({ analysis, onCreateFromIdea }: {
+  analysis: AnalysisResult | null;
+  /** Callback вызывается, когда пользователь нажимает «Создать пост/сторис/…»
+   *  на карточке идеи. Должен вернуть Promise — пока он не разрешится, кнопка
+   *  показывает спиннер. */
+  onCreateFromIdea?: (idea: TrendContentIdea) => Promise<void>;
+}) {
   const defaultQuery = analysis?.company?.description?.split("\n")[0]?.slice(0, 80) || analysis?.company?.name || "";
   const [query, setQuery] = useState(defaultQuery);
   const [sources, setSources] = useState<string[]>(["yandex_news", "habr", "vc"]);
@@ -136,6 +181,17 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeErr, setAnalyzeErr] = useState("");
   const [ideas, setIdeas] = useState<TrendContentIdea[] | null>(null);
+  const [creatingId, setCreatingId] = useState<string | null>(null);
+
+  const handleCreate = async (idea: TrendContentIdea) => {
+    if (!onCreateFromIdea) return;
+    setCreatingId(idea.id);
+    try {
+      await onCreateFromIdea(idea);
+    } finally {
+      setCreatingId(null);
+    }
+  };
 
   const toggleSource = (id: string) => {
     setSources(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -319,7 +375,12 @@ export function ContentTrendsView({ analysis }: { analysis: AnalysisResult | nul
               {ideas && ideas.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {ideas.map(idea => (
-                    <IdeaCard key={idea.id} idea={idea} />
+                    <IdeaCard
+                      key={idea.id}
+                      idea={idea}
+                      onCreate={onCreateFromIdea ? handleCreate : undefined}
+                      creating={creatingId === idea.id}
+                    />
                   ))}
                 </div>
               )}
