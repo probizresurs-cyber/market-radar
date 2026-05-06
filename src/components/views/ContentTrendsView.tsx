@@ -243,15 +243,15 @@ export function ContentTrendsView({ analysis, onCreateFromIdea }: {
     : [];
 
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+    <div style={{ padding: 24, maxWidth: 1080, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 22, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
-          <TrendingUp size={22} /> Тренды по нише
-        </div>
-        <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>
-          Актуальные публикации из Habr, VC.ru, Cossa, Google News — для идей контента
-        </div>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 28, fontWeight: 800, color: "var(--foreground)", margin: "0 0 8px", letterSpacing: -0.5 }}>
+          <TrendingUp size={28} /> Тренды по нише
+        </h1>
+        <p style={{ color: "var(--muted-foreground)", fontSize: 15, margin: 0, lineHeight: 1.5 }}>
+          Актуальные публикации из Habr, VC.ru, Cossa, Google News — Claude превращает их в готовые идеи контента в один клик.
+        </p>
       </div>
 
       {/* Search panel */}
@@ -356,8 +356,8 @@ export function ContentTrendsView({ analysis, onCreateFromIdea }: {
           {/* AI Ideas panel */}
           {(analyzing || ideas || analyzeErr) && (
             <div className="ds-card" style={{ marginBottom: 20, background: "color-mix(in oklch, var(--primary) 5%, var(--card))", borderColor: "color-mix(in oklch, var(--primary) 20%, var(--border))" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, color: "var(--foreground)", marginBottom: 12 }}>
-                <Sparkles size={15} style={{ color: "var(--primary)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 18, color: "var(--foreground)", marginBottom: 14 }}>
+                <Sparkles size={18} style={{ color: "var(--primary)" }} />
                 Идеи для контента на основе трендов
               </div>
 

@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -138,7 +138,7 @@ export interface DashboardData {
   benchmarks: BenchmarksResult | null;
 }
 
-type TabId = "overview" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content" | "ai-visibility";
+type TabId = "overview" | "actions" | "company" | "competitors" | "ta" | "cjm" | "benchmarks" | "smm" | "content" | "ai-visibility" | "reputation";
 
 type CompetitorStatus = "leader" | "growing" | "stable" | "new" | "declining";
 
@@ -173,9 +173,13 @@ function deriveStatus(score: number, myScore: number): CompetitorStatus {
 }
 
 // ─── Карточка метрики ──────────────────────────────────────────────────────
-function MetricCard({ p, label, value, valueOverride, change, positive, delayMs, suffix, neonColor }: {
+// UX: hero numbers — 56px (primary metric on screen) или 48px (стандарт).
+// Минимум 14px для всех текстов; UPPERCASE label 12px для категорий.
+function MetricCard({ p, label, value, valueOverride, change, positive, delayMs, suffix, neonColor, hero }: {
   p: Palette; label: string; value: number; valueOverride?: string; change: string;
   positive: boolean; delayMs: number; suffix?: string; neonColor?: string;
+  /** Hero — главная метрика на экране (одна на дашборде, 56px). По умолчанию false (48px). */
+  hero?: boolean;
 }) {
   const animated = useCountUp(value, 1200, delayMs + 100);
   const neonStyle = neonColor ? {
@@ -183,14 +187,16 @@ function MetricCard({ p, label, value, valueOverride, change, positive, delayMs,
     boxShadow: `0 0 20px ${neonColor}40, 0 0 40px ${neonColor}20`,
     background: "rgba(13, 14, 24, 0.85)",
   } : {};
+  const numberSize = hero ? 56 : 48;
+  const suffixSize = hero ? 28 : 24;
   return (
     <div className="mr-card mr-metric" style={{ animationDelay: `${delayMs}ms`, ...neonStyle }}>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: neonColor ?? p.textTertiary, marginBottom: 10 }}>{label}</div>
-      <div style={{ fontSize: 40, fontWeight: 800, color: neonColor ?? p.textPrimary, lineHeight: 1, marginBottom: 12, letterSpacing: -0.5 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: neonColor ?? p.textTertiary, marginBottom: 14 }}>{label}</div>
+      <div style={{ fontSize: numberSize, fontWeight: 800, color: neonColor ?? p.textPrimary, lineHeight: 1, marginBottom: 14, letterSpacing: -1 }}>
         {valueOverride ?? animated}
-        {!valueOverride && suffix && <span style={{ fontSize: 22, fontWeight: 700, color: neonColor ? `${neonColor}CC` : p.textTertiary }}>{suffix}</span>}
+        {!valueOverride && suffix && <span style={{ fontSize: suffixSize, fontWeight: 700, color: neonColor ? `${neonColor}CC` : p.textTertiary }}>{suffix}</span>}
       </div>
-      <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+      <div style={{ display: "inline-block", padding: "5px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700,
         background: positive ? p.greenBg : p.redBg, color: positive ? p.green : p.red }}>
         {change}
       </div>
@@ -420,7 +426,7 @@ function DonutChart({ p, segments, centerLabel, centerValue }: {
       <svg viewBox="0 0 180 180" width={180} height={180}>{paths}</svg>
       <div>
         <div style={{ fontSize: 28, fontWeight: 800, color: p.textPrimary }}>{centerValue}</div>
-        <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 14 }}>{centerLabel}</div>
+        <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 14 }}>{centerLabel}</div>
         {segments.map((s, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 6 }}>
             <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color }} />
@@ -498,20 +504,21 @@ function TabBar({ p, active, onChange, tabs }: {
 }) {
   return (
     <div style={{
-      display: "flex", gap: 4, overflowX: "auto", background: p.bgCard,
-      border: `1px solid ${p.borderTertiary}`, borderRadius: 12, padding: 6, marginBottom: 20,
+      display: "flex", gap: 6, overflowX: "auto", background: p.bgCard,
+      border: `1px solid ${p.borderTertiary}`, borderRadius: 14, padding: 8, marginBottom: 24,
     }}>
       {tabs.map(t => (
         <button key={t.id} onClick={() => !t.disabled && onChange(t.id)}
           disabled={t.disabled}
           style={{
-            padding: "8px 14px", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            padding: "11px 18px", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600,
             cursor: t.disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap",
             background: active === t.id ? p.bgTabActive : "transparent",
             color: t.disabled ? p.textTertiary : active === t.id ? p.primary : p.textSecondary,
             opacity: t.disabled ? 0.5 : 1,
             transition: "background 150ms ease, color 150ms ease",
-            display: "inline-flex", alignItems: "center", gap: 6,
+            display: "inline-flex", alignItems: "center", gap: 8,
+            minHeight: 40,
           }}>
           {t.icon}{t.label}
         </button>
@@ -555,15 +562,17 @@ export function OwnerDashboardContent({
   const { company: myCompany, competitors, ta: taAnalysis, smm: smmAnalysis, content, brandbook, cjm, benchmarks } = data;
 
   const tabs = useMemo(() => [
-    { id: "overview" as const, icon: <BarChart2 size={15} strokeWidth={1.75} />, label: "Обзор" },
-    { id: "company" as const, icon: <Building2 size={15} strokeWidth={1.75} />, label: "Компания" },
-    { id: "competitors" as const, icon: <Target size={15} strokeWidth={1.75} />, label: "Конкуренты", disabled: competitors.length === 0 },
-    { id: "ta" as const, icon: <Brain size={15} strokeWidth={1.75} />, label: "Целевая аудитория", disabled: !taAnalysis },
-    { id: "cjm" as const, icon: <Map size={15} strokeWidth={1.75} />, label: "CJM", disabled: !cjm },
-    { id: "benchmarks" as const, icon: <TrendingUp size={15} strokeWidth={1.75} />, label: "Бенчмарки", disabled: !benchmarks },
-    { id: "smm" as const, icon: <Smartphone size={15} strokeWidth={1.75} />, label: "СММ", disabled: !smmAnalysis },
-    { id: "content" as const, icon: <Factory size={15} strokeWidth={1.75} />, label: "Контент", disabled: !content?.plan },
-    { id: "ai-visibility" as const, icon: <Zap size={15} strokeWidth={1.75} />, label: "ИИ-видимость", disabled: !myCompany },
+    { id: "overview" as const, icon: <BarChart2 size={17} strokeWidth={1.85} />, label: "Обзор" },
+    { id: "actions" as const, icon: <ListTodo size={17} strokeWidth={1.85} />, label: "Действия", disabled: !myCompany },
+    { id: "reputation" as const, icon: <Star size={17} strokeWidth={1.85} />, label: "Репутация", disabled: !myCompany },
+    { id: "company" as const, icon: <Building2 size={17} strokeWidth={1.85} />, label: "Компания" },
+    { id: "competitors" as const, icon: <Target size={17} strokeWidth={1.85} />, label: "Конкуренты", disabled: competitors.length === 0 },
+    { id: "ta" as const, icon: <Brain size={17} strokeWidth={1.85} />, label: "Целевая аудитория", disabled: !taAnalysis },
+    { id: "cjm" as const, icon: <Map size={17} strokeWidth={1.85} />, label: "CJM", disabled: !cjm },
+    { id: "benchmarks" as const, icon: <TrendingUp size={17} strokeWidth={1.85} />, label: "Бенчмарки", disabled: !benchmarks },
+    { id: "smm" as const, icon: <Smartphone size={17} strokeWidth={1.85} />, label: "СММ", disabled: !smmAnalysis },
+    { id: "content" as const, icon: <Factory size={17} strokeWidth={1.85} />, label: "Контент", disabled: !content?.plan },
+    { id: "ai-visibility" as const, icon: <Zap size={17} strokeWidth={1.85} />, label: "ИИ-видимость", disabled: !myCompany },
   ], [competitors.length, taAnalysis, smmAnalysis, content?.plan, cjm, benchmarks, myCompany]);
 
   // ─── Metrics ────────────────────────────────────────────────────────────
@@ -724,7 +733,7 @@ export function OwnerDashboardContent({
                 <div style={{ fontSize: 22, fontWeight: 800, color: p.textPrimary, lineHeight: 1.2 }}>
                   {myCompany.company.name}
                 </div>
-                <div style={{ fontSize: 13, color: p.textSecondary, marginTop: 2 }}>
+                <div style={{ fontSize: 14, color: p.textSecondary, marginTop: 2 }}>
                   Конкурентная разведка · {period}{mode === "public" && " · публичная ссылка"}
                 </div>
               </div>
@@ -790,6 +799,8 @@ export function OwnerDashboardContent({
           {/* Ссылка "Открыть полный отчёт на платформе" (только в приватном режиме, для релевантных вкладок) */}
           {mode === "private" && activeTab !== "overview" && (() => {
             const navMap: Record<Exclude<TabId, "overview">, { nav: string; label: string }> = {
+              actions: { nav: "dashboard", label: "Список действий" },
+              reputation: { nav: "reviews", label: "Отзывы" },
               company: { nav: "dashboard", label: "Моя компания" },
               competitors: { nav: "compare", label: "Сравнение конкурентов" },
               ta: { nav: "ta-dashboard", label: "Дашборд ЦА" },
@@ -848,13 +859,13 @@ export function OwnerDashboardContent({
                   delayMs={400}
                   neonColor="#69FF47"
                 />
-                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" />
+                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" hero />
               </div>
 
               {/* Main 2-col */}
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 20 }} className="mr-main-grid">
-                <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Конкурентный ландшафт</div>
+                <div className="mr-card" style={{ padding: 28, animationDelay: "600ms" }}>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Конкурентный ландшафт</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     {bars.map((b, i) => (
                       <CompetitorBar key={i} p={p} name={b.name} score={b.score} status={b.status} delayMs={800 + i * 150} />
@@ -894,7 +905,7 @@ export function OwnerDashboardContent({
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                         {keyInsights.map((ins, i) => (
                           <div key={i} className="mr-ai-rec" style={{ animationDelay: `${1150 + i * 120}ms`, padding: 14, background: p.bgSecondary, borderRadius: 10, borderLeft: `3px solid ${insightColor(p, ins.type)}` }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: insightColor(p, ins.type), marginBottom: 6 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: insightColor(p, ins.type), marginBottom: 6 }}>
                               {insightLabel(ins.type)}
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>{ins.title}</div>
@@ -910,7 +921,7 @@ export function OwnerDashboardContent({
                   <div className="mr-card" style={{ padding: 20, animationDelay: "700ms" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <div className="mr-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: p.red }} />
-                      <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>Угрозы и возможности</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary }}>Угрозы и возможности</div>
                     </div>
                     {threats.length === 0 ? (
                       <div style={{ fontSize: 13, color: p.textTertiary }}>Добавьте конкурентов — здесь появятся угрозы.</div>
@@ -925,13 +936,13 @@ export function OwnerDashboardContent({
 
                   {aiRecs.length > 0 && (
                     <div className="mr-card" style={{ padding: 20, animationDelay: "1600ms" }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Рекомендации AI</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Рекомендации AI</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {aiRecs.map((r, i) => (
                           <div key={i} className="mr-ai-rec" style={{ animationDelay: `${1600 + i * 150}ms` }}>
                             <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                               <div style={{ fontSize: 14, fontWeight: 800, color: p.green, minWidth: 20 }}>{i + 1}.</div>
-                              <div style={{ flex: 1, fontSize: 13, color: p.textPrimary, lineHeight: 1.45 }}>
+                              <div style={{ flex: 1, fontSize: 14, color: p.textPrimary, lineHeight: 1.45 }}>
                                 {r.text}
                                 {r.effect && <div style={{ fontSize: 12, color: p.textSecondary, marginTop: 4 }}>→ {r.effect}</div>}
                               </div>
@@ -947,18 +958,18 @@ export function OwnerDashboardContent({
               {/* Market donut + niche forecast */}
               {marketDonut && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }} className="mr-main-grid">
-                  <div className="mr-card" style={{ padding: 24, animationDelay: "1700ms" }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Распределение рынка</div>
+                  <div className="mr-card" style={{ padding: 28, animationDelay: "1700ms" }}>
+                    <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Распределение рынка</div>
                     <DonutChart p={p} segments={marketDonut}
                       centerLabel="Ваша доля"
                       centerValue={metrics.marketShareDisplay} />
                   </div>
-                  <div className="mr-card" style={{ padding: 24, animationDelay: "1800ms" }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Прогноз ниши</div>
-                    <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 12 }}>{myCompany.nicheForecast?.forecast}</div>
+                  <div className="mr-card" style={{ padding: 28, animationDelay: "1800ms" }}>
+                    <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 16 }}>Прогноз ниши</div>
+                    <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 12 }}>{myCompany.nicheForecast?.forecast}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <div style={{ padding: 12, background: p.bgSecondary, borderRadius: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: p.textTertiary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
                           Тренд
                         </div>
                         <div style={{ fontSize: 15, fontWeight: 700,
@@ -970,7 +981,7 @@ export function OwnerDashboardContent({
                         </div>
                       </div>
                       <div style={{ padding: 12, background: p.bgSecondary, borderRadius: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: p.textTertiary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
                           Горизонт
                         </div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>
@@ -1014,6 +1025,16 @@ export function OwnerDashboardContent({
             <AIVisibilityTab p={p} data={myCompany} competitors={competitors} />
           )}
 
+          {/* ═══ ACTIONS TAB ═══ */}
+          {activeTab === "actions" && myCompany && (
+            <ActionsTab p={p} data={myCompany} competitors={competitors} threats={threats} aiRecs={aiRecs} />
+          )}
+
+          {/* ═══ REPUTATION TAB ═══ */}
+          {activeTab === "reputation" && myCompany && (
+            <ReputationTab p={p} data={myCompany} competitors={competitors} />
+          )}
+
           {/* Footer */}
           <div style={{ textAlign: "center", marginTop: 40, fontSize: 12, color: p.textTertiary, paddingBottom: 20 }}>
             {mode === "public" ? (
@@ -1054,8 +1075,8 @@ function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; 
       </div>
 
       {/* Категории */}
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Оценка по категориям</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Оценка по категориям</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
           {cats.map((cat, i) => (
             <div key={cat.name} className="mr-bar-row" style={{ animationDelay: `${200 + i * 100}ms`, background: p.bgSecondary, padding: 14, borderRadius: 10 }}>
@@ -1082,8 +1103,8 @@ function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; 
 
       {/* 2 cols: SEO + Соцсети/Карты */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="mr-main-grid">
-        <div className="mr-card" style={{ padding: 24, animationDelay: "400ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>SEO и сайт</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "400ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>SEO и сайт</div>
           <KV p={p} k="Title" v={data.seo?.title ?? "—"} />
           <KV p={p} k="Ключевых слов" v={data.seo?.keywords?.length ?? 0} />
           <KV p={p} k="Страниц" v={data.seo?.pageCount ?? "—"} />
@@ -1098,8 +1119,8 @@ function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; 
           )}
         </div>
 
-        <div className="mr-card" style={{ padding: 24, animationDelay: "500ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Присутствие</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "500ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Присутствие</div>
           {data.social?.vk && <KV p={p} k="VK подписчики" v={data.social.vk.subscribers.toLocaleString("ru-RU")} />}
           {data.social?.telegram && <KV p={p} k="TG подписчики" v={data.social.telegram.subscribers.toLocaleString("ru-RU")} />}
           {data.social?.yandexRating > 0 && <KV p={p} k="Yandex Maps" v={`★ ${data.social.yandexRating.toFixed(1)} (${data.social.yandexReviews} отз.)`} />}
@@ -1112,8 +1133,8 @@ function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; 
 
       {/* Brandbook preview if present */}
       {brandbook && brandbook.brandName && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Брендбук</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "600ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Брендбук</div>
           {brandbook.tagline && <div style={{ fontSize: 14, fontStyle: "italic", color: p.textSecondary, marginBottom: 10 }}>“{brandbook.tagline}”</div>}
           {brandbook.colors && brandbook.colors.length > 0 && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1133,9 +1154,9 @@ function CompanyTab({ p, data, brandbook }: { p: Palette; data: AnalysisResult; 
 
 function KV({ p, k, v }: { p: Palette; k: string; v: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${p.borderTertiary}`, fontSize: 13 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderBottom: `1px solid ${p.borderTertiary}`, fontSize: 15 }}>
       <span style={{ color: p.textSecondary }}>{k}</span>
-      <span style={{ fontWeight: 600, color: p.textPrimary, textAlign: "right" }}>{v}</span>
+      <span style={{ fontWeight: 700, color: p.textPrimary, textAlign: "right" }}>{v}</span>
     </div>
   );
 }
@@ -1159,8 +1180,8 @@ function CompetitorsTab({ p, myCompany, competitors }: { p: Palette; myCompany: 
       </div>
 
       {/* Score comparison bar chart */}
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Сравнение балла</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Сравнение балла</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <CompetitorBar p={p} name={`${myCompany.company.name} (вы)`} score={myCompany.company.score} status="leader" delayMs={200} />
           {competitors.map((c, i) => (
@@ -1174,8 +1195,8 @@ function CompetitorsTab({ p, myCompany, competitors }: { p: Palette; myCompany: 
       </div>
 
       {/* Detail table */}
-      <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Детальная таблица</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "600ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Детальная таблица</div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 820, borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -1249,9 +1270,9 @@ function TATab({ p, data }: { p: Palette; data: TAResult }) {
         <MetricCard p={p} label="Возражений" value={totalObjections} change="для отработки" positive delayMs={360} neonColor="#4FC3F7" />
       </div>
 
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Целевая аудитория</div>
-        <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 16 }}>{data.summary}</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Целевая аудитория</div>
+        <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 16 }}>{data.summary}</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
         {(data.segments ?? []).slice(0, 6).map((seg, i) => (
@@ -1264,7 +1285,7 @@ function TATab({ p, data }: { p: Palette; data: TAResult }) {
               {seg.demographics?.personaName} · {seg.demographics?.age} · {seg.demographics?.genderRatio}
             </div>
             {seg.worldview?.shortDescription && (
-              <div style={{ fontSize: 13, color: p.textPrimary, lineHeight: 1.5, marginBottom: 12 }}>{seg.worldview.shortDescription}</div>
+              <div style={{ fontSize: 14, color: p.textPrimary, lineHeight: 1.5, marginBottom: 12 }}>{seg.worldview.shortDescription}</div>
             )}
             {seg.mainProblems && seg.mainProblems.length > 0 && (
               <div style={{ marginBottom: 10 }}>
@@ -1313,8 +1334,8 @@ function SMMTab({ p, data }: { p: Palette; data: SMMResult }) {
         <MetricCard p={p} label="Архетип" valueOverride={archetype !== "—" ? archetype.slice(0, 14) : "—"} value={0} change={archetype !== "—" ? "бренд-архетип" : "не определён"} positive={archetype !== "—"} delayMs={360} neonColor="#FBBF24" />
       </div>
 
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Архетип бренда</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Архетип бренда</div>
         <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 12 }}>
           {data.brandIdentity?.archetype && <><strong style={{ color: p.primary }}>{data.brandIdentity.archetype}</strong> · </>}
           {data.brandIdentity?.positioning}
@@ -1329,8 +1350,8 @@ function SMMTab({ p, data }: { p: Palette; data: SMMResult }) {
         )}
       </div>
       {data.platformStrategies && data.platformStrategies.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "200ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Стратегии по платформам</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "200ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Стратегии по платформам</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
             {data.platformStrategies.map((ps, i) => (
               <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
@@ -1346,9 +1367,9 @@ function SMMTab({ p, data }: { p: Palette; data: SMMResult }) {
         </div>
       )}
       {data.quickWins && data.quickWins.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "300ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Quick wins</div>
-          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: p.textPrimary, lineHeight: 1.8 }}>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "300ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Quick wins</div>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: p.textPrimary, lineHeight: 1.8 }}>
             {data.quickWins.slice(0, 5).map((q, i) => <li key={i}>{q}</li>)}
           </ol>
         </div>
@@ -1373,13 +1394,13 @@ function ContentTab({ p, plan }: { p: Palette; plan: ContentPlan }) {
         <MetricCard p={p} label="Дней плана" value={calendarCount} change="контент-календарь" positive={calendarCount > 0} delayMs={360} neonColor="#69FF47" />
       </div>
 
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Большая идея</div>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 10 }}>Большая идея</div>
         <div style={{ fontSize: 15, color: p.textPrimary, lineHeight: 1.5, fontStyle: "italic" }}>{plan.bigIdea}</div>
       </div>
       {plan.pillars && plan.pillars.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "200ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Контент-столпы</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "200ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Контент-столпы</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
             {plan.pillars.map((pillar, i) => (
               <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
@@ -1392,9 +1413,9 @@ function ContentTab({ p, plan }: { p: Palette; plan: ContentPlan }) {
         </div>
       )}
       {plan.postIdeas && plan.postIdeas.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "300ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Идеи постов</div>
-          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: p.textPrimary, lineHeight: 1.8 }}>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "300ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Идеи постов</div>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: p.textPrimary, lineHeight: 1.8 }}>
             {plan.postIdeas.slice(0, 8).map((idea, i) => <li key={i}>{idea.hook}</li>)}
           </ol>
         </div>
@@ -1409,9 +1430,9 @@ function CJMTab({ p, data }: { p: Palette; data: CJMResult }) {
     v === "positive" ? p.green : v === "negative" ? p.red : v === "mixed" ? p.orange : p.gray;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>Customer Journey Map</div>
-        <div style={{ fontSize: 13, color: p.textSecondary }}>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
+        <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>Customer Journey Map</div>
+        <div style={{ fontSize: 14, color: p.textSecondary }}>
           Путь клиента от осознания до лояльности · {data.stages.length} этапов
           {data.generatedAt && (
             <> · Актуализировано: {new Date(data.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}</>
@@ -1426,13 +1447,13 @@ function CJMTab({ p, data }: { p: Palette; data: CJMResult }) {
               <div style={{ fontSize: 32, lineHeight: 1 }}>{st.emoji}</div>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary }}>{st.name}</div>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary }}>{st.name}</div>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: p.bgSecondary, color: p.textTertiary }}>{st.duration}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${valenceColor(st.emotionValence)}22`, color: valenceColor(st.emotionValence) }}>
                     {st.emotion}
                   </span>
                 </div>
-                <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 10 }}><strong>Цель:</strong> {st.goal}</div>
+                <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 10 }}><strong>Цель:</strong> {st.goal}</div>
                 <div style={{ fontSize: 11, color: p.textTertiary, marginBottom: 12 }}><strong>KPI:</strong> {st.kpi}</div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
@@ -1479,9 +1500,9 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Сводка */}
       {data.summary && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "100ms" }}>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "100ms" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary }}>
+            <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary }}>
               Позиция в нише «{data.niche}»
             </div>
             {data.generatedAt && (
@@ -1506,8 +1527,8 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
 
       {/* Категорийные бенчмарки */}
       {data.categoryBenchmarks?.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Бенчмарки по категориям</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "600ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Бенчмарки по категориям</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {data.categoryBenchmarks.map((cb, i) => {
               const scale = Math.max(100, cb.nicheLeader, cb.companyScore);
@@ -1544,14 +1565,14 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
 
       {/* Market metrics */}
       {data.marketMetrics?.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "700ms" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Рыночные метрики</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "700ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Рыночные метрики</div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
                   {["Метрика", "Среднее по нише", "Топ-игроки", "Ваша оценка"].map(h => (
-                    <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: p.textTertiary, borderBottom: `1px solid ${p.borderTertiary}` }}>{h}</th>
+                    <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: p.textTertiary, borderBottom: `1px solid ${p.borderTertiary}` }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1572,8 +1593,8 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
 
       {/* Growth opportunities */}
       {data.growthOpportunities?.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "800ms" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Возможности роста</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "800ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>Возможности роста</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
             {data.growthOpportunities.map((g, i) => (
               <div key={i} style={{ padding: 14, background: p.bgSecondary, borderRadius: 10 }}>
@@ -1595,13 +1616,416 @@ function BenchmarksTab({ p, data }: { p: Palette; data: BenchmarksResult }) {
 
       {/* Niche insights */}
       {data.nicheInsights?.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "900ms" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Инсайты по нише</div>
-          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: p.textPrimary, lineHeight: 1.8 }}>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "900ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 14 }}>Инсайты по нише</div>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: p.textPrimary, lineHeight: 1.8 }}>
             {data.nicheInsights.map((t, i) => <li key={i}>{t}</li>)}
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ActionsTab ───────────────────────────────────────────────────────────
+// "Что делать сегодня" — приоритетный список действий руководителю.
+// Объединяет угрозы (buildThreats), AI-рекомендации (myCompany.recommendations),
+// возможности из niche forecast и quick wins из СММ-стратегии.
+function ActionsTab({ p, data, competitors, threats, aiRecs }: {
+  p: Palette;
+  data: AnalysisResult;
+  competitors: AnalysisResult[];
+  threats: Threat[];
+  aiRecs: Array<{ text: string; effect?: string }>;
+}) {
+  // Категоризируем все возможные действия в один приоритезированный список.
+  type Priority = "critical" | "warning" | "opportunity" | "growth";
+  interface ActionItem {
+    priority: Priority;
+    title: string;
+    description: string;
+    effect?: string;
+    source: string;
+  }
+
+  const items: ActionItem[] = [];
+
+  // 1) Угрозы из threats (critical / warning)
+  threats.forEach(t => {
+    if (t.level === "critical" || t.level === "warning") {
+      items.push({
+        priority: t.level,
+        title: t.title,
+        description: t.description,
+        source: "Угрозы",
+      });
+    } else if (t.level === "opportunity") {
+      items.push({
+        priority: "opportunity",
+        title: t.title,
+        description: t.description,
+        source: "Возможности",
+      });
+    }
+  });
+
+  // 2) AI-рекомендации
+  aiRecs.forEach(r => {
+    items.push({
+      priority: "growth",
+      title: r.text.length > 60 ? r.text.slice(0, 60) + "…" : r.text,
+      description: r.text,
+      effect: r.effect,
+      source: "AI-рекомендации",
+    });
+  });
+
+  // 3) Если есть прогноз ниши с возможностями — добавим
+  const opportunities = data.nicheForecast?.opportunities ?? [];
+  opportunities.slice(0, 3).forEach(o => {
+    items.push({
+      priority: "opportunity",
+      title: "Рыночная возможность",
+      description: o,
+      source: "Прогноз ниши",
+    });
+  });
+
+  // Сортируем по приоритету
+  const order: Record<Priority, number> = { critical: 0, warning: 1, growth: 2, opportunity: 3 };
+  items.sort((a, b) => order[a.priority] - order[b.priority]);
+
+  const priorityMeta = (pr: Priority): { label: string; color: string; bg: string; icon: React.ReactNode } => {
+    switch (pr) {
+      case "critical":    return { label: "Срочно",       color: p.red,    bg: p.redBg,    icon: <AlertTriangle size={18} strokeWidth={2.2} /> };
+      case "warning":     return { label: "В этом месяце", color: p.orange, bg: p.orangeBg, icon: <AlertTriangle size={18} strokeWidth={2.2} /> };
+      case "growth":      return { label: "Для роста",    color: p.primary, bg: p.bgTabActive, icon: <TrendingUp size={18} strokeWidth={2.2} /> };
+      case "opportunity": return { label: "Возможность",  color: p.green,  bg: p.greenBg,  icon: <Star size={18} strokeWidth={2.2} /> };
+    }
+  };
+
+  // KPI наверху
+  const critical = items.filter(i => i.priority === "critical").length;
+  const warning = items.filter(i => i.priority === "warning").length;
+  const opportunity = items.filter(i => i.priority === "opportunity").length;
+  const growthCount = items.filter(i => i.priority === "growth").length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Hero — общее число дел */}
+      <div className="mr-card" style={{ padding: 32, animationDelay: "0ms" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 14 }}>Список действий на этот месяц</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 18, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 64, fontWeight: 800, color: p.textPrimary, lineHeight: 1, letterSpacing: -1.5 }}>
+            {items.length}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: p.textSecondary }}>
+            {items.length === 0 ? "всё сделано — компания в порядке" : "приоритетов в фокусе"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {critical > 0 && <KPIPill p={p} count={critical} label="срочно" color={p.red} bg={p.redBg} />}
+          {warning > 0 && <KPIPill p={p} count={warning} label="в работе" color={p.orange} bg={p.orangeBg} />}
+          {growthCount > 0 && <KPIPill p={p} count={growthCount} label="для роста" color={p.primary} bg={p.bgTabActive} />}
+          {opportunity > 0 && <KPIPill p={p} count={opportunity} label="возможностей" color={p.green} bg={p.greenBg} />}
+        </div>
+      </div>
+
+      {/* Список дел */}
+      {items.length === 0 ? (
+        <div className="mr-card" style={{ padding: 48, textAlign: "center", animationDelay: "100ms" }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 8 }}>Всё под контролем</div>
+          <div style={{ fontSize: 15, color: p.textSecondary, lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
+            На текущем анализе критичных задач не найдено. Запустите повторный анализ через
+            месяц — по мере изменения рынка появятся новые приоритеты.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {items.map((item, i) => {
+            const meta = priorityMeta(item.priority);
+            return (
+              <div key={i} className="mr-card" style={{
+                padding: 24,
+                animationDelay: `${i * 80}ms`,
+                borderLeft: `4px solid ${meta.color}`,
+              }}>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12,
+                    background: meta.bg, color: meta.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    {meta.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
+                        padding: "3px 10px", borderRadius: 6,
+                        background: meta.bg, color: meta.color,
+                      }}>
+                        {meta.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: p.textTertiary }}>· {item.source}</span>
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: p.textPrimary, marginBottom: 6, lineHeight: 1.35 }}>
+                      {item.title}
+                    </div>
+                    <div style={{ fontSize: 15, color: p.textSecondary, lineHeight: 1.55 }}>
+                      {item.description}
+                    </div>
+                    {item.effect && (
+                      <div style={{
+                        marginTop: 12, padding: "10px 14px", borderRadius: 10,
+                        background: p.bgSecondary, fontSize: 14, color: p.textPrimary,
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                        <ArrowRight size={15} style={{ color: p.green, flexShrink: 0 }} />
+                        <span><strong style={{ color: p.green }}>Эффект:</strong> {item.effect}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Footer note */}
+      <div className="mr-card" style={{ padding: 20, background: p.bgSecondary, animationDelay: `${items.length * 80}ms`, fontSize: 14, color: p.textSecondary, lineHeight: 1.55 }}>
+        💡 Этот список собирается автоматически на основе угроз, прогноза ниши и AI-рекомендаций.
+        После выполнения задач запустите новый анализ — часть пунктов исчезнет, на их место
+        придут новые.
+        {competitors.length === 0 && (
+          <> Добавьте конкурентов на платформе, чтобы получить ещё <strong>5–7 пунктов</strong> на основе сравнительного анализа.</>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KPIPill({ p: _p, count, label, color, bg }: { p: Palette; count: number; label: string; color: string; bg: string }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 8,
+      padding: "8px 14px", borderRadius: 24,
+      background: bg, color,
+      fontSize: 14, fontWeight: 700,
+    }}>
+      <span style={{ fontSize: 18, fontWeight: 800 }}>{count}</span>
+      {label}
+    </div>
+  );
+}
+
+// ─── ReputationTab ────────────────────────────────────────────────────────
+// Объединяет все рейтинги и отзывы в одно окно.
+// Hero — сводный рейтинг по картам, дальше — по площадкам, конкурентам и СММ.
+function ReputationTab({ p, data, competitors }: {
+  p: Palette;
+  data: AnalysisResult;
+  competitors: AnalysisResult[];
+}) {
+  const yandex = data.social?.yandexRating ?? 0;
+  const yandexReviews = data.social?.yandexReviews ?? 0;
+  const gis = data.social?.gisRating ?? 0;
+  const gisReviews = data.social?.gisReviews ?? 0;
+
+  // Сводный рейтинг по доступным площадкам
+  const ratings = [yandex, gis].filter(r => r > 0);
+  const avgRating = ratings.length > 0
+    ? Math.round((ratings.reduce((s, r) => s + r, 0) / ratings.length) * 10) / 10
+    : 0;
+  const totalReviews = yandexReviews + gisReviews;
+
+  // Сравнение с конкурентами
+  const compRatings = competitors
+    .map(c => {
+      const r = [c.social?.yandexRating, c.social?.gisRating].filter(x => x && x > 0) as number[];
+      const avg = r.length > 0 ? r.reduce((s, x) => s + x, 0) / r.length : 0;
+      return { name: c.company.name, rating: Math.round(avg * 10) / 10, reviews: (c.social?.yandexReviews ?? 0) + (c.social?.gisReviews ?? 0) };
+    })
+    .filter(c => c.rating > 0)
+    .sort((a, b) => b.rating - a.rating);
+
+  const myRank = compRatings.filter(c => c.rating > avgRating).length + 1;
+  const totalCompetitors = compRatings.length + 1;
+
+  const ratingColor = (r: number): string => r >= 4.5 ? p.green : r >= 4.0 ? p.primary : r >= 3.5 ? p.orange : p.red;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Hero: сводный рейтинг */}
+      <div className="mr-card" style={{ padding: 32, animationDelay: "0ms" }}>
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ flex: "1 1 280px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 14 }}>
+              Сводный рейтинг по картам
+            </div>
+            {avgRating > 0 ? (
+              <>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14 }}>
+                  <div style={{ fontSize: 72, fontWeight: 800, color: ratingColor(avgRating), lineHeight: 1, letterSpacing: -1.5 }}>
+                    {avgRating.toFixed(1)}
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: p.textTertiary }}>/ 5</div>
+                </div>
+                {/* Star bar */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star
+                      key={n}
+                      size={22}
+                      strokeWidth={1.5}
+                      fill={n <= Math.round(avgRating) ? ratingColor(avgRating) : "transparent"}
+                      color={n <= Math.round(avgRating) ? ratingColor(avgRating) : p.borderSecondary}
+                    />
+                  ))}
+                </div>
+                <div style={{ fontSize: 15, color: p.textSecondary }}>
+                  На основе <strong style={{ color: p.textPrimary }}>{totalReviews.toLocaleString("ru-RU")}</strong> отзывов
+                  {compRatings.length > 0 && <> · позиция <strong style={{ color: ratingColor(avgRating) }}>{myRank} из {totalCompetitors}</strong> в нише</>}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 16, color: p.textSecondary, lineHeight: 1.6 }}>
+                Рейтинги с карт ещё не собраны. Они подтянутся при следующем анализе.
+              </div>
+            )}
+          </div>
+          {avgRating > 0 && (
+            <div style={{ flex: "1 1 240px", borderLeft: `1px solid ${p.borderTertiary}`, paddingLeft: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: p.textTertiary, marginBottom: 14 }}>
+                Что это значит
+              </div>
+              <div style={{ fontSize: 16, color: p.textPrimary, lineHeight: 1.55 }}>
+                {avgRating >= 4.7 && <>🏆 <strong>Лидер по репутации.</strong> Используйте этот актив в отделе продаж — публикуйте отзывы на сайте и в соцсетях.</>}
+                {avgRating >= 4.3 && avgRating < 4.7 && <>👍 <strong>Сильная репутация.</strong> Чтобы стать лидером, активнее просите оставить отзыв довольных клиентов.</>}
+                {avgRating >= 3.8 && avgRating < 4.3 && <>⚠️ <strong>Средний уровень.</strong> Проанализируйте негативные отзывы — обычно есть 2-3 повторяющиеся проблемы. Их устранение даст +0.5 балла за месяц.</>}
+                {avgRating < 3.8 && <>🔥 <strong>Срочно работать с репутацией.</strong> Низкий рейтинг = потеря 30-50% потенциальных клиентов. Запустите регулярный сбор отзывов и работу с негативом.</>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* По площадкам */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+        <PlatformReviewCard p={p} icon="🔍" name="Яндекс Карты" rating={yandex} reviews={yandexReviews} delayMs={100} />
+        <PlatformReviewCard p={p} icon="🗺️" name="2ГИС" rating={gis} reviews={gisReviews} delayMs={200} />
+      </div>
+
+      {/* Сравнение с конкурентами */}
+      {compRatings.length > 0 && (
+        <div className="mr-card" style={{ padding: 28, animationDelay: "300ms" }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>
+            Репутация vs конкуренты
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Моя строка */}
+            <RatingRow p={p} name={`${data.company.name} (вы)`} rating={avgRating} reviews={totalReviews} maxRating={5} highlight />
+            {compRatings.slice(0, 5).map((c, i) => (
+              <RatingRow key={i} p={p} name={c.name} rating={c.rating} reviews={c.reviews} maxRating={5} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CTA — открыть полный модуль */}
+      <a
+        href="/?nav=reviews"
+        style={{
+          display: "block",
+          padding: "20px 24px",
+          background: p.bgSecondary,
+          border: `1px solid ${p.borderTertiary}`,
+          borderRadius: 14,
+          color: p.textPrimary,
+          textDecoration: "none",
+          transition: "background 150ms ease",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: p.bgTabActive, color: p.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <MessageSquare size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: p.textPrimary, marginBottom: 4 }}>
+              Открыть полный модуль отзывов
+            </div>
+            <div style={{ fontSize: 14, color: p.textSecondary }}>
+              AI-анализ тональности, повторяющиеся темы, шаблоны ответов на негатив
+            </div>
+          </div>
+          <ArrowRight size={20} style={{ color: p.primary, flexShrink: 0 }} />
+        </div>
+      </a>
+    </div>
+  );
+}
+
+function PlatformReviewCard({ p, icon, name, rating, reviews, delayMs }: {
+  p: Palette; icon: string; name: string; rating: number; reviews: number; delayMs: number;
+}) {
+  const ratingColor = rating >= 4.5 ? p.green : rating >= 4.0 ? p.primary : rating >= 3.5 ? p.orange : rating > 0 ? p.red : p.textTertiary;
+  return (
+    <div className="mr-card" style={{ padding: 24, animationDelay: `${delayMs}ms` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <span style={{ fontSize: 24 }}>{icon}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: p.textPrimary }}>{name}</span>
+      </div>
+      {rating > 0 ? (
+        <>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 40, fontWeight: 800, color: ratingColor, lineHeight: 1 }}>
+              {rating.toFixed(1)}
+            </span>
+            <span style={{ fontSize: 18, color: p.textTertiary, fontWeight: 600 }}>/ 5</span>
+          </div>
+          <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+            {[1, 2, 3, 4, 5].map(n => (
+              <Star key={n} size={16} fill={n <= Math.round(rating) ? ratingColor : "transparent"} color={n <= Math.round(rating) ? ratingColor : p.borderSecondary} strokeWidth={1.5} />
+            ))}
+          </div>
+          <div style={{ fontSize: 14, color: p.textSecondary }}>
+            {reviews.toLocaleString("ru-RU")} {reviews === 1 ? "отзыв" : reviews < 5 ? "отзыва" : "отзывов"}
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 14, color: p.textTertiary, padding: "20px 0" }}>
+          Нет данных по этой площадке
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RatingRow({ p, name, rating, reviews, maxRating, highlight }: {
+  p: Palette; name: string; rating: number; reviews: number; maxRating: number; highlight?: boolean;
+}) {
+  const color = rating >= 4.5 ? p.green : rating >= 4.0 ? p.primary : rating >= 3.5 ? p.orange : p.red;
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, gap: 12 }}>
+        <span style={{ fontSize: 15, fontWeight: highlight ? 800 : 600, color: highlight ? p.textPrimary : p.textSecondary }}>
+          {name}
+        </span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color }}>{rating.toFixed(1)}</span>
+          <span style={{ fontSize: 12, color: p.textTertiary }}>· {reviews.toLocaleString("ru-RU")} отз.</span>
+        </div>
+      </div>
+      <div style={{ height: 10, background: p.bgSecondary, borderRadius: 6 }}>
+        <div className="mr-bar-fill" style={{
+          width: `${(rating / maxRating) * 100}%`, height: "100%",
+          background: highlight ? `linear-gradient(90deg, ${color} 0%, ${p.primaryLight} 100%)` : color,
+          borderRadius: 6,
+        }} />
+      </div>
     </div>
   );
 }
@@ -1668,10 +2092,10 @@ function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisR
       {/* Поисковые системы — детали */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="mr-main-grid">
         {engineCards.map(({ label, icon, data: eng, color }) => (
-          <div key={label} className="mr-card" style={{ padding: 24, animationDelay: "400ms" }}>
+          <div key={label} className="mr-card" style={{ padding: 28, animationDelay: "400ms" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
               <span style={{ fontSize: 20 }}>{icon}</span>
-              <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>{label}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary }}>{label}</div>
               {!eng && <span style={{ marginLeft: "auto", fontSize: 11, padding: "2px 8px", borderRadius: 10, background: p.grayBg, color: p.gray }}>нет данных</span>}
             </div>
             {eng ? (
@@ -1724,12 +2148,12 @@ function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisR
       </div>
 
       {/* ИИ-поиск — статус присутствия */}
-      <div className="mr-card" style={{ padding: 24, animationDelay: "600ms" }}>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "600ms" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
           <Zap size={18} style={{ color: p.primary }} strokeWidth={2} />
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>Присутствие в ИИ-поиске</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary }}>Присутствие в ИИ-поиске</div>
         </div>
-        <div style={{ fontSize: 13, color: p.textSecondary, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, color: p.textSecondary, marginBottom: 16 }}>
           Современные LLM и ИИ-поисковики формируют ответы на основе авторитетности контента в сети.
           Ваша поисковая видимость напрямую влияет на то, упоминает ли ИИ вашу компанию.
         </div>
@@ -1756,8 +2180,8 @@ function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisR
 
       {/* Сравнение с конкурентами */}
       {compVisibility.length > 0 && (
-        <div className="mr-card" style={{ padding: 24, animationDelay: "800ms" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>ИИ-видимость vs конкуренты</div>
+        <div className="mr-card" style={{ padding: 28, animationDelay: "800ms" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary, marginBottom: 18 }}>ИИ-видимость vs конкуренты</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* My company */}
             <div>
@@ -1775,7 +2199,7 @@ function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisR
               return (
                 <div key={i}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, color: p.textSecondary }}>{cv.name}</span>
+                    <span style={{ fontSize: 14, color: p.textSecondary }}>{cv.name}</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: ahead ? p.red : p.green }}>{cv.score}</span>
                   </div>
                   <div style={{ height: 8, background: p.bgSecondary, borderRadius: 4 }}>
@@ -1789,10 +2213,10 @@ function AIVisibilityTab({ p, data, competitors }: { p: Palette; data: AnalysisR
       )}
 
       {/* Рекомендации по улучшению */}
-      <div className="mr-card" style={{ padding: 24, animationDelay: "1000ms" }}>
+      <div className="mr-card" style={{ padding: 28, animationDelay: "1000ms" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <Search size={16} style={{ color: p.primary }} strokeWidth={2} />
-          <div style={{ fontSize: 16, fontWeight: 800, color: p.textPrimary }}>Как улучшить ИИ-видимость</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: p.textPrimary }}>Как улучшить ИИ-видимость</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
           {[
@@ -1827,7 +2251,7 @@ function buildCSS(p: Palette): string {
   animation: mrFadeUp 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 .mr-metric {
-  padding: 18px 20px 20px;
+  padding: 24px 26px 26px;
   transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 .mr-metric:hover { transform: scale(1.015); border-color: ${p.borderSecondary}; box-shadow: 0 6px 18px rgba(15,17,35,0.06); }

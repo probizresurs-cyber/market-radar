@@ -632,22 +632,41 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
 }) {
   if (posts.length === 0) {
     return (
-      <div style={{ maxWidth: 700 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты</h1>
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)", marginTop: 20 }}>
-          <div style={{ marginBottom: 12, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Pencil size={48}/></div>
-          <div style={{ fontSize: 14, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
+      <div style={{ maxWidth: 720 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Все сгенерированные посты с картинками появятся здесь.</p>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Pencil size={36} strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет постов</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
+            Создайте первый пост — выберите идею в «Плане контента» или дайте AI-агенту собрать тренды по вашей нише.
+          </div>
+          <div style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+              План контента →
+            </a>
+            <a href="/?nav=content-trends" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--background)", color: "var(--foreground)", fontWeight: 700, fontSize: 15, textDecoration: "none", border: "1.5px solid var(--border)" }}>
+              Тренды по нише →
+            </a>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты ({posts.length})</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>Кликните на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", padding: "4px 12px", borderRadius: 20, background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
+          {posts.length}
+        </span>
+      </div>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Кликните на карточке, чтобы посмотреть и отредактировать.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 18 }}>
         {posts.map(post => (
           <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
         ))}

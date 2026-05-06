@@ -106,10 +106,14 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   const accent = "#a855f7";
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}><Smartphone size={22} /> Сторис-сценарии</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.5 }}>
+          <Smartphone size={26} /> Сторис-сценарии
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
+          Серии сторис с поэкранной структурой, стикерами и CTA. Фоны генерируются автоматически.
+        </p>
       </div>
 
       {/* Generator form */}
@@ -205,10 +209,15 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
       {/* Stories list */}
       {stories.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
           <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: "var(--muted-foreground)" }}><Smartphone size={40} /></div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, #a855f7 12%, transparent)", color: "#a855f7", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Smartphone size={36} strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет серий сторис</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
+            Заполните форму выше — серия из 5 слайдов с фонами появится через 30-60 секунд.
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
