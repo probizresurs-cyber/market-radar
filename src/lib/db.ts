@@ -310,4 +310,83 @@ export async function initDb() {
   await query(`
     ALTER TABLE partners ADD COLUMN IF NOT EXISTS client_price_amount INTEGER
   `);
+
+  // ─── Юр.реквизиты клиента (для счетов на оплату и актов) ────────────────────
+  // Тип клиента: individual (физлицо) / ip (ИП) / llc (ООО и пр. юрлица).
+  // Нужен для генерации счетов и актов: для физика — не выставляются.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS client_type TEXT
+    CHECK (client_type IN ('individual','ip','llc')) DEFAULT 'individual'`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_name TEXT`);          // "ООО Ромашка" / "ИП Иванов И.И."
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inn TEXT`);                  // 10 для ООО, 12 для ИП
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS kpp TEXT`);                  // только ООО
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ogrn TEXT`);                 // ОГРН (13) / ОГРНИП (15)
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_address TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_name TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_bik TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_account TEXT`);          // расчётный счёт
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_corr_account TEXT`);     // корр.счёт
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS director_name TEXT`);         // директор (только ООО)
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS director_position TEXT`);     // "Генеральный директор"
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_email TEXT`);         // отдельный e-mail для бухгалтерии (если != email)
+
+  // ─── Счета на оплату (по р/счёту) ───────────────────────────────────────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      invoice_number TEXT UNIQUE NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pricing_item_id TEXT REFERENCES pricing_items(id),
+      amount INTEGER NOT NULL,                      -- сумма в рублях
+      currency TEXT NOT NULL DEFAULT 'RUB',
+      vat_mode TEXT NOT NULL DEFAULT 'none' CHECK (vat_mode IN ('none','vat20','vat10','vat0')),
+      status TEXT NOT NULL DEFAULT 'draft'
+        CHECK (status IN ('draft','sent','paid','cancelled','expired')),
+      client_snapshot JSONB NOT NULL,               -- snapshot реквизитов клиента
+      vendor_snapshot JSONB NOT NULL,               -- snapshot реквизитов исполнителя
+      service_description TEXT NOT NULL,            -- "Услуги доступа к платформе MarketRadar (тариф Pro)"
+      service_period_start DATE,
+      service_period_end DATE,
+      payment_id TEXT REFERENCES payments(id),
+      due_date DATE NOT NULL,                        -- срок оплаты
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC)`);
+
+  // ─── Акты выполненных работ ─────────────────────────────────────────────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS acts (
+      id TEXT PRIMARY KEY,
+      act_number TEXT UNIQUE NOT NULL,
+      invoice_id TEXT REFERENCES invoices(id) ON DELETE SET NULL,
+      payment_id TEXT REFERENCES payments(id) ON DELETE SET NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'RUB',
+      vat_mode TEXT NOT NULL DEFAULT 'none',
+      service_description TEXT NOT NULL,
+      service_period_start DATE,
+      service_period_end DATE,
+      client_snapshot JSONB NOT NULL,
+      vendor_snapshot JSONB NOT NULL,
+      signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_acts_user_id ON acts(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_acts_invoice_id ON acts(invoice_id)`);
+
+  // Счётчики для номеров счетов / актов (по году)
+  await query(`
+    CREATE TABLE IF NOT EXISTS doc_counters (
+      kind TEXT NOT NULL,            -- 'invoice' | 'act'
+      year INTEGER NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (kind, year)
+    )
+  `);
 }
