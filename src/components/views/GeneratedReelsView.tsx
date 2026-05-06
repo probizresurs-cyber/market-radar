@@ -183,22 +183,35 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
 }) {
   if (reels.length === 0) {
     return (
-      <div style={{ maxWidth: 1100 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые видео</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Настройте аватара, потом сгенерируйте сценарии в «План контента»</p>
+      <div style={{ maxWidth: 1180 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые видео</h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Настройте аватара, потом сгенерируйте сценарии в «Плане контента».</p>
         <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎬</div>
-          <div style={{ fontSize: 14, color: "var(--foreground-secondary)" }}>Пока нет сценариев. Перейдите в «План контента» и нажмите «Создать сценарий рилса» на любой идее.</div>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>🎬</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет сценариев</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 24px" }}>
+            Перейдите в «План контента» и нажмите «Создать сценарий рилса» на любой идее.
+          </div>
+          <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+            План контента →
+          </a>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые видео ({reels.length})</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 24px", display: "flex", alignItems: "center", gap: 4 }}>Кликните <Edit2 size={12}/> для правки сценария и текста озвучки</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые видео</h1>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", padding: "4px 12px", borderRadius: 20, background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
+          {reels.length}
+        </span>
+      </div>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px", display: "flex", alignItems: "center", gap: 6 }}>
+        Кликните <Edit2 size={14}/> для правки сценария и текста озвучки.
+      </p>
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {reels.map(reel => (

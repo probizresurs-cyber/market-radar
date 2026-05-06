@@ -167,12 +167,339 @@ async function fetchCossa(query: string): Promise<TrendItem[]> {
     .slice(0, 8);
 }
 
+async function fetchReddit(query: string): Promise<TrendItem[]> {
+  // Reddit's public JSON API — sort by top (popularity) within last month
+  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&limit=25&t=month`;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA, "Accept": "application/json" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const posts = data?.data?.children ?? [];
+    return posts
+      .filter((p: { data: { score: number } }) => p.data.score > 1)
+      .sort((a: { data: { score: number } }, b: { data: { score: number } }) => b.data.score - a.data.score)
+      .map((p: { data: { title: string; url: string; subreddit_name_prefixed: string; created_utc: number; selftext: string; permalink: string; score: number } }) => ({
+        title: p.data.title,
+        link: p.data.url.startsWith("http") ? p.data.url : `https://reddit.com${p.data.permalink}`,
+        source: `Reddit / ${p.data.subreddit_name_prefixed}`,
+        publishedAt: new Date(p.data.created_utc * 1000).toISOString(),
+        description: p.data.selftext?.slice(0, 280) || undefined,
+      }))
+      .slice(0, 15);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRedditRu(query: string): Promise<TrendItem[]> {
+  // Russian subreddits — better coverage for RU topics
+  const subreddits = ["ru", "russia", "russianbusiness", "marketing"];
+  const allResults: TrendItem[] = [];
+  await Promise.all(
+    subreddits.map(async (sub) => {
+      const url = `https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(query)}&sort=new&restrict_sr=1&limit=8&t=month`;
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": UA, "Accept": "application/json" },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const posts = data?.data?.children ?? [];
+        for (const p of posts) {
+          if (p.data.score > 0) {
+            allResults.push({
+              title: p.data.title,
+              link: `https://reddit.com${p.data.permalink}`,
+              source: `Reddit / r/${sub}`,
+              publishedAt: new Date(p.data.created_utc * 1000).toISOString(),
+              description: p.data.selftext?.slice(0, 280) || undefined,
+            });
+          }
+        }
+      } catch { /* ignore */ }
+    })
+  );
+  return allResults.slice(0, 15);
+}
+
+
+async function fetchYouTubeTrends(query: string): Promise<TrendItem[]> {
+  // YouTube search page — parse video titles from initial data JSON blob
+  // sp=CAM%3D sorts by view count (popularity); EgIQAQ%3D%3D filters to videos only
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=CAMSAhAB`;
+  try {
+    const res = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    // Extract ytInitialData JSON
+    const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!match) return [];
+
+    let ytData: Record<string, unknown>;
+    try { ytData = JSON.parse(match[1]); } catch { return []; }
+
+    // Navigate to video results
+    const contents =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ytData as any)?.contents?.twoColumnSearchResultsRenderer?.primaryContents
+        ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents ?? [];
+
+    const items: TrendItem[] = [];
+    for (const item of contents) {
+      const vr = item?.videoRenderer;
+      if (!vr) continue;
+      const title = vr.title?.runs?.[0]?.text ?? "";
+      const videoId = vr.videoId ?? "";
+      if (!title || !videoId) continue;
+      const viewCount = vr.viewCountText?.simpleText ?? "";
+      const published = vr.publishedTimeText?.simpleText ?? "";
+      const descParts = [viewCount && `👁 ${viewCount}`, published && `📅 ${published}`].filter(Boolean);
+      items.push({
+        title,
+        link: `https://www.youtube.com/watch?v=${videoId}`,
+        source: "YouTube",
+        publishedAt: new Date().toISOString(), // exact date not in initial data
+        description: descParts.length > 0 ? descParts.join(" · ") : undefined,
+      });
+      if (items.length >= 15) break;
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+// ── VKontakte via VK API ──────────────────────────────────────────────────────
+// Free service token: vk.com/dev → My Apps → Create App (Standalone) → Settings → Service token
+// Set VK_ACCESS_TOKEN in .env to enable VK source.
+
+async function fetchVK(query: string): Promise<TrendItem[]> {
+  const token = process.env.VK_ACCESS_TOKEN;
+  if (!token) return [];
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      count: "50",   // fetch more to filter down to quality posts
+      access_token: token,
+      v: "5.131",
+      extended: "1",
+      fields: "name",
+    });
+    const res = await fetch(
+      `https://api.vk.com/method/newsfeed.search?${params}`,
+      {
+        headers: { "Accept": "application/json" },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    if (json?.error) return [];
+
+    const items: Array<Record<string, unknown>> = json?.response?.items ?? [];
+    if (!Array.isArray(items)) return [];
+
+    // Build lookup maps for owner names
+    const groups: Record<number, string> = {};
+    const profiles: Record<number, string> = {};
+    for (const g of (json?.response?.groups ?? []) as Array<Record<string, unknown>>) {
+      groups[-(Number(g.id))] = String(g.name ?? "");
+    }
+    for (const p of (json?.response?.profiles ?? []) as Array<Record<string, unknown>>) {
+      profiles[Number(p.id)] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+    }
+
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    return items
+      .map(item => {
+        const ownerId = Number(item.owner_id ?? item.from_id ?? 0);
+        const postId = Number(item.id ?? 0);
+        const text = String(item.text ?? "").trim();
+        const date = Number(item.date ?? 0);
+        const likes = Number((item.likes as Record<string, unknown>)?.count ?? 0);
+        const reposts = Number((item.reposts as Record<string, unknown>)?.count ?? 0);
+        const comments = Number((item.comments as Record<string, unknown>)?.count ?? 0);
+        const engagement = likes + reposts * 2 + comments;
+        const author = groups[ownerId] ?? profiles[ownerId] ?? `id${Math.abs(ownerId)}`;
+        return { text, ownerId, postId, date, engagement, author };
+      })
+      // Filter: must have meaningful text and contain at least one query word
+      .filter(p =>
+        p.text.length > 30 &&
+        queryWords.some(w => p.text.toLowerCase().includes(w))
+      )
+      // Sort by engagement (likes + reposts + comments)
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 20)
+      .map(p => ({
+        title: p.text.slice(0, 200),
+        link: `https://vk.com/wall${p.ownerId}_${p.postId}`,
+        source: "ВКонтакте",
+        publishedAt: p.date ? new Date(p.date * 1000).toISOString() : new Date().toISOString(),
+        description: p.author || undefined,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+// ── TikTok via RapidAPI tiktok-scraper7 ──────────────────────────────────────
+// Sign up at rapidapi.com, subscribe to "Tiktok Scraper" (tiktok-scraper7)
+// Set RAPIDAPI_KEY in .env to enable TikTok source.
+
+async function fetchTikTok(query: string): Promise<TrendItem[]> {
+  const key = process.env.RAPIDAPI_KEY;
+  if (!key) return [];
+  try {
+    const params = new URLSearchParams({
+      keywords: query,
+      count: "20",
+      cursor: "0",
+      region: "",
+      priority_region: "",
+      publish_time: "0",
+      sort_type: "1", // 1 = most liked
+    });
+    const res = await fetch(
+      `https://tiktok-scraper7.p.rapidapi.com/feed/search?${params}`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": key,
+          "x-rapidapi-host": "tiktok-scraper7.p.rapidapi.com",
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+
+    // tiktok-scraper7 schema: { data: { videos: [...] } }
+    const videos: Array<Record<string, unknown>> =
+      json?.data?.videos ?? json?.data ?? [];
+    if (!Array.isArray(videos)) return [];
+
+    return videos
+      .map(v => {
+        const desc = String(v.title ?? v.desc ?? "");
+        const author = String(
+          (v.author as Record<string, unknown>)?.unique_id ??
+          (v.author as Record<string, unknown>)?.nickname ?? ""
+        );
+        const videoId = String(v.video_id ?? v.id ?? "");
+        const shareUrl = String(v.share_url ?? (videoId ? `https://www.tiktok.com/video/${videoId}` : ""));
+        const createTime = Number(v.create_time ?? 0);
+        return {
+          title: desc.slice(0, 200) || "TikTok видео",
+          link: shareUrl,
+          source: "TikTok",
+          publishedAt: createTime
+            ? new Date(createTime * 1000).toISOString()
+            : new Date().toISOString(),
+          description: author ? `@${author}` : undefined,
+        };
+      })
+      .filter(i => i.link && i.link.startsWith("http"))
+      .slice(0, 15);
+  } catch {
+    return [];
+  }
+}
+
+// ── Instagram via RapidAPI instagram-scraper2 ────────────────────────────────
+// Subscribe at rapidapi.com — same RAPIDAPI_KEY as TikTok
+// https://rapidapi.com/ugoBest/api/instagram-scraper2
+
+async function fetchInstagram(query: string): Promise<TrendItem[]> {
+  const key = process.env.RAPIDAPI_KEY;
+  if (!key) return [];
+  try {
+    const hashtag = query.trim().split(/\s+/)[0].replace(/[^a-zа-яё0-9]/gi, "").toLowerCase();
+    if (!hashtag) return [];
+
+    // instagram-scraper2 primary endpoint for hashtag posts
+    const res = await fetch(
+      `https://instagram-scraper2.p.rapidapi.com/hashtag?name=${encodeURIComponent(hashtag)}`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": key,
+          "x-rapidapi-host": "instagram-scraper2.p.rapidapi.com",
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+
+    // instagram-scraper2 schema: { data: { top_posts: [...], recent_posts: [...] } }
+    const items: Array<Record<string, unknown>> =
+      json?.data?.top_posts ??
+      json?.data?.recent_posts ??
+      json?.data?.items ??
+      json?.data ??
+      json?.top_posts ??
+      json?.recent_posts ??
+      json?.items ??
+      [];
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .map(item => {
+        const caption = String(
+          (item.caption as Record<string, unknown>)?.text ??
+          item.caption ?? item.text ?? item.description ?? ""
+        );
+        const code = String(item.code ?? item.shortcode ?? "");
+        const link = code
+          ? `https://www.instagram.com/p/${code}/`
+          : String(item.url ?? item.link ?? "");
+        const username = String(
+          (item.user as Record<string, unknown>)?.username ??
+          (item.owner as Record<string, unknown>)?.username ??
+          item.username ?? ""
+        );
+        const takenAt = Number(item.taken_at ?? item.timestamp ?? item.created_at ?? 0);
+        return {
+          title: caption.slice(0, 200) || "Instagram пост",
+          link,
+          source: "Instagram",
+          publishedAt: takenAt ? new Date(takenAt * 1000).toISOString() : new Date().toISOString(),
+          description: username ? `@${username}` : undefined,
+        };
+      })
+      .filter(i => i.link && i.link.startsWith("http"))
+      .slice(0, 15);
+  } catch {
+    return [];
+  }
+}
+
 const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   yandex_news: fetchYandexNews,
   google_news_en: fetchGoogleNewsEn,
   habr: fetchHabr,
   vc: fetchVcRu,
   cossa: fetchCossa,
+  reddit: fetchReddit,
+  reddit_ru: fetchRedditRu,
+  youtube: fetchYouTubeTrends,
+  vk: fetchVK,
+  tiktok: fetchTikTok,
+  instagram: fetchInstagram,
 };
 
 export async function POST(req: Request) {

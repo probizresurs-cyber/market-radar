@@ -17,7 +17,125 @@ import { PageSpeedWidget } from "@/components/ui/PageSpeedWidget";
 import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
 import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
 import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
-import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart } from "lucide-react";
+import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart, ScanLine, CheckCircle, Info } from "lucide-react";
+
+// ─── Tech Audit Dashboard Block ───────────────────────────────────────────────
+// Shows only what's NOT already on the dashboard:
+// title/meta quality, H1-H3, image alt coverage, warnings.
+// Excludes: PageSpeed scores, SEO positions, load time (already shown).
+
+function TechAuditDashboardBlock({ url }: { url: string }) {
+  const [loading, setLoading] = React.useState(false);
+  const [ran, setRan] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [report, setReport] = React.useState<null | {
+    title: { value: string; length: number; ok: boolean };
+    metaDescription: { value: string; length: number; ok: boolean };
+    headings: { h1: { count: number; values: string[]; ok: boolean }; h2: { count: number }; h3: { count: number } };
+    images: { total: number; withAlt: number; altCoverage: number };
+    words: { total: number };
+    contentRatio: number;
+    meta: { canonical?: string; viewport: boolean; ogTags: number };
+    warnings: { severity: "error" | "warning" | "info"; message: string }[];
+  }>(null);
+
+  const run = async () => {
+    if (!url) return;
+    setLoading(true); setErr(""); setRan(true);
+    try {
+      const res = await fetch("/api/seo/tech-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (data.ok) setReport(data.report);
+      else setErr(data.error || "Ошибка аудита");
+    } catch (e) { setErr(String(e)); }
+    finally { setLoading(false); }
+  };
+
+  const SEV_COLOR: Record<string, string> = { error: "var(--destructive)", warning: "#f59e0b", info: "var(--primary)" };
+
+  if (!ran) {
+    return (
+      <button
+        onClick={run}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "1px dashed var(--border)", background: "transparent", color: "var(--muted-foreground)", fontSize: 13, cursor: "pointer", width: "100%" }}
+      >
+        <ScanLine size={15} /> Запустить тех-аудит страницы {url}
+      </button>
+    );
+  }
+
+  if (loading) return <div style={{ color: "var(--muted-foreground)", fontSize: 13, padding: "12px 0", display: "flex", gap: 8, alignItems: "center" }}><ScanLine size={14} style={{ animation: "spin 1s linear infinite" }} /> Анализируем…</div>;
+  if (err) return <div style={{ color: "var(--destructive)", fontSize: 13 }}>{err} <button onClick={run} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: 12 }}>Повторить</button></div>;
+  if (!report) return null;
+
+  const errors = report.warnings.filter(w => w.severity === "error");
+  const warnings = report.warnings.filter(w => w.severity === "warning");
+  const infos = report.warnings.filter(w => w.severity === "info");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Score pills */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {[
+          { label: "Title", ok: report.title.ok, detail: `${report.title.length} симв.` },
+          { label: "Meta desc", ok: report.metaDescription.ok, detail: `${report.metaDescription.length} симв.` },
+          { label: "H1", ok: report.headings.h1.ok, detail: `${report.headings.h1.count} шт.` },
+          { label: "H2", ok: report.headings.h2.count >= 2, detail: `${report.headings.h2.count} шт.` },
+          { label: "Alt картинок", ok: report.images.altCoverage >= 80, detail: `${report.images.altCoverage}%` },
+          { label: "Viewport", ok: report.meta.viewport, detail: report.meta.viewport ? "есть" : "нет" },
+          { label: "Canonical", ok: !!report.meta.canonical, detail: report.meta.canonical ? "есть" : "нет" },
+          { label: "OG теги", ok: report.meta.ogTags >= 3, detail: `${report.meta.ogTags} шт.` },
+        ].map(({ label, ok, detail }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: ok ? "color-mix(in oklch, var(--success) 12%, transparent)" : "color-mix(in oklch, var(--warning) 12%, transparent)", border: `1px solid ${ok ? "color-mix(in oklch, var(--success) 25%, transparent)" : "color-mix(in oklch, var(--warning) 25%, transparent)"}`, color: ok ? "var(--success)" : "#f59e0b" }}>
+            {ok ? <CheckCircle size={11} /> : <AlertTriangle size={11} />} {label}: {detail}
+          </div>
+        ))}
+      </div>
+
+      {/* Title value */}
+      {report.title.value && (
+        <div style={{ fontSize: 12, color: "var(--foreground-secondary)", background: "var(--muted)", padding: "7px 12px", borderRadius: 8 }}>
+          <span style={{ fontWeight: 600, color: "var(--muted-foreground)", marginRight: 6 }}>Title:</span>{report.title.value}
+        </div>
+      )}
+
+      {/* Warnings (errors first) */}
+      {report.warnings.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {errors.length > 0 && <span style={{ color: "var(--destructive)" }}>{errors.length} ошибки </span>}
+            {warnings.length > 0 && <span style={{ color: "#f59e0b" }}>{warnings.length} предупреждения </span>}
+            {infos.length > 0 && <span style={{ color: "var(--primary)" }}>{infos.length} рекомендации</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {[...errors, ...warnings, ...infos].slice(0, 6).map((w, i) => (
+              <div key={i} style={{ display: "flex", gap: 7, alignItems: "flex-start", fontSize: 12, color: "var(--foreground)", padding: "6px 10px", borderRadius: 7, background: `color-mix(in oklch, ${SEV_COLOR[w.severity]} 7%, transparent)`, border: `1px solid color-mix(in oklch, ${SEV_COLOR[w.severity]} 20%, transparent)` }}>
+                <span style={{ color: SEV_COLOR[w.severity], marginTop: 1, flexShrink: 0 }}>
+                  {w.severity === "info" ? <Info size={12} /> : <AlertTriangle size={12} />}
+                </span>
+                {w.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {report.warnings.length === 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "var(--success)" }}>
+          <CheckCircle size={15} /> Страница проходит все SEO-проверки
+        </div>
+      )}
+
+      <button onClick={run} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 11, textAlign: "left", display: "flex", gap: 5, alignItems: "center" }}>
+        <RefreshCw size={11} /> Обновить аудит
+      </button>
+    </div>
+  );
+}
 
 export function DashboardView({ c, data, competitors, onUpdateData }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void }) {
   const { company, recommendations } = data;
@@ -390,6 +508,12 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
       <CollapsibleSection c={c} title="SEO детали (Keys.so)" icon={<FileText size={16} strokeWidth={1.75} />} defaultOpen={false}>
         <KeysoSiteInsightsBlock domain={data.company.url} />
       </CollapsibleSection>
+
+      {data.company?.url && (
+        <CollapsibleSection c={c} title="Тех-аудит страницы" icon={<ScanLine size={16} strokeWidth={1.75} />} defaultOpen={false}>
+          <TechAuditDashboardBlock url={data.company.url} />
+        </CollapsibleSection>
+      )}
 
       {/* ── Ключевые слова ── */}
       {(data.seo?.positions ?? []).length > 0 && (

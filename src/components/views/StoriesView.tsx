@@ -36,13 +36,66 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
       });
       const json = await res.json() as { ok: boolean; data?: GeneratedStory; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      onAdd(json.data!);
+      const story = json.data!;
+      // Сначала добавляем серию в список — пользователь сразу видит превью с текстом.
+      onAdd(story);
       setBrief("");
+
+      // Затем параллельно генерируем фоны для всех слайдов в фоне.
+      // Каждый успешный bg прокидываем через onUpdate, чтобы UI прогрессивно обновлялся.
+      void autoGenerateBackgrounds(story);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setGenerating(false);
     }
+  };
+
+  // Параллельная авто-генерация фонов для всех слайдов серии.
+  // Не дожидаемся каждого — каждый завершившийся obновляет свою карточку.
+  const autoGenerateBackgrounds = async (story: GeneratedStory) => {
+    const brandVisual = brandBook?.visualStyle?.trim();
+    const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+
+    // Локальная копия слайдов — каждый промис мутирует именно её и шлёт onUpdate.
+    let working = story;
+
+    await Promise.all(story.slides.map(async (slide, i) => {
+      try {
+        const prompt = [
+          `Story background for ${story.platform}: ${slide.background}.`,
+          slide.visualNote && `Mood: ${slide.visualNote}.`,
+          brandVisual && `Brand visual style: ${brandVisual}.`,
+          brandColors,
+          "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
+        ].filter(Boolean).join(" ");
+
+        const res = await fetch("/api/generate-image-anthropic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            postText: prompt,
+            format: "сторис",
+            platform: story.platform,
+            brandColors: brandBook?.colors ?? [],
+            brandStyle: brandBook?.visualStyle ?? "",
+          }),
+        });
+        const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
+        if (!j.ok || !j.data?.imageUrl) return;
+
+        // Мерджим картинку в i-й слайд и пушим обновление.
+        working = {
+          ...working,
+          slides: working.slides.map((s, idx) =>
+            idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl } : s,
+          ),
+        };
+        onUpdate(working);
+      } catch {
+        // Тихий отказ — пользователь сможет дотыкнуть «Перегенерировать» вручную.
+      }
+    }));
   };
 
   const inputStyle: React.CSSProperties = {
@@ -53,10 +106,14 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   const accent = "#a855f7";
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}><Smartphone size={22} /> Сторис-сценарии</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Серии сторис с поэкранной структурой, стикерами и CTA</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.5 }}>
+          <Smartphone size={26} /> Сторис-сценарии
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
+          Серии сторис с поэкранной структурой, стикерами и CTA. Фоны генерируются автоматически.
+        </p>
       </div>
 
       {/* Generator form */}
@@ -152,10 +209,15 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
       {/* Stories list */}
       {stories.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
           <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: "var(--muted-foreground)" }}><Smartphone size={40} /></div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных сторис. Заполните форму выше и нажмите «Создать».</div>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, #a855f7 12%, transparent)", color: "#a855f7", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Smartphone size={36} strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет серий сторис</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
+            Заполните форму выше — серия из 5 слайдов с фонами появится через 30-60 секунд.
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -198,10 +260,16 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
         "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
       ].filter(Boolean).join(" ");
 
-      const res = await fetch("/api/generate-image", {
+      const res = await fetch("/api/generate-image-anthropic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          postText: prompt,
+          format: "сторис",
+          platform: story.platform,
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
       });
       const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");

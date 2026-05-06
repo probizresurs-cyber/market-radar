@@ -52,10 +52,14 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
   const accent = "#ec4899";
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}><Layers size={22} /> Карусель-посты</h1>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Серии Instagram-каруселей 6–10 слайдов с обложкой, контентом и CTA</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.5 }}>
+          <Layers size={26} /> Карусель-посты
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
+          Серии Instagram-каруселей: 6–10 слайдов с обложкой, контентом и CTA. Фоны генерируются по запросу.
+        </p>
       </div>
 
       {/* Generator form */}
@@ -199,10 +203,17 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
         "Square 1:1 format. Clean, modern, space for text overlay at top/center.",
       ].filter(Boolean).join(" ");
 
-      const res = await fetch("/api/generate-image", {
+      const res = await fetch("/api/generate-image-anthropic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          postText: prompt,
+          hook: slide.headlineText,
+          format: "карусель",
+          platform: carousel.platform,
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
       });
       const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { PenLine, Plus, Key, X, FileText, Loader2 } from "lucide-react";
+import { PenLine, Plus, Key, X, FileText, Loader2, Network, HelpCircle, ScanLine, Copy, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronRight } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
@@ -1249,6 +1249,481 @@ function SEONewArticleView({
   );
 }
 
+// ─── Keyword Expand View ─────────────────────────────────────────────────────
+
+function SEOKeywordExpandView({ analysis, onBack }: { analysis: AnalysisResult | null; onBack: () => void }) {
+  const [seed, setSeed] = useState("");
+  const [niche, setNiche] = useState(analysis?.company?.description?.slice(0, 80) || "");
+  const [count, setCount] = useState(80);
+  const [lang, setLang] = useState<"ru" | "en">("ru");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState<{
+    seed: string; totalCount: number;
+    clusters: Record<string, string[]>;
+    modifiers: Record<string, string[]>;
+  } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [openCluster, setOpenCluster] = useState<string | null>(null);
+
+  const run = async () => {
+    if (!seed.trim()) return;
+    setLoading(true); setErr(""); setResult(null);
+    try {
+      const res = await fetch("/api/seo/keyword-expand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: seed.trim(), niche: niche.trim(), count, lang }),
+      });
+      const data = await res.json();
+      if (data.ok) setResult(data.result);
+      else setErr(data.error || "Ошибка");
+    } catch (e) { setErr(String(e)); }
+    finally { setLoading(false); }
+  };
+
+  const copyGroup = (label: string, words: string[]) => {
+    navigator.clipboard?.writeText(words.join("\n"));
+    setCopied(label); setTimeout(() => setCopied(null), 1500);
+  };
+
+  const CLUSTER_LABELS: Record<string, string> = {
+    informational: "📚 Информационные",
+    commercial: "🛒 Коммерческие",
+    transactional: "💰 Транзакционные",
+    navigational: "🧭 Навигационные",
+    longTail: "🎯 Длинный хвост",
+    questions: "❓ Вопросы",
+  };
+  const MOD_LABELS: Record<string, string> = {
+    geography: "📍 Гео-модификаторы",
+    audience: "👥 Аудитория",
+    quality: "⭐ Качество",
+    price: "💵 Цена",
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 20, padding: 0 }}>←</button>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>
+            <Network size={22} /> Расширить семантику
+          </div>
+          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>NebulaKeyword-стиль: до 150 запросов по 10 кластерам интентов</div>
+        </div>
+      </div>
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", display: "block", marginBottom: 6 }}>Сид-ключ *</label>
+            <input className="ds-input" placeholder="Например: CRM для бизнеса" value={seed}
+              onChange={e => setSeed(e.target.value)} onKeyDown={e => e.key === "Enter" && run()} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", display: "block", marginBottom: 6 }}>Ниша (контекст)</label>
+            <input className="ds-input" placeholder="B2B SaaS, Россия" value={niche} onChange={e => setNiche(e.target.value)} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", display: "block", marginBottom: 6 }}>Кол-во ({count})</label>
+            <input type="range" min={30} max={150} step={10} value={count} onChange={e => setCount(+e.target.value)}
+              style={{ width: 120, accentColor: "var(--primary)" }} />
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["ru", "en"] as const).map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                border: "1px solid var(--border)", cursor: "pointer",
+                background: lang === l ? "var(--primary)" : "var(--card)",
+                color: lang === l ? "var(--primary-foreground)" : "var(--foreground)",
+              }}>{l.toUpperCase()}</button>
+            ))}
+          </div>
+          <button className="ds-btn ds-btn-primary" onClick={run} disabled={loading || !seed.trim()} style={{ marginLeft: "auto" }}>
+            {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Генерируем…</> : <><Network size={14} /> Расширить</>}
+          </button>
+        </div>
+        {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
+      </div>
+
+      {result && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, color: "var(--foreground)", fontSize: 16 }}>
+              {result.totalCount} ключевых слов для «{result.seed}»
+            </div>
+            <button className="ds-btn ds-btn-secondary" style={{ fontSize: 12 }} onClick={() => {
+              const all = Object.values(result.clusters).flat().concat(Object.values(result.modifiers).flat());
+              navigator.clipboard?.writeText(all.join("\n"));
+              setCopied("all"); setTimeout(() => setCopied(null), 1500);
+            }}>
+              {copied === "all" ? <><CheckCircle size={13}/> Скопировано</> : <><Copy size={13}/> Копировать всё</>}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {Object.entries(result.clusters).map(([key, words]) => {
+              const label = CLUSTER_LABELS[key] || key;
+              const isOpen = openCluster === key;
+              return (
+                <div key={key} className="ds-card" style={{ padding: 0, overflow: "hidden" }}>
+                  <button onClick={() => setOpenCluster(isOpen ? null : key)} style={{
+                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px", background: "none", border: "none", cursor: "pointer",
+                    color: "var(--foreground)",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {isOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--muted)", borderRadius: 10, padding: "1px 8px" }}>{words.length}</span>
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); copyGroup(key, words); }} className="ds-btn ds-btn-secondary" style={{ fontSize: 11, height: 26, padding: "0 10px" }}>
+                      {copied === key ? "✓" : <Copy size={11}/>}
+                    </button>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "0 16px 14px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {words.map((w, i) => (
+                        <span key={i} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "var(--muted)", color: "var(--foreground)", cursor: "pointer" }}
+                          onClick={() => { navigator.clipboard?.writeText(w); }}>{w}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginTop: 8, marginBottom: 4 }}>Модификаторы</div>
+            {Object.entries(result.modifiers).map(([key, words]) => (
+              words.length > 0 && (
+                <div key={key} className="ds-card" style={{ padding: "10px 16px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 8 }}>{MOD_LABELS[key] || key}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {words.map((w, i) => (
+                      <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--muted)", color: "var(--foreground)" }}>{w}</span>
+                    ))}
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PAA Questions View ───────────────────────────────────────────────────────
+
+function SEOPAAView({ analysis, onBack }: { analysis: AnalysisResult | null; onBack: () => void }) {
+  const [keyword, setKeyword] = useState("");
+  const [lang, setLang] = useState<"ru" | "en">("ru");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState<{
+    keyword: string;
+    autocomplete: string[];
+    questions: string[];
+    related: string[];
+    alphabet: { letter: string; suggestions: string[] }[];
+  } | null>(null);
+  const [tab, setTab] = useState<"questions" | "autocomplete" | "related" | "alphabet">("questions");
+  const [copied, setCopied] = useState(false);
+
+  const defaultKeyword = analysis?.company?.name || "";
+
+  const run = async () => {
+    const kw = keyword.trim() || defaultKeyword;
+    if (!kw) return;
+    setLoading(true); setErr(""); setResult(null);
+    try {
+      const res = await fetch("/api/seo/paa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: kw, lang }),
+      });
+      const data = await res.json();
+      if (data.ok) setResult(data.result);
+      else setErr(data.error || "Ошибка");
+    } catch (e) { setErr(String(e)); }
+    finally { setLoading(false); }
+  };
+
+  const copyList = (items: string[]) => {
+    navigator.clipboard?.writeText(items.join("\n"));
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+
+  const TABS = [
+    { id: "questions" as const, label: "Вопросы", count: result?.questions.length },
+    { id: "autocomplete" as const, label: "Автодополнение", count: result?.autocomplete.length },
+    { id: "related" as const, label: "Похожие", count: result?.related.length },
+    { id: "alphabet" as const, label: "A-Z", count: result?.alphabet.length },
+  ];
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 20, padding: 0 }}>←</button>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>
+            <HelpCircle size={22} /> Что спрашивают
+          </div>
+          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>People Also Ask — автодополнение Google + Yandex, вопросы, A-Z расширение</div>
+        </div>
+      </div>
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          <input className="ds-input" style={{ flex: 1 }}
+            placeholder={defaultKeyword ? `По умолчанию: ${defaultKeyword}` : "Введите ключевое слово"}
+            value={keyword} onChange={e => setKeyword(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && run()} />
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["ru", "en"] as const).map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                border: "1px solid var(--border)", cursor: "pointer",
+                background: lang === l ? "var(--primary)" : "var(--card)",
+                color: lang === l ? "var(--primary-foreground)" : "var(--foreground)",
+              }}>{l.toUpperCase()}</button>
+            ))}
+          </div>
+          <button className="ds-btn ds-btn-primary" onClick={run} disabled={loading}>
+            {loading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <HelpCircle size={14} />}
+            {loading ? " Ищем…" : " Найти"}
+          </button>
+        </div>
+        {err && <div style={{ color: "var(--destructive)", fontSize: 12 }}>{err}</div>}
+      </div>
+
+      {result && (
+        <div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{
+                padding: "8px 16px", borderRadius: "8px 8px 0 0", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: "1px solid var(--border)", borderBottom: tab === t.id ? "1px solid var(--card)" : "1px solid var(--border)",
+                background: tab === t.id ? "var(--card)" : "var(--muted)", color: tab === t.id ? "var(--primary)" : "var(--muted-foreground)",
+                marginBottom: -1,
+              }}>
+                {t.label} {t.count != null && <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 4 }}>{t.count}</span>}
+              </button>
+            ))}
+          </div>
+
+          <div className="ds-card">
+            {tab !== "alphabet" && (
+              <>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                  <button className="ds-btn ds-btn-secondary" style={{ fontSize: 11, height: 28 }}
+                    onClick={() => copyList(tab === "questions" ? result.questions : tab === "autocomplete" ? result.autocomplete : result.related)}>
+                    {copied ? <><CheckCircle size={12}/> Скопировано</> : <><Copy size={12}/> Копировать</>}
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(tab === "questions" ? result.questions : tab === "autocomplete" ? result.autocomplete : result.related).map((item, i) => (
+                    <div key={i} style={{ fontSize: 13, padding: "7px 12px", borderRadius: 8, background: "var(--muted)", color: "var(--foreground)", cursor: "pointer" }}
+                      onClick={() => navigator.clipboard?.writeText(item)}>
+                      {item}
+                    </div>
+                  ))}
+                  {(tab === "questions" ? result.questions : tab === "autocomplete" ? result.autocomplete : result.related).length === 0 && (
+                    <div style={{ color: "var(--muted-foreground)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>Ничего не найдено</div>
+                  )}
+                </div>
+              </>
+            )}
+            {tab === "alphabet" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+                {result.alphabet.map(({ letter, suggestions }) => (
+                  <div key={letter} style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "var(--primary)", marginBottom: 6 }}>{letter.toUpperCase()}</div>
+                    {suggestions.map((s, i) => (
+                      <div key={i} style={{ fontSize: 11, color: "var(--foreground-secondary)", cursor: "pointer", padding: "2px 0" }}
+                        onClick={() => navigator.clipboard?.writeText(s)}>{s}</div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tech Audit View ─────────────────────────────────────────────────────────
+
+function SEOTechAuditView({ analysis, onBack }: { analysis: AnalysisResult | null; onBack: () => void }) {
+  const [url, setUrl] = useState(analysis?.company?.url || "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [report, setReport] = useState<{
+    url: string; finalUrl: string; fetchedAt: string; status: number;
+    loadTimeMs: number; contentBytes: number; textBytes: number; contentRatio: number;
+    language?: string; charset?: string;
+    title: { value: string; length: number; ok: boolean };
+    metaDescription: { value: string; length: number; ok: boolean };
+    headings: { h1: { count: number; values: string[]; ok: boolean }; h2: { count: number; values: string[] }; h3: { count: number; values: string[] }; h4plus: number };
+    images: { total: number; withAlt: number; withoutAlt: number; altCoverage: number };
+    links: { internal: number; external: number; nofollow: number; externalDomains: string[] };
+    words: { total: number; unique: number; avgWordLength: number; topKeywords: { word: string; count: number; density: number }[] };
+    meta: { canonical?: string; robots?: string; viewport: boolean; hreflang: string[]; ogTags: number; twitterTags: number };
+    warnings: { severity: "error" | "warning" | "info"; message: string }[];
+  } | null>(null);
+
+  const run = async () => {
+    if (!url.trim()) return;
+    setLoading(true); setErr(""); setReport(null);
+    try {
+      const res = await fetch("/api/seo/tech-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) setReport(data.report);
+      else setErr(data.error || "Ошибка");
+    } catch (e) { setErr(String(e)); }
+    finally { setLoading(false); }
+  };
+
+  const SEV_COLOR = { error: "var(--destructive)", warning: "#f59e0b", info: "var(--primary)" };
+  const SEV_ICON = { error: <AlertTriangle size={13}/>, warning: <AlertTriangle size={13}/>, info: <Info size={13}/> };
+
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 20, padding: 0 }}>←</button>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>
+            <ScanLine size={22} /> Тех-аудит страницы
+          </div>
+          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>Проверка тайтла, мета, заголовков, картинок, ссылок, ключевых слов</div>
+        </div>
+      </div>
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input className="ds-input" style={{ flex: 1 }} placeholder="https://example.com/page"
+            value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === "Enter" && run()} />
+          <button className="ds-btn ds-btn-primary" onClick={run} disabled={loading || !url.trim()}>
+            {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }}/> Анализируем…</> : <><ScanLine size={14}/> Аудит</>}
+          </button>
+        </div>
+        {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 8 }}>{err}</div>}
+      </div>
+
+      {report && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Quick stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+            {[
+              { label: "HTTP статус", value: report.status, color: report.status === 200 ? "var(--success)" : "var(--destructive)" },
+              { label: "Загрузка", value: `${(report.loadTimeMs / 1000).toFixed(1)}с`, color: report.loadTimeMs > 3000 ? "var(--destructive)" : "var(--success)" },
+              { label: "Размер", value: `${(report.contentBytes / 1024).toFixed(0)} KB` },
+              { label: "Контент/код", value: `${report.contentRatio}%`, color: report.contentRatio < 10 ? "var(--warning)" : "var(--success)" },
+              { label: "Слов", value: fmt(report.words.total), color: report.words.total < 300 ? "var(--warning)" : "var(--foreground)" },
+              { label: "Картинок", value: report.images.total },
+              { label: "Alt покрытие", value: `${report.images.altCoverage}%`, color: report.images.altCoverage < 80 ? "var(--warning)" : "var(--success)" },
+              { label: "Внут. ссылки", value: report.links.internal },
+              { label: "Внеш. ссылки", value: report.links.external },
+              { label: "OG теги", value: report.meta.ogTags },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "var(--card)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: color || "var(--foreground)" }}>{value}</div>
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Warnings */}
+          {report.warnings.length > 0 && (
+            <div className="ds-card">
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--foreground)" }}>
+                Проблемы и рекомендации ({report.warnings.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {report.warnings.map((w, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 12px", borderRadius: 8, background: `color-mix(in oklch, ${SEV_COLOR[w.severity]} 8%, transparent)`, border: `1px solid color-mix(in oklch, ${SEV_COLOR[w.severity]} 25%, transparent)` }}>
+                    <span style={{ color: SEV_COLOR[w.severity], marginTop: 1, flexShrink: 0 }}>{SEV_ICON[w.severity]}</span>
+                    <span style={{ fontSize: 12, color: "var(--foreground)", lineHeight: 1.5 }}>{w.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Title & Meta */}
+          <div className="ds-card">
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Title & Meta description</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>TITLE</span>
+                <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 8, background: report.title.ok ? "var(--success)20" : "var(--warning)20", color: report.title.ok ? "var(--success)" : "var(--warning)", fontWeight: 600 }}>
+                  {report.title.length} симв. {report.title.ok ? "✓" : "⚠"}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--foreground)", background: "var(--muted)", padding: "8px 12px", borderRadius: 8 }}>{report.title.value || "—"}</div>
+            </div>
+            <div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)" }}>META DESCRIPTION</span>
+                <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 8, background: report.metaDescription.ok ? "var(--success)20" : "var(--warning)20", color: report.metaDescription.ok ? "var(--success)" : "var(--warning)", fontWeight: 600 }}>
+                  {report.metaDescription.length} симв. {report.metaDescription.ok ? "✓" : "⚠"}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--foreground)", background: "var(--muted)", padding: "8px 12px", borderRadius: 8 }}>{report.metaDescription.value || "—"}</div>
+            </div>
+          </div>
+
+          {/* Headings */}
+          <div className="ds-card">
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Структура заголовков</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              {[
+                { tag: "H1", count: report.headings.h1.count, ok: report.headings.h1.ok },
+                { tag: "H2", count: report.headings.h2.count, ok: report.headings.h2.count >= 2 },
+                { tag: "H3", count: report.headings.h3.count, ok: true },
+                { tag: "H4+", count: report.headings.h4plus, ok: true },
+              ].map(({ tag, count, ok }) => (
+                <div key={tag} style={{ textAlign: "center", padding: "8px 14px", borderRadius: 8, background: ok ? "var(--success)10" : "var(--warning)10", border: `1px solid ${ok ? "var(--success)" : "var(--warning)"}30` }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: ok ? "var(--success)" : "var(--warning)" }}>{count}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{tag}</div>
+                </div>
+              ))}
+            </div>
+            {report.headings.h1.values.length > 0 && (
+              <div style={{ fontSize: 12, color: "var(--foreground-secondary)" }}>H1: {report.headings.h1.values.join(" · ")}</div>
+            )}
+          </div>
+
+          {/* Top Keywords */}
+          {report.words.topKeywords.length > 0 && (
+            <div className="ds-card">
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Топ ключевых слов (TF)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                {report.words.topKeywords.slice(0, 20).map(({ word, count, density }) => (
+                  <span key={word} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, background: "var(--muted)", color: "var(--foreground)", display: "inline-flex", gap: 5, alignItems: "center" }}>
+                    {word} <span style={{ fontSize: 10, opacity: 0.6 }}>{count}×</span>
+                    <span style={{ fontSize: 10, color: density > 3 ? "var(--destructive)" : "var(--success)" }}>{density}%</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main SEO Articles View ───────────────────────────────────────────────────
 
 export function SEOArticlesView({
@@ -1280,7 +1755,7 @@ export function SEOArticlesView({
 
   const [state, setState] = useState<SEOArticlesState>({ articles: [], keywordClusters: [] });
   const [currentArticle, setCurrentArticle] = useState<SEOArticle | null>(null);
-  const [subView, setSubView] = useState<"library" | "new" | "keywords" | "editor">("library");
+  const [subView, setSubView] = useState<"library" | "new" | "keywords" | "editor" | "expand" | "paa" | "tech-audit">("library");
 
   // Load from localStorage
   useEffect(() => {
@@ -1295,6 +1770,9 @@ export function SEOArticlesView({
     if (activeSubNav === "seo-new") setSubView("new");
     else if (activeSubNav === "seo-keywords") setSubView("keywords");
     else if (activeSubNav === "seo-library") setSubView("library");
+    else if (activeSubNav === "seo-expand") setSubView("expand");
+    else if (activeSubNav === "seo-paa") setSubView("paa");
+    else if (activeSubNav === "seo-tech-audit") setSubView("tech-audit");
   }, [activeSubNav]);
 
   const save = useCallback((newState: SEOArticlesState) => {
@@ -1353,6 +1831,21 @@ export function SEOArticlesView({
         />
       ) : subView === "keywords" ? (
         <SEOKeywordsView
+          analysis={analysis}
+          onBack={() => setSubView("library")}
+        />
+      ) : subView === "expand" ? (
+        <SEOKeywordExpandView
+          analysis={analysis}
+          onBack={() => setSubView("library")}
+        />
+      ) : subView === "paa" ? (
+        <SEOPAAView
+          analysis={analysis}
+          onBack={() => setSubView("library")}
+        />
+      ) : subView === "tech-audit" ? (
+        <SEOTechAuditView
           analysis={analysis}
           onBack={() => setSubView("library")}
         />

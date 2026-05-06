@@ -113,6 +113,8 @@ import { BrandSuggestionsView } from "@/components/views/BrandSuggestionsView";
 import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/views/SMMViews";
 
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
+import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
+import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { GeneratedPostsView } from "@/components/views/GeneratedPostsView";
 import { GeneratedReelsView } from "@/components/views/GeneratedReelsView";
 import { ContentAnalyticsView, ROICalculatorView } from "@/components/views/ContentAnalyticsView";
@@ -146,6 +148,15 @@ import { NAV_SECTIONS } from "@/lib/nav";
 // ============================================================
 
 export default function MarketRadarDashboard() {
+  return (
+    <ToastProvider>
+      <MarketRadarDashboardInner />
+    </ToastProvider>
+  );
+}
+
+function MarketRadarDashboardInner() {
+  const { toast } = useToast();
   const [theme, setThemeState] = useState<Theme>("dark");
   const setTheme = React.useCallback((t: Theme) => {
     setThemeState(t);
@@ -891,6 +902,147 @@ export default function MarketRadarDashboard() {
     }
   };
 
+  // Создание контента прямо из карточки идеи в "Трендах по нише".
+  // Отдельная функция от handleGeneratePost, потому что у TrendContentIdea
+  // другой shape (id/format/topic/hook/prompt/trendBasis vs ContentPostIdea).
+  const handleCreateFromTrendIdea = React.useCallback(async (idea: TrendContentIdea) => {
+    const companyName = myCompany?.company.name ?? smmAnalysis?.companyName ?? "MyCompany";
+    const platform = "instagram"; // дефолт; в трендах формат ≠ платформа
+
+    try {
+      // ─ Пост / карусель / рилс — все идут через generate-post (текстовая идея).
+      //   Карусель и рилс пока создаются как пост с пометкой формата —
+      //   позже подключим отдельные API.
+      if (idea.format === "пост" || idea.format === "карусель" || idea.format === "рилс") {
+        const adaptedIdea: ContentPostIdea = {
+          id: idea.id,
+          pillar: "Тренды",
+          hook: idea.hook,
+          format: idea.format,
+          angle: idea.topic,
+          goal: "вовлечение",
+          cta: "Что думаете? Поделитесь в комментариях.",
+          platform,
+        };
+
+        const res = await fetch("/api/generate-post", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName,
+            idea: adaptedIdea,
+            smmAnalysis,
+            brandBook,
+            companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
+            generateImage: true,
+            userPrompt: idea.prompt, // пробрасываем оригинальный промпт идеи
+          }),
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
+
+        setGeneratedPosts(prev => {
+          const next = [json.data as GeneratedPost, ...prev];
+          persistContent(contentPlan, next, generatedReels);
+          return next;
+        });
+
+        toast({
+          kind: "success",
+          title: `${idea.format.charAt(0).toUpperCase() + idea.format.slice(1)} готов 🎉`,
+          description: `Сохранён в «Готовые посты». Картинку дорисовали через DALL-E.`,
+          action: { label: "Открыть", onClick: () => setActiveNav("content-posts") },
+        });
+        return;
+      }
+
+      // ─ Сторис — отдельный API: генерим серию из 5 слайдов.
+      if (idea.format === "сторис") {
+        const res = await fetch("/api/generate-stories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName,
+            platform,
+            slidesCount: 5,
+            goal: "прогрев",
+            brief: idea.prompt,
+            pillar: idea.topic,
+            smmAnalysis,
+            brandBook,
+          }),
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error ?? "Ошибка генерации сторис");
+        const story = json.data as GeneratedStory;
+
+        // Сначала добавляем в стейт, потом запускаем фоновую генерацию картинок.
+        setGeneratedStories(prev => {
+          const next = [story, ...prev];
+          persistStories(next);
+          return next;
+        });
+
+        toast({
+          kind: "success",
+          title: "Серия сторис готова 🎉",
+          description: `Сохранена в «Сторис-сценарии». Сейчас рисую фоны для всех слайдов…`,
+          action: { label: "Открыть", onClick: () => setActiveNav("content-stories") },
+        });
+
+        // Параллельно генерим фоны и обновляем серию по мере готовности.
+        const brandVisual = brandBook?.visualStyle?.trim();
+        const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+        let working = story;
+        await Promise.all(story.slides.map(async (slide, i) => {
+          try {
+            const prompt = [
+              `Story background for ${story.platform}: ${slide.background}.`,
+              slide.visualNote && `Mood: ${slide.visualNote}.`,
+              brandVisual && `Brand visual style: ${brandVisual}.`,
+              brandColors,
+              "Vertical 9:16 format. No text overlay.",
+            ].filter(Boolean).join(" ");
+            const r = await fetch("/api/generate-image-anthropic", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                postText: prompt,
+                format: "сторис",
+                platform: story.platform,
+                brandColors: brandBook?.colors ?? [],
+                brandStyle: brandBook?.visualStyle ?? "",
+              }),
+            });
+            const j = await r.json() as { ok: boolean; data?: { imageUrl: string } };
+            if (!j.ok || !j.data?.imageUrl) return;
+            working = {
+              ...working,
+              slides: working.slides.map((s, idx) =>
+                idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl } : s,
+              ),
+            };
+            // Обновляем серию в стейте
+            setGeneratedStories(prev => {
+              const next = prev.map(s => s.id === working.id ? working : s);
+              persistStories(next);
+              return next;
+            });
+          } catch { /* пропускаем — пользователь дорисует вручную */ }
+        }));
+        return;
+      }
+
+      throw new Error(`Формат «${idea.format}» пока не поддерживается`);
+    } catch (e) {
+      toast({
+        kind: "error",
+        title: "Не удалось создать контент",
+        description: e instanceof Error ? e.message : "Неизвестная ошибка",
+      });
+    }
+  }, [myCompany, smmAnalysis, brandBook, companyStyleState, contentPlan, generatedReels, toast]);
+
   const handleGeneratePost = async (idea: ContentPostIdea, customPrompt?: string) => {
     setGeneratingPostId(idea.id);
     try {
@@ -1313,6 +1465,7 @@ export default function MarketRadarDashboard() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
+        {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} />}
         {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
@@ -1342,7 +1495,7 @@ export default function MarketRadarDashboard() {
         {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} />}
         {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
-        {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords") && (
+        {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords" || activeNav === "seo-expand" || activeNav === "seo-paa" || activeNav === "seo-tech-audit") && (
           featureOn("seo-articles")
             ? <SEOArticlesView
                 c={c}

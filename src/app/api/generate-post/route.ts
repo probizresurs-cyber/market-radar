@@ -3,7 +3,7 @@ import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-ty
 import type { SMMResult } from "@/lib/smm-types";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { generateGeminiImage } from "@/lib/gemini";
+import { generateOpenAIImage } from "@/lib/openai-image";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -107,7 +107,8 @@ export async function POST(req: Request) {
     const styleProfile: CompanyStyleProfile | null = body.companyStyleProfile ?? null;
     const generateImage: boolean = body.generateImage !== false;
     const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
-    const referenceImages: Array<{ data: string; mimeType: string }> = body.referenceImages ?? [];
+    // referenceImages не используем — OpenAI image-gen эндпоинт не принимает
+    // референсы (только edits, и нам это пока не нужно).
 
     if (!idea) {
       return NextResponse.json({ ok: false, error: "Не передана идея поста" }, { status: 400 });
@@ -157,9 +158,9 @@ export async function POST(req: Request) {
       hook: string; body: string; hashtags: string[]; imagePrompt: string;
     };
 
-    // 2) Generate image via Gemini — opt-in, не фейлим пост, если картинка не вышла.
+    // 2) Generate image via OpenAI DALL-E — opt-in, не фейлим пост, если картинка не вышла.
+    // Раньше использовали Gemini, но free-tier выгорает за 10-20 картинок в день.
     let imageUrl: string | undefined;
-    const imageError: string | undefined = undefined;
     if (generateImage && parsed.imagePrompt) {
       try {
         const brandVisual = brandBook?.visualStyle?.trim();
@@ -170,11 +171,16 @@ export async function POST(req: Request) {
           parsed.imagePrompt,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,
+          "No text, letters, words or watermarks in the image.",
         ].filter(Boolean).join(" ");
 
-        const imgResult = await generateGeminiImage({
+        // Формат картинки по платформе: сторис/рилс — vertical, остальное — square.
+        const platform = idea.platform?.toLowerCase() ?? "";
+        const isVertical = /сторис|stories|reels|рилс|tiktok|shorts/.test(platform);
+
+        const imgResult = await generateOpenAIImage({
           prompt: enrichedPrompt,
-          referenceImages,
+          format: isVertical ? "portrait" : "square",
         });
         if (imgResult.ok) imageUrl = imgResult.imageUrl;
       } catch { /* image is optional */ }

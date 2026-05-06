@@ -444,6 +444,34 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
   const [showTov, setShowTov] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageGenError, setImageGenError] = useState("");
+
+  const handleGenerateImage = async () => {
+    setGeneratingImage(true);
+    setImageGenError("");
+    try {
+      const res = await fetch("/api/generate-image-anthropic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postText: post.body,
+          hook: post.hook,
+          format: "пост",
+          platform: post.platform ?? "instagram",
+          brandColors: brandBook?.colors ?? [],
+          brandStyle: brandBook?.visualStyle ?? "",
+        }),
+      });
+      const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
+      onUpdate({ ...post, imageUrl: json.data!.imageUrl });
+    } catch (e) {
+      setImageGenError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
 
   const isCarousel = post.body.includes("---");
 
@@ -468,45 +496,49 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   };
 
   return (
-    <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 16, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
+    <div style={{ background: "var(--card)", borderRadius: 16, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 20, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 6, padding: "3px 8px" }}>{post.platform}</span>
-          {isCarousel && <span style={{ fontSize: 10, fontWeight: 700, background: "#6366f115", color: "#818cf8", borderRadius: 6, padding: "3px 8px" }}>КАРУСЕЛЬ</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, background: "#f59e0b18", color: "#f59e0b", borderRadius: 8, padding: "5px 11px", textTransform: "capitalize" }}>{post.platform}</span>
+          {isCarousel && <span style={{ fontSize: 12, fontWeight: 700, background: "#6366f118", color: "#818cf8", borderRadius: 8, padding: "5px 11px" }}>Карусель</span>}
+          {post.imageUrl && (
+            <span title="Картинка готова" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#22c55e", padding: "5px 10px", borderRadius: 8, background: "#22c55e15" }}>
+              <Image size={12}/> готово
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU")}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{new Date(post.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}</span>
           {!editing && (
-            <button onClick={() => setEditing(true)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              <Pencil size={12}/>
+            <button onClick={() => setEditing(true)} title="Редактировать" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Pencil size={13}/>
             </button>
           )}
         </div>
       </div>
 
-      {/* Compact image thumbnail */}
+      {/* Image preview — full width if exists */}
       {post.imageUrl && !editing && (
-        <div style={{ marginBottom: 10 }}>
-          {imgExpanded ? (
-            <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.imageUrl} alt={post.hook} style={{ width: "100%", borderRadius: 10, objectFit: "cover", maxHeight: 320 }} />
-              <button onClick={() => setImgExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>
-                Свернуть
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.imageUrl} alt={post.hook}
-                onClick={() => setImgExpanded(true)}
-                style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", cursor: "pointer", border: `1px solid var(--border)`, flexShrink: 0 }}
-              />
-              <span style={{ fontSize: 10, color: "var(--muted-foreground)", cursor: "pointer" }} onClick={() => setImgExpanded(true)}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Image size={11}/>Нажмите, чтобы открыть картинку</span></span>
-            </div>
-          )}
+        <div style={{ marginBottom: 14 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imageUrl} alt={post.hook}
+            onClick={() => setImgExpanded(v => !v)}
+            style={{
+              width: "100%",
+              maxHeight: imgExpanded ? 480 : 220,
+              borderRadius: 12,
+              objectFit: "cover",
+              cursor: "pointer",
+              border: "1px solid var(--border)",
+              transition: "max-height 0.25s ease",
+              display: "block",
+            }}
+          />
+          <button onClick={() => setImgExpanded(v => !v)} style={{ marginTop: 6, padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
+            {imgExpanded ? "Свернуть" : "Развернуть"}
+          </button>
         </div>
       )}
 
@@ -541,29 +573,39 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 10 }}>{post.hook}</div>
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 12, letterSpacing: -0.2 }}>{post.hook}</div>
+          <div style={{ marginBottom: 14, fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>
             <CarouselBody c={c} body={post.body} />
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {post.hashtags.map((h, i) => (
-              <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+              <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             <button
               onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-              style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Copy size={10}/>Скопировать</span>
+              style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Copy size={14}/>Скопировать
             </button>
             {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
               <button
                 onClick={() => setShowTov(v => !v)}
-                style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Palette size={10}/>Tone of Voice</span>
+                style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Palette size={14}/>Tone of Voice
               </button>
             )}
+            <button
+              onClick={handleGenerateImage}
+              disabled={generatingImage}
+              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "none", background: post.imageUrl ? "transparent" : "var(--primary)", color: post.imageUrl ? "var(--foreground-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: generatingImage ? "wait" : "pointer", opacity: generatingImage ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {generatingImage ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Image size={14}/>}
+              {generatingImage ? "Рисую…" : post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+            </button>
           </div>
+          {imageGenError && (
+            <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{imageGenError}</div>
+          )}
           {showTov && brandBook && (
             <TovPanel
               c={c}
@@ -591,22 +633,41 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
 }) {
   if (posts.length === 0) {
     return (
-      <div style={{ maxWidth: 700 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты</h1>
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)", marginTop: 20 }}>
-          <div style={{ marginBottom: 12, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Pencil size={48}/></div>
-          <div style={{ fontSize: 14, color: "var(--foreground-secondary)" }}>Пока нет сгенерированных постов. Перейдите в «План контента» и нажмите «Создать пост» на любой идее.</div>
+      <div style={{ maxWidth: 720 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Все сгенерированные посты с картинками появятся здесь.</p>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Pencil size={36} strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет постов</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
+            Создайте первый пост — выберите идею в «Плане контента» или дайте AI-агенту собрать тренды по вашей нише.
+          </div>
+          <div style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+              План контента →
+            </a>
+            <a href="/?nav=content-trends" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--background)", color: "var(--foreground)", fontWeight: 700, fontSize: 15, textDecoration: "none", border: "1.5px solid var(--border)" }}>
+              Тренды по нише →
+            </a>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Готовые посты ({posts.length})</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>Кликните на карточке для правки. Картинка — миниатюра, кликни чтобы открыть.</p>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", padding: "4px 12px", borderRadius: 20, background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
+          {posts.length}
+        </span>
+      </div>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Кликните на карточке, чтобы посмотреть и отредактировать.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 18 }}>
         {posts.map(post => (
           <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
         ))}
