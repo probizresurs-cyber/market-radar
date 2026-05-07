@@ -208,12 +208,24 @@ export function SWOTView({
             </button>
           </div>
 
-          {/* 2×2 quadrant grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 16, marginBottom: 24 }}>
+          {/* 2×2 quadrant grid — фиксированно 2 колонки на десктопе, 1 на мобиле */}
+          <div className="swot-grid" style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            alignItems: "start",          // каждая карточка независимой высоты
+            gap: 16,
+            marginBottom: 24,
+          }}>
+            <style>{`
+              @media (max-width: 720px) {
+                .swot-grid { grid-template-columns: 1fr !important; }
+              }
+            `}</style>
             {QUADRANTS.map(q => {
               const items = report.rawItems[q.key];
               const expanded = expandedSection === q.key;
               const section = report[q.key];
+              const hasDetails = section.subsections.length > 0;
               return (
                 <div key={q.key} style={{
                   background: "var(--card)",
@@ -221,25 +233,36 @@ export function SWOTView({
                   borderRadius: 16,
                   padding: 22,
                   boxShadow: "var(--shadow)",
+                  // плавный rise при раскрытии
+                  transition: "border-color 200ms ease",
+                  ...(expanded ? { borderColor: q.color } : {}),
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                     <div style={{
                       width: 44, height: 44, borderRadius: 12,
                       background: q.bg, color: q.color,
                       display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0,
                     }}>
                       {q.icon}
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 17, fontWeight: 800, color: q.color, lineHeight: 1.2 }}>{q.label}</div>
                       <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>{q.helper}</div>
                     </div>
                   </div>
 
+                  {/* Compact items list — показываем всегда */}
                   {items.length > 0 ? (
-                    <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "var(--foreground)", lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {items.slice(0, 5).map((it, i) => <li key={i}>{it}</li>)}
-                      {items.length > 5 && <li style={{ color: "var(--muted-foreground)" }}>+ {items.length - 5} ещё</li>}
+                    <ul style={{
+                      margin: 0, paddingLeft: 20, fontSize: 14,
+                      color: "var(--foreground)", lineHeight: 1.55,
+                      display: "flex", flexDirection: "column", gap: 8,
+                    }}>
+                      {items.slice(0, expanded ? items.length : 5).map((it, i) => <li key={i}>{it}</li>)}
+                      {!expanded && items.length > 5 && (
+                        <li style={{ color: "var(--muted-foreground)" }}>+ {items.length - 5} ещё</li>
+                      )}
                     </ul>
                   ) : (
                     <div style={{ fontSize: 13, color: "var(--muted-foreground)", fontStyle: "italic" }}>
@@ -247,29 +270,70 @@ export function SWOTView({
                     </div>
                   )}
 
-                  {section.subsections.length > 0 && (
+                  {/* Toggle button */}
+                  {hasDetails && (
                     <button
                       onClick={() => setExpandedSection(expanded ? null : q.key)}
                       style={{
-                        marginTop: 14, padding: "8px 12px", borderRadius: 8,
-                        border: `1px solid ${q.color}40`,
+                        marginTop: 16, padding: "10px 14px", borderRadius: 9,
+                        border: `1.5px solid ${q.color}40`,
                         background: expanded ? q.bg : "transparent",
                         color: q.color, fontSize: 13, fontWeight: 700,
                         cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                        transition: "background 150ms ease",
                       }}>
                       {expanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
                       {expanded ? "Скрыть детали" : "Показать детали"}
                     </button>
                   )}
+
+                  {/* Inline detailed section — появляется ВНУТРИ карточки, под кнопкой */}
+                  {expanded && hasDetails && (
+                    <div style={{
+                      marginTop: 18,
+                      paddingTop: 18,
+                      borderTop: `2px dashed ${q.color}33`,
+                      animation: "swot-expand 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both",
+                    }}>
+                      <style>{`
+                        @keyframes swot-expand {
+                          from { opacity: 0; transform: translateY(-6px); }
+                          to   { opacity: 1; transform: translateY(0); }
+                        }
+                      `}</style>
+                      {section.intro && (
+                        <p style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.65, margin: "0 0 14px" }}>
+                          {section.intro}
+                        </p>
+                      )}
+                      {section.subsections.map((sub, i) => (
+                        <div key={i} style={{ marginBottom: 14 }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: q.color, marginBottom: 6, lineHeight: 1.3 }}>
+                            {sub.title}
+                          </div>
+                          {sub.paragraphs.map((p, j) => (
+                            <p key={j} style={{ fontSize: 13.5, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: "0 0 8px" }}>
+                              {p}
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                      {section.synthesis && (
+                        <div style={{
+                          marginTop: 14, padding: "12px 14px", borderRadius: 10,
+                          background: q.bg, borderLeft: `4px solid ${q.color}`,
+                          fontSize: 13.5, fontStyle: "italic",
+                          color: "var(--foreground)", lineHeight: 1.6,
+                        }}>
+                          {section.synthesis}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
-
-          {/* Expanded section detail */}
-          {expandedSection && (
-            <DetailedSection section={report[expandedSection]} color={QUADRANTS.find(q => q.key === expandedSection)!.color} />
-          )}
 
           {/* Intro / Conclusion preview */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
@@ -335,45 +399,6 @@ function SourceChip({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-function DetailedSection({ section, color }: { section: SwotReport["strengths"]; color: string }) {
-  return (
-    <div style={{
-      background: "var(--card)",
-      border: `1.5px solid ${color}40`,
-      borderLeft: `6px solid ${color}`,
-      borderRadius: 14,
-      padding: 28,
-      marginTop: 8,
-    }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 16, letterSpacing: -0.5 }}>{section.title}</div>
-      {section.intro && (
-        <div style={{ fontSize: 15, color: "var(--foreground)", lineHeight: 1.65, marginBottom: 20 }}>
-          {section.intro}
-        </div>
-      )}
-      {section.subsections.map((sub, i) => (
-        <div key={i} style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>{sub.title}</div>
-          {sub.paragraphs.map((p, j) => (
-            <p key={j} style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.65, margin: "0 0 10px" }}>{p}</p>
-          ))}
-        </div>
-      ))}
-      {section.synthesis && (
-        <div style={{
-          padding: 18,
-          marginTop: 16,
-          borderRadius: 10,
-          background: `${color}0c`,
-          borderLeft: `4px solid ${color}`,
-          fontSize: 14,
-          fontStyle: "italic",
-          color: "var(--foreground)",
-          lineHeight: 1.65,
-        }}>
-          {section.synthesis}
-        </div>
-      )}
-    </div>
-  );
-}
+// DetailedSection удалён: детали теперь рендерятся inline внутри каждой
+// quadrant-карточки (см. swot-grid выше). Так пользователь видит детали
+// прямо под кнопкой «Показать детали», не теряя контекст.
