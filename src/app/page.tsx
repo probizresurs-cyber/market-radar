@@ -132,6 +132,8 @@ import { ReviewsView } from "@/components/views/ReviewsView";
 import { StoriesView } from "@/components/views/StoriesView";
 import { GeneratedCarouselsView } from "@/components/views/GeneratedCarouselsView";
 import { CJMView, BenchmarksView } from "@/components/views/CJMBenchmarks";
+import { SWOTView } from "@/components/views/SWOTView";
+import { PriceTrackingView } from "@/components/views/PriceTrackingView";
 import { SidebarComponent, MobileBottomNav } from "@/components/views/SidebarComponent";
 import { TrialBanner } from "@/components/views/TrialBanner";
 import { PaywallGuard } from "@/components/views/PaywallGuard";
@@ -1438,6 +1440,8 @@ function MarketRadarDashboardInner() {
         {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
+        {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} />}
+        {activeNav === "price-tracking" && <PriceTrackingView />}
         {activeNav === "content-style" && (
           <CompanyStyleView
             c={c}

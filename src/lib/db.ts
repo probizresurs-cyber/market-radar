@@ -187,6 +187,11 @@ export async function initDb() {
   // optional otherwise) and shown in the profile / Settings view.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name TEXT`);
 
+  // Telegram chatId для серверных уведомлений (price alerts, etc.).
+  // Заполняется при «Подключить Telegram» в настройках. Без этого cron не
+  // знает куда слать алерты.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT`);
+
   // Website + contact (phone OR telegram) — captured at registration so we
   // can auto-run the first analysis and reach out to the client. Either
   // `phone` or `telegram` is filled, not both.
@@ -389,4 +394,52 @@ export async function initDb() {
       PRIMARY KEY (kind, year)
     )
   `);
+
+  // ─── SWOT-отчёты ──────────────────────────────────────────────────────────
+  await query(`
+    CREATE TABLE IF NOT EXISTS swot_reports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_name TEXT NOT NULL,
+      report JSONB NOT NULL,             -- полный SwotReport object
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_swot_reports_user_id ON swot_reports(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_swot_reports_created_at ON swot_reports(created_at DESC)`);
+
+  // ─── Мониторинг цен конкурентов ───────────────────────────────────────────
+  // tracked_products — что отслеживаем, price_history — журнал измерений.
+  await query(`
+    CREATE TABLE IF NOT EXISTS tracked_products (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      product_url TEXT NOT NULL,
+      product_name TEXT,                -- название (опционально, заполняется при первом скане)
+      competitor_name TEXT,              -- конкурент (для группировки)
+      currency TEXT DEFAULT 'RUB',
+      last_price NUMERIC,                -- последняя известная цена
+      last_checked_at TIMESTAMPTZ,
+      check_status TEXT DEFAULT 'pending'
+        CHECK (check_status IN ('pending','ok','failed','disabled')),
+      check_error TEXT,
+      notify_telegram BOOLEAN NOT NULL DEFAULT true,
+      threshold_pct NUMERIC,             -- алерт только при изменении > N% (NULL = на любое)
+      css_selector TEXT,                 -- если автоопределение фейлит, можно задать вручную
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_tracked_products_user_id ON tracked_products(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_tracked_products_status ON tracked_products(check_status)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS price_history (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES tracked_products(id) ON DELETE CASCADE,
+      price NUMERIC NOT NULL,
+      currency TEXT DEFAULT 'RUB',
+      checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_price_history_product_id ON price_history(product_id, checked_at DESC)`);
 }

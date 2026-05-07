@@ -33,6 +33,7 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "prev-analyses", icon: "FolderOpen", label: "Предыдущие анализы", count: null },
           { id: "insights", icon: "Lightbulb", label: "AI-инсайты", count: null },
           { id: "ai-visibility", icon: "Eye", label: "AI Видимость", count: null },
+          { id: "swot", icon: "Grid3x3", label: "SWOT-анализ", count: null },
         ],
       },
       {
@@ -41,6 +42,7 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "competitors", icon: "Target", label: "Список конкурентов", count: null },
           { id: "compare", icon: "Scale", label: "Сравнение", count: null },
           { id: "battle-cards", icon: "Swords", label: "Battle Cards", count: null },
+          { id: "price-tracking", icon: "LineChart", label: "Мониторинг цен", count: null },
         ],
       },
       {

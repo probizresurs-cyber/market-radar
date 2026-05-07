@@ -6,7 +6,7 @@ import {
   Gauge, Building2, Search, TrendingUp, FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil,
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
-  Network, HelpCircle, ScanLine,
+  Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -21,7 +21,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: Reac
   FolderOpen, Swords, Target, Scale, Lightbulb, Brain, Pencil, Map, Share2, Palette, Star,
   FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film, Smartphone, Wallet,
   Globe, Presentation, Link2, BookOpen, Sword, Layers, Eye,
-  Network, HelpCircle, ScanLine,
+  Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
 };
 
 function NavIcon({ name, size = 15, active }: { name: string; size?: number; active?: boolean }) {
