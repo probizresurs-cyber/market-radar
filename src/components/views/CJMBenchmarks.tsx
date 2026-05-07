@@ -43,7 +43,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
   if (!data) return (
     <div style={{ maxWidth: 700 }}>
       <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Customer Journey Map</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Customer Journey Map</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         AI построит карту пути клиента — от первого контакта с брендом до повторных покупок и рекомендаций.
         {!!taAnalysis && <span style={{ color: "var(--success)" }}> Данные ЦА будут учтены.</span>}
@@ -76,7 +76,7 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
     <div style={{ maxWidth: 1100 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Customer Journey Map</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>Customer Journey Map</h1>
           <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: 0 }}>{data.companyName}</p>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -209,7 +209,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
 
   if (!data) return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Отраслевые бенчмарки</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Отраслевые бенчмарки</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         AI сравнит показатели компании со средними по нише на российском рынке и найдёт зоны роста.
       </p>
@@ -252,7 +252,7 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
     <div style={{ maxWidth: 1100 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>Отраслевые бенчмарки</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>Отраслевые бенчмарки</h1>
           <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: 0 }}>{data.niche}</p>
         </div>
         <div style={{ textAlign: "right" }}>

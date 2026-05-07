@@ -13,15 +13,15 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
     <div style={{ marginBottom: 12 }}>
       {expanded ? (
         <div>
-          <video src={src} controls style={{ width: "100%", borderRadius: 10, background: "#000", maxHeight: 400 }} />
-          <button onClick={() => setExpanded(false)} style={{ marginTop: 4, padding: "3px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>
+          <video src={src} controls style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 480 }} />
+          <button onClick={() => setExpanded(false)} style={{ marginTop: 6, padding: "5px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
             Свернуть
           </button>
         </div>
       ) : (
         <button
           onClick={() => setExpanded(true)}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid #ec489940`, background: "#ec489910", color: "#ec4899", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          style={{ padding: "10px 18px", borderRadius: 10, border: "1.5px solid #ec489940", background: "#ec489910", color: "#ec4899", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
           ▶ Смотреть готовое видео
         </button>
       )}
@@ -71,9 +71,9 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
     <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${editing ? "#ec489960" : "var(--border)"}`, padding: 18, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, background: "#ec489915", color: "#ec4899", borderRadius: 6, padding: "3px 8px" }}>REEL · {reel.durationSec}s</span>
+        <span style={{ fontSize: 12, fontWeight: 700, background: "#ec489918", color: "#ec4899", borderRadius: 8, padding: "5px 11px" }}>REEL · {reel.durationSec}s</span>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(reel.generatedAt).toLocaleString("ru-RU")}</span>
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{new Date(reel.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}</span>
           {!editing && (
             <button
               onClick={() => setEditing(true)}
@@ -129,36 +129,36 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
         </>
       ) : (
         <>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 12 }}>{reel.title}</div>
-
-          <details style={{ marginBottom: 10 }}>
-            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}><ClipboardList size={12}/> Раскадровка</summary>
-            <pre style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: "8px 0 0", whiteSpace: "pre-wrap", fontFamily: "inherit", background: "var(--background)", padding: 12, borderRadius: 8, border: `1px solid var(--muted)` }}>{reel.scenario}</pre>
-          </details>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.3, marginBottom: 14, letterSpacing: -0.2 }}>{reel.title}</div>
 
           <details style={{ marginBottom: 12 }}>
-            <summary style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer" }}><Mic size={12}/> Текст для озвучки</summary>
-            <p style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.55, margin: "8px 0 0", background: "var(--background)", padding: 12, borderRadius: 8, border: `1px solid var(--muted)` }}>{reel.voiceoverScript}</p>
+            <summary style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><ClipboardList size={14}/> Раскадровка</summary>
+            <pre style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: "10px 0 0", whiteSpace: "pre-wrap", fontFamily: "inherit", background: "var(--background)", padding: 14, borderRadius: 10, border: "1px solid var(--muted)" }}>{reel.scenario}</pre>
           </details>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+          <details style={{ marginBottom: 14 }}>
+            <summary style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground-secondary)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Mic size={14}/> Текст для озвучки</summary>
+            <p style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: "10px 0 0", background: "var(--background)", padding: 14, borderRadius: 10, border: "1px solid var(--muted)" }}>{reel.voiceoverScript}</p>
+          </details>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {reel.hashtags.map((h, i) => (
-              <span key={i} style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+              <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
             ))}
           </div>
 
           {reel.videoStatus === "failed" && reel.videoError && (
-            <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}><X size={12}/> {reel.videoError}</div>
+            <div style={{ background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", padding: "10px 14px", borderRadius: 10, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><X size={14}/> {reel.videoError}</div>
           )}
 
           {reel.videoStatus !== "ready" && (
             <button
               onClick={() => onGenerateVideo(reel.id)}
               disabled={busy}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 9, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
+              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
               {reel.videoStatus === "generating"
-                ? <><Loader2 size={12}/> HeyGen генерирует видео… (~2-5 мин)</>
-                : busy ? <><Loader2 size={12}/> Запускаем HeyGen…</>
+                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> HeyGen рендерит видео… (~2-5 мин)</>
+                : busy ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Запускаем HeyGen…</>
                 : reel.videoStatus === "failed" ? "🔄 Повторить генерацию"
                 : "🎥 Сгенерировать видео с аватаром"}
             </button>

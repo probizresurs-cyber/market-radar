@@ -155,10 +155,15 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
 
       {/* List */}
       {carousels.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 40, textAlign: "center", boxShadow: "var(--shadow)" }}>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
           <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: "var(--muted-foreground)" }}><Layers size={40} /></div>
-          <div style={{ fontSize: 13, color: "var(--foreground-secondary)" }}>Пока нет каруселей. Заполните форму выше и нажмите «Создать».</div>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, #ec4899 12%, transparent)", color: "#ec4899", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Layers size={36} strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет каруселей</div>
+          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
+            Заполните форму выше — карусель из 5-7 слайдов с текстом и фонами появится через 30-60 секунд.
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -248,19 +253,19 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
     t === "cover" ? "#f59e0b" : t === "cta" ? "#10b981" : "#6366f1";
 
   return (
-    <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow)", overflow: "hidden" }}>
+    <div style={{ background: "var(--card)", borderRadius: 18, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: expanded ? `1px solid var(--muted)` : "none", cursor: "pointer" }}
+      <div style={{ padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: expanded ? "1px solid var(--muted)" : "none", cursor: "pointer", gap: 12, flexWrap: "wrap" }}
         onClick={() => setExpanded(v => !v)}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: accent + "15", color: accent, flexShrink: 0 }}>CAROUSEL</span>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{platformLabel}</span>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{carousel.slides.length} слайдов</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{carousel.title}</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 8, background: accent + "18", color: accent, flexShrink: 0 }}>Карусель</span>
+          <span style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 8, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0, textTransform: "capitalize" }}>{platformLabel}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 8, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{carousel.slides.length} слайдов</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.2 }}>{carousel.title}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(carousel.generatedAt).toLocaleDateString("ru-RU")}</span>
-          <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{new Date(carousel.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}</span>
+          <span style={{ fontSize: 13, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>
       </div>
 
@@ -327,10 +332,10 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
 
               {/* Slide details */}
               <div>
-                <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ display: "grid", gap: 14 }}>
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 4 }}>ФОН</div>
-                    <div style={{ fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5, marginBottom: 6 }}>{slide.background}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6, textTransform: "uppercase" }}>Фон</div>
+                    <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55, marginBottom: 10 }}>{slide.background}</div>
                     <button
                       onClick={() => handleGenerateBg(activeSlide)}
                       disabled={generatingBg === activeSlide}

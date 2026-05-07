@@ -56,7 +56,7 @@ export function NewTAView({ c, myCompany, isAnalyzing, existingTypes = [], onAna
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Анализ целевой аудитории</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Анализ целевой аудитории</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Мы проведём глубокий психологический анализ ЦА: сегменты, боли, страхи, мотивы, возражения и триггеры покупки.
       </p>
@@ -176,8 +176,8 @@ export function NewTAView({ c, myCompany, isAnalyzing, existingTypes = [], onAna
 export function TAEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Дашборд ЦА</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ целевой аудитории ещё не проводился</p>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Дашборд ЦА</h1>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ целевой аудитории ещё не проводился</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
         <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Brain size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Тут пока нет данных</div>
@@ -291,7 +291,7 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>
             Анализ ЦА — {data.companyName}
             {activeType === "b2b" && <span style={{ marginLeft: 8, fontSize: 14, background: "var(--primary)20", color: "var(--primary)", borderRadius: 8, padding: "2px 10px", fontWeight: 700 }}>B2B</span>}
           </h1>

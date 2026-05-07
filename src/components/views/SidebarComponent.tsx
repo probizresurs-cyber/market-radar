@@ -90,25 +90,26 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
         <div
           onClick={() => isGroup ? toggleGroup(item.id) : setActiveNav(item.id)}
           style={{
-            display: "flex", alignItems: "center", gap: 9,
-            padding: depth > 0 ? "7px 10px 7px 28px" : "8px 10px",
-            borderRadius: 8, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 11,
+            padding: depth > 0 ? "9px 10px 9px 30px" : "10px 12px",
+            borderRadius: 9, cursor: "pointer",
             background: isActive ? "var(--sidebar-active)" : "transparent",
             color: isActive ? "#C4B8F5" : childActive ? "#C4B8F5" : "var(--sidebar-fg)",
-            fontWeight: isActive || (childActive && !isExpanded) ? 600 : 400, fontSize: 13,
-            transition: "background 0.15s ease, color 0.15s ease", marginBottom: 1,
+            fontWeight: isActive ? 700 : (childActive && !isExpanded) ? 600 : 500, fontSize: 14,
+            transition: "background 0.15s ease, color 0.15s ease", marginBottom: 2,
+            minHeight: depth > 0 ? 36 : 40,
           }}
           onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--sidebar-hover)"; }}
           onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
-          <span style={{ width: depth > 0 ? 14 : 16, height: depth > 0 ? 14 : 16, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            <NavIcon name={item.icon} size={depth > 0 ? 14 : 16} active={isActive || childActive} />
+          <span style={{ width: depth > 0 ? 16 : 18, height: depth > 0 ? 16 : 18, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <NavIcon name={item.icon} size={depth > 0 ? 16 : 18} active={isActive || childActive} />
           </span>
-          <span style={{ flex: 1 }}>{item.label}</span>
+          <span style={{ flex: 1, lineHeight: 1.3 }}>{item.label}</span>
           {item.count !== null && !isGroup && (
-            <span style={{ fontSize: 10, fontWeight: 700, background: isActive ? "rgba(196,184,245,0.15)" : "rgba(255,255,255,0.07)", color: isActive ? "#C4B8F5" : "var(--sidebar-muted)", borderRadius: 8, padding: "1px 7px" }}>{item.count}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, background: isActive ? "rgba(196,184,245,0.18)" : "rgba(255,255,255,0.08)", color: isActive ? "#C4B8F5" : "var(--sidebar-muted)", borderRadius: 10, padding: "2px 9px", minWidth: 22, textAlign: "center" }}>{item.count}</span>
           )}
           {isGroup && (
-            <ChevronRight size={13} style={{ color: "var(--sidebar-muted)", transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
+            <ChevronRight size={15} style={{ color: "var(--sidebar-muted)", transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
           )}
         </div>
         {isGroup && isExpanded && (
@@ -121,21 +122,21 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
   };
 
   return (
-    <aside className="ds-sidebar-desktop" style={{ width: 240, minWidth: 240, background: "var(--sidebar-bg)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", overflow: "auto" }}>
+    <aside className="ds-sidebar-desktop" style={{ width: 256, minWidth: 256, background: "var(--sidebar-bg)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", overflow: "auto" }}>
       {/* Logo */}
       <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <MarketRadarLogo size={32} variant="dark" animated />
           {!hideBranding && (
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "var(--sidebar-fg)", letterSpacing: "-0.02em" }}>
                 <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
               </div>
-              {companyUrl && <div style={{ fontSize: 10, color: "var(--sidebar-muted)", marginTop: 1 }}>{companyUrl}</div>}
+              {companyUrl && <div style={{ fontSize: 12, color: "var(--sidebar-muted)", marginTop: 2 }}>{companyUrl}</div>}
             </div>
           )}
           {hideBranding && companyUrl && (
-            <div style={{ fontSize: 10, color: "var(--sidebar-muted)" }}>{companyUrl}</div>
+            <div style={{ fontSize: 12, color: "var(--sidebar-muted)" }}>{companyUrl}</div>
           )}
         </div>
       </div>
@@ -144,7 +145,7 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
         {navSections.map(section => (
           <div key={section.title}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--sidebar-muted)", letterSpacing: "0.1em", padding: "14px 10px 6px", textTransform: "uppercase" }}>{section.title}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.1em", padding: "16px 12px 8px", textTransform: "uppercase" }}>{section.title}</div>
             {section.items.map(item => renderItem(item))}
           </div>
         ))}
@@ -153,7 +154,7 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       {/* Bottom */}
       <div style={{ padding: "8px", borderTop: `1px solid var(--sidebar-border)` }}>
         <div onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "warm" : "light")}
-          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--sidebar-fg)", transition: "background 0.15s" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, cursor: "pointer", fontSize: 14, color: "var(--sidebar-fg)", transition: "background 0.15s", minHeight: 40 }}
           onMouseEnter={e => e.currentTarget.style.background = "var(--sidebar-hover)"}
           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
           <span style={{ width: 15, display: "inline-flex", alignItems: "center" }}>
@@ -171,12 +172,12 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
                 <div style={{ position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRadius: "50%", background: "#16A34A", border: `2px solid var(--sidebar-bg)` }} />
               </div>
               <div style={{ overflow: "hidden" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--sidebar-fg)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
-                <div style={{ fontSize: 10, color: "var(--sidebar-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--sidebar-fg)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize: 12, color: "var(--sidebar-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>{user.email}</div>
               </div>
             </div>
             <div onClick={onLogout}
-              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#F87171", cursor: "pointer", padding: "5px 0", opacity: 0.85, transition: "opacity 0.15s" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#F87171", cursor: "pointer", padding: "8px 4px", opacity: 0.85, transition: "opacity 0.15s" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "0.85"}>
               <LogOut size={13} strokeWidth={1.75} /><span>Выйти</span>

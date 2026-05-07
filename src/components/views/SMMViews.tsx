@@ -57,7 +57,7 @@ export function NewSMMView({ c, myCompany, isAnalyzing, onAnalyze }: {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Анализ СММ и брендинг</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Анализ СММ и брендинг</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Мы проанализируем ваши соцсети и сайт, определим архетип бренда и разработаем стратегию для каждой платформы: форматы, тон, контент-столпы и готовые примеры постов.
       </p>
@@ -172,8 +172,8 @@ export function RealStatsBar({ c, stats }: { c: Colors; stats: SMMRealStats }) {
 export function SMMEmptyDashboard({ c, onRunAnalysis }: { c: Colors; onRunAnalysis: () => void }) {
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Дашборд СММ</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Дашборд СММ</h1>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Анализ соцсетей ещё не проводился</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
         <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Smartphone size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>Тут пока нет данных</div>
@@ -216,7 +216,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>СММ-стратегия — {data.companyName}</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>СММ-стратегия — {data.companyName}</h1>
           <DataBadge variant="ai" source="Claude" title="Стратегия, архетип, тон голоса и план постов сгенерированы AI. Подписчики соцсетей подтягиваются из реальных источников." />
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.companyUrl} · {generatedDate}</p>

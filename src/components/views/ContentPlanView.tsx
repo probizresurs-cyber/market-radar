@@ -18,8 +18,8 @@ import { Factory, Smartphone, Rocket } from "lucide-react";
 export function ContentEmptyView({ c, onRun, hasSmm }: { c: Colors; onRun: () => void; hasSmm: boolean }) {
   return (
     <div style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Контент-завод</h1>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Контент-завод</h1>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Контент-план ещё не сгенерирован</p>
       <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 48, textAlign: "center", boxShadow: "var(--shadow)" }}>
         <div style={{ marginBottom: 16, color: "var(--muted-foreground)", display: "flex", justifyContent: "center" }}><Factory size={48} /></div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 8 }}>
@@ -67,7 +67,7 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>Контент-завод</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Контент-завод</h1>
       <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: "0 0 28px" }}>
         Сгенерируем контент-план на 30 дней: 12 идей постов и 8 видео-рилсов на основе вашего СММ-анализа. Каждую идею можно превратить в готовый пост с картинкой или видео с аватаром HeyGen.
       </p>
@@ -603,7 +603,7 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
   return (
     <div style={{ maxWidth: 1200 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "var(--foreground)" }}>🏭 Контент-завод — {plan.companyName}</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>🏭 Контент-завод — {plan.companyName}</h1>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{generatedDate} · {plan.postIdeas.length} постов · {plan.reelIdeas.length} рилсов</p>
       </div>
 
