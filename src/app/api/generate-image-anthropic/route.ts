@@ -24,6 +24,9 @@
  *   platform?: string,       // "instagram" | "vk" | "telegram"
  *   brandColors?: string[],  // from BrandBook
  *   brandStyle?: string,     // BrandBook.visualStyle
+ *   userPrompt?: string,     // если задан — пропускаем шаг 1 (Claude),
+ *                            // используем эту строку напрямую как промпт DALL-E.
+ *                            // Полезно для UI «отредактируй промпт перед генерацией».
  * }
  *
  * Returns: { ok, data: { imageUrl }, usedPrompt }
@@ -48,41 +51,50 @@ export async function POST(req: Request) {
     const platform: string = body.platform ?? "instagram";
     const brandColors: string[] = body.brandColors ?? [];
     const brandStyle: string = (body.brandStyle ?? "").trim();
+    // userPrompt: если передан — пропускаем шаг 1 (Claude) и рисуем именно его.
+    const userPrompt: string = (body.userPrompt ?? "").trim();
 
-    if (!postText && !hook) {
+    if (!postText && !hook && !userPrompt) {
       return NextResponse.json(
         { ok: false, error: "Нет текста для генерации изображения" },
         { status: 400 },
       );
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-
-    const client = new Anthropic({
-      apiKey,
-      ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-    });
-
     // Маппинг формата в размер картинки.
     const imageFormat: "square" | "portrait" = (format === "сторис" || format === "рилс")
       ? "portrait"
       : "square";
 
-    // — Step 1: Claude Haiku generates a rich visual prompt —
-    const contextBlock = [
-      `Формат контента: ${format} для ${platform}`,
-      hook && `Заголовок: «${hook}»`,
-      postText && `Текст: ${postText.slice(0, 400)}`,
-      brandColors.length > 0 && `Цвета бренда: ${brandColors.join(", ")}`,
-      brandStyle && `Визуальный стиль бренда: ${brandStyle}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    let usedPrompt: string;
 
-    const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений (DALL-E / OpenAI).
+    if (userPrompt) {
+      // — Прямой режим: пользователь сам отредактировал/принял промпт.
+      // Не дёргаем Claude — экономим токены и время.
+      usedPrompt = userPrompt;
+    } else {
+      // — Step 1: Claude Haiku generates a rich visual prompt —
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
+      }
+
+      const client = new Anthropic({
+        apiKey,
+        ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
+      });
+
+      const contextBlock = [
+        `Формат контента: ${format} для ${platform}`,
+        hook && `Заголовок: «${hook}»`,
+        postText && `Текст: ${postText.slice(0, 400)}`,
+        brandColors.length > 0 && `Цвета бренда: ${brandColors.join(", ")}`,
+        brandStyle && `Визуальный стиль бренда: ${brandStyle}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений (DALL-E / OpenAI).
 
 Создай детальный промпт на английском языке для генерации изображения к этому контенту:
 
@@ -98,19 +110,19 @@ ${contextBlock}
 
 Ответь ТОЛЬКО промптом на английском, без каких-либо пояснений или префикса.`;
 
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 400,
-      messages: [{ role: "user", content: claudePrompt }],
-    });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 400,
+        messages: [{ role: "user", content: claudePrompt }],
+      });
 
-    let usedPrompt =
-      message.content[0]?.type === "text"
+      usedPrompt = message.content[0]?.type === "text"
         ? message.content[0].text.trim()
         : postText; // fallback to raw text if Claude fails
+    }
 
     // OpenAI отказывается генерировать текст в изображениях; на всякий случай
-    // дописываем явный запрет, чтобы Haiku его не упустил.
+    // дописываем явный запрет, чтобы Haiku/пользователь его не упустил.
     if (!/no text|without text|no letters/i.test(usedPrompt)) {
       usedPrompt += " No text, letters, words, or watermarks in the image.";
     }

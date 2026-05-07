@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, ReelMetrics, ReferenceImage } from "@/lib/content-types";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
-import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera } from "lucide-react";
+import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
+import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2 } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -444,33 +445,33 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
   const [showTov, setShowTov] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
+  // Промпт-редактор для DALL-E (открывается по клику «Сгенерировать фото»)
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [imageGenError, setImageGenError] = useState("");
 
-  const handleGenerateImage = async () => {
-    setGeneratingImage(true);
+  const handleGenerateWithPrompt = async (userPrompt: string) => {
     setImageGenError("");
-    try {
-      const res = await fetch("/api/generate-image-anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postText: post.body,
-          hook: post.hook,
-          format: "пост",
-          platform: post.platform ?? "instagram",
-          brandColors: brandBook?.colors ?? [],
-          brandStyle: brandBook?.visualStyle ?? "",
-        }),
-      });
-      const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
-      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      onUpdate({ ...post, imageUrl: json.data!.imageUrl });
-    } catch (e) {
-      setImageGenError(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setGeneratingImage(false);
+    const res = await fetch("/api/generate-image-anthropic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        postText: post.body,
+        hook: post.hook,
+        format: "пост",
+        platform: post.platform ?? "instagram",
+        brandColors: brandBook?.colors ?? [],
+        brandStyle: brandBook?.visualStyle ?? "",
+        userPrompt, // ← пропускаем шаг Claude, рисуем именно эту строку
+      }),
+    });
+    const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+    if (!json.ok) {
+      const msg = json.error ?? "Ошибка генерации";
+      setImageGenError(msg);
+      throw new Error(msg); // editor покажет ошибку и не закроется
     }
+    onUpdate({ ...post, imageUrl: json.data!.imageUrl });
+    setShowPromptEditor(false);
   };
 
   const isCarousel = post.body.includes("---");
@@ -596,15 +597,29 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
               </button>
             )}
             <button
-              onClick={handleGenerateImage}
-              disabled={generatingImage}
-              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "none", background: post.imageUrl ? "transparent" : "var(--primary)", color: post.imageUrl ? "var(--foreground-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: generatingImage ? "wait" : "pointer", opacity: generatingImage ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
-              {generatingImage ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Image size={14}/>}
-              {generatingImage ? "Рисую…" : post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+              onClick={() => { setShowPromptEditor(v => !v); setImageGenError(""); }}
+              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "none", background: post.imageUrl ? "transparent" : "var(--primary)", color: post.imageUrl ? "var(--foreground-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Wand2 size={14}/>
+              {showPromptEditor ? "Закрыть" : post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
             </button>
           </div>
-          {imageGenError && (
+          {imageGenError && !showPromptEditor && (
             <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{imageGenError}</div>
+          )}
+          {showPromptEditor && (
+            <ImagePromptEditor
+              params={{
+                postText: post.body,
+                hook: post.hook,
+                format: "пост",
+                platform: post.platform ?? "instagram",
+                brandColors: brandBook?.colors ?? [],
+                brandStyle: brandBook?.visualStyle ?? "",
+              }}
+              generateLabel={post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+              onGenerate={handleGenerateWithPrompt}
+              onCancel={() => setShowPromptEditor(false)}
+            />
           )}
           {showTov && brandBook && (
             <TovPanel

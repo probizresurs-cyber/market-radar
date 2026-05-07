@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { ContentPlan, GeneratedCarousel, BrandBook, CarouselSlide } from "@/lib/content-types";
 import { Layers, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Copy } from "lucide-react";
+import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate }: {
   c: Colors;
@@ -186,52 +187,53 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
   const [expanded, setExpanded] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [generatingBg, setGeneratingBg] = useState<number | null>(null);
+  // Какому слайду открыли промпт-редактор. null = не открыт.
+  const [promptEditorSlide, setPromptEditorSlide] = useState<number | null>(null);
   const [bgError, setBgError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const accent = "#ec4899";
 
-  const handleGenerateBg = async (slideIndex: number) => {
-    const slide = carousel.slides[slideIndex];
-    if (!slide) return;
-    setGeneratingBg(slideIndex);
+  // Хелпер для построения seed-параметров: его съест ImagePromptEditor чтобы
+  // запросить у Claude стартовый промпт под конкретный слайд (учитывая
+  // headline, slideType и общий vibe карусели).
+  const promptParamsForSlide = (slide: CarouselSlide) => ({
+    postText: [
+      `Carousel slide background. Slide type: ${slide.slideType}.`,
+      `Background description: ${slide.background}.`,
+      slide.visualNote && `Mood: ${slide.visualNote}.`,
+    ].filter(Boolean).join(" "),
+    hook: slide.headlineText,
+    format: "карусель",
+    platform: carousel.platform,
+    brandColors: brandBook?.colors ?? [],
+    brandStyle: brandBook?.visualStyle ?? "",
+  });
+
+  const handleGenerateBgWithPrompt = async (slideIndex: number, userPrompt: string) => {
     setBgError(null);
-    try {
-      const brandVisual = brandBook?.visualStyle?.trim();
-      const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
-      const prompt = [
-        `Instagram carousel slide background for ${carousel.platform}: ${slide.background}.`,
-        `Slide type: ${slide.slideType}. Headline: "${slide.headlineText}".`,
-        `Mood: ${slide.visualNote}.`,
-        brandVisual && `Brand visual style: ${brandVisual}.`,
-        brandColors,
-        "Square 1:1 format. Clean, modern, space for text overlay at top/center.",
-      ].filter(Boolean).join(" ");
-
-      const res = await fetch("/api/generate-image-anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postText: prompt,
-          hook: slide.headlineText,
-          format: "карусель",
-          platform: carousel.platform,
-          brandColors: brandBook?.colors ?? [],
-          brandStyle: brandBook?.visualStyle ?? "",
-        }),
-      });
-      const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
-      if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-
-      const updatedSlides = carousel.slides.map((s, i) =>
-        i === slideIndex ? { ...s, backgroundImageUrl: json.data!.imageUrl } : s,
-      );
-      onUpdate({ ...carousel, slides: updatedSlides });
-    } catch (e) {
-      setBgError(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setGeneratingBg(null);
+    const res = await fetch("/api/generate-image-anthropic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        postText: "carousel slide", // пустышка, реальный промпт идёт в userPrompt
+        format: "карусель",
+        platform: carousel.platform,
+        brandColors: brandBook?.colors ?? [],
+        brandStyle: brandBook?.visualStyle ?? "",
+        userPrompt,
+      }),
+    });
+    const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+    if (!json.ok) {
+      const msg = json.error ?? "Ошибка генерации";
+      setBgError(msg);
+      throw new Error(msg);
     }
+    const updatedSlides = carousel.slides.map((s, i) =>
+      i === slideIndex ? { ...s, backgroundImageUrl: json.data!.imageUrl } : s,
+    );
+    onUpdate({ ...carousel, slides: updatedSlides });
+    setPromptEditorSlide(null);
   };
 
   const copyCaption = async () => {
@@ -337,24 +339,33 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6, textTransform: "uppercase" }}>Фон</div>
                     <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55, marginBottom: 10 }}>{slide.background}</div>
                     <button
-                      onClick={() => handleGenerateBg(activeSlide)}
-                      disabled={generatingBg === activeSlide}
+                      onClick={() => { setPromptEditorSlide(promptEditorSlide === activeSlide ? null : activeSlide); setBgError(null); }}
                       style={{
-                        padding: "6px 12px", borderRadius: 7,
-                        border: `1px solid ${accent}50`, background: accent + "10",
-                        color: accent, fontSize: 11, fontWeight: 700,
-                        cursor: generatingBg === activeSlide ? "not-allowed" : "pointer",
-                        opacity: generatingBg === activeSlide ? 0.6 : 1,
+                        padding: "9px 14px", borderRadius: 9,
+                        border: `1.5px solid ${accent}50`, background: accent + "12",
+                        color: accent, fontSize: 13, fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex", alignItems: "center", gap: 7,
+                        minHeight: 38,
                       }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        {generatingBg === activeSlide
-                          ? <><Loader2 size={13} className="spin" /> Генерируем…</>
-                          : slide.backgroundImageUrl
-                            ? <><RefreshCw size={13} /> Перегенерировать фон</>
-                            : <><Sparkles size={13} /> Сгенерировать фон</>}
-                      </span>
+                      {promptEditorSlide === activeSlide
+                        ? <>Закрыть</>
+                        : slide.backgroundImageUrl
+                          ? <><RefreshCw size={14} /> Перегенерировать фон</>
+                          : <><Sparkles size={14} /> Сгенерировать фон</>}
                     </button>
-                    {bgError && <div style={{ marginTop: 4, fontSize: 10, color: "var(--destructive)" }}>❌ {bgError}</div>}
+                    {bgError && promptEditorSlide !== activeSlide && (
+                      <div style={{ marginTop: 8, fontSize: 13, color: "var(--destructive)", padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>❌ {bgError}</div>
+                    )}
+                    {promptEditorSlide === activeSlide && (
+                      <ImagePromptEditor
+                        params={promptParamsForSlide(slide)}
+                        title="Промпт для фона слайда"
+                        generateLabel={slide.backgroundImageUrl ? "Перегенерировать фон" : "Сгенерировать фон"}
+                        onGenerate={(p) => handleGenerateBgWithPrompt(activeSlide, p)}
+                        onCancel={() => setPromptEditorSlide(null)}
+                      />
+                    )}
                   </div>
                   <Field label="Тип слайда" value={slide.slideType} accent={slideTypeColor(slide.slideType)} bold />
                   <Field label="Заголовок" value={slide.headlineText} bold />
