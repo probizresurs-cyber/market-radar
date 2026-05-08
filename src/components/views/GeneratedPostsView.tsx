@@ -5,7 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, ReelMetrics, ReferenceImage } from "@/lib/content-types";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
-import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2 } from "lucide-react";
+import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -448,6 +448,32 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   // Промпт-редактор для DALL-E (открывается по клику «Сгенерировать фото»)
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [imageGenError, setImageGenError] = useState("");
+  // Платформо-адаптация (Insta / VK / TG)
+  const [activeTab, setActiveTab] = useState<"canonical" | "instagram" | "vk" | "telegram">("canonical");
+  const [adapting, setAdapting] = useState(false);
+  const [adaptError, setAdaptError] = useState("");
+  // Публикация
+  const [showPublishModal, setShowPublishModal] = useState(false);
+
+  const handleAdapt = async () => {
+    setAdapting(true);
+    setAdaptError("");
+    try {
+      const r = await fetch("/api/adapt-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hook: post.hook, body: post.body, hashtags: post.hashtags }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error ?? "Ошибка");
+      onUpdate({ ...post, platformVariants: j.data });
+      setActiveTab("instagram");
+    } catch (e) {
+      setAdaptError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setAdapting(false);
+    }
+  };
 
   const handleGenerateWithPrompt = async (userPrompt: string) => {
     setImageGenError("");
@@ -574,35 +600,113 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 12, letterSpacing: -0.2 }}>{post.hook}</div>
-          <div style={{ marginBottom: 14, fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55 }}>
-            <CarouselBody c={c} body={post.body} />
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-            {post.hashtags.map((h, i) => (
-              <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
-            ))}
-          </div>
+          {/* Platform tabs */}
+          {post.platformVariants && (
+            <div style={{ display: "flex", gap: 4, marginBottom: 14, padding: 4, background: "var(--background)", borderRadius: 10, border: "1px solid var(--border)", overflowX: "auto" }}>
+              {([
+                { id: "canonical", label: "Канонический", limit: null, color: "var(--muted-foreground)" },
+                { id: "instagram", label: "Instagram", limit: 2200, color: "#E4405F" },
+                { id: "vk", label: "ВКонтакте", limit: 16000, color: "#4A76A8" },
+                { id: "telegram", label: "Telegram", limit: 4096, color: "#229ED9" },
+              ] as const).map(t => {
+                const isActive = activeTab === t.id;
+                const variant = t.id === "canonical" ? null : post.platformVariants?.[t.id];
+                const overLimit = variant && t.limit && variant.charCount > t.limit;
+                return (
+                  <button key={t.id} onClick={() => setActiveTab(t.id)}
+                    style={{
+                      flex: 1, padding: "8px 12px", borderRadius: 7, border: "none",
+                      background: isActive ? "var(--card)" : "transparent",
+                      color: isActive ? t.color : "var(--muted-foreground)",
+                      fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    }}>
+                    {t.label}
+                    {variant && t.limit && (
+                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: overLimit ? "var(--destructive)" : "var(--muted-foreground)", opacity: 0.7 }}>
+                        {variant.charCount}/{t.limit}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {(() => {
+            // Текущий вариант (canonical или платформенный)
+            const v = activeTab === "canonical" || !post.platformVariants
+              ? { hook: post.hook, body: post.body, hashtags: post.hashtags, charCount: 0 }
+              : post.platformVariants[activeTab];
+            const limits: Record<string, number> = { instagram: 2200, vk: 16000, telegram: 4096 };
+            const limit = activeTab !== "canonical" ? limits[activeTab] : null;
+            const overLimit = limit && v.charCount > limit;
+            return (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 12, letterSpacing: -0.2, whiteSpace: "pre-wrap" }}>
+                  {v.hook}
+                </div>
+                <div style={{ marginBottom: 14, fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                  {activeTab === "canonical" ? <CarouselBody c={c} body={v.body} /> : v.body}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                  {v.hashtags.map((h, i) => (
+                    <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
+                  ))}
+                </div>
+                {overLimit && (
+                  <div style={{ marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 10%, transparent)", color: "var(--destructive)", fontSize: 12.5 }}>
+                    ⚠ Текст превышает лимит платформы ({v.charCount} вместо {limit}). При публикации будет обрезан.
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             <button
-              onClick={() => navigator.clipboard.writeText(`${post.hook}\n\n${post.body}\n\n${post.hashtags.join(" ")}`)}
-              style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              onClick={() => {
+                const v = activeTab === "canonical" || !post.platformVariants
+                  ? { hook: post.hook, body: post.body, hashtags: post.hashtags }
+                  : post.platformVariants[activeTab];
+                navigator.clipboard.writeText(`${v.hook}\n\n${v.body}\n\n${v.hashtags.map(h => h.startsWith("#") ? h : "#" + h).join(" ")}`);
+              }}
+              style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Copy size={14}/>Скопировать
+            </button>
+            {!post.platformVariants && (
+              <button
+                onClick={handleAdapt}
+                disabled={adapting}
+                style={{ padding: "9px 14px", borderRadius: 8, border: "1.5px solid var(--primary)", background: "color-mix(in oklch, var(--primary) 10%, transparent)", color: "var(--primary)", fontSize: 13, fontWeight: 700, cursor: adapting ? "wait" : "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {adapting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }}/> : <Sparkles size={14}/>}
+                {adapting ? "Адаптирую…" : "Адаптировать под Insta/VK/TG"}
+              </button>
+            )}
+            <button
+              onClick={() => setShowPublishModal(true)}
+              style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: post.publishStatus?.vk?.ok || post.publishStatus?.telegram?.ok ? "#16a34a" : "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Send size={14}/>
+              {post.publishStatus?.vk?.ok || post.publishStatus?.telegram?.ok ? "Опубликован" : "Опубликовать"}
             </button>
             {brandBook && (brandBook.toneOfVoice?.length > 0 || brandBook.forbiddenWords?.length > 0) && (
               <button
                 onClick={() => setShowTov(v => !v)}
                 style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid ${showTov ? "#6366f1" : "var(--border)"}`, background: showTov ? "#6366f115" : "transparent", color: showTov ? "#6366f1" : "var(--foreground-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Palette size={14}/>Tone of Voice
+                <Palette size={14}/>ToV
               </button>
             )}
             <button
               onClick={() => { setShowPromptEditor(v => !v); setImageGenError(""); }}
-              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "none", background: post.imageUrl ? "transparent" : "var(--primary)", color: post.imageUrl ? "var(--foreground-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              style={{ padding: "9px 14px", borderRadius: 8, border: post.imageUrl ? "1px solid var(--border)" : "1.5px solid var(--border)", background: post.imageUrl ? "transparent" : "color-mix(in oklch, var(--primary) 10%, transparent)", color: post.imageUrl ? "var(--foreground-secondary)" : "var(--primary)", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Wand2 size={14}/>
-              {showPromptEditor ? "Закрыть" : post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+              {showPromptEditor ? "Закрыть" : post.imageUrl ? "Перерисовать" : "Фото"}
             </button>
           </div>
+          {adaptError && (
+            <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{adaptError}</div>
+          )}
           {imageGenError && !showPromptEditor && (
             <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{imageGenError}</div>
           )}
@@ -631,8 +735,128 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             />
           )}
           <MetricsBlock c={c} kind="post" metrics={post.metrics} onChange={m => onUpdate({ ...post, metrics: m })} />
+          {showPublishModal && (
+            <PublishModal
+              post={post}
+              onClose={() => setShowPublishModal(false)}
+              onPublished={(publishStatus) => {
+                onUpdate({ ...post, publishStatus: { ...post.publishStatus, ...publishStatus } });
+              }}
+            />
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Publish Modal ────────────────────────────────────────────────────────
+function PublishModal({ post, onClose, onPublished }: {
+  post: GeneratedPost;
+  onClose: () => void;
+  onPublished: (status: GeneratedPost["publishStatus"]) => void;
+}) {
+  const [selected, setSelected] = useState<{ vk: boolean; telegram: boolean }>({ vk: false, telegram: true });
+  const [publishing, setPublishing] = useState(false);
+  const [results, setResults] = useState<Record<string, { ok: boolean; messageUrl?: string; error?: string }> | null>(null);
+
+  const platforms = (Object.keys(selected) as Array<"vk" | "telegram">).filter(k => selected[k]);
+
+  const handlePublish = async () => {
+    if (platforms.length === 0) return;
+    setPublishing(true);
+    setResults(null);
+    try {
+      const r = await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post, platforms }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        setResults(j.results);
+        // Сохраняем статусы в пост
+        const status: GeneratedPost["publishStatus"] = {};
+        if (j.results.vk) status.vk = { ...j.results.vk };
+        if (j.results.telegram) status.telegram = { ...j.results.telegram };
+        onPublished(status);
+      } else {
+        setResults({ error: { ok: false, error: j.error || "Ошибка" } });
+      }
+    } catch (e) {
+      setResults({ error: { ok: false, error: e instanceof Error ? e.message : "Ошибка" } });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "var(--card)", borderRadius: 16, maxWidth: 480, width: "100%",
+        padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 4, letterSpacing: -0.3 }}>
+              Опубликовать пост
+            </div>
+            <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+              Выберите платформы. Текст подгрузится из соответствующей вкладки (Instagram / VK / Telegram).
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer", color: "var(--muted-foreground)" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+          {([
+            { id: "telegram" as const, label: "Telegram", desc: "В чат с ботом (тестовый канал)", color: "#229ED9" },
+            { id: "vk" as const, label: "ВКонтакте", desc: "В сообщество (требует VK_GROUP_ID в .env)", color: "#4A76A8" },
+          ]).map(p => {
+            const active = selected[p.id];
+            const result = results?.[p.id];
+            return (
+              <label key={p.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
+                borderRadius: 10, border: `2px solid ${active ? p.color : "var(--border)"}`,
+                background: active ? `${p.color}10` : "transparent",
+                cursor: "pointer",
+              }}>
+                <input type="checkbox" checked={active} onChange={() => setSelected(s => ({ ...s, [p.id]: !s[p.id] }))} style={{ width: 18, height: 18 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: active ? p.color : "var(--foreground)" }}>{p.label}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{p.desc}</div>
+                  {result && (
+                    <div style={{ marginTop: 8, fontSize: 12, padding: "6px 10px", borderRadius: 6, background: result.ok ? "#16a34a14" : "#dc262614", color: result.ok ? "#16a34a" : "#dc2626", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {result.ok
+                        ? <>✓ Опубликовано {result.messageUrl && <a href={result.messageUrl} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", marginLeft: 4 }}><ExternalLink size={11} /></a>}</>
+                        : <>✗ {result.error}</>}
+                    </div>
+                  )}
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} disabled={publishing}
+            style={{ padding: "10px 18px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--muted-foreground)", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Отмена
+          </button>
+          <button onClick={handlePublish} disabled={publishing || platforms.length === 0}
+            style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: publishing || platforms.length === 0 ? "var(--muted)" : "var(--primary)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: publishing || platforms.length === 0 ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {publishing ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Публикую…</> : <><Send size={15}/> Опубликовать</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

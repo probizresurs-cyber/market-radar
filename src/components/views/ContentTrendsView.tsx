@@ -64,10 +64,12 @@ function timeAgo(isoDate: string): string {
   return `${Math.round(diff / 86400)} д назад`;
 }
 
-function IdeaCard({ idea, onCreate, creating }: {
+function IdeaCard({ idea, onCreate, creating, onCreatePackage, creatingPackage }: {
   idea: TrendContentIdea;
   onCreate?: (idea: TrendContentIdea) => void | Promise<void>;
   creating?: boolean;
+  onCreatePackage?: (idea: TrendContentIdea) => void | Promise<void>;
+  creatingPackage?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const color = FORMAT_COLOR[idea.format] ?? "#6366f1";
@@ -117,26 +119,51 @@ function IdeaCard({ idea, onCreate, creating }: {
             📰 <span style={{ fontStyle: "italic" }}>{idea.trendBasis}</span>
           </div>
 
-          {/* Action row — primary: Create, secondary: Copy */}
+          {/* Action row — primary: Create one format, secondary: Package, tertiary: Copy */}
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {onCreate && (
               <button
-                onClick={() => !creating && onCreate(idea)}
-                disabled={creating}
+                onClick={() => !creating && !creatingPackage && onCreate(idea)}
+                disabled={creating || creatingPackage}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "8px 14px", borderRadius: 8,
                   border: "none",
                   background: creating ? color + "55" : color,
                   color: "#fff", fontWeight: 700, fontSize: 12.5,
-                  cursor: creating ? "wait" : "pointer",
+                  cursor: creating ? "wait" : (creatingPackage ? "not-allowed" : "pointer"),
+                  opacity: creatingPackage ? 0.55 : 1,
                   transition: "all 0.15s",
                   boxShadow: creating ? "none" : `0 2px 8px ${color}40`,
                 }}
               >
                 {creating
-                  ? <><Loader2 size={13} className="spin" style={{ animation: "spin 1s linear infinite" }} /> Создаю…</>
+                  ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Создаю…</>
                   : <><Wand2 size={13} /> {FORMAT_ACTION[idea.format]}</>
+                }
+              </button>
+            )}
+            {onCreatePackage && (
+              <button
+                onClick={() => !creating && !creatingPackage && onCreatePackage(idea)}
+                disabled={creating || creatingPackage}
+                title="Сгенерировать сразу пост + сторис + карусель + рилс по этой идее"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px", borderRadius: 8,
+                  border: "1.5px solid var(--primary)",
+                  background: creatingPackage
+                    ? "color-mix(in oklch, var(--primary) 25%, transparent)"
+                    : "color-mix(in oklch, var(--primary) 8%, transparent)",
+                  color: "var(--primary)", fontWeight: 700, fontSize: 12.5,
+                  cursor: creatingPackage ? "wait" : (creating ? "not-allowed" : "pointer"),
+                  opacity: creating ? 0.55 : 1,
+                  transition: "all 0.15s",
+                }}
+              >
+                {creatingPackage
+                  ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Генерю 4 формата…</>
+                  : <>📦 Пакет (4 формата)</>
                 }
               </button>
             )}
@@ -162,12 +189,15 @@ function IdeaCard({ idea, onCreate, creating }: {
   );
 }
 
-export function ContentTrendsView({ analysis, onCreateFromIdea }: {
+export function ContentTrendsView({ analysis, onCreateFromIdea, onCreatePackage }: {
   analysis: AnalysisResult | null;
   /** Callback вызывается, когда пользователь нажимает «Создать пост/сторис/…»
    *  на карточке идеи. Должен вернуть Promise — пока он не разрешится, кнопка
    *  показывает спиннер. */
   onCreateFromIdea?: (idea: TrendContentIdea) => Promise<void>;
+  /** Пакетная генерация — пост + сторис + карусель + рилс параллельно
+   *  одной идеей. Кнопка «Пакет (4 формата)» на карточке. */
+  onCreatePackage?: (idea: TrendContentIdea) => Promise<void>;
 }) {
   const defaultQuery = analysis?.company?.description?.split("\n")[0]?.slice(0, 80) || analysis?.company?.name || "";
   const [query, setQuery] = useState(defaultQuery);
@@ -182,6 +212,7 @@ export function ContentTrendsView({ analysis, onCreateFromIdea }: {
   const [analyzeErr, setAnalyzeErr] = useState("");
   const [ideas, setIdeas] = useState<TrendContentIdea[] | null>(null);
   const [creatingId, setCreatingId] = useState<string | null>(null);
+  const [creatingPackageId, setCreatingPackageId] = useState<string | null>(null);
 
   const handleCreate = async (idea: TrendContentIdea) => {
     if (!onCreateFromIdea) return;
@@ -190,6 +221,16 @@ export function ContentTrendsView({ analysis, onCreateFromIdea }: {
       await onCreateFromIdea(idea);
     } finally {
       setCreatingId(null);
+    }
+  };
+
+  const handleCreatePackage = async (idea: TrendContentIdea) => {
+    if (!onCreatePackage) return;
+    setCreatingPackageId(idea.id);
+    try {
+      await onCreatePackage(idea);
+    } finally {
+      setCreatingPackageId(null);
     }
   };
 
@@ -380,6 +421,8 @@ export function ContentTrendsView({ analysis, onCreateFromIdea }: {
                       idea={idea}
                       onCreate={onCreateFromIdea ? handleCreate : undefined}
                       creating={creatingId === idea.id}
+                      onCreatePackage={onCreatePackage ? handleCreatePackage : undefined}
+                      creatingPackage={creatingPackageId === idea.id}
                     />
                   ))}
                 </div>

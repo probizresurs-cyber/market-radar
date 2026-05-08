@@ -62,18 +62,41 @@ export interface PostMetrics {
   screenshotUrl?: string;  // base64 скрина (для истории)
 }
 
+export interface PlatformVariant {
+  hook: string;
+  body: string;
+  hashtags: string[];
+  charCount: number;
+}
+
+export interface PlatformVariants {
+  instagram: PlatformVariant;
+  vk: PlatformVariant;
+  telegram: PlatformVariant;
+}
+
+export interface PublishStatus {
+  /** Куда уже опубликован: { vk: { ok, postId, url, at }, telegram: {...} } */
+  vk?: { ok: boolean; messageUrl?: string; postId?: string; at: string; error?: string };
+  telegram?: { ok: boolean; messageUrl?: string; messageId?: number; at: string; error?: string };
+}
+
 export interface GeneratedPost {
   id: string;
   ideaId: string;
   pillar: string;
   hook: string;
-  body: string;            // полный текст поста
+  body: string;            // полный текст поста (canonical)
   hashtags: string[];
   imagePrompt: string;     // промпт для DALL-E
   imageUrl?: string;       // готовая картинка (DALL-E url)
   platform: string;
   generatedAt: string;
   metrics?: PostMetrics;
+  /** Адаптации текста под Insta/VK/TG (создаются по кнопке «Адаптировать»). */
+  platformVariants?: PlatformVariants;
+  /** В какие соцсети уже опубликован (по кнопке «Опубликовать»). */
+  publishStatus?: PublishStatus;
 }
 
 export type ReelVideoStatus = "idle" | "generating" | "ready" | "failed";

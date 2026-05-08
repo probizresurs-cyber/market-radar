@@ -1045,6 +1045,165 @@ function MarketRadarDashboardInner() {
     }
   }, [myCompany, smmAnalysis, brandBook, companyStyleState, contentPlan, generatedReels, toast]);
 
+  // Пакетная генерация: одна идея тренда → пост + карусель + рилс + сторис
+  // ВСЕ ПАРАЛЛЕЛЬНО. Адаптация workflow из cf.txt: один Trend Filter → 3-4
+  // параллельных AI-агента. Всё попадает в свои разделы «Готовых».
+  const handleCreatePackageFromTrend = React.useCallback(async (idea: TrendContentIdea) => {
+    const companyName = myCompany?.company.name ?? smmAnalysis?.companyName ?? "MyCompany";
+    const platform = "instagram";
+
+    const adaptedIdea: ContentPostIdea = {
+      id: `${idea.id}-pkg`,
+      pillar: "Тренды",
+      hook: idea.hook,
+      format: "пост",
+      angle: idea.topic,
+      goal: "вовлечение",
+      cta: "Что думаете? Поделитесь в комментариях.",
+      platform,
+    };
+
+    // 4 параллельных запроса
+    const [postRes, storyRes, carouselRes, reelRes] = await Promise.allSettled([
+      // 1. Пост
+      fetch("/api/generate-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName,
+          idea: adaptedIdea,
+          smmAnalysis,
+          brandBook,
+          companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
+          generateImage: true,
+          userPrompt: idea.prompt,
+        }),
+      }).then(r => r.json()),
+
+      // 2. Сторис серия
+      fetch("/api/generate-stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName, platform,
+          slidesCount: 5, goal: "прогрев",
+          brief: idea.prompt, pillar: idea.topic,
+          smmAnalysis, brandBook,
+        }),
+      }).then(r => r.json()),
+
+      // 3. Карусель — пока используем generate-post с пометкой format=карусель
+      fetch("/api/generate-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName,
+          idea: { ...adaptedIdea, id: `${idea.id}-car`, format: "карусель" as const },
+          smmAnalysis,
+          brandBook,
+          companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
+          generateImage: true,
+          userPrompt: `Карусель из 5-7 слайдов с разделителями ---. ${idea.prompt}`,
+        }),
+      }).then(r => r.json()),
+
+      // 4. Рилс сценарий
+      fetch("/api/generate-reel-scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName,
+          idea: {
+            id: `${idea.id}-reel`,
+            pillar: "Тренды",
+            hook: idea.hook,
+            intrigue: idea.topic,
+            problem: "из тренда",
+            solution: idea.prompt.slice(0, 200),
+            result: "вовлечение",
+            cta: "Подписывайтесь",
+            durationSec: 30,
+            visualStyle: "динамичный, кадры 2-3 сек",
+            hashtags: [],
+          },
+          smmAnalysis,
+          brandBook,
+          voiceDescription: avatarSettings.voiceDescription,
+          avatarDescription: avatarSettings.avatarDescription,
+          userPrompt: idea.prompt,
+        }),
+      }).then(r => r.json()),
+    ]);
+
+    const successes: string[] = [];
+    const failures: string[] = [];
+
+    // Пост
+    if (postRes.status === "fulfilled" && postRes.value.ok && postRes.value.data) {
+      setGeneratedPosts(prev => {
+        const next = [postRes.value.data as GeneratedPost, ...prev];
+        persistContent(contentPlan, next, generatedReels);
+        return next;
+      });
+      successes.push("пост");
+    } else {
+      failures.push("пост");
+    }
+
+    // Сторис
+    if (storyRes.status === "fulfilled" && storyRes.value.ok && storyRes.value.data) {
+      setGeneratedStories(prev => {
+        const next = [storyRes.value.data as GeneratedStory, ...prev];
+        persistStories(next);
+        return next;
+      });
+      successes.push("сторис-серия");
+    } else {
+      failures.push("сторис");
+    }
+
+    // Карусель (пока сохраняется как пост — отдельный модуль карусели подключим позже)
+    if (carouselRes.status === "fulfilled" && carouselRes.value.ok && carouselRes.value.data) {
+      setGeneratedPosts(prev => {
+        const next = [carouselRes.value.data as GeneratedPost, ...prev];
+        persistContent(contentPlan, next, generatedReels);
+        return next;
+      });
+      successes.push("карусель");
+    } else {
+      failures.push("карусель");
+    }
+
+    // Рилс
+    if (reelRes.status === "fulfilled" && reelRes.value.ok && reelRes.value.data) {
+      setGeneratedReels(prev => {
+        const next = [reelRes.value.data as GeneratedReel, ...prev];
+        persistContent(contentPlan, generatedPosts, next);
+        return next;
+      });
+      successes.push("рилс");
+    } else {
+      failures.push("рилс");
+    }
+
+    if (successes.length === 0) {
+      toast({
+        kind: "error",
+        title: "Не удалось создать пакет",
+        description: "Все 4 формата завершились с ошибкой. Попробуйте отдельные форматы по очереди.",
+      });
+      return;
+    }
+
+    toast({
+      kind: "success",
+      title: `Готово ${successes.length}/4 формата 🎉`,
+      description: `Создано: ${successes.join(", ")}${failures.length > 0 ? `. Не удалось: ${failures.join(", ")}.` : ""}`,
+      duration: 8000,
+      action: { label: "Готовые посты", onClick: () => setActiveNav("content-posts") },
+    });
+  }, [myCompany, smmAnalysis, brandBook, companyStyleState, contentPlan, generatedPosts, generatedReels, avatarSettings, toast]);
+
   const handleGeneratePost = async (idea: ContentPostIdea, customPrompt?: string) => {
     setGeneratingPostId(idea.id);
     try {
@@ -1469,7 +1628,7 @@ function MarketRadarDashboardInner() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} />}
+        {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
         {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
