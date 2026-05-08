@@ -17,6 +17,11 @@ import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { allocateDocNumber } from "@/lib/doc-numbering";
+import { sendMail } from "@/lib/mailer";
+import { actCreatedEmail } from "@/lib/email-templates";
+import { buildActHTML } from "@/lib/act-html";
+import { htmlToPdfA4 } from "@/lib/html-to-pdf";
+import type { ClientRequisites, VendorRequisites } from "@/lib/requisites";
 
 export const runtime = "nodejs";
 
@@ -125,11 +130,61 @@ export async function POST(
     );
   }
 
+  // 5) Email клиенту с актом (PDF) — fire-and-forget
+  const client = inv.client_snapshot as ClientRequisites;
+  const vendor = inv.vendor_snapshot as VendorRequisites;
+  const userRows = await query<{ email: string }>(`SELECT email FROM users WHERE id = $1`, [inv.user_id]);
+  const recipientEmail = client?.contact_email || userRows[0]?.email;
+  if (recipientEmail) {
+    void (async () => {
+      try {
+        const html = buildActHTML(
+          {
+            act_number: actNumber,
+            act_date: new Date(),
+            invoice_number: inv.invoice_number,
+            invoice_date: new Date(),
+            service_description: inv.service_description,
+            amount: inv.amount,
+            vat_mode: (inv.vat_mode as "none" | "vat20" | "vat10" | "vat0"),
+            service_period_start: inv.service_period_start ? new Date(inv.service_period_start) : null,
+            service_period_end: inv.service_period_end ? new Date(inv.service_period_end) : null,
+          },
+          vendor,
+          client,
+        );
+        const pdf = await htmlToPdfA4(html);
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marketradar24.ru";
+        const tmpl = actCreatedEmail({
+          recipientName: client?.director_name || client?.legal_name || "Клиент",
+          actNumber,
+          invoiceNumber: inv.invoice_number,
+          amount: inv.amount,
+          serviceDescription: inv.service_description,
+          actUrl: `${baseUrl}/api/acts/${actId}/pdf?view=1`,
+        });
+        await sendMail({
+          ...tmpl,
+          to: recipientEmail,
+          from: "billing",
+          attachments: [{
+            filename: `${actNumber}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          }],
+        });
+      } catch (err) {
+        console.error("[mark-paid] act email failed:", err);
+      }
+    })();
+  }
+
   return NextResponse.json({
     ok: true,
     invoice_id: inv.id,
     payment_id: paymentId,
     act_id: actId,
     act_number: actNumber,
+    emailed_to: recipientEmail || null,
   });
 }

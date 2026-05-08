@@ -22,8 +22,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // The Claude Agent SDK is loaded at runtime (VPS only); skip it during local builds
-  serverExternalPackages: ["@anthropic-ai/claude-agent-sdk"],
+  // Эти пакеты подгружаются runtime (только VPS); локально могут отсутствовать
+  // и Turbopack-static-analysis их не должен жёстко резолвить.
+  serverExternalPackages: ["@anthropic-ai/claude-agent-sdk", "nodemailer"],
 };
 
 export default nextConfig;

@@ -8,6 +8,8 @@ import { randomUUID } from "crypto";
 import { logActivity } from "@/lib/activity-log";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { TRIAL_TOKEN_LIMIT, TRIAL_DAYS } from "@/lib/subscription";
+import { sendMail } from "@/lib/mailer";
+import { welcomeEmail, adminNewSignupEmail } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
 
@@ -220,6 +222,30 @@ export async function POST(req: Request) {
 
     // Audit log (reuse consentIp captured earlier)
     await logActivity({ userId: id, action: "register", entityType: "user", entityId: id, ipAddress: consentIp, userAgent: req.headers.get("user-agent") });
+
+    // ─── Email-уведомления — fire-and-forget, не блокируем регистрацию ──────
+    // Welcome клиенту
+    sendMail({
+      ...welcomeEmail({ name: safeName, email: email.toLowerCase() }),
+      to: email.toLowerCase(),
+    }).catch(err => console.error("[register] welcome email failed:", err));
+
+    // Уведомление админу
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.SMTP_USER_HELLO;
+    if (adminEmail) {
+      sendMail({
+        ...adminNewSignupEmail({
+          email: email.toLowerCase(),
+          name: safeName,
+          companyName: null, // на момент регистрации обычно ещё не задано
+          companyUrl: validatedWebsite.url,
+          referralCode: referralCodeApplied,
+          createdAt: new Date(),
+        }),
+        to: adminEmail,
+        from: "hello",
+      }).catch(err => console.error("[register] admin notification failed:", err));
+    }
 
     return res;
   } catch (e) {

@@ -27,6 +27,10 @@ import {
   type ClientRequisites,
 } from "@/lib/requisites";
 import { allocateDocNumber } from "@/lib/doc-numbering";
+import { sendMail } from "@/lib/mailer";
+import { invoiceCreatedEmail } from "@/lib/email-templates";
+import { buildInvoiceHTML } from "@/lib/invoice-html";
+import { htmlToPdfA4 } from "@/lib/html-to-pdf";
 
 export const runtime = "nodejs";
 
@@ -192,6 +196,55 @@ export async function POST(req: Request) {
     ],
   );
 
+  // ─── Email клиенту с PDF-вложением (fire-and-forget) ──────────────────────
+  // Шлём на contact_email (если задан в реквизитах), иначе на основной email юзера.
+  const recipientEmail = client.contact_email || u.email;
+  if (recipientEmail) {
+    void (async () => {
+      try {
+        // Генерируем PDF на месте (тот же шаблон что отдаёт /api/invoices/[id]/pdf)
+        const html = buildInvoiceHTML(
+          {
+            invoice_number: invoiceNumber,
+            invoice_date: new Date(),
+            due_date: dueDate,
+            service_description: serviceDescription,
+            amount: Math.round(amount),
+            vat_mode: vendor.vat_mode,
+            service_period_start: periodStart,
+            service_period_end: periodEnd,
+          },
+          vendor,
+          client,
+        );
+        const pdf = await htmlToPdfA4(html);
+
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marketradar24.ru";
+        const tmpl = invoiceCreatedEmail({
+          recipientName: client.director_name || client.legal_name || "Клиент",
+          invoiceNumber,
+          amount: Math.round(amount),
+          dueDate,
+          serviceDescription,
+          invoiceUrl: `${baseUrl}/api/invoices/${invoiceId}/pdf?view=1`,
+        });
+
+        await sendMail({
+          ...tmpl,
+          to: recipientEmail,
+          from: "billing",
+          attachments: [{
+            filename: `${invoiceNumber}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          }],
+        });
+      } catch (err) {
+        console.error("[invoices] email failed:", err);
+      }
+    })();
+  }
+
   return NextResponse.json({
     ok: true,
     invoice: {
@@ -201,6 +254,7 @@ export async function POST(req: Request) {
       due_date: dueDate.toISOString().slice(0, 10),
       pdf_url: `/api/invoices/${invoiceId}/pdf`,
       view_url: `/api/invoices/${invoiceId}/view`,
+      emailed_to: recipientEmail || null,
     },
   });
 }
