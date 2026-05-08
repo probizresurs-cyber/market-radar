@@ -166,6 +166,74 @@ export function SWOTView({
               </div>
             </div>
           )}
+          {/* Skeleton during generation — показывает структуру отчёта пока Claude думает */}
+          {generating && (
+            <div style={{ marginTop: 24 }}>
+              <style>{`
+                @keyframes swot-shimmer {
+                  0% { background-position: -1000px 0; }
+                  100% { background-position: 1000px 0; }
+                }
+                .swot-skel {
+                  background: linear-gradient(90deg,
+                    color-mix(in oklch, var(--muted) 60%, transparent) 0%,
+                    color-mix(in oklch, var(--muted) 30%, transparent) 50%,
+                    color-mix(in oklch, var(--muted) 60%, transparent) 100%);
+                  background-size: 1000px 100%;
+                  animation: swot-shimmer 2s infinite linear;
+                  border-radius: 8px;
+                }
+              `}</style>
+
+              {/* Status banner */}
+              <div style={{
+                marginBottom: 20, padding: "16px 20px",
+                background: "color-mix(in oklch, var(--primary) 8%, var(--card))",
+                border: "1.5px solid color-mix(in oklch, var(--primary) 35%, var(--border))",
+                borderRadius: 12,
+                display: "flex", alignItems: "center", gap: 14,
+              }}>
+                <Loader2 size={22} style={{ animation: "spin 1s linear infinite", color: "var(--primary)" }}/>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+                    Claude анализирует ваш бизнес
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+                    Шаг 1/3: Извлекаю SWOT-пункты → Шаг 2/3: Пишу 4 раздела параллельно → Шаг 3/3: Введение и заключение. Всего 60-90 секунд.
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 quadrant skeletons */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16, alignItems: "start" }}>
+                {[
+                  { color: "#16a34a", label: "Сильные стороны" },
+                  { color: "#dc2626", label: "Слабые стороны" },
+                  { color: "#6366f1", label: "Возможности" },
+                  { color: "#f59e0b", label: "Угрозы" },
+                ].map((q) => (
+                  <div key={q.label} style={{
+                    background: "var(--card)",
+                    border: `2px solid ${q.color}30`,
+                    borderRadius: 16, padding: 22,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${q.color}20` }}/>
+                      <div>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: q.color, lineHeight: 1.2 }}>{q.label}</div>
+                        <div className="swot-skel" style={{ width: 140, height: 12, marginTop: 6 }} />
+                      </div>
+                    </div>
+                    <div className="swot-skel" style={{ height: 14, marginBottom: 10 }} />
+                    <div className="swot-skel" style={{ height: 14, width: "85%", marginBottom: 10 }} />
+                    <div className="swot-skel" style={{ height: 14, width: "70%", marginBottom: 10 }} />
+                    <div className="swot-skel" style={{ height: 14, width: "92%", marginBottom: 10 }} />
+                    <div className="swot-skel" style={{ height: 14, width: "80%" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {error && (
             <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", fontSize: 14 }}>
               ❌ {error}

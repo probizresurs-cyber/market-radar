@@ -196,29 +196,43 @@ export function MobileBottomNav({ activeNav, setActiveNav, onOpenMenu }: {
   activeNav: string; setActiveNav: (id: string) => void; onOpenMenu: () => void;
 }) {
   const items = [
-    { id: "dashboard",    label: "Главная",    icon: <LayoutDashboard size={22} /> },
-    { id: "competitors",  label: "Конкуренты", icon: <Sword size={22} /> },
-    { id: "ta-dashboard", label: "ЦА",         icon: <Users size={22} /> },
-    { id: "content-plan", label: "Контент",    icon: <BookOpen size={22} /> },
-    { id: "__menu__",     label: "Ещё",        icon: <Menu size={22} /> },
+    { id: "dashboard",    label: "Главная",    icon: LayoutDashboard },
+    { id: "competitors",  label: "Конкуренты", icon: Sword },
+    { id: "ta-dashboard", label: "ЦА",         icon: Users },
+    { id: "content-plan", label: "Контент",    icon: BookOpen },
+    { id: "__menu__",     label: "Ещё",        icon: Menu },
   ];
   return (
     <nav className="ds-bottom-nav ds-mobile-only" style={{ display: "flex" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", width: "100%", height: "100%" }}>
         {items.map((it) => {
           const isActive = activeNav === it.id;
+          const IconCmp = it.icon;
           return (
             <button key={it.id}
               onClick={() => it.id === "__menu__" ? onOpenMenu() : setActiveNav(it.id)}
               style={{
+                position: "relative",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 3, color: isActive ? "#C4B8F5" : "rgba(255,255,255,0.45)",
-                cursor: "pointer", fontSize: 10, fontWeight: 500, background: "transparent",
-                border: "none", fontFamily: "inherit", padding: "4px 2px",
+                gap: 5,
+                color: isActive ? "#C4B8F5" : "rgba(255,255,255,0.55)",
+                cursor: "pointer",
+                fontSize: 11, fontWeight: 600,
+                background: "transparent", border: "none",
+                fontFamily: "inherit",
+                padding: "6px 4px",
+                minHeight: 56,
                 transition: "color 0.15s",
               }}>
-              {it.icon}
-              <span>{it.label}</span>
+              {/* Active indicator (top dot) */}
+              {isActive && (
+                <span style={{
+                  position: "absolute", top: 4, left: "50%", transform: "translateX(-50%)",
+                  width: 24, height: 3, borderRadius: 2, background: "#C4B8F5",
+                }} />
+              )}
+              <IconCmp size={24} strokeWidth={isActive ? 2 : 1.75} />
+              <span style={{ letterSpacing: -0.1 }}>{it.label}</span>
             </button>
           );
         })}

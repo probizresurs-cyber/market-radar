@@ -6,6 +6,7 @@ import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
 import { trackGoal, setUserId } from "@/lib/metrika";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 
 type ContactType = "phone" | "telegram";
 
@@ -104,23 +105,43 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
   const contactInputType = contactType === "phone" ? "tel" : "text";
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: 20 }}>
-      <div className="ds-card-elevated" style={{ width: "100%", maxWidth: 440, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, var(--background) 0%, color-mix(in srgb, var(--primary) 5%, var(--background)) 100%)",
+      padding: 20,
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 480,
+        background: "var(--card)",
+        borderRadius: 20,
+        border: "1px solid var(--border)",
+        padding: 36,
+        boxShadow: "0 24px 70px rgba(0,0,0,0.18), 0 6px 18px rgba(0,0,0,0.06)",
+      }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
-            <span style={{ fontWeight: 800, fontSize: 18 }}>MarketRadar</span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+            <MarketRadarLogo size={40} variant="dark" animated={false} />
+            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 400, opacity: 0.55 }}>Market</span>Radar<span style={{ color: "var(--primary)" }}>24</span>
+            </span>
           </div>
           {onBack && (
-            <button onClick={onBack} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 13, display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, transition: "background 0.15s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "var(--muted)10")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-              ← На главную
+            <button onClick={onBack} style={{
+              background: "transparent", border: "1px solid var(--border)", cursor: "pointer",
+              color: "var(--muted-foreground)", fontSize: 13, fontWeight: 600,
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "8px 12px", borderRadius: 9,
+            }}>
+              ← Главная
             </button>
           )}
         </div>
-        <h1 className="ds-h1" style={{ margin: "0 0 4px" }}>Создать аккаунт</h1>
-        <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>Бесплатно · Без кредитной карты</p>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>
+          Создать аккаунт 🚀
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px", lineHeight: 1.55 }}>
+          Бесплатно · 7 дней триала · 100k AI-токенов · Без карты
+        </p>
         {refState.hasReferral && (
           <div
             style={{

@@ -6,6 +6,7 @@ import type { Colors } from "@/lib/colors";
 import type { GeneratedReel, AvatarSettings, BrandBook } from "@/lib/content-types";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
+import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 
 export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -177,7 +178,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   );
 }
 
-export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel }: {
+export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel, onboardingState }: {
   c: Colors;
   reels: GeneratedReel[];
   onGenerateVideo: (reelId: string) => void;
@@ -186,20 +187,29 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   onUpdateAvatarSettings: (next: AvatarSettings) => void;
   onUpdateReel: (updated: GeneratedReel) => void;
   onDeleteReel: (id: string) => void;
+  onboardingState?: OnboardingState;
 }) {
   if (reels.length === 0) {
     return (
       <div style={{ maxWidth: 1180 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые видео</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Настройте аватара, потом сгенерируйте сценарии в «Плане контента».</p>
+
+        {onboardingState && (
+          <OnboardingChecklist
+            state={onboardingState}
+            onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+          />
+        )}
+
         <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
-        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🎬</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет сценариев</div>
-          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 24px" }}>
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, #ec4899 12%, transparent)", color: "#ec4899", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16, fontSize: 32 }}>🎬</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Пока нет сценариев</div>
+          <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
             Перейдите в «План контента» и нажмите «Создать сценарий рилса» на любой идее.
           </div>
-          <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+          <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
             План контента →
           </a>
         </div>

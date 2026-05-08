@@ -314,49 +314,81 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
               return (
                 <div style={{
                   background: "var(--card)",
-                  borderRadius: 14,
-                  border: `1px solid ${warning ? "var(--destructive)" : low ? "#f59e0b44" : "var(--border)"}`,
-                  padding: 20,
+                  borderRadius: 18,
+                  border: `1.5px solid ${warning ? "var(--destructive)" : low ? "#f59e0b44" : "var(--border)"}`,
+                  padding: 28,
                   boxShadow: "var(--shadow)",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {warning ? <AlertTriangle size={18} /> : sub.plan !== "trial" ? <CheckCircle size={18} /> : <Zap size={18} />}
+                  {/* Header: plan badge */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {warning ? <AlertTriangle size={22} /> : sub.plan !== "trial" ? <CheckCircle size={22} /> : <Zap size={22} />}
                     </div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>{planLabel}</div>
-                      <div style={{ fontSize: 12, color: warning ? accent : "var(--muted-foreground)" }}>
-                        {warning
-                          ? (sub.isExpired ? "Пробный период завершён" : "Лимит токенов исчерпан")
-                          : `Активна · осталось ${formatTrialTime(sub)}`}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted-foreground)", marginBottom: 4 }}>
+                        Текущий тариф
+                      </div>
+                      <div style={{ fontSize: 21, fontWeight: 800, color: "var(--foreground)", letterSpacing: -0.3 }}>
+                        {planLabel}
+                      </div>
+                    </div>
+                    {warning && (
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 7,
+                        background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent,
+                      }}>
+                        ⚠ {sub.isExpired ? "Завершён" : "Лимит"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 2-col stats: Days + Tokens */}
+                  <div style={{ display: "grid", gridTemplateColumns: sub.plan === "trial" ? "1fr 1fr" : "1fr", gap: 18, marginBottom: 22 }}>
+                    {sub.plan === "trial" && (
+                      <div style={{ padding: "18px 20px", borderRadius: 12, background: "var(--background)", border: "1px solid var(--muted)" }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.0, textTransform: "uppercase", color: "var(--muted-foreground)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                          <Clock size={13} /> Осталось дней
+                        </div>
+                        <div style={{ fontSize: 36, fontWeight: 800, color: warning ? accent : "var(--foreground)", lineHeight: 1, letterSpacing: -1, marginBottom: 6 }}>
+                          {warning ? "—" : sub.daysLeft || (sub.totalHoursLeft && sub.totalHoursLeft >= 1 ? `${sub.totalHoursLeft}ч` : "<1ч")}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>
+                          {warning ? "Триал завершён" : `Точное время: ${formatTrialTime(sub)}`}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ padding: "18px 20px", borderRadius: 12, background: "var(--background)", border: "1px solid var(--muted)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.0, textTransform: "uppercase", color: "var(--muted-foreground)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Zap size={13} /> AI-кредиты
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: warning ? accent : "var(--foreground)", lineHeight: 1, letterSpacing: -0.6 }}>
+                          {sub.tokensLeft.toLocaleString("ru-RU")}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--muted-foreground)" }}>
+                          из {sub.tokensLimit.toLocaleString("ru-RU")}
+                        </div>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 999, background: "var(--muted)", overflow: "hidden", marginBottom: 6 }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999, transition: "width 0.4s" }} />
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                        Использовано {pct}% · {sub.tokensUsed.toLocaleString("ru-RU")} токенов
                       </div>
                     </div>
                   </div>
 
-                  {/* Tokens row */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
-                      <Zap size={14} color={accent} />
-                      AI-кредиты (токены)
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
-                      {sub.tokensLeft.toLocaleString("ru-RU")} / {sub.tokensLimit.toLocaleString("ru-RU")}
-                    </div>
-                  </div>
-                  <div style={{ height: 8, borderRadius: 999, background: "var(--muted)", overflow: "hidden", marginBottom: 6 }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999, transition: "width 0.4s" }} />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted-foreground)" }}>
-                    <span>Использовано: {sub.tokensUsed.toLocaleString("ru-RU")}</span>
-                    <span>{pct}%</span>
-                  </div>
-
-                  {/* Days row (only for trial) */}
-                  {sub.plan === "trial" && !warning && (
-                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted-foreground)" }}>
-                      <Clock size={13} />
-                      Пробный период заканчивается через {formatTrialTime(sub)}
-                    </div>
+                  {/* Action CTA */}
+                  {warning && (
+                    <a href="/pricing" style={{
+                      display: "block", padding: "12px 20px", borderRadius: 11,
+                      background: "var(--primary)", color: "#fff",
+                      fontSize: 15, fontWeight: 700, textDecoration: "none",
+                      textAlign: "center",
+                    }}>
+                      Перейти на платный тариф →
+                    </a>
                   )}
                 </div>
               );

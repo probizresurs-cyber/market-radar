@@ -6,8 +6,9 @@ import type { ContentPlan, GeneratedStory, BrandBook } from "@/lib/content-types
 import type { SMMResult } from "@/lib/smm-types";
 import { Smartphone, Sparkles, Camera, Users, Send, Loader2, RefreshCw } from "lucide-react";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
+import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 
-export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate }: {
+export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
   stories: GeneratedStory[];
   plan: ContentPlan | null;
@@ -17,6 +18,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   onAdd: (story: GeneratedStory) => void;
   onDelete: (id: string) => void;
   onUpdate: (story: GeneratedStory) => void;
+  onboardingState?: OnboardingState;
 }) {
   const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
   const [slidesCount, setSlidesCount] = useState<3 | 5 | 7>(5);
@@ -262,16 +264,24 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
       {/* Stories list */}
       {stories.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, #a855f7 12%, transparent)", color: "#a855f7", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-            <Smartphone size={36} strokeWidth={1.5} />
+        <>
+          {onboardingState && (
+            <OnboardingChecklist
+              state={onboardingState}
+              onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+            />
+          )}
+          <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+            <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, #a855f7 12%, transparent)", color: "#a855f7", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Smartphone size={30} strokeWidth={1.5} />
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Пока нет серий сторис</div>
+            <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
+              Заполните форму выше — серия из 5 слайдов с фонами появится через 30-60 секунд.
+            </div>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет серий сторис</div>
-          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
-            Заполните форму выше — серия из 5 слайдов с фонами появится через 30-60 секунд.
-          </div>
-        </div>
+        </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {stories.map(story => (

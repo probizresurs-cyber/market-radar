@@ -402,12 +402,13 @@ html, body, .ds-card, .ds-btn, .ds-input, .ds-sidebar, .ds-tab {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 68px;
+  height: 76px;
   background: var(--sidebar-bg);
   color: var(--sidebar-fg);
   border-top: 1px solid var(--sidebar-border);
   z-index: 90;
   padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.16);
 }
 .ds-bottom-nav-inner {
   display: grid;

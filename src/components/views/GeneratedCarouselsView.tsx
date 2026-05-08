@@ -5,8 +5,9 @@ import type { Colors } from "@/lib/colors";
 import type { ContentPlan, GeneratedCarousel, BrandBook, CarouselSlide } from "@/lib/content-types";
 import { Layers, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Copy } from "lucide-react";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
+import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 
-export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate }: {
+export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
   carousels: GeneratedCarousel[];
   plan: ContentPlan | null;
@@ -16,6 +17,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
   onAdd: (carousel: GeneratedCarousel) => void;
   onDelete: (id: string) => void;
   onUpdate: (carousel: GeneratedCarousel) => void;
+  onboardingState?: OnboardingState;
 }) {
   const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
   const [slidesCount, setSlidesCount] = useState<6 | 7 | 8 | 10>(7);
@@ -156,16 +158,24 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
 
       {/* List */}
       {carousels.length === 0 ? (
-        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
-          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, #ec4899 12%, transparent)", color: "#ec4899", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-            <Layers size={36} strokeWidth={1.5} />
+        <>
+          {onboardingState && (
+            <OnboardingChecklist
+              state={onboardingState}
+              onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+            />
+          )}
+          <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+            <style>{".spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, #ec4899 12%, transparent)", color: "#ec4899", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Layers size={30} strokeWidth={1.5} />
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Пока нет каруселей</div>
+            <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
+              Заполните форму выше — карусель из 5-7 слайдов с текстом и фонами появится через 30-60 секунд.
+            </div>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет каруселей</div>
-          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto" }}>
-            Заполните форму выше — карусель из 5-7 слайдов с текстом и фонами появится через 30-60 секунд.
-          </div>
-        </div>
+        </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {carousels.map(car => (

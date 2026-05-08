@@ -5,6 +5,8 @@ import type { Colors } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
 import { trackGoal, setUserId } from "@/lib/metrika";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
+import { ArrowLeft, Mail, Lock, Loader2 } from "lucide-react";
 
 export function LoginView({ c, onSuccess, onRegister, onBack }: {
   c: Colors;
@@ -52,42 +54,117 @@ export function LoginView({ c, onSuccess, onRegister, onBack }: {
     }
   };
 
+  const inputWrap: React.CSSProperties = { position: "relative" };
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "13px 14px 13px 44px", borderRadius: 11,
+    border: "1.5px solid var(--border)", background: "var(--background)",
+    color: "var(--foreground)", fontSize: 15, outline: "none",
+    fontFamily: "inherit", boxSizing: "border-box",
+    transition: "border-color 0.15s",
+  };
+  const iconLeft: React.CSSProperties = {
+    position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+    color: "var(--muted-foreground)", display: "flex", alignItems: "center", pointerEvents: "none",
+  };
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: 20 }}>
-      <div className="ds-card-elevated" style={{ width: "100%", maxWidth: 400, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, var(--background) 0%, color-mix(in srgb, var(--primary) 5%, var(--background)) 100%)",
+      padding: 20,
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 440,
+        background: "var(--card)",
+        borderRadius: 20,
+        border: "1px solid var(--border)",
+        padding: 36,
+        boxShadow: "0 24px 70px rgba(0,0,0,0.18), 0 6px 18px rgba(0,0,0,0.06)",
+      }}>
+        {/* Header — logo + back */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>MR</div>
-            <span style={{ fontWeight: 800, fontSize: 18 }}>MarketRadar</span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+            <MarketRadarLogo size={40} variant="dark" animated={false} />
+            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 400, opacity: 0.55 }}>Market</span>Radar<span style={{ color: "var(--primary)" }}>24</span>
+            </span>
           </div>
           {onBack && (
-            <button onClick={onBack} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 13, display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, transition: "background 0.15s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "var(--muted)10")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-              ← На главную
+            <button onClick={onBack} style={{
+              background: "transparent", border: "1px solid var(--border)", cursor: "pointer",
+              color: "var(--muted-foreground)", fontSize: 13, fontWeight: 600,
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "8px 12px", borderRadius: 9,
+            }}>
+              <ArrowLeft size={14}/> Главная
             </button>
           )}
         </div>
-        <h1 className="ds-h1" style={{ margin: "0 0 4px" }}>Войти</h1>
-        <p className="ds-body-sm" style={{ color: "var(--muted-foreground)", margin: "0 0 22px" }}>Добро пожаловать обратно</p>
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>
+          С возвращением 👋
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px", lineHeight: 1.55 }}>
+          Войдите в свой аккаунт. Все ваши анализы, посты и реквизиты ждут вас на месте.
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ivan@example.com" className="ds-input" />
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: 0.6, textTransform: "uppercase" }}>Email</label>
+            <div style={inputWrap}>
+              <span style={iconLeft}><Mail size={17}/></span>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="ivan@example.com"
+                style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; }} />
+            </div>
           </div>
           <div>
-            <label className="ds-caption" style={{ display: "block", marginBottom: 5 }}>Пароль</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="ds-input" />
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: 0.6, textTransform: "uppercase" }}>Пароль</label>
+            <div style={inputWrap}>
+              <span style={iconLeft}><Lock size={17}/></span>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; }} />
+            </div>
           </div>
-          {error && <div className="ds-badge ds-badge-destructive" style={{ display: "block", borderRadius: "var(--radius)", padding: "10px 14px" }}>{error}</div>}
-          <button type="submit" disabled={loading} className="ds-btn ds-btn-primary" style={{ height: 44, fontSize: 14 }}>
-            {loading ? "Входим…" : "Войти →"}
+
+          {error && (
+            <div style={{
+              padding: "12px 14px", borderRadius: 10, fontSize: 14,
+              background: "color-mix(in oklch, var(--destructive) 10%, transparent)",
+              color: "var(--destructive)",
+              border: "1px solid color-mix(in oklch, var(--destructive) 25%, transparent)",
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} style={{
+            padding: "14px 20px", borderRadius: 11, border: "none",
+            background: loading ? "var(--muted)" : "var(--primary)",
+            color: "#fff", fontSize: 15, fontWeight: 700,
+            cursor: loading ? "wait" : "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+            minHeight: 48, marginTop: 6,
+            boxShadow: loading ? "none" : "0 8px 22px color-mix(in oklch, var(--primary) 35%, transparent)",
+            transition: "background 0.15s, box-shadow 0.15s",
+          }}>
+            {loading
+              ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }}/> Входим…</>
+              : <>Войти →</>}
           </button>
         </form>
-        <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "var(--muted-foreground)" }}>
+
+        <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)", textAlign: "center", fontSize: 14, color: "var(--muted-foreground)" }}>
           Нет аккаунта?{" "}
-          <span onClick={onRegister} style={{ color: "var(--primary)", fontWeight: 600, cursor: "pointer" }}>Зарегистрироваться</span>
-        </p>
+          <span onClick={onRegister} style={{ color: "var(--primary)", fontWeight: 700, cursor: "pointer" }}>
+            Зарегистрироваться →
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -1461,6 +1461,17 @@ function MarketRadarDashboardInner() {
   // «В разработке, подпишитесь на уведомления» на своей странице, а не исчезают из сайдбара.
   const navSections = NAV_SECTIONS.map(section => ({ ...section, items: updateCounts(section.items) }));
 
+  // Состояние воронки 6 шагов для OnboardingChecklist в empty-states.
+  // Используется в Готовых постах / рилсах / сторис / каруселях.
+  const onboardingState = React.useMemo(() => ({
+    company: !!myCompany,
+    competitors: competitors.length > 0,
+    ta: !!taAnalysis,
+    smm: !!smmAnalysis,
+    brandbook: !!(brandBook && brandBook.brandName),
+    content: !!(contentPlan && contentPlan.bigIdea),
+  }), [myCompany, competitors.length, taAnalysis, smmAnalysis, brandBook, contentPlan]);
+
   // Screen routing
   if (appScreen === "landing") {
     return <LandingPageView c={c} theme={theme} setTheme={setTheme} onRegister={() => setAppScreen("register")} onLogin={() => setAppScreen("login")} />;
@@ -1656,10 +1667,10 @@ function MarketRadarDashboardInner() {
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}
-        {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} onboardingState={{ company: !!myCompany, competitors: competitors.length > 0, ta: !!taAnalysis, smm: !!smmAnalysis, brandbook: !!(brandBook && brandBook.brandName), content: !!(contentPlan && contentPlan.bigIdea) }} />}
-        {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
-        {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
-        {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} />}
+        {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} onboardingState={onboardingState} />}
+        {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} onboardingState={onboardingState} />}
+        {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
+        {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} onboardingState={onboardingState} />}
         {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
         {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords" || activeNav === "seo-expand" || activeNav === "seo-paa" || activeNav === "seo-tech-audit") && (
