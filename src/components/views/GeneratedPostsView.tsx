@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, ReelMetrics, ReferenceImage } from "@/lib/content-types";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
+import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
@@ -516,10 +517,14 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8,
-    border: `1px solid var(--primary)50`, background: "var(--background)",
-    color: "var(--foreground)", fontSize: 13, outline: "none",
-    lineHeight: 1.55, fontFamily: "inherit", boxSizing: "border-box",
+    width: "100%", padding: "12px 14px", borderRadius: 10,
+    border: "1.5px solid var(--border)", background: "var(--background)",
+    color: "var(--foreground)", fontSize: 14, outline: "none",
+    lineHeight: 1.6, fontFamily: "inherit", boxSizing: "border-box",
+  };
+  const editLabelStyle: React.CSSProperties = {
+    display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)",
+    marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase",
   };
 
   return (
@@ -571,31 +576,46 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
 
       {editing ? (
         <>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>КРЮЧОК / ЗАГОЛОВОК</label>
-            <input type="text" value={hook} onChange={e => setHook(e.target.value)} style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }} />
+          <div style={{ marginBottom: 14 }}>
+            <label style={editLabelStyle}>Крючок / заголовок</label>
+            <input type="text" value={hook} onChange={e => setHook(e.target.value)} style={{ ...inputStyle, fontSize: 16, fontWeight: 700 }} />
           </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>
-              ТЕКСТ ПОСТА {isCarousel && <span style={{ fontWeight: 400 }}>(экраны карусели разделяются через "---")</span>}
+          <div style={{ marginBottom: 14 }}>
+            <label style={editLabelStyle}>
+              Текст поста {isCarousel && <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted-foreground)" }}>(экраны карусели разделяются через «---»)</span>}
+              <span style={{ float: "right", fontWeight: 600, color: body.length > 2200 ? "var(--destructive)" : "var(--muted-foreground)", textTransform: "none", letterSpacing: 0 }}>
+                {body.length} символов
+              </span>
             </label>
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ (через пробел)</label>
+          <div style={{ marginBottom: 18 }}>
+            <label style={editLabelStyle}>Хэштеги (через пробел)</label>
             <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Save size={12}/>Сохранить</span></button>
-            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Отмена</button>
-            {confirmDelete ? (
-              <>
-                <button onClick={() => onDelete(post.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
-                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, cursor: "pointer" }}>Нет</button>
-              </>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Trash2 size={12}/>Удалить</span></button>
-            )}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+            <button onClick={handleSave} style={{ padding: "11px 20px", borderRadius: 9, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, minHeight: 42 }}>
+              <Save size={15}/>Сохранить
+            </button>
+            <button onClick={handleCancel} style={{ padding: "11px 18px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontSize: 14, fontWeight: 600, cursor: "pointer", minHeight: 42 }}>
+              Отмена
+            </button>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              {confirmDelete ? (
+                <>
+                  <button onClick={() => onDelete(post.id)} style={{ padding: "11px 18px", borderRadius: 9, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", minHeight: 42 }}>
+                    Удалить
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)} style={{ padding: "11px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontSize: 14, fontWeight: 600, cursor: "pointer", minHeight: 42 }}>
+                    Нет
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} title="Удалить пост" style={{ padding: "11px 14px", borderRadius: 9, border: "1px solid color-mix(in oklch, var(--destructive) 30%, var(--border))", background: "transparent", color: "var(--destructive)", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 42 }}>
+                  <Trash2 size={15}/>
+                </button>
+              )}
+            </div>
           </div>
         </>
       ) : (
@@ -861,7 +881,7 @@ function PublishModal({ post, onClose, onPublished }: {
   );
 }
 
-export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages, brandBook }: {
+export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages, brandBook, onboardingState }: {
   c: Colors;
   posts: GeneratedPost[];
   onUpdatePost: (updated: GeneratedPost) => void;
@@ -869,25 +889,36 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   referenceImages: ReferenceImage[];
   onUpdateReferenceImages: (next: ReferenceImage[]) => void;
   brandBook?: BrandBook;
+  /** Состояние воронки — для OnboardingChecklist на пустом view. */
+  onboardingState?: OnboardingState;
 }) {
   if (posts.length === 0) {
     return (
-      <div style={{ maxWidth: 720 }}>
+      <div style={{ maxWidth: 760 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Все сгенерированные посты с картинками появятся здесь.</p>
-        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "56px 32px", textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-            <Pencil size={36} strokeWidth={1.5} />
+
+        {/* Onboarding checklist — показываем если воронка ещё не пройдена до конца */}
+        {onboardingState && (
+          <OnboardingChecklist
+            state={onboardingState}
+            onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+          />
+        )}
+
+        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+          <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <Pencil size={30} strokeWidth={1.5} />
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", marginBottom: 10 }}>Пока нет постов</div>
-          <div style={{ fontSize: 15, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
-            Создайте первый пост — выберите идею в «Плане контента» или дайте AI-агенту собрать тренды по вашей нише.
+          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Пока нет постов</div>
+          <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
+            Сгенерируйте первый — из «Плана контента» или из «Трендов по нише».
           </div>
           <div style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+            <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
               План контента →
             </a>
-            <a href="/?nav=content-trends" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--background)", color: "var(--foreground)", fontWeight: 700, fontSize: 15, textDecoration: "none", border: "1.5px solid var(--border)" }}>
+            <a href="/?nav=content-trends" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--background)", color: "var(--foreground)", fontWeight: 700, fontSize: 14, textDecoration: "none", border: "1.5px solid var(--border)" }}>
               Тренды по нише →
             </a>
           </div>

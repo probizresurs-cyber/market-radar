@@ -25,6 +25,8 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  // Прогресс авто-генерации фонов для серии: { ready, total, storyId }
+  const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; storyId: string } | null>(null);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -53,13 +55,17 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   };
 
   // Параллельная авто-генерация фонов для всех слайдов серии.
-  // Не дожидаемся каждого — каждый завершившийся obновляет свою карточку.
+  // Не дожидаемся каждого — каждый завершившийся обновляет свою карточку.
+  // Параллельно ведём bgProgress: { ready, total } для UI-баннера.
   const autoGenerateBackgrounds = async (story: GeneratedStory) => {
     const brandVisual = brandBook?.visualStyle?.trim();
     const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
 
     // Локальная копия слайдов — каждый промис мутирует именно её и шлёт onUpdate.
     let working = story;
+
+    // Стартуем баннер прогресса
+    setBgProgress({ ready: 0, total: story.slides.length, storyId: story.id });
 
     await Promise.all(story.slides.map(async (slide, i) => {
       try {
@@ -93,10 +99,16 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
           ),
         };
         onUpdate(working);
+        setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       } catch {
         // Тихий отказ — пользователь сможет дотыкнуть «Перегенерировать» вручную.
+        // Учёт всё равно делаем (чтобы прогресс-бар не залип навсегда).
+        setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       }
     }));
+
+    // Скрываем баннер через 3с после завершения
+    setTimeout(() => setBgProgress(null), 3000);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -207,6 +219,46 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
           </button>
         </div>
       </div>
+
+      {/* BG generation progress banner */}
+      {bgProgress && bgProgress.ready < bgProgress.total && (
+        <div style={{
+          marginBottom: 18,
+          padding: "16px 20px",
+          background: "color-mix(in oklch, #a855f7 8%, var(--card))",
+          border: "1.5px solid color-mix(in oklch, #a855f7 35%, var(--border))",
+          borderRadius: 14,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: "color-mix(in oklch, #a855f7 18%, transparent)",
+            color: "#a855f7",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 6 }}>
+              Рисую фоны слайдов: {bgProgress.ready} / {bgProgress.total}
+            </div>
+            <div style={{ height: 6, background: "var(--background)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${(bgProgress.ready / bgProgress.total) * 100}%`,
+                background: "linear-gradient(90deg, #a855f7, #c084fc)",
+                borderRadius: 3,
+                transition: "width 0.5s ease",
+              }}/>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>
+              Серия уже сохранена с текстом — фоны догружаются по мере готовности.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stories list */}
       {stories.length === 0 ? (

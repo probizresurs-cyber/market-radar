@@ -61,10 +61,14 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8,
-    border: `1px solid var(--primary)50`, background: "var(--background)",
-    color: "var(--foreground)", fontSize: 12, outline: "none",
-    lineHeight: 1.55, fontFamily: "inherit", boxSizing: "border-box",
+    width: "100%", padding: "12px 14px", borderRadius: 10,
+    border: "1.5px solid var(--border)", background: "var(--background)",
+    color: "var(--foreground)", fontSize: 14, outline: "none",
+    lineHeight: 1.6, fontFamily: "inherit", boxSizing: "border-box",
+  };
+  const editLabelStyle: React.CSSProperties = {
+    display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)",
+    marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase",
   };
 
   return (
@@ -91,40 +95,42 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 
       {editing ? (
         <>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>НАЗВАНИЕ</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, fontSize: 14, fontWeight: 700 }} />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>РАСКАДРОВКА</label>
-            <textarea value={scenario} onChange={e => setScenario(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>ТЕКСТ ДЛЯ ОЗВУЧКИ (отправляется в HeyGen)</label>
-            <textarea value={voiceover} onChange={e => setVoiceover(e.target.value)} rows={5} style={{ ...inputStyle, resize: "vertical" }} />
-            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 3 }}>После правки можно заново сгенерировать видео с обновлённым текстом</div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={editLabelStyle}>Название</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, fontSize: 16, fontWeight: 700 }} />
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4, letterSpacing: "0.05em" }}>ХЭШТЕГИ</label>
+            <label style={editLabelStyle}>Раскадровка</label>
+            <textarea value={scenario} onChange={e => setScenario(e.target.value)} rows={10} style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={editLabelStyle}>Текст для озвучки <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted-foreground)" }}>(отправляется в HeyGen)</span></label>
+            <textarea value={voiceover} onChange={e => setVoiceover(e.target.value)} rows={5} style={{ ...inputStyle, resize: "vertical" }} />
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>После правки можно заново сгенерировать видео с обновлённым текстом</div>
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label style={editLabelStyle}>Хэштеги</label>
             <input type="text" value={hashtagsRaw} onChange={e => setHashtagsRaw(e.target.value)} style={inputStyle} />
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={handleSave} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              <Save size={12}/> Сохранить
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+            <button onClick={handleSave} style={{ padding: "11px 20px", borderRadius: 9, border: "none", background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, minHeight: 42 }}>
+              <Save size={15}/> Сохранить
             </button>
-            <button onClick={handleCancel} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={handleCancel} style={{ padding: "11px 18px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontSize: 14, fontWeight: 600, cursor: "pointer", minHeight: 42 }}>
               Отмена
             </button>
-            {confirmDelete ? (
-              <>
-                <button onClick={() => onDelete(reel.id)} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Удалить</button>
-                <button onClick={() => setConfirmDelete(false)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, cursor: "pointer" }}>Нет</button>
-              </>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid var(--destructive)40`, background: "transparent", color: "var(--destructive)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                <Trash2 size={12}/> Удалить
-              </button>
-            )}
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              {confirmDelete ? (
+                <>
+                  <button onClick={() => onDelete(reel.id)} style={{ padding: "11px 18px", borderRadius: 9, border: "none", background: "var(--destructive)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", minHeight: 42 }}>Удалить</button>
+                  <button onClick={() => setConfirmDelete(false)} style={{ padding: "11px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground-secondary)", fontSize: 14, cursor: "pointer", minHeight: 42 }}>Нет</button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} title="Удалить рилс" style={{ padding: "11px 14px", borderRadius: 9, border: "1px solid color-mix(in oklch, var(--destructive) 30%, var(--border))", background: "transparent", color: "var(--destructive)", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 42 }}>
+                  <Trash2 size={15}/>
+                </button>
+              )}
+            </div>
           </div>
         </>
       ) : (

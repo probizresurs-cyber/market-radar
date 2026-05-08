@@ -115,6 +115,7 @@ import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/vi
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
 import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
+import { PackageProgressModal, type PackageProgress } from "@/components/ui/PackageProgressModal";
 import { GeneratedPostsView } from "@/components/views/GeneratedPostsView";
 import { GeneratedReelsView } from "@/components/views/GeneratedReelsView";
 import { ContentAnalyticsView, ROICalculatorView } from "@/components/views/ContentAnalyticsView";
@@ -274,6 +275,8 @@ function MarketRadarDashboardInner() {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
+  // Progress пакетной генерации из тренда (4 шага). null = модалка скрыта.
+  const [packageProgress, setPackageProgress] = useState<PackageProgress | null>(null);
   const [generatingVideoFor, setGeneratingVideoFor] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [avatarSettings, setAvatarSettings] = useState<AvatarSettings>({
@@ -1063,130 +1066,129 @@ function MarketRadarDashboardInner() {
       platform,
     };
 
-    // 4 параллельных запроса
-    const [postRes, storyRes, carouselRes, reelRes] = await Promise.allSettled([
-      // 1. Пост
-      fetch("/api/generate-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName,
-          idea: adaptedIdea,
-          smmAnalysis,
-          brandBook,
-          companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
-          generateImage: true,
-          userPrompt: idea.prompt,
-        }),
-      }).then(r => r.json()),
+    // Открываем progress-модалку
+    setPackageProgress({
+      post: "loading",
+      stories: "loading",
+      carousel: "loading",
+      reel: "loading",
+    });
 
-      // 2. Сторис серия
-      fetch("/api/generate-stories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName, platform,
-          slidesCount: 5, goal: "прогрев",
-          brief: idea.prompt, pillar: idea.topic,
-          smmAnalysis, brandBook,
-        }),
-      }).then(r => r.json()),
+    // ─── Запускаем 4 задачи параллельно, обновляя прогресс по мере завершения каждой ───
+    const postTask = fetch("/api/generate-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyName, idea: adaptedIdea, smmAnalysis, brandBook,
+        companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
+        generateImage: true, userPrompt: idea.prompt,
+      }),
+    }).then(r => r.json()).then(json => {
+      if (json?.ok && json.data) {
+        setGeneratedPosts(prev => {
+          const next = [json.data as GeneratedPost, ...prev];
+          persistContent(contentPlan, next, generatedReels);
+          return next;
+        });
+        setPackageProgress(p => p ? { ...p, post: "done" } : p);
+        return true;
+      }
+      setPackageProgress(p => p ? { ...p, post: "failed" } : p);
+      return false;
+    }).catch(() => { setPackageProgress(p => p ? { ...p, post: "failed" } : p); return false; });
 
-      // 3. Карусель — пока используем generate-post с пометкой format=карусель
-      fetch("/api/generate-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName,
-          idea: { ...adaptedIdea, id: `${idea.id}-car`, format: "карусель" as const },
-          smmAnalysis,
-          brandBook,
-          companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
-          generateImage: true,
-          userPrompt: `Карусель из 5-7 слайдов с разделителями ---. ${idea.prompt}`,
-        }),
-      }).then(r => r.json()),
+    const storyTask = fetch("/api/generate-stories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyName, platform,
+        slidesCount: 5, goal: "прогрев",
+        brief: idea.prompt, pillar: idea.topic,
+        smmAnalysis, brandBook,
+      }),
+    }).then(r => r.json()).then(json => {
+      if (json?.ok && json.data) {
+        setGeneratedStories(prev => {
+          const next = [json.data as GeneratedStory, ...prev];
+          persistStories(next);
+          return next;
+        });
+        setPackageProgress(p => p ? { ...p, stories: "done" } : p);
+        return true;
+      }
+      setPackageProgress(p => p ? { ...p, stories: "failed" } : p);
+      return false;
+    }).catch(() => { setPackageProgress(p => p ? { ...p, stories: "failed" } : p); return false; });
 
-      // 4. Рилс сценарий
-      fetch("/api/generate-reel-scenario", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName,
-          idea: {
-            id: `${idea.id}-reel`,
-            pillar: "Тренды",
-            hook: idea.hook,
-            intrigue: idea.topic,
-            problem: "из тренда",
-            solution: idea.prompt.slice(0, 200),
-            result: "вовлечение",
-            cta: "Подписывайтесь",
-            durationSec: 30,
-            visualStyle: "динамичный, кадры 2-3 сек",
-            hashtags: [],
-          },
-          smmAnalysis,
-          brandBook,
-          voiceDescription: avatarSettings.voiceDescription,
-          avatarDescription: avatarSettings.avatarDescription,
-          userPrompt: idea.prompt,
-        }),
-      }).then(r => r.json()),
-    ]);
+    const carouselTask = fetch("/api/generate-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyName,
+        idea: { ...adaptedIdea, id: `${idea.id}-car`, format: "карусель" as const },
+        smmAnalysis, brandBook,
+        companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
+        generateImage: true,
+        userPrompt: `Карусель из 5-7 слайдов с разделителями ---. ${idea.prompt}`,
+      }),
+    }).then(r => r.json()).then(json => {
+      if (json?.ok && json.data) {
+        setGeneratedPosts(prev => {
+          const next = [json.data as GeneratedPost, ...prev];
+          persistContent(contentPlan, next, generatedReels);
+          return next;
+        });
+        setPackageProgress(p => p ? { ...p, carousel: "done" } : p);
+        return true;
+      }
+      setPackageProgress(p => p ? { ...p, carousel: "failed" } : p);
+      return false;
+    }).catch(() => { setPackageProgress(p => p ? { ...p, carousel: "failed" } : p); return false; });
 
-    const successes: string[] = [];
-    const failures: string[] = [];
+    const reelTask = fetch("/api/generate-reel-scenario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyName,
+        idea: {
+          id: `${idea.id}-reel`,
+          pillar: "Тренды",
+          hook: idea.hook,
+          intrigue: idea.topic,
+          problem: "из тренда",
+          solution: idea.prompt.slice(0, 200),
+          result: "вовлечение",
+          cta: "Подписывайтесь",
+          durationSec: 30,
+          visualStyle: "динамичный, кадры 2-3 сек",
+          hashtags: [],
+        },
+        smmAnalysis, brandBook,
+        voiceDescription: avatarSettings.voiceDescription,
+        avatarDescription: avatarSettings.avatarDescription,
+        userPrompt: idea.prompt,
+      }),
+    }).then(r => r.json()).then(json => {
+      if (json?.ok && json.data) {
+        setGeneratedReels(prev => {
+          const next = [json.data as GeneratedReel, ...prev];
+          persistContent(contentPlan, generatedPosts, next);
+          return next;
+        });
+        setPackageProgress(p => p ? { ...p, reel: "done" } : p);
+        return true;
+      }
+      setPackageProgress(p => p ? { ...p, reel: "failed" } : p);
+      return false;
+    }).catch(() => { setPackageProgress(p => p ? { ...p, reel: "failed" } : p); return false; });
 
-    // Пост
-    if (postRes.status === "fulfilled" && postRes.value.ok && postRes.value.data) {
-      setGeneratedPosts(prev => {
-        const next = [postRes.value.data as GeneratedPost, ...prev];
-        persistContent(contentPlan, next, generatedReels);
-        return next;
-      });
-      successes.push("пост");
-    } else {
-      failures.push("пост");
-    }
+    const [postOk, storyOk, carouselOk, reelOk] = await Promise.all([postTask, storyTask, carouselTask, reelTask]);
+    const okCount = [postOk, storyOk, carouselOk, reelOk].filter(Boolean).length;
 
-    // Сторис
-    if (storyRes.status === "fulfilled" && storyRes.value.ok && storyRes.value.data) {
-      setGeneratedStories(prev => {
-        const next = [storyRes.value.data as GeneratedStory, ...prev];
-        persistStories(next);
-        return next;
-      });
-      successes.push("сторис-серия");
-    } else {
-      failures.push("сторис");
-    }
+    // Закрываем модалку через 1.5с (даём пользователю увидеть финальный статус)
+    setTimeout(() => setPackageProgress(null), 1500);
 
-    // Карусель (пока сохраняется как пост — отдельный модуль карусели подключим позже)
-    if (carouselRes.status === "fulfilled" && carouselRes.value.ok && carouselRes.value.data) {
-      setGeneratedPosts(prev => {
-        const next = [carouselRes.value.data as GeneratedPost, ...prev];
-        persistContent(contentPlan, next, generatedReels);
-        return next;
-      });
-      successes.push("карусель");
-    } else {
-      failures.push("карусель");
-    }
-
-    // Рилс
-    if (reelRes.status === "fulfilled" && reelRes.value.ok && reelRes.value.data) {
-      setGeneratedReels(prev => {
-        const next = [reelRes.value.data as GeneratedReel, ...prev];
-        persistContent(contentPlan, generatedPosts, next);
-        return next;
-      });
-      successes.push("рилс");
-    } else {
-      failures.push("рилс");
-    }
-
-    if (successes.length === 0) {
+    if (okCount === 0) {
       toast({
         kind: "error",
         title: "Не удалось создать пакет",
@@ -1197,8 +1199,8 @@ function MarketRadarDashboardInner() {
 
     toast({
       kind: "success",
-      title: `Готово ${successes.length}/4 формата 🎉`,
-      description: `Создано: ${successes.join(", ")}${failures.length > 0 ? `. Не удалось: ${failures.join(", ")}.` : ""}`,
+      title: `Готово ${okCount}/4 формата 🎉`,
+      description: okCount === 4 ? "Все материалы сохранены в «Готовые»." : `Сохранено ${okCount} из 4. Остальные можно перегенерировать отдельно.`,
       duration: 8000,
       action: { label: "Готовые посты", onClick: () => setActiveNav("content-posts") },
     });
@@ -1591,6 +1593,8 @@ function MarketRadarDashboardInner() {
         <TrialBanner userId={currentUser?.id} />
         <PaywallGuard />
         <VisitTracker source="platform" />
+        {/* Глобальные оверлеи — пакетная генерация */}
+        {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
@@ -1652,7 +1656,7 @@ function MarketRadarDashboardInner() {
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}
-        {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} />}
+        {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} onboardingState={{ company: !!myCompany, competitors: competitors.length > 0, ta: !!taAnalysis, smm: !!smmAnalysis, brandbook: !!(brandBook && brandBook.brandName), content: !!(contentPlan && contentPlan.bigIdea) }} />}
         {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} />}
         {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} />}
         {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} />}
