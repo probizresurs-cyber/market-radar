@@ -54,9 +54,20 @@ ${escape(previewText)}
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;background:${COLORS.card};border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,0.06);">
 
     <!-- Logo bar -->
-    <tr><td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:22px 32px;text-align:left;">
-      <a href="${SITE_URL}" style="text-decoration:none;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">
-        <span style="color:#9aa0c4;font-weight:400;">Market</span>Radar
+    <tr><td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:20px 32px;text-align:left;">
+      <a href="${SITE_URL}" style="text-decoration:none;display:inline-block;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+          <tr>
+            <td style="padding-right:14px;vertical-align:middle;">
+              <img src="${SITE_URL}/email-logo.svg" width="44" height="44" alt="MarketRadar24" style="display:block;border:0;outline:none;text-decoration:none;width:44px;height:44px;">
+            </td>
+            <td style="vertical-align:middle;">
+              <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
+                <span style="color:#9aa0c4;font-weight:400;">Market</span>Radar<span style="color:#00D4FF;font-weight:700;">24</span>
+              </span>
+            </td>
+          </tr>
+        </table>
       </a>
     </td></tr>
 
@@ -86,7 +97,7 @@ ${escape(previewText)}
         Письмо отправлено автоматически. Если у вас есть вопросы —
         <a href="mailto:${SUPPORT_EMAIL}" style="color:${COLORS.primary};text-decoration:none;">${SUPPORT_EMAIL}</a>
       </div>
-      <div>MarketRadar — AI-платформа конкурентного анализа · <a href="${SITE_URL}" style="color:${COLORS.textMuted};text-decoration:underline;">${SITE_URL.replace(/^https?:\/\//, "")}</a></div>
+      <div>MarketRadar24 — AI-платформа конкурентного анализа · <a href="${SITE_URL}" style="color:${COLORS.textMuted};text-decoration:underline;">${SITE_URL.replace(/^https?:\/\//, "")}</a></div>
     </td></tr>
 
   </table>
@@ -102,7 +113,7 @@ export function welcomeEmail(opts: { name: string; email: string }) {
   const body = `
     <p style="margin:0 0 14px;">Привет, ${escape(opts.name)}!</p>
     <p style="margin:0 0 14px;">
-      Спасибо, что зарегистрировались в <b>MarketRadar</b> — AI-платформе для анализа бизнеса,
+      Спасибо, что зарегистрировались в <b>MarketRadar24</b> — AI-платформе для анализа бизнеса,
       конкурентов и видимости в нейросетях.
     </p>
     <p style="margin:0 0 14px;">
@@ -286,9 +297,9 @@ export function adminNewSignupEmail(opts: {
 // ─── 6. Тестовое письмо (для админ-страницы /admin/email-test) ───────────────
 export function testEmail(opts: { account: string }) {
   const ts = new Date().toLocaleString("ru-RU");
-  const subject = `[TEST] MarketRadar email — ${opts.account}`;
+  const subject = `[TEST] MarketRadar24 email — ${opts.account}`;
   const body = `
-    <p style="margin:0 0 14px;">Это тестовое письмо от платформы MarketRadar.</p>
+    <p style="margin:0 0 14px;">Это тестовое письмо от платформы MarketRadar24.</p>
     <p style="margin:0 0 14px;">
       Если вы получили его — значит SMTP-аккаунт <b>${escape(opts.account)}</b> работает корректно.
     </p>

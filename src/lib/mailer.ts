@@ -71,7 +71,7 @@ async function getNodemailer(): Promise<NodemailerModule> {
 
 export type MailAccount = "noreply" | "billing" | "hello";
 
-const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MarketRadar";
+const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MarketRadar24";
 const REPLY_TO = process.env.EMAIL_REPLY_TO ?? "hello@marketradar24.ru";
 const ENABLED = process.env.EMAIL_ENABLED !== "false";
 
