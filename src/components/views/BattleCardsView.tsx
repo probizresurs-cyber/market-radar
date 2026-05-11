@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { BattleCardsResult, BattleCard } from "@/app/api/generate-battle-cards/route";
-import { Swords, ChevronDown, ChevronRight, Printer, RefreshCw, Shield, AlertTriangle, MessageSquare, DollarSign, Zap, Target, CheckCircle, XCircle, Loader2, Users, ArrowRight } from "lucide-react";
+import { Swords, ChevronDown, ChevronRight, Printer, RefreshCw, Shield, AlertTriangle, MessageSquare, DollarSign, Zap, Target, CheckCircle, XCircle, Loader2, Users, ArrowRight, HelpCircle, Sparkles } from "lucide-react";
 
 // ─── Storage helpers ───────────────────────────────────────────────────────────
 
@@ -93,6 +93,27 @@ function BattleCardItem({ card, c, defaultOpen }: { card: BattleCard; c: Colors;
       </button>
 
       {open && (
+        <>
+          {/* Cheat-sheet — TL;DR на 1 строку для продажника */}
+          {card.cheatSheet && (
+            <div style={{
+              padding: "12px 20px",
+              background: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(99,102,241,0.04))",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+            }}>
+              <Sparkles size={15} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.55, fontWeight: 500 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", marginRight: 8 }}>
+                  Cheat sheet
+                </span>
+                {card.cheatSheet}
+              </div>
+            </div>
+          )}
+
         <div style={{ padding: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
 
           {/* LEFT COLUMN */}
@@ -211,6 +232,38 @@ function BattleCardItem({ card, c, defaultOpen }: { card: BattleCard; c: Colors;
 
           </div>
         </div>
+
+        {/* Discovery questions — quiz клиенту, чтобы понять, выиграем ли мы */}
+        {card.discoveryQuestions && card.discoveryQuestions.length > 0 && (
+          <div style={{
+            padding: "16px 20px 20px",
+            borderTop: "1px solid var(--border)",
+            background: "rgba(99,102,241,0.04)",
+          }}>
+            <SectionLabel icon={<HelpCircle size={14} />} text="Discovery: что спросить клиента" color="var(--primary)" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {card.discoveryQuestions.map((q, i) => (
+                <div key={i} style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, color: "var(--primary)",
+                    background: "rgba(99,102,241,0.15)", borderRadius: 6,
+                    padding: "2px 7px", flexShrink: 0,
+                  }}>Q{i + 1}</span>
+                  <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.55 }}>{q}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

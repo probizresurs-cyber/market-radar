@@ -192,6 +192,16 @@ export async function initDb() {
   // знает куда слать алерты.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT`);
 
+  // Production-канал Telegram, куда уходят посты из «Контент-завода».
+  // Может быть @channel_name, числовой -100xxxxxx, или числовой chat_id.
+  // Если не задан — публикация падает с понятной ошибкой.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_channel_id TEXT`);
+
+  // VK-сообщество для прямого постинга. Формат: "-12345" (с минусом) для группы.
+  // Per-user, чтобы агентство могло обслуживать несколько клиентов.
+  // Token остаётся общий из env (VK_ACCESS_TOKEN).
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS vk_group_id TEXT`);
+
   // Website + contact (phone OR telegram) — captured at registration so we
   // can auto-run the first analysis and reach out to the client. Either
   // `phone` or `telegram` is filled, not both.

@@ -71,24 +71,33 @@ export async function POST(req: Request) {
 
   const results: { vk?: PublishResult; telegram?: PublishResult } = {};
 
+  // Загружаем per-user настройки каналов один раз.
+  const userRows = await query<{
+    telegram_chat_id: string | null;
+    telegram_channel_id: string | null;
+    vk_group_id: string | null;
+  }>(
+    `SELECT telegram_chat_id, telegram_channel_id, vk_group_id FROM users WHERE id = $1`,
+    [session.userId],
+  );
+  const userCfg = userRows[0];
+
   // Telegram
   if (platforms.includes("telegram")) {
-    const userRows = await query<{ telegram_chat_id: string | null }>(
-      `SELECT telegram_chat_id FROM users WHERE id = $1`, [session.userId],
-    );
-    const chatId = userRows[0]?.telegram_chat_id;
-    if (!chatId) {
+    // Приоритет: production-канал > личный chat_id (тестовый режим).
+    // Channel ID может быть "@channel_name" или числовой "-100..." — отдаём как есть.
+    const target = userCfg?.telegram_channel_id?.trim() || userCfg?.telegram_chat_id;
+    if (!target) {
       results.telegram = {
         ok: false,
-        error: "Telegram не подключён. Зайдите в Настройки → Уведомления и подключите бота.",
+        error: "Telegram не подключён. Зайдите в Настройки → Соцсети и укажите канал или подключите бота.",
         at: new Date().toISOString(),
       };
     } else {
       const text = buildText(post, "telegram");
       const r = await publishToTelegram({
-        chatId,
+        chatId: target,
         text,
-        // Картинку шлём только если это публичный URL (Telegram не принимает data:)
         imageUrl: post.imageUrl && post.imageUrl.startsWith("http") ? post.imageUrl : undefined,
       });
       results.telegram = { ...r, at: new Date().toISOString() };
@@ -97,12 +106,23 @@ export async function POST(req: Request) {
 
   // VK
   if (platforms.includes("vk")) {
-    const text = buildText(post, "vk");
-    const r = await publishToVK({
-      text,
-      imageUrl: post.imageUrl,
-    });
-    results.vk = { ...r, at: new Date().toISOString() };
+    const groupId = userCfg?.vk_group_id?.trim();
+    // Если у юзера нет группы — fallback на env (для админа/демо)
+    if (!groupId && !process.env.VK_GROUP_ID) {
+      results.vk = {
+        ok: false,
+        error: "VK не подключён. Зайдите в Настройки → Соцсети и укажите ID сообщества (формат -12345).",
+        at: new Date().toISOString(),
+      };
+    } else {
+      const text = buildText(post, "vk");
+      const r = await publishToVK({
+        text,
+        imageUrl: post.imageUrl,
+        ownerId: groupId || undefined,
+      });
+      results.vk = { ...r, at: new Date().toISOString() };
+    }
   }
 
   return NextResponse.json({ ok: true, results });

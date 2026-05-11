@@ -11,6 +11,12 @@ export interface Recommendation {
   text: string;
   effect: string;
   category: string;
+  /** Impact 1-5 — насколько сильно повлияет на бизнес (заполняется через /api/prioritize-recommendations). */
+  impact?: number;
+  /** Effort 1-5 — сколько усилий требуется (1 = легко, 5 = тяжело). */
+  effort?: number;
+  /** Квадрант: "quick-win" (impact ≥4, effort ≤2), "big-bet" (high impact, high effort), "fill-in" (low impact, low effort), "avoid" (low impact, high effort). */
+  effortImpactBucket?: "quick-win" | "big-bet" | "fill-in" | "avoid";
 }
 
 export interface Insight {

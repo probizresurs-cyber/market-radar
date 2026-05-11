@@ -64,6 +64,49 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
   const [hhUrl, setHhUrl] = useState(user?.hhUrl || "");
   const [businessType, setBusinessType] = useState<BusinessType | "">(user?.businessType ?? "");
   const [saved, setSaved] = useState(false);
+  // Каналы для прямого постинга (из DB, не из auth user JSON)
+  const [tgChannelId, setTgChannelId] = useState("");
+  const [vkGroupId, setVkGroupId] = useState("");
+  const [pubCfgSaved, setPubCfgSaved] = useState(false);
+  const [pubCfgError, setPubCfgError] = useState("");
+  const [pubCfgSaving, setPubCfgSaving] = useState(false);
+
+  // Загружаем publish-config один раз
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/publish-config", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setTgChannelId(d.telegramChannelId ?? "");
+          setVkGroupId(d.vkGroupId ?? "");
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }, [user]);
+
+  const handleSavePubCfg = async () => {
+    setPubCfgError("");
+    setPubCfgSaving(true);
+    try {
+      const r = await fetch("/api/publish-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegramChannelId: tgChannelId.trim(),
+          vkGroupId: vkGroupId.trim(),
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error ?? "Ошибка");
+      setPubCfgSaved(true);
+      setTimeout(() => setPubCfgSaved(false), 2200);
+    } catch (e) {
+      setPubCfgError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPubCfgSaving(false);
+    }
+  };
   const [sub, setSub] = useState<SubState | null>(null);
   const [subLoading, setSubLoading] = useState(false);
   const [wl, setWl] = useState<WhiteLabelConfig | null>(null);
@@ -214,6 +257,67 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
           <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
             <button onClick={handleSave} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Сохранить</button>
             {saved && <span style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>✓ Сохранено</span>}
+          </div>
+
+          {/* ── Каналы для прямого постинга ───────────────────────────── */}
+          <div style={{ marginTop: 28, paddingTop: 22, borderTop: `1px dashed var(--border)` }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--foreground)", marginBottom: 6, letterSpacing: -0.2 }}>
+              Каналы для прямого постинга
+            </div>
+            <p style={{ fontSize: 12.5, color: "var(--muted-foreground)", margin: "0 0 16px", lineHeight: 1.55 }}>
+              Куда уходят посты, когда вы жмёте «Опубликовать» в Контент-заводе. Если не заполнено — публикация падает с понятной ошибкой.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 5 }}>
+                  Telegram-канал (для публикации)
+                </label>
+                <input
+                  type="text"
+                  value={tgChannelId}
+                  onChange={e => setTgChannelId(e.target.value)}
+                  placeholder="@my_channel  или  -1001234567890"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.5 }}>
+                  Сначала добавьте бота <b>@market_radar1_bot</b> админом канала с правом «Публикация». Для приватных каналов используйте числовой ID (можно узнать через @userinfobot).
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 5 }}>
+                  VK-сообщество (ID с минусом)
+                </label>
+                <input
+                  type="text"
+                  value={vkGroupId}
+                  onChange={e => setVkGroupId(e.target.value)}
+                  placeholder="-123456789"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.5 }}>
+                  ID сообщества с минусом (например, <code style={{ background: "var(--muted)", padding: "1px 4px", borderRadius: 3 }}>-12345</code>). Найти можно в адресе vk.com/club12345 — добавить минус.
+                </div>
+              </div>
+
+              {pubCfgError && (
+                <div style={{ background: "color-mix(in oklch, var(--destructive) 10%, transparent)", border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)", color: "var(--destructive)", borderRadius: 10, padding: "8px 14px", fontSize: 12.5 }}>
+                  {pubCfgError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                  onClick={handleSavePubCfg}
+                  disabled={pubCfgSaving}
+                  style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: pubCfgSaving ? "wait" : "pointer", opacity: pubCfgSaving ? 0.6 : 1 }}
+                >
+                  {pubCfgSaving ? "Сохраняю…" : "Сохранить каналы"}
+                </button>
+                {pubCfgSaved && <span style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>✓ Сохранено</span>}
+              </div>
+            </div>
           </div>
         </div>
       )}

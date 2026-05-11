@@ -17,12 +17,14 @@ import React, { useEffect, useState } from "react";
 import {
   Grid3x3, Loader2, FileDown, ExternalLink, RefreshCw,
   Shield, AlertTriangle, Sparkles, Zap, ChevronDown, ChevronRight,
+  Crosshair, Target,
 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { SwotReport, SwotItems } from "@/lib/swot";
+import type { TowsMatrix, TowsQuadrant } from "@/app/api/generate-tows/route";
 
 interface StoredReport {
   id: string;
@@ -44,6 +46,39 @@ export function SWOTView({
   const [report, setReport] = useState<SwotReport | null>(null);
   const [history, setHistory] = useState<StoredReport[]>([]);
   const [expandedSection, setExpandedSection] = useState<keyof SwotItems | null>(null);
+  // TOWS-матрица — генерируется отдельно по уже готовому SWOT
+  const [tows, setTows] = useState<TowsMatrix | null>(null);
+  const [towsLoading, setTowsLoading] = useState(false);
+  const [towsError, setTowsError] = useState<string | null>(null);
+
+  const handleGenerateTows = async () => {
+    if (!report) return;
+    setTowsLoading(true);
+    setTowsError(null);
+    try {
+      const res = await fetch("/api/generate-tows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: report.rawItems,
+          companyName: report.companyName,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка");
+      setTows(json.tows as TowsMatrix);
+    } catch (e) {
+      setTowsError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setTowsLoading(false);
+    }
+  };
+
+  // Сбрасываем TOWS при перегенерации SWOT
+  useEffect(() => {
+    setTows(null);
+    setTowsError(null);
+  }, [report?.id]);
 
   // Загружаем список прошлых отчётов
   useEffect(() => {
@@ -403,6 +438,80 @@ export function SWOTView({
             })}
           </div>
 
+          {/* ── TOWS-матрица (стратегии пересечения) ─────────────────── */}
+          <div style={{ marginTop: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--foreground)", letterSpacing: -0.3, display: "flex", alignItems: "center", gap: 10 }}>
+                  <Crosshair size={20} style={{ color: "var(--primary)" }} />
+                  TOWS-матрица стратегий
+                </h2>
+                <p style={{ margin: "6px 0 0", fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.55, maxWidth: 720 }}>
+                  Пересечение S/W с O/T даёт 4 типа стратегий: SO (атака), ST (защита силой), WO (рост через окно), WT (оборона). По каждой — конкретное действие на 30-60 дней.
+                </p>
+              </div>
+              {!tows && (
+                <button
+                  onClick={handleGenerateTows}
+                  disabled={towsLoading}
+                  style={{
+                    background: "var(--primary)", color: "#fff", border: "none",
+                    borderRadius: 10, padding: "11px 22px", fontSize: 14, fontWeight: 700,
+                    cursor: towsLoading ? "wait" : "pointer", opacity: towsLoading ? 0.6 : 1,
+                    display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "inherit",
+                    boxShadow: "0 2px 12px rgba(124,58,237,0.25)",
+                  }}
+                >
+                  {towsLoading ? <Loader2 size={15} className="mr-spin" /> : <Sparkles size={15} />}
+                  {towsLoading ? "Генерирую…" : "Сгенерировать TOWS"}
+                </button>
+              )}
+              {tows && (
+                <button
+                  onClick={handleGenerateTows}
+                  disabled={towsLoading}
+                  style={{
+                    background: "transparent", color: "var(--foreground-secondary)",
+                    border: "1px solid var(--border)", borderRadius: 10,
+                    padding: "10px 18px", fontSize: 13, fontWeight: 600,
+                    cursor: towsLoading ? "wait" : "pointer", opacity: towsLoading ? 0.6 : 1,
+                    display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit",
+                  }}
+                >
+                  <RefreshCw size={13} className={towsLoading ? "mr-spin" : ""} />
+                  Перегенерировать
+                </button>
+              )}
+            </div>
+
+            {towsError && (
+              <div style={{ background: "color-mix(in oklch, var(--destructive) 10%, transparent)", border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)", color: "var(--destructive)", borderRadius: 10, padding: "10px 14px", fontSize: 13, marginBottom: 12 }}>
+                {towsError}
+              </div>
+            )}
+
+            {tows && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <TowsQuadrantCard q={tows.so} label="SO" labelRu="MAXI-MAXI · Атака" color="#16a34a" subtitle="Силы × Возможности" />
+                  <TowsQuadrantCard q={tows.st} label="ST" labelRu="MAXI-MINI · Защита силой" color="#0ea5e9" subtitle="Силы × Угрозы" />
+                  <TowsQuadrantCard q={tows.wo} label="WO" labelRu="MINI-MAXI · Рост через окно" color="#f59e0b" subtitle="Слабости × Возможности" />
+                  <TowsQuadrantCard q={tows.wt} label="WT" labelRu="MINI-MINI · Оборона" color="#ef4444" subtitle="Слабости × Угрозы" />
+                </div>
+                {tows.synthesis && (
+                  <div style={{ marginTop: 18, padding: "16px 20px", borderRadius: 12, background: "color-mix(in oklch, var(--primary) 7%, transparent)", border: "1px solid color-mix(in oklch, var(--primary) 25%, transparent)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+                      Стратегический синтез
+                    </div>
+                    <div style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.65 }}>
+                      {tows.synthesis}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Intro / Conclusion preview */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
@@ -470,3 +579,79 @@ function SourceChip({ ok, label }: { ok: boolean; label: string }) {
 // DetailedSection удалён: детали теперь рендерятся inline внутри каждой
 // quadrant-карточки (см. swot-grid выше). Так пользователь видит детали
 // прямо под кнопкой «Показать детали», не теряя контекст.
+
+// ─── TOWS quadrant card ────────────────────────────────────────────
+function TowsQuadrantCard({ q, label, labelRu, color, subtitle }: {
+  q: TowsQuadrant;
+  label: string;
+  labelRu: string;
+  color: string;
+  subtitle: string;
+}) {
+  if (!q || !q.strategies?.length) return null;
+  return (
+    <div style={{
+      background: "var(--card)", border: `1px solid ${color}30`,
+      borderTop: `4px solid ${color}`, borderRadius: 14, padding: 18,
+      boxShadow: `0 2px 12px ${color}10`,
+    }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+        <span style={{
+          fontSize: 18, fontWeight: 900, color, letterSpacing: -0.5,
+        }}>{label}</span>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)",
+          letterSpacing: "0.08em", textTransform: "uppercase",
+        }}>{labelRu}</span>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.04em" }}>{subtitle}</div>
+      {q.strategy && (
+        <div style={{ fontSize: 13.5, color: "var(--foreground)", fontStyle: "italic", lineHeight: 1.55, marginBottom: 14, paddingBottom: 12, borderBottom: "1px dashed var(--border)" }}>
+          {q.strategy}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {q.strategies.map((s, i) => (
+          <div key={i} style={{
+            padding: 12, borderRadius: 10,
+            background: `${color}08`, border: `1px solid ${color}20`,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.3 }}>{s.title}</div>
+              {typeof s.priority === "number" && s.priority <= 5 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, color,
+                  background: `${color}25`, borderRadius: 6, padding: "2px 7px",
+                  whiteSpace: "nowrap", letterSpacing: "0.05em",
+                }}>
+                  P{s.priority}
+                </span>
+              )}
+            </div>
+            {(s.fromInternal?.length ?? 0) > 0 && (
+              <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginBottom: 4, lineHeight: 1.5 }}>
+                <b style={{ color }}>{label[0] === "S" ? "S:" : "W:"}</b>{" "}
+                {s.fromInternal.join(" · ")}
+              </div>
+            )}
+            {(s.fromExternal?.length ?? 0) > 0 && (
+              <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.5 }}>
+                <b style={{ color }}>{label[1] === "O" ? "O:" : "T:"}</b>{" "}
+                {s.fromExternal.join(" · ")}
+              </div>
+            )}
+            {s.action && (
+              <div style={{
+                fontSize: 13, color: "var(--foreground)", lineHeight: 1.55,
+                display: "flex", gap: 8, alignItems: "flex-start",
+              }}>
+                <Target size={13} style={{ color, flexShrink: 0, marginTop: 3 }} />
+                <span>{s.action}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

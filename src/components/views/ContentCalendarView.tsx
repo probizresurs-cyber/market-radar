@@ -702,6 +702,37 @@ function DayDetailModal({
   onUnschedule: (it: SchedulableItem) => void;
   onGoTo: (it: SchedulableItem) => void;
 }) {
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [pubResult, setPubResult] = useState<Record<string, string>>({});
+
+  const handlePublishNow = async (it: SchedulableItem) => {
+    if (it.kind !== "post") {
+      setPubResult(r => ({ ...r, [it.item.id]: "Рилсы публикуются вручную в разделе «Готовые видео»" }));
+      return;
+    }
+    setPublishingId(it.item.id);
+    setPubResult(r => ({ ...r, [it.item.id]: "" }));
+    try {
+      const res = await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post: it.item, platforms: ["telegram", "vk"] }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Ошибка");
+      const tg = json.results?.telegram;
+      const vk = json.results?.vk;
+      const parts: string[] = [];
+      if (tg) parts.push(tg.ok ? "✓ TG" : `✗ TG: ${tg.error}`);
+      if (vk) parts.push(vk.ok ? "✓ VK" : `✗ VK: ${vk.error}`);
+      setPubResult(r => ({ ...r, [it.item.id]: parts.join("  ·  ") }));
+    } catch (e) {
+      setPubResult(r => ({ ...r, [it.item.id]: e instanceof Error ? e.message : "Ошибка" }));
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
   const d = new Date(k + "T00:00:00");
   const dateStr = d.toLocaleDateString("ru-RU", {
     weekday: "long",
@@ -775,7 +806,7 @@ function DayDetailModal({
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 8 }}>
                     {title}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       onClick={() => onGoTo(it)}
                       style={{
@@ -792,6 +823,26 @@ function DayDetailModal({
                     >
                       Открыть
                     </button>
+                    {it.kind === "post" && (
+                      <button
+                        onClick={() => handlePublishNow(it)}
+                        disabled={publishingId === it.item.id}
+                        style={{
+                          background: "transparent",
+                          color: "#16a34a",
+                          border: "1.5px solid #16a34a40",
+                          borderRadius: 8,
+                          padding: "7px 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: publishingId === it.item.id ? "wait" : "pointer",
+                          opacity: publishingId === it.item.id ? 0.6 : 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {publishingId === it.item.id ? "Публикую…" : "Опубликовать сейчас"}
+                      </button>
+                    )}
                     <button
                       onClick={() => onUnschedule(it)}
                       style={{
@@ -809,6 +860,11 @@ function DayDetailModal({
                       Снять с расписания
                     </button>
                   </div>
+                  {pubResult[it.item.id] && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-secondary)", padding: "6px 10px", background: "var(--muted)", borderRadius: 6, lineHeight: 1.4 }}>
+                      {pubResult[it.item.id]}
+                    </div>
+                  )}
                 </div>
               );
             })}

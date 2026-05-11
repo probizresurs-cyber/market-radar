@@ -19,6 +19,7 @@ import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
 import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart, ScanLine, CheckCircle, Info } from "lucide-react";
 import { AISummary } from "@/components/ui/AISummary";
+import { EffortImpactBadge, PrioritizeButton } from "@/components/ui/EffortImpactBadge";
 
 // ─── Tech Audit Dashboard Block ───────────────────────────────────────────────
 // Shows only what's NOT already on the dashboard:
@@ -371,7 +372,26 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
-      <CollapsibleSection c={c} title="AI-рекомендации" extra={<DataBadge variant="ai" source="Claude" />}>
+      <CollapsibleSection
+        c={c}
+        title="AI-рекомендации"
+        extra={
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            <PrioritizeButton
+              recommendations={recommendations}
+              companyName={company.name}
+              niche={company.niche}
+              onUpdate={(prioritized) => {
+                if (onUpdateData) {
+                  onUpdateData({ ...data, recommendations: prioritized });
+                }
+              }}
+              size="sm"
+            />
+            <DataBadge variant="ai" source="Claude" />
+          </div>
+        }
+      >
         <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
           {recommendations.map((rec, i) => {
             const dotColor = rec.priority === "high" ? "var(--destructive)" : rec.priority === "medium" ? "var(--warning)" : "var(--success)";
@@ -379,7 +399,12 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
               <div key={i} style={{ display: "flex", alignItems: "stretch", padding: "12px 20px", borderBottom: i < recommendations.length - 1 ? `1px solid var(--muted)` : "none", gap: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, width: "45%", paddingRight: 16 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.45 }}>{rec.text}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.45 }}>{rec.text}</span>
+                    {rec.impact !== undefined && (
+                      <EffortImpactBadge impact={rec.impact} effort={rec.effort} bucket={rec.effortImpactBucket} />
+                    )}
+                  </div>
                 </div>
                 <div style={{ width: 1, background: "var(--muted)", flexShrink: 0 }} />
                 <div style={{ width: "40%", paddingLeft: 16, display: "flex", alignItems: "center" }}>
