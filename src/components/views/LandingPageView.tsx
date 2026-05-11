@@ -338,14 +338,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       `}</style>
 
       {/* ── NAV ─────────────────────────────────────────────── */}
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 60, borderBottom: `1px solid ${border}`, background: bg + "f0", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <MarketRadarLogo size={36} variant={isDark ? "dark" : "light"} animated />
-          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.02em" }}>
-            <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 68, borderBottom: `1px solid ${border}`, background: bg + "f0", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <MarketRadarLogo size={38} variant={isDark ? "dark" : "light"} animated />
+          <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+            <span style={{ fontWeight: 400, opacity: 0.55 }}>Market</span>Radar<span style={{ color: accent }}>24</span>
           </span>
         </div>
-        <div className="nav-links" style={{ display: "flex", gap: 28, fontSize: 13, color: muted }}>
+        <div className="nav-links" style={{ display: "flex", gap: 30, fontSize: 14, color: muted, fontWeight: 500 }}>
           <a href="#features" style={{ color: muted, textDecoration: "none" }}>Возможности</a>
           <a href="#geo" style={{ color: muted, textDecoration: "none" }}>Нейросети</a>
           <a href="#how" style={{ color: muted, textDecoration: "none" }}>Как работает</a>
@@ -354,14 +354,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <a href="/glossary" style={{ color: muted, textDecoration: "none" }}>Словарь</a>
           <a href="#faq" style={{ color: muted, textDecoration: "none" }}>FAQ</a>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="lp-btn" onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 7, padding: "5px 9px", color: muted, fontSize: 14, fontFamily: "inherit" }} aria-label="Переключить тему">
-            {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button className="lp-btn" onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 9, padding: "8px 11px", color: muted, fontSize: 14, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center" }} aria-label="Переключить тему">
+            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
           </button>
-          <button className="lp-btn" onClick={onLogin} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: fg, fontFamily: "inherit" }}>
+          <button className="lp-btn" onClick={onLogin} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 10, padding: "9px 20px", fontSize: 14, fontWeight: 600, color: fg, fontFamily: "inherit" }}>
             Войти
           </button>
-          <button className="lp-btn" onClick={onRegister} style={{ background: accent, border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "inherit", boxShadow: `0 2px 12px ${accent}50` }}>
+          <button className="lp-btn" onClick={onRegister} style={{ background: accent, border: "none", borderRadius: 10, padding: "9px 22px", fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "inherit", boxShadow: `0 2px 14px ${accent}60` }}>
             Попробовать
           </button>
         </div>
@@ -512,8 +512,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="features" style={{ padding: "72px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
-          <h2 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em" }}>30+ источников в одном дашборде</h2>
-          <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.55 }}>
+          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>30+ источников в одном дашборде</h2>
+          <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Маркетолог обычно собирает это вручную из 10–15 сервисов в Excel. MarketRadar делает автоматически и сразу формирует выводы.
           </p>
         </div>
@@ -619,8 +619,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="artifacts" style={{ padding: "56px 20px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
-          <h2 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em" }}>Готовые артефакты, а не сырые данные</h2>
-          <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.55 }}>
+          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Готовые артефакты, а не сырые данные</h2>
+          <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Всё, что можно сразу использовать в работе — от стратегического обзора до листовок для отдела продаж.
           </p>
         </div>
@@ -665,7 +665,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section style={{ padding: "56px 20px", maxWidth: 900, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ background: `linear-gradient(145deg, ${neonRed}08, transparent)`, borderRadius: 24, border: `1px solid ${neonRed}22`, padding: "40px 36px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.14em", marginBottom: 14 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
-          <h2 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 22px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+          <h2 style={{ fontSize: 38, fontWeight: 800, margin: "0 0 24px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
             Да, можно собрать всё вручную. Но это…
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -703,8 +703,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section style={{ padding: "48px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Каждое утверждение — с маркером</h2>
-          <p style={{ fontSize: 16, color: muted, margin: "0 auto", maxWidth: 600, lineHeight: 1.55 }}>
+          <h2 style={{ fontSize: 38, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Каждое утверждение — с маркером</h2>
+          <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.6 }}>
             Мы не продаём AI-фантазии под видом аналитики. В отчёте вы видите, откуда взята каждая цифра.
           </p>
         </div>
@@ -754,10 +754,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.12em", marginBottom: 14, background: `${accent}18`, padding: "5px 14px", borderRadius: 20, border: `1px solid ${accent}30` }}>
                 <Radio size={11} /> GEO-ПРОДВИЖЕНИЕ
               </div>
-              <h2 style={{ fontSize: "clamp(28px,3.5vw,40px)", fontWeight: 800, margin: "0 0 14px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+              <h2 style={{ fontSize: "clamp(32px,4vw,44px)", fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
                 Как попасть в ответы <span style={{ color: "#a5b4fc" }}>ChatGPT</span>, <span style={{ color: "#a5b4fc" }}>Алисы</span> и <span style={{ color: "#a5b4fc" }}>Gemini</span>
               </h2>
-              <p style={{ fontSize: 15, color: muted, maxWidth: 680, margin: "0 auto", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 17, color: muted, maxWidth: 720, margin: "0 auto", lineHeight: 1.65 }}>
                 Generative Engine Optimization — продвижение сайта для попадания в ответы нейросетей. В 2026 году это новый канал трафика, который растёт в разы быстрее классического SEO.
               </p>
             </div>
@@ -866,7 +866,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="how" style={{ padding: "64px 20px", maxWidth: 1180, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>КАК ЭТО РАБОТАЕТ</div>
-          <h2 style={{ fontSize: 36, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Три шага до результата</h2>
+          <h2 style={{ fontSize: 40, fontWeight: 800, margin: 0, letterSpacing: "-0.025em", lineHeight: 1.15 }}>Три шага до результата</h2>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
           {[
@@ -962,8 +962,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="pricing" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ТАРИФЫ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Начните с разового отчёта</h2>
-          <p style={{ fontSize: 14, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
+          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Начните с разового отчёта</h2>
+          <p style={{ fontSize: 17, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
         </div>
 
         {/* One-off row — highlighted banner */}
@@ -1082,9 +1082,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/* ─────────────────────────────────────────────────────── */}
       <section id="faq" style={{ padding: "64px 20px", maxWidth: 820, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: "0.12em", marginBottom: 12 }}>ВОПРОСЫ И ОТВЕТЫ</div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>Часто задаваемые вопросы</h2>
-          <p style={{ fontSize: 14, color: muted, margin: 0 }}>Ответы на вопросы о платформе, GEO-оптимизации и тарифах</p>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОПРОСЫ И ОТВЕТЫ</div>
+          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Часто задаваемые вопросы</h2>
+          <p style={{ fontSize: 17, color: muted, margin: 0 }}>Ответы на вопросы о платформе, GEO-оптимизации и тарифах</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {faqItems.map(({ q, a }, idx) => (
@@ -1095,7 +1095,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 background: card,
                 borderRadius: 14,
                 border: `1px solid ${border}`,
-                padding: "18px 22px",
+                padding: "20px 24px",
                 animationDelay: `${idx * 70}ms`,
               }}
             >
@@ -1104,21 +1104,22 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 justifyContent: "space-between",
                 alignItems: "center",
                 cursor: "pointer",
-                fontSize: 15,
+                fontSize: 17,
                 fontWeight: 600,
                 color: fg,
-                letterSpacing: "-0.005em",
+                letterSpacing: "-0.008em",
                 gap: 14,
+                lineHeight: 1.4,
               }}>
                 <span>{q}</span>
-                <ChevronDown size={18} className="lp-faq-chevron" style={{ color: muted, flexShrink: 0, transition: "transform 0.2s" }} />
+                <ChevronDown size={20} className="lp-faq-chevron" style={{ color: muted, flexShrink: 0, transition: "transform 0.2s" }} />
               </summary>
               <div style={{
-                fontSize: 15,
-                color: "#cbd5e1",
+                fontSize: 16,
+                color: isDark ? "#cbd5e1" : "#475569",
                 lineHeight: 1.7,
-                marginTop: 14,
-                paddingTop: 14,
+                marginTop: 16,
+                paddingTop: 16,
                 borderTop: `1px solid ${border}`,
               }}>
                 {a}
@@ -1175,13 +1176,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <footer style={{ borderTop: `1px solid ${border}`, padding: "48px 32px 28px", maxWidth: 1180, margin: "0 auto" }}>
         {/* Brand row */}
         <div style={{ marginBottom: 32, maxWidth: 420 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <MarketRadarLogo size={36} variant={isDark ? "dark" : "light"} animated />
-            <span style={{ fontWeight: 700, fontSize: 15 }}>
-              <span style={{ fontWeight: 400, opacity: 0.6 }}>Market</span>Radar
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <MarketRadarLogo size={38} variant={isDark ? "dark" : "light"} animated />
+            <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+              <span style={{ fontWeight: 400, opacity: 0.55 }}>Market</span>Radar<span style={{ color: accent }}>24</span>
             </span>
           </div>
-          <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 14, color: muted, lineHeight: 1.65 }}>
             Радар вашего бизнеса, рынка и конкурентов. Продукт экосистемы{" "}
             <a href="https://company24.pro" target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "underline" }}>Company24.pro</a>
           </div>
@@ -1189,7 +1190,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 32, marginBottom: 32 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>ПРОДУКТ</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>ПРОДУКТ</div>
             {[
               { label: "Возможности", href: "#features" },
               { label: "GEO-продвижение", href: "#geo" },
@@ -1197,13 +1198,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               { label: "FAQ", href: "#faq" },
             ].map(({ label, href }) => (
               <div key={label} style={{ marginBottom: 8 }}>
-                <a href={href} style={{ fontSize: 13, color: muted, textDecoration: "none" }}>{label}</a>
+                <a href={href} style={{ fontSize: 14, color: muted, textDecoration: "none" }}>{label}</a>
               </div>
             ))}
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОМПАНИЯ</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>КОМПАНИЯ</div>
             {[
               { label: "О MarketRadar", href: "#features" },
               { label: "Партнёрам", href: "/partners" },
@@ -1213,7 +1214,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 <a
                   href={href}
                   {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  style={{ fontSize: 13, color: muted, textDecoration: "none" }}
+                  style={{ fontSize: 14, color: muted, textDecoration: "none" }}
                 >
                   {label}
                 </a>
@@ -1222,43 +1223,43 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>КОНТАКТЫ</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>КОНТАКТЫ</div>
             <div style={{ marginBottom: 8 }}>
-              <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Send size={13} /> Канал @company24pro
+              <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                <Send size={14} /> Канал @company24pro
               </a>
             </div>
             <div style={{ marginBottom: 8 }}>
-              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <MessagesSquare size={13} /> Поддержка в боте
+              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                <MessagesSquare size={14} /> Поддержка в боте
               </a>
             </div>
             <div>
-              <a href="mailto:support@marketradar24.ru" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>
+              <a href="mailto:support@marketradar24.ru" style={{ fontSize: 14, color: muted, textDecoration: "none" }}>
                 support@marketradar24.ru
               </a>
             </div>
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: fg, marginBottom: 14, letterSpacing: "0.05em" }}>ДОКУМЕНТЫ</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>ДОКУМЕНТЫ</div>
             <div>
-              <a href="https://company24.pro/politicahr2026" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: muted, textDecoration: "none" }}>Политика конфиденциальности</a>
+              <a href="https://company24.pro/politicahr2026" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: muted, textDecoration: "none" }}>Политика конфиденциальности</a>
             </div>
           </div>
         </div>
 
-        <div style={{ borderTop: `1px solid ${border}`, paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, fontSize: 12, color: muted }}>
+        <div style={{ borderTop: `1px solid ${border}`, paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 13, color: muted }}>
           <div>© 2026 MarketRadar · Company24.pro · Все права защищены</div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Send size={12} /> Telegram
+          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+            <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Send size={13} /> Telegram
             </a>
-            <a href="#pricing" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Briefcase size={12} /> Тарифы
+            <a href="#pricing" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Briefcase size={13} /> Тарифы
             </a>
-            <a href="#partner" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Users size={12} /> Партнёрам
+            <a href="#partner" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Users size={13} /> Партнёрам
             </a>
           </div>
         </div>
