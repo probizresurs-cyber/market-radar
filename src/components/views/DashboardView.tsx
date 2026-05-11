@@ -20,6 +20,7 @@ import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart, ScanLine, CheckCircle, Info } from "lucide-react";
 import { AISummary } from "@/components/ui/AISummary";
 import { EffortImpactBadge, PrioritizeButton } from "@/components/ui/EffortImpactBadge";
+import { BenchmarkBadge, useNicheBenchmark } from "@/components/ui/BenchmarkBadge";
 
 // ─── Tech Audit Dashboard Block ───────────────────────────────────────────────
 // Shows only what's NOT already on the dashboard:
@@ -143,6 +144,7 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
   const { company, recommendations } = data;
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
+  const nicheBench = useNicheBenchmark(company.niche);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [myOffers, setMyOffers] = useState<any>(null);
   const [myOffersLoading, setMyOffersLoading] = useState(false);
@@ -350,10 +352,29 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
           </div>
         );
       })()}
+      {nicheBench?.topInsight && (
+        <div style={{
+          background: "color-mix(in oklch, var(--primary) 6%, transparent)",
+          border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
+          borderRadius: 12, padding: "12px 16px", marginBottom: 16,
+          display: "flex", gap: 10, alignItems: "flex-start",
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0, padding: "1px 8px", borderRadius: 6, background: "color-mix(in oklch, var(--primary) 15%, transparent)" }}>
+            Ниша
+          </span>
+          <span style={{ fontSize: 13.5, color: "var(--foreground)", lineHeight: 1.55 }}>{nicheBench.topInsight}</span>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ background: `linear-gradient(160deg, var(--card) 60%, var(--primary)06 100%)`, borderRadius: 16, border: `1px solid var(--border)`, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, boxShadow: "var(--shadow)" }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 16, letterSpacing: "0.03em" }}>ОБЩИЙ SCORE</div>
           <ScoreRing score={company.score} c={c} />
+          {nicheBench && (
+            <div style={{ marginTop: 12 }}>
+              <BenchmarkBadge value={company.score} stats={nicheBench.overallScore} />
+            </div>
+          )}
           <div style={{ display: "flex", gap: 20, marginTop: 16, fontSize: 12, color: "var(--foreground-secondary)" }}>
             <div style={{ textAlign: "center" }}><div style={{ fontWeight: 700, fontSize: 16, color: "var(--foreground)" }}>{company.avgNiche}</div><div>Среднее ниши</div></div>
             <div style={{ width: 1, background: "var(--border)" }} />

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { BrandBook } from "@/lib/content-types";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Sparkles, Loader2 } from "lucide-react";
 
 const POPULAR_FONTS = [
   "Inter", "Manrope", "Montserrat", "Roboto", "Open Sans", "Lato", "Poppins",
@@ -47,6 +47,48 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
       if (typeof reader.result === "string") update({ logoDataUrl: reader.result });
     };
     reader.readAsDataURL(file);
+  };
+
+  // ── Logo generator state ──────────────────────────────────────
+  const [genVariant, setGenVariant] = useState<"wordmark" | "monogram" | "symbol" | "combo">("combo");
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState("");
+  const [genResults, setGenResults] = useState<Array<{ imageUrl: string; prompt: string }>>([]);
+
+  const handleGenerateLogo = async () => {
+    if (!brandBook.brandName?.trim()) {
+      setGenError("Сначала укажите название бренда выше");
+      return;
+    }
+    setGenLoading(true);
+    setGenError("");
+    setGenResults([]);
+    try {
+      const r = await fetch("/api/generate-logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandName: brandBook.brandName,
+          tagline: brandBook.tagline,
+          variant: genVariant,
+          colors: brandBook.colors,
+          style: brandBook.visualStyle,
+          count: 2,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error ?? "Ошибка");
+      setGenResults(j.logos ?? []);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  const applyLogo = (imageUrl: string) => {
+    update({ logoDataUrl: imageUrl });
+    setGenResults([]);
   };
 
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 5, letterSpacing: "0.05em" };
@@ -194,8 +236,8 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <label style={labelStyle}>ЛОГОТИП (PNG / JPG)</label>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={labelStyle}>ЛОГОТИП</label>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
               <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ fontSize: 11, color: "var(--foreground-secondary)" }} />
               {brandBook.logoDataUrl && (
                 <>
@@ -203,6 +245,88 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
                   <img src={brandBook.logoDataUrl} alt="logo" style={{ maxHeight: 48, maxWidth: 120, borderRadius: 6, border: `1px solid var(--muted)`, background: "var(--background)", padding: 4 }} />
                   <button onClick={() => update({ logoDataUrl: undefined })} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 10, cursor: "pointer" }}>✕ удалить</button>
                 </>
+              )}
+            </div>
+
+            {/* ── AI logo generator ────────────────────────────── */}
+            <div style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+              border: "1px dashed color-mix(in oklch, var(--primary) 30%, transparent)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Сгенерировать AI
+                </span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                  · DALL-E 3 · 2 варианта по клику
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {([
+                  { id: "combo", label: "Комбо" },
+                  { id: "wordmark", label: "Текстовый" },
+                  { id: "symbol", label: "Значок" },
+                  { id: "monogram", label: "Монограмма" },
+                ] as const).map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => setGenVariant(v.id)}
+                    disabled={genLoading}
+                    style={{
+                      padding: "6px 12px", borderRadius: 7,
+                      border: `1.5px solid ${genVariant === v.id ? "var(--primary)" : "var(--border)"}`,
+                      background: genVariant === v.id ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "transparent",
+                      color: genVariant === v.id ? "var(--primary)" : "var(--foreground-secondary)",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleGenerateLogo}
+                disabled={genLoading || !brandBook.brandName}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "none",
+                  background: "var(--primary)", color: "#fff",
+                  fontSize: 12, fontWeight: 700,
+                  cursor: genLoading ? "wait" : (brandBook.brandName ? "pointer" : "not-allowed"),
+                  opacity: !brandBook.brandName || genLoading ? 0.5 : 1,
+                  fontFamily: "inherit",
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                }}
+              >
+                {genLoading ? <Loader2 size={12} className="mr-spin" /> : <Sparkles size={12} />}
+                {genLoading ? "Генерирую (30-60 сек)…" : "Сгенерировать варианты"}
+              </button>
+              {genError && (
+                <div style={{ marginTop: 8, fontSize: 11, color: "var(--destructive)" }}>{genError}</div>
+              )}
+              {genResults.length > 0 && (
+                <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                  {genResults.map((logo, i) => (
+                    <div key={i} style={{ background: "var(--background)", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden", padding: 8 }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={logo.imageUrl}
+                        alt={`logo ${i + 1}`}
+                        style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "contain", background: "#fff", borderRadius: 4, marginBottom: 6 }}
+                      />
+                      <button
+                        onClick={() => applyLogo(logo.imageUrl)}
+                        style={{
+                          width: "100%", padding: "6px 0", borderRadius: 6,
+                          border: "none", background: "var(--primary)", color: "#fff",
+                          fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                        }}
+                      >
+                        Использовать
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

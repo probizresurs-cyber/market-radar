@@ -14,7 +14,7 @@
 import React, { useEffect, useState } from "react";
 import {
   LineChart, Loader2, Plus, RefreshCw, Trash2, X, ExternalLink, AlertCircle,
-  CheckCircle2, TrendingDown, TrendingUp, Minus,
+  CheckCircle2, TrendingDown, TrendingUp, Minus, Upload,
 } from "lucide-react";
 
 interface TrackedProduct {
@@ -46,6 +46,89 @@ export function PriceTrackingView() {
   const [competitorName, setCompetitorName] = useState("");
   const [thresholdPct, setThresholdPct] = useState<string>("");
   const [cssSelector, setCssSelector] = useState("");
+  // Bulk CSV import
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCsv, setBulkCsv] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, errors: [] as string[] });
+
+  /**
+   * Парсит CSV/TSV (или просто список URL по строке) и добавляет товары
+   * по одному через тот же endpoint. Кладёт прогресс в bulkProgress.
+   *
+   * Поддерживаемые форматы строк:
+   *   - просто URL
+   *   - URL,competitor_name
+   *   - URL,competitor_name,threshold_pct
+   *   - URL,competitor_name,threshold_pct,css_selector
+   * Разделитель — запятая ИЛИ табуляция. Шапку (URL/Конкурент…) автоматически
+   * пропускаем.
+   */
+  const handleBulkImport = async () => {
+    setBulkBusy(true);
+    setBulkProgress({ done: 0, total: 0, errors: [] });
+    const errors: string[] = [];
+    try {
+      const rawLines = bulkCsv
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+      // Skip header line if it doesn't start with http
+      const lines = rawLines.filter((l, i) => !(i === 0 && !/^https?:\/\//i.test(l)));
+      setBulkProgress({ done: 0, total: lines.length, errors: [] });
+
+      let done = 0;
+      for (const line of lines) {
+        const sep = line.includes("\t") ? "\t" : ",";
+        const parts = line.split(sep).map(s => s.trim());
+        const lineUrl = parts[0];
+        if (!/^https?:\/\//i.test(lineUrl)) {
+          errors.push(`${lineUrl || "(пустой URL)"} — не URL`);
+          done++; setBulkProgress({ done, total: lines.length, errors: [...errors] });
+          continue;
+        }
+        const compName = parts[1] || undefined;
+        const threshold = parts[2] ? Number(parts[2]) : undefined;
+        const selector = parts[3] || undefined;
+        try {
+          const r = await fetch("/api/price-tracking", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              product_url: lineUrl,
+              competitor_name: compName,
+              threshold_pct: Number.isFinite(threshold) ? threshold : undefined,
+              css_selector: selector,
+              notify_telegram: true,
+            }),
+          });
+          const j = await r.json();
+          if (!j.ok) errors.push(`${lineUrl} — ${j.error ?? "ошибка"}`);
+        } catch (e) {
+          errors.push(`${lineUrl} — ${e instanceof Error ? e.message : "ошибка"}`);
+        }
+        done++;
+        setBulkProgress({ done, total: lines.length, errors: [...errors] });
+      }
+      await load();
+      // Если все ok — закрываем форму через секунду
+      if (errors.length === 0) {
+        setTimeout(() => {
+          setBulkOpen(false);
+          setBulkCsv("");
+          setBulkProgress({ done: 0, total: 0, errors: [] });
+        }, 1500);
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    file.text().then(text => setBulkCsv(text));
+  };
 
   const load = async () => {
     setLoading(true);
@@ -119,18 +202,111 @@ export function PriceTrackingView() {
             Отслеживаем цены конкурентов. Каждое утро система обходит все товары, при изменении цены приходит уведомление в Telegram.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(v => !v)}
-          style={{
-            padding: "11px 20px", borderRadius: 10, border: "none",
-            background: "var(--primary)", color: "#fff",
-            fontSize: 14, fontWeight: 700, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", gap: 8,
-            minHeight: 44,
-          }}>
-          {showAddForm ? <><X size={16}/> Закрыть</> : <><Plus size={16}/> Добавить товар</>}
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setBulkOpen(v => !v)}
+            style={{
+              padding: "11px 18px", borderRadius: 10,
+              border: "1.5px solid var(--border)", background: "transparent",
+              color: "var(--foreground)", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8,
+              minHeight: 44,
+            }}>
+            <Upload size={15}/> CSV-импорт
+          </button>
+          <button
+            onClick={() => setShowAddForm(v => !v)}
+            style={{
+              padding: "11px 20px", borderRadius: 10, border: "none",
+              background: "var(--primary)", color: "#fff",
+              fontSize: 14, fontWeight: 700, cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 8,
+              minHeight: 44,
+            }}>
+            {showAddForm ? <><X size={16}/> Закрыть</> : <><Plus size={16}/> Добавить товар</>}
+          </button>
+        </div>
       </div>
+
+      {/* Bulk CSV import form */}
+      {bulkOpen && (
+        <div style={{
+          background: "var(--card)", border: "1.5px solid color-mix(in oklch, var(--primary) 30%, var(--border))",
+          borderRadius: 14, padding: 22, marginBottom: 24,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)" }}>Массовый импорт товаров</div>
+            <button onClick={() => setBulkOpen(false)} style={{ background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer", padding: 4 }}>
+              <X size={18} />
+            </button>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 14px", lineHeight: 1.55 }}>
+            Вставьте список товаров — по одному на строку. Поддерживаемые форматы:
+            <br/>
+            <code style={{ background: "var(--muted)", padding: "1px 5px", borderRadius: 4, fontSize: 11.5 }}>URL</code> · {" "}
+            <code style={{ background: "var(--muted)", padding: "1px 5px", borderRadius: 4, fontSize: 11.5 }}>URL,Конкурент</code> · {" "}
+            <code style={{ background: "var(--muted)", padding: "1px 5px", borderRadius: 4, fontSize: 11.5 }}>URL,Конкурент,порог%,css-селектор</code>
+            <br/>
+            Разделитель — запятая или табуляция. Шапку CSV распознаём автоматически.
+          </p>
+          <textarea
+            value={bulkCsv}
+            onChange={e => setBulkCsv(e.target.value)}
+            disabled={bulkBusy}
+            placeholder={`https://wildberries.ru/catalog/123456/detail.aspx,Wildberries,5\nhttps://ozon.ru/product/456,Ozon\nhttps://shop.example.ru/item-789`}
+            rows={8}
+            style={{
+              width: "100%", padding: "12px 14px", borderRadius: 10,
+              border: `1.5px solid var(--border)`, background: "var(--background)",
+              color: "var(--foreground)", fontSize: 13, fontFamily: "monospace",
+              outline: "none", resize: "vertical", boxSizing: "border-box",
+            }}
+          />
+          <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              onClick={handleBulkImport}
+              disabled={bulkBusy || !bulkCsv.trim()}
+              style={{
+                padding: "11px 22px", borderRadius: 10, border: "none",
+                background: bulkBusy || !bulkCsv.trim() ? "var(--muted)" : "var(--primary)",
+                color: "#fff", fontSize: 14, fontWeight: 700,
+                cursor: bulkBusy || !bulkCsv.trim() ? "not-allowed" : "pointer",
+                display: "inline-flex", alignItems: "center", gap: 8, minHeight: 44,
+              }}
+            >
+              {bulkBusy
+                ? <><Loader2 size={15} className="mr-spin" /> Импортирую {bulkProgress.done}/{bulkProgress.total}…</>
+                : <><Upload size={15}/> Загрузить</>}
+            </button>
+            <label style={{
+              padding: "11px 18px", borderRadius: 10, border: "1.5px solid var(--border)",
+              background: "transparent", color: "var(--foreground)",
+              fontSize: 13, fontWeight: 600, cursor: bulkBusy ? "not-allowed" : "pointer",
+              minHeight: 44, display: "inline-flex", alignItems: "center", gap: 6, opacity: bulkBusy ? 0.6 : 1,
+            }}>
+              Открыть CSV-файл
+              <input type="file" accept=".csv,.tsv,.txt" disabled={bulkBusy} onChange={handleBulkFile} style={{ display: "none" }} />
+            </label>
+            {bulkProgress.total > 0 && !bulkBusy && bulkProgress.errors.length === 0 && (
+              <span style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
+                ✓ Добавлено {bulkProgress.done} товаров
+              </span>
+            )}
+          </div>
+          {bulkProgress.errors.length > 0 && (
+            <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", border: "1px solid color-mix(in oklch, var(--destructive) 25%, transparent)", maxHeight: 200, overflow: "auto" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 6 }}>
+                Не добавлены ({bulkProgress.errors.length}):
+              </div>
+              {bulkProgress.errors.map((err, i) => (
+                <div key={i} style={{ fontSize: 11.5, color: "var(--foreground-secondary)", marginBottom: 3 }}>
+                  · {err}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add form */}
       {showAddForm && (

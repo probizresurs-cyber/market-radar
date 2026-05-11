@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
 import { DataBadge } from "@/components/ui/DataBadge";
 import { AISummary } from "@/components/ui/AISummary";
+import { SentimentTimeline } from "@/components/ui/SentimentTimeline";
 
 export function ReviewsView({ c, companyName }: {
   c: Colors;
@@ -519,6 +520,9 @@ export function ReviewsView({ c, companyName }: {
                   topRecommendations: analysis.recommendations?.slice(0, 3),
                 }}
               />
+
+              {/* Sentiment timeline — динамика по месяцам */}
+              <SentimentTimeline reviews={reviews} />
 
               {/* Summary */}
               <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>

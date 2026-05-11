@@ -55,6 +55,15 @@ export interface TAArchetype {
   manifestations: string[];   // 3-5 concrete behaviours/preferences
 }
 
+export interface TAJob {
+  /** Контекст: «Когда я ... » */
+  when: string;
+  /** Желание: «Я хочу ... » */
+  want: string;
+  /** Outcome: «Чтобы ... » */
+  outcome: string;
+}
+
 export interface TASegment {
   id: number;
   segmentName: string;
@@ -85,6 +94,20 @@ export interface TASegment {
   mustLetGo: string;
   whoBlamedForProblem: string[];
   topObjections: string[];
+
+  /** Jobs-to-be-Done — 3-5 «когда X, я хочу Y, чтобы Z». Опционально (поле добавлено позже). */
+  jtbd?: TAJob[];
+  /** Триггеры покупки — события / ситуации, после которых клиент готов купить ПРЯМО СЕЙЧАС */
+  purchaseTriggers?: string[];
+  /** Барьеры воронки — что останавливает клиента на каждом этапе (4-6 пунктов). */
+  funnelBarriers?: Array<{
+    /** awareness | consideration | decision | onboarding | retention */
+    stage: string;
+    /** Что останавливает клиента на этом этапе */
+    barrier: string;
+    /** Что с этим сделать (1 предложение) */
+    fix: string;
+  }>;
 }
 
 export type TAAudienceType = "b2c" | "b2b";

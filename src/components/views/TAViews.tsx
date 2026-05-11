@@ -397,6 +397,102 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
         </div>
       </CollapsibleSection>
 
+      {/* JTBD + Triggers + Barriers — закрывает P0 пробел из аудита */}
+      {(seg.jtbd?.length || seg.purchaseTriggers?.length || seg.funnelBarriers?.length) && (
+        <CollapsibleSection c={c} title="Jobs-to-be-Done, триггеры, барьеры" icon={<Target size={16} />}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
+            {/* JTBD */}
+            {seg.jtbd && seg.jtbd.length > 0 && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginBottom: 12, letterSpacing: "0.05em" }}>JOBS-TO-BE-DONE</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {seg.jtbd.map((j, i) => (
+                    <div key={i} style={{ padding: "10px 12px", borderRadius: 8, background: "color-mix(in oklch, var(--primary) 6%, transparent)", borderLeft: "3px solid var(--primary)" }}>
+                      <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.55 }}>
+                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>Когда</span> {j.when}, <span style={{ fontWeight: 700, color: "var(--primary)" }}>я хочу</span> {j.want}, <span style={{ fontWeight: 700, color: "var(--primary)" }}>чтобы</span> {j.outcome}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Triggers */}
+            {seg.purchaseTriggers && seg.purchaseTriggers.length > 0 && (
+              <Card>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#16a34a", marginBottom: 12, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Zap size={13} /> ТРИГГЕРЫ ПОКУПКИ — КУПЯТ ПРЯМО СЕЙЧАС
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {seg.purchaseTriggers.map((t, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 0" }}>
+                      <span style={{
+                        flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#16a34a",
+                        background: "rgba(22,163,74,0.15)", borderRadius: 5, padding: "2px 6px",
+                        minWidth: 22, textAlign: "center",
+                      }}>{i + 1}</span>
+                      <span style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.55 }}>{t}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Funnel barriers */}
+          {seg.funnelBarriers && seg.funnelBarriers.length > 0 && (
+            <Card>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--destructive)", marginBottom: 14, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
+                <AlertTriangle size={13} /> БАРЬЕРЫ ПО ВОРОНКЕ
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {seg.funnelBarriers.map((b, i) => {
+                  const stageLabels: Record<string, { label: string; color: string }> = {
+                    awareness: { label: "Узнавание", color: "#6366f1" },
+                    consideration: { label: "Рассмотрение", color: "#f59e0b" },
+                    decision: { label: "Решение", color: "#ef4444" },
+                    onboarding: { label: "Onboarding", color: "#06b6d4" },
+                    retention: { label: "Удержание", color: "#22c55e" },
+                  };
+                  const meta = stageLabels[b.stage?.toLowerCase()] ?? { label: b.stage, color: "var(--muted-foreground)" };
+                  return (
+                    <div key={i} style={{
+                      display: "grid",
+                      gridTemplateColumns: "120px 1fr 1fr",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "var(--background)",
+                      border: "1px solid var(--border)",
+                      alignItems: "flex-start",
+                    }}>
+                      <div>
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, color: meta.color,
+                          background: `${meta.color}1a`, borderRadius: 6,
+                          padding: "3px 8px", letterSpacing: "0.05em",
+                          display: "inline-block", textTransform: "uppercase",
+                        }}>
+                          {i + 1}. {meta.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 2 }}>БАРЬЕР</div>
+                        {b.barrier}
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#16a34a", letterSpacing: "0.05em", marginBottom: 2 }}>ЧТО ДЕЛАТЬ</div>
+                        {b.fix}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+        </CollapsibleSection>
+      )}
+
       {/* Problems & Emotions */}
       <CollapsibleSection c={c} title="Основные проблемы и эмоции" icon={<Zap size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
