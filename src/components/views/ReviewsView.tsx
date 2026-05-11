@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { Review, ReviewAnalysis } from "@/lib/review-types";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { AISummary } from "@/components/ui/AISummary";
 
 export function ReviewsView({ c, companyName }: {
   c: Colors;
@@ -503,6 +504,22 @@ export function ReviewsView({ c, companyName }: {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* AI-summary по отзывам */}
+              <AISummary
+                dashboard="reviews"
+                title={`${companyName} · ${reviews.length} отзывов`}
+                data={{
+                  company: companyName,
+                  totalReviews: analysis.totalReviews,
+                  avgRating: analysis.avgRating,
+                  summary: analysis.summary,
+                  sentiment: analysis.sentimentSummary,
+                  strengths: analysis.strengths?.slice(0, 3),
+                  weaknesses: analysis.weaknesses?.slice(0, 3),
+                  topRecommendations: analysis.recommendations?.slice(0, 3),
+                }}
+              />
+
               {/* Summary */}
               <div style={{ background: "var(--card)", borderRadius: 16, padding: 24, boxShadow: "var(--shadow)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>

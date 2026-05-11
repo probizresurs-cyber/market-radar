@@ -495,6 +495,32 @@ html, body, .ds-card, .ds-btn, .ds-input, .ds-sidebar, .ds-tab {
 
   h1 { font-size: 22px !important; }
   h2 { font-size: 18px !important; }
+
+  /* ── Global mobile collapse for inline-style grids ──────────────────
+     React renders `gridTemplateColumns: "1fr 1fr"` as
+     style="grid-template-columns: 1fr 1fr" in the DOM, so attribute-
+     selectors can match. Catches dozens of dashboards in one shot
+     without touching every file. Add a class `ds-keep-cols` on a grid
+     that should NOT collapse on mobile to opt out. */
+  [style*="grid-template-columns: 1fr 1fr"]:not(.ds-keep-cols),
+  [style*="grid-template-columns:1fr 1fr"]:not(.ds-keep-cols),
+  [style*="grid-template-columns: repeat(2, 1fr)"]:not(.ds-keep-cols),
+  [style*="grid-template-columns: repeat(3, 1fr)"]:not(.ds-keep-cols),
+  [style*="grid-template-columns: repeat(4, 1fr)"]:not(.ds-keep-cols),
+  [style*="grid-template-columns: repeat(4,1fr)"]:not(.ds-keep-cols) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables — let them scroll horizontally on mobile instead of cramping */
+  .ds-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Two-col flex rows that should stack */
+  [style*="flex-direction: row"][style*="justify-content: space-between"]:not(.ds-keep-row) {
+    flex-wrap: wrap !important;
+  }
 }
 
 @media (min-width: 768px) {
@@ -514,4 +540,17 @@ html, body, .ds-card, .ds-btn, .ds-input, .ds-sidebar, .ds-tab {
 }
 .mr-spin {
   animation: mr-spin 1s linear infinite;
+}
+
+/* ----- Utility: skeleton-loader pulse (used by SkeletonCard) ----- */
+@keyframes ds-skel-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
+}
+.ds-skel-pulse {
+  animation: ds-skel-pulse 1.4s ease-in-out infinite;
+  background: var(--border);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ds-skel-pulse { animation: none; opacity: 0.7; }
 }

@@ -18,6 +18,7 @@ import { MarketShareBlock } from "@/components/ui/MarketShareBlock";
 import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
 import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart, ScanLine, CheckCircle, Info } from "lucide-react";
+import { AISummary } from "@/components/ui/AISummary";
 
 // ─── Tech Audit Dashboard Block ───────────────────────────────────────────────
 // Shows only what's NOT already on the dashboard:
@@ -196,6 +197,20 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
           )}
         </p>
       </div>
+
+      {/* AI-summary: что важно сейчас + одно действие */}
+      <AISummary
+        dashboard="company"
+        title={company.name}
+        data={{
+          name: company.name,
+          niche: company.niche,
+          score: company.score,
+          categories: data.categories?.map(cat => ({ name: cat.name, score: cat.score })),
+          topRecommendations: recommendations?.slice(0, 5),
+          analyzedAt: data.analyzedAt,
+        }}
+      />
       {/* ───── Monitoring Status Bar ───── */}
       {data.analyzedAt && (() => {
         const CYCLE = 30;

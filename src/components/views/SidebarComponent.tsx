@@ -7,12 +7,52 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
+  Pin, Clock,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import type { NavItem, NavSection } from "@/lib/nav";
 import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
+
+// ── Pinned / Recently used (sidebar) ─────────────────────────────────
+// Хранится в localStorage per-userId. Pinned — explicit user choice (max 6),
+// Recent — last 5 visited items (excludes pinned to avoid duplication).
+
+const PIN_KEY = (uid: string) => `mr_sidebar_pinned_${uid || "anon"}`;
+const RECENT_KEY = (uid: string) => `mr_sidebar_recent_${uid || "anon"}`;
+const MAX_PINNED = 6;
+const MAX_RECENT = 5;
+
+function readList(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeList(key: string, list: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch { /* ignore */ }
+}
+
+// Find a NavItem by id walking the nav tree, return label/icon for sidebar render.
+function findItemById(sections: NavSection[], id: string): NavItem | null {
+  for (const sect of sections) {
+    for (const item of sect.items) {
+      if (item.id === id) return item;
+      if (item.children) {
+        for (const ch of item.children) if (ch.id === id) return ch;
+      }
+    }
+  }
+  return null;
+}
 
 // Map icon names from nav.ts → actual Lucide components.
 // Anything not in this map falls back to rendering the string (legacy emoji support).
@@ -57,6 +97,48 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
   };
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(getDefaultExpanded);
 
+  // ── Pinned / Recently used state ─────────────────────────────
+  const uid = user?.id || "anon";
+  const [pinned, setPinned] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    setPinned(readList(PIN_KEY(uid)).slice(0, MAX_PINNED));
+    setRecent(readList(RECENT_KEY(uid)).slice(0, MAX_RECENT));
+  }, [uid]);
+
+  // Track recent visits (skip groups and items already pinned)
+  useEffect(() => {
+    if (!activeNav) return;
+    const item = findItemById(navSections, activeNav);
+    if (!item || (item.children && item.children.length > 0)) return; // skip groups
+    setRecent(prev => {
+      if (pinned.includes(activeNav)) return prev;
+      const next = [activeNav, ...prev.filter(id => id !== activeNav)].slice(0, MAX_RECENT);
+      writeList(RECENT_KEY(uid), next);
+      return next;
+    });
+  }, [activeNav, navSections, pinned, uid]);
+
+  const togglePin = (id: string) => {
+    setPinned(prev => {
+      const isPinned = prev.includes(id);
+      const next = isPinned
+        ? prev.filter(p => p !== id)
+        : [...prev, id].slice(0, MAX_PINNED);
+      writeList(PIN_KEY(uid), next);
+      // Remove from recent when pinning (avoid duplicate)
+      if (!isPinned) {
+        setRecent(r => {
+          const filt = r.filter(x => x !== id);
+          writeList(RECENT_KEY(uid), filt);
+          return filt;
+        });
+      }
+      return next;
+    });
+  };
+
   // When activeNav changes, ensure parent group is expanded
   useEffect(() => {
     for (const section of navSections) {
@@ -79,14 +161,15 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
   const SB = (c as typeof COLORS["dark"]); // sidebar always reads dark-style tokens
   void SB; // suppress unused var warning
 
-  const renderItem = (item: NavItem, depth = 0) => {
+  const renderItem = (item: NavItem, depth = 0, showPin = true) => {
     const isGroup = !!(item.children && item.children.length > 0);
     const isExpanded = expandedGroups.has(item.id);
     const isActive = activeNav === item.id;
     const childActive = isGroup && item.children!.some(ch => ch.id === activeNav);
+    const isPinned = pinned.includes(item.id);
 
     return (
-      <div key={item.id}>
+      <div key={`${depth}-${item.id}`} className="ds-side-row">
         <div
           onClick={() => isGroup ? toggleGroup(item.id) : setActiveNav(item.id)}
           style={{
@@ -98,6 +181,7 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
             fontWeight: isActive ? 700 : (childActive && !isExpanded) ? 600 : 500, fontSize: 14,
             transition: "background 0.15s ease, color 0.15s ease", marginBottom: 2,
             minHeight: depth > 0 ? 36 : 40,
+            position: "relative",
           }}
           onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--sidebar-hover)"; }}
           onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
@@ -107,6 +191,30 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
           <span style={{ flex: 1, lineHeight: 1.3 }}>{item.label}</span>
           {item.count !== null && !isGroup && (
             <span style={{ fontSize: 12, fontWeight: 700, background: isActive ? "rgba(196,184,245,0.18)" : "rgba(255,255,255,0.08)", color: isActive ? "#C4B8F5" : "var(--sidebar-muted)", borderRadius: 10, padding: "2px 9px", minWidth: 22, textAlign: "center" }}>{item.count}</span>
+          )}
+          {/* Pin/unpin button — visible on hover for non-group items */}
+          {showPin && !isGroup && (
+            <button
+              className="ds-pin-btn"
+              onClick={(e) => { e.stopPropagation(); togglePin(item.id); }}
+              aria-label={isPinned ? "Открепить" : "Закрепить"}
+              title={isPinned ? "Открепить" : "Закрепить в избранное"}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: 4,
+                borderRadius: 6,
+                color: isPinned ? "#C4B8F5" : "var(--sidebar-muted)",
+                cursor: "pointer",
+                display: isPinned ? "inline-flex" : "none",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: isPinned ? 0.9 : 0.7,
+                flexShrink: 0,
+              }}
+            >
+              <Pin size={12} fill={isPinned ? "currentColor" : "none"} strokeWidth={1.75} />
+            </button>
           )}
           {isGroup && (
             <ChevronRight size={15} style={{ color: "var(--sidebar-muted)", transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
@@ -120,6 +228,16 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
       </div>
     );
   };
+
+  // Helper to render a flat item (Pinned/Recent sections)
+  const renderFlatItem = (id: string) => {
+    const item = findItemById(navSections, id);
+    if (!item) return null;
+    return renderItem(item, 0, true);
+  };
+
+  // Filter recent: don't show currently active or already-pinned items
+  const visibleRecent = recent.filter(id => !pinned.includes(id) && id !== activeNav).slice(0, MAX_RECENT);
 
   return (
     <aside className="ds-sidebar-desktop" style={{ width: 256, minWidth: 256, background: "var(--sidebar-bg)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", overflow: "auto" }}>
@@ -143,6 +261,34 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
 
       {/* Nav */}
       <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
+        {/* Pin button visible on hover */}
+        <style>{`
+          .ds-side-row:hover .ds-pin-btn { display: inline-flex !important; }
+          .ds-side-row:hover .ds-pin-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.08) !important; }
+        `}</style>
+
+        {/* Pinned section — only if there's anything pinned */}
+        {pinned.length > 0 && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.1em", padding: "16px 12px 8px", textTransform: "uppercase" }}>
+              <Pin size={11} fill="currentColor" strokeWidth={1.5} style={{ opacity: 0.8 }} />
+              Избранное
+            </div>
+            {pinned.map(id => renderFlatItem(id))}
+          </div>
+        )}
+
+        {/* Recent section — only if non-empty after filtering */}
+        {visibleRecent.length > 0 && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.1em", padding: "16px 12px 8px", textTransform: "uppercase" }}>
+              <Clock size={11} strokeWidth={1.75} style={{ opacity: 0.8 }} />
+              Недавнее
+            </div>
+            {visibleRecent.map(id => renderFlatItem(id))}
+          </div>
+        )}
+
         {navSections.map(section => (
           <div key={section.title}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.1em", padding: "16px 12px 8px", textTransform: "uppercase" }}>{section.title}</div>

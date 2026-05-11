@@ -10,6 +10,7 @@ import {
   Brain, Rocket, User, Globe, Zap, AlertTriangle, Flame, Ban,
   RefreshCw, Sparkles, Target, Loader2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
+import { AISummary } from "@/components/ui/AISummary";
 
 // Russian labels for the 12 Jungian archetypes used in TA segments.
 const ARCHETYPE_LABELS: Record<JungArchetype, string> = {
@@ -299,6 +300,27 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.niche} · {generatedDate}</p>
       </div>
+
+      {/* AI-summary: что важно по ЦА + действие */}
+      <AISummary
+        dashboard="ta"
+        title={`${data.companyName} · ${activeType.toUpperCase()}`}
+        data={{
+          company: data.companyName,
+          niche: data.niche,
+          audienceType: activeType,
+          segmentCount: data.segments.length,
+          summary: data.summary,
+          activeSegment: {
+            name: seg.segmentName,
+            isGolden: seg.isGolden,
+            persona: seg.demographics?.personaName,
+            mainProblems: seg.mainProblems?.slice(0, 3),
+            topFears: seg.topFears?.slice(0, 3),
+            topObjections: seg.topObjections?.slice(0, 3),
+          },
+        }}
+      />
 
       {/* Summary */}
       <Card style={{ marginBottom: 20, background: `linear-gradient(135deg, var(--card) 60%, var(--primary)06 100%)` }}>

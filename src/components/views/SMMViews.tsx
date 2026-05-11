@@ -10,6 +10,7 @@ import {
   Smartphone, Rocket, Drama, FileText, Loader2,
   AlertTriangle, Users, Send,
 } from "lucide-react";
+import { AISummary } from "@/components/ui/AISummary";
 
 // Пока поддерживаем только ВК и Telegram — для них есть реальная статистика
 // через API и адекватные рекомендации под российский рынок. Остальные
@@ -221,6 +222,25 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
       </div>
+
+      {/* AI-summary по СММ */}
+      <AISummary
+        dashboard="smm"
+        title={data.companyName}
+        data={{
+          company: data.companyName,
+          archetype: data.brandIdentity?.archetype,
+          uniqueValue: data.brandIdentity?.uniqueValue,
+          toneOfVoice: data.brandIdentity?.toneOfVoice,
+          bigIdea: data.contentStrategy?.bigIdea,
+          contentPillars: platform?.contentPillars,
+          quickWins: data.quickWins?.slice(0, 5),
+          realStats: data.realStats ? {
+            vk: data.realStats.vk ? { subs: data.realStats.vk.subscribers, posts: data.realStats.vk.recentPosts } : null,
+            tg: data.realStats.telegram ? { subs: data.realStats.telegram.subscribers, posts: data.realStats.telegram.recentPosts } : null,
+          } : null,
+        }}
+      />
 
       {/* Real stats badge */}
       {data.realStats && (data.realStats.vk || data.realStats.telegram) && (
