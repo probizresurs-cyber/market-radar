@@ -97,6 +97,12 @@ export interface GeneratedPost {
   platformVariants?: PlatformVariants;
   /** В какие соцсети уже опубликован (по кнопке «Опубликовать»). */
   publishStatus?: PublishStatus;
+  /** Запланированная дата публикации (ISO). Используется календарём. */
+  scheduledFor?: string;
+  /** Альтернативные крючки от A/B-генератора. Текущий активный — поле `hook`. */
+  hookVariants?: string[];
+  /** Публичный URL опубликованного поста (для авто-сбора metrics). */
+  publishedUrl?: string;
 }
 
 export type ReelVideoStatus = "idle" | "generating" | "ready" | "failed";
@@ -137,6 +143,10 @@ export interface GeneratedReel {
   videoError?: string;
   generatedAt: string;
   metrics?: ReelMetrics;
+  /** Запланированная дата публикации (ISO). Используется календарём. */
+  scheduledFor?: string;
+  /** Публичный URL опубликованного рилса (для авто-сбора metrics). */
+  publishedUrl?: string;
 }
 
 export interface ReferenceImage {

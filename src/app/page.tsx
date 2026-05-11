@@ -113,6 +113,7 @@ import { BrandSuggestionsView } from "@/components/views/BrandSuggestionsView";
 import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/views/SMMViews";
 
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
+import { ContentCalendarView } from "@/components/views/ContentCalendarView";
 import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { PackageProgressModal, type PackageProgress } from "@/components/ui/PackageProgressModal";
@@ -1644,7 +1645,7 @@ function MarketRadarDashboardInner() {
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
         {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
-        {(activeNav === "content-plan" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
+        {(activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "content-plan" && featureOn("content-factory") && (
@@ -1666,6 +1667,17 @@ function MarketRadarDashboardInner() {
                 onUpdateBrandBook={handleUpdateBrandBook}
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
+        )}
+        {activeNav === "content-calendar" && featureOn("content-factory") && (
+          <ContentCalendarView
+            c={c}
+            posts={generatedPosts}
+            reels={generatedReels}
+            onUpdatePost={handleUpdatePost}
+            onUpdateReel={handleUpdateReel}
+            onGoToPost={() => setActiveNav("content-posts")}
+            onGoToReel={() => setActiveNav("content-reels")}
+          />
         )}
         {activeNav === "content-posts" && featureOn("content-factory") && <GeneratedPostsView c={c} posts={generatedPosts} onUpdatePost={handleUpdatePost} onDeletePost={handleDeletePost} referenceImages={referenceImages} onUpdateReferenceImages={setReferenceImages} brandBook={brandBook} onboardingState={onboardingState} />}
         {activeNav === "content-reels" && featureOn("content-factory") && <GeneratedReelsView c={c} reels={generatedReels} onGenerateVideo={handleGenerateReelVideo} generatingVideoFor={generatingVideoFor} avatarSettings={avatarSettings} onUpdateAvatarSettings={handleUpdateAvatarSettings} onUpdateReel={handleUpdateReel} onDeleteReel={handleDeleteReel} onboardingState={onboardingState} />}

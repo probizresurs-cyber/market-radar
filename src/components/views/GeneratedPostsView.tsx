@@ -6,7 +6,7 @@ import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, R
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
-import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink } from "lucide-react";
+import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink, Shuffle } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -212,6 +212,31 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
   const [draft, setDraft] = useState<AnyMetrics>(metrics ?? {});
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(metrics?.screenshotUrl ?? null);
   const [dragging, setDragging] = useState(false);
+  // Авто-fetch metrics из публичного URL (VK / Telegram)
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  const handleFetchFromUrl = async () => {
+    const url = urlInput.trim();
+    if (!url) return;
+    setUrlFetching(true);
+    setUrlError(null);
+    try {
+      const res = await fetch("/api/post-metrics-fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const json = await res.json() as { ok: boolean; metrics?: AnyMetrics; error?: string };
+      if (!json.ok || !json.metrics) throw new Error(json.error ?? "Не удалось получить metrics");
+      setDraft(prev => ({ ...prev, ...json.metrics }));
+    } catch (e) {
+      setUrlError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setUrlFetching(false);
+    }
+  };
 
   const fields = kind === "reel" ? REEL_METRIC_FIELDS : POST_METRIC_FIELDS;
   const accent = kind === "reel" ? "#ec4899" : "#f59e0b";
@@ -322,6 +347,49 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: accent }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={12}/>Метрики {kind === "reel" ? "рилса" : "поста"}</span></div>
         <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>×</button>
+      </div>
+
+      {/* Авто-fetch metrics из публичной VK/TG ссылки */}
+      <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "var(--card)", border: `1px solid var(--border)` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          Авто-сбор из ссылки
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            type="url"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !urlFetching && handleFetchFromUrl()}
+            placeholder="https://vk.com/wall-12345_678  или  https://t.me/channel/123"
+            style={{
+              flex: 1, padding: "8px 10px", borderRadius: 6,
+              border: "1px solid var(--border)", background: "var(--background)",
+              color: "var(--foreground)", fontSize: 12, outline: "none",
+              fontFamily: "inherit", minWidth: 0,
+            }}
+          />
+          <button
+            onClick={handleFetchFromUrl}
+            disabled={urlFetching || !urlInput.trim()}
+            style={{
+              padding: "8px 14px", borderRadius: 6, border: "none",
+              background: accent, color: "#fff", fontSize: 12, fontWeight: 700,
+              cursor: (urlFetching || !urlInput.trim()) ? "not-allowed" : "pointer",
+              opacity: (urlFetching || !urlInput.trim()) ? 0.5 : 1,
+              fontFamily: "inherit", whiteSpace: "nowrap",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {urlFetching ? <Loader2 size={12} className="mr-spin" /> : <ExternalLink size={12} />}
+            {urlFetching ? "Загружаю…" : "Загрузить"}
+          </button>
+        </div>
+        {urlError && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--destructive)" }}>{urlError}</div>
+        )}
+        <div style={{ marginTop: 6, fontSize: 10, color: "var(--muted-foreground)" }}>
+          VK: лайки/коммент/репост/просмотры. Telegram: views + сумма реакций.
+        </div>
       </div>
 
       <div
@@ -455,6 +523,49 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   const [adaptError, setAdaptError] = useState("");
   // Публикация
   const [showPublishModal, setShowPublishModal] = useState(false);
+  // A/B варианты крючка
+  const [hookPickerOpen, setHookPickerOpen] = useState(false);
+  const [hookLoading, setHookLoading] = useState(false);
+  const [hookError, setHookError] = useState("");
+
+  const handleFetchHookVariants = async () => {
+    setHookLoading(true);
+    setHookError("");
+    setHookPickerOpen(true);
+    try {
+      const r = await fetch("/api/hook-variants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hook: post.hook,
+          body: post.body,
+          pillar: post.pillar,
+          platform: post.platform,
+          brandBook,
+          count: 3,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error ?? "Ошибка");
+      onUpdate({ ...post, hookVariants: j.variants });
+    } catch (e) {
+      setHookError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setHookLoading(false);
+    }
+  };
+
+  const handlePickHook = (newHook: string) => {
+    if (!newHook || newHook === post.hook) {
+      setHookPickerOpen(false);
+      return;
+    }
+    // Сохраняем старый hook как один из вариантов, ставим новый активным
+    const existing = post.hookVariants ?? [];
+    const newVariants = [post.hook, ...existing.filter(v => v !== newHook && v !== post.hook)].slice(0, 5);
+    onUpdate({ ...post, hook: newHook, hookVariants: newVariants });
+    setHookPickerOpen(false);
+  };
 
   const handleAdapt = async () => {
     setAdapting(true);
@@ -664,9 +775,36 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             const overLimit = limit && v.charCount > limit;
             return (
               <>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 12, letterSpacing: -0.2, whiteSpace: "pre-wrap" }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", lineHeight: 1.35, marginBottom: 6, letterSpacing: -0.2, whiteSpace: "pre-wrap" }}>
                   {v.hook}
                 </div>
+                {activeTab === "canonical" && (
+                  <button
+                    onClick={handleFetchHookVariants}
+                    disabled={hookLoading}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "5px 10px",
+                      borderRadius: 7,
+                      border: "1px dashed var(--border)",
+                      background: "transparent",
+                      color: "var(--muted-foreground)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: hookLoading ? "wait" : "pointer",
+                      marginBottom: 12,
+                      fontFamily: "inherit",
+                    }}
+                    title="Получить 3 альтернативных крючка для A/B-тестирования"
+                  >
+                    {hookLoading
+                      ? <Loader2 size={12} className="mr-spin" />
+                      : <Shuffle size={12} />}
+                    {hookLoading ? "Подбираю варианты…" : "A/B варианты крючка"}
+                  </button>
+                )}
                 <div style={{ marginBottom: 14, fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
                   {activeTab === "canonical" ? <CarouselBody c={c} body={v.body} /> : v.body}
                 </div>
@@ -766,6 +904,116 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
           )}
         </>
       )}
+
+      {hookPickerOpen && (
+        <HookVariantsPicker
+          currentHook={post.hook}
+          variants={post.hookVariants ?? []}
+          loading={hookLoading}
+          error={hookError}
+          onPick={handlePickHook}
+          onRetry={handleFetchHookVariants}
+          onClose={() => setHookPickerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Hook A/B picker modal ────────────────────────────────────────────────
+function HookVariantsPicker({
+  currentHook, variants, loading, error, onPick, onRetry, onClose,
+}: {
+  currentHook: string;
+  variants: string[];
+  loading: boolean;
+  error: string;
+  onPick: (h: string) => void;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const labels = ["Цифровой", "Эмоциональный", "Утилитарный", "Доп. №4", "Доп. №5"];
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 1000, padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "var(--card)", border: `1px solid var(--border)`,
+          borderRadius: 16, padding: 22, maxWidth: 560, width: "100%",
+          maxHeight: "85vh", overflow: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "var(--foreground)" }}>
+            A/B варианты крючка
+          </h3>
+          <button onClick={onClose} aria-label="Закрыть" style={{ background: "transparent", border: "none", color: "var(--foreground-secondary)", cursor: "pointer", padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px" }}>
+          Выберите альтернативу — она станет активным крючком. Текущий уйдёт в варианты.
+        </p>
+
+        {/* Current */}
+        <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "var(--background)", border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>
+            Текущий
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4 }}>
+            {currentHook}
+          </div>
+        </div>
+
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 0", color: "var(--muted-foreground)", fontSize: 13 }}>
+            <Loader2 size={16} className="mr-spin" />
+            Подбираю варианты — Claude думает над крючками…
+          </div>
+        )}
+        {error && (
+          <div style={{ background: "color-mix(in oklch, var(--destructive) 10%, transparent)", border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)", color: "var(--destructive)", borderRadius: 10, padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>
+            {error}
+            <button onClick={onRetry} style={{ marginLeft: 10, background: "transparent", border: "none", color: "var(--destructive)", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit", textDecoration: "underline" }}>
+              Повторить
+            </button>
+          </div>
+        )}
+        {!loading && !error && variants.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {variants.map((v, i) => (
+              <button
+                key={i}
+                onClick={() => onPick(v)}
+                style={{
+                  background: "var(--background)", border: "1.5px solid var(--border)",
+                  borderRadius: 10, padding: "14px 16px", textAlign: "left",
+                  cursor: "pointer", fontFamily: "inherit",
+                  transition: "border-color 0.12s, background 0.12s",
+                  display: "block", width: "100%",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 5%, var(--background))"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--background)"; }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>
+                  {labels[i] ?? `Вариант ${i + 1}`}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4 }}>
+                  {v}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

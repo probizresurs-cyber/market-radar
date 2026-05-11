@@ -84,6 +84,7 @@ export const NAV_SECTIONS: NavSection[] = [
         children: [
           { id: "content-trends", icon: "TrendingUp", label: "Тренды по нише", count: null },
           { id: "content-plan", icon: "ClipboardList", label: "План контента", count: null },
+          { id: "content-calendar", icon: "Map", label: "Календарь публикаций", count: null },
           { id: "content-posts", icon: "FileEdit", label: "Готовые посты", count: null },
           { id: "content-reels", icon: "Film", label: "Готовые видео", count: null },
           { id: "content-stories", icon: "Smartphone", label: "Сторис-сценарии", count: null },
