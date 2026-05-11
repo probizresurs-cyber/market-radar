@@ -5,7 +5,7 @@ import {
   Moon, Sun, Send, Users, BarChart2, Globe, Zap, ClipboardList,
   Star, Briefcase, Share2, Eye, Swords, ArrowRight, ChevronDown,
   Radio, Building2, MessagesSquare, Check, ShieldCheck, Target,
-  Map, Palette, TrendingUp, X, FileText, Info,
+  Map, Palette, TrendingUp, X, FileText, Info, Menu,
 } from "lucide-react";
 import type { Colors, Theme } from "@/lib/colors";
 import { VisitTracker } from "@/components/VisitTracker";
@@ -39,6 +39,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 }) {
   void c;
   const [url, setUrl] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const TG_BOT = "https://t.me/market_radar1_bot";
   const TG_CHANNEL = "https://t.me/company24pro";
   const TG_PARTNER_BOT = "https://t.me/market_radar1_bot";
@@ -326,19 +327,108 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           .lp-float, .lp-pulse-dot, .lp-gradient-text, .lp-card-accent, .lp-hero-grid { animation: none !important; }
         }
 
+        /* ── Hamburger menu (mobile) ── */
+        .lp-burger { display: none; }
+        .lp-mobile-menu { display: none; }
+        @keyframes lp-menu-slide {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tablet (≤900px) */
+        @media (max-width: 900px) {
+          .nav-links { display: none !important; }
+          .lp-burger { display: inline-flex !important; }
+          .lp-nav-cta-text { display: none; }
+        }
+
+        /* Mobile (≤640px) */
         @media (max-width: 640px) {
+          /* Nav */
+          .lp-nav { padding: 0 16px !important; height: 60px !important; }
+          .lp-nav-login { display: none !important; }
+          .lp-nav-theme { display: none !important; }
+
+          /* Hero */
+          .lp-hero-section { padding: 56px 16px 40px !important; }
+          .lp-hero-badge { font-size: 13px !important; padding: 8px 16px 8px 12px !important; }
+          .lp-hero-h1 { letter-spacing: -0.03em !important; }
+          .lp-hero-lead { font-size: 17px !important; }
+          .lp-hero-sub { font-size: 14px !important; }
           .lp-hero-btns { flex-direction: column !important; }
+          .lp-url-row { flex-direction: column !important; padding: 10px !important; }
+          .lp-url-row input { padding: 12px 6px !important; font-size: 16px !important; width: 100% !important; }
+          .lp-url-row button { width: 100% !important; justify-content: center !important; padding: 14px 20px !important; }
+
+          /* Hero price pill */
+          .lp-price-pill { padding: 12px 16px !important; gap: 10px !important; }
+          .lp-price-now { font-size: 32px !important; }
+          .lp-price-old { font-size: 18px !important; }
+          .lp-price-divider { display: none !important; }
+          .lp-price-meta { flex-basis: 100%; text-align: center !important; }
+
+          /* Hero stats strip: 2x2 grid */
+          .lp-stats-strip { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; padding-top: 32px !important; margin-top: 32px !important; }
+          .lp-stats-strip > div { padding: 16px 8px !important; border-left: none !important; }
+          .lp-stats-strip > div:nth-child(odd) { border-right: 1px solid var(--lp-border, #1e2433); }
+          .lp-stats-strip > div:nth-child(-n+2) { border-bottom: 1px solid var(--lp-border, #1e2433); }
+          .lp-stats-num { font-size: 36px !important; }
+          .lp-stats-label { font-size: 12px !important; }
+
+          /* Sections */
+          section { padding-left: 16px !important; padding-right: 16px !important; }
+          .lp-section-h2 { font-size: clamp(26px, 7vw, 32px) !important; line-height: 1.18 !important; }
+          .lp-section-sub { font-size: 15px !important; }
+          .lp-eyebrow { font-size: 12px !important; letter-spacing: 0.12em !important; }
+
+          /* Marquee — slow it down + smaller font */
+          .lp-marquee-track span { font-size: 14px !important; padding: 0 18px !important; }
+
+          /* Card grids → 1col */
           .lp-plans { grid-template-columns: 1fr !important; }
           .lp-services { grid-template-columns: 1fr !important; }
-          .nav-links { display: none !important; }
-          .lp-url-row { flex-direction: column !important; }
-          .lp-stats-strip { gap: 20px !important; }
-          .lp-stats-strip > div { padding: 12px 14px !important; border-left: none !important; }
+
+          /* Cards padding tighter */
+          .lp-card { padding: 22px 18px !important; }
+
+          /* GEO section box */
+          .lp-geo-box { padding: 36px 20px !important; border-radius: 20px !important; }
+          .lp-geo-num { font-size: 44px !important; }
+
+          /* Pricing one-off banner */
+          .lp-oneoff { flex-direction: column !important; align-items: flex-start !important; gap: 14px !important; }
+          .lp-oneoff button { width: 100% !important; justify-content: center !important; }
+
+          /* Enterprise + discount blocks */
+          .lp-ent-box { padding: 26px 22px !important; }
+          .lp-ent-price { font-size: 28px !important; }
+          .lp-ent-cta { width: 100% !important; justify-content: center !important; }
+          .lp-discount-row { grid-template-columns: 1fr 1fr 1fr !important; gap: 8px !important; }
+          .lp-discount-row > div { padding: 10px 4px !important; }
+          .lp-discount-pct { font-size: 20px !important; }
+
+          /* FAQ */
+          .lp-faq { padding: 16px 18px !important; }
+          .lp-faq summary { font-size: 15px !important; }
+          .lp-faq summary + div { font-size: 14px !important; }
+
+          /* Partner banner */
+          .lp-partner-box { padding: 22px 20px !important; }
+          .lp-partner-box a { width: 100% !important; justify-content: center !important; }
+
+          /* Final CTA */
+          .lp-final-cta { flex-direction: column !important; }
+          .lp-final-cta > a, .lp-final-cta > button { width: 100% !important; justify-content: center !important; }
+
+          /* Footer */
+          .lp-footer { padding: 36px 20px 24px !important; }
+          .lp-footer-cols { gap: 24px !important; }
+          .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
         }
       `}</style>
 
       {/* ── NAV ─────────────────────────────────────────────── */}
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 68, borderBottom: `1px solid ${border}`, background: bg + "f0", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
+      <nav className="lp-nav" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 68, borderBottom: `1px solid ${border}`, background: bg + "f0", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <MarketRadarLogo size={38} variant={isDark ? "dark" : "light"} animated />
           <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
@@ -355,22 +445,108 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <a href="#faq" style={{ color: muted, textDecoration: "none" }}>FAQ</a>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button className="lp-btn" onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 9, padding: "8px 11px", color: muted, fontSize: 14, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center" }} aria-label="Переключить тему">
+          <button className="lp-btn lp-nav-theme" onClick={() => setTheme(theme === "light" ? "dark" : "light")} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 9, padding: "8px 11px", color: muted, fontSize: 14, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center" }} aria-label="Переключить тему">
             {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
           </button>
-          <button className="lp-btn" onClick={onLogin} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 10, padding: "9px 20px", fontSize: 14, fontWeight: 600, color: fg, fontFamily: "inherit" }}>
+          <button className="lp-btn lp-nav-login" onClick={onLogin} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 10, padding: "9px 20px", fontSize: 14, fontWeight: 600, color: fg, fontFamily: "inherit" }}>
             Войти
           </button>
           <button className="lp-btn" onClick={onRegister} style={{ background: accent, border: "none", borderRadius: 10, padding: "9px 22px", fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "inherit", boxShadow: `0 2px 14px ${accent}60` }}>
-            Попробовать
+            <span className="lp-nav-cta-text">Попробовать</span>
+            <span style={{ display: "none" }} aria-hidden />
+          </button>
+          {/* Hamburger — visible only ≤900px */}
+          <button
+            className="lp-btn lp-burger"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+            aria-expanded={menuOpen}
+            style={{
+              background: "none",
+              border: `1px solid ${border}`,
+              borderRadius: 10,
+              padding: "8px 11px",
+              color: fg,
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              marginLeft: 4,
+            }}
+          >
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
+
+        {/* Mobile slide-down menu */}
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: bg,
+              borderBottom: `1px solid ${border}`,
+              padding: "16px 20px 20px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+              animation: "lp-menu-slide 0.18s ease both",
+              zIndex: 99,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { href: "#features", label: "Возможности" },
+                { href: "#geo", label: "Нейросети" },
+                { href: "#how", label: "Как работает" },
+                { href: "#pricing", label: "Тарифы" },
+                { href: "/blog", label: "Блог" },
+                { href: "/glossary", label: "Словарь" },
+                { href: "#faq", label: "FAQ" },
+              ].map(({ href, label }) => (
+                <a
+                  key={href}
+                  href={href}
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    display: "block",
+                    padding: "13px 14px",
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: fg,
+                    textDecoration: "none",
+                    borderRadius: 10,
+                    background: "transparent",
+                  }}
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${border}` }}>
+              <button
+                className="lp-btn"
+                onClick={() => { setMenuOpen(false); onLogin(); }}
+                style={{ flex: 1, background: "none", border: `1px solid ${border}`, borderRadius: 10, padding: "12px 16px", fontSize: 15, fontWeight: 600, color: fg, fontFamily: "inherit" }}
+              >
+                Войти
+              </button>
+              <button
+                className="lp-btn"
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                aria-label="Переключить тему"
+                style={{ background: "none", border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: muted, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ─────────────────────────────────────────────────────── */}
       {/* 1. HERO                                                 */}
       {/* ─────────────────────────────────────────────────────── */}
-      <section style={{ textAlign: "center", padding: "88px 20px 64px", position: "relative", overflow: "hidden" }}>
+      <section className="lp-hero-section" style={{ textAlign: "center", padding: "88px 20px 64px", position: "relative", overflow: "hidden" }}>
         {/* Animated neon grid — brighter than the previous subtle version */}
         <div
           className="lp-hero-grid"
@@ -393,13 +569,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
 
         <div className="lp-fade" style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto" }}>
           {/* Radar-style live badge (T-05: увеличен шрифт и паддинги) */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, background: `${neonGreen}12`, color: "#6ee7b7", borderRadius: 999, padding: "10px 22px 10px 14px", fontSize: 15, fontWeight: 600, marginBottom: 30, border: `1px solid ${neonGreen}40`, boxShadow: `0 0 24px ${neonGreen}25` }}>
+          <div className="lp-hero-badge" style={{ display: "inline-flex", alignItems: "center", gap: 12, background: `${neonGreen}12`, color: "#6ee7b7", borderRadius: 999, padding: "10px 22px 10px 14px", fontSize: 15, fontWeight: 600, marginBottom: 30, border: `1px solid ${neonGreen}40`, boxShadow: `0 0 24px ${neonGreen}25` }}>
             <span className="lp-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: neonGreen, display: "inline-block" }} />
             Радар активен · сканируем 40+ источников в реальном времени
           </div>
 
           {/* H1 — SEO-критичный заголовок, растянут на всю ширину */}
-          <h1 style={{ fontSize: "clamp(36px,6.2vw,74px)", fontWeight: 900, lineHeight: 1.06, margin: "0 auto 26px", maxWidth: 1080, letterSpacing: "-0.035em" }}>
+          <h1 className="lp-hero-h1" style={{ fontSize: "clamp(32px,6.2vw,74px)", fontWeight: 900, lineHeight: 1.06, margin: "0 auto 26px", maxWidth: 1080, letterSpacing: "-0.035em" }}>
             Пока вы читаете это —{" "}
             <span
               className="lp-gradient-text"
@@ -415,10 +591,10 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             </span>
           </h1>
 
-          <p style={{ fontSize: 19, color: isDark ? "#cbd5e1" : "#334155", maxWidth: 780, margin: "0 auto 14px", lineHeight: 1.6, fontWeight: 400 }}>
+          <p className="lp-hero-lead" style={{ fontSize: 19, color: isDark ? "#cbd5e1" : "#334155", maxWidth: 780, margin: "0 auto 14px", lineHeight: 1.6, fontWeight: 400 }}>
             MarketRadar сканирует <strong style={{ color: fg }}>40+ источников</strong> за 3 минуты: SEO, карты, отзывы, вакансии, видимость в ChatGPT.
           </p>
-          <p style={{ fontSize: 15, color: muted, maxWidth: 680, margin: "0 auto 30px", lineHeight: 1.6 }}>
+          <p className="lp-hero-sub" style={{ fontSize: 15, color: muted, maxWidth: 680, margin: "0 auto 30px", lineHeight: 1.6 }}>
             Получите отчёт на 30+ страниц с готовым планом роста — вместо агентского счёта на 300 000 ₽ и месяца ожидания.
           </p>
 
@@ -440,13 +616,13 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
 
           {/* Price pill — prominent, readable */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, background: isDark ? "#1a1d2e" : "#f0f0ff", border: `1px solid ${accent}35`, borderRadius: 16, padding: "14px 22px", marginBottom: 18, flexWrap: "wrap", justifyContent: "center" }}>
+          <div className="lp-price-pill" style={{ display: "inline-flex", alignItems: "center", gap: 14, background: isDark ? "#1a1d2e" : "#f0f0ff", border: `1px solid ${accent}35`, borderRadius: 16, padding: "14px 22px", marginBottom: 18, flexWrap: "wrap", justifyContent: "center" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 40, fontWeight: 900, color: fg, letterSpacing: "-0.04em", lineHeight: 1 }}>2 900 ₽</span>
-              <span style={{ fontSize: 22, color: muted, textDecoration: "line-through", lineHeight: 1 }}>4 900 ₽</span>
+              <span className="lp-price-now" style={{ fontSize: 40, fontWeight: 900, color: fg, letterSpacing: "-0.04em", lineHeight: 1 }}>2 900 ₽</span>
+              <span className="lp-price-old" style={{ fontSize: 22, color: muted, textDecoration: "line-through", lineHeight: 1 }}>4 900 ₽</span>
             </div>
-            <div style={{ height: 36, width: 1, background: border }} />
-            <div style={{ textAlign: "left" }}>
+            <div className="lp-price-divider" style={{ height: 36, width: 1, background: border }} />
+            <div className="lp-price-meta" style={{ textAlign: "left" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: fg }}>Полный отчёт + 30 дней</div>
               <div style={{ fontSize: 12, color: muted }}>PDF навсегда · для первых клиентов</div>
             </div>
@@ -489,8 +665,8 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               { num: "6", label: "нейросетей проверяем", color: neonMagenta },
             ].map(({ num, label, color }, i) => (
               <div key={label} className="lp-fade-up" style={{ textAlign: "center", padding: "12px 36px", borderLeft: i > 0 ? `1px solid ${border}` : "none", animationDelay: `${200 + i * 120}ms` }}>
-                <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: "-0.035em", color, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
-                <div style={{ fontSize: 14, color: muted, marginTop: 10, fontWeight: 500 }}>{label}</div>
+                <div className="lp-stats-num" style={{ fontSize: 48, fontWeight: 900, letterSpacing: "-0.035em", color, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
+                <div className="lp-stats-label" style={{ fontSize: 14, color: muted, marginTop: 10, fontWeight: 500 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -512,7 +688,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="features" style={{ padding: "72px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
-          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>30+ источников в одном дашборде</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>30+ источников в одном дашборде</h2>
           <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Маркетолог обычно собирает это вручную из 10–15 сервисов в Excel. MarketRadar делает автоматически и сразу формирует выводы.
           </p>
@@ -619,7 +795,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="artifacts" style={{ padding: "56px 20px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
-          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Готовые артефакты, а не сырые данные</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Готовые артефакты, а не сырые данные</h2>
           <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Всё, что можно сразу использовать в работе — от стратегического обзора до листовок для отдела продаж.
           </p>
@@ -665,7 +841,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section style={{ padding: "56px 20px", maxWidth: 900, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ background: `linear-gradient(145deg, ${neonRed}08, transparent)`, borderRadius: 24, border: `1px solid ${neonRed}22`, padding: "40px 36px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.14em", marginBottom: 14 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
-          <h2 style={{ fontSize: 38, fontWeight: 800, margin: "0 0 24px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
+          <h2 className="lp-section-h2" style={{ fontSize: 38, fontWeight: 800, margin: "0 0 24px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
             Да, можно собрать всё вручную. Но это…
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -703,7 +879,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section style={{ padding: "48px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
-          <h2 style={{ fontSize: 38, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Каждое утверждение — с маркером</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 38, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Каждое утверждение — с маркером</h2>
           <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.6 }}>
             Мы не продаём AI-фантазии под видом аналитики. В отчёте вы видите, откуда взята каждая цифра.
           </p>
@@ -746,7 +922,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       {/*    (major SEO+GEO focus; also has its own H2 keyword)    */}
       {/* ─────────────────────────────────────────────────────── */}
       <section id="geo" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto", position: "relative" }}>
-        <div style={{ background: `linear-gradient(145deg,${accent}10,#8b5cf608)`, borderRadius: 28, border: `1px solid ${accent}25`, padding: "52px 40px", position: "relative", overflow: "hidden" }}>
+        <div className="lp-geo-box" style={{ background: `linear-gradient(145deg,${accent}10,#8b5cf608)`, borderRadius: 28, border: `1px solid ${accent}25`, padding: "52px 40px", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-30%", right: "-10%", width: 440, height: 440, borderRadius: "50%", background: `${accent}12`, filter: "blur(100px)", pointerEvents: "none" }} />
 
           <div style={{ position: "relative", zIndex: 1 }}>
@@ -754,7 +930,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.12em", marginBottom: 14, background: `${accent}18`, padding: "5px 14px", borderRadius: 20, border: `1px solid ${accent}30` }}>
                 <Radio size={11} /> GEO-ПРОДВИЖЕНИЕ
               </div>
-              <h2 style={{ fontSize: "clamp(32px,4vw,44px)", fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
+              <h2 className="lp-section-h2" style={{ fontSize: "clamp(32px,4vw,44px)", fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
                 Как попасть в ответы <span style={{ color: "#a5b4fc" }}>ChatGPT</span>, <span style={{ color: "#a5b4fc" }}>Алисы</span> и <span style={{ color: "#a5b4fc" }}>Gemini</span>
               </h2>
               <p style={{ fontSize: 17, color: muted, maxWidth: 720, margin: "0 auto", lineHeight: 1.65 }}>
@@ -781,7 +957,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                     animationDelay: `${100 + i * 120}ms`,
                   }}
                 >
-                  <div style={{ fontSize: 56, fontWeight: 900, color, letterSpacing: "-0.04em", marginBottom: 8, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
+                  <div className="lp-geo-num" style={{ fontSize: 56, fontWeight: 900, color, letterSpacing: "-0.04em", marginBottom: 8, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
                   <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.55 }}>{label}</div>
                 </div>
               ))}
@@ -866,7 +1042,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="how" style={{ padding: "64px 20px", maxWidth: 1180, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>КАК ЭТО РАБОТАЕТ</div>
-          <h2 style={{ fontSize: 40, fontWeight: 800, margin: 0, letterSpacing: "-0.025em", lineHeight: 1.15 }}>Три шага до результата</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: 0, letterSpacing: "-0.025em", lineHeight: 1.15 }}>Три шага до результата</h2>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
           {[
@@ -962,12 +1138,12 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="pricing" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ТАРИФЫ</div>
-          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Начните с разового отчёта</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Начните с разового отчёта</h2>
           <p style={{ fontSize: 17, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
         </div>
 
         {/* One-off row — highlighted banner */}
-        <div className="lp-card lp-reveal" style={{ background: `linear-gradient(135deg,${accent}18,#8b5cf610)`, borderRadius: 18, border: `1px solid ${accent}40`, padding: "22px 26px", marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+        <div className="lp-card lp-reveal lp-oneoff" style={{ background: `linear-gradient(135deg,${accent}18,#8b5cf610)`, borderRadius: 18, border: `1px solid ${accent}40`, padding: "22px 26px", marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.08em", marginBottom: 4 }}>РАЗОВЫЙ ОТЧЁТ</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: fg, letterSpacing: "-0.02em", marginBottom: 4 }}>
@@ -1024,7 +1200,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
 
         {/* T-22 — Enterprise в отдельный блок */}
-        <div className="lp-reveal" style={{ marginTop: 40, padding: "32px 36px", background: `linear-gradient(145deg, ${accent}15, ${neonMagenta}08)`, borderRadius: 22, border: `1px solid ${accent}35` }}>
+        <div className="lp-reveal lp-ent-box" style={{ marginTop: 40, padding: "32px 36px", background: `linear-gradient(145deg, ${accent}15, ${neonMagenta}08)`, borderRadius: 22, border: `1px solid ${accent}35` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 280 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
@@ -1033,7 +1209,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>ENTERPRISE</div>
               </div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: fg, letterSpacing: "-0.03em", marginBottom: 14 }}>
+              <div className="lp-ent-price" style={{ fontSize: 36, fontWeight: 900, color: fg, letterSpacing: "-0.03em", marginBottom: 14 }}>
                 от 99 900 ₽<span style={{ fontSize: 16, color: muted, fontWeight: 600 }}>/мес</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
@@ -1050,7 +1226,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 ))}
               </div>
             </div>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn" style={{ background: "transparent", color: fg, border: `1.5px solid ${accent}`, borderRadius: 12, padding: "14px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="lp-btn lp-ent-cta" style={{ background: "transparent", color: fg, border: `1.5px solid ${accent}`, borderRadius: 12, padding: "14px 26px", fontSize: 14, fontWeight: 700, textDecoration: "none", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
               Связаться с отделом продаж <ArrowRight size={14} />
             </a>
           </div>
@@ -1062,14 +1238,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             <Info size={16} style={{ color: "#a5b4fc" }} />
             Скидки при длительной оплате
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+          <div className="lp-discount-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
             {[
               { pct: "−5%", note: "3 месяца", color: muted },
               { pct: "−10%", note: "6 месяцев", color: "#a5b4fc" },
               { pct: "−20%", note: "12 месяцев", color: neonGreen },
             ].map(({ pct, note, color }) => (
               <div key={note} style={{ textAlign: "center", padding: "14px 8px", background: isDark ? "#0e1119" : "#ffffff", borderRadius: 12, border: `1px solid ${border}` }}>
-                <div style={{ fontSize: 26, fontWeight: 900, color, letterSpacing: "-0.02em", marginBottom: 2 }}>{pct}</div>
+                <div className="lp-discount-pct" style={{ fontSize: 26, fontWeight: 900, color, letterSpacing: "-0.02em", marginBottom: 2 }}>{pct}</div>
                 <div style={{ fontSize: 13, color: muted }}>{note}</div>
               </div>
             ))}
@@ -1083,7 +1259,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="faq" style={{ padding: "64px 20px", maxWidth: 820, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОПРОСЫ И ОТВЕТЫ</div>
-          <h2 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Часто задаваемые вопросы</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Часто задаваемые вопросы</h2>
           <p style={{ fontSize: 17, color: muted, margin: 0 }}>Ответы на вопросы о платформе, GEO-оптимизации и тарифах</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1129,7 +1305,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
 
         {/* T-30 — Мини-плашка партнёрской программы (расширенная) */}
-        <div id="partner" className="lp-reveal" style={{ marginTop: 44, background: `linear-gradient(135deg, ${accent}18, ${neonMagenta}0c)`, borderRadius: 22, border: `1px solid ${accent}35`, padding: "28px 32px" }}>
+        <div id="partner" className="lp-reveal lp-partner-box" style={{ marginTop: 44, background: `linear-gradient(135deg, ${accent}18, ${neonMagenta}0c)`, borderRadius: 22, border: `1px solid ${accent}35`, padding: "28px 32px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
             <div style={{ width: 56, height: 56, borderRadius: 14, background: `${accent}25`, color: "#a5b4fc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 20px ${accent}40` }}>
               <Users size={26} />
@@ -1160,7 +1336,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
             Начните с бесплатного Score — получите картину за 60 секунд
           </h2>
           <p style={{ fontSize: 15, color: muted, margin: "0 0 32px" }}>Пришлите URL в Telegram-бот — без регистрации и кредитной карты</p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="lp-final-cta" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <a href={TG_BOT} target="_blank" rel="noopener noreferrer" onClick={trackTgClick("bot")} className="lp-btn" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2AABEE", color: "#fff", borderRadius: 12, padding: "14px 30px", fontWeight: 700, fontSize: 15, textDecoration: "none", fontFamily: "inherit" }}>
               <Send size={18} />
               Бесплатный Score в Telegram
@@ -1173,7 +1349,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       </section>
 
       {/* FOOTER — T-31: 4 колонки Продукт / Компания / Контакты / Документы */}
-      <footer style={{ borderTop: `1px solid ${border}`, padding: "48px 32px 28px", maxWidth: 1180, margin: "0 auto" }}>
+      <footer className="lp-footer" style={{ borderTop: `1px solid ${border}`, padding: "48px 32px 28px", maxWidth: 1180, margin: "0 auto" }}>
         {/* Brand row */}
         <div style={{ marginBottom: 32, maxWidth: 420 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -1188,7 +1364,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 32, marginBottom: 32 }}>
+        <div className="lp-footer-cols" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 32, marginBottom: 32 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>ПРОДУКТ</div>
             {[
@@ -1249,7 +1425,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </div>
         </div>
 
-        <div style={{ borderTop: `1px solid ${border}`, paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 13, color: muted }}>
+        <div className="lp-footer-bottom" style={{ borderTop: `1px solid ${border}`, paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 13, color: muted }}>
           <div>© 2026 MarketRadar · Company24.pro · Все права защищены</div>
           <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
             <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
