@@ -358,11 +358,11 @@ export function BattleCardsView({
         {/* Toolbar */}
         <div className="battle-cards-print-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 10 }}>
-              <Swords size={22} style={{ color: "var(--destructive)" }} />
+            <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.5 }}>
+              <Swords size={26} style={{ color: "var(--destructive)" }} />
               Battle Cards
             </h1>
-            <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "4px 0 0" }}>
+            <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "8px 0 0", lineHeight: 1.5 }}>
               Карточки конкурентного боя · {competitors.length} {competitors.length === 1 ? "конкурент" : competitors.length < 5 ? "конкурента" : "конкурентов"}
               {result && (
                 <span style={{ marginLeft: 8 }}>

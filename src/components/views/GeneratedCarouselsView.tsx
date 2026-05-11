@@ -74,14 +74,15 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
             {/* Platform */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ПЛАТФОРМА</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>ПЛАТФОРМА</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {(["instagram", "vk", "telegram"] as const).map(p => (
                   <button key={p} onClick={() => setPlatform(p)}
-                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${platform === p ? accent : "var(--border)"}`,
+                    style={{ flex: 1, padding: "10px 8px", borderRadius: 9, border: `1.5px solid ${platform === p ? accent : "var(--border)"}`,
                       background: platform === p ? accent + "15" : "var(--background)", color: platform === p ? accent : "var(--foreground-secondary)",
-                      fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
-                    {p === "instagram" ? <><Camera size={13} style={{ marginRight: 4 }} />Insta</> : p === "vk" ? <><Users size={13} style={{ color: "#4a76a8", marginRight: 4 }} />VK</> : <><Send size={13} style={{ color: "#229ED9", marginRight: 4 }} />TG</>}
+                      fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "capitalize",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 38 }}>
+                    {p === "instagram" ? <><Camera size={14}/> Insta</> : p === "vk" ? <><Users size={14} style={{ color: "#4a76a8" }} /> VK</> : <><Send size={14} style={{ color: "#229ED9" }} /> TG</>}
                   </button>
                 ))}
               </div>
@@ -89,13 +90,13 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
 
             {/* Slides count */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>КОЛ-ВО СЛАЙДОВ</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>КОЛ-ВО СЛАЙДОВ</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {([6, 7, 8, 10] as const).map(n => (
                   <button key={n} onClick={() => setSlidesCount(n)}
-                    style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1.5px solid ${slidesCount === n ? accent : "var(--border)"}`,
+                    style={{ flex: 1, padding: "10px 8px", borderRadius: 9, border: `1.5px solid ${slidesCount === n ? accent : "var(--border)"}`,
                       background: slidesCount === n ? accent + "15" : "var(--background)", color: slidesCount === n ? accent : "var(--foreground-secondary)",
-                      fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      fontSize: 15, fontWeight: 700, cursor: "pointer", minHeight: 38 }}>
                     {n}
                   </button>
                 ))}
@@ -104,7 +105,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
 
             {/* Goal */}
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕЛЬ</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>ЦЕЛЬ</label>
               <select value={goal} onChange={e => setGoal(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                 {["обучение", "прогрев", "продажа", "вовлечение", "экспертность", "анонс", "миф-факт"].map(g => (
                   <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>
@@ -115,7 +116,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
             {/* Pillar */}
             {plan?.pillars?.length ? (
               <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>КОНТЕНТ-СТОЛП</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>КОНТЕНТ-СТОЛП</label>
                 <select value={pillar} onChange={e => setPillar(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                   <option value="">— свободная тема —</option>
                   {plan.pillars.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
@@ -126,7 +127,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
 
           {/* Brief */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
               ТЕМА / БРИФ
               <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
             </label>

@@ -219,18 +219,20 @@ export function ReviewsView({ c, companyName }: {
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>Анализ отзывов</h1>
-      <p style={{ color: "var(--foreground-secondary)", marginBottom: 24, fontSize: 14 }}>
-        Собирайте отзывы с разных платформ и получайте AI-анализ
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--foreground)", margin: "0 0 8px", letterSpacing: -0.5 }}>Анализ отзывов</h1>
+      <p style={{ color: "var(--muted-foreground)", margin: "0 0 24px", fontSize: 15, lineHeight: 1.5 }}>
+        Собирайте отзывы клиентов с Яндекс.Карт, 2ГИС и Google Places, получайте AI-разбор тем, тональности и шаблоны ответов.
       </p>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: "8px 18px", borderRadius: 8, border: `1px solid ${tab === t.id ? "var(--primary)" : "var(--border)"}`,
+            padding: "10px 20px", borderRadius: 10, border: `1.5px solid ${tab === t.id ? "var(--primary)" : "var(--border)"}`,
             background: tab === t.id ? "var(--primary)" : "var(--card)", color: tab === t.id ? "#fff" : "var(--foreground)",
-            cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all .15s",
+            minHeight: 40,
+            cursor: "pointer", fontWeight: tab === t.id ? 700 : 600, fontSize: 14, transition: "all .15s",
+            display: "inline-flex", alignItems: "center", gap: 6,
           }}>
             {t.icon} {t.label}
           </button>

@@ -232,13 +232,13 @@ function ExpressReportInner() {
         <>
       {/* ─── HERO: URL + progress bar ────────────────────────────────── */}
       <section style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 32px 24px" }}>
-        <div style={{ fontSize: 13, color: muted, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>
+        <div style={{ fontSize: 13, color: muted, letterSpacing: 2, marginBottom: 10, textTransform: "uppercase", fontWeight: 700 }}>
           Экспресс-отчёт · AI-анализ
         </div>
-        <h1 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 6px", lineHeight: 1.15 }}>
+        <h1 style={{ fontSize: 42, fontWeight: 800, margin: "0 0 10px", lineHeight: 1.15, letterSpacing: -0.5 }}>
           {report?.url ?? analysisUrl}
         </h1>
-        <div style={{ fontSize: 14, color: muted }}>
+        <div style={{ fontSize: 15, color: muted, lineHeight: 1.5 }}>
           {isLoading ? "Генерируем отчёт — обычно 30-60 секунд" :
             `Отчёт готов · ${new Date(report.generatedAt).toLocaleString("ru-RU")}`}
         </div>

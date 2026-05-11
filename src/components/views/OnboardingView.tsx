@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import { type UserAccount, NICHE_COMPETITORS, authSetCurrentUser } from "@/lib/user";
 import { BUSINESS_TYPES, type BusinessType } from "@/lib/business-types";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 
 export function OnboardingView({ c, user, onComplete }: {
   c: Colors;
@@ -64,16 +65,26 @@ export function OnboardingView({ c, user, onComplete }: {
   return (
     <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px" }}>
       {/* Progress bar */}
-      <div style={{ width: "100%", maxWidth: 560, marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>MR</div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>MarketRadar</span>
+      <div style={{ width: "100%", maxWidth: 600, marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <MarketRadarLogo size={36} variant="dark" animated={false} />
+            <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 400, opacity: 0.55 }}>Market</span>Radar<span style={{ color: "var(--primary)" }}>24</span>
+            </span>
           </div>
-          <span className="ds-body-sm" style={{ color: "var(--muted-foreground)" }}>Шаг {step} из 3</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: 0.4, textTransform: "uppercase" }}>
+            Шаг {step} из 3
+          </span>
         </div>
-        <div style={{ height: 4, borderRadius: 2, background: "var(--border)", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(step / 3) * 100}%`, background: "var(--primary)", borderRadius: 2, transition: "width 0.4s var(--ease)" }} />
+        <div style={{ height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+          <div style={{
+            height: "100%",
+            width: `${(step / 3) * 100}%`,
+            background: "linear-gradient(90deg, var(--primary), color-mix(in oklch, var(--primary) 60%, #fff))",
+            borderRadius: 3,
+            transition: "width 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)",
+          }} />
         </div>
       </div>
 
