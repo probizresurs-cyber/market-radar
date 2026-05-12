@@ -862,6 +862,24 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
               {showPromptEditor ? "Закрыть" : post.imageUrl ? "Перерисовать" : "Фото"}
             </button>
           </div>
+
+          {/* AI-подсказка про будущую картинку, показываем только если её ещё нет.
+              Помогает юзеру решить — устроит ли план до клика «Сгенерировать». */}
+          {!post.imageUrl && !showPromptEditor && post.imageSuggestionRu && (
+            <div style={{
+              marginTop: 10, padding: "9px 12px", borderRadius: 8,
+              background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+              border: "1px dashed color-mix(in oklch, var(--primary) 25%, transparent)",
+              display: "flex", gap: 8, alignItems: "flex-start",
+            }}>
+              <Image size={13} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 12.5, color: "var(--foreground-secondary)", lineHeight: 1.45 }}>
+                <span style={{ fontWeight: 700, color: "var(--primary)" }}>На картинке будет: </span>
+                {post.imageSuggestionRu}
+              </div>
+            </div>
+          )}
+
           {adaptError && (
             <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{adaptError}</div>
           )}

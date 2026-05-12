@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { safeAnthropicCreate, proxyErrorMessage } from "@/lib/anthropic-safe";
+import { platformImageFormat } from "@/lib/image-aspect";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -37,8 +38,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const imageFormat: "square" | "portrait" =
-      (format === "сторис" || format === "рилс") ? "portrait" : "square";
+    // Platform-aware aspect: учитываем формат + платформу (LinkedIn → landscape,
+    // Instagram feed → square, stories/reels/TikTok → portrait и т.д.)
+    const imageFormat = platformImageFormat(platform, format);
 
     const contextBlock = [
       `Формат контента: ${format} для ${platform}`,
@@ -58,7 +60,7 @@ ${contextBlock}
 - Опиши конкретную визуальную сцену, метафору или объект, который усиливает смысл поста
 - Укажи художественный стиль (photorealistic / flat design / 3D render / illustration / minimalist / cinematic etc.)
 - Укажи освещение, цветовую палитру, композицию, детали
-- Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : "square 1:1"}
+- Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : imageFormat === "landscape" ? "horizontal 16:9 (landscape)" : "square 1:1"}
 - НЕ включай в изображение текст, надписи, буквы, логотипы, цифры
 - Длина промпта: 3-5 предложений, конкретные детали
 

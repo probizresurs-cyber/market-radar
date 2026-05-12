@@ -37,6 +37,7 @@ import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 import { generateOpenAIImage } from "@/lib/openai-image";
 import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 import { generatePollinationsImage } from "@/lib/pollinations-image";
+import { platformImageFormat } from "@/lib/image-aspect";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -63,10 +64,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Маппинг формата в размер картинки.
-    const imageFormat: "square" | "portrait" = (format === "сторис" || format === "рилс")
-      ? "portrait"
-      : "square";
+    // Platform-aware aspect: учитываем и формат (сторис/рилс/пост), и платформу
+    // (Instagram feed → square, LinkedIn → landscape, TikTok → portrait).
+    const imageFormat = platformImageFormat(platform, format);
 
     let usedPrompt: string;
 
@@ -96,7 +96,7 @@ ${contextBlock}
 - Опиши конкретную визуальную сцену, метафору или объект, который усиливает смысл поста
 - Укажи художественный стиль (photorealistic / flat design / 3D render / illustration / minimalist / cinematic etc.)
 - Укажи освещение, цветовую палитру, композицию, детали
-- Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : "square 1:1"}
+- Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : imageFormat === "landscape" ? "horizontal 16:9 (landscape)" : "square 1:1"}
 - НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks
 - Длина промпта: 3-5 предложений, конкретные детали
 
@@ -136,6 +136,8 @@ ${contextBlock}
         // Цепочка fallback: Gemini → Pollinations (free, no key)
         const aspectHint = imageFormat === "portrait"
           ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
+          : imageFormat === "landscape"
+          ? " Render in horizontal 16:9 aspect ratio (landscape orientation)."
           : " Render in square 1:1 aspect ratio.";
         const noTextHint = " No text, letters, words, or watermarks in the image.";
 

@@ -88,7 +88,11 @@ export interface GeneratedPost {
   hook: string;
   body: string;            // полный текст поста (canonical)
   hashtags: string[];
-  imagePrompt: string;     // промпт для DALL-E
+  imagePrompt: string;     // промпт для DALL-E (английский, технический)
+  /** Краткое описание визуала по-русски — «что AI планирует нарисовать».
+   *  Показывается пользователю под кнопкой генерации, помогает решить —
+   *  принять или отредактировать промпт перед DALL-E. */
+  imageSuggestionRu?: string;
   imageUrl?: string;       // готовая картинка (DALL-E url)
   platform: string;
   generatedAt: string;
