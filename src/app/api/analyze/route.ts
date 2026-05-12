@@ -3,6 +3,8 @@ import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { getSessionUser } from "@/lib/auth";
+import { query, initDb } from "@/lib/db";
 import type { BusinessType } from "@/lib/business-types";
 
 export const runtime = "nodejs";
@@ -162,6 +164,30 @@ export async function POST(request: NextRequest) {
     }
 
     await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", promptTokens, completionTokens });
+
+    // Зеркалим минимум о компании в users.last_analyzed_company для
+    // серверных агентов (Yandex Reviews, Site Change Detector).
+    // Это даёт «текущая активная компания юзера» которую агент видит
+    // когда крутится по cron без доступа к localStorage.
+    try {
+      const session = await getSessionUser();
+      if (session?.userId) {
+        await initDb();
+        await query(
+          `UPDATE users SET last_analyzed_company = $1::jsonb WHERE id = $2`,
+          [
+            JSON.stringify({
+              name: result.company.name,
+              url: result.company.url,
+              niche: result.company.niche ?? result.company.description?.slice(0, 200) ?? "",
+              updatedAt: new Date().toISOString(),
+            }),
+            session.userId,
+          ],
+        );
+      }
+    } catch { /* best-effort: не валим anaslyze */ }
+
     return NextResponse.json({ ok: true, data: result });
   } catch (err) {
     console.error("[analyze] error:", err);

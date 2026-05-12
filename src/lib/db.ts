@@ -202,6 +202,13 @@ export async function initDb() {
   // Token остаётся общий из env (VK_ACCESS_TOKEN).
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS vk_group_id TEXT`);
 
+  // Снапшот компании из ПОСЛЕДНЕГО анализа — нужен серверным агентам, у
+  // которых нет доступа к localStorage. AnalysisResult живёт в браузере;
+  // мы зеркалим минимум (name, url, niche) в DB при каждом /api/analyze.
+  // Так Yandex Reviews Watcher и Site Change Detector понимают «над какой
+  // компанией сейчас работает юзер».
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_analyzed_company JSONB`);
+
   // Website + contact (phone OR telegram) — captured at registration so we
   // can auto-run the first analysis and reach out to the client. Either
   // `phone` or `telegram` is filled, not both.

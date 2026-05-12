@@ -234,24 +234,39 @@ registerAgent({
 
   async run(ctx: AgentContext): Promise<AgentRunResult> {
     // ── Резолвим companyName ──────────────────────────────────────
+    // Приоритет:
+    //   1. params.companyName (юзер явно зафиксировал в настройках агента)
+    //   2. users.last_analyzed_company.name (текущая анализируемая компания)
+    //   3. users.company_name (компания из реквизитов аккаунта — fallback)
     const params = ctx.params as { companyName?: string; orgId?: string };
     let companyName = params.companyName?.trim();
     let orgId = params.orgId?.trim();
 
-    // Если companyName не задан — берём из users.company_name
     if (!companyName) {
-      const rows = await query<{ company_name: string | null }>(
-        `SELECT company_name FROM users WHERE id = $1`,
+      const rows = await query<{
+        company_name: string | null;
+        last_analyzed_company: { name?: string } | null;
+      }>(
+        `SELECT company_name, last_analyzed_company FROM users WHERE id = $1`,
         [ctx.userId],
       );
-      companyName = rows[0]?.company_name?.trim();
+      // last_analyzed побеждает — это реально активная компания
+      companyName =
+        rows[0]?.last_analyzed_company?.name?.trim() ||
+        rows[0]?.company_name?.trim();
     }
 
     if (!companyName) {
       return {
-        summary: "Не указано название компании (params.companyName или users.company_name)",
+        summary: "Не нашёл активную компанию. Запустите анализ компании или укажите params.companyName в настройках агента.",
         skipped: true,
       };
+    }
+
+    // Если активная компания сменилась — сбрасываем orgId, ищем новую организацию
+    const knownCompany = (ctx.params as { _lastCompanyName?: string })._lastCompanyName;
+    if (knownCompany && knownCompany !== companyName) {
+      orgId = undefined;
     }
 
     // ── Резолвим orgId (Yandex) ────────────────────────────────────
@@ -264,11 +279,15 @@ registerAgent({
         };
       }
       orgId = found;
-      // Сохраняем в params чтобы не искать каждый раз
+      // Сохраняем orgId + companyName-маркер в params: при смене компании
+      // (например, юзер запустил новый анализ другого бизнеса) мы это
+      // обнаружим и переоткроем organization id.
       await query(
-        `UPDATE agent_configs SET params = jsonb_set(params, '{orgId}', $1::jsonb), updated_at = NOW()
-           WHERE user_id = $2 AND agent_name = 'yandex-reviews-watcher'`,
-        [JSON.stringify(orgId), ctx.userId],
+        `UPDATE agent_configs
+            SET params = params || jsonb_build_object('orgId', $1::text, '_lastCompanyName', $2::text, 'seenIds', '[]'::jsonb),
+                updated_at = NOW()
+          WHERE user_id = $3 AND agent_name = 'yandex-reviews-watcher'`,
+        [orgId, companyName, ctx.userId],
       );
     }
 

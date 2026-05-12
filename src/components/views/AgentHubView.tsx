@@ -19,7 +19,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import type { Colors } from "@/lib/colors";
 import {
   Bot, Inbox, Play, Loader2, Calendar as CalendarIcon, AlertCircle,
-  Check, X as XIcon, RefreshCw, History,
+  Check, X as XIcon, RefreshCw, History, Settings as SettingsIcon, Save,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -71,6 +71,95 @@ const STATUS_COLORS: Record<string, string> = {
   error: "#ef4444",
 };
 
+/**
+ * Описание одного поля в форме настроек агента.
+ * Структура схемы хардкодится здесь (по одному per-agent) — отдельная
+ * мета на бэке избыточна для 5 агентов.
+ */
+type ParamField =
+  | { key: string; label: string; type: "text"; placeholder?: string; help?: string }
+  | { key: string; label: string; type: "url-list"; placeholder?: string; help?: string }
+  | { key: string; label: string; type: "boolean"; help?: string }
+  | { key: string; label: string; type: "number"; min?: number; max?: number; help?: string };
+
+const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
+  "yandex-reviews-watcher": [
+    {
+      key: "companyName",
+      label: "Название компании для поиска в Я.Картах",
+      type: "text",
+      placeholder: "Оставьте пустым, чтобы агент использовал текущую анализируемую компанию",
+      help: "Если задано — агент всегда работает с этой компанией. Если пусто — следует за last_analyzed_company (текущим анализом).",
+    },
+  ],
+  "site-change-detector": [
+    {
+      key: "urls",
+      label: "URL для отслеживания",
+      type: "url-list",
+      placeholder: "https://competitor1.ru/\nhttps://competitor2.ru/pricing",
+      help: "По одному URL на строку. Главные / pricing / blog страницы конкурентов.",
+    },
+    {
+      key: "notifyTelegram",
+      label: "Telegram-уведомления при изменениях",
+      type: "boolean",
+      help: "Шлёт alert в ваш Telegram-чат, когда страница значимо изменилась.",
+    },
+    {
+      key: "minChangeChars",
+      label: "Минимум символов для алерта",
+      type: "number",
+      min: 50,
+      max: 5000,
+      help: "Мелкие правки (даты, счётчики, формат) игнорируются. По умолчанию 100.",
+    },
+  ],
+  "trend-hunter": [
+    {
+      key: "niche",
+      label: "Ниша (для AI-скоринга)",
+      type: "text",
+      placeholder: "Оставьте пустым — возьмём из текущего анализа",
+      help: "Влияет на «relevance»: AI оценит каждый тренд под эту нишу.",
+    },
+    {
+      key: "minScore",
+      label: "Минимальный score для inbox",
+      type: "number",
+      min: 50,
+      max: 95,
+      help: "Темы со score ниже не попадают в inbox. По умолчанию 70.",
+    },
+    {
+      key: "sources",
+      label: "Свои RSS-источники (опц)",
+      type: "url-list",
+      placeholder: "https://example.com/rss\nhttps://another.com/feed",
+      help: "По одному feed на строку. Если пусто — дефолтные (vc.ru, habr, seonews).",
+    },
+  ],
+  "auto-publisher": [
+    {
+      key: "requireApproval",
+      label: "Требовать подтверждение перед публикацией",
+      type: "boolean",
+      help: "Если включено — посты сначала идут в Inbox для одобрения. Безопаснее для бренд-чувствительных аккаунтов.",
+    },
+    {
+      key: "publishTelegram",
+      label: "Публиковать в Telegram",
+      type: "boolean",
+    },
+    {
+      key: "publishVk",
+      label: "Публиковать в VK",
+      type: "boolean",
+    },
+  ],
+  "email-drip-sender": [],
+};
+
 export function AgentHubView({ c }: { c: Colors }) {
   void c;
   const [agents, setAgents] = useState<AgentItem[]>([]);
@@ -114,6 +203,15 @@ export function AgentHubView({ c }: { c: Colors }) {
       body: JSON.stringify({ agentName, schedule }),
     });
     setAgents(prev => prev.map(a => a.name === agentName ? { ...a, schedule } : a));
+  };
+
+  const updateParams = async (agentName: string, params: Record<string, unknown>) => {
+    await fetch("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agentName, params }),
+    });
+    setAgents(prev => prev.map(a => a.name === agentName ? { ...a, params } : a));
   };
 
   const runNow = async (agentName: string) => {
@@ -279,8 +377,10 @@ export function AgentHubView({ c }: { c: Colors }) {
                 key={agent.name}
                 agent={agent}
                 running={runningName === agent.name}
+                schema={AGENT_PARAM_SCHEMAS[agent.name] ?? []}
                 onToggle={enabled => toggleEnabled(agent.name, enabled)}
                 onScheduleChange={s => changeSchedule(agent.name, s)}
+                onParamsChange={p => updateParams(agent.name, p)}
                 onRunNow={() => runNow(agent.name)}
               />
             ))}
@@ -292,14 +392,45 @@ export function AgentHubView({ c }: { c: Colors }) {
 }
 
 function AgentCard({
-  agent, running, onToggle, onScheduleChange, onRunNow,
+  agent, running, schema, onToggle, onScheduleChange, onParamsChange, onRunNow,
 }: {
   agent: AgentItem;
   running: boolean;
+  schema: ParamField[];
   onToggle: (enabled: boolean) => void;
   onScheduleChange: (s: Schedule) => void;
+  onParamsChange: (params: Record<string, unknown>) => void;
   onRunNow: () => void;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
+  const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(agent.params);
+  const [paramsDirty, setParamsDirty] = useState(false);
+  const [paramsSaving, setParamsSaving] = useState(false);
+
+  // Если внешний state params изменился (после save или first load) — синкаем
+  useEffect(() => {
+    if (!paramsDirty) setParamsDraft(agent.params);
+  }, [agent.params, paramsDirty]);
+
+  const setField = (key: string, value: unknown) => {
+    setParamsDraft(prev => ({ ...prev, [key]: value }));
+    setParamsDirty(true);
+  };
+
+  const saveParams = async () => {
+    setParamsSaving(true);
+    try {
+      await onParamsChange(paramsDraft);
+      setParamsDirty(false);
+    } finally {
+      setParamsSaving(false);
+    }
+  };
+
+  const resetParams = () => {
+    setParamsDraft(agent.params);
+    setParamsDirty(false);
+  };
   const statusColor = agent.lastRunStatus ? STATUS_COLORS[agent.lastRunStatus] ?? "var(--muted-foreground)" : "var(--muted-foreground)";
   const lastRunStr = agent.lastRunAt
     ? new Date(agent.lastRunAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
@@ -417,6 +548,23 @@ function AgentCard({
             ? <><Loader2 size={13} className="mr-spin" /> Идёт работа…</>
             : <><Play size={13} /> Запустить сейчас</>}
         </button>
+        {schema.length > 0 && (
+          <button
+            onClick={() => setShowSettings(v => !v)}
+            title="Настроить параметры агента"
+            style={{
+              padding: "8px 10px", borderRadius: 8,
+              border: `1px solid ${showSettings ? "var(--primary)" : "var(--border)"}`,
+              background: showSettings ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "transparent",
+              color: showSettings ? "var(--primary)" : "var(--foreground-secondary)",
+              fontSize: 12, fontWeight: 600,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4,
+              fontFamily: "inherit",
+            }}
+          >
+            <SettingsIcon size={13} />
+          </button>
+        )}
         <a
           href={`/api/agents/${encodeURIComponent(agent.name)}/runs`}
           target="_blank"
@@ -434,6 +582,168 @@ function AgentCard({
           <History size={13} />
         </a>
       </div>
+
+      {/* Settings panel — раскрывается по клику на ⚙ */}
+      {showSettings && schema.length > 0 && (
+        <div style={{
+          marginTop: 4, padding: "14px 16px", borderRadius: 10,
+          background: "color-mix(in oklch, var(--primary) 4%, transparent)",
+          border: "1px dashed color-mix(in oklch, var(--primary) 25%, transparent)",
+          display: "flex", flexDirection: "column", gap: 12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Настройки агента
+          </div>
+          {schema.map(field => (
+            <ParamFieldEditor
+              key={field.key}
+              field={field}
+              value={paramsDraft[field.key]}
+              onChange={v => setField(field.key, v)}
+            />
+          ))}
+          {paramsDirty && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={saveParams}
+                disabled={paramsSaving}
+                style={{
+                  padding: "7px 16px", borderRadius: 8, border: "none",
+                  background: "var(--primary)", color: "#fff",
+                  fontSize: 12, fontWeight: 700, cursor: paramsSaving ? "wait" : "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  fontFamily: "inherit",
+                }}
+              >
+                {paramsSaving ? <Loader2 size={11} className="mr-spin" /> : <Save size={11} />}
+                Сохранить
+              </button>
+              <button
+                onClick={resetParams}
+                style={{
+                  padding: "7px 14px", borderRadius: 8,
+                  border: "1px solid var(--border)", background: "transparent",
+                  color: "var(--foreground-secondary)",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function ParamFieldEditor({ field, value, onChange }: {
+  field: ParamField;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 4,
+  };
+  const helpStyle: React.CSSProperties = {
+    fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45,
+  };
+  const inputBase: React.CSSProperties = {
+    width: "100%", padding: "7px 10px", borderRadius: 7,
+    border: "1px solid var(--border)", background: "var(--background)",
+    color: "var(--foreground)", fontSize: 13, fontFamily: "inherit",
+    outline: "none", boxSizing: "border-box",
+  };
+
+  if (field.type === "text") {
+    return (
+      <div>
+        <div style={labelStyle}>{field.label}</div>
+        <input
+          type="text"
+          value={(value as string) ?? ""}
+          onChange={e => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          style={inputBase}
+        />
+        {field.help && <div style={helpStyle}>{field.help}</div>}
+      </div>
+    );
+  }
+
+  if (field.type === "url-list") {
+    const list = Array.isArray(value) ? (value as string[]).join("\n") : "";
+    return (
+      <div>
+        <div style={labelStyle}>{field.label}</div>
+        <textarea
+          rows={4}
+          value={list}
+          onChange={e =>
+            onChange(
+              e.target.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean),
+            )
+          }
+          placeholder={field.placeholder}
+          style={{ ...inputBase, resize: "vertical", fontFamily: "monospace" }}
+        />
+        {field.help && <div style={helpStyle}>{field.help}</div>}
+      </div>
+    );
+  }
+
+  if (field.type === "boolean") {
+    const checked = value === true;
+    return (
+      <div>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+          <span style={{
+            width: 32, height: 18, borderRadius: 10,
+            background: checked ? "var(--primary)" : "var(--muted)",
+            position: "relative", transition: "background 0.15s",
+          }}>
+            <span style={{
+              position: "absolute", top: 2, left: checked ? 16 : 2,
+              width: 14, height: 14, borderRadius: "50%",
+              background: "#fff", transition: "left 0.15s",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            }} />
+          </span>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={e => onChange(e.target.checked)}
+            style={{ display: "none" }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+            {field.label}
+          </span>
+        </label>
+        {field.help && <div style={helpStyle}>{field.help}</div>}
+      </div>
+    );
+  }
+
+  if (field.type === "number") {
+    return (
+      <div>
+        <div style={labelStyle}>{field.label}</div>
+        <input
+          type="number"
+          min={field.min}
+          max={field.max}
+          value={(value as number) ?? ""}
+          onChange={e => {
+            const n = parseInt(e.target.value, 10);
+            onChange(Number.isFinite(n) ? n : undefined);
+          }}
+          style={inputBase}
+        />
+        {field.help && <div style={helpStyle}>{field.help}</div>}
+      </div>
+    );
+  }
+
+  return null;
 }
