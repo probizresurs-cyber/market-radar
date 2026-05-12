@@ -19,9 +19,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Note: `eslint` config был убран — Next 16 больше не принимает его в next.config.ts.
+  // ESLint в билде по умолчанию отключён в Turbopack-режиме; для отдельного линт-прохода
+  // используйте `npx eslint .` если нужно.
   // Эти пакеты подгружаются runtime (только VPS); локально могут отсутствовать
   // и Turbopack-static-analysis их не должен жёстко резолвить.
   serverExternalPackages: ["@anthropic-ai/claude-agent-sdk", "nodemailer"],
