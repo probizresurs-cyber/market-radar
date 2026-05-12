@@ -251,8 +251,37 @@ export function AgentHubView({ c }: { c: Colors }) {
           Агенты
         </h1>
         <p style={{ fontSize: 14, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
-          Автономные воркфлоу, которые работают по расписанию. Каждый агент использует ваши данные (брендбук, конкуренты, ЦА), сам выполняет работу и кладёт результат в Inbox или Telegram.
+          Автономные воркфлоу, которые работают с вашими данными (брендбук, конкуренты, ЦА). Кладут результат в Inbox или Telegram.
         </p>
+      </div>
+
+      {/* Объяснение разницы между ручным и автоматическим запуском */}
+      <div style={{
+        background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+        border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
+        borderRadius: 12,
+        padding: "12px 16px",
+        marginBottom: 20,
+        fontSize: 13,
+        lineHeight: 1.55,
+        color: "var(--foreground-secondary)",
+      }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <span style={{
+            background: "color-mix(in oklch, var(--primary) 15%, transparent)",
+            color: "var(--primary)",
+            fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 5,
+            letterSpacing: "0.08em",
+          }}>
+            КАК ЭТО РАБОТАЕТ
+          </span>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <b style={{ color: "var(--foreground)" }}>«Запустить сейчас»</b> — разовый прогон агента, ничего не активирует.
+            {" "}
+            <b style={{ color: "var(--foreground)" }}>Чтобы агент работал автоматически</b> — включите toggle и выберите расписание (час / день / неделя).
+            При расписании <code style={{ background: "var(--muted)", padding: "1px 5px", borderRadius: 4, fontSize: 12 }}>«Только вручную»</code> агент не запускается по cron, даже если toggle включён.
+          </div>
+        </div>
       </div>
 
       {error && (

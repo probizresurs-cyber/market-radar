@@ -52,11 +52,14 @@ export async function POST(
   let params: Record<string, unknown> = {};
 
   if (existing.length === 0) {
+    // Manual run НЕ активирует cron: создаём конфиг с enabled=false и
+    // schedule='manual'. Юзер сознательно делает toggle Enabled + меняет
+    // расписание на hourly/daily/weekly, чтобы агент пошёл на cron.
     configId = randomUUID();
     await query(
       `INSERT INTO agent_configs (id, user_id, agent_name, enabled, schedule, params)
-         VALUES ($1, $2, $3, true, $4, '{}'::jsonb)`,
-      [configId, session.userId, name, def.defaultSchedule],
+         VALUES ($1, $2, $3, false, 'manual', '{}'::jsonb)`,
+      [configId, session.userId, name],
     );
   } else {
     configId = existing[0].id;
