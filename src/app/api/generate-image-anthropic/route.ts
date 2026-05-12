@@ -35,6 +35,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 import { generateOpenAIImage } from "@/lib/openai-image";
+import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -123,10 +124,44 @@ ${contextBlock}
       format: imageFormat,
     });
 
+    // Если OpenAI отказал (quota / billing / rate-limit) — пробуем Gemini
+    // как fallback, чтобы у пользователя не пропадал контент-завод из-за
+    // того что у нас кончился баланс OpenAI.
     if (!imgResult.ok) {
+      const isQuotaIssue =
+        /Лимит OpenAI|квота OpenAI|rate.?limit|billing/i.test(imgResult.error ?? "");
+
+      if (isQuotaIssue && GEMINI_API_KEY) {
+        // Gemini не принимает aspect напрямую — подмешиваем подсказку в промпт
+        const aspectHint = imageFormat === "portrait"
+          ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
+          : " Render in square 1:1 aspect ratio.";
+        const gem = await generateGeminiImage({
+          prompt: usedPrompt + aspectHint + " No text, letters, words, or watermarks in the image.",
+        });
+        if (gem.ok) {
+          return NextResponse.json({
+            ok: true,
+            data: { imageUrl: gem.imageUrl },
+            usedPrompt,
+            provider: "gemini",
+            fallbackReason: "openai-quota",
+          });
+        }
+        // Gemini тоже упал — отдаём комбинированную ошибку
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `${imgResult.error} (Gemini fallback тоже не сработал: ${gem.error})`,
+            usedPrompt,
+          },
+          { status: 502 },
+        );
+      }
+
       return NextResponse.json(
         { ok: false, error: imgResult.error, usedPrompt },
-        { status: 500 },
+        { status: imgResult.status ?? 500 },
       );
     }
 

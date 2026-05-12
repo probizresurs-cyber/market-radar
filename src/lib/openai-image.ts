@@ -90,15 +90,34 @@ export async function generateOpenAIImage(input: OpenAIImageInput): Promise<Open
   let data: OpenAIImageResponse = {};
   try { data = JSON.parse(text); } catch { /* ignore */ }
 
+  // Распознаём quota / billing ошибки от OpenAI отдельно — пользователю важно
+  // понимать что это его лимит, а не наша поломка.
+  const detectQuotaError = (msg: string): string | null => {
+    const lower = msg.toLowerCase();
+    if (lower.includes("billing hard limit") || lower.includes("billing soft limit")) {
+      return "Лимит OpenAI достигнут (billing hard limit). Пополните баланс OpenAI или попросите админа платформы.";
+    }
+    if (lower.includes("insufficient_quota") || lower.includes("you exceeded your current quota")) {
+      return "Закончилась квота OpenAI. Пополните баланс на platform.openai.com или попросите админа.";
+    }
+    if (lower.includes("rate_limit") || lower.includes("rate limit")) {
+      return "Превышен rate-limit OpenAI. Подождите минуту и повторите.";
+    }
+    return null;
+  };
+
   if (!res.ok) {
+    const rawMsg = data.error?.message ?? `OpenAI HTTP ${res.status}: ${text.slice(0, 300)}`;
+    const friendly = detectQuotaError(rawMsg);
     return {
       ok: false,
       status: res.status,
-      error: data.error?.message ?? `OpenAI HTTP ${res.status}: ${text.slice(0, 300)}`,
+      error: friendly ?? rawMsg,
     };
   }
   if (data.error) {
-    return { ok: false, error: `OpenAI error: ${data.error.message}` };
+    const friendly = detectQuotaError(data.error.message ?? "");
+    return { ok: false, error: friendly ?? `OpenAI error: ${data.error.message}` };
   }
 
   const item = data.data?.[0];
