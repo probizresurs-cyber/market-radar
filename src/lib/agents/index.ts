@@ -19,3 +19,4 @@ export * from "./registry";
 // Side-effect import всех агентов. ORDER МАТТЕРИТ если есть зависимости
 // между ними (сейчас нет, но на будущее).
 import "./auto-publisher";
+import "./yandex-reviews-watcher";
