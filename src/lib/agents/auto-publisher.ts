@@ -29,6 +29,7 @@ import { query } from "@/lib/db";
 import { publishToTelegram } from "@/lib/publishers/telegram";
 import { publishToVK } from "@/lib/publishers/vk";
 import type { GeneratedPost } from "@/lib/content-types";
+import { randomUUID } from "crypto";
 
 interface DueResult {
   postId: string;
@@ -63,10 +64,56 @@ registerAgent({
       : [];
     const wantTelegram = ctx.params.publishTelegram !== false;
     const wantVk = ctx.params.publishVk !== false;
+    // По умолчанию требуем approval для безопасности (юзер вручную apply
+    // каждый пост из inbox). Можно отключить через params.requireApproval=false
+    // для полностью автоматического режима.
+    const requireApproval = ctx.params.requireApproval !== false;
 
     if (duePosts.length === 0) {
       return { summary: "Нет постов на публикацию.", skipped: true };
     }
+
+    // ── Approval mode: каждый пост → отдельный inbox-item, ждёт approve ──
+    if (requireApproval) {
+      for (const post of duePosts) {
+        const runId = randomUUID();
+        const platforms: ("telegram" | "vk")[] = [];
+        if (wantTelegram) platforms.push("telegram");
+        if (wantVk) platforms.push("vk");
+        const summary =
+          `📤 ${post.hook.slice(0, 80)}${post.hook.length > 80 ? "…" : ""} · ${platforms.join("+")}`;
+        await query(
+          `INSERT INTO agent_runs (id, user_id, agent_name, started_at, finished_at, status,
+                                   summary, result, needs_approval)
+             VALUES ($1, $2, 'auto-publisher', NOW(), NOW(), 'ok', $3, $4::jsonb, true)`,
+          [
+            runId,
+            ctx.userId,
+            summary.slice(0, 500),
+            JSON.stringify({
+              _publishOnApprove: { post, platforms },
+              post: {
+                id: post.id,
+                hook: post.hook,
+                body: post.body.slice(0, 300),
+                hashtags: post.hashtags,
+                platform: post.platform,
+                scheduledFor: post.scheduledFor,
+                imageUrl: post.imageUrl ? "(present)" : null,
+              },
+            }),
+          ],
+        );
+      }
+      return {
+        summary:
+          `${duePosts.length} пост${duePosts.length === 1 ? "" : "ов"} ждут одобрения в Inbox. ` +
+          `Нажмите «Одобрить» — мы опубликуем в выбранные платформы.`,
+        result: { queued: duePosts.length, mode: "approval" },
+      };
+    }
+
+    // ── Auto mode (по запросу через params.requireApproval=false) ─────
 
     // Загружаем каналы юзера один раз
     const userRows = await query<{
