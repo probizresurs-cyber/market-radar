@@ -59,9 +59,15 @@ function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true; // если секрет не настроен — пускаем (dev)
   const url = new URL(req.url);
+  // Поддерживаем три формата (как у /api/cron/check-prices, чтобы один
+  // CRON_SECRET работал везде):
+  //   1. Authorization: Bearer <secret>   — стандартный, рекомендованный
+  //   2. ?secret=<secret>                 — для cron-job.org и других сервисов
+  //   3. X-Cron-Secret: <secret>          — старый header (на всякий)
+  const bearerToken = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const querySecret = url.searchParams.get("secret");
   const headerSecret = req.headers.get("x-cron-secret");
-  return querySecret === secret || headerSecret === secret;
+  return bearerToken === secret || querySecret === secret || headerSecret === secret;
 }
 
 export async function GET(req: Request) {
