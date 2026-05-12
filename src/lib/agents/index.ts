@@ -20,3 +20,4 @@ export * from "./registry";
 // между ними (сейчас нет, но на будущее).
 import "./auto-publisher";
 import "./yandex-reviews-watcher";
+import "./email-drip-sender";
