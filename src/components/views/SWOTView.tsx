@@ -311,6 +311,90 @@ export function SWOTView({
             </button>
           </div>
 
+          {/* ── Компактная SWOT-шахматка (быстрый обзор) ──────────────── */}
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--foreground)", letterSpacing: -0.2 }}>
+                Шахматка
+              </h2>
+              <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                · быстрый обзор. Детали — карточки ниже.
+              </span>
+            </div>
+            <div className="swot-chess" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 10,
+            }}>
+              <style>{`
+                @media (max-width: 720px) {
+                  .swot-chess { grid-template-columns: 1fr !important; }
+                }
+              `}</style>
+              {QUADRANTS.map(q => {
+                const items = report.rawItems[q.key] ?? [];
+                return (
+                  <div
+                    key={`chess-${q.key}`}
+                    style={{
+                      background: q.bg,
+                      border: `1px solid ${q.color}30`,
+                      borderLeft: `4px solid ${q.color}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ color: q.color, display: "inline-flex" }}>
+                        {React.cloneElement(q.icon as React.ReactElement<{ size?: number }>, { size: 14 })}
+                      </span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, color: q.color,
+                        letterSpacing: "0.08em", textTransform: "uppercase",
+                      }}>
+                        {q.label}
+                      </span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, color: q.color,
+                        marginLeft: "auto", padding: "1px 7px",
+                        borderRadius: 5, background: `${q.color}1a`,
+                      }}>
+                        {items.length}
+                      </span>
+                    </div>
+                    {items.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                        Пока пусто
+                      </div>
+                    ) : (
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 5 }}>
+                        {items.map((item, i) => (
+                          <li
+                            key={i}
+                            style={{
+                              fontSize: 12.5,
+                              color: "var(--foreground)",
+                              lineHeight: 1.5,
+                              display: "flex",
+                              gap: 8,
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <span style={{
+                              flexShrink: 0, marginTop: 6,
+                              width: 4, height: 4, borderRadius: "50%", background: q.color,
+                            }} />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* 2×2 quadrant grid — фиксированно 2 колонки на десктопе, 1 на мобиле */}
           <div className="swot-grid" style={{
             display: "grid",
