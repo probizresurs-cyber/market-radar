@@ -36,6 +36,7 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 import { generateOpenAIImage } from "@/lib/openai-image";
 import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
+import { generatePollinationsImage } from "@/lib/pollinations-image";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -131,28 +132,51 @@ ${contextBlock}
       const isQuotaIssue =
         /Лимит OpenAI|квота OpenAI|rate.?limit|billing/i.test(imgResult.error ?? "");
 
-      if (isQuotaIssue && GEMINI_API_KEY) {
-        // Gemini не принимает aspect напрямую — подмешиваем подсказку в промпт
+      if (isQuotaIssue) {
+        // Цепочка fallback: Gemini → Pollinations (free, no key)
         const aspectHint = imageFormat === "portrait"
           ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
           : " Render in square 1:1 aspect ratio.";
-        const gem = await generateGeminiImage({
-          prompt: usedPrompt + aspectHint + " No text, letters, words, or watermarks in the image.",
+        const noTextHint = " No text, letters, words, or watermarks in the image.";
+
+        // Try Gemini if available
+        if (GEMINI_API_KEY) {
+          const gem = await generateGeminiImage({
+            prompt: usedPrompt + aspectHint + noTextHint,
+          });
+          if (gem.ok) {
+            return NextResponse.json({
+              ok: true,
+              data: { imageUrl: gem.imageUrl },
+              usedPrompt,
+              provider: "gemini",
+              fallbackReason: "openai-quota",
+            });
+          }
+          // Gemini тоже упал — пробуем pollinations
+        }
+
+        // Pollinations.ai — free, no API key. Последний резервный вариант.
+        const poll = await generatePollinationsImage({
+          prompt: usedPrompt + noTextHint,
+          format: imageFormat,
+          model: "flux",
         });
-        if (gem.ok) {
+        if (poll.ok) {
           return NextResponse.json({
             ok: true,
-            data: { imageUrl: gem.imageUrl },
+            data: { imageUrl: poll.imageUrl },
             usedPrompt,
-            provider: "gemini",
+            provider: "pollinations",
             fallbackReason: "openai-quota",
           });
         }
-        // Gemini тоже упал — отдаём комбинированную ошибку
+
+        // Все 3 провайдера упали
         return NextResponse.json(
           {
             ok: false,
-            error: `${imgResult.error} (Gemini fallback тоже не сработал: ${gem.error})`,
+            error: `${imgResult.error}. Все резервные генераторы тоже недоступны (Pollinations: ${poll.error}).`,
             usedPrompt,
           },
           { status: 502 },

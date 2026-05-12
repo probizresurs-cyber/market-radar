@@ -4,6 +4,8 @@ import type { SMMResult } from "@/lib/smm-types";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { generateOpenAIImage } from "@/lib/openai-image";
+import { generatePollinationsImage } from "@/lib/pollinations-image";
+import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -178,11 +180,34 @@ export async function POST(req: Request) {
         const platform = idea.platform?.toLowerCase() ?? "";
         const isVertical = /сторис|stories|reels|рилс|tiktok|shorts/.test(platform);
 
-        const imgResult = await generateOpenAIImage({
-          prompt: enrichedPrompt,
-          format: isVertical ? "portrait" : "square",
-        });
-        if (imgResult.ok) imageUrl = imgResult.imageUrl;
+        const format = isVertical ? "portrait" as const : "square" as const;
+
+        // Chain: OpenAI → Gemini (если quota) → Pollinations (free, last resort).
+        // Картинка опциональна, ни одна ошибка не должна валить пост.
+        const imgResult = await generateOpenAIImage({ prompt: enrichedPrompt, format });
+        if (imgResult.ok) {
+          imageUrl = imgResult.imageUrl;
+        } else {
+          const isQuota = /billing|quota|rate.?limit|Лимит OpenAI|квота OpenAI/i.test(imgResult.error ?? "");
+          if (isQuota) {
+            // Try Gemini
+            if (GEMINI_API_KEY) {
+              const gem = await generateGeminiImage({
+                prompt: enrichedPrompt + (isVertical ? " Vertical 9:16 portrait." : " Square 1:1."),
+              });
+              if (gem.ok) imageUrl = gem.imageUrl;
+            }
+            // Then Pollinations (free, last resort)
+            if (!imageUrl) {
+              const poll = await generatePollinationsImage({
+                prompt: enrichedPrompt,
+                format,
+                model: "flux",
+              });
+              if (poll.ok) imageUrl = poll.imageUrl;
+            }
+          }
+        }
       } catch { /* image is optional */ }
     }
 
