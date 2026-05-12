@@ -20,6 +20,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "ОБЗОР",
     items: [
       { id: "owner-dashboard", icon: "Gauge", label: "Дашборд руководителя", count: null },
+      { id: "agents", icon: "Bot", label: "Агенты", count: null },
     ],
   },
   {

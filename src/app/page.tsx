@@ -114,6 +114,7 @@ import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/vi
 
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
 import { ContentCalendarView } from "@/components/views/ContentCalendarView";
+import { AgentHubView } from "@/components/views/AgentHubView";
 import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { PackageProgressModal, type PackageProgress } from "@/components/ui/PackageProgressModal";
@@ -1607,6 +1608,7 @@ function MarketRadarDashboardInner() {
         <VisitTracker source="platform" />
         {/* Глобальные оверлеи — пакетная генерация */}
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
+        {activeNav === "agents" && <AgentHubView c={c} />}
         {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}

@@ -452,4 +452,49 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_price_history_product_id ON price_history(product_id, checked_at DESC)`);
+
+  // ─── Agents framework ───────────────────────────────────────────────
+  // Per-user конфиг каждого агента. Ключ (user_id, agent_name) — у каждого
+  // юзера один конфиг на агента. Cron-runner читает таблицу, выбирает
+  // due-агентов (по schedule + last_run_at) и запускает их параллельно.
+  await query(`
+    CREATE TABLE IF NOT EXISTS agent_configs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      agent_name TEXT NOT NULL,           -- auto-publisher / competitor-watcher / trend-hunter / ...
+      enabled BOOLEAN NOT NULL DEFAULT false,
+      schedule TEXT NOT NULL DEFAULT 'daily',  -- hourly | daily | weekly | manual
+      params JSONB DEFAULT '{}'::jsonb,   -- произвольные параметры (например, time-of-day, list of competitor IDs)
+      last_run_at TIMESTAMPTZ,
+      last_run_status TEXT,                -- ok | error | skipped
+      last_run_summary TEXT,               -- 1-2 предложения для UI
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, agent_name)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_configs_user_enabled ON agent_configs(user_id, enabled)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_configs_due ON agent_configs(enabled, last_run_at) WHERE enabled = true`);
+
+  // История запусков агентов. Хранит результат + детали для inbox-карточек,
+  // которые требуют approval (например, draft ответа на отзыв).
+  await query(`
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      agent_name TEXT NOT NULL,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      finished_at TIMESTAMPTZ,
+      status TEXT NOT NULL,                -- running | ok | error
+      summary TEXT,                         -- короткое описание результата
+      result JSONB DEFAULT '{}'::jsonb,     -- произвольный output (artifacts, drafts...)
+      error_message TEXT,
+      duration_ms INTEGER,
+      needs_approval BOOLEAN NOT NULL DEFAULT false,
+      approved_at TIMESTAMPTZ,
+      approved_by TEXT                      -- user id (на будущее для команд)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_user_started ON agent_runs(user_id, started_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_pending_approval ON agent_runs(user_id, needs_approval, approved_at) WHERE needs_approval = true AND approved_at IS NULL`);
 }
