@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Edit2, Save, Trash2, ClipboardList, Mic, X, Loader2 } from "lucide-react";
+import { Edit2, Save, Trash2, ClipboardList, Mic, X, Loader2, Film, Sparkles, RefreshCw, Play } from "lucide-react";
 import type { Colors } from "@/lib/colors";
-import type { GeneratedReel, AvatarSettings, BrandBook } from "@/lib/content-types";
+import type { GeneratedReel, AvatarSettings, BrandBook, BrollClip } from "@/lib/content-types";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
@@ -30,13 +30,14 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   );
 }
 
-export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor }: {
+export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook }: {
   c: Colors;
   reel: GeneratedReel;
   onUpdate: (updated: GeneratedReel) => void;
   onDelete: (id: string) => void;
   onGenerateVideo: (reelId: string) => void;
   generatingVideoFor: string | null;
+  brandBook?: BrandBook;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(reel.title);
@@ -59,6 +60,123 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
     setVoiceover(reel.voiceoverScript);
     setHashtagsRaw(reel.hashtags.join(" "));
     setEditing(false);
+  };
+
+  // ── B-roll generation (HeyGen Video Agent / Veo 3.1) ───────────────
+  const [brollLoading, setBrollLoading] = useState(false);
+  const [brollError, setBrollError] = useState<string | null>(null);
+  const [brollProvider, setBrollProvider] = useState<"veo_3_1_fast" | "veo_3_1" | "kling_pro">("veo_3_1_fast");
+  const clips = reel.brollClips ?? [];
+
+  // Poll pending clips каждые 8 секунд. Останавливаемся когда все completed/failed.
+  useEffect(() => {
+    const pending = clips.filter(c => c.status === "pending" && c.executionId);
+    if (pending.length === 0) return;
+    const id = setInterval(async () => {
+      let changed = false;
+      const updated = await Promise.all(
+        (reel.brollClips ?? []).map(async (c) => {
+          if (c.status !== "pending" || !c.executionId) return c;
+          try {
+            const r = await fetch(`/api/heygen-broll-status?executionId=${encodeURIComponent(c.executionId)}`);
+            const j = await r.json();
+            const s = j?.data?.status;
+            if (s === "completed" && j?.data?.videoUrl) {
+              changed = true;
+              return { ...c, status: "completed" as const, videoUrl: j.data.videoUrl, thumbnailUrl: j.data.thumbnailUrl };
+            }
+            if (s === "failed") {
+              changed = true;
+              return { ...c, status: "failed" as const, error: j?.data?.error ?? "HeyGen failed" };
+            }
+            return c;
+          } catch {
+            return c;
+          }
+        }),
+      );
+      if (changed) onUpdate({ ...reel, brollClips: updated });
+    }, 8000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips.map(c => `${c.id}:${c.status}`).join(",")]);
+
+  const handleGenerateBrollPrompts = async () => {
+    setBrollLoading(true);
+    setBrollError(null);
+    try {
+      // Шаг 1: Claude генерирует 3 b-roll промпта из сценария
+      const r = await fetch("/api/generate-broll-prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: reel.title,
+          scenario: reel.scenario,
+          voiceoverScript: reel.voiceoverScript,
+          brandBook,
+          count: 3,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok || !Array.isArray(j.prompts)) throw new Error(j.error ?? "Не удалось получить промпты");
+
+      // Шаг 2: для каждого промпта запускаем HeyGen execution
+      const fresh: BrollClip[] = [];
+      for (const p of j.prompts) {
+        const r2 = await fetch("/api/heygen-broll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: p.prompt,
+            aspectRatio: "9:16",
+            provider: brollProvider,
+          }),
+        });
+        const j2 = await r2.json();
+        fresh.push({
+          id: `broll-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          prompt: p.prompt,
+          motionHint: p.motionHint || "B-roll",
+          position: (["opener", "support", "transition", "closer"].includes(p.position) ? p.position : "support") as BrollClip["position"],
+          executionId: j2.ok ? j2.executionId : undefined,
+          status: j2.ok ? "pending" : "failed",
+          provider: brollProvider,
+          error: j2.ok ? undefined : (j2.error ?? "HeyGen error"),
+          createdAt: new Date().toISOString(),
+        });
+      }
+      onUpdate({ ...reel, brollClips: [...clips, ...fresh] });
+    } catch (e) {
+      setBrollError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBrollLoading(false);
+    }
+  };
+
+  const handleRetryClip = async (clip: BrollClip) => {
+    setBrollError(null);
+    try {
+      const r = await fetch("/api/heygen-broll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: clip.prompt,
+          aspectRatio: "9:16",
+          provider: clip.provider ?? brollProvider,
+        }),
+      });
+      const j = await r.json();
+      const updated: BrollClip = j.ok
+        ? { ...clip, executionId: j.executionId, status: "pending", error: undefined, createdAt: new Date().toISOString() }
+        : { ...clip, status: "failed", error: j.error ?? "HeyGen error" };
+      onUpdate({ ...reel, brollClips: clips.map(c => c.id === clip.id ? updated : c) });
+    } catch (e) {
+      setBrollError(e instanceof Error ? e.message : "Ошибка");
+    }
+  };
+
+  const handleDeleteClip = (id: string) => {
+    onUpdate({ ...reel, brollClips: clips.filter(c => c.id !== id) });
   };
 
   const inputStyle: React.CSSProperties = {
@@ -171,6 +289,192 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             </button>
           )}
 
+          {/* ── B-roll section (HeyGen Video Agent / Veo 3.1) ─────────── */}
+          <div style={{
+            marginTop: 14, padding: "14px 16px", borderRadius: 12,
+            background: "color-mix(in oklch, #ec4899 5%, transparent)",
+            border: "1px dashed #ec489955",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Film size={15} style={{ color: "#ec4899" }} />
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#ec4899", letterSpacing: "-0.01em" }}>
+                  B-roll кадры
+                </span>
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                  · HeyGen Video Agent · ~$0.17/клип
+                </span>
+              </div>
+              {clips.length === 0 && (
+                <select
+                  value={brollProvider}
+                  onChange={e => setBrollProvider(e.target.value as typeof brollProvider)}
+                  disabled={brollLoading}
+                  style={{
+                    fontSize: 11, padding: "4px 8px", borderRadius: 6,
+                    border: "1px solid var(--border)", background: "var(--background)",
+                    color: "var(--foreground)", fontFamily: "inherit",
+                  }}
+                >
+                  <option value="veo_3_1_fast">Veo 3.1 Fast (дешевле)</option>
+                  <option value="veo_3_1">Veo 3.1 (премиум)</option>
+                  <option value="kling_pro">Kling Pro</option>
+                </select>
+              )}
+            </div>
+
+            {clips.length === 0 ? (
+              <>
+                <p style={{ fontSize: 12, color: "var(--foreground-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>
+                  AI прочитает сценарий и сгенерирует 3 кинематографичных кадра, которые можно вставить между планами с аватаром. Длина ~5 сек, 9:16. Готовится 1-3 минуты.
+                </p>
+                <button
+                  onClick={handleGenerateBrollPrompts}
+                  disabled={brollLoading || !reel.voiceoverScript}
+                  style={{
+                    padding: "9px 18px", borderRadius: 9, border: "none",
+                    background: brollLoading || !reel.voiceoverScript ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)",
+                    color: brollLoading || !reel.voiceoverScript ? "var(--muted-foreground)" : "#fff",
+                    fontSize: 13, fontWeight: 700, cursor: brollLoading ? "wait" : "pointer",
+                    display: "inline-flex", alignItems: "center", gap: 7, minHeight: 38,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {brollLoading ? <Loader2 size={13} className="mr-spin" /> : <Sparkles size={13} />}
+                  {brollLoading ? "Генерирую промпты и запускаю HeyGen…" : "Сгенерировать 3 b-roll кадра"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: 10,
+                  marginBottom: 10,
+                }}>
+                  {clips.map((clip) => (
+                    <div key={clip.id} style={{
+                      background: "var(--card)", border: "1px solid var(--border)",
+                      borderRadius: 10, padding: 10, position: "relative",
+                    }}>
+                      <button
+                        onClick={() => handleDeleteClip(clip.id)}
+                        aria-label="Удалить кадр"
+                        style={{
+                          position: "absolute", top: 6, right: 6,
+                          background: "rgba(0,0,0,0.5)", color: "#fff", border: "none",
+                          borderRadius: 6, padding: "2px 6px", cursor: "pointer",
+                          fontSize: 11, zIndex: 2,
+                        }}
+                      >
+                        <X size={11} />
+                      </button>
+                      {clip.status === "completed" && clip.videoUrl ? (
+                        <video
+                          src={clip.videoUrl}
+                          poster={clip.thumbnailUrl}
+                          controls
+                          playsInline
+                          style={{ width: "100%", aspectRatio: "9 / 16", borderRadius: 6, background: "#000", objectFit: "cover", marginBottom: 6 }}
+                        />
+                      ) : clip.status === "failed" ? (
+                        <div style={{
+                          width: "100%", aspectRatio: "9 / 16", borderRadius: 6,
+                          background: "color-mix(in oklch, var(--destructive) 10%, var(--background))",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "var(--destructive)", padding: 8, textAlign: "center", marginBottom: 6,
+                        }}>
+                          <div>
+                            <X size={20} style={{ marginBottom: 4 }} />
+                            <div style={{ fontSize: 10, fontWeight: 700 }}>Ошибка</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: "100%", aspectRatio: "9 / 16", borderRadius: 6,
+                          background: "var(--background)", display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#ec4899", padding: 8, textAlign: "center", marginBottom: 6,
+                          border: "1px dashed #ec489940",
+                        }}>
+                          <div>
+                            <Loader2 size={20} className="mr-spin" style={{ marginBottom: 4 }} />
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--foreground-secondary)" }}>Veo рендерит…</div>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#ec4899", letterSpacing: "0.04em", marginBottom: 3, textTransform: "uppercase" }}>
+                        {clip.position}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.3, marginBottom: 4 }}>
+                        {clip.motionHint}
+                      </div>
+                      <div title={clip.prompt} style={{
+                        fontSize: 10.5, color: "var(--muted-foreground)", lineHeight: 1.4,
+                        display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}>
+                        {clip.prompt}
+                      </div>
+                      {clip.status === "failed" && (
+                        <button
+                          onClick={() => handleRetryClip(clip)}
+                          style={{
+                            marginTop: 6, width: "100%", padding: "5px 8px",
+                            borderRadius: 6, border: "1px solid var(--border)",
+                            background: "transparent", color: "var(--foreground-secondary)",
+                            fontSize: 11, fontWeight: 600, cursor: "pointer",
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          <RefreshCw size={11} /> Повторить
+                        </button>
+                      )}
+                      {clip.status === "completed" && clip.videoUrl && (
+                        <a
+                          href={clip.videoUrl}
+                          download={`broll-${clip.id}.mp4`}
+                          style={{
+                            marginTop: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                            width: "100%", padding: "5px 8px", borderRadius: 6,
+                            border: "1px solid var(--border)", background: "transparent",
+                            color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600,
+                            textDecoration: "none", boxSizing: "border-box",
+                          }}
+                        >
+                          <Play size={11} /> Скачать
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleGenerateBrollPrompts}
+                  disabled={brollLoading}
+                  style={{
+                    padding: "7px 14px", borderRadius: 8, border: "1px dashed #ec489960",
+                    background: "transparent", color: "#ec4899",
+                    fontSize: 12, fontWeight: 700, cursor: brollLoading ? "wait" : "pointer",
+                    display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit",
+                  }}
+                >
+                  {brollLoading ? <Loader2 size={11} className="mr-spin" /> : <Sparkles size={11} />}
+                  Ещё 3 кадра
+                </button>
+              </>
+            )}
+
+            {brollError && (
+              <div style={{
+                marginTop: 8, padding: "8px 12px", borderRadius: 8,
+                background: "color-mix(in oklch, var(--destructive) 10%, transparent)",
+                color: "var(--destructive)", fontSize: 12,
+              }}>
+                {brollError}
+              </div>
+            )}
+          </div>
+
           <MetricsBlock c={c} kind="reel" metrics={reel.metrics} onChange={m => onUpdate({ ...reel, metrics: m })} />
         </>
       )}
@@ -178,7 +482,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   );
 }
 
-export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel, onboardingState }: {
+export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel, onboardingState, brandBook }: {
   c: Colors;
   reels: GeneratedReel[];
   onGenerateVideo: (reelId: string) => void;
@@ -188,6 +492,7 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   onUpdateReel: (updated: GeneratedReel) => void;
   onDeleteReel: (id: string) => void;
   onboardingState?: OnboardingState;
+  brandBook?: BrandBook;
 }) {
   if (reels.length === 0) {
     return (
@@ -231,7 +536,7 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
         {reels.map(reel => (
-          <ReelCard key={reel.id} c={c} reel={reel} onUpdate={onUpdateReel} onDelete={onDeleteReel} onGenerateVideo={onGenerateVideo} generatingVideoFor={generatingVideoFor} />
+          <ReelCard key={reel.id} c={c} reel={reel} onUpdate={onUpdateReel} onDelete={onDeleteReel} onGenerateVideo={onGenerateVideo} generatingVideoFor={generatingVideoFor} brandBook={brandBook} />
         ))}
       </div>
     </div>

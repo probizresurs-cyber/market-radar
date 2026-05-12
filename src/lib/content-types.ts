@@ -125,6 +125,29 @@ export interface ReelMetrics {
   screenshotUrl?: string;
 }
 
+/** Один b-roll клип, сгенерированный через HeyGen Video Agent (Veo 3.1 / Sora). */
+export interface BrollClip {
+  id: string;
+  /** English prompt отдан в HeyGen. */
+  prompt: string;
+  /** Лейбл движения камеры для UI (Dolly in / Drone / Orbit / ...). */
+  motionHint: string;
+  /** Где в рилсе использовать: opener / support / transition / closer. */
+  position: "opener" | "support" | "transition" | "closer";
+  /** HeyGen execution id для поллинга и трекинга. */
+  executionId?: string;
+  /** Статус генерации: pending — поллинг идёт, completed — videoUrl готов, failed — error. */
+  status: "pending" | "completed" | "failed";
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  /** Провайдер модели в HeyGen (veo_3_1_fast по умолчанию). */
+  provider?: string;
+  /** Опц reference image для image-to-video (если оживляем статичный кадр). */
+  referenceImageUrl?: string;
+  error?: string;
+  createdAt: string;
+}
+
 export interface GeneratedReel {
   id: string;
   ideaId: string;
@@ -147,6 +170,8 @@ export interface GeneratedReel {
   scheduledFor?: string;
   /** Публичный URL опубликованного рилса (для авто-сбора metrics). */
   publishedUrl?: string;
+  /** B-roll-клипы для вставки между кадрами аватара. Генерятся через HeyGen Video Agent. */
+  brollClips?: BrollClip[];
 }
 
 export interface ReferenceImage {
