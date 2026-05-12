@@ -12,9 +12,9 @@
  * Returns: { ok, logos: Array<{ imageUrl: string, prompt: string }> }
  */
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { generateOpenAIImage } from "@/lib/openai-image";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { safeAnthropicCreate, extractJson, proxyErrorMessage } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -66,16 +66,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "brandName обязателен" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-
-    const client = new Anthropic({
-      apiKey,
-      ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-    });
-
     const userMessage = `Бренд: "${brandName}"
 ${tagline ? `Слоган: "${tagline}"` : ""}
 ${colors.length ? `Цвета: ${colors.slice(0, 3).join(", ")}` : ""}
@@ -91,26 +81,23 @@ ${style ? `Желаемый стиль: ${style}` : ""}
   ]
 }`;
 
-    const model = "claude-haiku-4-5";
-    const message = await client.messages.create({
-      model,
+    const { text, modelUsed, proxyDegraded, error } = await safeAnthropicCreate({
+      model: "claude-haiku-4-5",
       max_tokens: 1200,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
 
-    const raw = message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-    const cleaned = raw.replace(/```(?:json)?\s*|\s*```/g, "").trim();
+    if (!text) {
+      return NextResponse.json(
+        { ok: false, error: proxyDegraded ? proxyErrorMessage() : (error ?? "AI не ответил") },
+        { status: proxyDegraded ? 502 : 500 },
+      );
+    }
 
-    let parsed: { prompts: string[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const m = cleaned.match(/\{[\s\S]*\}/);
-      if (!m) {
-        return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
-      }
-      parsed = JSON.parse(m[0]);
+    const parsed = extractJson<{ prompts: string[] }>(text);
+    if (!parsed) {
+      return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
     }
 
     const prompts = (parsed.prompts ?? []).slice(0, count);
@@ -120,9 +107,9 @@ ${style ? `Желаемый стиль: ${style}` : ""}
 
     await access.log({
       endpoint: "generate-logo",
-      model,
+      model: modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + userMessage),
-      completionTokens: estimateTokens(raw),
+      completionTokens: estimateTokens(text),
     });
 
     // Параллельно генерируем картинки. Если какая-то падает — пропускаем.

@@ -12,7 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import Anthropic from "@anthropic-ai/sdk";
+import { safeAnthropicCreate, proxyErrorMessage } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -36,16 +36,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-
-    const client = new Anthropic({
-      apiKey,
-      ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-    });
 
     const imageFormat: "square" | "portrait" =
       (format === "сторис" || format === "рилс") ? "portrait" : "square";
@@ -74,62 +64,22 @@ ${contextBlock}
 
 Ответь ТОЛЬКО промптом на английском, без каких-либо пояснений или префикса.`;
 
-    // Пробуем сначала Haiku (быстро/дёшево). Если worker/Anthropic вернёт
-    // HTML/SyntaxError или модель временно недоступна — fallback на Sonnet
-    // (его маршрут стабилен и используется в других продакшен-эндпоинтах).
-    const MODELS = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
-    let prompt = "";
-    let lastError = "";
-    for (const model of MODELS) {
-      try {
-        const message = await client.messages.create({
-          model,
-          max_tokens: 400,
-          messages: [{ role: "user", content: claudePrompt }],
-        });
-        const text =
-          message.content[0]?.type === "text"
-            ? message.content[0].text.trim()
-            : "";
-        if (text) {
-          prompt = text;
-          break;
-        }
-        lastError = `Модель ${model} вернула пустой ответ`;
-      } catch (err) {
-        const raw = err instanceof Error ? err.message : String(err);
-        // Cloudflare Worker иногда отдаёт HTML вместо JSON — SDK падает с
-        // "Unexpected token '<'". Распознаём это и пробуем следующую модель.
-        const looksLikeHtml = /Unexpected token '?<'?|"<html|is not valid JSON/i.test(raw);
-        lastError = looksLikeHtml
-          ? `Прокси AI вернул HTML вместо ответа модели ${model} — пробую другую модель…`
-          : raw;
-        // Дальше переключимся на следующую модель в цикле
-      }
-    }
+    const { text, proxyDegraded, error } = await safeAnthropicCreate({
+      model: "claude-haiku-4-5",
+      max_tokens: 400,
+      messages: [{ role: "user", content: claudePrompt }],
+    });
 
-    if (!prompt) {
+    if (!text) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: lastError || "Не удалось получить промпт от AI. Попробуйте ещё раз через минуту.",
-        },
-        { status: 502 }, // 502 — bad gateway: проблема на прокси/upstream
+        { ok: false, error: proxyDegraded ? proxyErrorMessage() : (error ?? "Не удалось получить промпт") },
+        { status: proxyDegraded ? 502 : 500 },
       );
     }
 
-    return NextResponse.json({ ok: true, prompt });
+    return NextResponse.json({ ok: true, prompt: text });
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Unknown error";
-    // Финальный catch — обычно сюда не должны дойти. Если HTML просочился,
-    // показываем понятный текст вместо "Unexpected token '<'".
-    const looksLikeHtml = /Unexpected token '?<'?|"<html|is not valid JSON/i.test(raw);
-    const userMessage = looksLikeHtml
-      ? "Прокси AI временно вернул HTML вместо JSON. Это разовый сбой Cloudflare — повторите запрос через 30 секунд."
-      : raw;
-    return NextResponse.json(
-      { ok: false, error: userMessage },
-      { status: looksLikeHtml ? 502 : 500 },
-    );
+    return NextResponse.json({ ok: false, error: raw }, { status: 500 });
   }
 }

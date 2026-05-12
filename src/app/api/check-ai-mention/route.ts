@@ -6,15 +6,10 @@
  * Возвращаем сырой ответ + флаг упоминания.
  */
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
 
 function detectMention(response: string, brandName: string): boolean {
   const resp = response.toLowerCase();
@@ -56,14 +51,13 @@ export async function POST(req: Request) {
 
     // ── 1. Claude — всегда реальный (ключ Anthropic есть на сервере) ──
     for (const query of queries.slice(0, 1)) {
-      try {
-        const msg = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
-          max_tokens: 600,
-          // Нет system-prompt с подсказкой о бренде — честный ответ
-          messages: [{ role: "user", content: query }],
-        });
-        const text = (msg.content[0] as { type: string; text: string }).text;
+      const { text, error } = await safeAnthropicCreate({
+        model: "claude-haiku-4-5",
+        max_tokens: 600,
+        // Нет system-prompt с подсказкой о бренде — честный ответ
+        messages: [{ role: "user", content: query }],
+      });
+      if (text) {
         results.push({
           llm: "Claude",
           query,
@@ -71,11 +65,11 @@ export async function POST(req: Request) {
           mentioned: detectMention(text, companyName),
           isReal: true,
         });
-      } catch {
+      } else {
         results.push({
           llm: "Claude",
           query,
-          response: "",
+          response: error ?? "",
           mentioned: false,
           isReal: false,
         });

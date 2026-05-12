@@ -7,18 +7,13 @@
  * Реальные API: ChatGPT, Claude, Gemini (если ключи есть).
  * Симуляция: Yandex, Perplexity (нет ключей на сервере).
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
+import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
 
 export interface DirectMention {
   llm: LLMName;
@@ -61,12 +56,12 @@ async function callChatGPT(query: string): Promise<string> {
 }
 
 async function callClaudeDirect(query: string): Promise<string> {
-  const msg = await anthropic.messages.create({
+  const { text } = await safeAnthropicCreate({
     model: "claude-haiku-4-5",
     max_tokens: 500,
     messages: [{ role: "user", content: query }],
   });
-  return (msg.content[0] as { type: string; text: string }).text;
+  return text;
 }
 
 async function callGemini(query: string): Promise<string> {
@@ -123,13 +118,13 @@ async function simulateHonest(llm: LLMName, query: string): Promise<string> {
     perplexity: `Ты — Perplexity AI с опорой на источники из интернета. Если не находишь информации — так и пиши.`,
     gemini:     `Ты — Google Gemini. Отвечай честно. Если не знаешь компанию — так и скажи.`,
   };
-  const msg = await anthropic.messages.create({
+  const { text } = await safeAnthropicCreate({
     model: "claude-haiku-4-5",
     max_tokens: 500,
     system: personas[llm],
     messages: [{ role: "user", content: query }],
   });
-  return (msg.content[0] as { type: string; text: string }).text;
+  return text;
 }
 
 export async function POST(req: Request) {

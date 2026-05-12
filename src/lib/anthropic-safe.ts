@@ -1,0 +1,160 @@
+/**
+ * anthropic-safe — обёртка вокруг Anthropic SDK с auto-fallback.
+ *
+ * Проблема: Cloudflare Worker между нами и api.anthropic.com иногда
+ * возвращает HTML страницу ошибки вместо JSON. Anthropic SDK падает с
+ * `SyntaxError: Unexpected token '<', "<html"...`. В UI пользователь
+ * видит непонятный технический мусор.
+ *
+ * Решение:
+ *   1. `safeAnthropicCreate()` — пробует основную модель, при HTML/timeout
+ *      авто-переключается на fallback (по умолчанию Haiku↔Sonnet).
+ *   2. `isProxyHtmlError()` — детектит характерную HTML-ошибку прокси.
+ *   3. `extractJson()` — снимает ```json wrapper, возвращает T или null.
+ *   4. `proxyErrorMessage()` — единое дружелюбное сообщение для UI.
+ *
+ * Использование:
+ *   const { text, modelUsed, error } = await safeAnthropicCreate({
+ *     model: "claude-haiku-4-5",
+ *     max_tokens: 400,
+ *     system: SYSTEM_PROMPT,
+ *     messages: [{ role: "user", content: userMessage }],
+ *   });
+ *   if (!text) return NextResponse.json({ ok: false, error }, { status: 502 });
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
+
+const HTML_ERROR_PATTERN = /Unexpected token '?<'?|"<html|is not valid JSON/i;
+
+export type AnthropicModelName = string;
+
+interface SafeCreateOpts {
+  model: AnthropicModelName;
+  max_tokens: number;
+  system?: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  /** Список fallback-моделей. По умолчанию — Sonnet для Haiku и наоборот. */
+  fallbackModels?: AnthropicModelName[];
+  /** Опц temperature (по умолчанию SDK-default = 1). */
+  temperature?: number;
+  /** Если задан — функция вызывается при HTML-ошибке прокси с первой моделью.
+   *  Полезно для логирования "proxy degraded" в аналитику. */
+  onProxyDegraded?: (model: AnthropicModelName, rawError: string) => void;
+}
+
+export interface SafeCreateResult {
+  /** Текст ответа Claude — empty string если все попытки провалились. */
+  text: string;
+  /** Какая модель в итоге успешно ответила. */
+  modelUsed: AnthropicModelName;
+  /** Финальное сообщение об ошибке (если text пустой). */
+  error?: string;
+  /** True, если хотя бы одна попытка упала из-за HTML-ответа прокси. */
+  proxyDegraded: boolean;
+}
+
+/** Возвращает client с правильным baseURL (CF Worker proxy для РФ). */
+function getClient(): Anthropic {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY не настроен");
+  return new Anthropic({
+    apiKey,
+    ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
+  });
+}
+
+/** Дефолтные fallback-модели — Haiku ↔ Sonnet. */
+function defaultFallbacks(primary: AnthropicModelName): AnthropicModelName[] {
+  if (primary.includes("haiku")) return ["claude-sonnet-4-5"];
+  if (primary.includes("sonnet")) return ["claude-haiku-4-5"];
+  // Opus или неизвестная модель — без fallback'а
+  return [];
+}
+
+export async function safeAnthropicCreate(opts: SafeCreateOpts): Promise<SafeCreateResult> {
+  const client = getClient();
+  const candidates = [
+    opts.model,
+    ...(opts.fallbackModels ?? defaultFallbacks(opts.model)),
+  ];
+
+  let lastError = "";
+  let proxyDegraded = false;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i];
+    try {
+      const message = await client.messages.create({
+        model,
+        max_tokens: opts.max_tokens,
+        system: opts.system,
+        messages: opts.messages,
+        ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+      });
+      const text =
+        message.content[0]?.type === "text"
+          ? message.content[0].text.trim()
+          : "";
+      if (text) {
+        return { text, modelUsed: model, proxyDegraded };
+      }
+      lastError = `Модель ${model} вернула пустой ответ`;
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      const htmlFromProxy = HTML_ERROR_PATTERN.test(raw);
+
+      if (htmlFromProxy) {
+        proxyDegraded = true;
+        // Callback на первой HTML-ошибке — полезно для алертинга
+        if (i === 0 && opts.onProxyDegraded) {
+          try { opts.onProxyDegraded(model, raw); } catch { /* ignore logger errors */ }
+        }
+        lastError = `Прокси AI вернул HTML на модели ${model}`;
+      } else {
+        lastError = raw;
+      }
+      // Продолжаем к следующей модели-кандидату
+    }
+  }
+
+  return {
+    text: "",
+    modelUsed: candidates[0],
+    proxyDegraded,
+    error: lastError || "Все модели не ответили",
+  };
+}
+
+/** Детект характерной HTML-ошибки от прокси (для UI-парсера). */
+export function isProxyHtmlError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return HTML_ERROR_PATTERN.test(message);
+}
+
+/** Дружелюбное сообщение об ошибке прокси для показа юзеру. */
+export function proxyErrorMessage(modelHint?: string): string {
+  if (modelHint) {
+    return `Прокси AI временно вернул HTML на модели ${modelHint}. Это разовый сбой Cloudflare — повторите запрос через 30 секунд.`;
+  }
+  return "Прокси AI временно вернул HTML вместо JSON. Это разовый сбой Cloudflare — повторите запрос через 30 секунд.";
+}
+
+/**
+ * Парсит JSON из текстового ответа Claude. Снимает ```json wrapper'ы.
+ * Возвращает null, если распарсить не удалось.
+ */
+export function extractJson<T>(text: string): T | null {
+  const cleaned = text.replace(/```(?:json)?\s*|\s*```/g, "").trim();
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch { /* fall through to brace-match */ }
+
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[0]) as T;
+  } catch {
+    return null;
+  }
+}

@@ -17,18 +17,13 @@
  * Если реального ключа нет → Claude симулирует «как мог бы ответить» тот ассистент,
  * но БЕЗ биас-подсказок. Ответ помечается isSimulated: true.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { AIMention, LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
+import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
-});
 
 // ── Парсинг ответа ─────────────────────────────────────────────────────────────
 function parseResponse(response: string, brandName: string): {
@@ -91,14 +86,14 @@ async function simulateViaClaudeHonest(llm: LLMName, query: string, niche: strin
     gemini: `Ты — Google Gemini. Отвечай по-русски, честно и взвешенно. Упоминай только компании и факты, которые действительно известны. Ниша: "${niche}".`,
   };
 
-  const msg = await anthropic.messages.create({
+  const { text } = await safeAnthropicCreate({
     model: "claude-haiku-4-5",
     max_tokens: 450,
     // Нет system-prompt с подсказкой «упоминай бренд»
     system: personas[llm],
     messages: [{ role: "user", content: query }],
   });
-  return (msg.content[0] as { type: string; text: string }).text;
+  return text;
 }
 
 // ── Реальный ChatGPT ──────────────────────────────────────────────────────────
@@ -124,13 +119,13 @@ async function callChatGPT(query: string): Promise<string> {
 
 // ── Реальный Claude (напрямую, без симуляции) ─────────────────────────────────
 async function callClaudeDirect(query: string): Promise<string> {
-  const msg = await anthropic.messages.create({
+  const { text } = await safeAnthropicCreate({
     model: "claude-haiku-4-5",
     max_tokens: 450,
     // Нет системного промпта — честный ответ Claude
     messages: [{ role: "user", content: query }],
   });
-  return (msg.content[0] as { type: string; text: string }).text;
+  return text;
 }
 
 // ── Реальный Perplexity ───────────────────────────────────────────────────────

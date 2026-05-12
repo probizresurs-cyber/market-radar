@@ -18,8 +18,8 @@
  * Returns: { ok, benchmark: NicheBenchmark, cached: boolean }
  */
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { safeAnthropicCreate, extractJson, proxyErrorMessage } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -91,15 +91,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, benchmark: cached.data, cached: true });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-    const client = new Anthropic({
-      apiKey,
-      ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-    });
-
     const userMessage = `Ниша: ${nicheRaw}
 
 Дай реалистичные диапазоны типичных метрик. Верни СТРОГО JSON:
@@ -112,26 +103,23 @@ export async function POST(req: Request) {
   "topInsight": "одно предложение — что отличает лидеров"
 }`;
 
-    const model = "claude-haiku-4-5";
-    const message = await client.messages.create({
-      model,
+    const { text, modelUsed, proxyDegraded, error } = await safeAnthropicCreate({
+      model: "claude-haiku-4-5",
       max_tokens: 800,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
 
-    const raw = message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-    const cleaned = raw.replace(/```(?:json)?\s*|\s*```/g, "").trim();
+    if (!text) {
+      return NextResponse.json(
+        { ok: false, error: proxyDegraded ? proxyErrorMessage() : (error ?? "AI не ответил") },
+        { status: proxyDegraded ? 502 : 500 },
+      );
+    }
 
-    let parsed: Omit<NicheBenchmark, "generatedAt">;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const m = cleaned.match(/\{[\s\S]*\}/);
-      if (!m) {
-        return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
-      }
-      parsed = JSON.parse(m[0]);
+    const parsed = extractJson<Omit<NicheBenchmark, "generatedAt">>(text);
+    if (!parsed) {
+      return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
     }
 
     const benchmark: NicheBenchmark = {
@@ -143,9 +131,9 @@ export async function POST(req: Request) {
 
     await access.log({
       endpoint: "niche-benchmark",
-      model,
+      model: modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + userMessage),
-      completionTokens: estimateTokens(raw),
+      completionTokens: estimateTokens(text),
     });
 
     return NextResponse.json({ ok: true, benchmark, cached: false });

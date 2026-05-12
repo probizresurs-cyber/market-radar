@@ -33,7 +33,7 @@
  */
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import Anthropic from "@anthropic-ai/sdk";
+import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 import { generateOpenAIImage } from "@/lib/openai-image";
 
 export const runtime = "nodejs";
@@ -74,16 +74,6 @@ export async function POST(req: Request) {
       usedPrompt = userPrompt;
     } else {
       // — Step 1: Claude Haiku generates a rich visual prompt —
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-      }
-
-      const client = new Anthropic({
-        apiKey,
-        ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-      });
-
       const contextBlock = [
         `Формат контента: ${format} для ${platform}`,
         hook && `Заголовок: «${hook}»`,
@@ -110,15 +100,15 @@ ${contextBlock}
 
 Ответь ТОЛЬКО промптом на английском, без каких-либо пояснений или префикса.`;
 
-      const message = await client.messages.create({
+      const { text } = await safeAnthropicCreate({
         model: "claude-haiku-4-5",
         max_tokens: 400,
         messages: [{ role: "user", content: claudePrompt }],
       });
 
-      usedPrompt = message.content[0]?.type === "text"
-        ? message.content[0].text.trim()
-        : postText; // fallback to raw text if Claude fails
+      // Если ни Haiku, ни Sonnet не ответили — используем сырой текст поста
+      // как fallback-промпт, чтобы DALL-E всё равно нарисовал хоть что-то.
+      usedPrompt = text || postText;
     }
 
     // OpenAI отказывается генерировать текст в изображениях; на всякий случай

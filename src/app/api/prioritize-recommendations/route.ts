@@ -14,7 +14,7 @@
  * Returns: { ok, prioritized: Recommendation[] }
  */
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { safeAnthropicCreate, extractJson, proxyErrorMessage } from "@/lib/anthropic-safe";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import type { Recommendation } from "@/lib/types";
 
@@ -77,15 +77,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не передан массив recommendations" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
-    }
-    const client = new Anthropic({
-      apiKey,
-      ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
-    });
-
     const userMessage = `Компания: ${companyName || "не указано"}
 Ниша: ${niche || "не указано"}
 
@@ -101,26 +92,24 @@ ${recommendations.map((r, i) => `${i}. [${r.category}] ${r.text}\n   Ожида�
   ]
 }`;
 
-    const model = "claude-haiku-4-5";
-    const message = await client.messages.create({
-      model,
+    const { text, modelUsed, proxyDegraded, error } = await safeAnthropicCreate({
+      model: "claude-haiku-4-5",
       max_tokens: 2500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
+    void modelUsed; // (для будущего логирования; access.log здесь не вызывается отдельно)
 
-    const raw = message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-    const cleaned = raw.replace(/```(?:json)?\s*|\s*```/g, "").trim();
+    if (!text) {
+      return NextResponse.json(
+        { ok: false, error: proxyDegraded ? proxyErrorMessage() : (error ?? "AI не ответил") },
+        { status: proxyDegraded ? 502 : 500 },
+      );
+    }
 
-    let parsed: { scored: AiScoredRec[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const m = cleaned.match(/\{[\s\S]*\}/);
-      if (!m) {
-        return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
-      }
-      parsed = JSON.parse(m[0]);
+    const parsed = extractJson<{ scored: AiScoredRec[] }>(text);
+    if (!parsed) {
+      return NextResponse.json({ ok: false, error: "AI вернул не-JSON" }, { status: 500 });
     }
 
     const scoredMap = new Map<number, AiScoredRec>();
