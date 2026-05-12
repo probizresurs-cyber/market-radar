@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { ContentPlan, GeneratedCarousel, BrandBook, CarouselSlide } from "@/lib/content-types";
-import { Layers, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Copy } from "lucide-react";
+import { Layers, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Copy, Maximize2 } from "lucide-react";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -202,6 +203,7 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
   const [promptEditorSlide, setPromptEditorSlide] = useState<number | null>(null);
   const [bgError, setBgError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const accent = "#ec4899";
 
   // Хелпер для построения seed-параметров: его съест ImagePromptEditor чтобы
@@ -214,7 +216,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
       slide.visualNote && `Mood: ${slide.visualNote}.`,
     ].filter(Boolean).join(" "),
     hook: slide.headlineText,
-    format: "карусель",
+    // "сторис" → Claude напишет промпт сразу под vertical 9:16, чтобы превью
+    // не выглядело как растянутый square.
+    format: "сторис",
     platform: carousel.platform,
     brandColors: brandBook?.colors ?? [],
     brandStyle: brandBook?.visualStyle ?? "",
@@ -227,7 +231,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         postText: "carousel slide", // пустышка, реальный промпт идёт в userPrompt
-        format: "карусель",
+        // Используем "сторис" чтобы DALL-E рендерил вертикальный 9:16 кадр —
+        // карусели у нас показываются в сторис-формате, картинки должны совпадать.
+        format: "сторис",
         platform: carousel.platform,
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",
@@ -299,16 +305,33 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
           {/* Active slide */}
           {slide && (
             <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
-              {/* Square mockup (Instagram 1:1) */}
-              <div style={{
-                borderRadius: 14, width: 260, height: 260,
-                display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-                boxShadow: "0 6px 20px rgba(0,0,0,0.25)", position: "relative", overflow: "hidden",
-                background: slide.backgroundImageUrl ? "transparent" : "#111",
-              }}>
+              {/* Story-format mockup (9:16) — 260×462 */}
+              <div
+                onClick={() => slide.backgroundImageUrl && setLightboxUrl(slide.backgroundImageUrl)}
+                title={slide.backgroundImageUrl ? "Открыть на весь экран" : undefined}
+                style={{
+                  borderRadius: 14, width: 260, height: 462,
+                  display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.25)", position: "relative", overflow: "hidden",
+                  background: slide.backgroundImageUrl ? "transparent" : "#111",
+                  cursor: slide.backgroundImageUrl ? "zoom-in" : "default",
+                }}
+              >
                 {slide.backgroundImageUrl && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={slide.backgroundImageUrl} alt="bg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+                )}
+                {/* Иконка-индикатор клика для увеличения */}
+                {slide.backgroundImageUrl && (
+                  <div style={{
+                    position: "absolute", top: 8, right: 8, zIndex: 3,
+                    background: "rgba(0,0,0,0.55)", borderRadius: 7,
+                    padding: 5, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", pointerEvents: "none",
+                    backdropFilter: "blur(6px)",
+                  }}>
+                    <Maximize2 size={12} />
+                  </div>
                 )}
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 100%)", zIndex: 1 }} />
 
@@ -439,6 +462,14 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxUrl && (
+        <ImageLightbox
+          src={lightboxUrl}
+          filename={`carousel-${carousel.id}-slide-${activeSlide + 1}.png`}
+          onClose={() => setLightboxUrl(null)}
+        />
       )}
     </div>
   );

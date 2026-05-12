@@ -4,9 +4,10 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { ContentPlan, GeneratedStory, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
-import { Smartphone, Sparkles, Camera, Users, Send, Loader2, RefreshCw } from "lucide-react";
+import { Smartphone, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Maximize2 } from "lucide-react";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -307,6 +308,7 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
   // Какому слайду открыли промпт-редактор. null = не открыт.
   const [promptEditorSlide, setPromptEditorSlide] = useState<number | null>(null);
   const [bgError, setBgError] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const accent = "#a855f7";
 
   const promptParamsForSlide = (slide: typeof story.slides[number]) => ({
@@ -390,17 +392,35 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
             const slide = story.slides[activeSlide];
             return (
               <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
-                {/* Phone mockup */}
-                <div style={{
-                  borderRadius: 16, padding: 12, minHeight: 320, display: "flex", flexDirection: "column",
-                  justifyContent: "space-between", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", position: "relative",
-                  overflow: "hidden",
-                  background: slide.backgroundImageUrl ? "transparent" : "#0f0f0f",
-                }}>
+                {/* Phone mockup — точный 9:16 (200×355) */}
+                <div
+                  onClick={() => slide.backgroundImageUrl && setLightboxUrl(slide.backgroundImageUrl)}
+                  title={slide.backgroundImageUrl ? "Открыть на весь экран" : undefined}
+                  style={{
+                    borderRadius: 16, padding: 12, width: 200, height: 355,
+                    display: "flex", flexDirection: "column",
+                    justifyContent: "space-between", boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                    position: "relative", overflow: "hidden",
+                    background: slide.backgroundImageUrl ? "transparent" : "#0f0f0f",
+                    cursor: slide.backgroundImageUrl ? "zoom-in" : "default",
+                  }}
+                >
                   {/* Background image */}
                   {slide.backgroundImageUrl && (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={slide.backgroundImageUrl} alt="bg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+                  )}
+                  {/* Fullscreen indicator */}
+                  {slide.backgroundImageUrl && (
+                    <div style={{
+                      position: "absolute", top: 8, right: 8, zIndex: 3,
+                      background: "rgba(0,0,0,0.55)", borderRadius: 7, padding: 5,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      color: "#fff", pointerEvents: "none",
+                      backdropFilter: "blur(6px)",
+                    }}>
+                      <Maximize2 size={12} />
+                    </div>
                   )}
                   {/* Overlay for readability */}
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.55) 100%)", zIndex: 1 }} />
@@ -506,6 +526,14 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxUrl && (
+        <ImageLightbox
+          src={lightboxUrl}
+          filename={`story-${story.id}-slide.png`}
+          onClose={() => setLightboxUrl(null)}
+        />
       )}
     </div>
   );
