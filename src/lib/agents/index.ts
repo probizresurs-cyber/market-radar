@@ -21,3 +21,4 @@ export * from "./registry";
 import "./auto-publisher";
 import "./yandex-reviews-watcher";
 import "./email-drip-sender";
+import "./site-change-detector";
