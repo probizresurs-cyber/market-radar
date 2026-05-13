@@ -13,7 +13,7 @@
  *
  * Используется Claude Sonnet — на Haiku промпты получаются плоскими.
  *
- * Body: { title, scenario, voiceoverScript?, brandBook?, count? }
+ * Body: { title, scenario, voiceoverScript?, brandBook?, count?, companyName?, companyNiche? }
  * Returns: { ok, prompts: Array<{prompt, motionHint, position}> }
  */
 import { NextResponse } from "next/server";
@@ -68,6 +68,10 @@ export async function POST(req: Request) {
     const voiceoverScript: string = (body.voiceoverScript ?? "").trim();
     const brandBook: BrandBook | null = body.brandBook ?? null;
     const count: number = Math.min(Math.max(body.count ?? 3, 1), 5);
+    // Контекст компании — критично. Без него Claude генерит абстрактные
+    // «стоматологические» кадры, и HeyGen рисует чужие клиники.
+    const companyName: string = (body.companyName ?? "").trim();
+    const companyNiche: string = (body.companyNiche ?? "").trim();
 
     if (!scenario && !voiceoverScript) {
       return NextResponse.json(
@@ -87,7 +91,23 @@ export async function POST(req: Request) {
     });
 
     const brandHints = buildBrandHints(brandBook);
-    const userMessage = `Reel title: ${title || "(не указан)"}
+
+    // КРИТИЧНО: добавляем имя бренда и нишу в начало промпта, чтобы Claude
+    // писал кадры именно про эту компанию (не про абстрактную клинику и
+    // не про конкурентов, которые могли попасть в брендбук от прошлой работы).
+    const companyContext = companyName
+      ? `КОМПАНИЯ-ЗАКАЗЧИК: «${companyName}»${companyNiche ? `. Ниша: ${companyNiche.slice(0, 240)}.` : ""}
+
+КРИТИЧНО — ВИЗУАЛЬНЫЙ КОНТЕКСТ:
+- B-roll должны выглядеть как съёмка ИМЕННО этой компании (её клиника, её офис, её процессы).
+- НЕ описывай конкретные узнаваемые бренды или логотипы конкурентов в кадре.
+- НЕ используй generic stock footage с табличками других клиник/компаний — это должно выглядеть нейтрально, но в стиле/нише именно ${companyName}.
+- Если ниша — стоматология/клиника — кадры с современным оборудованием БЕЗ опознавательных знаков других сетей.
+
+`
+      : "";
+
+    const userMessage = `${companyContext}Reel title: ${title || "(не указан)"}
 
 Voiceover script (что говорит аватар):
 ${voiceoverScript || "(не указан)"}

@@ -31,7 +31,7 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   );
 }
 
-export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete }: {
+export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete, companyName, companyNiche }: {
   c: Colors;
   reel: GeneratedReel;
   onUpdate: (updated: GeneratedReel) => void;
@@ -42,6 +42,10 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   alwaysExpanded?: boolean;
   onRowClick?: (reel: GeneratedReel) => void;
   onRowDelete?: (reel: GeneratedReel) => void;
+  /** Имя компании и описание ниши для контекстных b-roll промптов.
+   *  Без них Claude генерит абстрактные кадры (или хуже — про конкурента из старого брендбука). */
+  companyName?: string;
+  companyNiche?: string;
 }) {
   const [collapsed, setCollapsed] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -120,6 +124,8 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           voiceoverScript: reel.voiceoverScript,
           brandBook,
           count: 3,
+          companyName,
+          companyNiche,
         }),
       });
       const j = await r.json();
@@ -418,22 +424,12 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             <div style={{ background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", padding: "10px 14px", borderRadius: 10, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><X size={14}/> {reel.videoError}</div>
           )}
 
-          {reel.videoStatus !== "ready" && (
-            <button
-              onClick={() => onGenerateVideo(reel.id)}
-              disabled={busy}
-              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
-              {reel.videoStatus === "generating"
-                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> HeyGen рендерит видео… (~2-5 мин)</>
-                : busy ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Запускаем HeyGen…</>
-                : reel.videoStatus === "failed" ? "🔄 Повторить генерацию"
-                : "🎥 Сгенерировать видео с аватаром"}
-            </button>
-          )}
+          {/* Порядок: сначала B-roll (готовим вспомогательные кадры),
+              потом основное видео с аватаром. Так логичнее по продакшен-флоу. */}
 
-          {/* ── B-roll section (HeyGen Video Agent / Veo 3.1) ─────────── */}
+          {/* ── B-roll section (HeyGen Video Agent v3) ─────────── */}
           <div style={{
-            marginTop: 14, padding: "14px 16px", borderRadius: 12,
+            marginBottom: 14, padding: "14px 16px", borderRadius: 12,
             background: "color-mix(in oklch, #ec4899 5%, transparent)",
             border: "1px dashed #ec489955",
           }}>
@@ -635,6 +631,20 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             )}
           </div>
 
+          {/* Основная генерация видео с аватаром — после подготовки b-roll */}
+          {reel.videoStatus !== "ready" && (
+            <button
+              onClick={() => onGenerateVideo(reel.id)}
+              disabled={busy}
+              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
+              {reel.videoStatus === "generating"
+                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> HeyGen рендерит видео… (~2-5 мин)</>
+                : busy ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Запускаем HeyGen…</>
+                : reel.videoStatus === "failed" ? "Повторить генерацию"
+                : "Сгенерировать видео с аватаром"}
+            </button>
+          )}
+
           <MetricsBlock c={c} kind="reel" metrics={reel.metrics} onChange={m => onUpdate({ ...reel, metrics: m })} />
         </>
       )}
@@ -648,6 +658,8 @@ export function GeneratedReelsView({
   onUpdateReel, onDeleteReel, onboardingState, brandBook,
   // Доп. пропсы — для встроенного блока «Создать видео»:
   plan, isGeneratingReel, generatingReelId, onGenerateReelScenario,
+  // Контекст компании — пробрасывается в ReelCard → /api/generate-broll-prompts
+  companyName, companyNiche,
 }: {
   c: Colors;
   reels: GeneratedReel[];
@@ -664,6 +676,8 @@ export function GeneratedReelsView({
   generatingReelId?: string | null;
   /** Колбек генерации СЦЕНАРИЯ рилса (потом из готового сценария рендерится видео). */
   onGenerateReelScenario?: (idea: ContentReelIdea, customPrompt?: string) => void;
+  companyName?: string;
+  companyNiche?: string;
 }) {
   // Главный sub-tab: «Аватары» (создать/выбрать) или «Видео» (генератор сценариев + список).
   // Если у юзера ещё нет ни одного аватара — стартуем сразу на «Аватары».
@@ -923,6 +937,8 @@ export function GeneratedReelsView({
                 generatingVideoFor={generatingVideoFor}
                 brandBook={brandBook}
                 onRowClick={() => setOpenReelId(reel.id)}
+                companyName={companyName}
+                companyNiche={companyNiche}
               />
             ))}
           </div>
@@ -940,6 +956,8 @@ export function GeneratedReelsView({
           onDelete={onDeleteReel}
           onGenerateVideo={onGenerateVideo}
           generatingVideoFor={generatingVideoFor}
+          companyName={companyName}
+          companyNiche={companyNiche}
         />
       )}
       </>
@@ -951,6 +969,7 @@ export function GeneratedReelsView({
 // ─── Reel detail modal ─────────────────────────────────────────────────────
 function ReelDetailModal({
   c, reel, brandBook, onClose, onUpdate, onDelete, onGenerateVideo, generatingVideoFor,
+  companyName, companyNiche,
 }: {
   c: Colors;
   reel: GeneratedReel;
@@ -960,6 +979,8 @@ function ReelDetailModal({
   onDelete: (id: string) => void;
   onGenerateVideo: (reelId: string) => void;
   generatingVideoFor: string | null;
+  companyName?: string;
+  companyNiche?: string;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -1073,6 +1094,8 @@ function ReelDetailModal({
             generatingVideoFor={generatingVideoFor}
             brandBook={brandBook}
             alwaysExpanded
+            companyName={companyName}
+            companyNiche={companyNiche}
           />
         </div>
       </div>

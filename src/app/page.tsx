@@ -1772,6 +1772,9 @@ function MarketRadarDashboardInner() {
             isGeneratingReel={generatingReelId !== null}
             generatingReelId={generatingReelId}
             onGenerateReelScenario={handleGenerateReelScenario}
+            // Контекст компании — критично для b-roll промптов
+            companyName={myCompany?.company.name}
+            companyNiche={myCompany?.company.description ?? ""}
           />
         )}
         {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
