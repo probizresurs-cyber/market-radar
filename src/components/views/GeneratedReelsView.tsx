@@ -554,7 +554,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                         }}>
                           <div>
                             <Loader2 size={20} className="mr-spin" style={{ marginBottom: 4 }} />
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--foreground-secondary)" }}>Veo рендерит…</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--foreground-secondary)" }}>Рендерим…</div>
                           </div>
                         </div>
                       )}

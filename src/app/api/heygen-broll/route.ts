@@ -1,51 +1,40 @@
 /**
  * POST /api/heygen-broll
  *
- * Создаёт b-roll-клип через HeyGen Video Agent (workflows API).
- * Использует тот же `HEYGEN_API_KEY` что и обычные говорящие аватары —
- * новый вендор не подключаем.
+ * Создаёт b-roll-клип через HeyGen Video Agent v3.
  *
- * Шаг 1: POST /v1/workflows/executions (workflow_type=GenerateVideoNode)
- * Шаг 2: возвращаем execution_id; фронт поллит /api/heygen-broll-status
- * Шаг 3: когда статус completed — приходит video_url
+ * Старый путь (deprecated 2025):
+ *   POST /v1/workflows/executions { workflow_type: "GenerateVideoNode", input: {...} }
  *
- * Поставщики (provider):
- *   veo_3_1       — премиум, ~$2/мин, Veo 3.1 от Google
- *   veo_3_1_fast  — дешевле, чуть проще
- *   kling_pro     — Kling 3.0 от Kuaishou (хорошая физика)
- *   sora          — OpenAI Sora 2
- *   seedance      — динамичные камеры
+ * Актуальный путь (HeyGen v3 docs, 2026):
+ *   POST /v3/video-agents { prompt, mode, orientation, files? }
+ *   → возвращает { session_id, status, video_id (когда готов) }
  *
- * Body:
+ * Status-polling:
+ *   GET /v3/video-agents/{session_id} → { status, progress, video_id }
+ *   GET /v3/videos/{video_id} → { video_url, thumbnail_url } (когда готово)
+ *
+ * Body нашего route:
  *   prompt        обязателен — visual description for b-roll (English лучше)
- *   referenceImageUrl  опц — image-to-video (animate static image)
- *   tailImageUrl       опц — last-frame guidance
- *   provider           default "veo_3_1_fast" (быстрее/дешевле)
- *   aspectRatio        default "9:16" (vertical для рилсов)
+ *   referenceImageUrl  опц — image-to-video через files[]
+ *   aspectRatio        default "9:16" (vertical для рилсов) → orientation: "portrait"
  *
  * Returns:
- *   { ok, executionId, status: "pending" }
- *
- * Pricing reference: HeyGen Video Agent API = $2/min, 5-сек клип ≈ $0.17.
+ *   { ok, sessionId, status: "thinking"|"generating"|... }
  */
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const HEYGEN_PROVIDERS = new Set([
-  "veo_3_1",
-  "veo_3_1_fast",
-  "veo3",
-  "veo3_fast",
-  "kling_pro",
-  "kling",
-  "sora",
-  "runway",
-  "seedance",
-]);
-
 const HEYGEN_ASPECT_RATIOS = new Set(["16:9", "9:16", "1:1"]);
+
+function mapOrientation(aspectRatio: string): "landscape" | "portrait" | null {
+  if (aspectRatio === "9:16") return "portrait";
+  if (aspectRatio === "16:9") return "landscape";
+  // 1:1 не имеет прямого аналога в v3 video-agents — отдаём auto-detect.
+  return null;
+}
 
 export async function POST(req: Request) {
   try {
@@ -65,76 +54,78 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    if (prompt.length > 10000) {
+      return NextResponse.json(
+        { ok: false, error: "prompt длиннее 10000 символов (лимит HeyGen)" },
+        { status: 400 },
+      );
+    }
 
-    const provider = HEYGEN_PROVIDERS.has(body.provider) ? body.provider : "veo_3_1_fast";
     const aspectRatio = HEYGEN_ASPECT_RATIOS.has(body.aspectRatio) ? body.aspectRatio : "9:16";
+    const orientation = mapOrientation(aspectRatio);
 
-    interface BrollInput {
+    // Тело v3-эндпоинта. Только обязательное (prompt) и явно нужные поля.
+    interface AgentPayload {
       prompt: string;
-      provider: string;
-      aspect_ratio: string;
-      reference_image_url?: string;
-      tail_image_url?: string;
+      mode: "generate";
+      orientation?: "landscape" | "portrait";
+      files?: Array<{ url: string }>;
     }
-
-    const input: BrollInput = {
+    const payload: AgentPayload = {
       prompt,
-      provider,
-      aspect_ratio: aspectRatio,
+      mode: "generate",
     };
+    if (orientation) payload.orientation = orientation;
     if (typeof body.referenceImageUrl === "string" && body.referenceImageUrl.startsWith("http")) {
-      input.reference_image_url = body.referenceImageUrl;
-    }
-    if (typeof body.tailImageUrl === "string" && body.tailImageUrl.startsWith("http")) {
-      input.tail_image_url = body.tailImageUrl;
+      payload.files = [{ url: body.referenceImageUrl }];
     }
 
-    const res = await fetch("https://api.heygen.com/v1/workflows/executions", {
+    const res = await fetch("https://api.heygen.com/v3/video-agents", {
       method: "POST",
       headers: {
         "X-Api-Key": apiKey,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({
-        workflow_type: "GenerateVideoNode",
-        input,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const text = await res.text();
     if (!res.ok) {
+      // Особые случаи: 401/403 — нет доступа к Video Agents (нужен платный план),
+      // 404 — endpoint не существует (старый ключ / урезанный аккаунт).
+      const hint =
+        res.status === 401 || res.status === 403
+          ? " — Video Agents API недоступен на вашем тарифе HeyGen. Нужен платный план с включённым продуктом."
+          : res.status === 404
+          ? " — endpoint /v3/video-agents не найден. Возможно, у вас старая версия API."
+          : "";
       return NextResponse.json(
-        { ok: false, error: `HeyGen ${res.status}: ${text.slice(0, 400)}` },
+        { ok: false, error: `HeyGen ${res.status}: ${text.slice(0, 400)}${hint}` },
         { status: 500 },
       );
     }
 
     let parsed: {
-      data?: { execution_id?: string; id?: string; status?: string };
-      execution_id?: string;
+      data?: { session_id?: string; status?: string; video_id?: string | null };
     } = {};
     try { parsed = JSON.parse(text); } catch { /* ignore */ }
 
-    // HeyGen иногда возвращает id в data.execution_id, иногда в data.id, иногда в корне.
-    const executionId =
-      parsed?.data?.execution_id ??
-      parsed?.data?.id ??
-      parsed?.execution_id ??
-      null;
-
-    if (!executionId) {
+    const sessionId = parsed?.data?.session_id;
+    if (!sessionId) {
       return NextResponse.json(
-        { ok: false, error: `HeyGen не вернул execution_id: ${text.slice(0, 400)}` },
+        { ok: false, error: `HeyGen не вернул session_id: ${text.slice(0, 400)}` },
         { status: 500 },
       );
     }
 
     return NextResponse.json({
       ok: true,
-      executionId,
-      status: parsed?.data?.status ?? "pending",
-      provider,
+      // Совместимость со старым клиентом — он ждёт executionId, отдаём sessionId
+      // под тем же ключом.
+      executionId: sessionId,
+      sessionId,
+      status: parsed?.data?.status ?? "thinking",
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
