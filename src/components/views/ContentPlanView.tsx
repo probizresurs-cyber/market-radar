@@ -247,7 +247,7 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
 
 // ---------- ContentGeneratorBlock ----------
 
-export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook }: {
+export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook, lockedMode }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -257,8 +257,11 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
   brandBook: BrandBook;
+  /** Когда задан — переключатель Post/Reel скрыт, используется только этот режим.
+   *  Нужно когда блок встраивается в специализированный таб (Создать пост / Создать видео). */
+  lockedMode?: "post" | "reel";
 }) {
-  const [mode, setMode] = useState<"post" | "reel">("post");
+  const [mode, setMode] = useState<"post" | "reel">(lockedMode ?? "post");
   const [scratchMode, setScratchMode] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedReelId, setSelectedReelId] = useState<string | null>(null);
@@ -355,23 +358,27 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
 
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, boxShadow: "var(--shadow-lg)", marginBottom: 24, overflow: "hidden" }}>
-      {/* Header + mode tabs */}
+      {/* Header + mode tabs (tabs hidden when lockedMode forces a single mode) */}
       <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid var(--muted)`, background: `linear-gradient(135deg, var(--card) 50%, ${accent}06 100%)` }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: 12 }}>✨ Создать контент</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {([["post", "Пост"], ["reel", "Рилс"]] as const).map(([m, label]) => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setBrief(""); setGeneratedPrompt(""); setShowAdvanced(false); }}
-              style={{ padding: "7px 18px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.15s",
-                background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : "var(--background)",
-                color: mode === m ? "#fff" : "var(--foreground-secondary)",
-                boxShadow: mode === m ? `0 2px 8px ${m === "reel" ? "#ec489940" : "#f59e0b40"}` : "none",
-              }}>
-              {label}
-            </button>
-          ))}
+        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: lockedMode ? 0 : 12 }}>
+          ✨ {lockedMode === "post" ? "Создать пост" : lockedMode === "reel" ? "Создать видео" : "Создать контент"}
         </div>
+        {!lockedMode && (
+          <div style={{ display: "flex", gap: 8 }}>
+            {([["post", "Пост"], ["reel", "Рилс"]] as const).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setBrief(""); setGeneratedPrompt(""); setShowAdvanced(false); }}
+                style={{ padding: "7px 18px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.15s",
+                  background: mode === m ? (m === "reel" ? "#ec4899" : "#f59e0b") : "var(--background)",
+                  color: mode === m ? "#fff" : "var(--foreground-secondary)",
+                  boxShadow: mode === m ? `0 2px 8px ${m === "reel" ? "#ec489940" : "#f59e0b40"}` : "none",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ padding: "18px 20px" }}>
@@ -383,7 +390,11 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {mode === "post"
-              ? plan.postIdeas.map(idea => {
+              ? plan.postIdeas
+                  // Для постов (single/longread) — отсекаем форматы caro/story,
+                  // у них свои отдельные табы.
+                  .filter(idea => idea.format !== "carousel" && idea.format !== "story")
+                  .map(idea => {
                   const sel = selectedPostId === idea.id;
                   return (
                     <button key={idea.id} onClick={() => selectPost(idea)}
@@ -665,14 +676,33 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
         </div>
       </CollapsibleSection>
 
-      {/* Content Generator */}
-      <ContentGeneratorBlock
-        c={c} plan={plan}
-        isGeneratingPost={isGeneratingPost} generatingPostId={generatingPostId}
-        isGeneratingReel={isGeneratingReel} generatingReelId={generatingReelId}
-        onGeneratePost={onGeneratePost} onGenerateReel={onGenerateReel}
-        brandBook={brandBook}
-      />
+      {/* Раньше здесь был блок «Создать контент». Он переехал в отдельные
+          табы «Создать пост» и «Создать видео» — там и пост-генератор, и
+          список черновиков/опубликованных в одном месте. */}
+      <div style={{
+        padding: "14px 18px", borderRadius: 12,
+        background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
+        border: "1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))",
+        marginTop: 14, marginBottom: 16,
+        display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: 13.5, color: "var(--foreground-secondary)", flex: 1, minWidth: 200 }}>
+          Генератор контента переехал в отдельные табы:
+        </span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a href="/?nav=content-posts" style={{
+            padding: "7px 14px", borderRadius: 8,
+            background: "var(--primary)", color: "#fff",
+            fontSize: 13, fontWeight: 700, textDecoration: "none",
+          }}>Создать пост →</a>
+          <a href="/?nav=content-reels" style={{
+            padding: "7px 14px", borderRadius: 8,
+            background: "color-mix(in oklch, var(--primary) 12%, transparent)",
+            color: "var(--primary)", fontSize: 13, fontWeight: 700, textDecoration: "none",
+            border: "1px solid var(--primary)",
+          }}>Создать видео →</a>
+        </div>
+      </div>
 
       {/* Brand Book */}
       <BrandBookPanel c={c} brandBook={brandBook} onChange={onUpdateBrandBook} />
@@ -683,17 +713,23 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
       {/* Avatar settings (affects reel scenarios + video generation) */}
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
-      {/* Post ideas */}
-      <CollapsibleSection c={c} title={`Идеи постов (${plan.postIdeas.length})`} defaultOpen={false}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
-          {plan.postIdeas.map(idea => (
-            <PostIdeaCard key={idea.id} c={c} idea={idea}
-              isGenerating={isGeneratingPost} generatingId={generatingPostId}
-              onGenerate={onGeneratePost}
-            />
-          ))}
-        </div>
-      </CollapsibleSection>
+      {/* Post ideas — только posts/longread, сторис и карусели исключаем
+          (для них есть отдельные табы «Сторис-сценарии» и «Карусель-посты»). */}
+      {(() => {
+        const postOnlyIdeas = plan.postIdeas.filter(i => i.format !== "carousel" && i.format !== "story");
+        return (
+          <CollapsibleSection c={c} title={`Идеи постов (${postOnlyIdeas.length})`} defaultOpen={false}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+              {postOnlyIdeas.map(idea => (
+                <PostIdeaCard key={idea.id} c={c} idea={idea}
+                  isGenerating={isGeneratingPost} generatingId={generatingPostId}
+                  onGenerate={onGeneratePost}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        );
+      })()}
 
       {/* Reel ideas */}
       <CollapsibleSection c={c} title={`Идеи видео-рилсов (${plan.reelIdeas.length})`} defaultOpen={false}>

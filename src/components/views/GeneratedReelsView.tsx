@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Edit2, Save, Trash2, ClipboardList, Mic, X, Loader2, Film, Sparkles, RefreshCw, Play } from "lucide-react";
 import type { Colors } from "@/lib/colors";
-import type { GeneratedReel, AvatarSettings, BrandBook, BrollClip } from "@/lib/content-types";
+import type { GeneratedReel, AvatarSettings, BrandBook, BrollClip, ContentPlan, ContentReelIdea } from "@/lib/content-types";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
+import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
 
 export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -623,7 +624,13 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   );
 }
 
-export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoFor, avatarSettings, onUpdateAvatarSettings, onUpdateReel, onDeleteReel, onboardingState, brandBook }: {
+export function GeneratedReelsView({
+  c, reels, onGenerateVideo, generatingVideoFor,
+  avatarSettings, onUpdateAvatarSettings,
+  onUpdateReel, onDeleteReel, onboardingState, brandBook,
+  // Доп. пропсы — для встроенного блока «Создать видео»:
+  plan, isGeneratingReel, generatingReelId, onGenerateReelScenario,
+}: {
   c: Colors;
   reels: GeneratedReel[];
   onGenerateVideo: (reelId: string) => void;
@@ -634,6 +641,11 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   onDeleteReel: (id: string) => void;
   onboardingState?: OnboardingState;
   brandBook?: BrandBook;
+  plan?: ContentPlan | null;
+  isGeneratingReel?: boolean;
+  generatingReelId?: string | null;
+  /** Колбек генерации СЦЕНАРИЯ рилса (потом из готового сценария рендерится видео). */
+  onGenerateReelScenario?: (idea: ContentReelIdea, customPrompt?: string) => void;
 }) {
   const [statusTab, setStatusTab] = useState<"idea" | "working" | "ready">("idea");
   const [openReelId, setOpenReelId] = useState<string | null>(null);
@@ -653,7 +665,7 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   if (reels.length === 0) {
     return (
       <div style={{ maxWidth: 1180 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые видео</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Создать видео</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px" }}>Настройте аватара, потом сгенерируйте сценарии в «Плане контента».</p>
 
         {onboardingState && (
@@ -681,14 +693,46 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   return (
     <div style={{ maxWidth: 1180 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые видео</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Создать видео</h1>
         <span style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", padding: "4px 12px", borderRadius: 20, background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
           {reels.length}
         </span>
       </div>
       <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px", display: "flex", alignItems: "center", gap: 6 }}>
-        Кликните <Edit2 size={14}/> для правки сценария и текста озвучки.
+        Сверху — генератор сценариев. Ниже — список с табами по статусам.
       </p>
+
+      {/* Встроенный блок «Создать видео» — генератор сценариев рилса */}
+      {plan && onGenerateReelScenario ? (
+        <ContentGeneratorBlock
+          c={c}
+          plan={plan}
+          isGeneratingPost={false}
+          generatingPostId={null}
+          isGeneratingReel={!!isGeneratingReel}
+          generatingReelId={generatingReelId ?? null}
+          onGeneratePost={() => {}}
+          onGenerateReel={onGenerateReelScenario}
+          brandBook={brandBook as BrandBook}
+          lockedMode="reel"
+        />
+      ) : (
+        <div style={{
+          padding: "14px 18px", borderRadius: 12,
+          background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+          border: "1px dashed color-mix(in oklch, var(--primary) 30%, transparent)",
+          marginBottom: 16, fontSize: 13.5, color: "var(--foreground-secondary)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
+        }}>
+          <span>Чтобы создавать видео, сначала сгенерируйте план контента.</span>
+          <a href="/?nav=content-plan" style={{
+            padding: "7px 14px", borderRadius: 8,
+            background: "var(--primary)", color: "#fff",
+            fontSize: 13, fontWeight: 700, textDecoration: "none",
+          }}>План контента →</a>
+        </div>
+      )}
+
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
       {/* Статус-табы */}

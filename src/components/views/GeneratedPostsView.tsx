@@ -6,6 +6,7 @@ import type { GeneratedPost, BrandBook, TovCheckResult, TovIssue, PostMetrics, R
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
+import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
 import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink, Shuffle } from "lucide-react";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
@@ -1623,7 +1624,12 @@ function PublishModal({ post, onClose, onPublished }: {
   );
 }
 
-export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages, brandBook, onboardingState }: {
+export function GeneratedPostsView({
+  c, posts, onUpdatePost, onDeletePost, referenceImages, onUpdateReferenceImages,
+  brandBook, onboardingState,
+  // Доп. пропсы — для встроенного блока «Создать пост»:
+  plan, isGeneratingPost, generatingPostId, onGeneratePost,
+}: {
   c: Colors;
   posts: GeneratedPost[];
   onUpdatePost: (updated: GeneratedPost) => void;
@@ -1633,6 +1639,12 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   brandBook?: BrandBook;
   /** Состояние воронки — для OnboardingChecklist на пустом view. */
   onboardingState?: OnboardingState;
+  /** План контента — даёт чипы-идеи в блоке «Создать пост». null = нет плана,
+   *  блок генерации не показываем. */
+  plan?: import("@/lib/content-types").ContentPlan | null;
+  isGeneratingPost?: boolean;
+  generatingPostId?: string | null;
+  onGeneratePost?: (idea: import("@/lib/content-types").ContentPostIdea, customPrompt?: string) => void;
 }) {
   // Фильтр по платформе + поиск по тексту: критично когда постов 20+
   const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");
@@ -1704,7 +1716,42 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
           {posts.length}
         </span>
       </div>
-      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Кликните на строку, чтобы открыть пост — текст, картинка, публикация.</p>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Сверху — генератор. Ниже — список с табами по статусам.</p>
+
+      {/* Встроенный блок «Создать пост» (был в «План контента»). Показываем
+          только если есть план — без него идеи брать неоткуда. Если плана
+          нет, юзер увидит подсказку перейти в «План контента». */}
+      {plan && onGeneratePost ? (
+        <ContentGeneratorBlock
+          c={c}
+          plan={plan}
+          isGeneratingPost={!!isGeneratingPost}
+          generatingPostId={generatingPostId ?? null}
+          isGeneratingReel={false}
+          generatingReelId={null}
+          onGeneratePost={onGeneratePost}
+          onGenerateReel={() => {}}
+          brandBook={brandBook as BrandBook}
+          lockedMode="post"
+        />
+      ) : (
+        <div style={{
+          padding: "14px 18px", borderRadius: 12,
+          background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+          border: "1px dashed color-mix(in oklch, var(--primary) 30%, transparent)",
+          marginBottom: 16, fontSize: 13.5, color: "var(--foreground-secondary)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
+        }}>
+          <span>Чтобы создавать посты, сначала сгенерируйте план контента.</span>
+          <a href="/?nav=content-plan" style={{
+            padding: "7px 14px", borderRadius: 8,
+            background: "var(--primary)", color: "#fff",
+            fontSize: 13, fontWeight: 700, textDecoration: "none",
+            display: "inline-flex", alignItems: "center", gap: 5,
+          }}>План контента →</a>
+        </div>
+      )}
+
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
 
       {/* Статус-табы */}
