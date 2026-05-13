@@ -45,6 +45,15 @@ export async function POST(req: Request) {
     const companyNiche: string = (body.companyNiche ?? "").toString().trim();
     const title: string = (body.title ?? "").toString().trim();
     const hook: string = (body.hook ?? "").toString().trim();
+    // Список конкретных b-roll сцен, которые пользователь явно прописал.
+    // Если есть — внедряем их в prompt как явные инструкции для агента;
+    // если нет — агент сам решит какие b-roll вставить.
+    type BrollScene = { prompt?: string; motionHint?: string; position?: string };
+    const brollScenes: BrollScene[] = Array.isArray(body.brollScenes)
+      ? (body.brollScenes as BrollScene[])
+          .filter(s => s && typeof s.prompt === "string" && s.prompt.trim().length > 5)
+          .slice(0, 10)
+      : [];
 
     if (!script && !customPrompt) {
       return NextResponse.json(
@@ -78,12 +87,30 @@ export async function POST(req: Request) {
       parts.push(
         `The avatar must speak EXACTLY this voiceover script (do not change wording):\n"""\n${script}\n"""`
       );
-      parts.push(
-        "Insert cinematic b-roll between avatar shots to illustrate key points. " +
-        "Add burned-in subtitles for accessibility. " +
-        "Style: modern, premium, cinematic lighting, shallow depth of field. " +
-        "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
-      );
+      if (brollScenes.length > 0) {
+        // Юзер прописал конкретные сцены — даём агенту жёсткий список.
+        const sceneList = brollScenes
+          .map((s, i) => {
+            const pos = s.position ? ` [${s.position}]` : "";
+            const motion = s.motionHint ? ` (${s.motionHint})` : "";
+            return `${i + 1}.${pos}${motion} ${s.prompt!.trim()}`;
+          })
+          .join("\n");
+        parts.push(
+          `Insert these SPECIFIC b-roll scenes between avatar shots, in this order:\n${sceneList}\n\n` +
+          "Match each scene to the relevant part of the avatar's monologue. " +
+          "Add burned-in subtitles for accessibility. " +
+          "Style: modern, premium, cinematic lighting, shallow depth of field. " +
+          "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage."
+        );
+      } else {
+        parts.push(
+          "Insert cinematic b-roll between avatar shots to illustrate key points. " +
+          "Add burned-in subtitles for accessibility. " +
+          "Style: modern, premium, cinematic lighting, shallow depth of field. " +
+          "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
+        );
+      }
       // HeyGen лимит — 10000 символов на промпт.
       prompt = parts.join("\n\n").slice(0, 9800);
     }

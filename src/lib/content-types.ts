@@ -147,8 +147,12 @@ export interface BrollClip {
   position: "opener" | "support" | "transition" | "closer";
   /** HeyGen execution id для поллинга и трекинга. */
   executionId?: string;
-  /** Статус генерации: pending — поллинг идёт, completed — videoUrl готов, failed — error. */
-  status: "pending" | "completed" | "failed";
+  /** Статус генерации:
+   *  - "planned": сцена записана как часть плана для video-agent (рендерится
+   *    вместе с основным видео, не отдельно). Это основной режим.
+   *  - "pending"/"completed"/"failed": legacy — отдельный рендер через /v3/video-agents.
+   *    Оставлено для совместимости со старыми рилсами в localStorage. */
+  status: "planned" | "pending" | "completed" | "failed";
   videoUrl?: string;
   thumbnailUrl?: string;
   /** Провайдер модели в HeyGen (veo_3_1_fast по умолчанию). */

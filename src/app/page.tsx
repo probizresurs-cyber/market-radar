@@ -1359,8 +1359,11 @@ function MarketRadarDashboardInner() {
     setGeneratingVideoFor(reelId);
     try {
       // Видео-агент HeyGen v3 — единый запрос: аватар + b-roll + сабтитры.
-      // ElevenLabs/HeyGen TTS-флаги больше не нужны: агент сам синтезирует
-      // голос (можно подсунуть voice_id если есть кастомный).
+      // Если есть запланированные b-roll сцены (status='planned') — передаём
+      // их явным списком; иначе агент сам решит.
+      const plannedScenes = (reel.brollClips ?? [])
+        .filter(c => c.status === "planned" && c.prompt?.trim())
+        .map(c => ({ prompt: c.prompt, motionHint: c.motionHint, position: c.position }));
       const res = await fetch("/api/generate-reel-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1370,9 +1373,10 @@ function MarketRadarDashboardInner() {
           voiceId: avatarSettings.voiceId || undefined,
           aspect: avatarSettings.aspect,
           title: reel.title,
-          hook: reel.title, // первый сильный месседж — используем как hook
+          hook: reel.title,
           companyName: myCompany?.company?.name ?? "",
           companyNiche: myCompany?.company?.description ?? "",
+          brollScenes: plannedScenes,
         }),
       });
       const json = await res.json();
