@@ -1,5 +1,5 @@
 /**
- * OpenAI image generation (DALL-E 3 / gpt-image-1).
+ * OpenAI image generation (DALL-E 3 / gpt-image-1 / gpt-image-2).
  *
  * Используется как замена Gemini в `/api/generate-image-anthropic` —
  * Claude Haiku пишет промпт, OpenAI рендерит картинку.
@@ -8,21 +8,32 @@
  * - На российском VPS используем `OPENAI_BASE_URL` (Cloudflare Worker
  *   прокси) — тот же, что для всех остальных GPT-вызовов.
  * - Размеры выбираются по формату контента: пост/карусель = 1:1 (1024x1024),
- *   сторис/рилс = 9:16 (1024x1792).
+ *   сторис/рилс = 9:16 (1024x1792 / 1024x1536).
  * - Возвращаем data URL (base64) — фронт сразу кладёт в <img src>.
+ * - `gpt-image-2` (ChatGPT Images 2.0) поддерживает рендер текста прямо
+ *   в картинке. Если передан `embedText`, мы дописываем явную инструкцию
+ *   нарисовать этот текст в типографике (карусели, постеры, обложки).
  */
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com").replace(/\/+$/, "");
-const DEFAULT_MODEL = process.env.OPENAI_IMAGE_MODEL ?? "dall-e-3";
+// gpt-image-2 — новейшая модель ChatGPT Images 2.0 с отличным рендерингом
+// текста. Если на ключе ещё не активирована — берём gpt-image-1 через env.
+const DEFAULT_MODEL = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2";
 
 export type OpenAIImageInput = {
   prompt: string;
   /** Format hint: square / portrait / landscape (defaults to square). */
   format?: "square" | "portrait" | "landscape";
-  /** Override model: dall-e-3 | gpt-image-1 */
+  /** Override model: dall-e-3 | gpt-image-1 | gpt-image-2 */
   model?: string;
-  /** "standard" or "hd" for dall-e-3 / "low"|"medium"|"high" for gpt-image-1 */
+  /** "standard" or "hd" for dall-e-3 / "low"|"medium"|"high" for gpt-image-* */
   quality?: string;
+  /**
+   * Если задано — попросим модель нарисовать ЭТОТ текст прямо на изображении
+   * (заголовок + буллеты для карусели, цитата для сторис и т.п.). Работает
+   * только с gpt-image-2 / gpt-image-1; DALL-E 3 заслуженно игнорирует.
+   */
+  embedText?: string;
 };
 
 export type OpenAIImageResult =
@@ -35,8 +46,9 @@ interface OpenAIImageResponse {
 }
 
 function pickSize(format: OpenAIImageInput["format"], model: string): string {
-  // gpt-image-1 supports 1024x1024 / 1024x1536 / 1536x1024 / auto
-  if (model === "gpt-image-1") {
+  // gpt-image-2 / gpt-image-1 поддерживают 1024x1024 / 1024x1536 / 1536x1024.
+  // gpt-image-2 дополнительно умеет в 2000px, но 1536 хватает и грузится быстрее.
+  if (model === "gpt-image-2" || model === "gpt-image-1") {
     if (format === "portrait") return "1024x1536";
     if (format === "landscape") return "1536x1024";
     return "1024x1024";
@@ -47,19 +59,43 @@ function pickSize(format: OpenAIImageInput["format"], model: string): string {
   return "1024x1024";
 }
 
+/** Добавляет в промпт строгую инструкцию нарисовать текст в типографике. */
+function withEmbeddedText(basePrompt: string, embedText: string): string {
+  const cleaned = embedText.trim();
+  if (!cleaned) return basePrompt;
+  // gpt-image-2 best-practices: давать чёткие инструкции по типографике,
+  // переносу строк, языку текста. Кавычки помогают модели не "перевести"
+  // русские слова в латинские буквы.
+  return `${basePrompt}
+
+IMPORTANT TYPOGRAPHY INSTRUCTION:
+Render the following text DIRECTLY ON THE IMAGE as clean, modern, perfectly legible typography. Preserve the exact wording and the original language (do not translate). Use bold sans-serif for the headline, smaller weight for body lines. Lay the text out so it does NOT overlap key visual elements, with enough contrast against the background (use overlay, shadow, or color block if needed). Spelling must be 100% correct.
+
+TEXT TO RENDER:
+"""
+${cleaned}
+"""`;
+}
+
 export async function generateOpenAIImage(input: OpenAIImageInput): Promise<OpenAIImageResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, error: "OPENAI_API_KEY не настроен" };
 
-  const prompt = input.prompt.trim();
+  let prompt = input.prompt.trim();
   if (!prompt) return { ok: false, error: "Пустой промпт" };
 
   const model = input.model ?? DEFAULT_MODEL;
   const size = pickSize(input.format, model);
-  const isGptImage = model === "gpt-image-1";
+  const isGptImage = model === "gpt-image-1" || model === "gpt-image-2";
+
+  // Если просят рендер текста на картинке — добавляем подробную инструкцию.
+  // dall-e-3 это не умеет, поэтому игнорируем для него.
+  if (input.embedText && isGptImage) {
+    prompt = withEmbeddedText(prompt, input.embedText);
+  }
 
   // Тело запроса. dall-e-3 требует response_format=b64_json для отдачи base64;
-  // gpt-image-1 всегда возвращает base64 (response_format не нужен).
+  // gpt-image-1/2 всегда возвращают base64 (response_format не нужен).
   const body: Record<string, unknown> = {
     model,
     prompt,
@@ -106,8 +142,26 @@ export async function generateOpenAIImage(input: OpenAIImageInput): Promise<Open
     return null;
   };
 
+  // Особый случай: модель не активирована на ключе (gpt-image-2 в раннем
+  // доступе). Подскажем понятным языком и попробуем фолбэк-модель.
+  const isModelNotAvailable = (msg: string): boolean => {
+    const lower = msg.toLowerCase();
+    return (
+      lower.includes("model_not_found") ||
+      lower.includes("does not exist") ||
+      lower.includes("not have access to model") ||
+      lower.includes("invalid model")
+    );
+  };
+
   if (!res.ok) {
     const rawMsg = data.error?.message ?? `OpenAI HTTP ${res.status}: ${text.slice(0, 300)}`;
+
+    // Авто-фолбэк gpt-image-2 → gpt-image-1, если модель ещё не активирована.
+    if (model === "gpt-image-2" && isModelNotAvailable(rawMsg)) {
+      return generateOpenAIImage({ ...input, model: "gpt-image-1" });
+    }
+
     const friendly = detectQuotaError(rawMsg);
     return {
       ok: false,
@@ -116,6 +170,9 @@ export async function generateOpenAIImage(input: OpenAIImageInput): Promise<Open
     };
   }
   if (data.error) {
+    if (model === "gpt-image-2" && isModelNotAvailable(data.error.message ?? "")) {
+      return generateOpenAIImage({ ...input, model: "gpt-image-1" });
+    }
     const friendly = detectQuotaError(data.error.message ?? "");
     return { ok: false, error: friendly ?? `OpenAI error: ${data.error.message}` };
   }

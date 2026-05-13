@@ -56,6 +56,10 @@ export async function POST(req: Request) {
     const brandStyle: string = (body.brandStyle ?? "").trim();
     // userPrompt: если передан — пропускаем шаг 1 (Claude) и рисуем именно его.
     const userPrompt: string = (body.userPrompt ?? "").trim();
+    // embedText: если задан — попросим gpt-image-2 нарисовать ЭТОТ текст
+    // прямо в картинке (карусели, постеры). Если пусто/undefined — обычная
+    // картинка без надписей (поведение по умолчанию).
+    const embedText: string = (body.embedText ?? "").trim();
 
     if (!postText && !hook && !userPrompt) {
       return NextResponse.json(
@@ -97,7 +101,9 @@ ${contextBlock}
 - Укажи художественный стиль (photorealistic / flat design / 3D render / illustration / minimalist / cinematic etc.)
 - Укажи освещение, цветовую палитру, композицию, детали
 - Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : imageFormat === "landscape" ? "horizontal 16:9 (landscape)" : "square 1:1"}
-- НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks
+- ${embedText
+        ? "Композиция должна оставить место для крупной типографики (текст добавится отдельно). НЕ описывай сам текст — мы вставим его инструкцией ниже."
+        : "НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks"}
 - Длина промпта: 3-5 предложений, конкретные детали
 
 Ответь ТОЛЬКО промптом на английском, без каких-либо пояснений или префикса.`;
@@ -113,16 +119,20 @@ ${contextBlock}
       usedPrompt = text || postText;
     }
 
-    // OpenAI отказывается генерировать текст в изображениях; на всякий случай
-    // дописываем явный запрет, чтобы Haiku/пользователь его не упустил.
-    if (!/no text|without text|no letters/i.test(usedPrompt)) {
+    // Если просят встроить текст — НЕ дописываем "no text", иначе gpt-image-2
+    // запутается. Если текста нет — наоборот, явно запрещаем буквы.
+    if (!embedText && !/no text|without text|no letters/i.test(usedPrompt)) {
       usedPrompt += " No text, letters, words, or watermarks in the image.";
     }
 
     // — Step 2: OpenAI renders the prompt —
+    // Если задан embedText — поднимаем quality до "high", чтобы gpt-image-2
+    // отрисовал шрифт без артефактов; обычные фоны идут в "medium".
     const imgResult = await generateOpenAIImage({
       prompt: usedPrompt,
       format: imageFormat,
+      embedText: embedText || undefined,
+      quality: embedText ? "high" : undefined,
     });
 
     // Если OpenAI отказал (quota / billing / rate-limit) — пробуем Gemini
@@ -139,7 +149,12 @@ ${contextBlock}
           : imageFormat === "landscape"
           ? " Render in horizontal 16:9 aspect ratio (landscape orientation)."
           : " Render in square 1:1 aspect ratio.";
-        const noTextHint = " No text, letters, words, or watermarks in the image.";
+        // Если просили текст в картинке — НЕ запрещаем буквы фолбэкам,
+        // наоборот добавляем сам текст в промпт (best-effort, Gemini/Pollinations
+        // справляются хуже gpt-image-2, но что-то отрисуют).
+        const noTextHint = embedText
+          ? ` Render this text directly on the image as clean typography (preserve language and spelling): "${embedText}".`
+          : " No text, letters, words, or watermarks in the image.";
 
         // Try Gemini if available
         if (GEMINI_API_KEY) {

@@ -270,6 +270,11 @@ export interface CarouselSlide {
   bodyText?: string;              // пояснение под заголовком (1-2 предложения)
   bulletPoints?: string[];        // список тезисов (для content-слайдов)
   visualNote: string;             // режиссёрская пометка (цвет, шрифт, композиция)
+  /**
+   * true — текст слайда уже «вшит» в backgroundImageUrl (через gpt-image-2).
+   * UI в этом случае не накладывает оверлей: показывает чистую картинку.
+   */
+  hasEmbeddedText?: boolean;
 }
 
 export interface GeneratedCarousel {

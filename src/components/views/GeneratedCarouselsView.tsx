@@ -204,6 +204,10 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
   const [bgError, setBgError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  // Включён ли режим «текст внутри картинки» (gpt-image-2). По умолчанию off:
+  // CSS-оверлей идеально читаем, gpt-image-2 жжёт квоту и иногда ошибается в
+  // спеллинге. Пользователь включает осознанно для премиальных каруселей.
+  const [embedTextMode, setEmbedTextMode] = useState(false);
   const accent = "#ec4899";
 
   // Хелпер для построения seed-параметров: его съест ImagePromptEditor чтобы
@@ -224,8 +228,26 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
     brandStyle: brandBook?.visualStyle ?? "",
   });
 
+  // Собирает «вшиваемый» в картинку текст слайда: заголовок + буллеты/тело.
+  // Только когда включён embedTextMode и слайд их имеет.
+  const buildEmbedText = (s: CarouselSlide): string => {
+    const lines: string[] = [];
+    if (s.headlineText) lines.push(s.headlineText.trim());
+    if (s.bulletPoints && s.bulletPoints.length > 0) {
+      for (const b of s.bulletPoints) {
+        const t = b.trim();
+        if (t) lines.push(`• ${t}`);
+      }
+    } else if (s.bodyText) {
+      lines.push(s.bodyText.trim());
+    }
+    return lines.join("\n");
+  };
+
   const handleGenerateBgWithPrompt = async (slideIndex: number, userPrompt: string) => {
     setBgError(null);
+    const targetSlide = carousel.slides[slideIndex];
+    const embedText = embedTextMode && targetSlide ? buildEmbedText(targetSlide) : "";
     const res = await fetch("/api/generate-image-anthropic", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -238,6 +260,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",
         userPrompt,
+        // Когда задан — gpt-image-2 нарисует ЭТО прямо на картинке;
+        // оверлей с текстом скроется (см. рендер ниже).
+        embedText: embedText || undefined,
       }),
     });
     const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
@@ -247,7 +272,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
       throw new Error(msg);
     }
     const updatedSlides = carousel.slides.map((s, i) =>
-      i === slideIndex ? { ...s, backgroundImageUrl: json.data!.imageUrl } : s,
+      i === slideIndex
+        ? { ...s, backgroundImageUrl: json.data!.imageUrl, hasEmbeddedText: !!embedText }
+        : s,
     );
     onUpdate({ ...carousel, slides: updatedSlides });
     setPromptEditorSlide(null);
@@ -333,7 +360,11 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                     <Maximize2 size={12} />
                   </div>
                 )}
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 100%)", zIndex: 1 }} />
+                {/* Затемнение и оверлей-текст скрываем, если текст уже вшит
+                    в саму картинку через gpt-image-2 — иначе будет дубль. */}
+                {!slide.hasEmbeddedText && (
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 100%)", zIndex: 1 }} />
+                )}
 
                 <div style={{ position: "relative", zIndex: 2, padding: 16, textAlign: "center", width: "100%" }}>
                   <div style={{
@@ -343,22 +374,26 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                   }}>
                     {slide.slideType.toUpperCase()}
                   </div>
-                  <div style={{
-                    fontSize: slide.slideType === "cover" ? 20 : 15,
-                    fontWeight: 900, color: "#fff", lineHeight: 1.25,
-                    marginBottom: 10, textShadow: "0 2px 6px rgba(0,0,0,0.85)",
-                  }}>{slide.headlineText}</div>
-                  {slide.bodyText && (
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.9)", lineHeight: 1.45, marginBottom: 6, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{slide.bodyText}</div>
-                  )}
-                  {slide.bulletPoints && slide.bulletPoints.length > 0 && (
-                    <div style={{ textAlign: "left", display: "inline-block" }}>
-                      {slide.bulletPoints.map((b, i) => (
-                        <div key={i} style={{ fontSize: 9, color: "rgba(255,255,255,0.95)", marginBottom: 3, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
-                          • {b}
+                  {!slide.hasEmbeddedText && (
+                    <>
+                      <div style={{
+                        fontSize: slide.slideType === "cover" ? 20 : 15,
+                        fontWeight: 900, color: "#fff", lineHeight: 1.25,
+                        marginBottom: 10, textShadow: "0 2px 6px rgba(0,0,0,0.85)",
+                      }}>{slide.headlineText}</div>
+                      {slide.bodyText && (
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.9)", lineHeight: 1.45, marginBottom: 6, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{slide.bodyText}</div>
+                      )}
+                      {slide.bulletPoints && slide.bulletPoints.length > 0 && (
+                        <div style={{ textAlign: "left", display: "inline-block" }}>
+                          {slide.bulletPoints.map((b, i) => (
+                            <div key={i} style={{ fontSize: 9, color: "rgba(255,255,255,0.95)", marginBottom: 3, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+                              • {b}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   )}
                   <div style={{ position: "absolute", bottom: 8, right: 10, fontSize: 9, color: "rgba(255,255,255,0.75)", fontWeight: 700 }}>
                     {activeSlide + 1} / {carousel.slides.length}
@@ -372,6 +407,36 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6, textTransform: "uppercase" }}>Фон</div>
                     <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.55, marginBottom: 10 }}>{slide.background}</div>
+
+                    {/* Toggle: текст внутри картинки (gpt-image-2). По умолчанию выключен.
+                        При включении следующая генерация фона «впечёт» заголовок и буллеты
+                        прямо в изображение, оверлей скроется. */}
+                    <label
+                      style={{
+                        display: "flex", alignItems: "center", gap: 9,
+                        padding: "9px 12px", marginBottom: 10,
+                        borderRadius: 9, border: `1.5px dashed ${embedTextMode ? accent : "var(--border)"}`,
+                        background: embedTextMode ? accent + "08" : "transparent",
+                        cursor: "pointer", userSelect: "none",
+                      }}
+                      title="ChatGPT Images 2.0 нарисует заголовок и буллеты прямо на картинке вместо CSS-оверлея"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={embedTextMode}
+                        onChange={e => setEmbedTextMode(e.target.checked)}
+                        style={{ width: 16, height: 16, accentColor: accent, cursor: "pointer", flexShrink: 0 }}
+                      />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>
+                          Встроить текст в картинку <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: accent, color: "#fff", marginLeft: 4, verticalAlign: "middle" }}>NEW</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.4 }}>
+                          gpt-image-2 нарисует заголовок и буллеты в типографике (медленнее, дороже, но смотрится как дизайн).
+                        </span>
+                      </div>
+                    </label>
+
                     <button
                       onClick={() => { setPromptEditorSlide(promptEditorSlide === activeSlide ? null : activeSlide); setBgError(null); }}
                       style={{
