@@ -105,7 +105,7 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
         onClick={handleSubmit}
         disabled={isGenerating || !smm}
         style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating || !smm ? "var(--muted)" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating || !smm ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating || !smm ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
-        {isGenerating ? "⏳ Запускаем завод… (60–90 сек)" : "🏭 Сгенерировать контент-план"}
+        {isGenerating ? "Запускаем завод… (60–90 сек)" : "Сгенерировать контент-план"}
       </button>
     </div>
   );
@@ -223,7 +223,7 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
         onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
         disabled={busy || isGenerating}
         style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
-        {busy ? "⏳ Пишем сценарий…" : "🎬 Создать сценарий рилса"}
+        {busy ? "Пишем сценарий…" : "Создать сценарий рилса"}
       </button>
       <button
         onClick={handleOpenPrompt}
@@ -359,7 +359,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
       <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid var(--muted)`, background: `linear-gradient(135deg, var(--card) 50%, ${accent}06 100%)` }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: 12 }}>✨ Создать контент</div>
         <div style={{ display: "flex", gap: 8 }}>
-          {([["post", "📝 Пост"], ["reel", "🎬 Рилс"]] as const).map(([m, label]) => (
+          {([["post", "Пост"], ["reel", "Рилс"]] as const).map(([m, label]) => (
             <button
               key={m}
               onClick={() => { setMode(m); setSelectedPostId(null); setSelectedReelId(null); setScratchMode(false); setBrief(""); setGeneratedPrompt(""); setShowAdvanced(false); }}
@@ -504,7 +504,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           }}>
           {isGenerating
             ? (busy ? "⏳ Генерируем…" : "⏳ Ожидание…")
-            : mode === "reel" ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
+            : mode === "reel" ? "Создать сценарий рилса" : "Создать пост с картинкой"}
         </button>
         {isGenerating && !busy && (
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", textAlign: "center", marginTop: 6 }}>Дождитесь окончания текущей генерации</div>
@@ -563,7 +563,7 @@ export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGen
           }
           disabled={busy}
           style={{ flex: 1, padding: "10px 16px", borderRadius: 9, border: "none", background: busy ? "var(--muted)" : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
-          {busy ? "⏳ Генерируем…" : isReel ? "🎬 Создать сценарий рилса" : "✨ Создать пост с картинкой"}
+          {busy ? "Генерируем…" : isReel ? "Создать сценарий рилса" : "Создать пост с картинкой"}
         </button>
         <button
           onClick={() => setPrompt(defaultPrompt)}
@@ -577,7 +577,7 @@ export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGen
 
 // ---------- ContentPlanView ----------
 
-export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages, brandBook, onUpdateBrandBook }: {
+export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages, brandBook, onUpdateBrandBook, currentCompanyName, onRegenerateForCurrentCompany }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -592,8 +592,12 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
   onUpdateReferenceImages: (next: ReferenceImage[]) => void;
   brandBook: BrandBook;
   onUpdateBrandBook: (next: BrandBook) => void;
+  /** Текущая компания из последнего анализа — нужна чтобы показать warning
+   *  если план был для другой компании. */
+  currentCompanyName?: string;
+  onRegenerateForCurrentCompany?: () => void;
 }) {
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const stalePlan = currentCompanyName && plan.companyName && plan.companyName !== currentCompanyName;
   const generatedDate = new Date(plan.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
@@ -603,12 +607,47 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
   return (
     <div style={{ maxWidth: 1200 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>🏭 Контент-завод — {plan.companyName}</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>Контент-завод — {plan.companyName}</h1>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{generatedDate} · {plan.postIdeas.length} постов · {plan.reelIdeas.length} рилсов</p>
       </div>
 
+      {/* Warning если план был для другой компании — например, юзер сделал
+          новый анализ для другого бизнеса, а старый план остался в кэше */}
+      {stalePlan && (
+        <div style={{
+          background: "color-mix(in oklch, var(--warning, #f59e0b) 10%, transparent)",
+          border: "1px solid color-mix(in oklch, var(--warning, #f59e0b) 35%, var(--border))",
+          borderLeft: "4px solid #f59e0b",
+          borderRadius: 12, padding: "14px 18px", marginBottom: 20,
+          display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap",
+        }}>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
+              План для другой компании
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--foreground)", lineHeight: 1.55 }}>
+              Этот контент-план был сгенерирован для <b>«{plan.companyName}»</b>. Сейчас вы анализируете <b>«{currentCompanyName}»</b>. Создайте новый план под актуальную компанию, чтобы тема и тон совпадали.
+            </div>
+          </div>
+          {onRegenerateForCurrentCompany && (
+            <button
+              onClick={onRegenerateForCurrentCompany}
+              style={{
+                padding: "10px 18px", borderRadius: 10, border: "none",
+                background: "#f59e0b", color: "#fff",
+                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                fontFamily: "inherit", whiteSpace: "nowrap",
+                boxShadow: "0 2px 10px rgba(245,158,11,0.35)",
+              }}
+            >
+              Создать план для «{currentCompanyName}»
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Big Idea + pillars */}
-      <CollapsibleSection c={c} title="💡 Большая идея и контент-столпы">
+      <CollapsibleSection c={c} title="Большая идея и контент-столпы">
         <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, var(--card) 60%, #f59e0b08 100%)` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>БОЛЬШАЯ ИДЕЯ</div>
           <p style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.5, margin: 0 }}>{plan.bigIdea}</p>
@@ -645,7 +684,7 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
       {/* Post ideas */}
-      <CollapsibleSection c={c} title={`📝 Идеи постов (${plan.postIdeas.length})`} defaultOpen={false}>
+      <CollapsibleSection c={c} title={`Идеи постов (${plan.postIdeas.length})`} defaultOpen={false}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
           {plan.postIdeas.map(idea => (
             <PostIdeaCard key={idea.id} c={c} idea={idea}
@@ -657,7 +696,7 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
       </CollapsibleSection>
 
       {/* Reel ideas */}
-      <CollapsibleSection c={c} title={`🎬 Идеи видео-рилсов (${plan.reelIdeas.length})`} defaultOpen={false}>
+      <CollapsibleSection c={c} title={`Идеи видео-рилсов (${plan.reelIdeas.length})`} defaultOpen={false}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
           {plan.reelIdeas.map(idea => (
             <ReelIdeaCard key={idea.id} c={c} idea={idea}
@@ -668,49 +707,21 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
         </div>
       </CollapsibleSection>
 
-      {/* Calendar */}
-      <CollapsibleSection c={c} title="📅 Календарь на 30 дней" defaultOpen={false}>
-        <Card>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-            {plan.thirtyDayCalendar?.map((day, i) => {
-              const isReel = /рилс/i.test(day);
-              const isSelected = selectedDay === i;
-              return (
-                <div
-                  key={i}
-                  onClick={() => setSelectedDay(isSelected ? null : i)}
-                  style={{
-                    padding: "8px 10px", background: isSelected ? (isReel ? "#ec489918" : "#f59e0b18") : "var(--background)",
-                    borderRadius: 8, border: `1.5px solid ${isSelected ? (isReel ? "#ec4899" : "#f59e0b") : "var(--muted)"}`,
-                    fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.45, cursor: "pointer",
-                    transition: "all 0.12s",
-                  }}>
-                  {day}
-                </div>
-              );
-            })}
+      {/* 30-day календарь убран — переехал в отдельный таб «Календарь публикаций»
+          (там drag-and-drop, реальный месячный grid, scheduledFor-поля). */}
+      {plan.weeklyRhythm && (
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+            РИТМ ПУБЛИКАЦИЙ
           </div>
-          {plan.weeklyRhythm && (
-            <div style={{ marginTop: 14, padding: 10, background: "#f59e0b08", borderRadius: 8, fontSize: 12, color: "var(--foreground-secondary)" }}>
-              <b style={{ color: "#f59e0b" }}>Ритм:</b> {plan.weeklyRhythm}
-            </div>
-          )}
+          <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.6 }}>
+            {plan.weeklyRhythm}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted-foreground)" }}>
+            Готовые посты можно перетянуть на конкретные даты во вкладке «Календарь публикаций».
+          </div>
         </Card>
-
-        {/* Day detail panel */}
-        {selectedDay !== null && plan.thirtyDayCalendar?.[selectedDay] && (
-          <CalendarDayPanel
-            c={c}
-            dayText={plan.thirtyDayCalendar[selectedDay]}
-            dayIndex={selectedDay}
-            isGeneratingPost={isGeneratingPost}
-            isGeneratingReel={isGeneratingReel}
-            onGeneratePost={onGeneratePost}
-            onGenerateReel={onGenerateReel}
-            onClose={() => setSelectedDay(null)}
-          />
-        )}
-      </CollapsibleSection>
+      )}
     </div>
   );
 }

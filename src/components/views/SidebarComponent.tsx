@@ -22,7 +22,7 @@ import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 const PIN_KEY = (uid: string) => `mr_sidebar_pinned_${uid || "anon"}`;
 const RECENT_KEY = (uid: string) => `mr_sidebar_recent_${uid || "anon"}`;
 const MAX_PINNED = 6;
-const MAX_RECENT = 5;
+const MAX_RECENT = 3;
 
 function readList(key: string): string[] {
   if (typeof window === "undefined") return [];

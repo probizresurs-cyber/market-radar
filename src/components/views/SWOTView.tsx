@@ -33,18 +33,39 @@ interface StoredReport {
 }
 
 export function SWOTView({
-  c: _c, company, competitors, ta, smm,
+  c: _c, company, competitors, ta, smm, userId,
 }: {
   c: Colors;
   company: AnalysisResult | null;
   competitors: AnalysisResult[];
   ta: TAResult | null;
   smm: SMMResult | null;
+  userId?: string;
 }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<SwotReport | null>(null);
+  // ── Persistence: текущий рабочий SWOT-анализ сохраняется в localStorage
+  // и подтягивается при следующем возврате на view. История отчётов
+  // отдельная (DB). Это решает баг «сгенерировал SWOT, ушёл, вернулся —
+  // пусто».
+  const swotStateKey = userId ? `mr_swot_${userId}` : "mr_swot_anon";
+  const [report, setReport] = useState<SwotReport | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(swotStateKey);
+      return raw ? (JSON.parse(raw) as SwotReport) : null;
+    } catch { return null; }
+  });
   const [history, setHistory] = useState<StoredReport[]>([]);
+
+  // Сохраняем рабочий анализ при каждом обновлении report
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (report) localStorage.setItem(swotStateKey, JSON.stringify(report));
+      else localStorage.removeItem(swotStateKey);
+    } catch { /* ignore quota */ }
+  }, [report, swotStateKey]);
   const [expandedSection, setExpandedSection] = useState<keyof SwotItems | null>(null);
   // TOWS-матрица — генерируется отдельно по уже готовому SWOT
   const [tows, setTows] = useState<TowsMatrix | null>(null);

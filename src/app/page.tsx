@@ -1617,7 +1617,7 @@ function MarketRadarDashboardInner() {
         {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
-        {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} />}
+        {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} userId={currentUser?.id} />}
         {activeNav === "price-tracking" && <PriceTrackingView />}
         {activeNav === "content-style" && (
           <CompanyStyleView
@@ -1667,6 +1667,11 @@ function MarketRadarDashboardInner() {
                 onUpdateReferenceImages={setReferenceImages}
                 brandBook={brandBook}
                 onUpdateBrandBook={handleUpdateBrandBook}
+                currentCompanyName={myCompany?.company.name}
+                onRegenerateForCurrentCompany={() => {
+                  // Сбрасываем старый план — открывается NewContentPlanView
+                  setContentPlan(null);
+                }}
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}

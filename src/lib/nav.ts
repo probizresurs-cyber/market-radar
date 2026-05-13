@@ -77,7 +77,7 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "seo-keywords",   icon: "Key",        label: "Кластер ключей",     count: null },
           { id: "seo-expand",     icon: "Network",    label: "Расширить семантику",count: null },
           { id: "seo-paa",        icon: "HelpCircle", label: "Что спрашивают",     count: null },
-          { id: "seo-tech-audit", icon: "ScanLine",   label: "Тех-аудит страницы", count: null },
+          // Тех-аудит страницы убран отсюда — он есть на основном дашборде
         ],
       },
       {
