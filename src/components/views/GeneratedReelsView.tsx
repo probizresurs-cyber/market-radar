@@ -665,6 +665,10 @@ export function GeneratedReelsView({
   /** Колбек генерации СЦЕНАРИЯ рилса (потом из готового сценария рендерится видео). */
   onGenerateReelScenario?: (idea: ContentReelIdea, customPrompt?: string) => void;
 }) {
+  // Главный sub-tab: «Аватары» (создать/выбрать) или «Видео» (генератор сценариев + список).
+  // Если у юзера ещё нет ни одного аватара — стартуем сразу на «Аватары».
+  const hasAnyAvatar = !!avatarSettings.avatarId || (avatarSettings.customAvatars?.length ?? 0) > 0;
+  const [subTab, setSubTab] = useState<"avatars" | "videos">(hasAnyAvatar ? "videos" : "avatars");
   const [statusTab, setStatusTab] = useState<"idea" | "working" | "ready">("idea");
   const [openReelId, setOpenReelId] = useState<string | null>(null);
 
@@ -716,9 +720,106 @@ export function GeneratedReelsView({
           {reels.length}
         </span>
       </div>
-      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px", display: "flex", alignItems: "center", gap: 6 }}>
-        Сверху — генератор сценариев. Ниже — список с табами по статусам.
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px", display: "flex", alignItems: "center", gap: 6 }}>
+        Сначала создайте аватара (можно несколько) — потом снимайте с ним видео без повторной загрузки.
       </p>
+
+      {/* Sub-tab навигация */}
+      <div style={{
+        display: "flex", gap: 4,
+        marginBottom: 18,
+        borderBottom: "1px solid var(--border)",
+      }}>
+        {([
+          { id: "avatars" as const, label: "Аватары", count: (avatarSettings.customAvatars?.length ?? 0), color: "#8b5cf6" },
+          { id: "videos" as const, label: "Видео", count: reels.length, color: "#ec4899" },
+        ]).map(t => {
+          const active = subTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setSubTab(t.id)}
+              style={{
+                padding: "11px 18px",
+                border: "none", background: "transparent",
+                color: active ? t.color : "var(--muted-foreground)",
+                fontSize: 14, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                borderBottom: `2.5px solid ${active ? t.color : "transparent"}`,
+                marginBottom: -1,
+                display: "inline-flex", alignItems: "center", gap: 7,
+              }}>
+              {t.label}
+              <span style={{
+                fontSize: 11, fontWeight: 800,
+                padding: "1px 7px", borderRadius: 8,
+                background: active ? `${t.color}20` : "color-mix(in oklch, var(--foreground) 8%, transparent)",
+                color: active ? t.color : "var(--muted-foreground)",
+                minWidth: 18, textAlign: "center",
+              }}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* === Sub-tab: Аватары === */}
+      {subTab === "avatars" && (
+        <>
+          <div style={{
+            padding: "12px 16px", borderRadius: 11, marginBottom: 16,
+            background: "color-mix(in oklch, #8b5cf6 6%, var(--card))",
+            border: "1px solid color-mix(in oklch, #8b5cf6 22%, var(--border))",
+            fontSize: 13.5, color: "var(--foreground-secondary)", lineHeight: 1.5,
+          }}>
+            Загрузите фото и образец голоса — это и будет ваш аватар.
+            Можно создать несколько (разные люди, разные стили) и выбирать в табе «Видео».
+            После загрузки рекомендуется снять тестовый ролик на 5-10 секунд.
+          </div>
+          <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
+          {hasAnyAvatar && (
+            <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setSubTab("videos")}
+                style={{
+                  padding: "10px 18px", borderRadius: 9, border: "none",
+                  background: "var(--primary)", color: "#fff",
+                  fontSize: 13.5, fontWeight: 700, cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 7,
+                  fontFamily: "inherit",
+                }}
+              >
+                Снять видео с аватаром →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* === Sub-tab: Видео === */}
+      {subTab === "videos" && (
+      <>
+      {!hasAnyAvatar && (
+        <div style={{
+          padding: "14px 18px", borderRadius: 12, marginBottom: 16,
+          background: "color-mix(in oklch, #8b5cf6 8%, var(--card))",
+          border: "1px dashed color-mix(in oklch, #8b5cf6 35%, var(--border))",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
+        }}>
+          <span style={{ fontSize: 13.5, color: "var(--foreground-secondary)" }}>
+            Сначала создайте аватара — он будет говорящим лицом для всех ваших видео.
+          </span>
+          <button
+            onClick={() => setSubTab("avatars")}
+            style={{
+              padding: "7px 14px", borderRadius: 8,
+              background: "#8b5cf6", color: "#fff",
+              fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none",
+              fontFamily: "inherit",
+            }}>
+            Перейти к аватарам →
+          </button>
+        </div>
+      )}
 
       {/* Встроенный блок «Создать видео» — генератор сценариев рилса */}
       {plan && onGenerateReelScenario ? (
@@ -750,8 +851,6 @@ export function GeneratedReelsView({
           }}>План контента →</a>
         </div>
       )}
-
-      <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
 
       {/* Статус-табы */}
       <div style={{
@@ -842,6 +941,8 @@ export function GeneratedReelsView({
           onGenerateVideo={onGenerateVideo}
           generatingVideoFor={generatingVideoFor}
         />
+      )}
+      </>
       )}
     </div>
   );
