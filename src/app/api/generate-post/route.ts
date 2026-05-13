@@ -146,12 +146,20 @@ function platformGuidelines(platform: string): string {
 - Хэштеги: 5-8`;
 }
 
-function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null, styleProfile: CompanyStyleProfile | null): string {
+function buildPrompt(companyName: string, companyNiche: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null, styleProfile: CompanyStyleProfile | null): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
 УТП: ${smm.brandIdentity.uniqueValue}
 Тон: ${smm.brandIdentity.toneOfVoice.join(", ")}
 Боли ЦА: ${smm.contentStrategy.audienceProblems.join("; ")}
+` : "";
+
+  // Ниша обязательна в промпте: если в названии есть омоним (например
+  // «Менделеев» как фамилия химика vs стоматология «Менделеев»), без
+  // явного указания отрасли GPT генерит визуал по самой известной ассоциации.
+  const nicheBlock = companyNiche ? `
+ВАЖНО — ОТРАСЛЬ КОМПАНИИ: ${companyNiche.slice(0, 280)}
+(Используй эту отрасль и при тексте, и при генерации imagePrompt — визуал ОБЯЗАТЕЛЬНО должен относиться к этой нише, а не к буквальному значению названия.)
 ` : "";
 
   const brandBlock = buildBrandBookBlock(brandBook);
@@ -172,7 +180,7 @@ function buildPrompt(companyName: string, idea: ContentPostIdea, smm: SMMResult 
   return `Разверни идею поста в готовый пост.
 
 Компания: ${companyName}
-${smmBlock}${brandBlock}${styleBlock}${brandConsistencyBlock}
+${nicheBlock}${smmBlock}${brandBlock}${styleBlock}${brandConsistencyBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Формат: ${idea.format}
@@ -190,7 +198,7 @@ ${platformBlock}
    - longread: 1500-2500 знаков
    - story: короткий, 1-3 предложения, ёмко
 3. **Хэштеги** (число и формат — см. правила платформы)
-4. **imagePrompt** — английский промпт для DALL-E 3, описание визуала: стиль, композиция, цвета, настроение, освещение. БЕЗ текста, надписей, лиц с водяными знаками.
+4. **imagePrompt** — английский промпт для AI-генератора изображений. Описание визуала: стиль, композиция, цвета, настроение, освещение. КРИТИЧНО: визуал должен относиться к отрасли компании (см. ВАЖНО — ОТРАСЛЬ выше), а НЕ к буквальному значению названия. Пример: компания «Менделеев Стоматология» → визуал зубоврачебного кабинета, инструменты стоматолога, улыбающийся пациент — но НИ В КОЕМ случае не таблица Менделеева, химические колбы, элементы. БЕЗ текста, надписей, лиц с водяными знаками.
 5. **imageSuggestionRu** — то же самое, что imagePrompt, но коротким описанием на РУССКОМ (1 предложение). Это видит пользователь, чтобы понять что планируется на картинке до её генерации.
 
 Верни СТРОГО JSON:
@@ -209,6 +217,10 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
+    // companyNiche — отрасль/ниша из анализа (myCompany.company.description).
+    // Если пусто, тянем из SMM/брендбука. Нужно, чтобы избежать визуальной
+    // путаницы при компаниях-омонимах («Менделеев» как стоматология ≠ химия).
+    const companyNiche: string = (body.companyNiche ?? "").trim();
     const idea: ContentPostIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const brandBook: BrandBook | null = body.brandBook ?? null;
@@ -232,9 +244,16 @@ export async function POST(req: Request) {
     const brandBlockForCustom = buildBrandBookBlock(brandBook);
     const styleBlockForCustom = buildStyleBlock(styleProfile);
     const extraCustomRules = [brandBlockForCustom, styleBlockForCustom].filter(Boolean).join("\n");
+    // Ниша обогащает и кастомный промпт (когда юзер сам что-то пишет),
+    // чтобы визуал не уехал в «таблица Менделеева» при стоматологии.
+    const effectiveNiche = companyNiche
+      || (smm?.brandIdentity?.positioning ?? "").slice(0, 200);
+    const nicheRule = effectiveNiche
+      ? `\nОТРАСЛЬ КОМПАНИИ: ${effectiveNiche}. Любая визуальная подача должна соответствовать этой нише, а не буквальному названию компании.`
+      : "";
     const userMessage = userPrompt.trim()
-      ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}` : userPrompt.trim())
-      : buildPrompt(companyName, idea, smm, brandBook, styleProfile);
+      ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}${nicheRule}` : `${userPrompt.trim()}${nicheRule}`)
+      : buildPrompt(companyName, effectiveNiche, idea, smm, brandBook, styleProfile);
     const textRes = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
@@ -277,7 +296,15 @@ export async function POST(req: Request) {
         const brandColors = brandBook?.colors?.length
           ? `Brand colors: ${brandBook.colors.join(", ")}.`
           : "";
+        // Жёсткое префиксирование ниши на уровне самого image-prompt-а.
+        // Даже если GPT в `imagePrompt` забыл указать отрасль, эта строка
+        // развернёт визуал в сторону реальной ниши. Помогает против
+        // компаний-омонимов («Менделеев» — стоматология, не химия).
+        const nichePrefix = effectiveNiche
+          ? `Industry/niche context: ${effectiveNiche}. The image MUST visually depict this industry, not the literal meaning of the company name.`
+          : "";
         const enrichedPrompt = [
+          nichePrefix,
           parsed.imagePrompt,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,

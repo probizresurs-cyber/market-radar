@@ -232,7 +232,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
               placeholder="минимализм, тёплые бежевые тона, мягкий свет, плёночная зернистость, без стоковых лиц"
               style={taStyle}
             />
-            <div style={hintStyle}>Добавляется к промпту Gemini/DALL-E для каждой картинки.</div>
+            <div style={hintStyle}>Добавляется к промпту AI-генератора для каждой картинки.</div>
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -259,7 +259,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
                   Сгенерировать AI
                 </span>
                 <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-                  · DALL-E 3 · 2 варианта по клику
+                  · gpt-image-2 · 2 варианта по клику
                 </span>
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>

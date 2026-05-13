@@ -982,6 +982,9 @@ function MarketRadarDashboardInner() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             companyName,
+            // Ниша из анализа — критично для image prompt при компаниях-омонимах
+            // (например «Менделеев Стоматология» ≠ химик Менделеев).
+            companyNiche: myCompany?.company?.description ?? "",
             idea: adaptedIdea,
             smmAnalysis,
             brandBook,
@@ -1126,7 +1129,9 @@ function MarketRadarDashboardInner() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        companyName, idea: adaptedIdea, smmAnalysis, brandBook,
+        companyName,
+        companyNiche: myCompany?.company?.description ?? "",
+        idea: adaptedIdea, smmAnalysis, brandBook,
         companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
         generateImage: true, userPrompt: idea.prompt,
       }),
@@ -1172,6 +1177,7 @@ function MarketRadarDashboardInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         companyName,
+        companyNiche: myCompany?.company?.description ?? "",
         idea: { ...adaptedIdea, id: `${idea.id}-car`, format: "карусель" as const },
         smmAnalysis, brandBook,
         companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
@@ -1261,6 +1267,7 @@ function MarketRadarDashboardInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
+          companyNiche: myCompany?.company?.description ?? "",
           idea,
           smmAnalysis,
           brandBook,

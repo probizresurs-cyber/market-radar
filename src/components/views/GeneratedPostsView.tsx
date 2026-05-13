@@ -507,6 +507,10 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   onDelete: (id: string) => void;
   brandBook?: BrandBook;
 }) {
+  // Карточка по умолчанию свёрнута в компактную строку (превью + крючок).
+  // Это даёт быстрый скан 20+ постов на одной странице — раньше каждая
+  // карточка занимала 700-1000px высоты, и при 10 постах терялся контекст.
+  const [collapsed, setCollapsed] = useState(true);
   const [editing, setEditing] = useState(false);
   const [hook, setHook] = useState(post.hook);
   const [body, setBody] = useState(post.body);
@@ -638,6 +642,100 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
     marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase",
   };
 
+  // Цвет «акцента» под платформу — для левой полоски и chip.
+  const platformAccent =
+    post.platform === "instagram" ? "#ec4899" :
+    post.platform === "vk" ? "#4a76a8" :
+    post.platform === "telegram" ? "#229ED9" :
+    post.platform === "linkedin" ? "#0a66c2" :
+    "#f59e0b";
+
+  // === Свёрнутый режим: одна строка-сводка ===
+  if (collapsed && !editing) {
+    const hookSnippet = (post.hook || post.body).slice(0, 110).trim();
+    return (
+      <div
+        onClick={() => setCollapsed(false)}
+        style={{
+          background: "var(--card)",
+          borderRadius: 12,
+          border: "1px solid var(--border)",
+          borderLeft: `3px solid ${platformAccent}`,
+          padding: "10px 14px",
+          display: "flex", alignItems: "center", gap: 12,
+          cursor: "pointer",
+          transition: "background 0.12s, border-color 0.12s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "color-mix(in oklch, var(--card) 92%, var(--primary) 4%)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "var(--card)"; }}
+        title="Кликните, чтобы развернуть"
+      >
+        {/* Thumb 56×56 */}
+        <div style={{
+          width: 56, height: 56, borderRadius: 9,
+          background: post.imageUrl ? "transparent" : `linear-gradient(135deg, ${platformAccent}30, ${platformAccent}10)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, overflow: "hidden",
+          border: post.imageUrl ? `1px solid var(--border)` : "none",
+        }}>
+          {post.imageUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={post.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <Image size={20} style={{ color: platformAccent, opacity: 0.7 }} />
+          )}
+        </div>
+
+        {/* Body: platform chip + hook */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{
+              fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
+              background: `${platformAccent}18`, color: platformAccent,
+              borderRadius: 5, padding: "2px 7px",
+            }}>{post.platform}</span>
+            {isCarousel && (
+              <span style={{
+                fontSize: 10.5, fontWeight: 700,
+                background: "#6366f118", color: "#818cf8",
+                borderRadius: 5, padding: "2px 7px",
+              }}>Карусель</span>
+            )}
+            {post.imageUrl && (
+              <span style={{
+                fontSize: 10.5, fontWeight: 700,
+                background: "#22c55e18", color: "#22c55e",
+                borderRadius: 5, padding: "2px 7px",
+                display: "inline-flex", alignItems: "center", gap: 3,
+              }}>
+                <Image size={9}/> фото
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)", marginLeft: "auto" }}>
+              {new Date(post.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
+            </span>
+          </div>
+          <div style={{
+            fontSize: 14, fontWeight: 600, color: "var(--foreground)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            lineHeight: 1.35,
+          }}>
+            {hookSnippet || "Без заголовка"}
+          </div>
+        </div>
+
+        {/* Chevron */}
+        <span style={{
+          fontSize: 13, color: "var(--muted-foreground)",
+          flexShrink: 0,
+        }}>
+          ▶
+        </span>
+      </div>
+    );
+  }
+
+  // === Развёрнутый режим — старая большая карточка ===
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, border: `2px solid ${editing ? "color-mix(in oklch, var(--primary) 38%, transparent)" : "var(--border)"}`, padding: 20, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
       {/* Header */}
@@ -656,6 +754,15 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
           {!editing && (
             <button onClick={() => setEditing(true)} title="Редактировать" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Pencil size={13}/>
+            </button>
+          )}
+          {!editing && (
+            <button
+              onClick={() => setCollapsed(true)}
+              title="Свернуть карточку"
+              style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              ▲
             </button>
           )}
         </div>
@@ -1158,6 +1265,10 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   /** Состояние воронки — для OnboardingChecklist на пустом view. */
   onboardingState?: OnboardingState;
 }) {
+  // Фильтр по платформе + поиск по тексту: критично когда постов 20+
+  const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
   if (posts.length === 0) {
     return (
       <div style={{ maxWidth: 760 }}>
@@ -1201,13 +1312,93 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
           {posts.length}
         </span>
       </div>
-      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Кликните на карточке, чтобы посмотреть и отредактировать.</p>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Кликните на строку, чтобы развернуть пост.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 18 }}>
-        {posts.map(post => (
-          <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
-        ))}
-      </div>
+
+      {/* Фильтры — chip-toolbar + поиск.
+          Появляется только при ≥4 постах: при меньшем количестве фильтрация ни к чему. */}
+      {posts.length >= 4 && (() => {
+        const platforms: Array<{ id: typeof platformFilter; label: string; color: string }> = [
+          { id: "all", label: "Все", color: "var(--primary)" },
+          { id: "instagram", label: "Instagram", color: "#ec4899" },
+          { id: "vk", label: "VK", color: "#4a76a8" },
+          { id: "telegram", label: "Telegram", color: "#229ED9" },
+          { id: "linkedin", label: "LinkedIn", color: "#0a66c2" },
+        ];
+        return (
+          <div style={{
+            display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
+            padding: "10px 14px", borderRadius: 11,
+            background: "var(--background)", border: "1px solid var(--border)",
+            marginBottom: 14,
+          }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {platforms.map(p => {
+                const count = p.id === "all" ? posts.length : posts.filter(po => po.platform === p.id).length;
+                if (p.id !== "all" && count === 0) return null;
+                const active = platformFilter === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setPlatformFilter(p.id)}
+                    style={{
+                      padding: "6px 12px", borderRadius: 7,
+                      border: `1.5px solid ${active ? p.color : "var(--border)"}`,
+                      background: active ? `${p.color}15` : "transparent",
+                      color: active ? p.color : "var(--foreground-secondary)",
+                      fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "inherit",
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                    }}>
+                    {p.label}
+                    <span style={{ fontSize: 10.5, opacity: 0.7 }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Поиск по тексту…"
+              style={{
+                flex: 1, minWidth: 180,
+                padding: "7px 12px", borderRadius: 7,
+                border: "1px solid var(--border)",
+                background: "var(--card)", color: "var(--foreground)",
+                fontSize: 12.5, outline: "none", fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+        );
+      })()}
+
+      {(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = posts.filter(p =>
+          (platformFilter === "all" || p.platform === platformFilter) &&
+          (!q || `${p.hook} ${p.body}`.toLowerCase().includes(q))
+        );
+        if (filtered.length === 0) {
+          return (
+            <div style={{
+              padding: "32px 20px", borderRadius: 12,
+              background: "var(--card)", border: "1px dashed var(--border)",
+              textAlign: "center", color: "var(--muted-foreground)", fontSize: 14,
+            }}>
+              По выбранным фильтрам ничего не найдено
+            </div>
+          );
+        }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filtered.map(post => (
+              <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
