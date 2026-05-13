@@ -1,125 +1,56 @@
+/**
+ * POST /api/generate-reel-video
+ *
+ * Создаёт ВСЁ-в-одном видео через HeyGen Video Agent v3:
+ * - аватар произносит сценарий
+ * - b-roll автоматически вшивается между планами
+ * - сабтитры автоматически добавляются
+ *
+ * Раньше это были 3 отдельных запроса (v2 video/generate + b-roll workflows
+ * + ElevenLabs TTS upload). v3/video-agents делает всё одним вызовом.
+ *
+ * Docs: https://developers.heygen.com/reference/create-video-agent-session
+ *
+ * Body:
+ *   script           — voiceover-сценарий (то что говорит аватар)
+ *   prompt?          — расширенный промпт для агента; если не задан,
+ *                      собирается из script + companyContext
+ *   avatarId?        — конкретный аватар (опц, агент выберет авто)
+ *   voiceId?         — конкретный голос (опц)
+ *   aspect?          — "portrait" | "landscape"
+ *   companyName?, companyNiche? — для контекста в auto-prompt
+ *   title?, hook?    — заголовок/крючок рилса (улучшают авто-prompt)
+ *
+ * Returns:
+ *   { ok, data: { sessionId, videoId? } }
+ *   videoId появится позже — клиент поллит /api/video-status?sessionId=...
+ */
 import { NextResponse } from "next/server";
-import { ELEVENLABS_API_KEY, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
-
-// HeyGen v2 video generation.
-// Docs: https://docs.heygen.com/reference/create-an-avatar-video-v2
-// Returns a video_id which must then be polled via /api/video-status.
-//
-// Two voice modes are supported:
-//   1. HeyGen TTS (default) — pass voiceId from HeyGen catalog; HeyGen synthesizes.
-//   2. ElevenLabs voice      — pass elevenlabsVoiceId; this route:
-//        a) calls ElevenLabs TTS to synthesize an MP3,
-//        b) uploads that MP3 to HeyGen as an audio asset,
-//        c) calls HeyGen v2 video/generate with voice.type = "audio".
-//      This is how we plug cloned ElevenLabs voices into HeyGen talking-photo
-//      videos — HeyGen's own voice-clone API 404s, ElevenLabs works reliably.
-
-const DEFAULT_AVATAR_ID = "Daisy-inskirt-20220818";
-const DEFAULT_VOICE_ID = "1bd001e7e50f421d891986aad5158bc8"; // дефолтный голос HeyGen
-
-type HeyGenVoice =
-  | { type: "text"; input_text: string; voice_id: string }
-  | { type: "audio"; audio_asset_id: string };
-
-async function synthesizeWithElevenLabs(
-  text: string,
-  voiceId: string,
-): Promise<{ ok: true; mp3: ArrayBuffer } | { ok: false; error: string; status: number }> {
-  if (!ELEVENLABS_API_KEY) {
-    return { ok: false, error: "ELEVENLABS_API_KEY не настроен", status: 500 };
-  }
-  const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
-    {
-      method: "POST",
-      headers: {
-        "xi-api-key": ELEVENLABS_API_KEY,
-        "Content-Type": "application/json",
-        Accept: "audio/mpeg",
-      },
-      body: JSON.stringify({
-        text,
-        model_id: ELEVENLABS_DEFAULT_MODEL,
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0,
-          use_speaker_boost: true,
-        },
-      }),
-    },
-  );
-  if (!res.ok) {
-    const errorText = await res.text();
-    return {
-      ok: false,
-      error: `ElevenLabs TTS error ${res.status}: ${errorText.slice(0, 300)}`,
-      status: 500,
-    };
-  }
-  return { ok: true, mp3: await res.arrayBuffer() };
-}
-
-async function uploadAudioToHeyGen(
-  apiKey: string,
-  mp3: ArrayBuffer,
-): Promise<{ ok: true; assetId: string } | { ok: false; error: string }> {
-  // HeyGen asset upload. Docs: https://docs.heygen.com/reference/upload-asset
-  // Endpoint: POST https://upload.heygen.com/v1/asset
-  // Body: raw binary, Content-Type: audio/mpeg (or image/* / video/*).
-  // Response: { code: 100, data: { id, url, ... } } — "id" is the asset_id
-  // that HeyGen v2 video/generate accepts as audio_asset_id.
-  const res = await fetch("https://upload.heygen.com/v1/asset", {
-    method: "POST",
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "X-Api-Key": apiKey,
-      Accept: "application/json",
-    },
-    body: new Uint8Array(mp3),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    return { ok: false, error: `HeyGen asset upload ${res.status}: ${text.slice(0, 300)}` };
-  }
-  let parsed: { data?: { id?: string; asset_id?: string } } = {};
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    /* ignore */
-  }
-  const assetId = parsed?.data?.id ?? parsed?.data?.asset_id;
-  if (!assetId) {
-    return {
-      ok: false,
-      error: `HeyGen asset upload вернул неожиданный ответ: ${text.slice(0, 300)}`,
-    };
-  }
-  return { ok: true, assetId };
-}
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const script: string = (body.script ?? "").toString().trim();
-    const avatarId: string = body.avatarId ?? process.env.HEYGEN_AVATAR_ID ?? DEFAULT_AVATAR_ID;
-    const voiceId: string = body.voiceId ?? process.env.HEYGEN_VOICE_ID ?? DEFAULT_VOICE_ID;
-    const avatarType: "preset" | "talking_photo" =
-      body.avatarType === "talking_photo" ? "talking_photo" : "preset";
+    const customPrompt: string = (body.prompt ?? "").toString().trim();
+    const avatarId: string | undefined =
+      typeof body.avatarId === "string" && body.avatarId.trim() ? body.avatarId.trim() : undefined;
+    const voiceId: string | undefined =
+      typeof body.voiceId === "string" && body.voiceId.trim() ? body.voiceId.trim() : undefined;
     const aspect: "portrait" | "landscape" =
       body.aspect === "landscape" ? "landscape" : "portrait";
-    const elevenlabsVoiceId: string | undefined =
-      typeof body.elevenlabsVoiceId === "string" && body.elevenlabsVoiceId.trim()
-        ? body.elevenlabsVoiceId.trim()
-        : undefined;
-    const voiceProvider: "heygen" | "elevenlabs" =
-      body.voiceProvider === "elevenlabs" || elevenlabsVoiceId ? "elevenlabs" : "heygen";
+    const companyName: string = (body.companyName ?? "").toString().trim();
+    const companyNiche: string = (body.companyNiche ?? "").toString().trim();
+    const title: string = (body.title ?? "").toString().trim();
+    const hook: string = (body.hook ?? "").toString().trim();
 
-    if (!script) {
-      return NextResponse.json({ ok: false, error: "Пустой текст для озвучки" }, { status: 400 });
+    if (!script && !customPrompt) {
+      return NextResponse.json(
+        { ok: false, error: "Нужен script или prompt" },
+        { status: 400 },
+      );
     }
 
     const apiKey = process.env.HEYGEN_API_KEY;
@@ -127,40 +58,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    const dimension =
-      aspect === "portrait" ? { width: 720, height: 1280 } : { width: 1280, height: 720 };
-
-    const character =
-      avatarType === "talking_photo"
-        ? { type: "talking_photo", talking_photo_id: avatarId }
-        : { type: "avatar", avatar_id: avatarId, avatar_style: "normal" };
-
-    // Build voice payload. For ElevenLabs, synthesize to MP3 then upload to HeyGen.
-    let voice: HeyGenVoice;
-    if (voiceProvider === "elevenlabs" && elevenlabsVoiceId) {
-      const tts = await synthesizeWithElevenLabs(script, elevenlabsVoiceId);
-      if (!tts.ok) {
-        return NextResponse.json({ ok: false, error: tts.error }, { status: tts.status });
-      }
-      const upload = await uploadAudioToHeyGen(apiKey, tts.mp3);
-      if (!upload.ok) {
-        return NextResponse.json({ ok: false, error: upload.error }, { status: 500 });
-      }
-      voice = { type: "audio", audio_asset_id: upload.assetId };
+    // Собираем промпт для агента. Видео-агент HeyGen ожидает естественное
+    // описание видео — какой контекст, что говорит аватар, какой стиль b-roll.
+    // Скрипт оборачиваем как «обязательный текст озвучки».
+    let prompt: string;
+    if (customPrompt) {
+      prompt = customPrompt;
     } else {
-      voice = { type: "text", input_text: script, voice_id: voiceId };
+      const parts: string[] = [];
+      if (companyName) {
+        parts.push(
+          `Create a vertical short-form video for the company "${companyName}"${companyNiche ? ` (industry: ${companyNiche.slice(0, 240)})` : ""}.`
+        );
+      } else {
+        parts.push("Create a vertical short-form video.");
+      }
+      if (title) parts.push(`Title: ${title}.`);
+      if (hook) parts.push(`Opening hook: ${hook}.`);
+      parts.push(
+        `The avatar must speak EXACTLY this voiceover script (do not change wording):\n"""\n${script}\n"""`
+      );
+      parts.push(
+        "Insert cinematic b-roll between avatar shots to illustrate key points. " +
+        "Add burned-in subtitles for accessibility. " +
+        "Style: modern, premium, cinematic lighting, shallow depth of field. " +
+        "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
+      );
+      // HeyGen лимит — 10000 символов на промпт.
+      prompt = parts.join("\n\n").slice(0, 9800);
     }
 
-    const payload = {
-      video_inputs: [{ character, voice }],
-      dimension,
-    };
+    const orientation = aspect === "portrait" ? "portrait" : "landscape";
 
-    const res = await fetch("https://api.heygen.com/v2/video/generate", {
+    interface AgentPayload {
+      prompt: string;
+      mode: "generate";
+      orientation: "portrait" | "landscape";
+      avatar_id?: string;
+      voice_id?: string;
+    }
+    const payload: AgentPayload = {
+      prompt,
+      mode: "generate",
+      orientation,
+    };
+    if (avatarId) payload.avatar_id = avatarId;
+    if (voiceId) payload.voice_id = voiceId;
+
+    const res = await fetch("https://api.heygen.com/v3/video-agents", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "X-Api-Key": apiKey,
+        "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify(payload),
@@ -168,30 +117,44 @@ export async function POST(req: Request) {
 
     const text = await res.text();
     if (!res.ok) {
+      const hint =
+        res.status === 401 || res.status === 403
+          ? " — Video Agents API недоступен на вашем тарифе HeyGen. Нужен платный план с включённым продуктом."
+          : res.status === 404
+          ? " — endpoint /v3/video-agents не найден. Проверьте версию API."
+          : "";
       return NextResponse.json(
-        { ok: false, error: `HeyGen error ${res.status}: ${text.slice(0, 300)}` },
+        { ok: false, error: `HeyGen ${res.status}: ${text.slice(0, 400)}${hint}` },
         { status: 500 },
       );
     }
 
-    let parsed: { data?: { video_id?: string }; error?: unknown } = {};
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      /* ignore */
-    }
+    let parsed: {
+      data?: { session_id?: string; status?: string; video_id?: string | null };
+    } = {};
+    try { parsed = JSON.parse(text); } catch { /* ignore */ }
 
-    const videoId = parsed?.data?.video_id;
-    if (!videoId) {
+    const sessionId = parsed?.data?.session_id;
+    const videoId = parsed?.data?.video_id ?? undefined;
+    if (!sessionId) {
       return NextResponse.json(
-        { ok: false, error: `HeyGen вернул неожиданный ответ: ${text.slice(0, 300)}` },
+        { ok: false, error: `HeyGen не вернул session_id: ${text.slice(0, 400)}` },
         { status: 500 },
       );
     }
 
+    // Возвращаем sessionId под именем videoId (для бинарной совместимости с
+    // существующим фронтом, который сохраняет heygenVideoId и поллит по нему).
+    // /api/video-status дальше разрулит — это session_id v3.
     return NextResponse.json({
       ok: true,
-      data: { videoId, voiceProvider },
+      data: {
+        videoId: sessionId,
+        sessionId,
+        // realVideoId доступен только когда session.status=completed
+        realVideoId: videoId,
+        voiceProvider: "video-agent",
+      },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

@@ -1358,8 +1358,9 @@ function MarketRadarDashboardInner() {
     if (!reel) return;
     setGeneratingVideoFor(reelId);
     try {
-      const useElevenLabs =
-        avatarSettings.voiceProvider === "elevenlabs" && !!avatarSettings.elevenlabsVoiceId;
+      // Видео-агент HeyGen v3 — единый запрос: аватар + b-roll + сабтитры.
+      // ElevenLabs/HeyGen TTS-флаги больше не нужны: агент сам синтезирует
+      // голос (можно подсунуть voice_id если есть кастомный).
       const res = await fetch("/api/generate-reel-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1367,10 +1368,11 @@ function MarketRadarDashboardInner() {
           script: reel.voiceoverScript,
           avatarId: avatarSettings.avatarId || undefined,
           voiceId: avatarSettings.voiceId || undefined,
-          avatarType: avatarSettings.avatarType ?? "preset",
           aspect: avatarSettings.aspect,
-          voiceProvider: useElevenLabs ? "elevenlabs" : "heygen",
-          elevenlabsVoiceId: useElevenLabs ? avatarSettings.elevenlabsVoiceId : undefined,
+          title: reel.title,
+          hook: reel.title, // первый сильный месседж — используем как hook
+          companyName: myCompany?.company?.name ?? "",
+          companyNiche: myCompany?.company?.description ?? "",
         }),
       });
       const json = await res.json();

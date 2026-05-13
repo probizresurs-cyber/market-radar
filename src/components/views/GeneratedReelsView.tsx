@@ -424,15 +424,38 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             <div style={{ background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", padding: "10px 14px", borderRadius: 10, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><X size={14}/> {reel.videoError}</div>
           )}
 
-          {/* Порядок: сначала B-roll (готовим вспомогательные кадры),
-              потом основное видео с аватаром. Так логичнее по продакшен-флоу. */}
+          {/* B-roll секция оставлена как опциональная для пользователей, кто
+              хочет генерировать кадры отдельно (для монтажа в CapCut/Premiere).
+              Основной флоу теперь — кнопка «Сгенерировать видео» ниже,
+              которая создаёт видео уже с встроенным b-roll и сабтитрами
+              через /v3/video-agents. */}
 
-          {/* ── B-roll section (HeyGen Video Agent v3) ─────────── */}
           <div style={{
-            marginBottom: 14, padding: "14px 16px", borderRadius: 12,
-            background: "color-mix(in oklch, #ec4899 5%, transparent)",
-            border: "1px dashed #ec489955",
+            marginBottom: 14, padding: "12px 14px", borderRadius: 10,
+            background: "color-mix(in oklch, #22c55e 6%, transparent)",
+            border: "1px solid color-mix(in oklch, #22c55e 25%, transparent)",
+            fontSize: 12.5, color: "var(--foreground-secondary)", lineHeight: 1.5,
           }}>
+            <div style={{ fontWeight: 700, color: "#22c55e", marginBottom: 4 }}>
+              Видео-агент готовит всё в одном клипе
+            </div>
+            При генерации сразу собирается финальное видео с аватаром, b-roll-кадрами и сабтитрами — отдельно ничего рендерить не нужно. Кнопка ниже.
+          </div>
+
+          {/* ── Опциональный b-roll стандалон (для пользователей с монтажом) ─── */}
+          <details style={{
+            marginBottom: 14, padding: "10px 14px", borderRadius: 10,
+            background: "color-mix(in oklch, #ec4899 4%, transparent)",
+            border: "1px dashed #ec489940",
+          }}>
+            <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#ec4899", letterSpacing: "0.02em" }}>
+              B-roll кадры отдельно (для ручного монтажа)
+            </summary>
+            <div style={{
+              marginTop: 12, padding: "12px 14px", borderRadius: 10,
+              background: "color-mix(in oklch, #ec4899 5%, transparent)",
+              border: "1px dashed #ec489955",
+            }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Film size={15} style={{ color: "#ec4899" }} />
@@ -629,9 +652,10 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          </details>
 
-          {/* Основная генерация видео с аватаром — после подготовки b-roll */}
+          {/* Основная генерация видео — единый all-in-one через v3/video-agents */}
           {reel.videoStatus !== "ready" && (
             <button
               onClick={() => onGenerateVideo(reel.id)}
