@@ -117,14 +117,26 @@ export async function POST(req: Request) {
 
     const text = await res.text();
     if (!res.ok) {
+      // HeyGen v3 error shape: { error: { code, message, param? } }
+      let humanMsg = text.slice(0, 400);
+      try {
+        const errBody: { error?: { code?: string; message?: string; param?: string } } = JSON.parse(text);
+        if (errBody.error?.message) {
+          humanMsg = errBody.error.message;
+          if (errBody.error.code) humanMsg = `${errBody.error.code}: ${humanMsg}`;
+        }
+      } catch { /* not JSON — keep raw text */ }
+
       const hint =
         res.status === 401 || res.status === 403
           ? " — Video Agents API недоступен на вашем тарифе HeyGen. Нужен платный план с включённым продуктом."
           : res.status === 404
           ? " — endpoint /v3/video-agents не найден. Проверьте версию API."
+          : res.status === 429
+          ? " — превышен rate-limit, повторите через минуту."
           : "";
       return NextResponse.json(
-        { ok: false, error: `HeyGen ${res.status}: ${text.slice(0, 400)}${hint}` },
+        { ok: false, error: `HeyGen ${res.status}: ${humanMsg}${hint}` },
         { status: 500 },
       );
     }
