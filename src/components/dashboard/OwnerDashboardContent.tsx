@@ -18,6 +18,7 @@ import {
   classifyCompetitorCounter,
   classifyChartHistory,
 } from "@/lib/data-quality";
+import { QuickAnalyzeCard } from "./QuickAnalyzeCard";
 
 // ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
 interface CJMTouchpoint { channel: string; action: string; icon: string }
@@ -795,6 +796,26 @@ export function OwnerDashboardContent({
             </div>
           )}
 
+          {/* Quick-analyze: руководитель может прогнать любой URL без перехода в основное приложение */}
+          {mode === "private" && (
+            <QuickAnalyzeCard
+              paletteVars={{
+                bgCard: p.bgCard,
+                bgSecondary: p.bgSecondary,
+                textPrimary: p.textPrimary,
+                textSecondary: p.textSecondary,
+                textTertiary: p.textTertiary,
+                borderTertiary: p.borderTertiary,
+                primary: p.primary,
+                primaryHover: p.primary,
+                red: p.red,
+                redBg: p.redBg,
+                green: p.green,
+              }}
+              onOpenFullDashboard={() => { window.location.href = "/"; }}
+            />
+          )}
+
           {/* Tab bar */}
           <TabBar p={p} active={activeTab} onChange={setActiveTab} tabs={tabs} />
 
@@ -840,6 +861,138 @@ export function OwnerDashboardContent({
           {/* ═══ OVERVIEW TAB ═══ */}
           {activeTab === "overview" && (
             <>
+              {/* Сводка по модулям анализа — общая картина «что готово» */}
+              {(() => {
+                const modules = [
+                  { key: "ta", label: "Целевая аудитория", ready: !!data.ta, value: data.ta?.segments?.length, unit: "сегментов", nav: "ta-dashboard" },
+                  { key: "smm", label: "СММ-стратегия", ready: !!data.smm, value: data.smm?.platformStrategies?.length, unit: "платформ", nav: "smm-dashboard" },
+                  { key: "cjm", label: "Customer Journey", ready: !!data.cjm, value: data.cjm?.stages?.length, unit: "этапов", nav: "ta-cjm" },
+                  { key: "benchmarks", label: "Бенчмарки ниши", ready: !!data.benchmarks, value: undefined, unit: "", nav: "ta-benchmarks" },
+                  { key: "content", label: "Контент-завод", ready: !!(data.content?.plan), value: (data.content?.plan?.postIdeas?.length ?? 0) + (data.content?.plan?.reelIdeas?.length ?? 0), unit: "идей", nav: "content-plan" },
+                  { key: "brandbook", label: "Брендбук", ready: !!(data.brandbook?.brandName), value: undefined, unit: "", nav: "ta-brandbook" },
+                ];
+                const ready = modules.filter(m => m.ready).length;
+                return (
+                  <div className="mr-card" style={{ padding: "16px 20px", marginBottom: 20, animationDelay: "50ms" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.08em", marginBottom: 4 }}>
+                          МОДУЛИ АНАЛИЗА
+                        </div>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: p.textPrimary }}>
+                          {ready} из {modules.length} {ready === 1 ? "модуль готов" : ready < 5 ? "модуля готовы" : "модулей готово"}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <div style={{ width: 140, height: 6, background: p.bgSecondary, borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{
+                            width: `${(ready / modules.length) * 100}%`,
+                            height: "100%", background: p.green,
+                            transition: "width 0.4s ease",
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: p.green }}>{Math.round((ready / modules.length) * 100)}%</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+                      {modules.map(m => (
+                        <a
+                          key={m.key}
+                          href={mode === "private" ? `/?nav=${m.nav}` : undefined}
+                          style={{
+                            padding: "10px 12px", borderRadius: 9,
+                            background: m.ready ? `${p.green}10` : p.bgSecondary,
+                            border: `1px solid ${m.ready ? p.green + "30" : p.borderTertiary}`,
+                            display: "block", textDecoration: "none",
+                            cursor: mode === "private" ? "pointer" : "default",
+                            transition: "transform 0.12s",
+                          }}
+                          onMouseEnter={e => { if (mode === "private") (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: m.ready ? p.green : p.textTertiary, flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: m.ready ? p.textPrimary : p.textTertiary }}>{m.label}</span>
+                          </div>
+                          {m.ready && m.value !== undefined && (
+                            <div style={{ fontSize: 11, color: p.textSecondary, marginLeft: 14 }}>
+                              {m.value} {m.unit}
+                            </div>
+                          )}
+                          {!m.ready && (
+                            <div style={{ fontSize: 11, color: p.textTertiary, marginLeft: 14 }}>не запущен</div>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Keys.so краткая SEO-сводка (показываем только если есть данные) */}
+              {(myCompany.keysoDashboard?.yandex || myCompany.keysoDashboard?.google) && (() => {
+                const y = myCompany.keysoDashboard?.yandex;
+                const g = myCompany.keysoDashboard?.google;
+                const totalKw = (y?.top50 ?? 0) + (g?.top50 ?? 0);
+                const top3Total = (y?.top3 ?? 0) + (g?.top3 ?? 0);
+                const top10Total = (y?.top10 ?? 0) + (g?.top10 ?? 0);
+                const trafficTotal = (y?.traffic ?? 0) + (g?.traffic ?? 0);
+                return (
+                  <div className="mr-card" style={{ padding: "18px 20px", marginBottom: 20, animationDelay: "100ms" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 8,
+                        background: `${p.primary}18`, color: p.primary,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <Search size={15} strokeWidth={2.2} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: p.textPrimary }}>
+                          SEO-позиции (Keys.so)
+                        </div>
+                        <div style={{ fontSize: 12, color: p.textSecondary, marginTop: 1 }}>
+                          Реальные данные по {y && g ? "Яндекс + Google" : y ? "Яндекс" : "Google"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ВСЕГО КЛЮЧЕЙ</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
+                          {totalKw.toLocaleString("ru-RU")}
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>В ТОП-3</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: p.green, marginTop: 4, letterSpacing: -0.5 }}>
+                          {top3Total.toLocaleString("ru-RU")}
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>В ТОП-10</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
+                          {top10Total.toLocaleString("ru-RU")}
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ТРАФИК / ДЕНЬ</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
+                          {trafficTotal.toLocaleString("ru-RU")}
+                        </div>
+                      </div>
+                    </div>
+                    {(y && g) && (
+                      <div style={{ marginTop: 12, padding: "9px 14px", background: p.bgSecondary, borderRadius: 8, fontSize: 12, color: p.textSecondary }}>
+                        <b style={{ color: "#FF5500" }}>Яндекс</b>: {y.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10
+                        {" · "}
+                        <b style={{ color: "#4285F4" }}>Google</b>: {g.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Metrics */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }} className="mr-metrics-grid">
                 <MetricCard

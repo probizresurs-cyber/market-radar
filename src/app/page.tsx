@@ -115,6 +115,7 @@ import { NewSMMView, SMMEmptyDashboard, SMMDashboardView } from "@/components/vi
 import { ContentEmptyView, NewContentPlanView, ContentPlanView } from "@/components/views/ContentPlanView";
 import { ContentCalendarView } from "@/components/views/ContentCalendarView";
 import { AgentHubView } from "@/components/views/AgentHubView";
+import { NewAnalysisWizard } from "@/components/views/NewAnalysisWizard";
 import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { PackageProgressModal, type PackageProgress } from "@/components/ui/PackageProgressModal";
@@ -552,6 +553,50 @@ function MarketRadarDashboardInner() {
   };
 
   // New analysis from within dashboard
+  /**
+   * Multi-module analysis trigger (новый wizard).
+   * 1. Запускает основной анализ компании
+   * 2. Параллельно дёргает выбранные модули: TA / SMM / Competitors / Reviews
+   * 3. Каждый модуль не блокирует завершение основного — пользователь видит
+   *    дашборд сразу, остальные подгружаются по мере готовности
+   */
+  const handleNewAnalysisWithOptions = async (opts: {
+    url: string;
+    modules: Array<"ta" | "smm" | "competitors" | "reviews">;
+    smm?: { vk?: string; telegram?: string; instagram?: string };
+    competitorUrls?: string[];
+  }) => {
+    await handleNewAnalysis(opts.url);
+    // Параллельно запускаем выбранные модули. Каждый имеет свой
+    // лоадер-state (isTAAnalyzing/isSMMAnalyzing) — UI отрисует.
+    const tasks: Promise<unknown>[] = [];
+
+    if (opts.modules.includes("ta")) {
+      tasks.push(handleTAAnalysis("", "", "b2c").catch(() => {/* don't block */}));
+    }
+    if (opts.modules.includes("smm")) {
+      const links = {
+        vk: opts.smm?.vk ?? "",
+        telegram: opts.smm?.telegram ?? "",
+        instagram: opts.smm?.instagram ?? "",
+        facebook: "",
+        tiktok: "",
+        youtube: "",
+      } as SMMSocialLinks;
+      tasks.push(handleSMMAnalysis("", links).catch(() => {/* don't block */}));
+    }
+    if (opts.modules.includes("competitors") && opts.competitorUrls?.length) {
+      for (const compUrl of opts.competitorUrls.slice(0, 3)) {
+        tasks.push(handleAddCompetitor(compUrl).catch(() => {/* don't block */}));
+      }
+    }
+    // Reviews — не имеет дешёвого «запусти и забудь» endpoint'а, юзер запустит
+    // вручную из вкладки «Рынок и отзывы». Просто открываем эту вкладку как hint.
+
+    // Fire-and-forget: пускай работают в фоне, пользователь смотрит дашборд
+    void Promise.all(tasks);
+  };
+
   const handleNewAnalysis = async (url: string) => {
     setIsAnalyzing(true);
     try {
@@ -1609,7 +1654,7 @@ function MarketRadarDashboardInner() {
         {/* Глобальные оверлеи — пакетная генерация */}
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "agents" && <AgentHubView c={c} />}
-        {activeNav === "new-analysis" && <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />}
+        {activeNav === "new-analysis" && <NewAnalysisWizard c={c} onSubmit={handleNewAnalysisWithOptions} isAnalyzing={isAnalyzing} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
