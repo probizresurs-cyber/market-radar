@@ -26,6 +26,9 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
   const [pendingVoiceName, setPendingVoiceName] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [pendingVideoName, setPendingVideoName] = useState("");
 
   const customAvatars = settings.customAvatars ?? [];
   const customVoices = settings.customVoices ?? [];
@@ -75,6 +78,48 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
     } finally {
       setUploadingPhoto(false);
       if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  // Avatar из видео-footage. HeyGen ловит мимику + говорящие движения
+  // и делает «look» (выше качество lip-sync чем talking-photo).
+  const handleUploadVideo = async (file: File) => {
+    setUploadingVideo(true);
+    setUploadError(null);
+    try {
+      if (file.size > 100 * 1024 * 1024) throw new Error("Файл больше 100 МБ");
+      if (!file.type.startsWith("video/")) throw new Error("Нужен видео-файл MP4 / MOV / WebM");
+      const dataUrl = await readFileAsDataUrl(file);
+      const name = pendingVideoName.trim() || file.name.replace(/\.[^.]+$/, "") || "Видео-аватар";
+      const res = await fetch("/api/heygen-upload-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
+      });
+      const json = await res.json() as { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "Ошибка загрузки");
+
+      const newAvatar: CustomAvatar = {
+        id: `custom-av-${Date.now()}`,
+        name: json.data!.name,
+        heygenAvatarId: json.data!.heygenAvatarId,
+        // HeyGen возвращает status "processing" — рендер аватара идёт 5-15 мин.
+        status: json.data!.status === "completed" || json.data!.status === "ready" ? "ready" : "processing",
+        previewUrl: "", // видео-аватар не имеет статичного preview сразу
+        createdAt: new Date().toISOString(),
+      };
+      const nextAvatars = [newAvatar, ...customAvatars];
+      update({
+        customAvatars: nextAvatars,
+        avatarId: newAvatar.heygenAvatarId!,
+        avatarType: "preset", // v3 footage avatars используются как обычные avatar_id
+      });
+      setPendingVideoName("");
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setUploadingVideo(false);
+      if (videoInputRef.current) videoInputRef.current.value = "";
     }
   };
 
@@ -236,6 +281,39 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
                 </button>
                 <div style={{ fontSize: 9, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
                   Лучше всего: светлый нейтральный фон, лицо в кадре, смотрите в камеру, высокое качество.
+                </div>
+              </div>
+
+              {/* Video upload (footage → footage avatar) */}
+              <div style={{ background: "var(--card)", borderRadius: 8, padding: 12, border: `1px solid var(--border)` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <Upload size={12} /> Видео для аватара
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 3, background: "#22c55e", color: "#fff", marginLeft: 4 }}>NEW</span>
+                </div>
+                <input
+                  type="text"
+                  value={pendingVideoName}
+                  onChange={e => setPendingVideoName(e.target.value)}
+                  placeholder="Название (например: «Я говорящий»)"
+                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", marginBottom: 8, fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadVideo(f); }}
+                  style={{ display: "none" }}
+                />
+                <button
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={uploadingVideo}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: `1.5px solid #22c55e`, background: "color-mix(in oklch, #22c55e 8%, transparent)", color: "#22c55e", fontSize: 11, fontWeight: 700, cursor: uploadingVideo ? "not-allowed" : "pointer" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {uploadingVideo ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</> : <><Upload size={12} /> Загрузить видео (MP4, до 100 МБ)</>}
+                  </span>
+                </button>
+                <div style={{ fontSize: 9, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
+                  30-60 сек, говорите на камеру с мимикой. HeyGen построит footage-аватар — качество lip-sync выше, чем у talking-photo. Рендер ~5-15 минут после загрузки.
                 </div>
               </div>
 

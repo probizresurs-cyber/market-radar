@@ -31,7 +31,7 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   );
 }
 
-export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete, companyName, companyNiche }: {
+export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete, companyName, companyNiche, avatarSettings }: {
   c: Colors;
   reel: GeneratedReel;
   onUpdate: (updated: GeneratedReel) => void;
@@ -46,6 +46,8 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
    *  Без них Claude генерит абстрактные кадры (или хуже — про конкурента из старого брендбука). */
   companyName?: string;
   companyNiche?: string;
+  /** Чтобы дать селектор аватара из библиотеки customAvatars прямо на карточке рилса. */
+  avatarSettings?: AvatarSettings;
 }) {
   const [collapsed, setCollapsed] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -530,6 +532,63 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                             boxSizing: "border-box",
                           }}
                         />
+                        {/* Опц референс-фото — оживляется в кадр (image-to-video) */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          {scene.referenceImageUrl ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={scene.referenceImageUrl}
+                                alt={scene.referenceImageName || "ref"}
+                                style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid var(--border)" }}
+                              />
+                              <span style={{ fontSize: 11, color: "var(--muted-foreground)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {scene.referenceImageName || "Референс"}
+                              </span>
+                              <button
+                                onClick={() => handleEditScene(scene.id, { referenceImageUrl: undefined, referenceImageName: undefined })}
+                                style={{
+                                  padding: "3px 8px", borderRadius: 5,
+                                  border: "1px solid var(--border)", background: "transparent",
+                                  color: "var(--muted-foreground)", fontSize: 10.5, fontWeight: 600,
+                                  cursor: "pointer", fontFamily: "inherit",
+                                }}
+                              >Убрать</button>
+                            </>
+                          ) : (
+                            <label style={{
+                              padding: "5px 10px", borderRadius: 6,
+                              border: "1px dashed #ec489950", background: "transparent",
+                              color: "#ec4899", fontSize: 11, fontWeight: 700,
+                              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5,
+                              fontFamily: "inherit",
+                            }}>
+                              📎 Прикрепить фото-референс
+                              <input
+                                type="file" accept="image/*" style={{ display: "none" }}
+                                onChange={async e => {
+                                  const f = e.target.files?.[0];
+                                  if (!f) return;
+                                  if (f.size > 4 * 1024 * 1024) {
+                                    alert("Файл больше 4 МБ");
+                                    return;
+                                  }
+                                  const dataUrl = await new Promise<string>((res, rej) => {
+                                    const r = new FileReader();
+                                    r.onload = () => res(r.result as string);
+                                    r.onerror = () => rej(r.error);
+                                    r.readAsDataURL(f);
+                                  });
+                                  handleEditScene(scene.id, { referenceImageUrl: dataUrl, referenceImageName: f.name });
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          )}
+                          <span style={{ fontSize: 10.5, color: "var(--muted-foreground)" }}>
+                            фото оживёт в кадр (image-to-video)
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -577,6 +636,84 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           </div>
 
           {/* Основная генерация видео — единый all-in-one через v3/video-agents */}
+          {/* Настройки финального видео: длительность, сабтитры, выбор аватара */}
+          {reel.videoStatus !== "ready" && (
+            <div style={{
+              marginBottom: 12, padding: "12px 14px", borderRadius: 10,
+              background: "var(--background)",
+              border: "1px solid var(--border)",
+              display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end",
+            }}>
+              {/* Длительность */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Длительность
+                </label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {([5, 10, 15, 30, 60] as const).map(sec => {
+                    const cur = reel.targetDurationSec ?? reel.durationSec ?? 30;
+                    const active = cur === sec;
+                    return (
+                      <button
+                        key={sec}
+                        onClick={() => onUpdate({ ...reel, targetDurationSec: sec })}
+                        style={{
+                          padding: "5px 10px", borderRadius: 6,
+                          border: `1.5px solid ${active ? "#ec4899" : "var(--border)"}`,
+                          background: active ? "#ec489918" : "transparent",
+                          color: active ? "#ec4899" : "var(--foreground-secondary)",
+                          fontSize: 12, fontWeight: 700,
+                          cursor: "pointer", fontFamily: "inherit",
+                          minWidth: 36,
+                        }}
+                      >{sec}s</button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Сабтитры */}
+              <label style={{
+                display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                fontSize: 12.5, fontWeight: 600, color: "var(--foreground)",
+              }}>
+                <input
+                  type="checkbox"
+                  checked={reel.subtitles !== false}
+                  onChange={e => onUpdate({ ...reel, subtitles: e.target.checked })}
+                  style={{ width: 16, height: 16, accentColor: "#ec4899", cursor: "pointer" }}
+                />
+                Сабтитры
+              </label>
+
+              {/* Селектор аватара из библиотеки (если есть кастомные) */}
+              {avatarSettings?.customAvatars && avatarSettings.customAvatars.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 160 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Аватар
+                  </label>
+                  <select
+                    value={reel.selectedAvatarId || avatarSettings.avatarId || ""}
+                    onChange={e => onUpdate({ ...reel, selectedAvatarId: e.target.value || undefined })}
+                    style={{
+                      padding: "6px 10px", borderRadius: 7,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: "var(--foreground)", fontSize: 12.5, fontFamily: "inherit",
+                      outline: "none", cursor: "pointer",
+                    }}
+                  >
+                    <option value="">— по умолчанию —</option>
+                    {avatarSettings.customAvatars.map(av => (
+                      <option key={av.id} value={av.heygenAvatarId ?? av.id}>
+                        {av.name}{av.status !== "ready" ? " (готовится)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
           {reel.videoStatus !== "ready" && (
             <button
               onClick={() => onGenerateVideo(reel.id)}
@@ -884,6 +1021,7 @@ export function GeneratedReelsView({
                 onRowClick={() => setOpenReelId(reel.id)}
                 companyName={companyName}
                 companyNiche={companyNiche}
+                avatarSettings={avatarSettings}
               />
             ))}
           </div>
@@ -903,6 +1041,7 @@ export function GeneratedReelsView({
           generatingVideoFor={generatingVideoFor}
           companyName={companyName}
           companyNiche={companyNiche}
+          avatarSettings={avatarSettings}
         />
       )}
       </>
@@ -914,7 +1053,7 @@ export function GeneratedReelsView({
 // ─── Reel detail modal ─────────────────────────────────────────────────────
 function ReelDetailModal({
   c, reel, brandBook, onClose, onUpdate, onDelete, onGenerateVideo, generatingVideoFor,
-  companyName, companyNiche,
+  companyName, companyNiche, avatarSettings,
 }: {
   c: Colors;
   reel: GeneratedReel;
@@ -926,6 +1065,7 @@ function ReelDetailModal({
   generatingVideoFor: string | null;
   companyName?: string;
   companyNiche?: string;
+  avatarSettings?: AvatarSettings;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -1041,6 +1181,7 @@ function ReelDetailModal({
             alwaysExpanded
             companyName={companyName}
             companyNiche={companyNiche}
+            avatarSettings={avatarSettings}
           />
         </div>
       </div>

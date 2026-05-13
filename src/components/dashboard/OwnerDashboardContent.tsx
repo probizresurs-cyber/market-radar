@@ -817,7 +817,30 @@ export function OwnerDashboardContent({
           )}
 
           {/* Tab bar */}
-          <TabBar p={p} active={activeTab} onChange={setActiveTab} tabs={tabs} />
+          <TabBar
+            p={p}
+            active={activeTab}
+            onChange={(id) => {
+              // В private-режиме модульные табы (ta/cjm/smm/content/competitors/benchmarks)
+              // ведут прямо на полный модуль в основном app — пользователь
+              // ожидает увидеть полный анализ, а не сжатую сводку.
+              const externalNav: Partial<Record<TabId, string>> = {
+                ta: "ta-dashboard",
+                cjm: "ta-cjm",
+                benchmarks: "ta-benchmarks",
+                smm: "smm-dashboard",
+                content: "content-plan",
+                competitors: "competitors",
+              };
+              const nav = externalNav[id];
+              if (mode === "private" && nav && typeof window !== "undefined") {
+                window.location.href = `/?nav=${nav}`;
+                return;
+              }
+              setActiveTab(id);
+            }}
+            tabs={tabs}
+          />
 
           {/* Ссылка "Открыть полный отчёт на платформе" (только в приватном режиме, для релевантных вкладок) */}
           {mode === "private" && activeTab !== "overview" && (() => {
@@ -929,7 +952,35 @@ export function OwnerDashboardContent({
                 );
               })()}
 
-              {/* Keys.so краткая SEO-сводка (показываем только если есть данные) */}
+              {/* Metrics — карточки конкурентов/угроз/доли/балла идут СВЕРХУ
+                  (главные индикаторы дашборда руководителя). */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }} className="mr-metrics-grid">
+                <MetricCard
+                  p={p}
+                  label="Конкуренты"
+                  value={metrics.competitors}
+                  change={metrics.competitorCounter.hint
+                    ?? (metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет")}
+                  positive
+                  delayMs={100}
+                  neonColor="#4FC3F7"
+                />
+                <MetricCard p={p} label="Угрозы" value={metrics.threats} change={metrics.threats > 0 ? `${metrics.threats} активных` : "всё спокойно"} positive={metrics.threats === 0} delayMs={250} neonColor="#FF5252" />
+                <MetricCard
+                  p={p}
+                  label="Ваша доля"
+                  valueOverride={metrics.marketShareDisplay}
+                  value={metrics.marketShare}
+                  change={metrics.marketCategory}
+                  positive
+                  delayMs={400}
+                  neonColor="#69FF47"
+                />
+                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" hero />
+              </div>
+
+              {/* Keys.so краткая SEO-сводка — теперь ПОД основными метриками
+                  (это вторичный показатель, а не главный). */}
               {(myCompany.keysoDashboard?.yandex || myCompany.keysoDashboard?.google) && (() => {
                 const y = myCompany.keysoDashboard?.yandex;
                 const g = myCompany.keysoDashboard?.google;
@@ -938,7 +989,7 @@ export function OwnerDashboardContent({
                 const top10Total = (y?.top10 ?? 0) + (g?.top10 ?? 0);
                 const trafficTotal = (y?.traffic ?? 0) + (g?.traffic ?? 0);
                 return (
-                  <div className="mr-card" style={{ padding: "18px 20px", marginBottom: 20, animationDelay: "100ms" }}>
+                  <div className="mr-card" style={{ padding: "18px 20px", marginBottom: 20, animationDelay: "600ms" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 8,
@@ -992,32 +1043,6 @@ export function OwnerDashboardContent({
                   </div>
                 );
               })()}
-
-              {/* Metrics */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }} className="mr-metrics-grid">
-                <MetricCard
-                  p={p}
-                  label="Конкуренты"
-                  value={metrics.competitors}
-                  change={metrics.competitorCounter.hint
-                    ?? (metrics.competitors > 0 ? `${metrics.competitors} отслеживаются` : "нет")}
-                  positive
-                  delayMs={100}
-                  neonColor="#4FC3F7"
-                />
-                <MetricCard p={p} label="Угрозы" value={metrics.threats} change={metrics.threats > 0 ? `${metrics.threats} активных` : "всё спокойно"} positive={metrics.threats === 0} delayMs={250} neonColor="#FF5252" />
-                <MetricCard
-                  p={p}
-                  label="Ваша доля"
-                  valueOverride={metrics.marketShareDisplay}
-                  value={metrics.marketShare}
-                  change={metrics.marketCategory}
-                  positive
-                  delayMs={400}
-                  neonColor="#69FF47"
-                />
-                <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" hero />
-              </div>
 
               {/* Main 2-col */}
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 20 }} className="mr-main-grid">

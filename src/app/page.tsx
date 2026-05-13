@@ -1363,13 +1363,22 @@ function MarketRadarDashboardInner() {
       // их явным списком; иначе агент сам решит.
       const plannedScenes = (reel.brollClips ?? [])
         .filter(c => c.status === "planned" && c.prompt?.trim())
-        .map(c => ({ prompt: c.prompt, motionHint: c.motionHint, position: c.position }));
+        .map(c => ({
+          prompt: c.prompt,
+          motionHint: c.motionHint,
+          position: c.position,
+          referenceImageUrl: c.referenceImageUrl,
+        }));
+      // Аватар: приоритет — выбранный на конкретном рилсе, иначе глобальный
+      // из avatarSettings. selectedAvatarId хранится прямо в reel (берётся
+      // из библиотеки customAvatars).
+      const avatarIdToUse = reel.selectedAvatarId || avatarSettings.avatarId || undefined;
       const res = await fetch("/api/generate-reel-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           script: reel.voiceoverScript,
-          avatarId: avatarSettings.avatarId || undefined,
+          avatarId: avatarIdToUse,
           voiceId: avatarSettings.voiceId || undefined,
           aspect: avatarSettings.aspect,
           title: reel.title,
@@ -1377,6 +1386,8 @@ function MarketRadarDashboardInner() {
           companyName: myCompany?.company?.name ?? "",
           companyNiche: myCompany?.company?.description ?? "",
           brollScenes: plannedScenes,
+          targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
+          subtitles: reel.subtitles !== false,
         }),
       });
       const json = await res.json();

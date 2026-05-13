@@ -45,15 +45,42 @@ export async function POST(req: Request) {
     const companyNiche: string = (body.companyNiche ?? "").toString().trim();
     const title: string = (body.title ?? "").toString().trim();
     const hook: string = (body.hook ?? "").toString().trim();
+    // Длина видео в секундах (5/10/15/30/60). Передаётся в prompt.
+    const targetDurationSec: number = (() => {
+      const n = Number(body.targetDurationSec);
+      if (!Number.isFinite(n) || n < 5 || n > 120) return 30;
+      return Math.round(n);
+    })();
+    // Сабтитры — burned-in caption on screen. По умолчанию включены.
+    const subtitles: boolean = body.subtitles !== false;
     // Список конкретных b-roll сцен, которые пользователь явно прописал.
     // Если есть — внедряем их в prompt как явные инструкции для агента;
     // если нет — агент сам решит какие b-roll вставить.
-    type BrollScene = { prompt?: string; motionHint?: string; position?: string };
+    type BrollScene = { prompt?: string; motionHint?: string; position?: string; referenceImageUrl?: string };
     const brollScenes: BrollScene[] = Array.isArray(body.brollScenes)
       ? (body.brollScenes as BrollScene[])
           .filter(s => s && typeof s.prompt === "string" && s.prompt.trim().length > 5)
           .slice(0, 10)
       : [];
+    // Собираем все референс-фото из сцен в files[] для HeyGen.
+    // Поддерживаемые форматы (по docs):
+    //   - { type: "url", url: "https://..." }
+    //   - { type: "base64", media_type: "image/png", data: "iVBOR..." }
+    type HeygenFile =
+      | { type: "url"; url: string }
+      | { type: "base64"; media_type: string; data: string };
+    const filesForAgent: HeygenFile[] = [];
+    for (const s of brollScenes) {
+      const ref = (s.referenceImageUrl ?? "").trim();
+      if (!ref) continue;
+      if (ref.startsWith("http")) {
+        filesForAgent.push({ type: "url", url: ref });
+      } else if (ref.startsWith("data:")) {
+        const m = ref.match(/^data:([^;]+);base64,(.*)$/);
+        if (m) filesForAgent.push({ type: "base64", media_type: m[1], data: m[2] });
+      }
+      if (filesForAgent.length >= 20) break; // HeyGen лимит
+    }
 
     if (!script && !customPrompt) {
       return NextResponse.json(
@@ -84,29 +111,38 @@ export async function POST(req: Request) {
       }
       if (title) parts.push(`Title: ${title}.`);
       if (hook) parts.push(`Opening hook: ${hook}.`);
+      parts.push(`Target duration: approximately ${targetDurationSec} seconds.`);
       parts.push(
         `The avatar must speak EXACTLY this voiceover script (do not change wording):\n"""\n${script}\n"""`
       );
+      const subtitleLine = subtitles
+        ? "Add burned-in subtitles for accessibility (Russian text, clean modern sans-serif, positioned at the bottom-center)."
+        : "Do NOT add any text overlays or subtitles — pure visual + audio.";
+
       if (brollScenes.length > 0) {
         // Юзер прописал конкретные сцены — даём агенту жёсткий список.
+        // Если у сцены есть референс-фото, упоминаем это в описании.
         const sceneList = brollScenes
           .map((s, i) => {
             const pos = s.position ? ` [${s.position}]` : "";
             const motion = s.motionHint ? ` (${s.motionHint})` : "";
-            return `${i + 1}.${pos}${motion} ${s.prompt!.trim()}`;
+            const ref = (s.referenceImageUrl ?? "").trim()
+              ? ` — animate from the provided reference image (image #${i + 1} attached as file)`
+              : "";
+            return `${i + 1}.${pos}${motion} ${s.prompt!.trim()}${ref}`;
           })
           .join("\n");
         parts.push(
           `Insert these SPECIFIC b-roll scenes between avatar shots, in this order:\n${sceneList}\n\n` +
           "Match each scene to the relevant part of the avatar's monologue. " +
-          "Add burned-in subtitles for accessibility. " +
+          subtitleLine + " " +
           "Style: modern, premium, cinematic lighting, shallow depth of field. " +
           "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage."
         );
       } else {
         parts.push(
           "Insert cinematic b-roll between avatar shots to illustrate key points. " +
-          "Add burned-in subtitles for accessibility. " +
+          subtitleLine + " " +
           "Style: modern, premium, cinematic lighting, shallow depth of field. " +
           "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
         );
@@ -123,6 +159,7 @@ export async function POST(req: Request) {
       orientation: "portrait" | "landscape";
       avatar_id?: string;
       voice_id?: string;
+      files?: HeygenFile[];
     }
     const payload: AgentPayload = {
       prompt,
@@ -131,6 +168,7 @@ export async function POST(req: Request) {
     };
     if (avatarId) payload.avatar_id = avatarId;
     if (voiceId) payload.voice_id = voiceId;
+    if (filesForAgent.length > 0) payload.files = filesForAgent;
 
     const res = await fetch("https://api.heygen.com/v3/video-agents", {
       method: "POST",
