@@ -60,6 +60,16 @@ export async function POST(req: Request) {
     // прямо в картинке (карусели, постеры). Если пусто/undefined — обычная
     // картинка без надписей (поведение по умолчанию).
     const embedText: string = (body.embedText ?? "").trim();
+    // referenceImages — массив { data (base64), mimeType }. До 3 штук.
+    // Claude Haiku 4.5 умеет в vision: мы шлём референсы как image-блоки,
+    // и Haiku пишет промпт уже с учётом их стиля (цвета/композиция/настроение).
+    type RefImg = { data: string; mimeType: string };
+    const rawRefs: unknown = body.referenceImages;
+    const referenceImages: RefImg[] = Array.isArray(rawRefs)
+      ? (rawRefs as RefImg[])
+          .filter(r => r && typeof r.data === "string" && typeof r.mimeType === "string" && r.mimeType.startsWith("image/"))
+          .slice(0, 3)
+      : [];
 
     if (!postText && !hook && !userPrompt) {
       return NextResponse.json(
@@ -90,7 +100,11 @@ export async function POST(req: Request) {
         .filter(Boolean)
         .join("\n");
 
-      const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений (DALL-E / OpenAI).
+      const refsBlock = referenceImages.length > 0
+        ? `\n- Пользователь загрузил ${referenceImages.length} референс-картинк${referenceImages.length === 1 ? "у" : "и"} (см. в начале сообщения). Перенеси их визуальный стиль: цветовую палитру, типографику фона, освещение, композицию, фактуру. Финальная картинка должна выглядеть как из той же серии.`
+        : "";
+
+      const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений (gpt-image-2 / OpenAI).
 
 Создай детальный промпт на английском языке для генерации изображения к этому контенту:
 
@@ -103,15 +117,28 @@ ${contextBlock}
 - Ориентация: ${imageFormat === "portrait" ? "vertical 9:16 (portrait)" : imageFormat === "landscape" ? "horizontal 16:9 (landscape)" : "square 1:1"}
 - ${embedText
         ? "Композиция должна оставить место для крупной типографики (текст добавится отдельно). НЕ описывай сам текст — мы вставим его инструкцией ниже."
-        : "НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks"}
+        : "НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks"}${refsBlock}
 - Длина промпта: 3-5 предложений, конкретные детали
 
 Ответь ТОЛЬКО промптом на английском, без каких-либо пояснений или префикса.`;
 
+      // Vision-content: если есть референсы — отправляем их Haiku как image-блоки.
+      // Картинки идут ПЕРЕД текстом — так модель сначала «смотрит», потом читает задачу.
+      const visionContent = referenceImages.length > 0
+        ? ([
+            ...referenceImages.map(r => ({
+              type: "image" as const,
+              source: { type: "base64" as const, media_type: r.mimeType, data: r.data },
+            })),
+            { type: "text" as const, text: claudePrompt },
+          ])
+        : claudePrompt;
+
       const { text } = await safeAnthropicCreate({
         model: "claude-haiku-4-5",
         max_tokens: 400,
-        messages: [{ role: "user", content: claudePrompt }],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        messages: [{ role: "user", content: visionContent as any }],
       });
 
       // Если ни Haiku, ни Sonnet не ответили — используем сырой текст поста

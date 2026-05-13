@@ -500,6 +500,101 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
   );
 }
 
+// Компактный аплоадер референсов для конкретного поста.
+// Похож на ImageReferencePanel, но без общей шапки/onboarding —
+// и хранит данные прямо в post.referenceImages.
+function PostReferencesUploader({ refs, onChange }: {
+  refs: ReferenceImage[];
+  onChange: (next: ReferenceImage[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const readFiles = async (files: FileList) => {
+    setError(null);
+    const slots = 3 - refs.length;
+    if (slots <= 0) { setError("Максимум 3 референса"); return; }
+    const toRead = Array.from(files).slice(0, slots);
+    const next: ReferenceImage[] = [];
+    for (const f of toRead) {
+      if (!f.type.startsWith("image/")) continue;
+      if (f.size > 4 * 1024 * 1024) { setError(`${f.name} больше 4 МБ`); continue; }
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(f);
+      });
+      const m = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+      if (!m) continue;
+      next.push({
+        id: Math.random().toString(36).slice(2),
+        name: f.name,
+        mimeType: m[1],
+        data: m[2],
+        previewUrl: dataUrl,
+      });
+    }
+    if (next.length > 0) onChange([...refs, ...next]);
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+        Референсы стиля для этого поста ({refs.length}/3)
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        {refs.map(r => (
+          <div key={r.id} style={{ position: "relative" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={r.previewUrl} alt={r.name} style={{
+              width: 56, height: 56, borderRadius: 8, objectFit: "cover",
+              border: "1px solid var(--border)",
+            }} />
+            <button
+              onClick={() => onChange(refs.filter(x => x.id !== r.id))}
+              title="Удалить"
+              style={{
+                position: "absolute", top: -6, right: -6,
+                width: 18, height: 18, borderRadius: "50%",
+                background: "var(--destructive)", border: "none", color: "#fff",
+                fontSize: 11, cursor: "pointer", fontWeight: 700, lineHeight: 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >×</button>
+          </div>
+        ))}
+        {refs.length < 3 && (
+          <button
+            onClick={() => inputRef.current?.click()}
+            style={{
+              width: 56, height: 56, borderRadius: 8,
+              border: "1.5px dashed var(--border)",
+              background: "transparent", color: "var(--muted-foreground)",
+              cursor: "pointer", fontSize: 22, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "inherit",
+            }}
+            title="Загрузить референс-картинку"
+          >+</button>
+        )}
+        <input
+          ref={inputRef}
+          type="file" accept="image/*" multiple
+          style={{ display: "none" }}
+          onChange={e => e.target.files && readFiles(e.target.files)}
+        />
+      </div>
+      {error && (
+        <div style={{ fontSize: 11.5, color: "var(--destructive)", marginTop: 6 }}>{error}</div>
+      )}
+      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
+        Картинки в нужном стиле — AI ориентируется на цвета, композицию и настроение.
+      </div>
+    </div>
+  );
+}
+
 export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpanded = false, onRowClick, onRowDelete }: {
   c: Colors;
   post: GeneratedPost;
@@ -520,6 +615,10 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
   // Это даёт быстрый скан 20+ постов на одной странице — раньше каждая
   // карточка занимала 700-1000px высоты, и при 10 постах терялся контекст.
   const [collapsed, setCollapsed] = useState(true);
+  // Чекбокс «встроить текст в картинку» (gpt-image-2). Локально для процесса
+  // генерации; финальное значение пишется в post.hasEmbeddedText после
+  // успешного рендера.
+  const [embedTextMode, setEmbedTextMode] = useState<boolean>(!!post.hasEmbeddedText);
   const [editing, setEditing] = useState(false);
   const [hook, setHook] = useState(post.hook);
   const [body, setBody] = useState(post.body);
@@ -600,8 +699,18 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
     }
   };
 
+  // Собирает «вшиваемый» текст когда включён режим текст-в-картинке.
+  // Для постов используем заголовок (он самый акцентный и короткий);
+  // body длинный и gpt-image-2 будет ошибаться в Cyrillic-спеллинге.
+  const buildEmbedText = (): string => {
+    const hk = (post.hook || "").trim();
+    return hk.slice(0, 140);
+  };
+
   const handleGenerateWithPrompt = async (userPrompt: string) => {
     setImageGenError("");
+    const embedText = embedTextMode ? buildEmbedText() : "";
+    const refs = post.referenceImages ?? [];
     const res = await fetch("/api/generate-image-anthropic", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -613,6 +722,10 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",
         userPrompt, // ← пропускаем шаг Claude, рисуем именно эту строку
+        embedText: embedText || undefined,
+        // Передаём референсы в backend — он использует их как style hint
+        // (детали в /api/generate-image-anthropic).
+        referenceImages: refs.length > 0 ? refs.map(r => ({ data: r.data, mimeType: r.mimeType })) : undefined,
       }),
     });
     const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
@@ -621,7 +734,11 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
       setImageGenError(msg);
       throw new Error(msg); // editor покажет ошибку и не закроется
     }
-    onUpdate({ ...post, imageUrl: json.data!.imageUrl });
+    onUpdate({
+      ...post,
+      imageUrl: json.data!.imageUrl,
+      hasEmbeddedText: !!embedText,
+    });
     setShowPromptEditor(false);
   };
 
@@ -738,13 +855,14 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
             }}>Карусель</span>
           )}
           {post.imageUrl && (
-            <span title="Картинка готова" style={{
+            <span title={post.hasEmbeddedText ? "Картинка с встроенным текстом" : "Картинка готова"} style={{
               fontSize: 9.5, fontWeight: 700,
               background: "#22c55e18", color: "#22c55e",
               borderRadius: 4, padding: "2px 6px",
               display: "inline-flex", alignItems: "center", gap: 3,
             }}>
               <Image size={8}/>
+              {post.hasEmbeddedText && <span style={{ fontWeight: 800 }}>Тx</span>}
             </span>
           )}
         </div>
@@ -1044,19 +1162,60 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
             <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10, padding: "8px 12px", background: "color-mix(in oklch, var(--destructive) 8%, transparent)", borderRadius: 8 }}>{imageGenError}</div>
           )}
           {showPromptEditor && (
-            <ImagePromptEditor
-              params={{
-                postText: post.body,
-                hook: post.hook,
-                format: "пост",
-                platform: post.platform ?? "instagram",
-                brandColors: brandBook?.colors ?? [],
-                brandStyle: brandBook?.visualStyle ?? "",
-              }}
-              generateLabel={post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
-              onGenerate={handleGenerateWithPrompt}
-              onCancel={() => setShowPromptEditor(false)}
-            />
+            <>
+              {/* Per-post controls: embed-text toggle + reference images uploader.
+                  Появляются вместе с промпт-редактором — это контекст для генерации. */}
+              <div style={{
+                marginTop: 12, padding: 14, borderRadius: 12,
+                background: "color-mix(in oklch, var(--primary) 4%, var(--card))",
+                border: "1.5px dashed color-mix(in oklch, var(--primary) 25%, var(--border))",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                {/* Toggle */}
+                <label
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none",
+                  }}
+                  title="gpt-image-2 нарисует заголовок прямо на картинке вместо отдельного оверлея"
+                >
+                  <input
+                    type="checkbox"
+                    checked={embedTextMode}
+                    onChange={e => setEmbedTextMode(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: "var(--primary)", cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--foreground)" }}>
+                      Встроить заголовок в картинку
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "var(--primary)", color: "#fff", marginLeft: 6, verticalAlign: "middle" }}>NEW</span>
+                    </span>
+                    <span style={{ fontSize: 11.5, color: "var(--muted-foreground)", lineHeight: 1.4 }}>
+                      Картинка будет с типографикой как готовый дизайн. Дороже и медленнее, но смотрится премиально.
+                    </span>
+                  </div>
+                </label>
+
+                {/* Per-post reference images */}
+                <PostReferencesUploader
+                  refs={post.referenceImages ?? []}
+                  onChange={next => onUpdate({ ...post, referenceImages: next })}
+                />
+              </div>
+
+              <ImagePromptEditor
+                params={{
+                  postText: post.body,
+                  hook: post.hook,
+                  format: "пост",
+                  platform: post.platform ?? "instagram",
+                  brandColors: brandBook?.colors ?? [],
+                  brandStyle: brandBook?.visualStyle ?? "",
+                }}
+                generateLabel={post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+                onGenerate={handleGenerateWithPrompt}
+                onCancel={() => setShowPromptEditor(false)}
+              />
+            </>
           )}
           {showTov && brandBook && (
             <TovPanel

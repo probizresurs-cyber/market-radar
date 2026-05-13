@@ -107,6 +107,13 @@ export interface GeneratedPost {
   hookVariants?: string[];
   /** Публичный URL опубликованного поста (для авто-сбора metrics). */
   publishedUrl?: string;
+  /** Референс-картинки именно для этого поста (стиль/композиция).
+   *  Глобальные референсы из ImageReferencePanel применяются ко всем постам;
+   *  эти — только к данному при следующей генерации фото. До 3 штук. */
+  referenceImages?: ReferenceImage[];
+  /** true — заголовок и/или body «вшиты» в imageUrl через gpt-image-2.
+   *  Когда true, UI не рисует никаких CSS-оверлеев поверх картинки. */
+  hasEmbeddedText?: boolean;
 }
 
 export type ReelVideoStatus = "idle" | "generating" | "ready" | "failed";
