@@ -500,12 +500,21 @@ export function MetricsBlock({ c, kind, metrics, onChange }: {
   );
 }
 
-export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
+export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpanded = false, onRowClick, onRowDelete }: {
   c: Colors;
   post: GeneratedPost;
   onUpdate: (updated: GeneratedPost) => void;
   onDelete: (id: string) => void;
   brandBook?: BrandBook;
+  /** Когда true — игнорируем collapsed state и сразу рендерим полную карточку.
+   *  Нужно когда PostCard используется внутри модалки PostDetailModal. */
+  alwaysExpanded?: boolean;
+  /** Альтернативный click-handler для свёрнутой строки (используется в новой
+   *  list-view: вместо разворота на месте — открыть модалку детальной работы). */
+  onRowClick?: (post: GeneratedPost) => void;
+  /** Удаление прямо со строки (с подтверждением).
+   *  Если не передано — используем стандартный onDelete без confirm. */
+  onRowDelete?: (post: GeneratedPost) => void;
 }) {
   // Карточка по умолчанию свёрнута в компактную строку (превью + крючок).
   // Это даёт быстрый скан 20+ постов на одной странице — раньше каждая
@@ -650,29 +659,44 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
     post.platform === "linkedin" ? "#0a66c2" :
     "#f59e0b";
 
-  // === Свёрнутый режим: одна строка-сводка ===
-  if (collapsed && !editing) {
-    const hookSnippet = (post.hook || post.body).slice(0, 110).trim();
+  // === Свёрнутый режим: одна строка-сводка (если не alwaysExpanded) ===
+  if (!alwaysExpanded && collapsed && !editing) {
+    const hookSnippet = (post.hook || post.body).slice(0, 130).trim();
+    const dateObj = new Date(post.generatedAt);
+    const dayStr = dateObj.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+    const timeStr = dateObj.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+    const handleRowClick = () => {
+      if (onRowClick) onRowClick(post);
+      else setCollapsed(false);
+    };
+    const handleRowDelete = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onRowDelete) onRowDelete(post);
+      else if (confirm("Удалить пост безвозвратно?")) onDelete(post.id);
+    };
+
     return (
       <div
-        onClick={() => setCollapsed(false)}
+        onClick={handleRowClick}
         style={{
           background: "var(--card)",
-          borderRadius: 12,
+          borderRadius: 10,
           border: "1px solid var(--border)",
           borderLeft: `3px solid ${platformAccent}`,
-          padding: "10px 14px",
+          padding: "8px 12px",
           display: "flex", alignItems: "center", gap: 12,
           cursor: "pointer",
           transition: "background 0.12s, border-color 0.12s",
+          minHeight: 56,
         }}
         onMouseEnter={e => { e.currentTarget.style.background = "color-mix(in oklch, var(--card) 92%, var(--primary) 4%)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "var(--card)"; }}
-        title="Кликните, чтобы развернуть"
+        title="Кликните, чтобы открыть пост"
       >
-        {/* Thumb 56×56 */}
+        {/* Thumb 40×40 */}
         <div style={{
-          width: 56, height: 56, borderRadius: 9,
+          width: 40, height: 40, borderRadius: 7,
           background: post.imageUrl ? "transparent" : `linear-gradient(135deg, ${platformAccent}30, ${platformAccent}10)`,
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0, overflow: "hidden",
@@ -682,55 +706,81 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={post.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <Image size={20} style={{ color: platformAccent, opacity: 0.7 }} />
+            <Image size={16} style={{ color: platformAccent, opacity: 0.7 }} />
           )}
         </div>
 
-        {/* Body: platform chip + hook */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{
-              fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
-              background: `${platformAccent}18`, color: platformAccent,
-              borderRadius: 5, padding: "2px 7px",
-            }}>{post.platform}</span>
-            {isCarousel && (
-              <span style={{
-                fontSize: 10.5, fontWeight: 700,
-                background: "#6366f118", color: "#818cf8",
-                borderRadius: 5, padding: "2px 7px",
-              }}>Карусель</span>
-            )}
-            {post.imageUrl && (
-              <span style={{
-                fontSize: 10.5, fontWeight: 700,
-                background: "#22c55e18", color: "#22c55e",
-                borderRadius: 5, padding: "2px 7px",
-                display: "inline-flex", alignItems: "center", gap: 3,
-              }}>
-                <Image size={9}/> фото
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: "var(--muted-foreground)", marginLeft: "auto" }}>
-              {new Date(post.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
-            </span>
-          </div>
-          <div style={{
-            fontSize: 14, fontWeight: 600, color: "var(--foreground)",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            lineHeight: 1.35,
-          }}>
-            {hookSnippet || "Без заголовка"}
-          </div>
+        {/* Платформа chip */}
+        <span style={{
+          fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
+          background: `${platformAccent}18`, color: platformAccent,
+          borderRadius: 4, padding: "2px 7px",
+          flexShrink: 0,
+        }}>{post.platform}</span>
+
+        {/* Hook — занимает всё доступное место */}
+        <div style={{
+          flex: 1, minWidth: 0,
+          fontSize: 13.5, fontWeight: 600, color: "var(--foreground)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          lineHeight: 1.3,
+        }}>
+          {hookSnippet || "Без заголовка"}
         </div>
 
-        {/* Chevron */}
-        <span style={{
-          fontSize: 13, color: "var(--muted-foreground)",
-          flexShrink: 0,
+        {/* Доп бейджи (миниатюрные) */}
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          {isCarousel && (
+            <span style={{
+              fontSize: 9.5, fontWeight: 700,
+              background: "#6366f118", color: "#818cf8",
+              borderRadius: 4, padding: "2px 6px",
+            }}>Карусель</span>
+          )}
+          {post.imageUrl && (
+            <span title="Картинка готова" style={{
+              fontSize: 9.5, fontWeight: 700,
+              background: "#22c55e18", color: "#22c55e",
+              borderRadius: 4, padding: "2px 6px",
+              display: "inline-flex", alignItems: "center", gap: 3,
+            }}>
+              <Image size={8}/>
+            </span>
+          )}
+        </div>
+
+        {/* Дата — крупнее (две строки: день, время) */}
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "flex-end",
+          flexShrink: 0, minWidth: 56, lineHeight: 1.15,
         }}>
-          ▶
-        </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>{dayStr}</span>
+          <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{timeStr}</span>
+        </div>
+
+        {/* Delete */}
+        <button
+          onClick={handleRowDelete}
+          title="Удалить пост"
+          style={{
+            background: "transparent", border: "none",
+            padding: 6, cursor: "pointer",
+            color: "var(--muted-foreground)",
+            borderRadius: 6,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "color-mix(in oklch, var(--destructive) 12%, transparent)";
+            e.currentTarget.style.color = "var(--destructive)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--muted-foreground)";
+          }}
+        >
+          <Trash2 size={15}/>
+        </button>
       </div>
     );
   }
@@ -1045,6 +1095,166 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook }: {
   );
 }
 
+// ─── Post detail modal — полноэкранное окно работы с постом ────────────────
+// Используется как clickthrough из компактной строки в списке. Внутри —
+// та же PostCard в alwaysExpanded режиме + sticky-шапка с кнопкой скачать
+// картинку и удалить пост.
+export function PostDetailModal({
+  c, post, brandBook, onClose, onUpdate, onDelete,
+}: {
+  c: Colors;
+  post: GeneratedPost;
+  brandBook?: BrandBook;
+  onClose: () => void;
+  onUpdate: (updated: GeneratedPost) => void;
+  onDelete: (id: string) => void;
+}) {
+  // Закрытие по ESC + блокировка скролла body
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const platformLabel = post.platform.charAt(0).toUpperCase() + post.platform.slice(1);
+
+  // Скачать картинку «как есть» — браузер сохраняет с правильным расширением.
+  // OpenAI gpt-image-2 рендерит сразу в платформенном соотношении (1:1 / 9:16 /
+  // 16:9 в зависимости от idea.format), поэтому отдельная конвертация не нужна.
+  const downloadImage = () => {
+    if (!post.imageUrl) return;
+    const a = document.createElement("a");
+    a.href = post.imageUrl;
+    const safeHook = (post.hook || "post").replace(/[^a-zа-я0-9-_ ]/gi, "").slice(0, 40).trim() || "post";
+    a.download = `${post.platform}_${safeHook}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9998,
+        background: "rgba(0,0,0,0.62)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24,
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "var(--background)",
+          borderRadius: 18,
+          maxWidth: 920, width: "100%",
+          maxHeight: "calc(100vh - 48px)",
+          overflow: "hidden",
+          display: "flex", flexDirection: "column",
+          boxShadow: "0 25px 80px rgba(0,0,0,0.5)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        {/* Sticky header */}
+        <div style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+          background: "var(--card)",
+          flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)", letterSpacing: -0.2 }}>
+              Пост · {platformLabel}
+            </div>
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+              {new Date(post.generatedAt).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            {post.imageUrl && (
+              <button
+                onClick={downloadImage}
+                title="Скачать картинку (PNG)"
+                style={{
+                  padding: "8px 14px", borderRadius: 9,
+                  border: "1.5px solid var(--primary)",
+                  background: "color-mix(in oklch, var(--primary) 10%, transparent)",
+                  color: "var(--primary)", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "inherit",
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <Save size={14}/> Скачать фото
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (confirm("Удалить пост безвозвратно?")) {
+                  onDelete(post.id);
+                  onClose();
+                }
+              }}
+              title="Удалить пост"
+              style={{
+                padding: 8, borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent",
+                color: "var(--muted-foreground)",
+                cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "color-mix(in oklch, var(--destructive) 12%, transparent)";
+                e.currentTarget.style.color = "var(--destructive)";
+                e.currentTarget.style.borderColor = "var(--destructive)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "var(--muted-foreground)";
+                e.currentTarget.style.borderColor = "var(--border)";
+              }}
+            >
+              <Trash2 size={15}/>
+            </button>
+            <button
+              onClick={onClose}
+              title="Закрыть (Esc)"
+              style={{
+                padding: 8, borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent", color: "var(--muted-foreground)",
+                cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <X size={15}/>
+            </button>
+          </div>
+        </div>
+
+        {/* Body — скроллируется */}
+        <div style={{ overflow: "auto", padding: 18, flex: 1 }}>
+          <PostCard
+            c={c}
+            post={post}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            brandBook={brandBook}
+            alwaysExpanded
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hook A/B picker modal ────────────────────────────────────────────────
 function HookVariantsPicker({
   currentHook, variants, loading, error, onPick, onRetry, onClose,
@@ -1268,6 +1478,29 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
   // Фильтр по платформе + поиск по тексту: критично когда постов 20+
   const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  // Какой пост открыт в полноэкранной модалке. null = модалка закрыта.
+  const [openPostId, setOpenPostId] = useState<string | null>(null);
+  // Статус-таб: черновики / запланированные / опубликованные.
+  // Статус выводится из полей самого поста (publishStatus, scheduledFor) —
+  // не нужна миграция localStorage.
+  const [statusTab, setStatusTab] = useState<"drafts" | "scheduled" | "published">("drafts");
+
+  // Открытый пост — берём свежий объект из массива (после onUpdate инстанс
+  // обновляется, модалка должна отражать актуальные данные).
+  const openPost = openPostId ? posts.find(p => p.id === openPostId) ?? null : null;
+
+  const postStatus = (p: GeneratedPost): "drafts" | "scheduled" | "published" => {
+    const anyPublished = p.publishStatus?.vk?.ok || p.publishStatus?.telegram?.ok;
+    if (anyPublished) return "published";
+    if (p.scheduledFor && new Date(p.scheduledFor) > new Date()) return "scheduled";
+    return "drafts";
+  };
+
+  const statusCounts = {
+    drafts: posts.filter(p => postStatus(p) === "drafts").length,
+    scheduled: posts.filter(p => postStatus(p) === "scheduled").length,
+    published: posts.filter(p => postStatus(p) === "published").length,
+  };
 
   if (posts.length === 0) {
     return (
@@ -1312,12 +1545,55 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
           {posts.length}
         </span>
       </div>
-      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Кликните на строку, чтобы развернуть пост.</p>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Кликните на строку, чтобы открыть пост — текст, картинка, публикация.</p>
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
 
+      {/* Статус-табы */}
+      <div style={{
+        display: "flex", gap: 4,
+        marginBottom: 14,
+        borderBottom: "1px solid var(--border)",
+      }}>
+        {([
+          { id: "drafts" as const, label: "Черновики", color: "#f59e0b" },
+          { id: "scheduled" as const, label: "Запланированные", color: "#8b5cf6" },
+          { id: "published" as const, label: "Опубликованные", color: "#22c55e" },
+        ]).map(t => {
+          const active = statusTab === t.id;
+          const count = statusCounts[t.id];
+          return (
+            <button
+              key={t.id}
+              onClick={() => setStatusTab(t.id)}
+              style={{
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: active ? t.color : "var(--muted-foreground)",
+                fontSize: 13.5, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                borderBottom: `2.5px solid ${active ? t.color : "transparent"}`,
+                marginBottom: -1,
+                transition: "color 0.12s, border-color 0.12s",
+                display: "inline-flex", alignItems: "center", gap: 7,
+              }}
+            >
+              {t.label}
+              <span style={{
+                fontSize: 11, fontWeight: 800,
+                padding: "1px 7px", borderRadius: 8,
+                background: active ? `${t.color}20` : "color-mix(in oklch, var(--foreground) 8%, transparent)",
+                color: active ? t.color : "var(--muted-foreground)",
+                minWidth: 18, textAlign: "center",
+              }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Фильтры — chip-toolbar + поиск.
-          Появляется только при ≥4 постах: при меньшем количестве фильтрация ни к чему. */}
-      {posts.length >= 4 && (() => {
+          Появляется только при ≥4 постах в текущем табе. */}
+      {posts.filter(p => postStatus(p) === statusTab).length >= 4 && (() => {
         const platforms: Array<{ id: typeof platformFilter; label: string; color: string }> = [
           { id: "all", label: "Все", color: "var(--primary)" },
           { id: "instagram", label: "Instagram", color: "#ec4899" },
@@ -1377,28 +1653,54 @@ export function GeneratedPostsView({ c, posts, onUpdatePost, onDeletePost, refer
       {(() => {
         const q = searchQuery.trim().toLowerCase();
         const filtered = posts.filter(p =>
+          postStatus(p) === statusTab &&
           (platformFilter === "all" || p.platform === platformFilter) &&
           (!q || `${p.hook} ${p.body}`.toLowerCase().includes(q))
         );
         if (filtered.length === 0) {
+          const emptyHints: Record<typeof statusTab, string> = {
+            drafts: "В этом разделе пока пусто. Сгенерируйте пост из плана контента или из трендов.",
+            scheduled: "Нет запланированных постов. Запланировать дату можно при публикации.",
+            published: "Опубликованных постов пока нет.",
+          };
           return (
             <div style={{
               padding: "32px 20px", borderRadius: 12,
               background: "var(--card)", border: "1px dashed var(--border)",
               textAlign: "center", color: "var(--muted-foreground)", fontSize: 14,
             }}>
-              По выбранным фильтрам ничего не найдено
+              {q || platformFilter !== "all" ? "По выбранным фильтрам ничего не найдено" : emptyHints[statusTab]}
             </div>
           );
         }
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {filtered.map(post => (
-              <PostCard key={post.id} c={c} post={post} onUpdate={onUpdatePost} onDelete={onDeletePost} brandBook={brandBook} />
+              <PostCard
+                key={post.id}
+                c={c}
+                post={post}
+                onUpdate={onUpdatePost}
+                onDelete={onDeletePost}
+                brandBook={brandBook}
+                onRowClick={() => setOpenPostId(post.id)}
+              />
             ))}
           </div>
         );
       })()}
+
+      {/* Полноэкранная модалка работы с постом */}
+      {openPost && (
+        <PostDetailModal
+          c={c}
+          post={openPost}
+          brandBook={brandBook}
+          onClose={() => setOpenPostId(null)}
+          onUpdate={onUpdatePost}
+          onDelete={onDeletePost}
+        />
+      )}
     </div>
   );
 }

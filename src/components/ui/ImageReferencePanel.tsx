@@ -41,7 +41,7 @@ export function ImageReferencePanel({ c, images, onChange }: {
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>🖼 Референсы для стиля изображений</div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
-            {images.length > 0 ? `${images.length} референс${images.length === 1 ? "" : images.length < 5 ? "а" : "ов"} — Gemini будет генерировать в похожем стиле` : "Не загружено — Gemini генерирует без стиля"}
+            {images.length > 0 ? `${images.length} референс${images.length === 1 ? "" : images.length < 5 ? "а" : "ов"} — картинки будут генерироваться в похожем стиле` : "Не загружено — картинки генерируются без референс-стиля"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -106,7 +106,7 @@ export function ImageReferencePanel({ c, images, onChange }: {
           )}
 
           <div style={{ marginTop: 12, padding: "10px 12px", background: "color-mix(in oklch, var(--primary) 3%, transparent)", borderRadius: 8, fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.5, display:"flex", alignItems:"flex-start", gap:6 }}>
-            <Lightbulb size={13} style={{flexShrink:0, marginTop:1}}/><span><b>Как работает:</b> загрузите 1-3 картинки в нужном стиле (например, фирменные фото или референс-изображения). Gemini будет генерировать картинки для постов, ориентируясь на их цвета, композицию и настроение.</span>
+            <Lightbulb size={13} style={{flexShrink:0, marginTop:1}}/><span><b>Как работает:</b> загрузите 1-3 картинки в нужном стиле (например, фирменные фото или референс-изображения). AI-генератор будет ориентироваться на их цвета, композицию и настроение при создании картинок для постов.</span>
           </div>
         </div>
       )}

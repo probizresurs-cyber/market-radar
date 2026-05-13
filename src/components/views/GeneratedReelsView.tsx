@@ -30,7 +30,7 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   );
 }
 
-export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook }: {
+export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete }: {
   c: Colors;
   reel: GeneratedReel;
   onUpdate: (updated: GeneratedReel) => void;
@@ -38,7 +38,11 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   onGenerateVideo: (reelId: string) => void;
   generatingVideoFor: string | null;
   brandBook?: BrandBook;
+  alwaysExpanded?: boolean;
+  onRowClick?: (reel: GeneratedReel) => void;
+  onRowDelete?: (reel: GeneratedReel) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(reel.title);
   const [scenario, setScenario] = useState(reel.scenario);
@@ -190,8 +194,145 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
     marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase",
   };
 
+  // === Свёрнутая строка списка ===
+  if (!alwaysExpanded && collapsed && !editing) {
+    const dateObj = new Date(reel.generatedAt);
+    const dayStr = dateObj.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+    const timeStr = dateObj.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+    // Цвет полосы + статус-бейдж в зависимости от состояния видео
+    const statusColor = reel.videoStatus === "ready" ? "#22c55e"
+      : reel.videoStatus === "generating" ? "#8b5cf6"
+      : reel.videoStatus === "failed" ? "#ef4444"
+      : "#ec4899";
+    const statusLabel = reel.videoStatus === "ready" ? "Готово"
+      : reel.videoStatus === "generating" ? "В работе"
+      : reel.videoStatus === "failed" ? "Ошибка"
+      : "Идея";
+
+    const handleClick = () => {
+      if (onRowClick) onRowClick(reel);
+      else setCollapsed(false);
+    };
+    const handleDel = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onRowDelete) onRowDelete(reel);
+      else if (confirm("Удалить видео-сценарий безвозвратно?")) onDelete(reel.id);
+    };
+
+    return (
+      <div
+        onClick={handleClick}
+        style={{
+          background: "var(--card)",
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          borderLeft: `3px solid ${statusColor}`,
+          padding: "8px 12px",
+          display: "flex", alignItems: "center", gap: 12,
+          cursor: "pointer", minHeight: 56,
+          transition: "background 0.12s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "color-mix(in oklch, var(--card) 92%, var(--primary) 4%)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "var(--card)"; }}
+      >
+        {/* Thumb 40×40 — кадр видео или иконка */}
+        <div style={{
+          width: 40, height: 40, borderRadius: 7,
+          background: `linear-gradient(135deg, ${statusColor}30, ${statusColor}10)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, overflow: "hidden",
+        }}>
+          {reel.videoUrl && reel.videoStatus === "ready" ? (
+            <video src={reel.videoUrl} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : reel.videoStatus === "generating" ? (
+            <Loader2 size={16} style={{ color: statusColor, animation: "spin 1s linear infinite" }} />
+          ) : (
+            <Film size={16} style={{ color: statusColor, opacity: 0.7 }} />
+          )}
+        </div>
+
+        {/* Status chip */}
+        <span style={{
+          fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
+          background: `${statusColor}18`, color: statusColor,
+          borderRadius: 4, padding: "2px 7px",
+          flexShrink: 0,
+        }}>{statusLabel}</span>
+
+        {/* Title — занимает всё */}
+        <div style={{
+          flex: 1, minWidth: 0,
+          fontSize: 13.5, fontWeight: 600, color: "var(--foreground)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          lineHeight: 1.3,
+        }}>
+          {reel.title || "Без названия"}
+        </div>
+
+        {/* Duration small */}
+        <span style={{
+          fontSize: 10.5, fontWeight: 700,
+          background: "color-mix(in oklch, var(--foreground) 8%, transparent)",
+          color: "var(--muted-foreground)",
+          borderRadius: 4, padding: "2px 6px",
+          flexShrink: 0,
+        }}>{reel.durationSec}s</span>
+
+        {/* Дата (2 строки) */}
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "flex-end",
+          flexShrink: 0, minWidth: 56, lineHeight: 1.15,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>{dayStr}</span>
+          <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{timeStr}</span>
+        </div>
+
+        {/* Delete */}
+        <button
+          onClick={handleDel}
+          title="Удалить рилс"
+          style={{
+            background: "transparent", border: "none",
+            padding: 6, cursor: "pointer",
+            color: "var(--muted-foreground)",
+            borderRadius: 6,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "color-mix(in oklch, var(--destructive) 12%, transparent)";
+            e.currentTarget.style.color = "var(--destructive)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--muted-foreground)";
+          }}
+        >
+          <Trash2 size={15}/>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: "var(--card)", borderRadius: 14, border: `2px solid ${editing ? "#ec489960" : "var(--border)"}`, padding: 18, boxShadow: "var(--shadow)", transition: "border-color 0.15s" }}>
+      {/* Кнопка свернуть обратно — только когда карточка не в модалке */}
+      {!alwaysExpanded && !editing && (
+        <button
+          onClick={() => setCollapsed(true)}
+          title="Свернуть"
+          style={{
+            position: "absolute", marginLeft: "auto",
+            float: "right",
+            padding: "5px 10px", borderRadius: 7,
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--muted-foreground)", fontSize: 11, fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >▲</button>
+      )}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12, fontWeight: 700, background: "#ec489918", color: "#ec4899", borderRadius: 8, padding: "5px 11px" }}>REEL · {reel.durationSec}s</span>
@@ -494,6 +635,21 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
   onboardingState?: OnboardingState;
   brandBook?: BrandBook;
 }) {
+  const [statusTab, setStatusTab] = useState<"idea" | "working" | "ready">("idea");
+  const [openReelId, setOpenReelId] = useState<string | null>(null);
+
+  const reelStatus = (r: GeneratedReel): "idea" | "working" | "ready" => {
+    if (r.videoStatus === "ready" && r.videoUrl) return "ready";
+    if (r.videoStatus === "generating") return "working";
+    return "idea";
+  };
+  const statusCounts = {
+    idea: reels.filter(r => reelStatus(r) === "idea").length,
+    working: reels.filter(r => reelStatus(r) === "working").length,
+    ready: reels.filter(r => reelStatus(r) === "ready").length,
+  };
+  const openReel = openReelId ? reels.find(r => r.id === openReelId) ?? null : null;
+
   if (reels.length === 0) {
     return (
       <div style={{ maxWidth: 1180 }}>
@@ -534,10 +690,228 @@ export function GeneratedReelsView({ c, reels, onGenerateVideo, generatingVideoF
         Кликните <Edit2 size={14}/> для правки сценария и текста озвучки.
       </p>
       <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
-        {reels.map(reel => (
-          <ReelCard key={reel.id} c={c} reel={reel} onUpdate={onUpdateReel} onDelete={onDeleteReel} onGenerateVideo={onGenerateVideo} generatingVideoFor={generatingVideoFor} brandBook={brandBook} />
-        ))}
+
+      {/* Статус-табы */}
+      <div style={{
+        display: "flex", gap: 4,
+        marginBottom: 14, marginTop: 6,
+        borderBottom: "1px solid var(--border)",
+      }}>
+        {([
+          { id: "idea" as const, label: "Идеи", color: "#ec4899" },
+          { id: "working" as const, label: "В работе", color: "#8b5cf6" },
+          { id: "ready" as const, label: "Готовые", color: "#22c55e" },
+        ]).map(t => {
+          const active = statusTab === t.id;
+          const count = statusCounts[t.id];
+          return (
+            <button
+              key={t.id}
+              onClick={() => setStatusTab(t.id)}
+              style={{
+                padding: "10px 16px",
+                border: "none", background: "transparent",
+                color: active ? t.color : "var(--muted-foreground)",
+                fontSize: 13.5, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                borderBottom: `2.5px solid ${active ? t.color : "transparent"}`,
+                marginBottom: -1,
+                display: "inline-flex", alignItems: "center", gap: 7,
+              }}>
+              {t.label}
+              <span style={{
+                fontSize: 11, fontWeight: 800,
+                padding: "1px 7px", borderRadius: 8,
+                background: active ? `${t.color}20` : "color-mix(in oklch, var(--foreground) 8%, transparent)",
+                color: active ? t.color : "var(--muted-foreground)",
+                minWidth: 18, textAlign: "center",
+              }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {(() => {
+        const filtered = reels.filter(r => reelStatus(r) === statusTab);
+        if (filtered.length === 0) {
+          const empty: Record<typeof statusTab, string> = {
+            idea: "Нет идей без видео. Сгенерируйте новый сценарий из плана контента.",
+            working: "Ничего не генерируется прямо сейчас.",
+            ready: "Готовых видео пока нет — нажмите «Сгенерировать видео» на любом сценарии.",
+          };
+          return (
+            <div style={{
+              padding: "32px 20px", borderRadius: 12,
+              background: "var(--card)", border: "1px dashed var(--border)",
+              textAlign: "center", color: "var(--muted-foreground)", fontSize: 14,
+            }}>
+              {empty[statusTab]}
+            </div>
+          );
+        }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {filtered.map(reel => (
+              <ReelCard
+                key={reel.id}
+                c={c}
+                reel={reel}
+                onUpdate={onUpdateReel}
+                onDelete={onDeleteReel}
+                onGenerateVideo={onGenerateVideo}
+                generatingVideoFor={generatingVideoFor}
+                brandBook={brandBook}
+                onRowClick={() => setOpenReelId(reel.id)}
+              />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Полноэкранная модалка с раскрытой ReelCard */}
+      {openReel && (
+        <ReelDetailModal
+          c={c}
+          reel={openReel}
+          brandBook={brandBook}
+          onClose={() => setOpenReelId(null)}
+          onUpdate={onUpdateReel}
+          onDelete={onDeleteReel}
+          onGenerateVideo={onGenerateVideo}
+          generatingVideoFor={generatingVideoFor}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Reel detail modal ─────────────────────────────────────────────────────
+function ReelDetailModal({
+  c, reel, brandBook, onClose, onUpdate, onDelete, onGenerateVideo, generatingVideoFor,
+}: {
+  c: Colors;
+  reel: GeneratedReel;
+  brandBook?: BrandBook;
+  onClose: () => void;
+  onUpdate: (updated: GeneratedReel) => void;
+  onDelete: (id: string) => void;
+  onGenerateVideo: (reelId: string) => void;
+  generatingVideoFor: string | null;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const downloadVideo = () => {
+    if (!reel.videoUrl) return;
+    const a = document.createElement("a");
+    a.href = reel.videoUrl;
+    const safe = (reel.title || "reel").replace(/[^a-zа-я0-9-_ ]/gi, "").slice(0, 40).trim() || "reel";
+    a.download = `${safe}.mp4`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9998,
+        background: "rgba(0,0,0,0.62)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24, backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "var(--background)",
+          borderRadius: 18,
+          maxWidth: 920, width: "100%",
+          maxHeight: "calc(100vh - 48px)",
+          overflow: "hidden",
+          display: "flex", flexDirection: "column",
+          boxShadow: "0 25px 80px rgba(0,0,0,0.5)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <div style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+          background: "var(--card)", flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)", letterSpacing: -0.2, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {reel.title || "Видео"}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            {reel.videoUrl && reel.videoStatus === "ready" && (
+              <button
+                onClick={downloadVideo}
+                title="Скачать видео (MP4)"
+                style={{
+                  padding: "8px 14px", borderRadius: 9,
+                  border: "1.5px solid var(--primary)",
+                  background: "color-mix(in oklch, var(--primary) 10%, transparent)",
+                  color: "var(--primary)", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "inherit",
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                }}>
+                <Save size={14}/> Скачать видео
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (confirm("Удалить видео-сценарий безвозвратно?")) {
+                  onDelete(reel.id);
+                  onClose();
+                }
+              }}
+              title="Удалить"
+              style={{
+                padding: 8, borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent", color: "var(--muted-foreground)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Trash2 size={15}/>
+            </button>
+            <button
+              onClick={onClose}
+              title="Закрыть (Esc)"
+              style={{
+                padding: 8, borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent", color: "var(--muted-foreground)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <X size={15}/>
+            </button>
+          </div>
+        </div>
+        <div style={{ overflow: "auto", padding: 18, flex: 1 }}>
+          <ReelCard
+            c={c}
+            reel={reel}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            onGenerateVideo={onGenerateVideo}
+            generatingVideoFor={generatingVideoFor}
+            brandBook={brandBook}
+            alwaysExpanded
+          />
+        </div>
       </div>
     </div>
   );
