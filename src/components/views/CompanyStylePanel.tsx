@@ -36,8 +36,8 @@ export function CompanyStylePanel({
       ? "Стиль компании применяется"
       : "Стиль собран, но НЕ применяется";
     description = applyToGeneration
-      ? `AI будет писать в манере, извлечённой из ${profile!.basedOnDocIds.length} ваших документов.`
-      : "Включите тумблер справа, чтобы AI использовал ваш стиль при генерации.";
+      ? `Тексты пишутся в манере, извлечённой из ${profile!.basedOnDocIds.length} ваших документов.`
+      : "Включите тумблер справа, чтобы тексты писались в вашем стиле.";
   } else if (hasDocs) {
     statusColor = c.accentWarm;
     statusBg = `${c.accentWarm}14`;

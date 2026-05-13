@@ -115,7 +115,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
       {open && (
         <div style={{ padding: "16px 18px" }}>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 14, lineHeight: 1.5 }}>
-            Все поля передаются в генерацию постов, рилсов и промптов ИИ-помощника. Чем полнее заполнен брендбук — тем точнее тон и визуал.
+            Все поля учитываются при создании постов, рилсов и картинок. Чем полнее заполнен брендбук — тем точнее тон и визуал.
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>

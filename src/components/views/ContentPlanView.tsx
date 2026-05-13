@@ -470,10 +470,10 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
               color: accent, fontSize: 12, fontWeight: 700, cursor: isExpandingPrompt ? "not-allowed" : "pointer",
               opacity: isExpandingPrompt ? 0.6 : 1, transition: "all 0.15s",
             }}>
-            {isExpandingPrompt ? "⏳ ИИ готовит промпт…" : "🤖 ИИ-помощник: подготовить промпт"}
+            {isExpandingPrompt ? "Готовлю промпт…" : "Подготовить промпт"}
           </button>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", flex: 1 }}>
-            {isExpandingPrompt ? "Анализирую компанию и тему…" : "ИИ использует данные компании и сформирует готовый промпт"}
+            {isExpandingPrompt ? "Анализирую компанию и тему…" : "Использует данные компании, чтобы подготовить готовый промпт под акцент"}
           </div>
           {expandError && <span style={{ fontSize: 11, color: "var(--destructive)" }}>{expandError}</span>}
         </div>
@@ -483,8 +483,8 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
-                ПРОМПТ ОТ ИИ-ПОМОЩНИКА
-                <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно отредактировать</span>
+                ПРОМПТ-ЗАГОТОВКА
+                <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно отредактировать перед запуском</span>
               </label>
               <button onClick={() => { setShowAdvanced(false); setGeneratedPrompt(""); }}
                 style={{ fontSize: 10, color: "var(--muted-foreground)", background: "none", border: "none", cursor: "pointer" }}>✕ скрыть</button>
@@ -499,7 +499,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
               }}
             />
             <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
-              Этот промпт будет использован при генерации. При нажатии «Создать» без промпта — ИИ сгенерирует по идее и данным компании автоматически.
+              Этот промпт пойдёт в работу. Если оставить поле пустым — будет написано по идее и данным компании автоматически.
             </div>
           </div>
         )}

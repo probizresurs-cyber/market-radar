@@ -657,7 +657,7 @@ function SEOArticleEditor({
               disabled={generatingFull}
               onClick={generateFull}
             >
-              {generatingFull ? "⏳ Генерирую..." : "🚀 Сгенерировать всю статью"}
+              {generatingFull ? "Пишу статью…" : "Написать всю статью"}
             </button>
           </div>
         </div>
@@ -678,7 +678,7 @@ function SEOArticleEditor({
               <div style={{ fontSize: 32, marginBottom: 12 }}>📄</div>
               <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 16 }}>Текст ещё не сгенерирован</div>
               <button className="ds-btn ds-btn-primary" disabled={generatingFull} onClick={generateFull}>
-                {generatingFull ? "⏳ Генерирую..." : "🚀 Сгенерировать статью"}
+                {generatingFull ? "Пишу статью…" : "Написать статью"}
               </button>
             </div>
           )}
@@ -697,7 +697,7 @@ function SEOArticleEditor({
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button className="ds-btn ds-btn-secondary" onClick={generateMeta} style={{ gap: 6, display: "flex", alignItems: "center" }}>
-              ✨ Сгенерировать авто
+              Написать автоматически
             </button>
           </div>
 
@@ -839,6 +839,15 @@ function SEONewArticleView({
   const [step, setStep] = useState<"type" | "platform" | "topic" | "generating">("type");
   const [articleType, setArticleType] = useState<SEOArticleType>("informational");
   const [platform, setPlatform] = useState<SEOPlatform>("website");
+  // Параметры «Своя площадка». Используются, когда platform === "custom".
+  // По умолчанию ставим разумные числа; пользователь меняет в UI.
+  const [customPlatform, setCustomPlatform] = useState<{ label: string; maxChars: number; recommendedMin: number; recommendedMax: number; note: string }>({
+    label: "Моя площадка",
+    maxChars: 0,
+    recommendedMin: 1500,
+    recommendedMax: 5000,
+    note: "",
+  });
   const [topic, setTopic] = useState("");
   const [focusKeyword, setFocusKeyword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -871,6 +880,16 @@ function SEONewArticleView({
     setLoading(true);
     setErr("");
 
+    // Если выбрана своя площадка — вычисляем целевой объём как среднее
+    // от recommendedMin/Max делённое на 5.5 (средняя длина слова в RU).
+    // Жёсткий лимит maxChars обрезает сверху.
+    const customWordCount = platform === "custom"
+      ? Math.max(200, Math.round(((customPlatform.recommendedMin + customPlatform.recommendedMax) / 2) / 5.5))
+      : undefined;
+    const customPlatformHint = platform === "custom"
+      ? `Площадка: «${customPlatform.label}». Лимит: ${customPlatform.recommendedMin}-${customPlatform.recommendedMax} символов${customPlatform.maxChars ? ` (жёсткий максимум ${customPlatform.maxChars})` : ""}. Правила оформления: ${customPlatform.note || "не указаны"}.`
+      : "";
+
     try {
       // Step 1: Generate brief
       setProgress("Составляем бриф...");
@@ -882,6 +901,8 @@ function SEONewArticleView({
           companyName: analysis?.company?.name,
           niche: analysis?.company?.description?.slice(0, 60) || "",
           platform,
+          // Доп. контекст для модели — параметры пользовательской площадки.
+          customPlatformHint,
           articleType,
           taContext,
           brandBook,
@@ -895,7 +916,9 @@ function SEONewArticleView({
         platform,
         topic,
         audience: briefData.brief.audience || taContext || "широкая аудитория",
-        wordCountTarget: briefData.brief.wordCountTarget || 2000,
+        // Своя площадка: пользовательский target имеет приоритет над тем,
+        // что вернул API — он не знает наших лимитов.
+        wordCountTarget: customWordCount ?? briefData.brief.wordCountTarget ?? 2000,
         focusKeyword: focusKeyword || briefData.brief.focusKeyword || topic,
         secondaryKeywords: briefData.brief.secondaryKeywords || [],
         competitorUrls: [],
@@ -909,7 +932,7 @@ function SEONewArticleView({
       const outlineRes = await fetch("/api/seo-generate-outline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brief, keywords: [] }),
+        body: JSON.stringify({ brief, keywords: [], customPlatformHint }),
       });
       const outlineData = await outlineRes.json();
       if (!outlineData.outline) throw new Error(outlineData.error || "Ошибка структуры");
@@ -923,7 +946,7 @@ function SEONewArticleView({
       }));
 
       // Step 3: Generate meta
-      setProgress("Генерируем мета-теги...");
+      setProgress("Готовим мета-теги...");
       let meta: SEOArticleMeta = {
         title: briefData.brief.suggestedMeta?.title || h1?.slice(0, 60) || topic,
         metaDescription: briefData.brief.suggestedMeta?.metaDescription || "",
@@ -974,7 +997,7 @@ function SEONewArticleView({
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 20 }}>←</button>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>Новая SEO-статья</div>
-          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>AI составит бриф, структуру и текст</div>
+          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>Сначала бриф и структура — потом полный текст по разделам</div>
         </div>
       </div>
 
@@ -1044,16 +1067,83 @@ function SEONewArticleView({
                     display: "flex", alignItems: "center", gap: 12,
                   }}
                 >
-                  <div style={{ fontSize: 22, flexShrink: 0 }}>{p.icon}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>{p.label}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{min.toLocaleString()}–{max ? max.toLocaleString() : "∞"} симв. · {p.formattingNote}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                      {p.id === "custom"
+                        ? "Задайте лимит символов и заметку по форматированию ниже"
+                        : `${min.toLocaleString()}–${max ? max.toLocaleString() : "∞"} симв. · ${p.formattingNote}`}
+                    </div>
                   </div>
                   {platform === p.id && <div style={{ color: "var(--primary)", fontSize: 16 }}>✓</div>}
                 </div>
               );
             })}
           </div>
+          {/* Параметры своей площадки */}
+          {platform === "custom" && (
+            <div style={{
+              marginTop: 14, padding: 14, borderRadius: 10,
+              background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
+              border: "1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))",
+              display: "flex", flexDirection: "column", gap: 10,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                Параметры площадки
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Название площадки</label>
+                <input
+                  type="text"
+                  value={customPlatform.label}
+                  onChange={e => setCustomPlatform({ ...customPlatform, label: e.target.value })}
+                  placeholder="Например: «Корпоративный блог»"
+                  style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Мин. символов</label>
+                  <input
+                    type="number" min={100}
+                    value={customPlatform.recommendedMin}
+                    onChange={e => setCustomPlatform({ ...customPlatform, recommendedMin: Number(e.target.value) || 0 })}
+                    style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Макс. символов</label>
+                  <input
+                    type="number" min={100}
+                    value={customPlatform.recommendedMax}
+                    onChange={e => setCustomPlatform({ ...customPlatform, recommendedMax: Number(e.target.value) || 0 })}
+                    style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Жёсткий лимит</label>
+                  <input
+                    type="number" min={0}
+                    value={customPlatform.maxChars}
+                    onChange={e => setCustomPlatform({ ...customPlatform, maxChars: Number(e.target.value) || 0 })}
+                    placeholder="0 = нет"
+                    style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 4 }}>Правила оформления / форматирования</label>
+                <textarea
+                  rows={2}
+                  value={customPlatform.note}
+                  onChange={e => setCustomPlatform({ ...customPlatform, note: e.target.value })}
+                  placeholder="Например: «Markdown, H1 запрещён, изображения только по центру, без внешних ссылок»"
+                  style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", lineHeight: 1.5 }}
+                />
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <button className="ds-btn ds-btn-secondary" style={{ flex: 1 }} onClick={() => setStep("type")}>← Назад</button>
             <button className="ds-btn ds-btn-primary" style={{ flex: 2 }} onClick={() => setStep("topic")}>Далее →</button>

@@ -1005,7 +1005,7 @@ function MarketRadarDashboardInner() {
         toast({
           kind: "success",
           title: `${idea.format.charAt(0).toUpperCase() + idea.format.slice(1)} готов 🎉`,
-          description: `Сохранён в «Готовые посты». Картинку дорисовали через DALL-E.`,
+          description: `Сохранён в «Создать пост». Картинка готова.`,
           action: { label: "Открыть", onClick: () => setActiveNav("content-posts") },
         });
         return;

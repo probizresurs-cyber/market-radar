@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
   try {
-    const { brief, keywords }: { brief: SEOArticleBrief; keywords: string[] } = await req.json();
+    const { brief, keywords, customPlatformHint }: { brief: SEOArticleBrief; keywords: string[]; customPlatformHint?: string } = await req.json();
+
+    const customBlock = customPlatformHint ? `\nДОПОЛНИТЕЛЬНО О ПЛОЩАДКЕ:\n${customPlatformHint}\n` : "";
 
     const prompt = `Ты — SEO-редактор. Составь детальную структуру (outline) для статьи.
 
@@ -62,11 +64,14 @@ export async function POST(req: NextRequest) {
 - Целевой объём: ${brief.wordCountTarget} слов
 - ЦА: ${brief.audience}
 - CTA: ${brief.callToAction}
-
+${customBlock}
 КРИТИЧЕСКИ ВАЖНО: верни ТОЛЬКО валидный JSON без какого-либо текста до или после. Не оборачивай в markdown-блоки. В строковых значениях не используй двойные кавычки — только одинарные или перефразируй. Не используй символы переноса строки внутри строковых значений JSON.
+
+ВАЖНО: поля "intro" и "conclusion" — ОБЯЗАТЕЛЬНО заполненные полные тексты (не пустые строки, не плейсхолдеры). Это финальный текст, который пойдёт в статью; пользователь может его лишь чуть поправить.
+
 {
   "h1": "H1 заголовок статьи (содержит фокус-ключ)",
-  "intro": "краткий лид-абзац (2-3 предложения, крючок для читателя)",
+  "intro": "Полный готовый лид-абзац на 2-3 предложения. Без шаблонов типа «В этой статье вы узнаете...». Конкретный крючок: проблема, цифра или провокация по теме. Минимум 200 символов.",
   "sections": [
     {
       "id": "s1",
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
       "status": "empty"
     }
   ],
-  "conclusion": "финальный раздел / CTA (1-2 предложения)"
+  "conclusion": "Полный готовый текст заключения на 2-3 предложения с естественным переходом к CTA. Минимум 150 символов. Не плейсхолдер."
 }
 
 Требования к структуре:

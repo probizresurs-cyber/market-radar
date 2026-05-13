@@ -520,15 +520,29 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                           style={{ width: "100%", aspectRatio: "9 / 16", borderRadius: 6, background: "#000", objectFit: "cover", marginBottom: 6 }}
                         />
                       ) : clip.status === "failed" ? (
-                        <div style={{
-                          width: "100%", aspectRatio: "9 / 16", borderRadius: 6,
-                          background: "color-mix(in oklch, var(--destructive) 10%, var(--background))",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "var(--destructive)", padding: 8, textAlign: "center", marginBottom: 6,
-                        }}>
-                          <div>
+                        <div
+                          title={clip.error || ""}
+                          style={{
+                            width: "100%", aspectRatio: "9 / 16", borderRadius: 6,
+                            background: "color-mix(in oklch, var(--destructive) 10%, var(--background))",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "var(--destructive)", padding: 8, textAlign: "center", marginBottom: 6,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div style={{ maxWidth: "100%" }}>
                             <X size={20} style={{ marginBottom: 4 }} />
-                            <div style={{ fontSize: 10, fontWeight: 700 }}>Ошибка</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 4 }}>Не получилось</div>
+                            <div style={{
+                              fontSize: 9, color: "var(--muted-foreground)", fontWeight: 500,
+                              lineHeight: 1.3, wordBreak: "break-word",
+                              display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}>
+                              {clip.error
+                                ? clip.error.replace(/^HeyGen\s+\d+:\s*/, "").slice(0, 180)
+                                : "Сервис b-roll не ответил. Возможно, HeyGen Video Agent не подключён к вашему ключу."}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -608,11 +622,15 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 
             {brollError && (
               <div style={{
-                marginTop: 8, padding: "8px 12px", borderRadius: 8,
+                marginTop: 8, padding: "10px 12px", borderRadius: 8,
                 background: "color-mix(in oklch, var(--destructive) 10%, transparent)",
-                color: "var(--destructive)", fontSize: 12,
+                color: "var(--destructive)", fontSize: 12, lineHeight: 1.5,
               }}>
-                {brollError}
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>B-roll недоступен</div>
+                <div style={{ marginBottom: 4 }}>{brollError}</div>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                  HeyGen Video Agent — отдельный платный продукт (~$0.17 за 5-сек клип). Если возвращает 401/403/404 — продукт не подключён к вашему API-ключу, обратитесь в HeyGen support.
+                </div>
               </div>
             )}
           </div>

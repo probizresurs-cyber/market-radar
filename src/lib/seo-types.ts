@@ -22,7 +22,8 @@ export type SEOPlatform =
   | "teletype"   // Teletype.in
   | "medium"     // Medium
   | "dzen-pulse" // Дзен Пульс
-  | "spark";     // Spark.ru
+  | "spark"      // Spark.ru
+  | "custom";    // Своя площадка — пользователь задаёт лимиты сам
 
 export interface SEOPlatformProfile {
   id: SEOPlatform;
@@ -38,66 +39,74 @@ export interface SEOPlatformProfile {
 
 export const SEO_PLATFORMS: SEOPlatformProfile[] = [
   {
-    id: "website", label: "Сайт / блог", icon: "🌐",
+    id: "website", label: "Сайт / блог", icon: "",
     maxChars: 0, recommendedChars: [1500, 8000],
     supportsHtml: true, supportsImages: true, supportsEmbeds: true,
     formattingNote: "Полная HTML-разметка, любая длина",
   },
   {
-    id: "zen", label: "Яндекс Дзен", icon: "🟨",
+    id: "zen", label: "Яндекс Дзен", icon: "",
     maxChars: 0, recommendedChars: [3000, 10000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: false,
     formattingNote: "Нет H1 — заголовок статьи = H1. Первые 300 символов без внешних ссылок",
   },
   {
-    id: "vc", label: "vc.ru", icon: "📰",
+    id: "vc", label: "vc.ru", icon: "",
     maxChars: 0, recommendedChars: [2000, 6000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: true,
     formattingNote: "Блочный редактор, нет raw HTML. Принято ≥ 2000 символов",
   },
   {
-    id: "habr", label: "Habr", icon: "🟢",
+    id: "habr", label: "Habr", icon: "",
     maxChars: 0, recommendedChars: [3000, 12000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: true,
     formattingNote: "Markdown + хабра-теги. Блоки кода, spoiler, cut",
   },
   {
-    id: "pikabu", label: "Pikabu", icon: "🟠",
+    id: "pikabu", label: "Pikabu", icon: "",
     maxChars: 10000, recommendedChars: [1000, 5000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: false,
     formattingNote: "До 10 000 символов, простой форматированный текст + изображения",
   },
   {
-    id: "tenchat", label: "TenChat", icon: "💼",
+    id: "tenchat", label: "TenChat", icon: "",
     maxChars: 5000, recommendedChars: [800, 3000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: false,
     formattingNote: "До 5000 символов, хэштеги приветствуются. Нет внешних ссылок",
   },
   {
-    id: "teletype", label: "Teletype.in", icon: "📝",
+    id: "teletype", label: "Teletype.in", icon: "",
     maxChars: 0, recommendedChars: [1000, 5000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: false,
     formattingNote: "Минималистичная платформа — текст и изображения",
   },
   {
-    id: "medium", label: "Medium", icon: "⭕",
+    id: "medium", label: "Medium", icon: "",
     maxChars: 0, recommendedChars: [1500, 7000],
     supportsHtml: false, supportsImages: true, supportsEmbeds: true,
     formattingNote: "Английский / русский. Блочный редактор",
   },
+  {
+    // Свой профиль — лимиты задаются пользователем в UI.
+    // Дефолт-значения это просто placeholder; они переписываются при сохранении.
+    id: "custom", label: "Своя площадка", icon: "",
+    maxChars: 0, recommendedChars: [1000, 5000],
+    supportsHtml: false, supportsImages: true, supportsEmbeds: false,
+    formattingNote: "Площадка задана вручную",
+  },
 ];
 
 export const SEO_ARTICLE_TYPES: { id: SEOArticleType; label: string; icon: string; desc: string }[] = [
-  { id: "informational",   label: "Информационная",   icon: "📖", desc: "Что такое / Как работает / Всё о…" },
-  { id: "how-to",          label: "Инструкция",        icon: "📋", desc: "Пошаговое руководство" },
-  { id: "listicle",        label: "Listicle",           icon: "📌", desc: "Топ-N, Лучшие, Список полезностей" },
-  { id: "review",          label: "Обзор",              icon: "🔍", desc: "Обзор продукта / сервиса / инструмента" },
-  { id: "comparison",      label: "Сравнение",          icon: "⚖️", desc: "A vs B — сравнение альтернатив" },
-  { id: "case-study",      label: "Кейс",               icon: "🏆", desc: "История успеха / разбор проекта" },
-  { id: "faq",             label: "FAQ",                icon: "❓", desc: "Ответы на частые вопросы" },
-  { id: "landing-article", label: "Продающая",          icon: "💰", desc: "Статья-лендинг, привязана к CTA" },
-  { id: "news",            label: "Новость",            icon: "📢", desc: "Новость, анонс, пресс-релиз" },
-  { id: "expert-column",   label: "Экспертная колонка", icon: "🧑‍💼", desc: "Мнение эксперта / авторская колонка" },
+  { id: "informational",   label: "Информационная",   icon: "", desc: "Что такое / Как работает / Всё о…" },
+  { id: "how-to",          label: "Инструкция",        icon: "", desc: "Пошаговое руководство" },
+  { id: "listicle",        label: "Listicle",           icon: "", desc: "Топ-N, Лучшие, Список полезностей" },
+  { id: "review",          label: "Обзор",              icon: "", desc: "Обзор продукта / сервиса / инструмента" },
+  { id: "comparison",      label: "Сравнение",          icon: "", desc: "A vs B — сравнение альтернатив" },
+  { id: "case-study",      label: "Кейс",               icon: "", desc: "История успеха / разбор проекта" },
+  { id: "faq",             label: "FAQ",                icon: "", desc: "Ответы на частые вопросы" },
+  { id: "landing-article", label: "Продающая",          icon: "", desc: "Статья-лендинг, привязана к CTA" },
+  { id: "news",            label: "Новость",            icon: "", desc: "Новость, анонс, пресс-релиз" },
+  { id: "expert-column",   label: "Экспертная колонка", icon: "", desc: "Мнение эксперта / авторская колонка" },
 ];
 
 // ─── Keywords ─────────────────────────────────────────────────────────────────
