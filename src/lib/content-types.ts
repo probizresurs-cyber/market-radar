@@ -201,6 +201,11 @@ export interface GeneratedReel {
   subtitles?: boolean;
   /** ID конкретного аватара из библиотеки customAvatars (HeyGen avatar_id). */
   selectedAvatarId?: string;
+  /** Режим финального видео:
+   *  - "avatar-only": только говорящий аватар, b-roll НЕ вставляется
+   *  - "broll-only": только b-roll с озвучкой, аватара нет в кадре
+   *  - "mixed" (default): аватар + b-roll вперемешку */
+  videoMode?: "avatar-only" | "broll-only" | "mixed";
 }
 
 export interface ReferenceImage {

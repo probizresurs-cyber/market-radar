@@ -838,7 +838,9 @@ export function OwnerDashboardContent({
               const nav = externalNav[id];
               if (mode === "private" && nav && typeof window !== "undefined") {
                 // Открываем в той же вкладке — пользователь ожидает прямой переход.
-                window.location.href = `/?nav=${nav}`;
+                // assign() = записывает в history, location.replace() — нет, но для
+                // надёжной отработки query-param используем assign + cache-bust ts.
+                window.location.assign(`/?nav=${nav}&t=${Date.now()}`);
                 return;
               }
               setActiveTab(id);

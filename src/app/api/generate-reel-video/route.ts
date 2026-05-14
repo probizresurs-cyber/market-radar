@@ -54,6 +54,11 @@ export async function POST(req: Request) {
     })();
     // Сабтитры — burned-in caption on screen. По умолчанию включены.
     const subtitles: boolean = body.subtitles !== false;
+    // Режим видео: mixed (default) / avatar-only / broll-only.
+    const videoMode: "avatar-only" | "broll-only" | "mixed" =
+      body.videoMode === "avatar-only" || body.videoMode === "broll-only"
+        ? body.videoMode
+        : "mixed";
     // Список конкретных b-roll сцен, которые пользователь явно прописал.
     // Если есть — внедряем их в prompt как явные инструкции для агента;
     // если нет — агент сам решит какие b-roll вставить.
@@ -130,9 +135,46 @@ export async function POST(req: Request) {
           `Without subtitles the video is unusable — do NOT skip them.`
         : "STRICT REQUIREMENT: do NOT add any text overlays, subtitles, captions or any on-screen text. Pure visual + audio only.";
 
-      if (brollScenes.length > 0) {
-        // Юзер прописал конкретные сцены — даём агенту жёсткий список.
-        // Если у сцены есть референс-фото, упоминаем это в описании.
+      // Режим финального видео — даёт агенту чёткое указание что показывать.
+      if (videoMode === "avatar-only") {
+        parts.push(
+          "VIDEO MODE: avatar-only. The video should show ONLY the talking avatar full-frame the entire time — no b-roll, no scene cuts, no inserts. Just one continuous avatar shot. " +
+          subtitleLine + " " +
+          "Style: clean, professional, neutral studio background."
+        );
+      } else if (videoMode === "broll-only") {
+        // Только b-roll с озвучкой — закадровый голос поверх кинематографичных кадров.
+        if (brollScenes.length > 0) {
+          const sceneList = brollScenes
+            .map((s, i) => {
+              const pos = s.position ? ` [${s.position}]` : "";
+              const motion = s.motionHint ? ` (${s.motionHint})` : "";
+              const ref = (s.referenceImageUrl ?? "").trim()
+                ? ` — animate from the provided reference image (image #${i + 1} attached as file)`
+                : "";
+              return `${i + 1}.${pos}${motion} ${s.prompt!.trim()}${ref}`;
+            })
+            .join("\n");
+          parts.push(
+            `VIDEO MODE: b-roll-only with voiceover. NO avatar in frame. ` +
+            `Use these SPECIFIC b-roll scenes in this order:\n${sceneList}\n\n` +
+            "Each scene must have CLEAR ACTION (movement, motion, change happening) — not static photo with camera pan. " +
+            "Voiceover plays over the b-roll. " + subtitleLine + " " +
+            "Style: modern, premium, cinematic lighting, shallow depth of field. " +
+            "Do NOT add competitor brand names, logos, or recognizable third-party signage."
+          );
+        } else {
+          parts.push(
+            "VIDEO MODE: b-roll-only with voiceover. NO avatar in frame. " +
+            "Generate cinematic b-roll scenes that match the voiceover, with CLEAR ACTION in every scene " +
+            "(movement, real activity, gesture, transformation — not static photos with camera pans). " +
+            subtitleLine + " " +
+            "Style: modern, premium, cinematic lighting, shallow depth of field. " +
+            "Do NOT add competitor brand names or logos."
+          );
+        }
+      } else if (brollScenes.length > 0) {
+        // Mixed mode — аватар + конкретные b-roll сцены.
         const sceneList = brollScenes
           .map((s, i) => {
             const pos = s.position ? ` [${s.position}]` : "";
@@ -144,29 +186,37 @@ export async function POST(req: Request) {
           })
           .join("\n");
         parts.push(
+          `VIDEO MODE: mixed (avatar + b-roll). ` +
           `Insert these SPECIFIC b-roll scenes between avatar shots, in this order:\n${sceneList}\n\n` +
+          "Each b-roll must have CLEAR ACTION (movement, gesture, transformation, real activity happening) — not static photos with camera pan/zoom. " +
           "Match each scene to the relevant part of the avatar's monologue. " +
           subtitleLine + " " +
           "Style: modern, premium, cinematic lighting, shallow depth of field. " +
-          "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage."
+          "Do NOT add competitor brand names, logos, or recognizable third-party signage."
         );
       } else {
         parts.push(
-          "Insert cinematic b-roll between avatar shots to illustrate key points. " +
+          `VIDEO MODE: mixed (avatar + b-roll). ` +
+          "Insert cinematic b-roll between avatar shots. Each b-roll must show CLEAR ACTION (movement, gesture, activity, transformation) — NOT static photos with camera pan/zoom. " +
           subtitleLine + " " +
           "Style: modern, premium, cinematic lighting, shallow depth of field. " +
-          "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
+          "Do NOT add competitor brand names, logos, or recognizable third-party signage in b-roll."
         );
       }
 
       // Финальное напоминание — самые критичные требования в конце промпта
       // (LLM лучше выполняет последние инструкции).
+      const modeDesc =
+        videoMode === "avatar-only" ? "ONLY talking avatar, NO b-roll, NO scene cuts"
+        : videoMode === "broll-only" ? "ONLY b-roll scenes with voiceover, NO avatar in frame"
+        : "Avatar + b-roll mixed (b-roll scenes must have CLEAR ACTION, not static photos)";
       parts.push(
         `FINAL CHECKLIST (must satisfy ALL):\n` +
         `1) Final video length: exactly ${targetDurationSec} seconds.\n` +
         `2) Subtitles: ${subtitles ? "BURNED-IN, Russian, bottom-center, mandatory" : "NONE"}.\n` +
         `3) Voiceover: matches the provided script word-for-word.\n` +
-        `4) Orientation: vertical 9:16.`
+        `4) Orientation: vertical 9:16.\n` +
+        `5) Video mode: ${modeDesc}.`
       );
 
       // HeyGen лимит — 10000 символов на промпт.

@@ -1388,6 +1388,7 @@ function MarketRadarDashboardInner() {
           brollScenes: plannedScenes,
           targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
           subtitles: reel.subtitles !== false,
+          videoMode: reel.videoMode ?? "mixed",
         }),
       });
       const json = await res.json();

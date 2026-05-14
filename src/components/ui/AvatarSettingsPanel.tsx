@@ -250,7 +250,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
               <Upload size={13} /> Свой аватар и голос
             </div>
             <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.5 }}>
-              Загрузите своё фото — получите персонального аватара (HeyGen talking-photo). Загрузите семпл голоса (20–60 сек чистой речи) — получите клон через <b>ElevenLabs</b>, который автоматически подставляется в видео HeyGen как audio-asset.
+              Загрузите фото или видео — получите персонального аватара. Голос для видео выбирается из готовых HeyGen-голосов через «Использовать готовый из HeyGen» ниже.
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
@@ -319,37 +319,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                 </div>
               </div>
 
-              {/* Voice upload */}
-              <div style={{ background: "var(--card)", borderRadius: 8, padding: 12, border: `1px solid var(--border)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <Mic size={12} /> Семпл голоса
-                </div>
-                <input
-                  type="text"
-                  value={pendingVoiceName}
-                  onChange={e => setPendingVoiceName(e.target.value)}
-                  placeholder="Название (например: «Мой голос»)"
-                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", marginBottom: 8, fontFamily: "inherit", boxSizing: "border-box" }}
-                />
-                <input
-                  ref={voiceInputRef}
-                  type="file"
-                  accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/m4a,audio/x-m4a,audio/mp4"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadVoice(f); }}
-                  style={{ display: "none" }}
-                />
-                <button
-                  onClick={() => voiceInputRef.current?.click()}
-                  disabled={uploadingVoice}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: `1.5px solid var(--primary)`, background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", fontSize: 11, fontWeight: 700, cursor: uploadingVoice ? "not-allowed" : "pointer" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {uploadingVoice ? <><Loader2 size={12} className="mr-spin" /> Клонируем голос…</> : <><Upload size={12} /> Загрузить семпл (MP3/WAV, 20–180 сек)</>}
-                  </span>
-                </button>
-                <div style={{ fontSize: 9, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
-                  Лучше всего: тихая комната, 30–60 сек чистой речи, без музыки на фоне, нормальная громкость.
-                </div>
-              </div>
+              {/* Voice upload убран — клонирование голоса нестабильно, юзер
+                  выбирает готовый HeyGen-голос через кнопку «Использовать
+                  готовый из HeyGen» ниже. */}
             </div>
 
             {uploadError && (
@@ -358,31 +330,105 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
               </div>
             )}
 
-            {/* My avatars */}
+            {/* My avatars — HeyGen-style library: крупные карточки 180px,
+                с кнопкой переименовать и удалить, видимое «✓ выбран» */}
             {customAvatars.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>МОИ АВАТАРЫ ({customAvatars.length})</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "var(--foreground)", marginBottom: 10, letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
+                  Мои аватары
+                  <span style={{ background: "color-mix(in oklch, var(--primary) 15%, transparent)", color: "var(--primary)", padding: "1px 7px", borderRadius: 8, fontSize: 10 }}>{customAvatars.length}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
                   {customAvatars.map(a => {
-                    // Селектор работает и для talking_photo (фото-аватары),
-                    // и для preset (footage video-аватары) — главное чтобы
-                    // avatarId совпадал с heygenAvatarId этого аватара.
                     const selected = settings.avatarId === a.heygenAvatarId;
+                    const isProcessing = a.status === "processing";
                     return (
                       <div key={a.id}
-                        onClick={() => selectCustomAvatar(a)}
-                        style={{ cursor: "pointer", border: `2px solid ${selected ? "var(--primary)" : "var(--border)"}`, borderRadius: 8, padding: 6, background: selected ? "color-mix(in oklch, var(--primary) 6%, transparent)" : "var(--card)", position: "relative" }}>
-                        {a.previewUrl && (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={a.previewUrl} alt={a.name} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 5, marginBottom: 4 }} />
-                        )}
-                        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
-                        <button
-                          onClick={e => { e.stopPropagation(); deleteCustomAvatar(a.id); }}
-                          title="Удалить"
-                          style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 4, color: "#fff", padding: "2px 4px", cursor: "pointer", display: "inline-flex" }}>
-                          <Trash2 size={10} />
-                        </button>
+                        onClick={() => !isProcessing && selectCustomAvatar(a)}
+                        style={{
+                          cursor: isProcessing ? "default" : "pointer",
+                          border: `2px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+                          borderRadius: 12, padding: 0, overflow: "hidden",
+                          background: selected ? "color-mix(in oklch, var(--primary) 8%, var(--card))" : "var(--card)",
+                          position: "relative",
+                          boxShadow: selected ? "0 4px 14px color-mix(in oklch, var(--primary) 25%, transparent)" : "none",
+                          transition: "all 0.15s",
+                          opacity: isProcessing ? 0.7 : 1,
+                        }}>
+                        {/* Preview 1:1 */}
+                        <div style={{ position: "relative", aspectRatio: "1/1", background: "var(--background)" }}>
+                          {a.previewUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={a.previewUrl} alt={a.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", fontSize: 28 }}>
+                              <Upload size={28} />
+                            </div>
+                          )}
+                          {selected && (
+                            <div style={{
+                              position: "absolute", top: 8, left: 8,
+                              background: "var(--primary)", color: "#fff",
+                              fontSize: 10, fontWeight: 800,
+                              padding: "3px 8px", borderRadius: 5,
+                              letterSpacing: "0.05em",
+                            }}>
+                              ВЫБРАН
+                            </div>
+                          )}
+                          {isProcessing && (
+                            <div style={{
+                              position: "absolute", inset: 0,
+                              background: "rgba(0,0,0,0.5)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontSize: 11, fontWeight: 700,
+                              flexDirection: "column", gap: 4,
+                            }}>
+                              <Loader2 size={20} className="mr-spin" />
+                              <span>Готовится</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              const newName = prompt("Новое название аватара:", a.name);
+                              if (newName && newName.trim() && newName !== a.name) {
+                                const next = customAvatars.map(av => av.id === a.id ? { ...av, name: newName.trim() } : av);
+                                update({ customAvatars: next });
+                              }
+                            }}
+                            title="Переименовать"
+                            style={{
+                              position: "absolute", top: 8, right: 36,
+                              background: "rgba(0,0,0,0.55)", border: "none",
+                              borderRadius: 5, color: "#fff",
+                              padding: "4px 6px", cursor: "pointer",
+                              display: "inline-flex", alignItems: "center",
+                            }}>
+                            <ImagePlus size={11} />
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); if (confirm(`Удалить «${a.name}»?`)) deleteCustomAvatar(a.id); }}
+                            title="Удалить"
+                            style={{
+                              position: "absolute", top: 8, right: 8,
+                              background: "rgba(0,0,0,0.55)", border: "none",
+                              borderRadius: 5, color: "#fff",
+                              padding: "4px 6px", cursor: "pointer",
+                              display: "inline-flex", alignItems: "center",
+                            }}>
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                        {/* Name */}
+                        <div style={{ padding: "8px 10px" }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {a.name}
+                          </div>
+                          <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
+                            {a.heygenAvatarId?.slice(0, 16)}…
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

@@ -672,6 +672,36 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                 </div>
               </div>
 
+              {/* Режим финального видео */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Режим
+                </label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {([
+                    { id: "mixed" as const, label: "Аватар + B-roll" },
+                    { id: "avatar-only" as const, label: "Только аватар" },
+                    { id: "broll-only" as const, label: "Только B-roll" },
+                  ]).map(m => {
+                    const active = (reel.videoMode ?? "mixed") === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => onUpdate({ ...reel, videoMode: m.id })}
+                        style={{
+                          padding: "5px 10px", borderRadius: 6,
+                          border: `1.5px solid ${active ? "#ec4899" : "var(--border)"}`,
+                          background: active ? "#ec489918" : "transparent",
+                          color: active ? "#ec4899" : "var(--foreground-secondary)",
+                          fontSize: 11.5, fontWeight: 700,
+                          cursor: "pointer", fontFamily: "inherit",
+                          whiteSpace: "nowrap",
+                        }}>{m.label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Сабтитры */}
               <label style={{
                 display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
