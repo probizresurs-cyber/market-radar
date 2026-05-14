@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 import type { SwotItems } from "@/lib/swot";
 
 export const runtime = "nodejs";
@@ -168,7 +169,7 @@ ${items.threats.map((s, i) => `${i + 1}. ${s}`).join("\n")}
 
     return NextResponse.json({ ok: true, tows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

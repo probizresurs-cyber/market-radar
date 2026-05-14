@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TAResult, TAAudienceType } from "@/lib/ta-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 
 const SYSTEM_PROMPT_B2C = `Ты — лучший в мире маркетинговый аналитик, специализирующийся на глубоком анализе целевой аудитории в B2C (конечные потребители, физические лица).
 
@@ -408,7 +409,7 @@ export async function POST(req: Request) {
     await access.log({ endpoint: "analyze-ta", model: `gpt-4o-${audienceType}` });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

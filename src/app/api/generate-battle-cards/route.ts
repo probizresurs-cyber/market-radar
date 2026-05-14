@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
@@ -214,7 +215,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, data });
   } catch (err) {
     console.error("[generate-battle-cards]", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
 import type { ReviewAnalysis } from "@/lib/review-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -128,6 +129,7 @@ ${reviewsDump}
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     await access.log({ endpoint: "analyze-reviews", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

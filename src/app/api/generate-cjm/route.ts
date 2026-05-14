@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { TAResult } from "@/lib/ta-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -377,6 +378,7 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     await access.log({ endpoint: "generate-cjm", model: "claude-sonnet-4-6", success: false, errorMessage: msg.slice(0, 200) });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

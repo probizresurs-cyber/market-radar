@@ -3,6 +3,7 @@ import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import type { BusinessType } from "@/lib/business-types";
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
 
     await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", success: false, errorMessage: message.slice(0, 200) });
 
+    // Особый случай — не дотянулись до сайта (Playwright / DNS). Это не AI-ошибка.
     if (
       message.includes("fetch") ||
       message.includes("ENOTFOUND") ||
@@ -209,42 +211,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (message.includes("anthropic") || message.includes("authentication") || message.includes("api_key")) {
-      return NextResponse.json(
-        { ok: false, error: "Ошибка AI-анализа: проблема с API ключом." },
-        { status: 502 }
-      );
-    }
-
-    // Cloudflare Worker proxy / Anthropic safety filter: 403 forbidden
-    // или "Request not allowed". Это временное ограничение прокси —
-    // не показываем юзеру сырой JSON.
-    if (
-      /403\b/.test(message) &&
-      (/forbidden/i.test(message) || /request not allowed/i.test(message))
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "AI-прокси временно блокирует запросы (rate-limit или защита Cloudflare). " +
-            "Подождите 30-60 секунд и повторите. Если ошибка не уходит — пишите в поддержку.",
-        },
-        { status: 503 },
-      );
-    }
-
-    // 429 — rate limit от самой Anthropic
-    if (/429\b/.test(message) || /rate.?limit/i.test(message)) {
-      return NextResponse.json(
-        { ok: false, error: "Превышен лимит запросов к AI. Повторите через минуту." },
-        { status: 429 },
-      );
-    }
-
-    return NextResponse.json(
-      { ok: false, error: "Ошибка анализа: " + message },
-      { status: 500 }
-    );
+    // Все AI-ошибки (Cloudflare 403, Anthropic 401/429/HTML) — через общий хелпер.
+    const { message: friendly, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: friendly }, { status });
   }
 }

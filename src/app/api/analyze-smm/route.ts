@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import { getRealVKStats, getRealTelegramStats } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { friendlyAiError } from "@/lib/ai-error";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -245,7 +246,7 @@ export async function POST(req: Request) {
     await access.log({ endpoint: "analyze-smm", model: "claude-sonnet-4-6" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
