@@ -1776,7 +1776,7 @@ export function GeneratedPostsView({
   if (posts.length === 0) {
     return (
       <div style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Создать пост</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Все сгенерированные посты с картинками появятся здесь.</p>
 
         {/* Onboarding checklist — показываем если воронка ещё не пройдена до конца */}
@@ -1811,7 +1811,7 @@ export function GeneratedPostsView({
   return (
     <div style={{ maxWidth: 1180 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Готовые посты</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "var(--foreground)", letterSpacing: -0.5 }}>Создать пост</h1>
         <span style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", padding: "4px 12px", borderRadius: 20, background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
           {posts.length}
         </span>

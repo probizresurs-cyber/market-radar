@@ -26,6 +26,7 @@
  *   videoId появится позже — клиент поллит /api/video-status?sessionId=...
  */
 import { NextResponse } from "next/server";
+import { friendlyAiError } from "@/lib/ai-error";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -111,13 +112,23 @@ export async function POST(req: Request) {
       }
       if (title) parts.push(`Title: ${title}.`);
       if (hook) parts.push(`Opening hook: ${hook}.`);
-      parts.push(`Target duration: approximately ${targetDurationSec} seconds.`);
+      // СТРОГО фиксируем длину — иначе видео-агент тянет на 20-30 секунд
+      // даже для 10-секундных запросов. Повторяем требование 3 раза в разных
+      // местах промпта, чтобы LLM-агент не проигнорировал.
       parts.push(
-        `The avatar must speak EXACTLY this voiceover script (do not change wording):\n"""\n${script}\n"""`
+        `STRICT REQUIREMENT — VIDEO DURATION: exactly ${targetDurationSec} seconds. ` +
+        `Final video MUST be no longer than ${targetDurationSec} seconds total. ` +
+        `Cut script if needed to fit. This is a HARD constraint.`
       );
+      parts.push(
+        `The avatar must speak EXACTLY this voiceover script (do not change wording, but trim from the end if it doesn't fit ${targetDurationSec} seconds):\n"""\n${script}\n"""`
+      );
+      // Сабтитры — повторяем строгое указание два раза.
       const subtitleLine = subtitles
-        ? "Add burned-in subtitles for accessibility (Russian text, clean modern sans-serif, positioned at the bottom-center)."
-        : "Do NOT add any text overlays or subtitles — pure visual + audio.";
+        ? `STRICT REQUIREMENT — BURNED-IN SUBTITLES ARE MANDATORY: render Russian subtitles directly into the video, frame by frame, synced with the avatar's speech. ` +
+          `Clean modern sans-serif, white text with subtle drop shadow, positioned at the bottom-center, 40-60px from the bottom edge. ` +
+          `Without subtitles the video is unusable — do NOT skip them.`
+        : "STRICT REQUIREMENT: do NOT add any text overlays, subtitles, captions or any on-screen text. Pure visual + audio only.";
 
       if (brollScenes.length > 0) {
         // Юзер прописал конкретные сцены — даём агенту жёсткий список.
@@ -147,6 +158,17 @@ export async function POST(req: Request) {
           "Do NOT add competitor brand names, logos, or recognizable third-party clinic/office signage in b-roll."
         );
       }
+
+      // Финальное напоминание — самые критичные требования в конце промпта
+      // (LLM лучше выполняет последние инструкции).
+      parts.push(
+        `FINAL CHECKLIST (must satisfy ALL):\n` +
+        `1) Final video length: exactly ${targetDurationSec} seconds.\n` +
+        `2) Subtitles: ${subtitles ? "BURNED-IN, Russian, bottom-center, mandatory" : "NONE"}.\n` +
+        `3) Voiceover: matches the provided script word-for-word.\n` +
+        `4) Orientation: vertical 9:16.`
+      );
+
       // HeyGen лимит — 10000 символов на промпт.
       prompt = parts.join("\n\n").slice(0, 9800);
     }
@@ -234,7 +256,8 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("[generate-reel-video] caught", err);
+    const { message, status } = friendlyAiError(err);
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
