@@ -683,7 +683,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                   onChange={e => onUpdate({ ...reel, subtitles: e.target.checked })}
                   style={{ width: 16, height: 16, accentColor: "#ec4899", cursor: "pointer" }}
                 />
-                Сабтитры
+                Субтитры
               </label>
 
               {/* Селектор аватара из библиотеки (если есть кастомные) */}

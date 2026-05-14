@@ -821,19 +821,23 @@ export function OwnerDashboardContent({
             p={p}
             active={activeTab}
             onChange={(id) => {
-              // В private-режиме модульные табы (ta/cjm/smm/content/competitors/benchmarks)
-              // ведут прямо на полный модуль в основном app — пользователь
-              // ожидает увидеть полный анализ, а не сжатую сводку.
+              // В private-режиме все основные табы ведут на полный модуль в app.
+              // Внутренняя сводка остаётся только для "overview".
               const externalNav: Partial<Record<TabId, string>> = {
+                actions: "insights",
+                reputation: "reviews-analysis",
+                company: "dashboard",
+                competitors: "competitors",
                 ta: "ta-dashboard",
                 cjm: "ta-cjm",
                 benchmarks: "ta-benchmarks",
                 smm: "smm-dashboard",
                 content: "content-plan",
-                competitors: "competitors",
+                "ai-visibility": "ai-visibility",
               };
               const nav = externalNav[id];
               if (mode === "private" && nav && typeof window !== "undefined") {
+                // Открываем в той же вкладке — пользователь ожидает прямой переход.
                 window.location.href = `/?nav=${nav}`;
                 return;
               }
@@ -845,18 +849,18 @@ export function OwnerDashboardContent({
           {/* Ссылка "Открыть полный отчёт на платформе" (только в приватном режиме, для релевантных вкладок) */}
           {mode === "private" && activeTab !== "overview" && (() => {
             const navMap: Record<Exclude<TabId, "overview">, { nav: string; label: string }> = {
-              actions: { nav: "dashboard", label: "Список действий" },
-              reputation: { nav: "reviews", label: "Отзывы" },
+              actions: { nav: "insights", label: "AI-инсайты" },
+              reputation: { nav: "reviews-analysis", label: "Отзывы и репутация" },
               finance: { nav: "dashboard", label: "Финансы компании" },
               hr: { nav: "dashboard", label: "Команда и найм" },
-              company: { nav: "dashboard", label: "Моя компания" },
+              company: { nav: "dashboard", label: "Дашборд компании" },
               competitors: { nav: "compare", label: "Сравнение конкурентов" },
               ta: { nav: "ta-dashboard", label: "Дашборд ЦА" },
               cjm: { nav: "ta-cjm", label: "Customer Journey Map" },
               benchmarks: { nav: "ta-benchmarks", label: "Отраслевые бенчмарки" },
               smm: { nav: "smm-dashboard", label: "Дашборд СММ" },
               content: { nav: "content-plan", label: "План контента" },
-              "ai-visibility": { nav: "dashboard", label: "ИИ-видимость" },
+              "ai-visibility": { nav: "ai-visibility", label: "AI Видимость" },
             };
             const target = navMap[activeTab as Exclude<TabId, "overview">];
             if (!target) return null;

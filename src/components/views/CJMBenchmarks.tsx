@@ -147,10 +147,9 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
           const color = stageColors[i % stageColors.length];
           return (
             <div key={i} style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
-              {/* Header row: icon + name + emotion + duration */}
+              {/* Header row: icon + name + duration. Эмоция длинная — вынесена на свою строку. */}
               <div style={{
-                display: "flex", alignItems: "center", gap: 14, padding: "16px 22px",
-                borderBottom: `1px solid var(--muted)`,
+                display: "flex", alignItems: "center", gap: 14, padding: "14px 22px",
                 background: color + "0c",
               }}>
                 <div style={{
@@ -164,20 +163,31 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
                 <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: "var(--foreground)", letterSpacing: "-0.01em" }}>
                   {stage.name}
                 </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  <span style={{
-                    fontSize: 12.5, fontWeight: 600,
-                    color: emotionColor(stage.emotionValence),
-                    background: emotionColor(stage.emotionValence) + "18",
-                    padding: "4px 12px", borderRadius: 20,
-                  }}>{stage.emotion}</span>
-                  <span style={{
-                    fontSize: 12, color: "var(--muted-foreground)",
-                    background: "var(--background)", padding: "4px 12px", borderRadius: 20,
-                    border: `1px solid var(--border)`,
-                  }}>{stage.duration}</span>
-                </div>
+                <span style={{
+                  fontSize: 12, color: "var(--muted-foreground)",
+                  background: "var(--background)", padding: "4px 12px", borderRadius: 20,
+                  border: `1px solid var(--border)`, flexShrink: 0,
+                }}>{stage.duration}</span>
               </div>
+
+              {/* Эмоция — отдельной полной строкой; может быть длинной (до 3-4 строк). */}
+              {stage.emotion && (
+                <div style={{
+                  padding: "10px 22px",
+                  background: emotionColor(stage.emotionValence) + "10",
+                  borderTop: `1px solid ${emotionColor(stage.emotionValence)}25`,
+                  borderBottom: `1px solid var(--muted)`,
+                  color: emotionColor(stage.emotionValence),
+                  fontSize: 14, fontWeight: 600, lineHeight: 1.5,
+                  display: "flex", alignItems: "flex-start", gap: 8,
+                }}>
+                  <span style={{
+                    width: 4, alignSelf: "stretch", borderRadius: 2, flexShrink: 0,
+                    background: emotionColor(stage.emotionValence), marginTop: 2, marginBottom: 2,
+                  }} />
+                  <span>{stage.emotion}</span>
+                </div>
+              )}
 
               {/* Описание этапа — отдельной полной строкой над 4 колонками */}
               {stage.goal && (
