@@ -4,7 +4,28 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
-import { Map as MapIcon, Loader2, RefreshCw, MapPin, MessageCircle, AlertTriangle, Lightbulb, TrendingUp, BarChart2 } from "lucide-react";
+import {
+  Map as MapIcon, Loader2, RefreshCw, MapPin, MessageCircle,
+  AlertTriangle, Lightbulb, TrendingUp, BarChart2,
+  Eye, Heart, Scale, CheckCircle, ShoppingCart, RotateCw, Star,
+  Circle,
+} from "lucide-react";
+
+// Маппинг этапов CJM на Lucide-иконки (вместо эмодзи).
+const STAGE_ICON: Record<string, typeof Eye> = {
+  awareness: Eye,
+  interest: Heart,
+  consideration: Scale,
+  decision: CheckCircle,
+  purchase: ShoppingCart,
+  retention: RotateCw,
+  loyalty: Star,
+};
+
+function StageIcon({ id, size = 16 }: { id: string; size?: number }) {
+  const Icon = STAGE_ICON[id] ?? Circle;
+  return <Icon size={size} />;
+}
 
 export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalysis, error }: {
   c: Colors;
@@ -96,85 +117,168 @@ export function CJMView({ c, data, isGenerating, onGenerate, myCompany, taAnalys
         </div>
       )}
 
-      {/* Horizontal journey line */}
+      {/* Horizontal journey line — иконки вместо эмодзи */}
       <div style={{ display: "flex", gap: 0, marginBottom: 32, overflowX: "auto", paddingBottom: 8 }}>
         {stages.map((stage, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 120 }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 130 }}>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: stageColors[i % stageColors.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, margin: "0 auto 6px", boxShadow: `0 2px 8px ${stageColors[i % stageColors.length]}40` }}>
-                {stage.emoji}
+              <div style={{
+                width: 44, height: 44, borderRadius: "50%",
+                background: stageColors[i % stageColors.length], color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 8px",
+                boxShadow: `0 2px 10px ${stageColors[i % stageColors.length]}55`,
+              }}>
+                <StageIcon id={stage.id} size={20} />
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>{stage.name}</div>
-              <div style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{stage.duration}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 3, lineHeight: 1.25 }}>{stage.name}</div>
+              <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{stage.duration}</div>
             </div>
             {i < stages.length - 1 && (
-              <div style={{ width: 24, height: 2, background: `linear-gradient(to right, ${stageColors[i % stageColors.length]}, ${stageColors[(i + 1) % stageColors.length]})`, flexShrink: 0 }} />
+              <div style={{ width: 28, height: 2, background: `linear-gradient(to right, ${stageColors[i % stageColors.length]}, ${stageColors[(i + 1) % stageColors.length]})`, flexShrink: 0 }} />
             )}
           </div>
         ))}
       </div>
 
-      {/* Stage cards */}
+      {/* Stage cards — равные 4 колонки в body, описание этапа в отдельной строке сверху */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {stages.map((stage, i) => (
-          <div key={i} style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
-            {/* Stage header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: `1px solid var(--muted)`, background: stageColors[i % stageColors.length] + "08" }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: stageColors[i % stageColors.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{stage.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{stage.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{stage.goal}</div>
+        {stages.map((stage, i) => {
+          const color = stageColors[i % stageColors.length];
+          return (
+            <div key={i} style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+              {/* Header row: icon + name + emotion + duration */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 14, padding: "16px 22px",
+                borderBottom: `1px solid var(--muted)`,
+                background: color + "0c",
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%",
+                  background: color, color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <StageIcon id={stage.id} size={17} />
+                </div>
+                <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: "var(--foreground)", letterSpacing: "-0.01em" }}>
+                  {stage.name}
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: 12.5, fontWeight: 600,
+                    color: emotionColor(stage.emotionValence),
+                    background: emotionColor(stage.emotionValence) + "18",
+                    padding: "4px 12px", borderRadius: 20,
+                  }}>{stage.emotion}</span>
+                  <span style={{
+                    fontSize: 12, color: "var(--muted-foreground)",
+                    background: "var(--background)", padding: "4px 12px", borderRadius: 20,
+                    border: `1px solid var(--border)`,
+                  }}>{stage.duration}</span>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: emotionColor(stage.emotionValence), background: emotionColor(stage.emotionValence) + "15", padding: "3px 10px", borderRadius: 20 }}>{stage.emotion}</span>
-                <span style={{ fontSize: 11, color: "var(--muted-foreground)", background: "var(--background)", padding: "3px 10px", borderRadius: 20, border: `1px solid var(--border)` }}>{stage.duration}</span>
+
+              {/* Описание этапа — отдельной полной строкой над 4 колонками */}
+              {stage.goal && (
+                <div style={{
+                  padding: "14px 22px",
+                  fontSize: 14, lineHeight: 1.55,
+                  color: "var(--foreground-secondary)",
+                  borderBottom: `1px solid var(--muted)`,
+                  background: "color-mix(in oklch, var(--card) 96%, " + color + ")",
+                }}>
+                  {stage.goal}
+                </div>
+              )}
+
+              {/* Body — РОВНО 4 равные колонки */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                gap: 0,
+              }}>
+                <style>{`
+                  @media (max-width: 900px) {
+                    .cjm-stage-body { grid-template-columns: 1fr 1fr !important; }
+                  }
+                  @media (max-width: 540px) {
+                    .cjm-stage-body { grid-template-columns: 1fr !important; }
+                  }
+                `}</style>
+                <div className="cjm-stage-body" style={{ display: "contents" }} />
+
+                {/* Touchpoints */}
+                <div style={{ padding: "16px 18px", borderRight: `1px solid var(--muted)` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase" }}>
+                    <MapPin size={13} /> Точки касания
+                  </div>
+                  {(stage.touchpoints ?? []).map((tp: { icon: string; channel: string; action: string }, j: number) => (
+                    <div key={j} style={{ display: "flex", gap: 8, marginBottom: 9, fontSize: 13.5, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+                      <span style={{
+                        flexShrink: 0, marginTop: 6,
+                        width: 5, height: 5, borderRadius: "50%", background: color,
+                      }} />
+                      <span><strong style={{ color: "var(--foreground)", fontWeight: 700 }}>{tp.channel}</strong> — {tp.action}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Customer thoughts */}
+                <div style={{ padding: "16px 18px", borderRight: `1px solid var(--muted)` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase" }}>
+                    <MessageCircle size={13} /> Мысли клиента
+                  </div>
+                  {(stage.customerThoughts ?? []).map((t: string, j: number) => (
+                    <div key={j} style={{
+                      fontSize: 13.5, color: "var(--foreground-secondary)", marginBottom: 8,
+                      paddingLeft: 12, borderLeft: `2.5px solid ${color}55`,
+                      lineHeight: 1.5, fontStyle: "italic",
+                    }}>«{t}»</div>
+                  ))}
+                </div>
+
+                {/* Pain points */}
+                <div style={{ padding: "16px 18px", borderRight: `1px solid var(--muted)` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--destructive)", marginBottom: 10, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase" }}>
+                    <AlertTriangle size={13} /> Барьеры
+                  </div>
+                  {(stage.painPoints ?? []).map((p: string, j: number) => (
+                    <div key={j} style={{
+                      fontSize: 13.5, color: "var(--foreground-secondary)", marginBottom: 8,
+                      paddingLeft: 12, borderLeft: `2.5px solid color-mix(in oklch, var(--destructive) 45%, transparent)`,
+                      lineHeight: 1.5,
+                    }}>{p}</div>
+                  ))}
+                </div>
+
+                {/* Opportunities */}
+                <div style={{ padding: "16px 18px" }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--success)", marginBottom: 10, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase" }}>
+                    <Lightbulb size={13} /> Возможности
+                  </div>
+                  {(stage.opportunities ?? []).map((o: string, j: number) => (
+                    <div key={j} style={{
+                      fontSize: 13.5, color: "var(--foreground-secondary)", marginBottom: 8,
+                      paddingLeft: 12, borderLeft: `2.5px solid color-mix(in oklch, var(--success) 45%, transparent)`,
+                      lineHeight: 1.5,
+                    }}>{o}</div>
+                  ))}
+                  {stage.kpi && (
+                    <div style={{
+                      marginTop: 10, fontSize: 12.5, color: "var(--primary)", fontWeight: 700,
+                      background: "color-mix(in oklch, var(--primary) 8%, transparent)",
+                      padding: "6px 12px", borderRadius: 8,
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                    }}>
+                      <TrendingUp size={13} /> KPI: {stage.kpi}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Stage body */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 0 }}>
-              {/* Touchpoints */}
-              <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> ТОЧКИ КАСАНИЯ</div>
-                {(stage.touchpoints ?? []).map((tp: { icon: string; channel: string; action: string }, j: number) => (
-                  <div key={j} style={{ display: "flex", gap: 6, marginBottom: 6, fontSize: 12, color: "var(--foreground-secondary)" }}>
-                    <span style={{ flexShrink: 0 }}>{tp.icon}</span>
-                    <span><strong style={{ color: "var(--foreground)" }}>{tp.channel}</strong> — {tp.action}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Customer thoughts */}
-              <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><MessageCircle size={12} /> МЫСЛИ КЛИЕНТА</div>
-                {(stage.customerThoughts ?? []).map((t: string, j: number) => (
-                  <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid ${stageColors[i % stageColors.length]}40` }}>«{t}»</div>
-                ))}
-              </div>
-
-              {/* Pain points */}
-              <div style={{ padding: "14px 18px", borderRight: `1px solid var(--muted)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--destructive)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={12} /> БАРЬЕРЫ</div>
-                {(stage.painPoints ?? []).map((p: string, j: number) => (
-                  <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid var(--destructive)40` }}>{p}</div>
-                ))}
-              </div>
-
-              {/* Opportunities */}
-              <div style={{ padding: "14px 18px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", marginBottom: 8, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 5 }}><Lightbulb size={12} /> ВОЗМОЖНОСТИ</div>
-                {(stage.opportunities ?? []).map((o: string, j: number) => (
-                  <div key={j} style={{ fontSize: 12, color: "var(--foreground-secondary)", marginBottom: 5, paddingLeft: 10, borderLeft: `2px solid var(--success)40` }}>{o}</div>
-                ))}
-                {stage.kpi && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "var(--primary)", fontWeight: 600, background: "color-mix(in oklch, var(--primary) 6%, transparent)", padding: "4px 10px", borderRadius: 6 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><TrendingUp size={12} /> KPI: {stage.kpi}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
