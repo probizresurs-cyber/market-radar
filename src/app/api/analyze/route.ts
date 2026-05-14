@@ -216,6 +216,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cloudflare Worker proxy / Anthropic safety filter: 403 forbidden
+    // или "Request not allowed". Это временное ограничение прокси —
+    // не показываем юзеру сырой JSON.
+    if (
+      /403\b/.test(message) &&
+      (/forbidden/i.test(message) || /request not allowed/i.test(message))
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "AI-прокси временно блокирует запросы (rate-limit или защита Cloudflare). " +
+            "Подождите 30-60 секунд и повторите. Если ошибка не уходит — пишите в поддержку.",
+        },
+        { status: 503 },
+      );
+    }
+
+    // 429 — rate limit от самой Anthropic
+    if (/429\b/.test(message) || /rate.?limit/i.test(message)) {
+      return NextResponse.json(
+        { ok: false, error: "Превышен лимит запросов к AI. Повторите через минуту." },
+        { status: 429 },
+      );
+    }
+
     return NextResponse.json(
       { ok: false, error: "Ошибка анализа: " + message },
       { status: 500 }
