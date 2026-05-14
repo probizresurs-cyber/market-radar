@@ -107,6 +107,7 @@ export async function POST(req: Request) {
     const url: string = body.url ?? "";
     const companyName: string = body.companyName ?? "";
     const address: string = body.address ?? "";
+    const limit: number = Math.min(Math.max(Number(body.limit) || 50, 1), 50);
 
     const apiKey = process.env.TWOGIS_API_KEY;
 
@@ -131,8 +132,9 @@ export async function POST(req: Request) {
     }
 
     const { reviews, total } = await fetchReviewsByFirmId(firmId, apiKey);
+    const sliced = reviews.slice(0, limit);
 
-    return NextResponse.json({ ok: true, data: { platform: "2gis", reviews, totalOnPlatform: total } });
+    return NextResponse.json({ ok: true, data: { platform: "2gis", reviews: sliced, totalOnPlatform: total } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

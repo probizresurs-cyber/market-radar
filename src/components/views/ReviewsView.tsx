@@ -24,24 +24,30 @@ export function ReviewsView({ c, companyName }: {
   const [autoFetchLog, setAutoFetchLog] = useState<string[]>([]);
   const [addressInput, setAddressInput] = useState("");
   const [addressSearchName, setAddressSearchName] = useState(companyName);
+  // Сколько отзывов тянуть с каждой платформы. По умолчанию 20.
+  const [limit, setLimit] = useState<number>(20);
 
   const runAutoFetch = async (name: string, address?: string) => {
     setAutoFetchStatus("loading");
     const log: string[] = [];
     const fetched: Review[] = [];
 
-    // Google Places
+    // Google Places — лимит API: максимум 5 отзывов на place (это ограничение Google,
+    // не наше). Если юзер выбрал больше — всё равно вернётся не больше 5.
     try {
       const res = await fetch("/api/fetch-reviews-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address }),
+        body: JSON.stringify({ companyName: name, address, limit }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
         fetched.push(...json.data.reviews);
         const placeName = json.data.placeName ? ` «${json.data.placeName}»` : "";
-        log.push(`Google Maps${placeName}: ${json.data.reviews.length} отзывов (${json.data.rating}★)`);
+        const note = json.data.reviewCount > json.data.reviews.length
+          ? ` из ${json.data.reviewCount} на платформе (Google API отдаёт максимум 5)`
+          : "";
+        log.push(`Google Maps${placeName}: ${json.data.reviews.length} отзывов (${json.data.rating}★)${note}`);
       } else if (json.ok && json.data.reviewCount > 0) {
         log.push(`Google Maps: найдено (${json.data.reviewCount} отзывов на платформе, но тексты недоступны)`);
       } else {
@@ -51,12 +57,32 @@ export function ReviewsView({ c, companyName }: {
       log.push("Google Maps: ошибка загрузки");
     }
 
+    // Яндекс.Карты — через публичный виджет
+    try {
+      const res = await fetch("/api/fetch-reviews-yandex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: name, address, limit }),
+      });
+      const json = await res.json();
+      if (json.ok && json.data.reviews.length > 0) {
+        fetched.push(...json.data.reviews);
+        log.push(`Яндекс.Карты: ${json.data.reviews.length} отзывов (${json.data.rating}★)`);
+      } else if (json.ok && json.data.note) {
+        log.push(`Яндекс.Карты: ${json.data.note}`);
+      } else {
+        log.push("Яндекс.Карты: не найдено");
+      }
+    } catch {
+      log.push("Яндекс.Карты: ошибка загрузки");
+    }
+
     // 2GIS by name+address
     try {
       const res = await fetch("/api/fetch-reviews-2gis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address }),
+        body: JSON.stringify({ companyName: name, address, limit }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -276,7 +302,7 @@ export function ReviewsView({ c, companyName }: {
 
           {/* ── Address-based search ── */}
           <div style={{ background: "color-mix(in oklch, var(--primary) 3%, transparent)", borderRadius: 12, padding: 18, border: `1px solid var(--primary)25`, marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 12 }}>🔍 Поиск по адресу (точнее)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 12 }}>Поиск по адресу (точнее)</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <input
                 value={addressSearchName}
@@ -290,12 +316,39 @@ export function ReviewsView({ c, companyName }: {
                 placeholder="Адрес (город, улица, дом) — необязательно, но улучшает поиск"
                 style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none" }}
               />
+
+              {/* Лимит отзывов на платформу */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Сколько тянуть:
+                </span>
+                {[5, 10, 20, 50].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setLimit(n)}
+                    style={{
+                      padding: "5px 12px", borderRadius: 7,
+                      border: `1.5px solid ${limit === n ? "var(--primary)" : "var(--border)"}`,
+                      background: limit === n ? "color-mix(in oklch, var(--primary) 12%, transparent)" : "transparent",
+                      color: limit === n ? "var(--primary)" : "var(--foreground-secondary)",
+                      fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                  с каждой платформы. Google API отдаёт максимум 5.
+                </span>
+              </div>
+
               <button
                 onClick={() => runAutoFetch(addressSearchName || companyName, addressInput.trim() || undefined)}
                 disabled={autoFetchStatus === "loading"}
                 style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: autoFetchStatus === "loading" ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: autoFetchStatus === "loading" ? "wait" : "pointer", alignSelf: "flex-start" }}
               >
-                {autoFetchStatus === "loading" ? "Ищу отзывы..." : "🔄 Найти отзывы в Google и 2ГИС"}
+                {autoFetchStatus === "loading" ? "Ищу отзывы..." : `Найти отзывы (Google, Яндекс, 2ГИС)`}
               </button>
             </div>
           </div>

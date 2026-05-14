@@ -1338,6 +1338,29 @@ export function PostDetailModal({
             </span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            {/* Дропдаун статуса — позволяет вручную перенести пост между табами */}
+            <select
+              value={post.manualStatus
+                ?? ((post.publishStatus?.vk?.ok || post.publishStatus?.telegram?.ok) ? "published" : (post.scheduledFor && new Date(post.scheduledFor) > new Date()) ? "scheduled" : "drafts")
+              }
+              onChange={e => {
+                const next = e.target.value as "drafts" | "scheduled" | "published";
+                onUpdate({ ...post, manualStatus: next });
+              }}
+              title="Перенести пост в другой статус"
+              style={{
+                padding: "7px 11px", borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--background)", color: "var(--foreground)",
+                fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                fontFamily: "inherit", outline: "none",
+              }}
+            >
+              <option value="drafts">Черновик</option>
+              <option value="scheduled">Запланирован</option>
+              <option value="published">Опубликован</option>
+            </select>
+
             {post.imageUrl && (
               <button
                 onClick={downloadImage}
@@ -1661,6 +1684,9 @@ export function GeneratedPostsView({
   const openPost = openPostId ? posts.find(p => p.id === openPostId) ?? null : null;
 
   const postStatus = (p: GeneratedPost): "drafts" | "scheduled" | "published" => {
+    // Ручная классификация имеет приоритет — юзер может вручную переносить
+    // пост между статусами через дропдаун в модалке.
+    if (p.manualStatus) return p.manualStatus;
     const anyPublished = p.publishStatus?.vk?.ok || p.publishStatus?.telegram?.ok;
     if (anyPublished) return "published";
     if (p.scheduledFor && new Date(p.scheduledFor) > new Date()) return "scheduled";
@@ -1718,6 +1744,10 @@ export function GeneratedPostsView({
       </div>
       <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 18px" }}>Сверху — генератор. Ниже — список с табами по статусам.</p>
 
+      {/* Референсы для стиля изображений — НАД генератором, чтобы под каждый
+          новый пост можно было загрузить рефы заранее. */}
+      <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
+
       {/* Встроенный блок «Создать пост» (был в «План контента»). Показываем
           только если есть план — без него идеи брать неоткуда. Если плана
           нет, юзер увидит подсказку перейти в «План контента». */}
@@ -1751,8 +1781,6 @@ export function GeneratedPostsView({
           }}>План контента →</a>
         </div>
       )}
-
-      <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
 
       {/* Статус-табы */}
       <div style={{

@@ -114,6 +114,10 @@ export interface GeneratedPost {
   /** true — заголовок и/или body «вшиты» в imageUrl через gpt-image-2.
    *  Когда true, UI не рисует никаких CSS-оверлеев поверх картинки. */
   hasEmbeddedText?: boolean;
+  /** Ручная классификация по статусу — перекрывает авто-вычисление из
+   *  publishStatus/scheduledFor. Юзер может вручную перенести пост из
+   *  «Черновики» в «Запланированные» или «Опубликованные». */
+  manualStatus?: "drafts" | "scheduled" | "published";
 }
 
 export type ReelVideoStatus = "idle" | "generating" | "ready" | "failed";
