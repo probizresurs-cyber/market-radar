@@ -5,12 +5,14 @@ import type { Colors } from "@/lib/colors";
 import type { AvatarSettings, CustomAvatar, CustomVoice } from "@/lib/content-types";
 import { Sparkles, Smartphone, Monitor, Loader2, RefreshCw, ClipboardList, Upload, Mic, ImagePlus, Trash2 } from "lucide-react";
 
-export function AvatarSettingsPanel({ c, settings, onChange }: {
+export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   c: Colors;
   settings: AvatarSettings;
   onChange: (next: AvatarSettings) => void;
+  /** Когда true — панель открыта по умолчанию (например, в табе «Аватары»). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(!settings.avatarId && !settings.voiceId);
+  const [open, setOpen] = useState(defaultOpen ?? (!settings.avatarId && !settings.voiceId));
   const [loading, setLoading] = useState(false);
   const [avatars, setAvatars] = useState<Array<{ id: string; name: string; gender: string; previewImage: string }>>([]);
   const [voices, setVoices] = useState<Array<{ id: string; name: string; language: string; gender: string; previewAudio: string }>>([]);
@@ -362,7 +364,10 @@ export function AvatarSettingsPanel({ c, settings, onChange }: {
                 <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>МОИ АВАТАРЫ ({customAvatars.length})</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
                   {customAvatars.map(a => {
-                    const selected = settings.avatarId === a.heygenAvatarId && settings.avatarType === "talking_photo";
+                    // Селектор работает и для talking_photo (фото-аватары),
+                    // и для preset (footage video-аватары) — главное чтобы
+                    // avatarId совпадал с heygenAvatarId этого аватара.
+                    const selected = settings.avatarId === a.heygenAvatarId;
                     return (
                       <div key={a.id}
                         onClick={() => selectCustomAvatar(a)}

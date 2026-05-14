@@ -727,7 +727,14 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             </button>
           )}
 
-          <MetricsBlock c={c} kind="reel" metrics={reel.metrics} onChange={m => onUpdate({ ...reel, metrics: m })} />
+          <MetricsBlock
+            c={c} kind="reel"
+            metrics={reel.metrics}
+            onChange={m => onUpdate({ ...reel, metrics: m })}
+            // Для рилса статус published = videoStatus 'ready' (видео уже снято).
+            // Метрики до этого вносить нельзя.
+            locked={reel.videoStatus !== "ready"}
+          />
         </>
       )}
     </div>
@@ -871,7 +878,7 @@ export function GeneratedReelsView({
             Можно создать несколько (разные люди, разные стили) и выбирать в табе «Видео».
             После загрузки рекомендуется снять тестовый ролик на 5-10 секунд.
           </div>
-          <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} />
+          <AvatarSettingsPanel c={c} settings={avatarSettings} onChange={onUpdateAvatarSettings} defaultOpen />
           {hasAnyAvatar && (
             <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
               <button

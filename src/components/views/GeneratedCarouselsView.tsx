@@ -27,6 +27,9 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
   const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  // Если ON — при рендере фонов каждого слайда чекбокс «Встроить текст»
+  // будет уже включен по умолчанию (text-on-image).
+  const [embedTextDefault, setEmbedTextDefault] = useState(false);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -39,7 +42,12 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
       });
       const json = await res.json() as { ok: boolean; data?: GeneratedCarousel; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      onAdd(json.data!);
+      // Применяем embedTextDefault ко всем слайдам сразу — позже UI знает
+      // что чекбокс должен стартовать ON у каждого слайда.
+      const result: GeneratedCarousel = embedTextDefault
+        ? { ...json.data!, slides: json.data!.slides.map(s => ({ ...s, hasEmbeddedText: true })) }
+        : json.data!;
+      onAdd(result);
       setBrief("");
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
@@ -140,6 +148,30 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
               style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
             />
           </div>
+
+          {/* Чекбокс «Встроить текст в картинку» — глобально для всех слайдов */}
+          <label style={{
+            display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none",
+            marginBottom: 14, padding: "10px 12px", borderRadius: 9,
+            background: embedTextDefault ? `${accent}10` : "transparent",
+            border: `1.5px dashed ${embedTextDefault ? accent : "var(--border)"}`,
+          }}>
+            <input
+              type="checkbox"
+              checked={embedTextDefault}
+              onChange={e => setEmbedTextDefault(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: accent, cursor: "pointer", flexShrink: 0 }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>
+                Встроить текст в каждый слайд
+                <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: accent, color: "#fff", marginLeft: 5 }}>NEW</span>
+              </span>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                gpt-image-2 нарисует текст слайдов прямо на изображениях. Промпт каждого слайда можно отредактировать перед запуском.
+              </span>
+            </div>
+          </label>
 
           {genError && <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
 

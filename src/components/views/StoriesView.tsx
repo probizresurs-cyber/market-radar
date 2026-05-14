@@ -28,6 +28,8 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  // Глобальный флаг — встроить текст слайдов в каждое изображение через gpt-image-2.
+  const [embedTextDefault, setEmbedTextDefault] = useState(false);
   // Прогресс авто-генерации фонов для серии: { ready, total, storyId }
   const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; storyId: string } | null>(null);
 
@@ -49,7 +51,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
       // Затем параллельно генерируем фоны для всех слайдов в фоне.
       // Каждый успешный bg прокидываем через onUpdate, чтобы UI прогрессивно обновлялся.
-      void autoGenerateBackgrounds(story);
+      void autoGenerateBackgrounds(story, embedTextDefault);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -60,7 +62,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   // Параллельная авто-генерация фонов для всех слайдов серии.
   // Не дожидаемся каждого — каждый завершившийся обновляет свою карточку.
   // Параллельно ведём bgProgress: { ready, total } для UI-баннера.
-  const autoGenerateBackgrounds = async (story: GeneratedStory) => {
+  const autoGenerateBackgrounds = async (story: GeneratedStory, embedText: boolean) => {
     const brandVisual = brandBook?.visualStyle?.trim();
     const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
 
@@ -72,12 +74,22 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
 
     await Promise.all(story.slides.map(async (slide, i) => {
       try {
+        // Если embedText включён — НЕ пишем «No text overlay», иначе gpt-image-2
+        // запутается. И собираем сам текст слайда для вшивания в картинку.
+        const slideTextLines = [
+          slide.headlineText?.trim() ?? "",
+          slide.bodyText?.trim() ?? "",
+        ].filter(Boolean);
+        const embeddedText = embedText ? slideTextLines.join("\n") : "";
+
         const prompt = [
           `Story background for ${story.platform}: ${slide.background}.`,
           slide.visualNote && `Mood: ${slide.visualNote}.`,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,
-          "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
+          embedText
+            ? "Vertical 9:16 format. Leave clean space for typography."
+            : "Vertical 9:16 format. No text overlay. Clean, atmospheric.",
         ].filter(Boolean).join(" ");
 
         const res = await fetch("/api/generate-image-anthropic", {
@@ -89,16 +101,17 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
             platform: story.platform,
             brandColors: brandBook?.colors ?? [],
             brandStyle: brandBook?.visualStyle ?? "",
+            embedText: embeddedText || undefined,
           }),
         });
         const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
         if (!j.ok || !j.data?.imageUrl) return;
 
-        // Мерджим картинку в i-й слайд и пушим обновление.
+        // Мерджим картинку в i-й слайд + флаг hasEmbeddedText.
         working = {
           ...working,
           slides: working.slides.map((s, idx) =>
-            idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl } : s,
+            idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl, hasEmbeddedText: !!embeddedText } : s,
           ),
         };
         onUpdate(working);
@@ -206,6 +219,30 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
               style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
             />
           </div>
+
+          {/* Чекбокс «Встроить текст в картинку» */}
+          <label style={{
+            display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none",
+            marginBottom: 14, padding: "10px 12px", borderRadius: 9,
+            background: embedTextDefault ? "#a855f710" : "transparent",
+            border: `1.5px dashed ${embedTextDefault ? "#a855f7" : "var(--border)"}`,
+          }}>
+            <input
+              type="checkbox"
+              checked={embedTextDefault}
+              onChange={e => setEmbedTextDefault(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: "#a855f7", cursor: "pointer", flexShrink: 0 }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>
+                Встроить текст в каждый слайд
+                <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "#a855f7", color: "#fff", marginLeft: 5 }}>NEW</span>
+              </span>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                gpt-image-2 нарисует заголовок прямо на картинке вместо CSS-оверлея.
+              </span>
+            </div>
+          </label>
 
           {genError && <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
 

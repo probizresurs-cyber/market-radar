@@ -269,6 +269,9 @@ export interface StorySlide {
   sticker?: string;             // опрос / emoji / countdown / quiz
   cta?: string;                 // свайп вверх / ссылка / кнопка
   visualNote: string;           // режиссёрская пометка (цвета, шрифт, стиль)
+  /** true — текст уже вшит в backgroundImageUrl (gpt-image-2). UI не рисует
+   *  CSS-оверлей с заголовком и body, чтобы не было дубля. */
+  hasEmbeddedText?: boolean;
 }
 
 export interface GeneratedStory {

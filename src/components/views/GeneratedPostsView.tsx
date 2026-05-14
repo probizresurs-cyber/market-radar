@@ -201,14 +201,32 @@ export function fmtNumber(n: number | undefined): string {
   return String(n);
 }
 
-export function MetricsBlock({ c, kind, metrics, onChange }: {
+export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
   c: Colors;
   kind: "post" | "reel";
   metrics: AnyMetrics | undefined;
   onChange: (next: AnyMetrics | undefined) => void;
+  /** Когда true — блок не редактируется, показывается подсказка о смене статуса. */
+  locked?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Если контент не опубликован — показываем placeholder вместо формы.
+  if (locked) {
+    return (
+      <div style={{
+        marginTop: 14, padding: "10px 14px", borderRadius: 9,
+        background: "color-mix(in oklch, var(--primary) 4%, transparent)",
+        border: "1px dashed color-mix(in oklch, var(--primary) 22%, transparent)",
+        fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5,
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <BarChart2 size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+        <span>Метрики можно внести только для опубликованного {kind === "reel" ? "рилса" : "поста"}. Переместите в «Опубликован» в шапке.</span>
+      </div>
+    );
+  }
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnyMetrics>(metrics ?? {});
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(metrics?.screenshotUrl ?? null);
@@ -937,27 +955,33 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
         </div>
       </div>
 
-      {/* Image preview — full width if exists */}
+      {/* Image preview — в модалке показываем целиком (contain), в обычной
+          карточке оставляем компактный вид (cover) с возможностью развернуть. */}
       {post.imageUrl && !editing && (
         <div style={{ marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.imageUrl} alt={post.hook}
-            onClick={() => setImgExpanded(v => !v)}
+            onClick={alwaysExpanded ? undefined : () => setImgExpanded(v => !v)}
             style={{
               width: "100%",
-              maxHeight: imgExpanded ? 480 : 220,
+              // В модалке (alwaysExpanded) — высота по контенту, contain.
+              // В обычной карточке — old compact mode.
+              maxHeight: alwaysExpanded ? "none" : (imgExpanded ? 480 : 220),
               borderRadius: 12,
-              objectFit: "cover",
-              cursor: "pointer",
+              objectFit: alwaysExpanded ? "contain" : "cover",
+              cursor: alwaysExpanded ? "default" : "pointer",
               border: "1px solid var(--border)",
               transition: "max-height 0.25s ease",
               display: "block",
+              background: alwaysExpanded ? "var(--background)" : "transparent",
             }}
           />
-          <button onClick={() => setImgExpanded(v => !v)} style={{ marginTop: 6, padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
-            {imgExpanded ? "Свернуть" : "Развернуть"}
-          </button>
+          {!alwaysExpanded && (
+            <button onClick={() => setImgExpanded(v => !v)} style={{ marginTop: 6, padding: "4px 12px", borderRadius: 6, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}>
+              {imgExpanded ? "Свернуть" : "Развернуть"}
+            </button>
+          )}
         </div>
       )}
 
@@ -1089,6 +1113,45 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
                     <span key={i} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>{h.startsWith("#") ? h : "#" + h}</span>
                   ))}
                 </div>
+
+                {/* Платформа + текущая длина текста + лимит — всегда видно,
+                    даже если нет platformVariants. Каноническая длина считается
+                    как hook + body + hashtags (как при публикации). */}
+                {(() => {
+                  const platformLimits: Record<string, number> = {
+                    instagram: 2200, vk: 16000, telegram: 4096, linkedin: 3000, facebook: 63206, tiktok: 2200,
+                  };
+                  const targetPlatform = activeTab === "canonical" ? post.platform : activeTab;
+                  const targetLimit = platformLimits[targetPlatform];
+                  const tagStr = v.hashtags.map(h => h.startsWith("#") ? h : "#" + h).join(" ");
+                  const canonChars = (v.hook?.length ?? 0) + 2 + (v.body?.length ?? 0) + (tagStr ? 2 + tagStr.length : 0);
+                  const charsToShow = v.charCount || canonChars;
+                  const over = targetLimit && charsToShow > targetLimit;
+                  return (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                      marginBottom: 12,
+                      padding: "5px 11px", borderRadius: 7,
+                      background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+                      border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
+                      fontSize: 12,
+                    }}>
+                      <span style={{ fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {targetPlatform}
+                      </span>
+                      <span style={{ color: "var(--muted-foreground)" }}>·</span>
+                      <span style={{ color: over ? "var(--destructive)" : "var(--foreground-secondary)", fontWeight: 600 }}>
+                        {charsToShow} {targetLimit ? `/ ${targetLimit}` : ""} символов
+                      </span>
+                      {over && (
+                        <span style={{ color: "var(--destructive)", fontWeight: 700, fontSize: 11 }}>
+                          превышение
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {overLimit && (
                   <div style={{ marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "color-mix(in oklch, var(--destructive) 10%, transparent)", color: "var(--destructive)", fontSize: 12.5 }}>
                     ⚠ Текст превышает лимит платформы ({v.charCount} вместо {limit}). При публикации будет обрезан.
@@ -1227,7 +1290,18 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
               onClose={() => setShowTov(false)}
             />
           )}
-          <MetricsBlock c={c} kind="post" metrics={post.metrics} onChange={m => onUpdate({ ...post, metrics: m })} />
+          <MetricsBlock
+            c={c} kind="post"
+            metrics={post.metrics}
+            onChange={m => onUpdate({ ...post, metrics: m })}
+            locked={
+              // Метрики разрешены только если пост опубликован: либо publishStatus
+              // отметил успех, либо ручной manualStatus = published.
+              post.manualStatus !== "published"
+              && !post.publishStatus?.vk?.ok
+              && !post.publishStatus?.telegram?.ok
+            }
+          />
           {showPublishModal && (
             <PublishModal
               post={post}
