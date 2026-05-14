@@ -43,7 +43,9 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "competitors", icon: "Target", label: "Список конкурентов", count: null },
           { id: "compare", icon: "Scale", label: "Сравнение", count: null },
           { id: "battle-cards", icon: "Swords", label: "Battle Cards", count: null },
-          { id: "price-tracking", icon: "LineChart", label: "Мониторинг цен", count: null },
+          // «Мониторинг цен» временно скрыт — слишком много 403 от WB API,
+          // вернём когда переведём на стабильный источник.
+          // { id: "price-tracking", icon: "LineChart", label: "Мониторинг цен", count: null },
         ],
       },
       {
