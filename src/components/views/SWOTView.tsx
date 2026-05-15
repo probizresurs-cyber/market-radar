@@ -49,21 +49,37 @@ export function SWOTView({
   // отдельная (DB). Это решает баг «сгенерировал SWOT, ушёл, вернулся —
   // пусто».
   const swotStateKey = userId ? `mr_swot_${userId}` : "mr_swot_anon";
-  const [report, setReport] = useState<SwotReport | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = localStorage.getItem(swotStateKey);
-      return raw ? (JSON.parse(raw) as SwotReport) : null;
-    } catch { return null; }
-  });
+  // Не используем lazy useState init — он читает localStorage один раз
+  // с КЛЮЧОМ ВРЕМЕНИ МАУНТА (часто mr_swot_anon если userId ещё грузится),
+  // а потом данные сохраняются в mr_swot_<userId>. В итоге был баг:
+  // «генерируешь → уходишь → возвращаешься → пусто».
+  const [report, setReport] = useState<SwotReport | null>(null);
   const [history, setHistory] = useState<StoredReport[]>([]);
 
-  // Сохраняем рабочий анализ при каждом обновлении report
+  // Перечитываем localStorage каждый раз когда меняется swotStateKey
+  // (т.е. когда userId загружается из бутстрапа). Это решает баг
+  // с пропажей SWOT после генерации/перехода.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (report) localStorage.setItem(swotStateKey, JSON.stringify(report));
-      else localStorage.removeItem(swotStateKey);
+      const raw = localStorage.getItem(swotStateKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SwotReport;
+        setReport(parsed);
+      }
+    } catch { /* ignore */ }
+  }, [swotStateKey]);
+
+  // Сохраняем рабочий анализ при каждом обновлении report.
+  // ВАЖНО: removeItem НЕ делаем — раньше при null'е затирали key,
+  // и если userId менялся при mount'е, мы стирали реальные данные
+  // в старом ключе. Теперь null просто оставляет старую запись —
+  // её перезапишет следующая успешная генерация.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!report) return;
+    try {
+      localStorage.setItem(swotStateKey, JSON.stringify(report));
     } catch { /* ignore quota */ }
   }, [report, swotStateKey]);
   const [expandedSection, setExpandedSection] = useState<keyof SwotItems | null>(null);
@@ -326,7 +342,13 @@ export function SWOTView({
               <FileDown size={14}/> PDF
             </a>
             <button
-              onClick={() => { setReport(null); setError(null); }}
+              onClick={() => {
+                setReport(null);
+                setError(null);
+                // Явно стираем сохранённый кэш, чтобы при следующем заходе
+                // на view не подтянулся старый отчёт.
+                try { localStorage.removeItem(swotStateKey); } catch { /* ignore */ }
+              }}
               style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--muted-foreground)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
               <RefreshCw size={14}/> Перегенерировать
             </button>
