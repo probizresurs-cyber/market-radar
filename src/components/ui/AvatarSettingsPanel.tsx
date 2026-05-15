@@ -562,25 +562,93 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
             </div>
           )}
 
-          {/* ─── Библиотека моих аватаров — В САМОМ НИЗУ панели ─── */}
-          {customAvatars.length > 0 && (
-            <div style={{
-              marginTop: 24, paddingTop: 20,
-              borderTop: "1px solid var(--muted)",
-            }}>
-              <div style={{
-                fontSize: 14, fontWeight: 800, color: "var(--foreground)",
-                marginBottom: 12, letterSpacing: -0.2,
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                Мои аватары
-                <span style={{
-                  background: "color-mix(in oklch, var(--primary) 18%, transparent)",
-                  color: "var(--primary)",
-                  padding: "2px 9px", borderRadius: 10, fontSize: 11, fontWeight: 800,
-                }}>{customAvatars.length}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+          {/* ─── «Сохранить аватара» — кнопка в самом конце настроек ─── */}
+          <div style={{
+            marginTop: 24, paddingTop: 18,
+            borderTop: "1px solid var(--muted)",
+          }}>
+            <button
+              onClick={() => {
+                const name = pendingAvatarName.trim();
+                const avId = settings.avatarId?.trim();
+                if (!avId) {
+                  alert("Сначала выберите аватара (загрузите своё фото/видео ИЛИ выберите из готовых HeyGen-аватаров)");
+                  return;
+                }
+                if (!name) {
+                  alert("Введите имя аватара в поле «Имя аватара» вверху");
+                  return;
+                }
+                // Если такой avatarId уже есть в библиотеке — переименовать.
+                const existing = customAvatars.find(a => a.heygenAvatarId === avId);
+                if (existing) {
+                  if (existing.name === name) {
+                    setUploadSuccess(`Аватар «${name}» уже в библиотеке.`);
+                  } else {
+                    const next = customAvatars.map(a => a.heygenAvatarId === avId ? { ...a, name } : a);
+                    update({ customAvatars: next });
+                    setUploadSuccess(`Аватар переименован в «${name}».`);
+                  }
+                  setTimeout(() => setUploadSuccess(null), 5000);
+                  return;
+                }
+                // Найти preview из HeyGen-списка если выбран из списка готовых.
+                const preset = avatars.find(a => a.id === avId);
+                const newAvatar: CustomAvatar = {
+                  id: `custom-av-${Date.now()}`,
+                  name,
+                  heygenAvatarId: avId,
+                  status: "ready",
+                  previewUrl: preset?.previewImage ?? "",
+                  createdAt: new Date().toISOString(),
+                };
+                update({ customAvatars: [newAvatar, ...customAvatars] });
+                setPendingAvatarName("");
+                setUploadSuccess(`Аватар «${name}» сохранён в библиотеку.`);
+                setTimeout(() => setUploadSuccess(null), 5000);
+              }}
+              style={{
+                width: "100%", padding: "12px 20px", borderRadius: 10,
+                border: "none",
+                background: "linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary) 70%, white))",
+                color: "#fff", fontSize: 14, fontWeight: 800,
+                cursor: "pointer", fontFamily: "inherit",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                boxShadow: "0 4px 14px color-mix(in oklch, var(--primary) 30%, transparent)",
+              }}
+            >
+              Сохранить как моего аватара
+            </button>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8, textAlign: "center", lineHeight: 1.5 }}>
+              Возьмёт текущий <strong>HEYGEN AVATAR ID</strong> и сохранит его в библиотеку «Мои аватары» под именем из поля «Имя аватара» выше.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Отдельный блок «Мои аватары» — ниже панели настроек ─── */}
+      {customAvatars.length > 0 && (
+        <div style={{
+          marginTop: 16,
+          background: "var(--card)",
+          borderRadius: 14,
+          border: "1px solid var(--border)",
+          boxShadow: "var(--shadow)",
+          padding: "18px 20px",
+        }}>
+          <div style={{
+            fontSize: 16, fontWeight: 800, color: "var(--foreground)",
+            marginBottom: 12, letterSpacing: -0.3,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            Мои аватары
+            <span style={{
+              background: "color-mix(in oklch, var(--primary) 18%, transparent)",
+              color: "var(--primary)",
+              padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 800,
+            }}>{customAvatars.length}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
                 {customAvatars.map(a => {
                   const selected = settings.avatarId === a.heygenAvatarId;
                   const isProcessing = a.status === "processing";
@@ -673,8 +741,6 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   );
                 })}
               </div>
-            </div>
-          )}
         </div>
       )}
     </div>
