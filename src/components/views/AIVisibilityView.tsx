@@ -21,6 +21,10 @@ import type {
 interface Props {
   c: Colors;
   myCompany: AnalysisResult | null;
+  /** ID текущего пользователя — для скоупа кэша аудитов по аккаунту.
+   *  Без него старые ключи `mr_ai_visibility_audits` (без uid) утекали
+   *  между аккаунтами при смене пользователя. */
+  userId?: string;
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -366,11 +370,15 @@ function ReadinessReportBlock({ report }: { report: AIReadinessReport }) {
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
-export function AIVisibilityView({ c, myCompany }: Props) {
-  // Load the most recent completed audit from localStorage on mount
+export function AIVisibilityView({ c, myCompany, userId }: Props) {
+  // Ключ кэша — обязательно скоупится по userId, иначе при смене аккаунта
+  // юзер видит чужие аудиты. Если userId не передан (старая интеграция) —
+  // используем "anon" чтобы не светить чужие данные.
+  const auditsKey = `mr_ai_visibility_audits_${userId ?? "anon"}`;
+
   const loadSavedAudits = (): AIVisibilityAudit[] => {
     try {
-      return JSON.parse(localStorage.getItem("mr_ai_visibility_audits") ?? "[]");
+      return JSON.parse(localStorage.getItem(auditsKey) ?? "[]");
     } catch { return []; }
   };
 
@@ -579,10 +587,10 @@ export function AIVisibilityView({ c, myCompany }: Props) {
       };
       setAudit(completed);
       try {
-        const saved: AIVisibilityAudit[] = JSON.parse(localStorage.getItem("mr_ai_visibility_audits") ?? "[]");
+        const saved: AIVisibilityAudit[] = JSON.parse(localStorage.getItem(auditsKey) ?? "[]");
         saved.unshift(completed);
         const trimmed = saved.slice(0, 10);
-        localStorage.setItem("mr_ai_visibility_audits", JSON.stringify(trimmed));
+        localStorage.setItem(auditsKey, JSON.stringify(trimmed));
         setSavedAudits(trimmed);
       } catch { /* ignore */ }
       setView("report");

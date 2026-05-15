@@ -1482,6 +1482,23 @@ function MarketRadarDashboardInner() {
   // Logout — clear ALL user data from React state to prevent data leaking between accounts
   const handleLogout = () => {
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+
+    // Зачищаем ВСЕ кеши платформы из localStorage чтобы предотвратить
+    // утечку данных между аккаунтами (например AI Visibility audits,
+    // chat history, мини-кэши offers). Сохраняем только настройки темы
+    // и сессионные ключи, чтобы UI после login'а не моргнул.
+    try {
+      if (typeof window !== "undefined") {
+        const KEEP = new Set(["mr_theme", "mr_nav_bubble_seen"]);
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("mr_") && !KEEP.has(k)) toRemove.push(k);
+        }
+        toRemove.forEach(k => localStorage.removeItem(k));
+      }
+    } catch { /* ignore quota / cross-origin */ }
+
     authSetCurrentUser(null);
     setCurrentUser(null);
 
@@ -1550,6 +1567,22 @@ function MarketRadarDashboardInner() {
   }
   if (appScreen === "register") {
     return <RegisterView c={c} onSuccess={(user) => {
+      // Новый юзер — обязательно зачищаем все кэши других аккаунтов из
+      // localStorage (если предыдущий юзер не нажимал «Выход», его
+      // mr_ai_visibility_audits, mr_chat_history и т.д. могли остаться).
+      try {
+        if (typeof window !== "undefined") {
+          const KEEP = new Set(["mr_theme", "mr_nav_bubble_seen", "mr_last_uid"]);
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith("mr_") && !KEEP.has(k)) {
+              localStorage.removeItem(k);
+            }
+          }
+          localStorage.setItem("mr_last_uid", user.id);
+        }
+      } catch { /* ignore */ }
+
       // Новый flow: после регистрации НЕ запускаем анализ автоматически,
       // а показываем wizard с предзаполненным URL — пользователь выбирает
       // какие модули хочет (ЦА / СММ / Конкуренты / Отзывы) и стартует.
@@ -1558,12 +1591,34 @@ function MarketRadarDashboardInner() {
       if (user.companyUrl) {
         setCurrentUrl(user.companyUrl);
       }
-      // Сразу открываем wizard — он сам прокинет URL в свой state.
       setActiveNav("new-analysis");
     }} onLogin={() => setAppScreen("login")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "login") {
-    return <LoginView c={c} onSuccess={async (user) => { setCurrentUser(user); await loadAndApplyUserData(user.id); setAppScreen(user.onboardingDone ? "app" : "onboarding"); }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;
+    return <LoginView c={c} onSuccess={async (user) => {
+      // Защита от утечки данных между аккаунтами: если в localStorage
+      // остались ключи от ДРУГОГО юзера (например выход не нажимали,
+      // session expired) — снимаем НЕскоупленные кэши.
+      try {
+        if (typeof window !== "undefined") {
+          const lastUid = localStorage.getItem("mr_last_uid");
+          if (lastUid && lastUid !== user.id) {
+            const KEEP = new Set(["mr_theme", "mr_nav_bubble_seen", "mr_last_uid"]);
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith("mr_") && !KEEP.has(k) && !k.endsWith(`_${user.id}`)) {
+                localStorage.removeItem(k);
+              }
+            }
+          }
+          localStorage.setItem("mr_last_uid", user.id);
+        }
+      } catch { /* ignore */ }
+
+      setCurrentUser(user);
+      await loadAndApplyUserData(user.id);
+      setAppScreen(user.onboardingDone ? "app" : "onboarding");
+    }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "onboarding" && currentUser) {
     return <OnboardingView c={c} user={currentUser} onComplete={handleOnboardingComplete} />;
@@ -1679,7 +1734,7 @@ function MarketRadarDashboardInner() {
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
         {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} />}
+        {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} userId={currentUser?.id} />}
         {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} userId={currentUser?.id} />}
         {activeNav === "price-tracking" && <PriceTrackingView />}
         {activeNav === "content-style" && (
@@ -1831,6 +1886,7 @@ function MarketRadarDashboardInner() {
         competitors={competitors}
         taAnalysis={taAnalysis}
         smmAnalysis={smmAnalysis}
+        userId={currentUser?.id}
       />
     </div>
   );

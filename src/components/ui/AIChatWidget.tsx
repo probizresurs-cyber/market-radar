@@ -194,23 +194,27 @@ interface AIChatWidgetProps {
   competitors: AnalysisResult[];
   taAnalysis: TAResult | null;
   smmAnalysis: SMMResult | null;
+  /** ID текущего пользователя — для скоупа истории чата по аккаунту. */
+  userId?: string;
 }
 
-const STORAGE_KEY = "mr_chat_history";
+// История чата теперь скоупится по userId — иначе при смене аккаунта
+// новый юзер видел переписку предыдущего.
+const storageKey = (uid?: string) => `mr_chat_history_${uid ?? "anon"}`;
 const BUBBLE_SEEN_KEY = "mr_nav_bubble_seen";
 
-function loadHistory(): ChatMessage[] {
+function loadHistory(uid?: string): ChatMessage[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(uid));
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
-function saveHistory(msgs: ChatMessage[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-50))); } catch { /* ignore */ }
+function saveHistory(msgs: ChatMessage[], uid?: string) {
+  try { localStorage.setItem(storageKey(uid), JSON.stringify(msgs.slice(-50))); } catch { /* ignore */ }
 }
 
-export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }: AIChatWidgetProps) {
+export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, userId }: AIChatWidgetProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -223,7 +227,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
 
   // Hydrate from localStorage
   useEffect(() => {
-    const history = loadHistory();
+    const history = loadHistory(userId);
     setMessages(history);
     setHydrated(true);
 
@@ -268,7 +272,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
     const userMsg: ChatMessage = { role: "user", content: trimmed };
     const nextMsgs = [...messages, userMsg];
     setMessages(nextMsgs);
-    saveHistory(nextMsgs);
+    saveHistory(nextMsgs, userId);
     setInput("");
     setError(null);
     setLoading(true);
@@ -288,7 +292,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
         const assistantMsg: ChatMessage = { role: "assistant", content: json.message };
         const withReply = [...nextMsgs, assistantMsg];
         setMessages(withReply);
-        saveHistory(withReply);
+        saveHistory(withReply, userId);
       } else {
         setError(json.error ?? "Ошибка ответа");
       }
@@ -308,7 +312,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis }
 
   const clearHistory = () => {
     setMessages([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(storageKey(userId)); } catch { /* ignore */ }
   };
 
   const hasContext = !!myCompany;
