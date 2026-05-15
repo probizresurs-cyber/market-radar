@@ -1550,23 +1550,16 @@ function MarketRadarDashboardInner() {
   }
   if (appScreen === "register") {
     return <RegisterView c={c} onSuccess={(user) => {
-      // New flow: registration collects the website directly, so we skip
-      // onboarding entirely and go straight to the app. The bootstrap
-      // effect in loadAndApplyUserData will see `companyUrl` set and no
-      // existing analysis → auto-trigger the first analysis.
+      // Новый flow: после регистрации НЕ запускаем анализ автоматически,
+      // а показываем wizard с предзаполненным URL — пользователь выбирает
+      // какие модули хочет (ЦА / СММ / Конкуренты / Отзывы) и стартует.
       setCurrentUser(user);
       setAppScreen("app");
       if (user.companyUrl) {
         setCurrentUrl(user.companyUrl);
-        setStatus("loading");
-        analyzeUrl(user.companyUrl)
-          .then(result => {
-            saveMyCompany(result, user.id);
-            setActiveNav("dashboard");
-          })
-          .catch(() => setActiveNav("new-analysis"))
-          .finally(() => setStatus("done"));
       }
+      // Сразу открываем wizard — он сам прокинет URL в свой state.
+      setActiveNav("new-analysis");
     }} onLogin={() => setAppScreen("login")} onBack={() => setAppScreen("landing")} />;
   }
   if (appScreen === "login") {
@@ -1679,7 +1672,7 @@ function MarketRadarDashboardInner() {
         {/* Глобальные оверлеи — пакетная генерация */}
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "agents" && <AgentHubView c={c} />}
-        {activeNav === "new-analysis" && <NewAnalysisWizard c={c} onSubmit={handleNewAnalysisWithOptions} isAnalyzing={isAnalyzing} />}
+        {activeNav === "new-analysis" && <NewAnalysisWizard c={c} onSubmit={handleNewAnalysisWithOptions} isAnalyzing={isAnalyzing} initialUrl={currentUser?.companyUrl ?? currentUrl ?? undefined} />}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}

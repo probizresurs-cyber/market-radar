@@ -78,14 +78,17 @@ export function NewAnalysisWizard({
   c,
   onSubmit,
   isAnalyzing,
+  initialUrl,
 }: {
   c: Colors;
   onSubmit: (options: AnalysisOptions) => Promise<void>;
   isAnalyzing: boolean;
+  /** Если задан — поле URL предзаполняется, и визард стартует со шага 2 (модули). */
+  initialUrl?: string;
 }) {
   void c;
-  const [step, setStep] = useState(1);
-  const [url, setUrl] = useState("");
+  const [step, setStep] = useState(initialUrl ? 2 : 1);
+  const [url, setUrl] = useState(initialUrl ?? "");
   const [modules, setModules] = useState<Set<ModuleKey>>(new Set(["ta", "smm", "competitors"]));
   const [smmLinks, setSmmLinks] = useState<{ vk: string; telegram: string; instagram: string }>({
     vk: "", telegram: "", instagram: "",

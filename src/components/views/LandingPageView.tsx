@@ -88,9 +88,14 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   }, []);
 
   function handleUrlAnalyze() {
-    if (url.trim()) {
-      trackGoal("express_report", { url: url.trim() });
-      onRegister();
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return;
+    trackGoal("express_report", { url: cleanUrl });
+    // Раньше редиректило на регистрацию — теперь сразу мини-анализ на
+    // отдельной странице /express-report. В конце страницы — апсель
+    // на регистрацию + полный отчёт.
+    if (typeof window !== "undefined") {
+      window.location.href = `/express-report?url=${encodeURIComponent(cleanUrl)}`;
     }
   }
 
