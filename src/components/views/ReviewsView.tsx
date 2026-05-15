@@ -582,7 +582,7 @@ export function ReviewsView({ c, companyName }: {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <h3 style={{ margin: 0, fontSize: 16, color: "var(--foreground)" }}>Общий вердикт</h3>
-                    <DataBadge variant="ai" source="Claude" title="Тональность, темы и рекомендации — анализ AI по реальным отзывам из Google/2GIS/Яндекс.Карт." />
+                    <DataBadge variant="ai" title="Тональность, темы и рекомендации — анализ AI по реальным отзывам из Google/2GIS/Яндекс.Карт." />
                   </div>
                   {analysis.analyzedAt && (
                     <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>

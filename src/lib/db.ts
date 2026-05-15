@@ -282,6 +282,12 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_feature_waitlist_feature_id ON feature_waitlist(feature_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_feature_waitlist_created_at ON feature_waitlist(created_at DESC)`);
 
+  // Иерархия фичфлагов: «Контент-завод» имеет 9 под-модулей. Админ
+  // может выключить весь блок (parent) или точечно одну вкладку (child).
+  // ON DELETE SET NULL — на случай ручного удаления parent-модуля.
+  await query(`ALTER TABLE features ADD COLUMN IF NOT EXISTS parent_id TEXT REFERENCES features(id) ON DELETE SET NULL`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_features_parent_id ON features(parent_id)`);
+
   // Seed базовых модулей (idempotent). Позже админ может переключать.
   await query(`
     INSERT INTO features (id, label, description, sort_order, enabled) VALUES
@@ -291,6 +297,23 @@ export async function initDb() {
       ('seo-articles',       'SEO-статьи',       'AI-генерация SEO-статей + кластер ключей',         4, true),
       ('reviews-analysis',   'Рынок и отзывы',   'Сбор и AI-анализ отзывов с карт',                  5, true)
     ON CONFLICT (id) DO NOTHING
+  `);
+
+  // Sub-features под «Контент-заводом». ID совпадают с nav-id из src/lib/nav.ts —
+  // это позволяет в page.tsx делать `featureOn(activeNav)` для under-the-hood проверки.
+  // sort_order = 100+ чтобы они шли после корневых модулей в админке.
+  await query(`
+    INSERT INTO features (id, label, description, parent_id, sort_order, enabled) VALUES
+      ('content-trends',    'Тренды по нише',      'Подборка трендов и идей под нишу',            'content-factory', 101, true),
+      ('content-plan',      'План контента',        'AI-генерация контент-плана',                  'content-factory', 102, true),
+      ('content-calendar',  'Календарь публикаций', 'Расписание постов и рилсов по неделям',       'content-factory', 103, true),
+      ('content-posts',     'Создать пост',         'Генерация поста + картинки',                  'content-factory', 104, true),
+      ('content-reels',     'Создать видео',        'Сценарии рилсов и HeyGen-видео',              'content-factory', 105, true),
+      ('content-stories',   'Сторис-сценарии',     'Серии сторис с фонами и текстом',             'content-factory', 106, true),
+      ('content-carousels', 'Карусель-посты',      'Карусели из 5-10 слайдов',                    'content-factory', 107, true),
+      ('content-analytics', 'Аналитика контента',   'Метрики постов и рилсов, охват/вовлечение',   'content-factory', 108, true),
+      ('content-roi',       'ROI калькулятор',      'Расчёт окупаемости контент-производства',     'content-factory', 109, true)
+    ON CONFLICT (id) DO UPDATE SET parent_id = EXCLUDED.parent_id
   `);
 
   // ─── Public shares (дашборд по публичной ссылке, без авторизации) ──────────
@@ -411,6 +434,28 @@ export async function initDb() {
       PRIMARY KEY (kind, year)
     )
   `);
+
+  // ─── Persistent user image store ────────────────────────────────────────────
+  // Контент-завод генерит картинки через OpenAI/Gemini/Pollinations, и они
+  // приходят как `data:image/png;base64,...` (~1.5 MB на 1024×1024).
+  // Если такой data-URI положить в `GeneratedPost.imageUrl` и сохранить в
+  // localStorage / user_data, то после 2-4 постов:
+  //   • localStorage переполняется (5 MB лимит браузера) → QuotaExceeded,
+  //   • POST /api/data выходит за 1 MB body limit → 413,
+  // и оба сейва падают в silent catch → посты теряются после F5 reload.
+  // Решение: складываем байты сюда, а в посте остаётся только короткий URL
+  // вида `/api/image/{id}` (см. /api/image/[id]/route.ts).
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_images (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mime_type TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_user_images_user_id ON user_images(user_id)`);
 
   // ─── SWOT-отчёты ──────────────────────────────────────────────────────────
   await query(`

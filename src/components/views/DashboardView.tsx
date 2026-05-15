@@ -396,7 +396,7 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
               }}
               size="sm"
             />
-            <DataBadge variant="ai" source="Claude" />
+            <DataBadge variant="ai" />
           </div>
         }
       >
@@ -833,7 +833,7 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
 
       {/* ── Прогноз ниши ── */}
       {data.nicheForecast && (
-        <CollapsibleSection c={c} title={`Прогноз ниши — ${data.nicheForecast.timeframe}`} icon={<LineChart size={16} strokeWidth={1.75} />} extra={<DataBadge variant="ai" source="Claude" />}>
+        <CollapsibleSection c={c} title={`Прогноз ниши — ${data.nicheForecast.timeframe}`} icon={<LineChart size={16} strokeWidth={1.75} />} extra={<DataBadge variant="ai" />}>
           <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 24, boxShadow: "var(--shadow)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
               <div style={{ flex: 1 }}>

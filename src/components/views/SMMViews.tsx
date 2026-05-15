@@ -218,7 +218,7 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>СММ-стратегия — {data.companyName}</h1>
-          <DataBadge variant="ai" source="Claude" title="Стратегия, архетип, тон голоса и план постов сгенерированы AI. Подписчики соцсетей подтягиваются из реальных источников." />
+          <DataBadge variant="ai" title="Стратегия, архетип, тон голоса и план постов сгенерированы AI. Подписчики соцсетей подтягиваются из реальных источников." />
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.companyUrl} · {generatedDate}</p>
       </div>

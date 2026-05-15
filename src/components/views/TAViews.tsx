@@ -296,7 +296,7 @@ export function TADashboardView({ c, data, altData, onSwitchType, onRunNew }: {
             Анализ ЦА — {data.companyName}
             {activeType === "b2b" && <span style={{ marginLeft: 8, fontSize: 14, background: "var(--primary)20", color: "var(--primary)", borderRadius: 8, padding: "2px 10px", fontWeight: 700 }}>B2B</span>}
           </h1>
-          <DataBadge variant="ai" source="Claude" title="Портрет ЦА полностью сгенерирован AI на основе данных о компании и нише." />
+          <DataBadge variant="ai" title="Портрет ЦА полностью сгенерирован AI на основе данных о компании и нише." />
         </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>{data.niche} · {generatedDate}</p>
       </div>

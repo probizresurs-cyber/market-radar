@@ -44,6 +44,32 @@ const NICHES = [
   "Другое",
 ];
 
+// Ключевые слова → лейбл из NICHES. Используются для авто-определения ниши
+// по описанию компании, чтобы пользователю не приходилось выбирать вручную.
+const NICHE_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
+  { label: "Медицина / Клиники",            keywords: ["стоматолог", "клиник", "медицин", "врач", "терапевт", "хирург", "имплант", "ортодонт"] },
+  { label: "Маркетинговое агентство",       keywords: ["маркетинг", "агентств", "smm", "реклам", "брендинг", "pr-агентство"] },
+  { label: "IT / SaaS / Разработка ПО",     keywords: ["saas", " it ", "it-", "разработк", "программирован", "софт", "приложен", "стартап"] },
+  { label: "Юридические услуги",            keywords: ["юрист", "юридическ", "адвокат", "правов"] },
+  { label: "Образование / Онлайн-курсы",    keywords: ["образован", "обучен", "курс", "школа", "репетитор", "edu", "edtech"] },
+  { label: "Финансы / Бухгалтерия",         keywords: ["финанс", "бухгалтер", "аудит", "налог", "1c", "1с"] },
+  { label: "Строительство / Ремонт",        keywords: ["строительств", "ремонт", "отделк", "монтаж", "стройка"] },
+  { label: "Ресторан / Общепит",            keywords: ["ресторан", "кафе", "бар", "общепит", "кухн", "пиццер", "доставка еды"] },
+  { label: "Интернет-магазин / E-commerce", keywords: ["интернет-магазин", "магазин", "ecommerce", "e-commerce", "маркетплейс", "ozon", "wildberries"] },
+  { label: "Недвижимость",                  keywords: ["недвижим", "квартир", "новостро", "риелтор", "агентство недвижимости"] },
+  { label: "Красота / Wellness",            keywords: ["красот", "салон", "spa", "wellness", "парикмахер", "косметол", "массаж"] },
+  { label: "Логистика / Доставка",          keywords: ["логистик", "доставк", "перевозк", "транспортн", "склад"] },
+];
+
+function guessNiche(...sources: Array<string | undefined>): string {
+  const haystack = sources.filter(Boolean).join(" ").toLowerCase();
+  if (!haystack) return "";
+  for (const { label, keywords } of NICHE_KEYWORDS) {
+    if (keywords.some(k => haystack.includes(k))) return label;
+  }
+  return "";
+}
+
 const LLM_META: Record<LLMName, { label: string; color: string; bg: string; realApi: boolean }> = {
   yandex:     { label: "YandexGPT",  color: "#ef4444", bg: "#ef444415", realApi: false },
   claude:     { label: "Claude",     color: "#d97706", bg: "#d9770615", realApi: true  },
@@ -392,7 +418,11 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
   // Form
   const [brandName, setBrandName] = useState(myCompany?.company.name ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(myCompany?.company.url ?? "");
-  const [niche, setNiche] = useState("");
+  // Пытаемся подтянуть нишу из описания компании. Если ни одно ключевое
+  // слово не совпало — оставляем пустое, чтобы пользователь выбрал вручную.
+  const [niche, setNiche] = useState(() =>
+    guessNiche(myCompany?.company.description, myCompany?.company.name)
+  );
   const [nicheCustom, setNicheCustom] = useState("");
   const [region, setRegion] = useState("Россия");
   const [queries, setQueries] = useState<string[]>([]);

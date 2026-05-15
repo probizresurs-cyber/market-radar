@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users } from "lucide-react";
 
@@ -12,6 +12,8 @@ interface FeatureRow {
   sort_order: number;
   updated_at: string;
   waitlistCount: number;
+  /** id родительского модуля. null для корневых. */
+  parent_id: string | null;
 }
 
 interface WaitlistRow {
@@ -37,6 +39,9 @@ const S = {
   sub: { fontSize: 13, color: "#64748b", marginBottom: 24 } as React.CSSProperties,
   card: { background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: 12, padding: 20 } as React.CSSProperties,
   row: { display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 16, alignItems: "center", padding: "14px 0", borderBottom: "1px solid #2d3748" } as React.CSSProperties,
+  childRow: { display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 16, alignItems: "center", padding: "10px 0 10px 28px", borderBottom: "1px solid #1e2737", background: "#13182588" } as React.CSSProperties,
+  childTreeLine: { position: "absolute" as const, left: 10, top: 0, bottom: 0, width: 1, background: "#2d3748" },
+  childLabel: { fontSize: 13, fontWeight: 600, color: "#cbd5e1", marginBottom: 2 } as React.CSSProperties,
   featureId: { fontFamily: "monospace", fontSize: 11, color: "#64748b", letterSpacing: "0.04em" } as React.CSSProperties,
   label: { fontSize: 15, fontWeight: 600, color: "#f1f5f9", marginBottom: 2 } as React.CSSProperties,
   desc: { fontSize: 12, color: "#94a3b8" } as React.CSSProperties,
@@ -126,49 +131,102 @@ export default function FeaturesAdmin() {
 
       <main style={S.main}>
         <div style={S.h1}>Модули платформы</div>
-        <div style={S.sub}>Отключение модуля скрывает его функциональность для всех пользователей. Вкладка остаётся видимой, но показывает экран «Скоро будет» с формой ожидания.</div>
+        <div style={S.sub}>Отключение модуля скрывает его функциональность для всех пользователей. Вкладка остаётся видимой, но показывает экран «Скоро будет» с формой ожидания. У модулей с вложенными вкладками (например, «Контент-завод») можно точечно отключать отдельные вкладки.</div>
 
         <div style={S.card}>
           {loading ? (
             <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>Загрузка...</div>
           ) : features.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>Модули не настроены</div>
-          ) : (
-            features.map(f => (
-              <div key={f.id} style={S.row}>
-                <div>
-                  <div style={S.label}>{f.label}</div>
-                  {f.description && <div style={S.desc}>{f.description}</div>}
-                  <div style={{ ...S.featureId, marginTop: 4 }}>{f.id}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openWaitlistFor(f.id, f.label)}
-                  style={S.countBadge}
-                  title="Показать список ожидания"
-                >
-                  <Users size={12} />
-                  {f.waitlistCount} в ожидании
-                </button>
-                <div>
-                  {f.enabled ? (
-                    <span style={S.badge("#4ade80")}>Включён</span>
-                  ) : (
-                    <span style={S.badge("#ef4444")}>Выключен</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toggle(f.id, !f.enabled)}
-                  disabled={busyId === f.id}
-                  style={S.toggle(f.enabled)}
-                  aria-label={f.enabled ? "Выключить" : "Включить"}
-                >
-                  <span style={S.toggleDot(f.enabled)} />
-                </button>
-              </div>
-            ))
-          )}
+          ) : (() => {
+            // Группируем: корневые модули + их дети. parent_id = null → root,
+            // иначе ребёнок выводится сразу под родителем с отступом.
+            const roots = features.filter(f => !f.parent_id);
+            const childrenOf = (id: string) => features.filter(f => f.parent_id === id);
+            return roots.map(f => {
+              const kids = childrenOf(f.id);
+              const parentDisabled = !f.enabled;
+              return (
+                <React.Fragment key={f.id}>
+                  <div style={S.row}>
+                    <div>
+                      <div style={S.label}>{f.label}</div>
+                      {f.description && <div style={S.desc}>{f.description}</div>}
+                      <div style={{ ...S.featureId, marginTop: 4 }}>{f.id}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openWaitlistFor(f.id, f.label)}
+                      style={S.countBadge}
+                      title="Показать список ожидания"
+                    >
+                      <Users size={12} />
+                      {f.waitlistCount} в ожидании
+                    </button>
+                    <div>
+                      {f.enabled ? (
+                        <span style={S.badge("#4ade80")}>Включён</span>
+                      ) : (
+                        <span style={S.badge("#ef4444")}>Выключен</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggle(f.id, !f.enabled)}
+                      disabled={busyId === f.id}
+                      style={S.toggle(f.enabled)}
+                      aria-label={f.enabled ? "Выключить" : "Включить"}
+                    >
+                      <span style={S.toggleDot(f.enabled)} />
+                    </button>
+                  </div>
+                  {kids.map(k => {
+                    // Если родитель выключен — наглядно показываем, что
+                    // дочерние тоже эффективно недоступны (даже при enabled=true
+                    // юзер увидит «Скоро будет» на родительском уровне).
+                    const effectivelyOff = parentDisabled || !k.enabled;
+                    return (
+                      <div key={k.id} style={S.childRow}>
+                        <div>
+                          <div style={S.childLabel}>↳ {k.label}</div>
+                          {k.description && <div style={S.desc}>{k.description}</div>}
+                          <div style={{ ...S.featureId, marginTop: 4 }}>{k.id}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openWaitlistFor(k.id, k.label)}
+                          style={S.countBadge}
+                          title="Показать список ожидания"
+                        >
+                          <Users size={12} />
+                          {k.waitlistCount} в ожидании
+                        </button>
+                        <div>
+                          {effectivelyOff ? (
+                            <span style={S.badge("#ef4444")}>
+                              {parentDisabled ? "Скрыт родителем" : "Выключен"}
+                            </span>
+                          ) : (
+                            <span style={S.badge("#4ade80")}>Включён</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggle(k.id, !k.enabled)}
+                          disabled={busyId === k.id || parentDisabled}
+                          style={{ ...S.toggle(k.enabled), opacity: parentDisabled ? 0.4 : 1 }}
+                          title={parentDisabled ? "Сначала включите родительский модуль" : (k.enabled ? "Выключить" : "Включить")}
+                          aria-label={k.enabled ? "Выключить" : "Включить"}
+                        >
+                          <span style={S.toggleDot(k.enabled)} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            });
+          })()}
         </div>
 
         {openWaitlist && (

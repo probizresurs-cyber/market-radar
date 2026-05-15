@@ -16,7 +16,7 @@ import React from "react";
  *
  * Пример:
  *   <DataBadge variant="real" source="DaData + Руспрофайл" />
- *   <DataBadge variant="ai" source="Claude" />
+ *   <DataBadge variant="ai" />
  *   <DataBadge variant="estimate" source="среднее по нише" />
  */
 

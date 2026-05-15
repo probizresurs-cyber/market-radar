@@ -47,6 +47,27 @@ import { SourcesView } from "@/components/views/SourcesView";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
+// Защита от дублей в списке черновиков: если только что был добавлен пост
+// с тем же ideaId+platform (или абсолютно идентичным body) в течение
+// последних ~30 секунд — заменяем предыдущий, а не плюсуем второй.
+// Это нивелирует двойной клик / повторную отправку формы / случайные
+// ре-моунты, из-за которых пользователь видел два одинаковых черновика.
+function prependPostDedup(prev: GeneratedPost[], next: GeneratedPost): GeneratedPost[] {
+  const first = prev[0];
+  if (first) {
+    const sameIdea =
+      !!next.ideaId && next.ideaId === first.ideaId &&
+      next.platform === first.platform;
+    const sameBody =
+      !!next.body && next.body.trim() === first.body?.trim();
+    const recentMs = Date.now() - new Date(first.generatedAt).getTime();
+    if ((sameIdea || sameBody) && recentMs < 30_000) {
+      return [next, ...prev.slice(1)];
+    }
+  }
+  return [next, ...prev];
+}
+
 // ============================================================
 // New Analysis View (inside dashboard sidebar)
 // ============================================================
@@ -834,10 +855,27 @@ function MarketRadarDashboardInner() {
 
   const persistContent = (plan: ContentPlan | null, posts: GeneratedPost[], reels: GeneratedReel[]) => {
     if (!currentUser?.id) return;
+    const payload = JSON.stringify({ plan, posts, reels });
     try {
-      localStorage.setItem(`mr_content_${currentUser.id}`, JSON.stringify({ plan, posts, reels }));
-      syncToServer("content", { plan, posts, reels });
-    } catch { /* ignore */ }
+      localStorage.setItem(`mr_content_${currentUser.id}`, payload);
+    } catch (e) {
+      // Чаще всего — QuotaExceededError из-за base64-картинок в постах.
+      // НЕ молчим: пользователь должен знать, что его пост может не пережить
+      // reload, иначе генерирует ещё, теряет всё, и думает что платформа сломана.
+      console.error("[persistContent] localStorage save failed:", e);
+      const sizeMb = (payload.length / 1024 / 1024).toFixed(1);
+      toast({
+        kind: "error",
+        title: "Не удалось сохранить контент в браузере",
+        description:
+          `Хранилище переполнено (~${sizeMb} MB). Удалите часть старых постов/рилсов, ` +
+          `иначе после перезагрузки страницы свежие посты пропадут.`,
+      });
+    }
+    // Серверный sync независимый: даже если localStorage упал, постараемся
+    // сохранить на сервере. Если сервер тоже отвергает (413 — слишком большое
+    // тело), warn уже улетит из самого syncToServer.
+    syncToServer("content", { plan, posts, reels });
   };
 
   const handleUpdateAvatarSettings = (next: AvatarSettings) => {
@@ -997,7 +1035,7 @@ function MarketRadarDashboardInner() {
         if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
 
         setGeneratedPosts(prev => {
-          const next = [json.data as GeneratedPost, ...prev];
+          const next = prependPostDedup(prev, json.data as GeneratedPost);
           persistContent(contentPlan, next, generatedReels);
           return next;
         });
@@ -1138,7 +1176,7 @@ function MarketRadarDashboardInner() {
     }).then(r => r.json()).then(json => {
       if (json?.ok && json.data) {
         setGeneratedPosts(prev => {
-          const next = [json.data as GeneratedPost, ...prev];
+          const next = prependPostDedup(prev, json.data as GeneratedPost);
           persistContent(contentPlan, next, generatedReels);
           return next;
         });
@@ -1187,7 +1225,7 @@ function MarketRadarDashboardInner() {
     }).then(r => r.json()).then(json => {
       if (json?.ok && json.data) {
         setGeneratedPosts(prev => {
-          const next = [json.data as GeneratedPost, ...prev];
+          const next = prependPostDedup(prev, json.data as GeneratedPost);
           persistContent(contentPlan, next, generatedReels);
           return next;
         });
@@ -1280,7 +1318,7 @@ function MarketRadarDashboardInner() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
       setGeneratedPosts(prev => {
-        const next = [json.data as GeneratedPost, ...prev];
+        const next = prependPostDedup(prev, json.data as GeneratedPost);
         persistContent(contentPlan, next, generatedReels);
         return next;
       });
@@ -1764,11 +1802,16 @@ function MarketRadarDashboardInner() {
         )}
         {activeNav === "smm-new" && <NewSMMView c={c} myCompany={myCompany} isAnalyzing={isSMMAnalyzing} onAnalyze={handleSMMAnalysis} />}
         {activeNav === "smm-dashboard" && (smmAnalysis ? <SMMDashboardView c={c} data={smmAnalysis} /> : <SMMEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("smm-new")} />)}
-        {activeNav === "content-trends" && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
-        {(activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
+        {/* Если родительский «Контент-завод» выключен — все 9 вкладок показывают общий ComingSoonView. */}
+        {(activeNav === "content-trends" || activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && !featureOn("content-factory") && (
           <ComingSoonView c={c} featureId="content-factory" title={features.labels["content-factory"] ?? "Контент-завод"} description={features.descriptions["content-factory"]} userEmail={currentUser?.email} />
         )}
-        {activeNav === "content-plan" && featureOn("content-factory") && (
+        {/* Родитель включён, но конкретная вкладка точечно выключена админом — показываем её собственный ComingSoonView. */}
+        {(activeNav === "content-trends" || activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && featureOn("content-factory") && !featureOn(activeNav) && (
+          <ComingSoonView c={c} featureId={activeNav} title={features.labels[activeNav] ?? "Модуль"} description={features.descriptions[activeNav]} userEmail={currentUser?.email} />
+        )}
+        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
+        {activeNav === "content-plan" && featureOn("content-factory") && featureOn("content-plan") && (
           contentPlan
             ? <ContentPlanView
                 c={c}
@@ -1793,7 +1836,7 @@ function MarketRadarDashboardInner() {
               />
             : <NewContentPlanView c={c} myCompany={myCompany} smm={smmAnalysis} isGenerating={isGeneratingPlan} onGenerate={handleGenerateContentPlan} />
         )}
-        {activeNav === "content-calendar" && featureOn("content-factory") && (
+        {activeNav === "content-calendar" && featureOn("content-factory") && featureOn("content-calendar") && (
           <ContentCalendarView
             c={c}
             posts={generatedPosts}
@@ -1804,7 +1847,7 @@ function MarketRadarDashboardInner() {
             onGoToReel={() => setActiveNav("content-reels")}
           />
         )}
-        {activeNav === "content-posts" && featureOn("content-factory") && (
+        {activeNav === "content-posts" && featureOn("content-factory") && featureOn("content-posts") && (
           <GeneratedPostsView
             c={c}
             posts={generatedPosts}
@@ -1821,7 +1864,7 @@ function MarketRadarDashboardInner() {
             onGeneratePost={handleGeneratePost}
           />
         )}
-        {activeNav === "content-reels" && featureOn("content-factory") && (
+        {activeNav === "content-reels" && featureOn("content-factory") && featureOn("content-reels") && (
           <GeneratedReelsView
             c={c}
             reels={generatedReels}
@@ -1843,10 +1886,10 @@ function MarketRadarDashboardInner() {
             companyNiche={myCompany?.company.description ?? ""}
           />
         )}
-        {activeNav === "content-stories" && featureOn("content-factory") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
-        {activeNav === "content-carousels" && featureOn("content-factory") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} onboardingState={onboardingState} />}
-        {activeNav === "content-analytics" && featureOn("content-factory") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
-        {activeNav === "content-roi" && featureOn("content-factory") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
+        {activeNav === "content-stories" && featureOn("content-factory") && featureOn("content-stories") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
+        {activeNav === "content-carousels" && featureOn("content-factory") && featureOn("content-carousels") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} onboardingState={onboardingState} />}
+        {activeNav === "content-analytics" && featureOn("content-factory") && featureOn("content-analytics") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
+        {activeNav === "content-roi" && featureOn("content-factory") && featureOn("content-roi") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
         {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords" || activeNav === "seo-expand" || activeNav === "seo-paa" || activeNav === "seo-tech-audit") && (
           featureOn("seo-articles")
             ? <SEOArticlesView

@@ -11,6 +11,9 @@ interface FeatureRow {
   enabled: boolean;
   sort_order: number;
   updated_at: string;
+  /** ID родительского модуля для иерархии в админке (например,
+   *  "content-trends".parent_id = "content-factory"). NULL для корневых. */
+  parent_id: string | null;
 }
 
 async function requireAdmin() {
@@ -27,7 +30,7 @@ export async function GET() {
     if (!session) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
 
     const rows = await query<FeatureRow & { waitlist_count: string }>(
-      `SELECT f.id, f.label, f.description, f.enabled, f.sort_order, f.updated_at,
+      `SELECT f.id, f.label, f.description, f.enabled, f.sort_order, f.updated_at, f.parent_id,
               COUNT(w.id)::text AS waitlist_count
          FROM features f
          LEFT JOIN feature_waitlist w ON w.feature_id = f.id

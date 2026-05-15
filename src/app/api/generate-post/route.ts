@@ -7,6 +7,7 @@ import { generateOpenAIImage } from "@/lib/openai-image";
 import { generatePollinationsImage } from "@/lib/pollinations-image";
 import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 import { platformImageFormat } from "@/lib/image-aspect";
+import { persistImageDataUri } from "@/lib/image-store";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -351,6 +352,13 @@ export async function POST(req: Request) {
       } catch { /* image is optional */ }
     }
 
+    // Конвертируем base64 data-URI картинку в стабильный `/api/image/{id}` URL.
+    // Иначе ~1.5 MB base64 ушло бы в `GeneratedPost.imageUrl` → переполнило
+    // localStorage и POST /api/data → пост терялся бы после reload.
+    // Если userId нет (анонимный поток) или DB-инсёрт упал — возвращается
+    // исходный data-URI: лучше показать пост, чем не показать ничего.
+    const persistedImageUrl = await persistImageDataUri(imageUrl, access.userId);
+
     const result: GeneratedPost = {
       id: `post-${Date.now()}`,
       ideaId: idea.id,
@@ -360,7 +368,7 @@ export async function POST(req: Request) {
       hashtags: parsed.hashtags ?? [],
       imagePrompt: parsed.imagePrompt ?? "",
       imageSuggestionRu: parsed.imageSuggestionRu?.trim() || undefined,
-      imageUrl,
+      imageUrl: persistedImageUrl,
       platform: idea.platform,
       generatedAt: new Date().toISOString(),
     };
