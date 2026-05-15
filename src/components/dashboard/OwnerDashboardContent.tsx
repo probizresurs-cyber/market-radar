@@ -821,29 +821,16 @@ export function OwnerDashboardContent({
             p={p}
             active={activeTab}
             onChange={(id) => {
-              // В private-режиме на модули АНАЛИЗА (ЦА / СММ / CJM /
-              // Конкуренты / Контент / Бенчмарки / AI-видимость) перекидываем
-              // в основной app — там полноценные страницы модулей.
-              // Внутренние сводки Обзор / Действия / Репутация / Финансы /
-              // Команда / Компания — остаются ВНУТРИ дашборда руководителя
-              // как табы (это резюме поверх данных, не модули).
-              const externalNav: Partial<Record<TabId, string>> = {
-                competitors: "competitors",
-                ta: "ta-dashboard",
-                cjm: "ta-cjm",
-                benchmarks: "ta-benchmarks",
-                smm: "smm-dashboard",
-                content: "content-plan",
-                "ai-visibility": "ai-visibility",
-              };
-              const nav = externalNav[id];
-              if (mode === "private" && nav && typeof window !== "undefined") {
-                // Открываем в той же вкладке — пользователь ожидает прямой переход.
-                // assign() = записывает в history, location.replace() — нет, но для
-                // надёжной отработки query-param используем assign + cache-bust ts.
-                window.location.assign(`/?nav=${nav}&t=${Date.now()}`);
-                return;
-              }
+              // ВСЕ табы остаются внутренними — показывают мини-сводку
+              // прямо на дашборде руководителя.
+              //
+              // Переход в полный модуль app делается явно — через карточки
+               // «Модули анализа» сверху или через кнопку «Открыть полный
+              // отчёт» (target=_blank) рядом с активным табом.
+              //
+              // Раньше эти модульные табы (ta/smm/cjm/...) автоматически
+              // редиректили в /?nav=... — это было ошибкой UX: юзер хотел
+              // увидеть сводку, а его выкидывало с дашборда руководителя.
               setActiveTab(id);
             }}
             tabs={tabs}
