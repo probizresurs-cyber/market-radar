@@ -405,7 +405,7 @@ export function ContentTrendsView({ analysis, onCreateFromIdea, onCreatePackage 
               {analyzing && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted-foreground)", fontSize: 13 }}>
                   <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                  Claude анализирует тренды и создаёт идеи…
+                  Анализируем тренды и создаём идеи…
                 </div>
               )}
 

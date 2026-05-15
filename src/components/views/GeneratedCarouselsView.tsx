@@ -451,7 +451,7 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                         background: embedTextMode ? accent + "08" : "transparent",
                         cursor: "pointer", userSelect: "none",
                       }}
-                      title="ChatGPT Images 2.0 нарисует заголовок и буллеты прямо на картинке вместо CSS-оверлея"
+                      title="AI нарисует заголовок и буллеты прямо на картинке вместо CSS-оверлея"
                     >
                       <input
                         type="checkbox"

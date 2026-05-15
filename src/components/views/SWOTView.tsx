@@ -154,7 +154,7 @@ export function SWOTView({
         </h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
           Стратегическая оценка бизнеса по 4 квадрантам — Сильные стороны, Слабые стороны,
-          Возможности и Угрозы. Claude Sonnet делает разбор на основе результатов всех ваших
+          Возможности и Угрозы. AI делает разбор на основе результатов всех ваших
           анализов и пишет executive-отчёт с разделами и заключением.
         </p>
       </div>
@@ -252,7 +252,7 @@ export function SWOTView({
                 <Loader2 size={22} style={{ animation: "spin 1s linear infinite", color: "var(--primary)" }}/>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
-                    Claude анализирует ваш бизнес
+                    Анализируем ваш бизнес
                   </div>
                   <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
                     Шаг 1/3: Извлекаю SWOT-пункты → Шаг 2/3: Пишу 4 раздела параллельно → Шаг 3/3: Введение и заключение. Всего 60-90 секунд.

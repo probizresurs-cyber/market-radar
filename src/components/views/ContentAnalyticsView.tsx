@@ -152,7 +152,7 @@ export function ContentAnalyticsView({ c, posts, reels, companyName }: {
           <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 14, color: "var(--foreground-secondary)", marginBottom: 6 }}>Пока нет публикаций с метриками</div>
           <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-            Откройте «Готовые посты» или «Готовые видео», нажмите 📊 на карточке и бросьте скрин статистики — GPT-4o распознает все цифры.
+            Откройте «Создать пост» или «Создать видео», нажмите 📊 на карточке и бросьте скрин статистики — AI распознает все цифры.
           </div>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function ContentAnalyticsView({ c, posts, reels, companyName }: {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: "var(--foreground)" }}>🤖 AI-разбор аналитики</div>
-            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>GPT-4o проанализирует все метрики и даст конкретные рекомендации</div>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>AI проанализирует все метрики и даст конкретные рекомендации</div>
           </div>
           <button
             onClick={handleAnalyze}

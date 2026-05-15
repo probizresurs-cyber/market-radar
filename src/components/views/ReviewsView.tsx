@@ -403,7 +403,7 @@ export function ReviewsView({ c, companyName }: {
             <div>
               <p style={{ color: "var(--foreground-secondary)", fontSize: 13, marginBottom: 12 }}>
                 Сделайте скриншот страницы отзывов на Яндекс.Картах, Отзовике, Авито или любой другой платформе.
-                GPT-4o распознает платформу и извлечёт все отзывы.
+                AI распознает платформу и извлечёт все отзывы.
               </p>
               <label style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,

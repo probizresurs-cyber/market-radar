@@ -98,7 +98,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
       )}
       {loading && (
         <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#6366f1", fontWeight: 700 }}>
-          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Loader2 size={12} className="mr-spin"/>GPT-4o проверяет тон…</span>
+          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Loader2 size={12} className="mr-spin"/>Проверяем тон…</span>
         </div>
       )}
       {error && (
@@ -426,7 +426,7 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={screenshotPreview} alt="screenshot" style={{ maxHeight: 80, maxWidth: 140, borderRadius: 6, border: `1px solid var(--border)` }} />
             <div style={{ flex: 1, textAlign: "left", fontSize: 11, color: "var(--foreground-secondary)" }}>
-              {loading ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Bot size={11}/>GPT-4o распознаёт метрики…</span> : "Скрин загружен — поля заполнены ниже"}
+              {loading ? <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Bot size={11}/>Распознаём метрики…</span> : "Скрин загружен — поля заполнены ниже"}
             </div>
             <label style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
               ↻ заменить
@@ -437,7 +437,7 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
           <>
             <div style={{ marginBottom: 8, color:"var(--muted-foreground)", display:"flex", justifyContent:"center"}}><Camera size={28}/></div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>Бросьте сюда скриншот статистики</div>
-            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 8 }}>VK / Instagram / Telegram / TikTok — GPT-4o распознает все цифры автоматически</div>
+            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 8 }}>VK / Instagram / Telegram / TikTok — AI распознает все цифры автоматически</div>
             <label style={{ display: "inline-block", padding: "6px 14px", borderRadius: 7, background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
               Выбрать файл
               <input type="file" accept="image/*" onChange={handleFileInput} style={{ display: "none" }} />

@@ -20,12 +20,47 @@ async function keysoRaw(path: string, params: Record<string, string | number>, t
   return { status: res.status, total, sample, rawStart: text.slice(0, 500) };
 }
 
+/** Дебаг — сырой ответ domain_dashboard (главный эндпоинт для дашборда). */
+async function dashboardRaw(domain: string, base: string, token: string) {
+  const url = `https://api.keys.so/report/simple/domain_dashboard?base=${base}&domain=${encodeURIComponent(domain)}`;
+  const res = await fetch(url, { headers: { "X-Keyso-TOKEN": token, Accept: "application/json" } });
+  const text = await res.text();
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(text); } catch { /* */ }
+  // Извлекаем поля которые мы парсим — чтобы видеть что приходит
+  const fields: Record<string, unknown> = {};
+  if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    const checkKeys = ["vis", "topvis", "pagesinindex", "adkeyscnt", "it1", "it3", "it10", "it50", "dr", "aiAnswersCnt", "keys", "concs", "linksHistory", "data", "error", "message"];
+    for (const k of checkKeys) {
+      const v = obj[k];
+      if (v !== undefined) {
+        if (Array.isArray(v)) fields[k] = `[array ${v.length} items]`;
+        else if (typeof v === "object" && v) fields[k] = `[object ${Object.keys(v).length} keys]`;
+        else fields[k] = v;
+      }
+    }
+    fields["__allKeys"] = Object.keys(obj);
+  }
+  return {
+    status: res.status,
+    fields,
+    rawStart: text.slice(0, 800),
+  };
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const domain = searchParams.get("domain") ?? "me-dent.ru";
   const base = searchParams.get("base") ?? "msk";
   const token = process.env.KEYSO_API_TOKEN;
   if (!token) return NextResponse.json({ error: "No KEYSO_API_TOKEN" });
+
+  // Сырой ответ domain_dashboard — главный объект для блока «Данные Keys.so»
+  const [dashMsk, dashGru] = await Promise.all([
+    dashboardRaw(domain, "msk", token),
+    dashboardRaw(domain, "gru", token),
+  ]);
 
   const p = { domain, base, page: 1, per_page: 3 };
 
@@ -59,6 +94,8 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     domain,
+    "DOMAIN_DASHBOARD [msk]": dashMsk,
+    "DOMAIN_DASHBOARD [gru]": dashGru,
     "sitepages/withkeys": pages,
     "lost_keywords": lost,
     "[me-dent] links/anchors": anchors,
