@@ -263,26 +263,51 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
             border: `1px dashed color-mix(in oklch, var(--primary) 30%, transparent)`,
             borderRadius: 10, padding: "14px 16px", marginBottom: 18,
           }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--foreground)", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-              <Upload size={13} /> Свой аватар и голос
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--foreground)", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 4, letterSpacing: -0.2 }}>
+              <Upload size={15} /> Создать нового аватара
             </div>
-            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.5 }}>
-              Загрузите фото или видео — получите персонального аватара. Голос для видео выбирается из готовых HeyGen-голосов через «Использовать готовый из HeyGen» ниже.
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 14, lineHeight: 1.5 }}>
+              Введите имя и загрузите фото (быстро) или видео (качественнее, но дольше). Голос выбирается из готовых HeyGen-голосов в настройках ниже.
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+            {/* Единое поле имени аватара */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{
+                display: "block", fontSize: 11, fontWeight: 700,
+                color: "var(--muted-foreground)", marginBottom: 6,
+                letterSpacing: "0.04em", textTransform: "uppercase",
+              }}>
+                Имя аватара
+              </label>
+              <input
+                type="text"
+                value={pendingAvatarName}
+                onChange={e => {
+                  setPendingAvatarName(e.target.value);
+                  // Синхронизируем с pendingVideoName чтобы видео-аватар
+                  // тоже использовал это имя если юзер выберет видео.
+                  setPendingVideoName(e.target.value);
+                }}
+                placeholder="Например: «Основатель», «Эксперт», «Я говорящий»"
+                style={{
+                  width: "100%", padding: "10px 14px", borderRadius: 8,
+                  border: `1.5px solid var(--border)`, background: "var(--background)",
+                  color: "var(--foreground)", fontSize: 14, outline: "none",
+                  fontFamily: "inherit", boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {/* Два способа загрузки — стороной */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
               {/* Photo upload */}
-              <div style={{ background: "var(--card)", borderRadius: 8, padding: 12, border: `1px solid var(--border)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ImagePlus size={12} /> Фото для аватара
+              <div style={{ background: "var(--card)", borderRadius: 10, padding: 14, border: `1px solid var(--border)` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <ImagePlus size={14} /> Фото
                 </div>
-                <input
-                  type="text"
-                  value={pendingAvatarName}
-                  onChange={e => setPendingAvatarName(e.target.value)}
-                  placeholder="Название (например: «Основатель»)"
-                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", marginBottom: 8, fontFamily: "inherit", boxSizing: "border-box" }}
-                />
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.4 }}>
+                  Быстро: talking-photo за минуту. Светлый фон, лицо в кадре.
+                </div>
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -293,29 +318,32 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                 <button
                   onClick={() => photoInputRef.current?.click()}
                   disabled={uploadingPhoto}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: `1.5px solid var(--primary)`, background: "color-mix(in oklch, var(--primary) 8%, transparent)", color: "var(--primary)", fontSize: 11, fontWeight: 700, cursor: uploadingPhoto ? "not-allowed" : "pointer" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {uploadingPhoto ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</> : <><Upload size={12} /> Загрузить фото (JPG/PNG, до 10 МБ)</>}
-                  </span>
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 8,
+                    border: "none",
+                    background: uploadingPhoto ? "var(--muted)" : "var(--primary)",
+                    color: "#fff",
+                    fontSize: 13, fontWeight: 700,
+                    cursor: uploadingPhoto ? "not-allowed" : "pointer",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    fontFamily: "inherit",
+                  }}>
+                  {uploadingPhoto
+                    ? <><Loader2 size={14} className="mr-spin" /> Сохраняем…</>
+                    : <><Upload size={14} /> Сохранить как фото-аватара</>}
                 </button>
-                <div style={{ fontSize: 9, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
-                  Лучше всего: светлый нейтральный фон, лицо в кадре, смотрите в камеру, высокое качество.
-                </div>
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>JPG/PNG, до 10 МБ</div>
               </div>
 
-              {/* Video upload (footage → footage avatar) */}
-              <div style={{ background: "var(--card)", borderRadius: 8, padding: 12, border: `1px solid var(--border)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground)", marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <Upload size={12} /> Видео для аватара
-                  <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 3, background: "#22c55e", color: "#fff", marginLeft: 4 }}>NEW</span>
+              {/* Video upload */}
+              <div style={{ background: "var(--card)", borderRadius: 10, padding: 14, border: `1px solid var(--border)` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Upload size={14} /> Видео
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "#22c55e", color: "#fff" }}>NEW</span>
                 </div>
-                <input
-                  type="text"
-                  value={pendingVideoName}
-                  onChange={e => setPendingVideoName(e.target.value)}
-                  placeholder="Название (например: «Я говорящий»)"
-                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 11, outline: "none", marginBottom: 8, fontFamily: "inherit", boxSizing: "border-box" }}
-                />
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.4 }}>
+                  Качественнее: footage-аватар с лучшим lip-sync. 30-60 сек с мимикой.
+                </div>
                 <input
                   ref={videoInputRef}
                   type="file"
@@ -326,19 +354,22 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                 <button
                   onClick={() => videoInputRef.current?.click()}
                   disabled={uploadingVideo}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: `1.5px solid #22c55e`, background: "color-mix(in oklch, #22c55e 8%, transparent)", color: "#22c55e", fontSize: 11, fontWeight: 700, cursor: uploadingVideo ? "not-allowed" : "pointer" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {uploadingVideo ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</> : <><Upload size={12} /> Загрузить видео (MP4, до 100 МБ)</>}
-                  </span>
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 8,
+                    border: "none",
+                    background: uploadingVideo ? "var(--muted)" : "#22c55e",
+                    color: "#fff",
+                    fontSize: 13, fontWeight: 700,
+                    cursor: uploadingVideo ? "not-allowed" : "pointer",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    fontFamily: "inherit",
+                  }}>
+                  {uploadingVideo
+                    ? <><Loader2 size={14} className="mr-spin" /> Сохраняем…</>
+                    : <><Upload size={14} /> Сохранить как видео-аватара</>}
                 </button>
-                <div style={{ fontSize: 9, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
-                  30-60 сек, говорите на камеру с мимикой. HeyGen построит footage-аватар — качество lip-sync выше, чем у talking-photo. Рендер ~5-15 минут после загрузки.
-                </div>
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>MP4, до 100 МБ · рендер 5-15 мин</div>
               </div>
-
-              {/* Voice upload убран — клонирование голоса нестабильно, юзер
-                  выбирает готовый HeyGen-голос через кнопку «Использовать
-                  готовый из HeyGen» ниже. */}
             </div>
 
             {uploadError && (
@@ -362,111 +393,8 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
               </div>
             )}
 
-            {/* My avatars — HeyGen-style library: крупные карточки 180px,
-                с кнопкой переименовать и удалить, видимое «✓ выбран» */}
-            {customAvatars.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "var(--foreground)", marginBottom: 10, letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
-                  Мои аватары
-                  <span style={{ background: "color-mix(in oklch, var(--primary) 15%, transparent)", color: "var(--primary)", padding: "1px 7px", borderRadius: 8, fontSize: 10 }}>{customAvatars.length}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-                  {customAvatars.map(a => {
-                    const selected = settings.avatarId === a.heygenAvatarId;
-                    const isProcessing = a.status === "processing";
-                    return (
-                      <div key={a.id}
-                        onClick={() => !isProcessing && selectCustomAvatar(a)}
-                        style={{
-                          cursor: isProcessing ? "default" : "pointer",
-                          border: `2px solid ${selected ? "var(--primary)" : "var(--border)"}`,
-                          borderRadius: 12, padding: 0, overflow: "hidden",
-                          background: selected ? "color-mix(in oklch, var(--primary) 8%, var(--card))" : "var(--card)",
-                          position: "relative",
-                          boxShadow: selected ? "0 4px 14px color-mix(in oklch, var(--primary) 25%, transparent)" : "none",
-                          transition: "all 0.15s",
-                          opacity: isProcessing ? 0.7 : 1,
-                        }}>
-                        {/* Preview 1:1 */}
-                        <div style={{ position: "relative", aspectRatio: "1/1", background: "var(--background)" }}>
-                          {a.previewUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={a.previewUrl} alt={a.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          ) : (
-                            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)", fontSize: 28 }}>
-                              <Upload size={28} />
-                            </div>
-                          )}
-                          {selected && (
-                            <div style={{
-                              position: "absolute", top: 8, left: 8,
-                              background: "var(--primary)", color: "#fff",
-                              fontSize: 10, fontWeight: 800,
-                              padding: "3px 8px", borderRadius: 5,
-                              letterSpacing: "0.05em",
-                            }}>
-                              ВЫБРАН
-                            </div>
-                          )}
-                          {isProcessing && (
-                            <div style={{
-                              position: "absolute", inset: 0,
-                              background: "rgba(0,0,0,0.5)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              color: "#fff", fontSize: 11, fontWeight: 700,
-                              flexDirection: "column", gap: 4,
-                            }}>
-                              <Loader2 size={20} className="mr-spin" />
-                              <span>Готовится</span>
-                            </div>
-                          )}
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              const newName = prompt("Новое название аватара:", a.name);
-                              if (newName && newName.trim() && newName !== a.name) {
-                                const next = customAvatars.map(av => av.id === a.id ? { ...av, name: newName.trim() } : av);
-                                update({ customAvatars: next });
-                              }
-                            }}
-                            title="Переименовать"
-                            style={{
-                              position: "absolute", top: 8, right: 36,
-                              background: "rgba(0,0,0,0.55)", border: "none",
-                              borderRadius: 5, color: "#fff",
-                              padding: "4px 6px", cursor: "pointer",
-                              display: "inline-flex", alignItems: "center",
-                            }}>
-                            <ImagePlus size={11} />
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); if (confirm(`Удалить «${a.name}»?`)) deleteCustomAvatar(a.id); }}
-                            title="Удалить"
-                            style={{
-                              position: "absolute", top: 8, right: 8,
-                              background: "rgba(0,0,0,0.55)", border: "none",
-                              borderRadius: 5, color: "#fff",
-                              padding: "4px 6px", cursor: "pointer",
-                              display: "inline-flex", alignItems: "center",
-                            }}>
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
-                        {/* Name */}
-                        <div style={{ padding: "8px 10px" }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {a.name}
-                          </div>
-                          <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
-                            {a.heygenAvatarId?.slice(0, 16)}…
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Библиотека «Мои аватары» переехала в самый низ панели —
+                после всех настроек HeyGen avatar/voice ID и формата. */}
 
             {/* My voices */}
             {customVoices.length > 0 && (
@@ -630,6 +558,120 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Библиотека моих аватаров — В САМОМ НИЗУ панели ─── */}
+          {customAvatars.length > 0 && (
+            <div style={{
+              marginTop: 24, paddingTop: 20,
+              borderTop: "1px solid var(--muted)",
+            }}>
+              <div style={{
+                fontSize: 14, fontWeight: 800, color: "var(--foreground)",
+                marginBottom: 12, letterSpacing: -0.2,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                Мои аватары
+                <span style={{
+                  background: "color-mix(in oklch, var(--primary) 18%, transparent)",
+                  color: "var(--primary)",
+                  padding: "2px 9px", borderRadius: 10, fontSize: 11, fontWeight: 800,
+                }}>{customAvatars.length}</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+                {customAvatars.map(a => {
+                  const selected = settings.avatarId === a.heygenAvatarId;
+                  const isProcessing = a.status === "processing";
+                  return (
+                    <div key={a.id}
+                      onClick={() => !isProcessing && selectCustomAvatar(a)}
+                      style={{
+                        cursor: isProcessing ? "default" : "pointer",
+                        border: `2px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+                        borderRadius: 12, padding: 0, overflow: "hidden",
+                        background: selected ? "color-mix(in oklch, var(--primary) 8%, var(--card))" : "var(--card)",
+                        position: "relative",
+                        boxShadow: selected ? "0 4px 14px color-mix(in oklch, var(--primary) 25%, transparent)" : "none",
+                        transition: "all 0.15s",
+                        opacity: isProcessing ? 0.7 : 1,
+                      }}>
+                      <div style={{ position: "relative", aspectRatio: "1/1", background: "var(--background)" }}>
+                        {a.previewUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={a.previewUrl} alt={a.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)" }}>
+                            <Upload size={28} />
+                          </div>
+                        )}
+                        {selected && (
+                          <div style={{
+                            position: "absolute", top: 8, left: 8,
+                            background: "var(--primary)", color: "#fff",
+                            fontSize: 10, fontWeight: 800,
+                            padding: "3px 8px", borderRadius: 5,
+                            letterSpacing: "0.05em",
+                          }}>
+                            ВЫБРАН
+                          </div>
+                        )}
+                        {isProcessing && (
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            background: "rgba(0,0,0,0.5)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#fff", fontSize: 11, fontWeight: 700,
+                            flexDirection: "column", gap: 4,
+                          }}>
+                            <Loader2 size={20} className="mr-spin" />
+                            <span>Готовится</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            const newName = prompt("Новое название аватара:", a.name);
+                            if (newName && newName.trim() && newName !== a.name) {
+                              const next = customAvatars.map(av => av.id === a.id ? { ...av, name: newName.trim() } : av);
+                              update({ customAvatars: next });
+                            }
+                          }}
+                          title="Переименовать"
+                          style={{
+                            position: "absolute", top: 8, right: 36,
+                            background: "rgba(0,0,0,0.55)", border: "none",
+                            borderRadius: 5, color: "#fff",
+                            padding: "4px 6px", cursor: "pointer",
+                            display: "inline-flex", alignItems: "center",
+                          }}>
+                          <ImagePlus size={11} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); if (confirm(`Удалить «${a.name}»?`)) deleteCustomAvatar(a.id); }}
+                          title="Удалить"
+                          style={{
+                            position: "absolute", top: 8, right: 8,
+                            background: "rgba(0,0,0,0.55)", border: "none",
+                            borderRadius: 5, color: "#fff",
+                            padding: "4px 6px", cursor: "pointer",
+                            display: "inline-flex", alignItems: "center",
+                          }}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                      <div style={{ padding: "8px 10px" }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {a.name}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
+                          {a.heygenAvatarId?.slice(0, 16)}…
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
