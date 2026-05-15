@@ -821,12 +821,13 @@ export function OwnerDashboardContent({
             p={p}
             active={activeTab}
             onChange={(id) => {
-              // В private-режиме все основные табы ведут на полный модуль в app.
-              // Внутренняя сводка остаётся только для "overview".
+              // В private-режиме на модули АНАЛИЗА (ЦА / СММ / CJM /
+              // Конкуренты / Контент / Бенчмарки / AI-видимость) перекидываем
+              // в основной app — там полноценные страницы модулей.
+              // Внутренние сводки Обзор / Действия / Репутация / Финансы /
+              // Команда / Компания — остаются ВНУТРИ дашборда руководителя
+              // как табы (это резюме поверх данных, не модули).
               const externalNav: Partial<Record<TabId, string>> = {
-                actions: "insights",
-                reputation: "reviews-analysis",
-                company: "dashboard",
                 competitors: "competitors",
                 ta: "ta-dashboard",
                 cjm: "ta-cjm",
