@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AvatarSettings, CustomAvatar, CustomVoice } from "@/lib/content-types";
 import { Sparkles, Smartphone, Monitor, Loader2, RefreshCw, ClipboardList, Upload, Mic, ImagePlus, Trash2 } from "lucide-react";
@@ -12,7 +12,18 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   /** Когда true — панель открыта по умолчанию (например, в табе «Аватары»). */
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen ?? (!settings.avatarId && !settings.voiceId));
+  // Открыто если:
+  //   - принудительно через defaultOpen (используется в табе «Аватары»);
+  //   - НЕТ ни одного кастомного аватара (юзер только начинает).
+  const initialOpen =
+    defaultOpen ??
+    ((settings.customAvatars?.length ?? 0) === 0);
+  const [open, setOpen] = useState(initialOpen);
+  // Когда defaultOpen приходит true (юзер пришёл на таб «Аватары»),
+  // принудительно раскрываем панель даже если она была закрыта раньше.
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
   const [loading, setLoading] = useState(false);
   const [avatars, setAvatars] = useState<Array<{ id: string; name: string; gender: string; previewImage: string }>>([]);
   const [voices, setVoices] = useState<Array<{ id: string; name: string; language: string; gender: string; previewAudio: string }>>([]);
@@ -24,6 +35,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVoice, setUploadingVoice] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [pendingAvatarName, setPendingAvatarName] = useState("");
   const [pendingVoiceName, setPendingVoiceName] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +87,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         avatarType: "talking_photo",
       });
       setPendingAvatarName("");
+      setUploadSuccess(`Аватар «${newAvatar.name}» добавлен в библиотеку — можно создавать ещё или сразу снимать видео.`);
+      // Авто-скрытие через 6 секунд
+      setTimeout(() => setUploadSuccess(null), 6000);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -117,6 +132,8 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         avatarType: "preset", // v3 footage avatars используются как обычные avatar_id
       });
       setPendingVideoName("");
+      setUploadSuccess(`Аватар «${newAvatar.name}» загружен и готовится (5-15 минут). Можно создавать ещё или дождаться готовности.`);
+      setTimeout(() => setUploadSuccess(null), 8000);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -326,7 +343,22 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
 
             {uploadError && (
               <div style={{ marginTop: 10, background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 7, fontSize: 11 }}>
-                ❌ {uploadError}
+                {uploadError}
+              </div>
+            )}
+            {uploadSuccess && (
+              <div style={{
+                marginTop: 10,
+                background: "color-mix(in oklch, #22c55e 12%, transparent)",
+                color: "#16a34a",
+                padding: "10px 14px",
+                borderRadius: 7,
+                fontSize: 12.5,
+                fontWeight: 600,
+                lineHeight: 1.5,
+                border: "1px solid color-mix(in oklch, #22c55e 35%, transparent)",
+              }}>
+                ✓ {uploadSuccess}
               </div>
             )}
 
