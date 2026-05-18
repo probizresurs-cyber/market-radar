@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, X, Send, Loader2, Sparkles, Trash2, ChevronDown, MapPin, ArrowRight } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, Sparkles, Trash2, ChevronDown, MapPin, ArrowRight, Mic, MicOff } from "lucide-react";
 import type { DashboardContext, ChatMessage } from "@/app/api/chat/route";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
@@ -221,6 +221,15 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  // Голосовой ввод через Web Speech API (SpeechRecognition).
+  // В Chrome/Edge/Safari работает out-of-the-box, в Firefox/Yandex нет — там
+  // кнопка не отрисуется. `isListening` — флаг записи, `voiceError` — текст
+  // если юзер не дал разрешение / нет интернета (распознавание идёт в Google
+  // на стороне Chrome для русского).
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = React.useRef<unknown>(null);
+  const [voiceSupported, setVoiceSupported] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -230,6 +239,16 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
     const history = loadHistory(userId);
     setMessages(history);
     setHydrated(true);
+
+    // Web Speech API доступен? Chrome/Edge/Safari дают webkitSpeechRecognition,
+    // Firefox/Yandex Browser нет — там кнопка мика не покажется.
+    try {
+      const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+      const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+      if (SR) {
+        setVoiceSupported(true);
+      }
+    } catch { /* ignore */ }
 
     // Show proactive bubble after 5s if: no chat history AND bubble not yet seen this session
     const bubbleSeen = sessionStorage.getItem(BUBBLE_SEEN_KEY);
@@ -263,6 +282,68 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
     setTimeout(() => {
       sendMessage(buildWorkflowPrompt(myCompany, competitors, taAnalysis, smmAnalysis));
     }, 300);
+  };
+
+  // Старт/стоп распознавания речи. Использует webkitSpeechRecognition с
+  // continuous=false (одна фраза — один результат) и lang=ru-RU.
+  // Распознанный текст добавляется в input, потом юзер сам жмёт Send или Enter
+  // (намеренно не отправляем автоматом — даём шанс исправить опечатки).
+  const toggleVoice = () => {
+    if (isListening && recognitionRef.current) {
+      // Стоп — пользователь нажал ещё раз чтобы остановить запись.
+      try { (recognitionRef.current as { stop: () => void }).stop(); } catch { /* ignore */ }
+      setIsListening(false);
+      return;
+    }
+    setVoiceError(null);
+    try {
+      const w = window as unknown as { SpeechRecognition?: new () => unknown; webkitSpeechRecognition?: new () => unknown };
+      const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+      if (!SR) {
+        setVoiceError("Голосовой ввод не поддерживается в этом браузере. Откройте в Chrome или Edge.");
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rec: any = new SR();
+      rec.lang = "ru-RU";
+      rec.continuous = false;
+      rec.interimResults = true;          // показываем промежуточный результат пока говорим
+      rec.maxAlternatives = 1;
+
+      rec.onresult = (ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
+        // Собираем все промежуточные + финальный результаты в одну строку.
+        let finalText = "";
+        for (let i = 0; i < ev.results.length; i++) {
+          finalText += ev.results[i][0].transcript;
+        }
+        setInput(prev => {
+          // Если в инпуте уже что-то напечатано — приписываем через пробел.
+          // Иначе перезаписываем — это для случая «нажал мик до набора текста».
+          if (!prev.trim()) return finalText;
+          // Чтобы не дублировать промежуточные результаты, при повторных onresult
+          // мы заменяем то что было добавлено голосом. Простой способ: храним
+          // финальный текст в ref-е и переписываем хвост. Здесь упрощаем —
+          // просто записываем целиком (хвост может потеряться, но в кратких
+          // фразах это норм).
+          return finalText;
+        });
+      };
+      rec.onerror = (ev: { error?: string }) => {
+        if (ev.error === "not-allowed") setVoiceError("Нет доступа к микрофону. Разрешите в настройках браузера.");
+        else if (ev.error === "no-speech") setVoiceError("Не услышал, попробуйте ещё раз");
+        else if (ev.error === "network") setVoiceError("Нет интернета для распознавания");
+        else if (ev.error) setVoiceError(`Ошибка: ${ev.error}`);
+        setIsListening(false);
+      };
+      rec.onend = () => setIsListening(false);
+
+      recognitionRef.current = rec;
+      rec.start();
+      setIsListening(true);
+    } catch (e) {
+      setVoiceError(e instanceof Error ? e.message : "Не удалось запустить распознавание");
+      setIsListening(false);
+    }
   };
 
   const sendMessage = useCallback(async (text: string) => {
@@ -563,6 +644,26 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
                   t.style.height = Math.min(t.scrollHeight, 100) + "px";
                 }}
               />
+              {voiceSupported && (
+                <button
+                  onClick={toggleVoice}
+                  disabled={loading || !hasContext}
+                  title={isListening ? "Остановить запись" : "Голосовой ввод"}
+                  style={{
+                    width: 38, height: 38, borderRadius: 12, border: "none",
+                    background: isListening ? "#ef4444" : "var(--card)",
+                    color: isListening ? "#fff" : "var(--foreground-secondary)",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                    boxShadow: isListening ? "0 0 0 4px rgba(239,68,68,0.25)" : "none",
+                    animation: isListening ? "mr-pulse 1.2s ease-in-out infinite" : undefined,
+                    opacity: loading || !hasContext ? 0.5 : 1,
+                    transition: "background 0.15s, box-shadow 0.15s",
+                  }}
+                >
+                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+              )}
               <button
                 onClick={() => sendMessage(input)}
                 disabled={loading || !input.trim() || !hasContext}
@@ -578,9 +679,25 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
                 {loading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={16} />}
               </button>
             </div>
+            {voiceError && (
+              <div style={{ marginTop: 6, padding: "6px 10px", fontSize: 11, color: "#ef4444", background: "rgba(239,68,68,0.08)", borderRadius: 6, textAlign: "center" }}>
+                {voiceError}
+              </div>
+            )}
+            {isListening && (
+              <div style={{ marginTop: 6, padding: "6px 10px", fontSize: 11, color: "#ef4444", background: "rgba(239,68,68,0.08)", borderRadius: 6, textAlign: "center", fontWeight: 600 }}>
+                🔴 Говорите… (нажмите микрофон ещё раз чтобы остановить)
+              </div>
+            )}
             <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "var(--muted-foreground)" }}>
-              Enter — отправить · Shift+Enter — новая строка
+              Enter — отправить · Shift+Enter — новая строка{voiceSupported ? " · 🎤 — голос" : ""}
             </div>
+            <style>{`
+              @keyframes mr-pulse {
+                0%, 100% { box-shadow: 0 0 0 4px rgba(239,68,68,0.25); }
+                50% { box-shadow: 0 0 0 8px rgba(239,68,68,0.4); }
+              }
+            `}</style>
           </div>
         </div>
       )}

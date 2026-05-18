@@ -58,6 +58,75 @@ function hashString(s: string): string {
 }
 
 /**
+ * Ищет place_id Google по названию через Places Find Place API.
+ * Возвращает null если ключа нет или ничего не найдено.
+ * Требует GOOGLE_PLACES_API_KEY в env.
+ */
+async function findGooglePlaceId(name: string): Promise<string | null> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(name)}&inputtype=textquery&fields=place_id&language=ru&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json() as {
+      status?: string;
+      candidates?: Array<{ place_id?: string }>;
+    };
+    if (data.status !== "OK") return null;
+    return data.candidates?.[0]?.place_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Достаёт до 5 последних отзывов из Google Places Details API.
+ * Это всё что бесплатно отдаёт Google — для полной истории нужен Places SKU
+ * другого типа. Для daily watcher 5 хватает: новые отзывы появляются медленно.
+ */
+async function fetchGoogleReviews(placeId: string): Promise<YandexReview[]> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return [];
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=reviews&language=ru&reviews_sort=newest&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json() as {
+      status?: string;
+      result?: {
+        reviews?: Array<{
+          author_name?: string;
+          rating?: number;
+          text?: string;
+          time?: number; // unix seconds
+          relative_time_description?: string;
+        }>;
+      };
+    };
+    if (data.status !== "OK") return [];
+    const list = data.result?.reviews ?? [];
+    return list.map(r => {
+      const author = r.author_name ?? "Аноним";
+      const text = (r.text ?? "").trim();
+      const rating = r.rating ?? 5;
+      const dateStr = r.relative_time_description ?? (r.time ? new Date(r.time * 1000).toISOString().slice(0, 10) : "");
+      // Префикс "g:" в id чтобы не пересекаться с Yandex-хэшами.
+      return {
+        id: `g:${hashString(`${author}|${rating}|${dateStr}|${text.slice(0, 100)}`)}`,
+        author,
+        rating,
+        text,
+        date: dateStr,
+        fetchedAt: new Date().toISOString(),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Ищет orgId по названию через search-maps API.
  * Возвращает null если ключа нет или организация не найдена.
  */
@@ -115,7 +184,8 @@ async function fetchYandexWidget(orgId: string): Promise<YandexReview[]> {
       const rating = ratingMatch ? parseInt(ratingMatch[1], 10) : 0;
 
       if (!text) return; // пропускаем без текста (rating-only)
-      const id = hashString(`${author}|${date}|${text.slice(0, 60)}`);
+      // Префикс "y:" чтобы Yandex и Google id-шники не пересекались в seenIds.
+      const id = `y:${hashString(`${author}|${date}|${text.slice(0, 60)}`)}`;
       out.push({
         id,
         author,
@@ -226,8 +296,8 @@ ${goodPhrases ? `Фирменные обороты бренда: ${goodPhrases}.
 // ─── Регистрация агента ─────────────────────────────────────────────
 registerAgent({
   name: "yandex-reviews-watcher",
-  label: "Yandex Reviews Watcher",
-  description: "Ежедневно проверяет новые отзывы в Яндекс.Картах и кладёт AI-черновики ответов в Inbox для вашего одобрения.",
+  label: "Reviews Watcher (Yandex + Google)",
+  description: "Ежедневно проверяет новые отзывы на Яндекс.Картах и в Google Maps. AI-черновики ответов в Inbox для одобрения.",
   icon: "Star",
   defaultSchedule: "daily",
   category: "reviews",
@@ -238,9 +308,19 @@ registerAgent({
     //   1. params.companyName (юзер явно зафиксировал в настройках агента)
     //   2. users.last_analyzed_company.name (текущая анализируемая компания)
     //   3. users.company_name (компания из реквизитов аккаунта — fallback)
-    const params = ctx.params as { companyName?: string; orgId?: string };
+    const params = ctx.params as {
+      companyName?: string;
+      orgId?: string;
+      googlePlaceId?: string;
+      checkYandex?: boolean;
+      checkGoogle?: boolean;
+    };
+    // По умолчанию проверяем обе платформы.
+    const checkYandex = params.checkYandex !== false;
+    const checkGoogle = params.checkGoogle !== false;
     let companyName = params.companyName?.trim();
     let orgId = params.orgId?.trim();
+    let googlePlaceId = params.googlePlaceId?.trim();
 
     if (!companyName) {
       const rows = await query<{
@@ -269,44 +349,76 @@ registerAgent({
       orgId = undefined;
     }
 
-    // ── Резолвим orgId (Yandex) ────────────────────────────────────
-    if (!orgId) {
-      const found = await findYandexOrgId(companyName);
-      if (!found) {
-        return {
-          summary: `Не нашёл организацию «${companyName}» в Яндекс.Картах. Уточните название в настройках агента.`,
-          skipped: true,
-        };
+    // ── Резолвим orgId / place_id и тянем отзывы с обеих платформ ───────
+    // Каждая платформа независима: если Yandex упал — ещё может вернуться Google.
+    const reviews: YandexReview[] = [];
+    const platformErrors: string[] = [];
+
+    if (checkYandex) {
+      if (!orgId) {
+        const found = await findYandexOrgId(companyName);
+        if (found) {
+          orgId = found;
+          await query(
+            `UPDATE agent_configs
+                SET params = params || jsonb_build_object('orgId', $1::text, '_lastCompanyName', $2::text),
+                    updated_at = NOW()
+              WHERE user_id = $3 AND agent_name = 'yandex-reviews-watcher'`,
+            [orgId, companyName, ctx.userId],
+          );
+        } else {
+          platformErrors.push("Yandex: организация не найдена (проверьте название)");
+        }
       }
-      orgId = found;
-      // Сохраняем orgId + companyName-маркер в params: при смене компании
-      // (например, юзер запустил новый анализ другого бизнеса) мы это
-      // обнаружим и переоткроем organization id.
-      await query(
-        `UPDATE agent_configs
-            SET params = params || jsonb_build_object('orgId', $1::text, '_lastCompanyName', $2::text, 'seenIds', '[]'::jsonb),
-                updated_at = NOW()
-          WHERE user_id = $3 AND agent_name = 'yandex-reviews-watcher'`,
-        [orgId, companyName, ctx.userId],
-      );
+      if (orgId) {
+        const yReviews = await fetchYandexWidget(orgId);
+        if (yReviews.length === 0) platformErrors.push("Yandex: виджет пустой (возможно anti-bot)");
+        reviews.push(...yReviews);
+      }
     }
 
-    // ── Тянем отзывы из widget ────────────────────────────────────
-    const reviews = await fetchYandexWidget(orgId);
+    if (checkGoogle) {
+      if (!googlePlaceId) {
+        const found = await findGooglePlaceId(companyName);
+        if (found) {
+          googlePlaceId = found;
+          await query(
+            `UPDATE agent_configs
+                SET params = params || jsonb_build_object('googlePlaceId', $1::text),
+                    updated_at = NOW()
+              WHERE user_id = $2 AND agent_name = 'yandex-reviews-watcher'`,
+            [googlePlaceId, ctx.userId],
+          );
+        } else {
+          platformErrors.push(process.env.GOOGLE_PLACES_API_KEY
+            ? "Google: организация не найдена через Places API"
+            : "Google: не настроен GOOGLE_PLACES_API_KEY на сервере");
+        }
+      }
+      if (googlePlaceId) {
+        const gReviews = await fetchGoogleReviews(googlePlaceId);
+        if (gReviews.length === 0) platformErrors.push("Google: Places API вернул 0 отзывов");
+        reviews.push(...gReviews);
+      }
+    }
+
     if (reviews.length === 0) {
       return {
-        summary: "Виджет Яндекса не вернул отзывов. Возможно блок anti-bot — повторите завтра.",
+        summary: platformErrors.length
+          ? `Отзывов не получено. ${platformErrors.join("; ")}`
+          : "Обе платформы выключены в настройках агента.",
         skipped: true,
       };
     }
 
     // ── Дедуп: ищем только новые с прошлого прогона ──────────────
-    // Храним seenIds в params агента (json массив).
-    const seenIds = new Set<string>(Array.isArray(params.orgId)
-      ? []
-      : (Array.isArray((params as Record<string, unknown>).seenIds)
-          ? (params as { seenIds: string[] }).seenIds
-          : []));
+    // seenIds хранит и yandex-id (префикс "y:"), и google (префикс "g:") —
+    // массивы для каждой платформы отдельно не нужны.
+    const seenIds = new Set<string>(
+      Array.isArray((params as Record<string, unknown>).seenIds)
+        ? (params as { seenIds: string[] }).seenIds
+        : [],
+    );
 
     const fresh = reviews.filter(r => !seenIds.has(r.id));
 
@@ -358,12 +470,20 @@ registerAgent({
     const negatives = drafts.filter(d => d.tone === "negative").length;
     const neutrals = drafts.length - positives - negatives;
 
+    // Считаем сколько свежих с каждой платформы — для прозрачности в summary.
+    const yandexFresh = drafts.filter(d => d.reviewId.startsWith("y:")).length;
+    const googleFresh = drafts.filter(d => d.reviewId.startsWith("g:")).length;
+    const platformBits: string[] = [];
+    if (yandexFresh) platformBits.push(`${yandexFresh} Я.Карты`);
+    if (googleFresh) platformBits.push(`${googleFresh} Google`);
+
     return {
       summary:
-        `${drafts.length} новых отзывов · ${positives} позитив${positives === 1 ? "" : "ов"}, ` +
+        `${drafts.length} новых (${platformBits.join(" · ") || "—"}) · ` +
+        `${positives} позитив${positives === 1 ? "" : "ов"}, ` +
         `${negatives} негатив${negatives === 1 ? "" : "ов"}, ${neutrals} нейтрально. ` +
-        `Черновики ответов в Inbox.`,
-      result: { drafts, total: reviews.length, fresh: drafts.length },
+        `Черновики в Inbox.`,
+      result: { drafts, total: reviews.length, fresh: drafts.length, yandexFresh, googleFresh },
       needsApproval: true,
     };
   },

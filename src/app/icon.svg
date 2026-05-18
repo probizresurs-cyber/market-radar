@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MarketRadar favicon — статичный network-graph radar.
+  Next.js app/icon.svg → автоматически становится <link rel="icon">.
+  ViewBox 64x64 совпадает с email-logo.svg и MarketRadarLogo для единого стиля.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="fav-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fav-blade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#06070d"/>
+  <circle cx="32" cy="32" r="28" fill="url(#fav-glow)"/>
+  <circle cx="32" cy="32" r="26" stroke="#1A3F5C" stroke-width="1" fill="none" opacity="0.7"/>
+  <circle cx="32" cy="32" r="18" stroke="#1A3F5C" stroke-width="1" fill="none" opacity="0.7"/>
+  <circle cx="32" cy="32" r="10" stroke="#1A3F5C" stroke-width="1" fill="none" opacity="0.7"/>
+  <g opacity="0.5">
+    <line x1="32" y1="32" x2="48" y2="18" stroke="#00D4FF" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <line x1="32" y1="32" x2="20" y2="22" stroke="#00D4FF" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <line x1="32" y1="32" x2="44" y2="46" stroke="#00D4FF" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <line x1="32" y1="32" x2="18" y2="42" stroke="#00D4FF" stroke-width="0.8" stroke-dasharray="3 3"/>
+  </g>
+  <circle cx="48" cy="18" r="3" fill="#00FF94"/>
+  <circle cx="20" cy="22" r="3" fill="#00D4FF"/>
+  <circle cx="44" cy="46" r="3" fill="#9B59FF"/>
+  <circle cx="18" cy="42" r="3" fill="#00D4FF"/>
+  <path d="M 32 32 L 58 32 A 26 26 0 0 0 50 13 Z" fill="url(#fav-blade)"/>
+  <circle cx="32" cy="32" r="4.5" fill="#00D4FF"/>
+  <circle cx="32" cy="32" r="6.5" stroke="#00D4FF" stroke-width="0.8" fill="none" opacity="0.5"/>
+</svg>

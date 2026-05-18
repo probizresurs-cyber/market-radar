@@ -20,8 +20,15 @@ import type { Colors } from "@/lib/colors";
 import {
   Bot, Inbox, Play, Loader2, Calendar as CalendarIcon, AlertCircle,
   Check, X as XIcon, RefreshCw, History, Settings as SettingsIcon, Save,
+  Send, Mail, Eye, TrendingUp, Star,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+
+// Маппинг строкового имени иконки → компонент. Используется в карточке агента
+// чтобы по AGENT_ICONS[agent.name] подобрать lucide-иконку.
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
+  Send, Mail, Eye, TrendingUp, Star, Bot,
+};
 
 type Schedule = "hourly" | "daily" | "weekly" | "manual";
 
@@ -58,6 +65,28 @@ const CATEGORY_LABELS: Record<AgentItem["category"], string> = {
   system: "Система",
 };
 
+// Неоновые акценты под лендинг marketradar24.ru. Каждой категории — свой цвет
+// (видно с порога что относится к чему). Используется в border-top, glow-shadow
+// и метках агентов.
+const CATEGORY_NEON: Record<AgentItem["category"], string> = {
+  content:     "#D500F9", // magenta
+  competitors: "#4FC3F7", // cyan
+  reviews:     "#69FF47", // green
+  visibility:  "#9B59FF", // violet
+  system:      "#f59e0b", // orange
+};
+
+// Иконка под имя агента (lucide-react). Подставляется в карточку — узнаваемее
+// без иконок все карточки выглядят одинаково.
+const AGENT_ICONS: Record<string, string> = {
+  "auto-publisher":           "Send",
+  "email-drip-sender":        "Mail",
+  "site-change-detector":     "Eye",
+  "trend-hunter":             "TrendingUp",
+  "yandex-reviews-watcher":   "Star",
+  "reviews-watcher":          "Star",
+};
+
 const SCHEDULE_LABELS: Record<Schedule, string> = {
   hourly: "Каждый час",
   daily: "Каждый день",
@@ -86,10 +115,22 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
   "yandex-reviews-watcher": [
     {
       key: "companyName",
-      label: "Название компании для поиска в Я.Картах",
+      label: "Название компании для поиска",
       type: "text",
-      placeholder: "Оставьте пустым, чтобы агент использовал текущую анализируемую компанию",
-      help: "Если задано — агент всегда работает с этой компанией. Если пусто — следует за last_analyzed_company (текущим анализом).",
+      placeholder: "Оставьте пустым — возьмём из текущего анализа",
+      help: "Используется и для Yandex.Карт, и для Google Maps. Если пусто — следует за last_analyzed_company.",
+    },
+    {
+      key: "checkYandex",
+      label: "Проверять Yandex.Карты",
+      type: "boolean",
+      help: "Парсим публичный виджет отзывов yandex.ru/maps. Нужен YANDEX_MAPS_API_KEY на сервере для поиска orgId.",
+    },
+    {
+      key: "checkGoogle",
+      label: "Проверять Google Maps",
+      type: "boolean",
+      help: "Через Google Places API (нужен GOOGLE_PLACES_API_KEY). Ищет place_id по названию + забирает 5 последних отзывов.",
     },
   ],
   "site-change-detector": [
@@ -157,7 +198,37 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
       type: "boolean",
     },
   ],
-  "email-drip-sender": [],
+  "email-drip-sender": [
+    {
+      key: "fromAccount",
+      label: "Аккаунт-отправитель",
+      type: "text",
+      placeholder: "hello",
+      help: "Один из настроенных SMTP-аккаунтов: hello / noreply / billing. По умолчанию — hello.",
+    },
+    {
+      key: "audienceFilter",
+      label: "Отправлять только пользователям с email-доменом",
+      type: "text",
+      placeholder: "Например, @yandex.ru или оставьте пустым для всех",
+      help: "Если задано — рассылку получают только юзеры с этим email-доменом. Полезно для тестов.",
+    },
+    {
+      key: "skipDays",
+      label: "Не отправлять чаще чем раз в N дней одному адресу",
+      type: "number",
+      min: 1,
+      max: 30,
+      help: "Защита от спама. По умолчанию 3 дня.",
+    },
+    {
+      key: "bccAdmin",
+      label: "BCC копия админу",
+      type: "text",
+      placeholder: "admin@marketradar24.ru",
+      help: "Если задан — каждое письмо шлёт скрытую копию по этому адресу. Удобно мониторить, что уходит юзерам.",
+    },
+  ],
 };
 
 export function AgentHubView({ c }: { c: Colors }) {
@@ -388,42 +459,64 @@ export function AgentHubView({ c }: { c: Colors }) {
         />
       )}
 
-      {Object.entries(grouped).map(([category, list]) => (
-        <div key={category} style={{ marginBottom: 24 }}>
-          <div style={{
-            fontSize: 11, fontWeight: 800, color: "var(--muted-foreground)",
-            letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10,
-          }}>
-            {CATEGORY_LABELS[category as AgentItem["category"]]}
+      {Object.entries(grouped).map(([category, list]) => {
+        const neon = CATEGORY_NEON[category as AgentItem["category"]];
+        return (
+          <div key={category} style={{ marginBottom: 32 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800,
+              color: neon, letterSpacing: "0.12em", textTransform: "uppercase",
+              marginBottom: 12, display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: neon, boxShadow: `0 0 10px ${neon}` }} />
+              {CATEGORY_LABELS[category as AgentItem["category"]]}
+              <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${neon}55, transparent)`, marginLeft: 8 }} />
+            </div>
+            {/* Строго 3 колонки на десктопе → 2 на планшете → 1 на мобиле.
+                Mobile-first через CSS-классы и media-query, чтобы 4-я карточка
+                не висела сиротой в auto-fill. */}
+            <div
+              className="mr-agent-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 14,
+              }}
+            >
+              {list.map(agent => (
+                <AgentCard
+                  key={agent.name}
+                  agent={agent}
+                  neonColor={neon}
+                  running={runningName === agent.name}
+                  schema={AGENT_PARAM_SCHEMAS[agent.name] ?? []}
+                  onToggle={enabled => toggleEnabled(agent.name, enabled)}
+                  onScheduleChange={s => changeSchedule(agent.name, s)}
+                  onParamsChange={p => updateParams(agent.name, p)}
+                  onRunNow={() => runNow(agent.name)}
+                />
+              ))}
+            </div>
           </div>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
-            gap: 12,
-          }}>
-            {list.map(agent => (
-              <AgentCard
-                key={agent.name}
-                agent={agent}
-                running={runningName === agent.name}
-                schema={AGENT_PARAM_SCHEMAS[agent.name] ?? []}
-                onToggle={enabled => toggleEnabled(agent.name, enabled)}
-                onScheduleChange={s => changeSchedule(agent.name, s)}
-                onParamsChange={p => updateParams(agent.name, p)}
-                onRunNow={() => runNow(agent.name)}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+        );
+      })}
+      <style>{`
+        @media (max-width: 1100px) {
+          .mr-agent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 700px) {
+          .mr-agent-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
 function AgentCard({
-  agent, running, schema, onToggle, onScheduleChange, onParamsChange, onRunNow,
+  agent, neonColor, running, schema, onToggle, onScheduleChange, onParamsChange, onRunNow,
 }: {
   agent: AgentItem;
+  neonColor: string;
   running: boolean;
   schema: ParamField[];
   onToggle: (enabled: boolean) => void;
@@ -431,6 +524,7 @@ function AgentCard({
   onParamsChange: (params: Record<string, unknown>) => void;
   onRunNow: () => void;
 }) {
+  const IconComp = ICON_MAP[AGENT_ICONS[agent.name] ?? "Bot"] ?? Bot;
   const [showSettings, setShowSettings] = useState(false);
   const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(agent.params);
   const [paramsDirty, setParamsDirty] = useState(false);
@@ -468,19 +562,33 @@ function AgentCard({
   return (
     <div style={{
       background: "var(--card)",
-      border: `1.5px solid ${agent.enabled ? "color-mix(in oklch, var(--primary) 25%, var(--border))" : "var(--border)"}`,
-      borderRadius: 14, padding: 16,
+      border: `1px solid var(--border)`,
+      borderTop: `3px solid ${neonColor}`,
+      borderRadius: 14, padding: 18,
       display: "flex", flexDirection: "column", gap: 12,
-      opacity: agent.enabled ? 1 : 0.85,
+      opacity: agent.enabled ? 1 : 0.78,
+      boxShadow: agent.enabled ? `0 0 28px ${neonColor}14` : "none",
+      transition: "box-shadow 0.2s, border-color 0.2s",
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: 4, letterSpacing: -0.2 }}>
-            {agent.label}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          {/* Иконка категории — неон-цвет под акцентом, фон полупрозрачный */}
+          <div style={{
+            flexShrink: 0, width: 38, height: 38, borderRadius: 10,
+            background: `${neonColor}18`, border: `1px solid ${neonColor}40`,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            color: neonColor, boxShadow: `0 0 16px ${neonColor}20`,
+          }}>
+            <IconComp size={18} />
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
-            {agent.description}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--foreground)", marginBottom: 4, letterSpacing: -0.2 }}>
+              {agent.label}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+              {agent.description}
+            </div>
           </div>
         </div>
         {/* Toggle */}
@@ -612,55 +720,104 @@ function AgentCard({
         </a>
       </div>
 
-      {/* Settings panel — раскрывается по клику на ⚙ */}
+      {/* Settings — теперь полноценный модал, а не inline-раскрывашка.
+          Так нагляднее и не ломает 3-колоночный grid карточек. */}
       {showSettings && schema.length > 0 && (
-        <div style={{
-          marginTop: 4, padding: "14px 16px", borderRadius: 10,
-          background: "color-mix(in oklch, var(--primary) 4%, transparent)",
-          border: "1px dashed color-mix(in oklch, var(--primary) 25%, transparent)",
-          display: "flex", flexDirection: "column", gap: 12,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Настройки агента
-          </div>
-          {schema.map(field => (
-            <ParamFieldEditor
-              key={field.key}
-              field={field}
-              value={paramsDraft[field.key]}
-              onChange={v => setField(field.key, v)}
-            />
-          ))}
-          {paramsDirty && (
-            <div style={{ display: "flex", gap: 8 }}>
+        <div
+          onClick={() => setShowSettings(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 100,
+            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: `1px solid var(--border)`,
+              borderTop: `3px solid ${neonColor}`,
+              borderRadius: 16, padding: 28,
+              maxWidth: 560, width: "100%", maxHeight: "85vh", overflow: "auto",
+              boxShadow: `0 16px 64px rgba(0,0,0,0.5), 0 0 40px ${neonColor}20`,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: `${neonColor}18`, border: `1px solid ${neonColor}40`,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  color: neonColor,
+                }}>
+                  <IconComp size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: neonColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    Настройки агента
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", marginTop: 4, letterSpacing: -0.2 }}>
+                    {agent.label}
+                  </div>
+                </div>
+              </div>
               <button
-                onClick={saveParams}
-                disabled={paramsSaving}
+                onClick={() => setShowSettings(false)}
                 style={{
-                  padding: "7px 16px", borderRadius: 8, border: "none",
-                  background: "var(--primary)", color: "#fff",
-                  fontSize: 12, fontWeight: 700, cursor: paramsSaving ? "wait" : "pointer",
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  fontFamily: "inherit",
+                  background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: 8, padding: 6, cursor: "pointer",
+                  color: "var(--foreground-secondary)",
                 }}
+                aria-label="Закрыть"
               >
-                {paramsSaving ? <Loader2 size={11} className="mr-spin" /> : <Save size={11} />}
-                Сохранить
+                <XIcon size={14} />
               </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {schema.map(field => (
+                <ParamFieldEditor
+                  key={field.key}
+                  field={field}
+                  value={paramsDraft[field.key]}
+                  onChange={v => setField(field.key, v)}
+                />
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
               <button
-                onClick={resetParams}
+                onClick={() => { resetParams(); setShowSettings(false); }}
                 style={{
-                  padding: "7px 14px", borderRadius: 8,
+                  padding: "9px 18px", borderRadius: 8,
                   border: "1px solid var(--border)", background: "transparent",
                   color: "var(--foreground-secondary)",
-                  fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer",
                   fontFamily: "inherit",
                 }}
               >
                 Отмена
               </button>
+              <button
+                onClick={async () => { await saveParams(); setShowSettings(false); }}
+                disabled={paramsSaving || !paramsDirty}
+                style={{
+                  padding: "9px 20px", borderRadius: 8, border: "none",
+                  background: paramsDirty ? neonColor : "var(--muted)",
+                  color: "#fff",
+                  fontSize: 13, fontWeight: 700, cursor: paramsSaving ? "wait" : (paramsDirty ? "pointer" : "not-allowed"),
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontFamily: "inherit",
+                  boxShadow: paramsDirty ? `0 4px 16px ${neonColor}40` : "none",
+                  opacity: paramsDirty ? 1 : 0.7,
+                }}
+              >
+                {paramsSaving ? <Loader2 size={12} className="mr-spin" /> : <Save size={12} />}
+                Сохранить
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
