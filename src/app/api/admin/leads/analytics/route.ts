@@ -108,6 +108,42 @@ export async function GET() {
         LIMIT 10`,
     );
 
+    // 6. Email-метрики: сколько отправлено / открыто / кликнуто.
+    //    message_id != NULL = успешная отправка. open_count > 0 = открыли
+    //    хоть раз. click_count > 0 = кликнули по CTA.
+    const emailStatsRows = await query<{
+      total: string;
+      sent: string;
+      opened: string;
+      clicked: string;
+      total_opens: string;
+      total_clicks: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS total,
+         COUNT(*) FILTER (WHERE message_id IS NOT NULL)::text AS sent,
+         COUNT(*) FILTER (WHERE open_count > 0)::text AS opened,
+         COUNT(*) FILTER (WHERE click_count > 0)::text AS clicked,
+         COALESCE(SUM(open_count), 0)::text AS total_opens,
+         COALESCE(SUM(click_count), 0)::text AS total_clicks
+        FROM lead_emails`,
+    );
+    const e = emailStatsRows[0] ?? { total: "0", sent: "0", opened: "0", clicked: "0", total_opens: "0", total_clicks: "0" };
+    const sent = parseInt(e.sent, 10);
+    const opened = parseInt(e.opened, 10);
+    const clicked = parseInt(e.clicked, 10);
+    const emailStats = {
+      total: parseInt(e.total, 10),
+      sent,
+      opened,
+      clicked,
+      totalOpens: parseInt(e.total_opens, 10),
+      totalClicks: parseInt(e.total_clicks, 10),
+      // Уникальные CTR/OR — какой % писем хоть раз открыли / по которым кликнули.
+      openRatePct: sent > 0 ? Math.round((opened / sent) * 1000) / 10 : 0,
+      clickRatePct: sent > 0 ? Math.round((clicked / sent) * 1000) / 10 : 0,
+    };
+
     return NextResponse.json({
       ok: true,
       totalLeads,
@@ -124,6 +160,7 @@ export async function GET() {
         month: parseInt(activity.month, 10),
       },
       sources: sourceRows.map(r => ({ source: r.source, count: parseInt(r.cnt, 10) })),
+      emails: emailStats,
     });
   } catch (e) {
     console.error("admin/leads/analytics error", e);

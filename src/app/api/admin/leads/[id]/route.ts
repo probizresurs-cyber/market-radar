@@ -76,12 +76,21 @@ export async function GET(_req: Request, { params }: Params) {
       [id],
     );
 
+    const emailRows = await query(
+      `SELECT id, subject, to_email, message_id, sent_at, open_count,
+              first_opened_at, last_opened_at, click_count,
+              first_clicked_at, last_clicked_at, sent_by_name
+         FROM lead_emails WHERE lead_id = $1 ORDER BY sent_at DESC LIMIT 20`,
+      [id],
+    );
+
     return NextResponse.json({
       ok: true,
       lead: leadRows[0],
       reports: reportRows,
       notes: notesRows,
       history: historyRows,
+      emails: emailRows,
     });
   } catch (e) {
     console.error("admin/leads/[id] GET error", e);

@@ -59,8 +59,10 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** Конвертит plain-text шаблон с переносами в HTML с <p>+<a>. */
-function plainToHtml(plain: string, reportUrl: string): string {
+/** Конвертит plain-text шаблон с переносами в HTML с <p>+<a>.
+ *  Дополнительно инжектит pixel-tracker открытия и проксирует CTA-ссылку
+ *  через /api/track/click/{emailId} для замера CTR.                       */
+function plainToHtml(plain: string, clickUrl: string, openPixelUrl: string): string {
   const paragraphs = plain
     .split(/\n\n+/)
     .map(p => p.trim())
@@ -79,7 +81,7 @@ function plainToHtml(plain: string, reportUrl: string): string {
         <tr><td>
           ${paragraphs}
           <div style="margin:24px 0">
-            <a href="${reportUrl}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;font-size:15px">Открыть экспресс-отчёт →</a>
+            <a href="${clickUrl}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;font-size:15px">Открыть экспресс-отчёт →</a>
           </div>
           <p style="margin:18px 0 0;color:#64748b;font-size:12px;line-height:1.5">
             Это автоматический аудит на основе публичных данных вашего сайта.<br/>
@@ -92,6 +94,10 @@ function plainToHtml(plain: string, reportUrl: string): string {
       </div>
     </td></tr>
   </table>
+  <!-- Pixel-tracker открытий. Часть email-клиентов прокачивает картинки через свой
+       прокси (Gmail) — тогда мы увидим один открытие на адрес и фиксацию момента
+       без точного IP. Этого достаточно для метрики «дошло до inbox». -->
+  <img src="${openPixelUrl}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;opacity:0" />
 </body></html>`;
 }
 
@@ -138,19 +144,37 @@ export async function POST(req: Request) {
         continue;
       }
 
+      // Прямой URL отчёта — пойдёт в plain-text fallback (туда tracker
+      // не воткнёшь). HTML-версия письма использует tracking-обёртки.
       const reportUrl = `${PUBLIC_HOST}/r/${lead.slug}`;
+
+      // Создаём запись lead_emails ЗАРАНЕЕ, чтобы tracking-URL'ы знали свой ID.
+      // Если письмо не отправится — запись осталась, но events не будет, что норм.
+      const emailId = randomUUID();
+      await query(
+        `INSERT INTO lead_emails (id, lead_id, subject, to_email, sent_by, sent_by_name)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [emailId, lead.id, "", lead.contact_email, session.userId, session.email ?? null],
+      );
+      const clickUrl = `${PUBLIC_HOST}/api/track/click/${emailId}`;
+      const openPixelUrl = `${PUBLIC_HOST}/api/track/open/${emailId}`;
+
       const vars = {
         domain: lead.domain,
         company: lead.company_name || lead.domain,
-        report_url: reportUrl,
+        // В шаблоне {report_url} = tracking-обёртка, в plain — прямая.
+        report_url: clickUrl,
         summary: lead.report_data.oneLineSummary ?? "",
         score: lead.report_data.overallScore ?? 0,
         niche_average: lead.report_data.nicheAverage ?? 0,
       };
 
       const subject = fillTemplate(body.subject, vars);
-      const plain = fillTemplate(body.template, vars);
-      const html = plainToHtml(plain, reportUrl);
+      const plain = fillTemplate(body.template, { ...vars, report_url: reportUrl });
+      const html = plainToHtml(plain, clickUrl, openPixelUrl);
+
+      // Заполняем subject в записи теперь, когда он сформирован.
+      await query(`UPDATE lead_emails SET subject = $1 WHERE id = $2`, [subject, emailId]);
 
       const sendRes = await sendMail({
         to: lead.contact_email,
@@ -162,6 +186,9 @@ export async function POST(req: Request) {
 
       if (sendRes.ok) {
         results.push({ leadId: lead.id, domain: lead.domain, ok: true, messageId: sendRes.messageId });
+        if (sendRes.messageId) {
+          await query(`UPDATE lead_emails SET message_id = $1 WHERE id = $2`, [sendRes.messageId, emailId]);
+        }
 
         // Обновляем CRM: last_contact_at + статус → contacted (если был new/in_progress).
         const shouldUpdateStatus = lead.status === "new" || lead.status === "in_progress";

@@ -16,7 +16,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ExternalLink, FileText, Loader2, ArrowLeft, Send } from "lucide-react";
+import { ExternalLink, FileText, Loader2, ArrowLeft, Send, Mail, Eye, MousePointerClick } from "lucide-react";
 import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
@@ -51,6 +51,21 @@ interface HistoryRow {
   changed_by_name: string | null;
   note: string | null;
   created_at: string;
+}
+
+interface EmailRow {
+  id: string;
+  subject: string;
+  to_email: string;
+  message_id: string | null;
+  sent_at: string;
+  open_count: number;
+  first_opened_at: string | null;
+  last_opened_at: string | null;
+  click_count: number;
+  first_clicked_at: string | null;
+  last_clicked_at: string | null;
+  sent_by_name: string | null;
 }
 
 const C = {
@@ -104,6 +119,7 @@ export default function AdminLeadDetailPage() {
   const [reports, setReports] = useState<ReportRecord[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [emails, setEmails] = useState<EmailRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -121,6 +137,7 @@ export default function AdminLeadDetailPage() {
         setReports(d.reports);
         setNotes(d.notes);
         setHistory(d.history);
+        setEmails(d.emails ?? []);
         setDraft({});
       }
     } finally {
@@ -384,6 +401,46 @@ export default function AdminLeadDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Email-история с метриками открытий/кликов */}
+            {emails.length > 0 && (
+              <div style={S.card}>
+                <div style={S.cardTitle}>
+                  <Mail size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
+                  Email · {emails.length}
+                </div>
+                {emails.map(em => {
+                  const sent = !!em.message_id;
+                  const opened = em.open_count > 0;
+                  const clicked = em.click_count > 0;
+                  return (
+                    <div key={em.id} style={S.noteItem}>
+                      <div style={S.noteMeta}>
+                        <span style={{ fontWeight: 600, color: C.fg }}>{em.to_email}</span>
+                        <span>{fmtDate(em.sent_at)}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: C.fg, marginBottom: 6 }}>{em.subject}</div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, fontSize: 11 }}>
+                        {sent ? (
+                          <span style={{ color: "#22c55e", fontWeight: 600 }}>✓ Отправлено</span>
+                        ) : (
+                          <span style={{ color: "#ef4444", fontWeight: 600 }}>✗ Не доставлено</span>
+                        )}
+                        <span style={{ color: opened ? "#06b6d4" : C.muted, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <Eye size={11} /> {em.open_count} {opened && em.first_opened_at && <span style={{ color: C.muted, marginLeft: 4 }}>({fmtDate(em.first_opened_at)})</span>}
+                        </span>
+                        <span style={{ color: clicked ? "#22c55e" : C.muted, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <MousePointerClick size={11} /> {em.click_count} {clicked && em.first_clicked_at && <span style={{ color: C.muted, marginLeft: 4 }}>({fmtDate(em.first_clicked_at)})</span>}
+                        </span>
+                      </div>
+                      {em.sent_by_name && (
+                        <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>отправил: {em.sent_by_name}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </main>

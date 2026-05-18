@@ -57,6 +57,16 @@ interface Analytics {
   avgHoursByStatus: Record<string, number>;
   activity: { today: number; week: number; month: number };
   sources: Array<{ source: string | null; count: number }>;
+  emails: {
+    total: number;
+    sent: number;
+    opened: number;
+    clicked: number;
+    totalOpens: number;
+    totalClicks: number;
+    openRatePct: number;
+    clickRatePct: number;
+  };
 }
 
 const S = {
@@ -145,10 +155,41 @@ export default function AdminLeadsPage() {
 
   const [importOpen, setImportOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkAutoStart, setBulkAutoStart] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+
+  // Resume: если предыдущий bulk-цикл был прерван (закрыли вкладку без Stop),
+  // в localStorage остался флаг. При входе на страницу спрашиваем — продолжить?
+  // Если да — открываем модалку с auto-start, она сразу же подхватит pending-лидов.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const wasRunning = localStorage.getItem("mr_bulk_running") === "true";
+      if (wasRunning) {
+        // Не открываем сразу — дождёмся загрузки analytics, чтобы понять
+        // есть ли реальные pending-лиды.
+        const t = setTimeout(() => {
+          // Проверяем pending после первого fetch analytics.
+          fetch("/api/admin/leads/analytics").then(r => r.json()).then(d => {
+            if (d.ok && d.totalLeads > (d.reports?.done?.count ?? 0)) {
+              if (confirm("Прошлая bulk-генерация была прервана. Возобновить?")) {
+                setBulkAutoStart(true);
+                setBulkOpen(true);
+              } else {
+                localStorage.removeItem("mr_bulk_running");
+              }
+            } else {
+              localStorage.removeItem("mr_bulk_running");
+            }
+          });
+        }, 800);
+        return () => clearTimeout(t);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -382,7 +423,13 @@ export default function AdminLeadsPage() {
         )}
 
         {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); load(); loadAnalytics(); }} />}
-        {bulkOpen && <BulkGenerateModal onClose={() => setBulkOpen(false)} onProgress={() => { load(); loadAnalytics(); }} />}
+        {bulkOpen && (
+          <BulkGenerateModal
+            autoStart={bulkAutoStart}
+            onClose={() => { setBulkOpen(false); setBulkAutoStart(false); }}
+            onProgress={() => { load(); loadAnalytics(); }}
+          />
+        )}
         {emailOpen && (
           <EmailModal
             leadIds={Array.from(selected)}
@@ -399,7 +446,7 @@ export default function AdminLeadsPage() {
 
 function AnalyticsPanel({ analytics, open, onToggle }: { analytics: Analytics | null; open: boolean; onToggle: () => void }) {
   if (!analytics) return null;
-  const { totalLeads, byStatus, conversionPct, customers, reports, totalReportCostRub, activity } = analytics;
+  const { totalLeads, byStatus, conversionPct, customers, reports, totalReportCostRub, activity, emails } = analytics;
   const reportsDone = reports.done?.count ?? 0;
   const reportsPending = totalLeads - reportsDone;
 
@@ -445,6 +492,32 @@ function AnalyticsPanel({ analytics, open, onToggle }: { analytics: Analytics | 
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>неделя {activity.week} · месяц {activity.month}</div>
             </div>
           </div>
+
+          {/* Email-метрики — отдельная строка KPI под основными. */}
+          {emails && emails.sent > 0 && (
+            <div style={{ ...S.kpiGrid, marginBottom: 18 }}>
+              <div style={S.kpiCard}>
+                <div style={S.kpiLabel}>Email отправлено</div>
+                <div style={S.kpiValue("#3b82f6")}>{emails.sent}</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>всего попыток: {emails.total}</div>
+              </div>
+              <div style={S.kpiCard}>
+                <div style={S.kpiLabel}>Открыли</div>
+                <div style={S.kpiValue("#06b6d4")}>{emails.opened}</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>OR: {emails.openRatePct}%</div>
+              </div>
+              <div style={S.kpiCard}>
+                <div style={S.kpiLabel}>Кликнули по CTA</div>
+                <div style={S.kpiValue("#22c55e")}>{emails.clicked}</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>CTR: {emails.clickRatePct}%</div>
+              </div>
+              <div style={S.kpiCard}>
+                <div style={S.kpiLabel}>Всего открытий</div>
+                <div style={S.kpiValue("#94a3b8")}>{emails.totalOpens}</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>кликов: {emails.totalClicks}</div>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Воронка</div>
@@ -604,7 +677,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
 
 // ─── Bulk generation modal ────────────────────────────────────────────────
 
-function BulkGenerateModal({ onClose, onProgress }: { onClose: () => void; onProgress: () => void }) {
+function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boolean; onClose: () => void; onProgress: () => void }) {
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [done, setDone] = useState(0);
@@ -617,10 +690,13 @@ function BulkGenerateModal({ onClose, onProgress }: { onClose: () => void; onPro
   const runningRef = React.useRef(false);
   const pausedRef = React.useRef(false);
 
-  async function start() {
+  const start = React.useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
     setRunning(true);
+    // Флаг в localStorage — если вкладку закроют, при следующем заходе мы
+    // спросим «продолжить?» и подхватим pending-лидов.
+    try { localStorage.setItem("mr_bulk_running", "true"); } catch { /* ignore */ }
 
     while (runningRef.current) {
       // Пауза — крутимся в холостую пока не снимут.
@@ -628,29 +704,47 @@ function BulkGenerateModal({ onClose, onProgress }: { onClose: () => void; onPro
         await new Promise(r => setTimeout(r, 500));
         continue;
       }
-      const r = await fetch("/api/admin/leads/generate-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ onlyMissing: true, limit: 5 }),
-      });
-      const d = await r.json();
+      let d: { ok: boolean; error?: string; results?: Array<{ ok: boolean; domain: string; error?: string }>; remaining?: number };
+      try {
+        const r = await fetch("/api/admin/leads/generate-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ onlyMissing: true, limit: 5 }),
+        });
+        d = await r.json();
+      } catch (e) {
+        // Сеть отвалилась — пауза и retry через 5 сек, не теряя прогресс.
+        // Полезно если деплой VPS затянулся или nginx моргнул.
+        await new Promise(r => setTimeout(r, 5000));
+        continue;
+      }
       if (!d.ok) {
         alert(`Ошибка партии: ${d.error}`);
         break;
       }
-      const ok = (d.results as Array<{ ok: boolean }>).filter(x => x.ok).length;
-      const fail = d.results.length - ok;
+      const results = d.results ?? [];
+      const ok = results.filter(x => x.ok).length;
+      const fail = results.length - ok;
       setDone(prev => prev + ok);
       setFailed(prev => prev + fail);
-      setLogs(prev => [...d.results, ...prev].slice(0, 50));
-      setRemaining(d.remaining);
+      setLogs(prev => [...results, ...prev].slice(0, 50));
+      setRemaining(d.remaining ?? null);
       onProgress();
-      if (d.remaining === 0 || d.results.length === 0) break;
+      if ((d.remaining ?? 0) === 0 || results.length === 0) break;
     }
 
     runningRef.current = false;
     setRunning(false);
-  }
+    try { localStorage.removeItem("mr_bulk_running"); } catch { /* ignore */ }
+  }, [onProgress]);
+
+  // Auto-start при возобновлении прерванной сессии.
+  useEffect(() => {
+    if (autoStart) {
+      start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   function togglePause() {
     pausedRef.current = !pausedRef.current;
@@ -662,6 +756,7 @@ function BulkGenerateModal({ onClose, onProgress }: { onClose: () => void; onPro
     pausedRef.current = false;
     setRunning(false);
     setPaused(false);
+    try { localStorage.removeItem("mr_bulk_running"); } catch { /* ignore */ }
   }
 
   return (

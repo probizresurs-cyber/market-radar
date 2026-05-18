@@ -627,4 +627,31 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_lead_status_history_lead_id ON lead_status_history(lead_id, created_at DESC)`);
+
+  // ─── Журнал отправленных писем + tracking opens/clicks ─────────────────────
+  // Каждая отправка добавляет строку. В письмо инжектится 1×1 pixel-tracker
+  // (/api/track/open/{id}.gif) и report-ссылка проксируется через
+  // /api/track/click/{id} → 302 на /r/{slug}.
+  // Это даёт нам метрики: «доходит ли письмо до inbox», «открывают ли»,
+  // «кликают ли по CTA» — без сторонних сервисов вроде Mailgun.
+  await query(`
+    CREATE TABLE IF NOT EXISTS lead_emails (
+      id TEXT PRIMARY KEY,
+      lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      to_email TEXT NOT NULL,
+      message_id TEXT,
+      sent_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      sent_by_name TEXT,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      first_opened_at TIMESTAMPTZ,
+      last_opened_at TIMESTAMPTZ,
+      open_count INTEGER NOT NULL DEFAULT 0,
+      first_clicked_at TIMESTAMPTZ,
+      last_clicked_at TIMESTAMPTZ,
+      click_count INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_emails_lead_id ON lead_emails(lead_id, sent_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_emails_sent_at ON lead_emails(sent_at DESC)`);
 }
