@@ -38,6 +38,7 @@ import { generateOpenAIImage } from "@/lib/openai-image";
 import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 import { generatePollinationsImage } from "@/lib/pollinations-image";
 import { platformImageFormat } from "@/lib/image-aspect";
+import { persistImageDataUri } from "@/lib/image-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -189,9 +190,10 @@ ${contextBlock}
             prompt: usedPrompt + aspectHint + noTextHint,
           });
           if (gem.ok) {
+            const safeUrl = await persistImageDataUri(gem.imageUrl, access.userId);
             return NextResponse.json({
               ok: true,
-              data: { imageUrl: gem.imageUrl },
+              data: { imageUrl: safeUrl },
               usedPrompt,
               provider: "gemini",
               fallbackReason: "openai-quota",
@@ -207,9 +209,10 @@ ${contextBlock}
           model: "flux",
         });
         if (poll.ok) {
+          const safeUrl = await persistImageDataUri(poll.imageUrl, access.userId);
           return NextResponse.json({
             ok: true,
-            data: { imageUrl: poll.imageUrl },
+            data: { imageUrl: safeUrl },
             usedPrompt,
             provider: "pollinations",
             fallbackReason: "openai-quota",
@@ -233,9 +236,10 @@ ${contextBlock}
       );
     }
 
+    const safeUrl = await persistImageDataUri(imgResult.imageUrl, access.userId);
     return NextResponse.json({
       ok: true,
-      data: { imageUrl: imgResult.imageUrl },
+      data: { imageUrl: safeUrl },
       usedPrompt,
       provider: "openai",
     });

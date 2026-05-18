@@ -549,4 +549,82 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_user_started ON agent_runs(user_id, started_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_pending_approval ON agent_runs(user_id, needs_approval, approved_at) WHERE needs_approval = true AND approved_at IS NULL`);
+
+  // ─── Лиды (база сайтов для холодного аутрича) ──────────────────────────────
+  // Из админки админ грузит CSV с 100-10000 доменами, на каждый домен
+  // создаётся запись lead + (опционально) генерируется экспресс-отчёт.
+  // Отчёт публикуется на /r/{slug} — публичная страница с blur-CTA,
+  // куда мы кидаем ссылку владельцу сайта в email/Telegram.
+  await query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      domain TEXT NOT NULL,                   -- основной ключ — нормализованный URL (без http/www)
+      company_name TEXT,                      -- из CSV или AI-резюме
+      contact_email TEXT,
+      contact_phone TEXT,
+      contact_telegram TEXT,
+      city TEXT,
+      niche TEXT,                             -- из CSV или после анализа
+      slug TEXT UNIQUE NOT NULL,              -- для /r/{slug} — обычно домен с заменой точек на дефисы
+      status TEXT NOT NULL DEFAULT 'new'
+        CHECK (status IN ('new','in_progress','contacted','replied','meeting','customer','rejected','followup')),
+      assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL,
+      source TEXT,                            -- csv-import-2026-05-15 / manual / ...
+      tags TEXT[],                             -- произвольные ярлыки для фильтрации
+      last_contact_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(domain)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_leads_domain ON leads(domain)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC)`);
+
+  // Экспресс-отчёт по сайту: ~1 страница AI-резюме + структурированные блоки.
+  // Один лид может иметь несколько версий отчёта (перегенерация), берётся последняя по created_at.
+  await query(`
+    CREATE TABLE IF NOT EXISTS lead_reports (
+      id TEXT PRIMARY KEY,
+      lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      data JSONB NOT NULL,                     -- полный отчёт: score, проблемы, рекомендации, конкуренты
+      model TEXT,                              -- claude-haiku-4-5 / sonnet / opus
+      cost_cents NUMERIC,                      -- сколько $ × 100 потрачено на этот отчёт
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','running','done','failed')),
+      error_message TEXT,
+      generated_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_reports_lead_id ON lead_reports(lead_id, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_reports_status ON lead_reports(status) WHERE status IN ('pending','running')`);
+
+  // Заметки CRM-менеджера на лида (произвольный текст с автором + датой).
+  await query(`
+    CREATE TABLE IF NOT EXISTS lead_notes (
+      id TEXT PRIMARY KEY,
+      lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      author_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      author_name TEXT,                        -- snapshot имени, если автор удалится
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_notes_lead_id ON lead_notes(lead_id, created_at DESC)`);
+
+  // История смены статусов — нужна для аналитики «сколько лидов конвертится».
+  await query(`
+    CREATE TABLE IF NOT EXISTS lead_status_history (
+      id TEXT PRIMARY KEY,
+      lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      from_status TEXT,
+      to_status TEXT NOT NULL,
+      changed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      changed_by_name TEXT,
+      note TEXT,                                -- опциональная причина смены
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_lead_status_history_lead_id ON lead_status_history(lead_id, created_at DESC)`);
 }

@@ -27,6 +27,7 @@ const S = {
 
 const TABS = [
   { href: "/admin/dashboard", label: "Пользователи" },
+  { href: "/admin/leads", label: "Лиды" },
   { href: "/admin/partners", label: "Партнёры" },
   { href: "/admin/pricing", label: "Тарифы" },
   { href: "/admin/payments", label: "Платежи" },
