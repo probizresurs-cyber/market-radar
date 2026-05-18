@@ -23,3 +23,5 @@ import "./yandex-reviews-watcher";
 import "./email-drip-sender";
 import "./site-change-detector";
 import "./trend-hunter";
+import "./seo-position-tracker";
+import "./ai-visibility-monitor";

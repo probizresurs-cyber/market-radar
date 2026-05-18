@@ -20,14 +20,14 @@ import type { Colors } from "@/lib/colors";
 import {
   Bot, Inbox, Play, Loader2, Calendar as CalendarIcon, AlertCircle,
   Check, X as XIcon, RefreshCw, History, Settings as SettingsIcon, Save,
-  Send, Mail, Eye, TrendingUp, Star,
+  Send, Mail, Eye, TrendingUp, Star, TrendingDown,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 // Маппинг строкового имени иконки → компонент. Используется в карточке агента
 // чтобы по AGENT_ICONS[agent.name] подобрать lucide-иконку.
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
-  Send, Mail, Eye, TrendingUp, Star, Bot,
+  Send, Mail, Eye, TrendingUp, TrendingDown, Star, Bot,
 };
 
 type Schedule = "hourly" | "daily" | "weekly" | "manual";
@@ -85,6 +85,8 @@ const AGENT_ICONS: Record<string, string> = {
   "trend-hunter":             "TrendingUp",
   "yandex-reviews-watcher":   "Star",
   "reviews-watcher":          "Star",
+  "seo-position-tracker":     "TrendingDown",
+  "ai-visibility-monitor":    "Bot",
 };
 
 const SCHEDULE_LABELS: Record<Schedule, string> = {
@@ -196,6 +198,67 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
       key: "publishVk",
       label: "Публиковать в VK",
       type: "boolean",
+    },
+  ],
+  "seo-position-tracker": [
+    {
+      key: "domain",
+      label: "Домен для мониторинга",
+      type: "text",
+      placeholder: "Оставьте пустым — возьмём из текущего анализа",
+      help: "Без http/www. Например: me-dent.ru",
+    },
+    {
+      key: "base",
+      label: "Регион поиска",
+      type: "text",
+      placeholder: "msk",
+      help: "Регион Keys.so: msk (Москва) / spb (Питер) / ru (Россия) / goo_ru (Google Россия). По умолчанию msk.",
+    },
+    {
+      key: "minOldPosition",
+      label: "Алертить только если ключ был не ниже",
+      type: "number",
+      min: 5,
+      max: 100,
+      help: "Если ключ был на 30+ месте и просел — нам это не интересно. По умолчанию 30 (только топ-30).",
+    },
+    {
+      key: "notifyTelegram",
+      label: "Telegram-уведомления",
+      type: "boolean",
+      help: "Слать топ-5 просевших ключей в TG. Нужен подключённый telegram_chat_id в профиле.",
+    },
+  ],
+  "ai-visibility-monitor": [
+    {
+      key: "brandName",
+      label: "Название бренда",
+      type: "text",
+      placeholder: "Оставьте пустым — возьмём из текущего анализа",
+      help: "Точное название как должно искаться в нейросетях. Например: «СМ-Стоматология».",
+    },
+    {
+      key: "niche",
+      label: "Ниша",
+      type: "text",
+      placeholder: "Например: стоматологические клиники в Москве",
+      help: "Чем точнее — тем релевантнее тестовые запросы будут к ChatGPT/Claude/YandexGPT.",
+    },
+    {
+      key: "queries",
+      label: "Кастомные запросы для проверки (опц)",
+      type: "url-list",
+      placeholder: "лучшая стоматология в москве с гарантией\nгде поставить импланты в Москве недорого",
+      help: "По одному запросу на строку. Если пусто — Claude сгенерирует 5 на основе ниши.",
+    },
+    {
+      key: "alertDropPct",
+      label: "Алертить при падении на N%",
+      type: "number",
+      min: 3,
+      max: 50,
+      help: "Если общий mention rate упал на ≥N% относительно прошлой недели — TG-алерт + inbox. По умолчанию 10.",
     },
   ],
   "email-drip-sender": [
