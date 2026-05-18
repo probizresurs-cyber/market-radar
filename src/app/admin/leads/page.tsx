@@ -19,7 +19,7 @@ import Link from "next/link";
 // делаем dynamic import только в момент выбора файла .xlsx.
 import {
   Upload, Search, ExternalLink, FileText, RefreshCw, Trash2, Send, BarChart3,
-  ChevronDown, ChevronUp, Play, Pause, Loader2, Mail,
+  ChevronDown, ChevronUp, Play, Pause, Loader2, Mail, LayoutGrid, List, MoveRight, X,
 } from "lucide-react";
 import {
   LEAD_STATUSES,
@@ -120,6 +120,70 @@ const S = {
   funnelRow: { display: "flex", alignItems: "center", marginBottom: 7, gap: 10 } as React.CSSProperties,
   funnelLabel: { width: 110, fontSize: 12, color: "#94a3b8" } as React.CSSProperties,
   funnelBar: (pct: number, color: string) => ({ height: 22, background: color, width: `${Math.max(2, pct)}%`, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, color: "#fff", fontWeight: 700, fontSize: 11, transition: "width 0.4s" } as React.CSSProperties),
+
+  // ─── Kanban доска ─────────────────────────────────────────────────────
+  viewToggle: { display: "inline-flex", background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: 8, padding: 2 } as React.CSSProperties,
+  viewBtn: (active: boolean) => ({
+    padding: "7px 12px", borderRadius: 6, border: "none",
+    background: active ? "#7c3aed" : "transparent",
+    color: active ? "#fff" : "#94a3b8",
+    fontSize: 12, fontWeight: 600, cursor: "pointer",
+    display: "inline-flex", alignItems: "center", gap: 6,
+  } as React.CSSProperties),
+  // Доска: горизонтально-скроллируемый контейнер с фиксированными столбцами.
+  // overflow-x: auto чтобы при 8 статусах × 280px не ломать layout.
+  board: { display: "flex", gap: 12, overflowX: "auto" as const, paddingBottom: 16, scrollbarColor: "#2d3748 transparent" } as React.CSSProperties,
+  column: (color: string, dragOver: boolean) => ({
+    flex: "0 0 290px",
+    background: "#13182a",
+    border: `1px solid ${dragOver ? color : "#2d3748"}`,
+    boxShadow: dragOver ? `0 0 0 2px ${color}55, 0 0 22px ${color}33` : "none",
+    borderRadius: 12,
+    display: "flex",
+    flexDirection: "column" as const,
+    maxHeight: "calc(100vh - 300px)",
+    transition: "border 0.15s, box-shadow 0.15s",
+  }),
+  columnHead: (color: string) => ({
+    padding: "12px 14px",
+    borderBottom: `1px solid #2d3748`,
+    borderTop: `3px solid ${color}`,
+    borderRadius: "12px 12px 0 0",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: `${color}10`,
+  }),
+  columnTitle: (color: string) => ({
+    fontSize: 12, fontWeight: 800, color, letterSpacing: "0.04em",
+    textTransform: "uppercase" as const, display: "flex", alignItems: "center", gap: 6,
+  }),
+  columnCount: { fontSize: 11, color: "#64748b", background: "#0f1117", padding: "2px 8px", borderRadius: 999, fontWeight: 700 } as React.CSSProperties,
+  columnBody: { padding: 8, overflowY: "auto" as const, flex: 1, display: "flex", flexDirection: "column" as const, gap: 8 } as React.CSSProperties,
+  kanCard: (selected: boolean, dragging: boolean) => ({
+    background: selected ? "#7c3aed18" : "#1a1f2e",
+    border: `1px solid ${selected ? "#7c3aed55" : "#2d3748"}`,
+    borderRadius: 10,
+    padding: 11,
+    cursor: "grab",
+    opacity: dragging ? 0.35 : 1,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 6,
+    transition: "background 0.1s",
+  } as React.CSSProperties),
+  kanCardHead: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 } as React.CSSProperties,
+  kanDomain: { fontSize: 13, fontWeight: 700, color: "#f1f5f9", textDecoration: "none", flex: 1, minWidth: 0, overflow: "hidden" as const, textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const } as React.CSSProperties,
+  kanCompany: { fontSize: 11, color: "#94a3b8", lineHeight: 1.35 } as React.CSSProperties,
+  kanFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, color: "#64748b", marginTop: 2 } as React.CSSProperties,
+  kanEmptyHint: { fontSize: 11, color: "#475569", padding: 12, textAlign: "center" as const, fontStyle: "italic" as const } as React.CSSProperties,
+  // Dropdown для bulk-move
+  dropdown: { position: "absolute" as const, top: "calc(100% + 6px)", right: 0, background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: 8, padding: 6, minWidth: 200, zIndex: 30, boxShadow: "0 8px 28px rgba(0,0,0,0.4)" } as React.CSSProperties,
+  ddItem: (color: string) => ({
+    padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600,
+    display: "flex", alignItems: "center", gap: 8,
+    color,
+  } as React.CSSProperties),
 };
 
 const TABS = [
@@ -160,6 +224,38 @@ export default function AdminLeadsPage() {
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+
+  // View mode: «kanban» (доска CRM) или «table» (список). Сохраняется в localStorage.
+  const [view, setView] = useState<"kanban" | "table">("kanban");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem("mr_leads_view");
+    if (saved === "table" || saved === "kanban") setView(saved);
+  }, []);
+  const setViewPersist = (v: "kanban" | "table") => {
+    setView(v);
+    try { localStorage.setItem("mr_leads_view", v); } catch { /* ignore */ }
+  };
+
+  // Bulk-операции (delete / move to status) — состояния для UI.
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Drag-and-drop по Kanban-доске: храним id перетаскиваемого лида и id колонки,
+  // над которой висит курсор (чтобы подсветить целевой статус).
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<LeadStatus | null>(null);
+
+  // Закрываем dropdown «Переместить в…» при клике вне меню.
+  useEffect(() => {
+    if (!moveMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-move-menu]")) setMoveMenuOpen(false);
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [moveMenuOpen]);
 
   // Resume: если предыдущий bulk-цикл был прерван (закрыли вкладку без Stop),
   // в localStorage остался флаг. При входе на страницу спрашиваем — продолжить?
@@ -249,6 +345,63 @@ export default function AdminLeadsPage() {
     load();
   }
 
+  async function bulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`Удалить ${selected.size} ${selected.size === 1 ? "лида" : "лидов"} и все их данные?`)) return;
+    setBulkBusy(true);
+    try {
+      const r = await fetch("/api/admin/leads/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", leadIds: Array.from(selected) }),
+      });
+      const d = await r.json();
+      if (!d.ok) { alert(d.error || "Ошибка удаления"); return; }
+      setSelected(new Set());
+      load();
+      loadAnalytics();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkMove(status: LeadStatus) {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    setMoveMenuOpen(false);
+    try {
+      const r = await fetch("/api/admin/leads/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-status", status, leadIds: Array.from(selected) }),
+      });
+      const d = await r.json();
+      if (!d.ok) { alert(d.error || "Ошибка перемещения"); return; }
+      setSelected(new Set());
+      load();
+      loadAnalytics();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  // Drag-and-drop по Kanban-доске.
+  // Оптимистично обновляем UI до возврата сервера — иначе карточка «дёргается».
+  async function moveLeadToStatus(leadId: string, status: LeadStatus) {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status } : l));
+    try {
+      await fetch(`/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      loadAnalytics();
+    } catch (e) {
+      console.warn("Move failed:", e);
+      load(); // откатываем — пере-фетчим с сервера
+    }
+  }
+
   function fmtDate(s: string | null) {
     if (!s) return "—";
     return new Date(s).toLocaleString("ru-RU", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -291,6 +444,14 @@ export default function AdminLeadsPage() {
           <button style={S.btn("ghost")} onClick={() => load()} title="Обновить">
             <RefreshCw size={14} />
           </button>
+          <div style={{ ...S.viewToggle, marginLeft: "auto" }}>
+            <button style={S.viewBtn(view === "kanban")} onClick={() => setViewPersist("kanban")} title="Доска CRM">
+              <LayoutGrid size={13} /> Доска
+            </button>
+            <button style={S.viewBtn(view === "table")} onClick={() => setViewPersist("table")} title="Таблица">
+              <List size={13} /> Таблица
+            </button>
+          </div>
         </div>
 
         {selected.size > 0 && (
@@ -298,12 +459,36 @@ export default function AdminLeadsPage() {
             <div style={{ fontSize: 13, color: "#e2e8f0" }}>
               <b>{selected.size}</b> выбрано
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={S.btn("primary")} onClick={() => setEmailOpen(true)}>
+            <div style={{ display: "flex", gap: 8, position: "relative" }}>
+              <button style={S.btn("primary")} onClick={() => setEmailOpen(true)} disabled={bulkBusy}>
                 <Mail size={13} /> Отправить email
               </button>
+              <div style={{ position: "relative" }} data-move-menu>
+                <button style={S.btn("warn")} onClick={() => setMoveMenuOpen(o => !o)} disabled={bulkBusy}>
+                  <MoveRight size={13} /> Переместить в…
+                </button>
+                {moveMenuOpen && (
+                  <div style={S.dropdown}>
+                    {LEAD_STATUSES.map(s => (
+                      <div
+                        key={s}
+                        style={S.ddItem(LEAD_STATUS_COLORS[s])}
+                        onClick={() => bulkMove(s)}
+                        onMouseEnter={e => e.currentTarget.style.background = "#0f1117"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: LEAD_STATUS_COLORS[s] }} />
+                        {LEAD_STATUS_LABELS[s]}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button style={{ ...S.btn("ghost"), color: "#ef4444", borderColor: "#ef444455" }} onClick={bulkDelete} disabled={bulkBusy}>
+                {bulkBusy ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />} Удалить
+              </button>
               <button style={S.btn("ghost")} onClick={() => setSelected(new Set())}>
-                Снять выбор
+                <X size={13} /> Снять выбор
               </button>
             </div>
           </div>
@@ -335,6 +520,19 @@ export default function AdminLeadsPage() {
               ? "Пока нет лидов — нажмите «Импорт CSV / XLSX», чтобы загрузить базу"
               : "По выбранным фильтрам ничего не найдено"}
           </div>
+        ) : view === "kanban" ? (
+          <KanbanBoard
+            leads={leads}
+            selected={selected}
+            onToggleSelect={toggleOne}
+            onMove={moveLeadToStatus}
+            onDelete={deleteLead}
+            draggingId={draggingId}
+            dragOverStatus={dragOverStatus}
+            setDraggingId={setDraggingId}
+            setDragOverStatus={setDragOverStatus}
+            fmtDate={fmtDate}
+          />
         ) : (
           <table style={S.table}>
             <thead>
@@ -537,6 +735,160 @@ function AnalyticsPanel({ analytics, open, onToggle }: { analytics: Analytics | 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Kanban board (CRM-доска) ────────────────────────────────────────────
+// Каждый из 8 статусов — отдельная колонка. Карточки можно тащить мышкой,
+// drop сразу обновляет lead.status оптимистично (UI до подтверждения сервером).
+// Чекбоксы на карточках выбирают для bulk-операций (delete / move N to ...).
+
+interface KanbanProps {
+  leads: LeadRow[];
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onMove: (leadId: string, status: LeadStatus) => void;
+  onDelete: (id: string, domain: string) => void;
+  draggingId: string | null;
+  dragOverStatus: LeadStatus | null;
+  setDraggingId: (id: string | null) => void;
+  setDragOverStatus: (s: LeadStatus | null) => void;
+  fmtDate: (s: string | null) => string;
+}
+
+function KanbanBoard({
+  leads, selected, onToggleSelect, onMove, onDelete,
+  draggingId, dragOverStatus, setDraggingId, setDragOverStatus, fmtDate,
+}: KanbanProps) {
+  // Группируем лидов по статусу для рендера колонок.
+  const leadsByStatus = useMemo(() => {
+    const map: Record<LeadStatus, LeadRow[]> = {} as Record<LeadStatus, LeadRow[]>;
+    for (const s of LEAD_STATUSES) map[s] = [];
+    for (const l of leads) {
+      if ((LEAD_STATUSES as readonly string[]).includes(l.status)) {
+        map[l.status].push(l);
+      }
+    }
+    return map;
+  }, [leads]);
+
+  function handleDragStart(e: React.DragEvent, leadId: string) {
+    setDraggingId(leadId);
+    // Firefox требует setData чтобы DnD запустился.
+    e.dataTransfer.setData("text/plain", leadId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+  function handleDragOver(e: React.DragEvent, status: LeadStatus) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverStatus !== status) setDragOverStatus(status);
+  }
+  function handleDrop(e: React.DragEvent, status: LeadStatus) {
+    e.preventDefault();
+    const leadId = e.dataTransfer.getData("text/plain") || draggingId;
+    setDraggingId(null);
+    setDragOverStatus(null);
+    if (!leadId) return;
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead || lead.status === status) return;
+    onMove(leadId, status);
+  }
+  function handleDragEnd() {
+    setDraggingId(null);
+    setDragOverStatus(null);
+  }
+
+  return (
+    <div style={S.board}>
+      {LEAD_STATUSES.map(status => {
+        const color = LEAD_STATUS_COLORS[status];
+        const cards = leadsByStatus[status];
+        const isOver = dragOverStatus === status;
+        return (
+          <div
+            key={status}
+            style={S.column(color, isOver)}
+            onDragOver={e => handleDragOver(e, status)}
+            onDragLeave={() => setDragOverStatus(null)}
+            onDrop={e => handleDrop(e, status)}
+          >
+            <div style={S.columnHead(color)}>
+              <div style={S.columnTitle(color)}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                {LEAD_STATUS_LABELS[status]}
+              </div>
+              <div style={S.columnCount}>{cards.length}</div>
+            </div>
+            <div style={S.columnBody}>
+              {cards.length === 0 ? (
+                <div style={S.kanEmptyHint}>Перетащите карточку сюда</div>
+              ) : (
+                cards.map(l => {
+                  const isChecked = selected.has(l.id);
+                  const isDragging = draggingId === l.id;
+                  return (
+                    <div
+                      key={l.id}
+                      style={S.kanCard(isChecked, isDragging)}
+                      draggable
+                      onDragStart={e => handleDragStart(e, l.id)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <div style={S.kanCardHead}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => onToggleSelect(l.id)}
+                          onClick={e => e.stopPropagation()}
+                          style={{ cursor: "pointer", marginTop: 2 }}
+                        />
+                        <Link href={`/admin/leads/${l.id}`} style={S.kanDomain} onClick={e => e.stopPropagation()}>
+                          {l.domain}
+                        </Link>
+                        <button
+                          style={{ ...S.iconBtn, width: 22, height: 22, border: "none" }}
+                          onClick={e => { e.stopPropagation(); onDelete(l.id, l.domain); }}
+                          title="Удалить лид"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                      {l.company_name && (
+                        <div style={S.kanCompany}>{l.company_name}</div>
+                      )}
+                      {l.contact_email && (
+                        <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "ui-monospace, monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                          {l.contact_email}
+                        </div>
+                      )}
+                      <div style={S.kanFooter}>
+                        <span>
+                          {l.report_status === "done" ? (
+                            <a href={`/r/${l.slug}`} target="_blank" rel="noreferrer" style={{ color: "#22c55e", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }} onClick={e => e.stopPropagation()}>
+                              <FileText size={10} /> отчёт
+                            </a>
+                          ) : l.report_status === "running" ? (
+                            <span style={{ color: "#3b82f6" }}>⟳ генерируется</span>
+                          ) : l.report_status === "failed" ? (
+                            <span style={{ color: "#ef4444" }}>✗ ошибка</span>
+                          ) : (
+                            <span style={{ color: "#475569" }}>—</span>
+                          )}
+                        </span>
+                        <span>{fmtDate(l.created_at)}</span>
+                      </div>
+                      {l.notes_count > 0 && (
+                        <div style={{ fontSize: 10, color: "#64748b" }}>📝 {l.notes_count}</div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
