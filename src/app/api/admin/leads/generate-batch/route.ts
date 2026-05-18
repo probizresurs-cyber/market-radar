@@ -30,8 +30,12 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 
 const REPORT_MODEL = "claude-haiku-4-5";
-const BATCH_SIZE = 5;          // сколько лидов в одной партии (по умолчанию)
-const CONCURRENCY = 3;         // одновременно выполняемых генераций
+// Параметры можно крутить через .env без правок кода.
+//   BULK_BATCH_SIZE  — сколько лидов в одной HTTP-партии (cap 20).
+//   BULK_CONCURRENCY — одновременных вызовов Anthropic внутри партии.
+//                      3 — консервативно, 5 — рабочий режим, 10+ риск 429.
+const BATCH_SIZE = Math.min(parseInt(process.env.BULK_BATCH_SIZE ?? "5", 10) || 5, 20);
+const CONCURRENCY = Math.min(parseInt(process.env.BULK_CONCURRENCY ?? "5", 10) || 5, 20);
 
 interface LeadRow {
   id: string;
