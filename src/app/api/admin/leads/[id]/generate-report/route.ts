@@ -36,7 +36,9 @@ interface LeadRow {
   niche: string | null;
 }
 
-const REPORT_MODEL = "claude-haiku-4-5";
+// Модель + цена настраиваются через .env, см. generate-batch/route.ts.
+const REPORT_MODEL = process.env.LEAD_REPORT_MODEL ?? "claude-sonnet-4-6";
+const REPORT_COST_CENTS = parseFloat(process.env.LEAD_REPORT_COST_CENTS ?? (REPORT_MODEL.includes("haiku") ? "1.5" : "5"));
 
 function buildPrompt(scraped: {
   title: string;
@@ -199,9 +201,9 @@ export async function POST(_req: Request, { params }: Params) {
 
     parsed.generatedAt = new Date().toISOString();
 
-    // Прикинем себестоимость: Haiku 4.5 ≈ $1 in/M + $5 out/M. Грубо считаем
-    // input ~5K токенов и output ~1.5K → ~$0.015 = 1.5 цента.
-    const costCents = 1.5;
+    // Себестоимость из ENV (см. константу REPORT_COST_CENTS). Sonnet 4.6 ≈ 5¢,
+    // Haiku 4.5 ≈ 1.5¢. Числа примерные, точное число берётся из ENV если задано.
+    const costCents = REPORT_COST_CENTS;
 
     await query(
       `UPDATE lead_reports

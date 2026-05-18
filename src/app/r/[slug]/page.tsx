@@ -96,43 +96,43 @@ const S = {
   brandSub: { fontSize: 11, color: C.muted, marginTop: 2, letterSpacing: "0.06em", textTransform: "uppercase" as const } as React.CSSProperties,
   headerCta: { display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.magenta})`, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13, boxShadow: `0 4px 16px ${C.primary}55` } as React.CSSProperties,
   // ─── Hero
-  heroBadge: { display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px 8px 12px", borderRadius: 999, background: `${C.green}15`, border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, marginBottom: 18, boxShadow: `0 0 20px ${C.green}20` } as React.CSSProperties,
-  h1: { fontSize: 48, fontWeight: 900, marginBottom: 8, letterSpacing: -1.5, lineHeight: 1.05 } as React.CSSProperties,
-  domainLine: { fontSize: 16, color: C.muted, marginBottom: 32, fontFamily: "ui-monospace, monospace" } as React.CSSProperties,
+  heroBadge: { display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px 10px 14px", borderRadius: 999, background: `${C.green}15`, border: `1px solid ${C.green}40`, color: C.green, fontSize: 13, fontWeight: 700, marginBottom: 24, boxShadow: `0 0 20px ${C.green}20` } as React.CSSProperties,
+  h1: { fontSize: 56, fontWeight: 900, marginBottom: 12, letterSpacing: -2, lineHeight: 1.05 } as React.CSSProperties,
+  domainLine: { fontSize: 16, color: C.muted, marginBottom: 36, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" } as React.CSSProperties,
   // ─── Score Hero
-  scoreHero: { background: `linear-gradient(135deg, ${C.card} 0%, ${C.cardElev} 100%)`, border: `1px solid ${C.border}`, borderRadius: 24, padding: 36, marginBottom: 28, position: "relative" as const, overflow: "hidden" } as React.CSSProperties,
-  scoreHeroGrid: { display: "grid", gridTemplateColumns: "auto 1fr", gap: 40, alignItems: "center" } as React.CSSProperties,
-  scoreLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.1em", fontWeight: 800, marginBottom: 8 } as React.CSSProperties,
-  scoreBig: (color: string) => ({ fontSize: 120, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -4, textShadow: `0 0 40px ${color}40` }),
-  scoreSlash: { fontSize: 32, color: C.muted, fontWeight: 600, marginLeft: 6 } as React.CSSProperties,
-  compareGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 16 } as React.CSSProperties,
-  compareNum: (color: string) => ({ fontSize: 44, fontWeight: 800, color, lineHeight: 1, letterSpacing: -1.5, marginTop: 4 }),
-  summary: { fontSize: 16, color: C.fg2, lineHeight: 1.55, padding: "14px 0 0", borderTop: `1px solid ${C.border}`, marginTop: 16 } as React.CSSProperties,
-  // ─── Category cards
-  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 40 } as React.CSSProperties,
-  catCard: (color: string) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, position: "relative" as const, overflow: "hidden" as const, borderTop: `3px solid ${color}` }),
-  catLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 700, marginBottom: 8 } as React.CSSProperties,
-  catScoreBig: (color: string) => ({ fontSize: 38, fontWeight: 900, color, lineHeight: 1, letterSpacing: -1 }),
-  catScoreOf: { fontSize: 14, color: C.muted, fontWeight: 600, marginLeft: 4 } as React.CSSProperties,
+  scoreHero: { background: `linear-gradient(135deg, ${C.card} 0%, ${C.cardElev} 100%)`, border: `1px solid ${C.border}`, borderRadius: 24, padding: 44, marginBottom: 36, position: "relative" as const, overflow: "hidden" } as React.CSSProperties,
+  scoreHeroGrid: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", gap: 56, alignItems: "center" } as React.CSSProperties,
+  scoreLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.12em", fontWeight: 800, marginBottom: 12 } as React.CSSProperties,
+  scoreBig: (color: string) => ({ fontSize: 128, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -5, textShadow: `0 0 50px ${color}50` }),
+  scoreSlash: { fontSize: 36, color: C.muted, fontWeight: 600, marginLeft: 8 } as React.CSSProperties,
+  compareGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 16 } as React.CSSProperties,
+  compareNum: (color: string) => ({ fontSize: 48, fontWeight: 800, color, lineHeight: 1, letterSpacing: -1.5, marginTop: 4 }),
+  summary: { fontSize: 18, color: C.fg, lineHeight: 1.7, padding: "22px 0 0", borderTop: `1px solid ${C.border}`, marginTop: 28, fontWeight: 500 } as React.CSSProperties,
+  // ─── Category cards — strict 3×2, mobile 2×3
+  catGrid: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16, marginBottom: 48 } as React.CSSProperties,
+  catCard: (color: string) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "22px 24px", position: "relative" as const, overflow: "hidden" as const, borderTop: `4px solid ${color}`, minHeight: 130, display: "flex", flexDirection: "column" as const, justifyContent: "space-between" as const }),
+  catLabel: { fontSize: 12, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.08em", fontWeight: 700, marginBottom: 12 } as React.CSSProperties,
+  catScoreBig: (color: string) => ({ fontSize: 46, fontWeight: 900, color, lineHeight: 1, letterSpacing: -1.5 }),
+  catScoreOf: { fontSize: 16, color: C.muted, fontWeight: 600, marginLeft: 4 } as React.CSSProperties,
   // ─── Section titles
-  sectionWrap: { marginBottom: 36 } as React.CSSProperties,
-  sectionEyebrow: { fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 } as React.CSSProperties,
-  sectionTitle: { fontSize: 30, fontWeight: 800, margin: "0 0 22px", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.7 } as React.CSSProperties,
+  sectionWrap: { marginBottom: 48 } as React.CSSProperties,
+  sectionEyebrow: { fontSize: 12, color: C.muted, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 10 } as React.CSSProperties,
+  sectionTitle: { fontSize: 32, fontWeight: 800, margin: "0 0 28px", display: "flex", alignItems: "center", gap: 14, letterSpacing: -0.7 } as React.CSSProperties,
   // ─── AI Visibility (главный хук)
-  aiVisCard: (color: string) => ({ background: `linear-gradient(135deg, ${color}10 0%, ${C.card} 50%, ${C.card} 100%)`, border: `1px solid ${color}33`, borderRadius: 18, padding: 32, marginBottom: 16, boxShadow: `0 0 32px ${color}10` }),
-  aiVisScore: { display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, alignItems: "center", marginBottom: 24 } as React.CSSProperties,
-  aiVisBig: (color: string) => ({ fontSize: 86, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -3, textShadow: `0 0 30px ${color}50` }),
-  aiVisStatus: (color: string) => ({ fontSize: 24, fontWeight: 800, color, marginBottom: 4 }),
-  aiVisBlockers: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginTop: 18 } as React.CSSProperties,
-  blockerCard: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" } as React.CSSProperties,
-  queryGrid: { display: "grid", gap: 10, marginTop: 16 } as React.CSSProperties,
-  queryRow: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" as const } as React.CSSProperties,
+  aiVisCard: (color: string) => ({ background: `linear-gradient(135deg, ${color}10 0%, ${C.card} 50%, ${C.card} 100%)`, border: `1px solid ${color}33`, borderRadius: 20, padding: 40, marginBottom: 16, boxShadow: `0 0 32px ${color}10` }),
+  aiVisScore: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", gap: 40, alignItems: "center", marginBottom: 32 } as React.CSSProperties,
+  aiVisBig: (color: string) => ({ fontSize: 96, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -3.5, textShadow: `0 0 40px ${color}50` }),
+  aiVisStatus: (color: string) => ({ fontSize: 26, fontWeight: 800, color, marginBottom: 10 }),
+  aiVisBlockers: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14, marginTop: 22 } as React.CSSProperties,
+  blockerCard: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 12, padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start" } as React.CSSProperties,
+  queryGrid: { display: "grid", gap: 12, marginTop: 18 } as React.CSSProperties,
+  queryRow: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const } as React.CSSProperties,
   // ─── Item cards (problems / opportunities / recs)
-  problem: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.red}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10 } as React.CSSProperties,
-  opportunity: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.green}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10, position: "relative" as const } as React.CSSProperties,
-  rec: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start" } as React.CSSProperties,
-  itemTitle: { fontSize: 18, fontWeight: 700, marginBottom: 6, letterSpacing: -0.2 } as React.CSSProperties,
-  itemDesc: { fontSize: 14, color: C.fg2, lineHeight: 1.6 } as React.CSSProperties,
+  problem: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.red}`, borderRadius: 14, padding: "22px 26px", marginBottom: 14 } as React.CSSProperties,
+  opportunity: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.green}`, borderRadius: 14, padding: "22px 26px", marginBottom: 14, position: "relative" as const } as React.CSSProperties,
+  rec: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "22px 26px", marginBottom: 14, display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" } as React.CSSProperties,
+  itemTitle: { fontSize: 19, fontWeight: 700, marginBottom: 10, letterSpacing: -0.2, lineHeight: 1.35 } as React.CSSProperties,
+  itemDesc: { fontSize: 15, color: C.fg2, lineHeight: 1.7 } as React.CSSProperties,
   potentialBadge: (color: string) => ({ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 800, color, padding: "5px 12px", background: `${color}18`, borderRadius: 8, marginTop: 10 } as React.CSSProperties),
   moneyBadge: { display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, color: C.orange, padding: "5px 12px", background: `${C.orange}18`, borderRadius: 8, marginTop: 10, marginLeft: 8 } as React.CSSProperties,
   // ─── Blur sections
@@ -208,6 +208,19 @@ export default async function PublicReportPage({ params }: PageProps) {
 
   return (
     <div style={S.page}>
+      {/* Адаптивность через global CSS — стилевые объекты не умеют @media. */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 760px) {
+          .mr-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .mr-ai-blockers { grid-template-columns: 1fr !important; }
+          .mr-score-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+          .mr-ai-score-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
+          .mr-h1 { font-size: 36px !important; }
+          .mr-score-big { font-size: 88px !important; }
+          .mr-ai-vis-big { font-size: 68px !important; }
+          .mr-rec { grid-template-columns: 1fr !important; }
+        }
+      `}} />
       <div style={S.bgGlow} aria-hidden />
       <div style={S.container}>
 
@@ -229,16 +242,16 @@ export default async function PublicReportPage({ params }: PageProps) {
         <div style={S.heroBadge}>
           <Sparkles size={14} /> Экспресс-аудит сайта · {dateStr}
         </div>
-        <h1 style={S.h1}>{titleName}</h1>
+        <h1 className="mr-h1" style={S.h1}>{titleName}</h1>
         <div style={S.domainLine}>{domain}</div>
 
         {/* ─── Score Hero ─── */}
         <div style={S.scoreHero}>
-          <div style={S.scoreHeroGrid}>
+          <div className="mr-score-grid" style={S.scoreHeroGrid}>
             <div>
               <div style={S.scoreLabel}>Общий Score</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
-                <span style={S.scoreBig(overallColor)}>{report.overallScore}</span>
+                <span className="mr-score-big" style={S.scoreBig(overallColor)}>{report.overallScore}</span>
                 <span style={S.scoreSlash}>/100</span>
               </div>
             </div>
@@ -261,8 +274,8 @@ export default async function PublicReportPage({ params }: PageProps) {
           <div style={S.summary}>{report.oneLineSummary}</div>
         </div>
 
-        {/* ─── 6 категорий ─── */}
-        <div style={S.catGrid}>
+        {/* ─── 6 категорий — строго 3×2 ─── */}
+        <div className="mr-cat-grid" style={S.catGrid}>
           {([
             ["seo",          "SEO",          C.cyan],
             ["aiVisibility", "AI-нейросети", C.magenta],
@@ -295,11 +308,11 @@ export default async function PublicReportPage({ params }: PageProps) {
               Видимость в нейросетях
             </h2>
             <div style={S.aiVisCard(aiColor)}>
-              <div style={S.aiVisScore}>
+              <div className="mr-ai-score-grid" style={S.aiVisScore}>
                 <div>
                   <div style={S.scoreLabel}>AI-видимость</div>
                   <div style={{ display: "flex", alignItems: "baseline" }}>
-                    <span style={S.aiVisBig(aiColor)}>{aiScore}</span>
+                    <span className="mr-ai-vis-big" style={S.aiVisBig(aiColor)}>{aiScore}</span>
                     <span style={S.scoreSlash}>/100</span>
                   </div>
                 </div>
@@ -320,7 +333,7 @@ export default async function PublicReportPage({ params }: PageProps) {
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8, marginBottom: 12 }}>
                     Что мешает попадать в выдачу AI:
                   </div>
-                  <div style={S.aiVisBlockers}>
+                  <div className="mr-ai-blockers" style={S.aiVisBlockers}>
                     {aiVis.blockers.map((b, i) => (
                       <div key={i} style={S.blockerCard}>
                         <X size={18} color={C.red} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -431,7 +444,7 @@ export default async function PublicReportPage({ params }: PageProps) {
             Рекомендации с приоритетом
           </h2>
           {visibleRecs.map((r, i) => (
-            <div key={i} style={S.rec}>
+            <div key={i} className="mr-rec" style={S.rec}>
               <div>
                 <div style={S.itemTitle}>{r.title}</div>
                 <div style={S.itemDesc}>{r.description}</div>
@@ -447,7 +460,7 @@ export default async function PublicReportPage({ params }: PageProps) {
             <div style={S.blurOverlay}>
               <div style={S.recBlur}>
                 {hiddenRecs.map((r, i) => (
-                  <div key={i} style={S.rec}>
+                  <div key={i} className="mr-rec" style={S.rec}>
                     <div>
                       <div style={S.itemTitle}>{r.title}</div>
                       <div style={S.itemDesc}>{r.description}</div>

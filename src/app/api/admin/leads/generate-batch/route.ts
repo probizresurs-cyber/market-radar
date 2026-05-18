@@ -29,7 +29,13 @@ export const runtime = "nodejs";
 // 3 лида параллельно × 30 сек ≈ 30-60 сек на партию.
 export const maxDuration = 90;
 
-const REPORT_MODEL = "claude-haiku-4-5";
+// Модель для экспресс-отчёта. Sonnet 4.6 даёт намного лучший «продающий» текст
+// и точнее с brandName из <title>. Haiku в 3 раза дешевле (1.5 ₽ vs ~5 ₽),
+// но текст более шаблонный. Переключается через .env: REPORT_MODEL=claude-haiku-4-5
+const REPORT_MODEL = process.env.LEAD_REPORT_MODEL ?? "claude-sonnet-4-6";
+// Себестоимость на 1 отчёт в центах ($ × 100). Используется в analytics
+// для подсчёта общей стоимости генерации. ~$0.05 для Sonnet, ~$0.015 для Haiku.
+const REPORT_COST_CENTS = parseFloat(process.env.LEAD_REPORT_COST_CENTS ?? (REPORT_MODEL.includes("haiku") ? "1.5" : "5"));
 // Параметры можно крутить через .env без правок кода.
 //   BULK_BATCH_SIZE  — сколько лидов в одной HTTP-партии (cap 20).
 //   BULK_CONCURRENCY — одновременных вызовов Anthropic внутри партии.
@@ -187,8 +193,8 @@ async function generateOne(leadId: string, domain: string, niche: string | null)
   parsed.generatedAt = new Date().toISOString();
 
   await query(
-    `UPDATE lead_reports SET status='done', data=$1::jsonb, cost_cents=1.5, generated_at=NOW() WHERE id=$2`,
-    [JSON.stringify(parsed), reportId],
+    `UPDATE lead_reports SET status='done', data=$1::jsonb, cost_cents=$2, generated_at=NOW() WHERE id=$3`,
+    [JSON.stringify(parsed), REPORT_COST_CENTS, reportId],
   );
 
   return { ok: true };
