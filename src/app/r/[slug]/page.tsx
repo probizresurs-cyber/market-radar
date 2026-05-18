@@ -1,28 +1,26 @@
 /**
  * /r/[slug] — публичная страница экспресс-отчёта (без авторизации).
  *
- * Кидаем эту ссылку владельцу сайта в email/мессенджер. Цель страницы —
- * показать, что мы провели аудит, найти болевые точки, и продать
- * полноценный анализ на marketradar24.ru.
+ * Дизайн соответствует лендингу marketradar24.ru:
+ *   • Дарковый фон + неоновые акценты (cyan #4FC3F7 / magenta #D500F9 / green #69FF47)
+ *   • Большие цифры (score 96px) и крупные заголовки
+ *   • Анимированный radar-логотип MarketRadar в шапке
+ *   • Минимальный blur (только 2 из 5 рекомендаций + последние конкуренты),
+ *     остальное открыто чтобы зацепить
+ *   • Отдельный мощный блок «Видимость в нейросетях» — главный продающий хук
  *
- * Структура:
- *   • Хедер: домен, общий Score, среднее по нише, фотограмма
- *   • Сравнение по 5 категориям (SEO / Соцсети / Контент / HR / Тех)
- *   • Топ-3 проблемы (видны полностью)
- *   • Топ-3 возможности (видны полностью)
- *   • 5 рекомендаций (первые 2 видимы, 3 размыты blur'ом)
- *   • Конкуренты (первый 1 видим, остальные blur)
- *   • 2 CTA-блока (после рекомендаций + в конце)
- *
- * Контент рендерится server-side через Server Component — отчёт сразу
- * включается в HTML, что важно для шаринга в Telegram / VK.
+ * Server Component → отчёт сразу в HTML для шаринга в Telegram/VK.
  */
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { query, initDb } from "@/lib/db";
 import type { LeadReport } from "@/lib/lead-types";
-import { ChevronRight, Lock, AlertTriangle, TrendingUp, Sparkles, Target, Award } from "lucide-react";
+import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
+import {
+  ChevronRight, Lock, AlertTriangle, TrendingUp, Sparkles, Target, Award,
+  Bot, Zap, Eye, X,
+} from "lucide-react";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -36,7 +34,6 @@ interface LeadWithReport {
   generated_at: string;
 }
 
-// Метаданные для шаринга — preview-картинка в TG/VK берёт title+description.
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   try {
@@ -52,60 +49,105 @@ export async function generateMetadata({ params }: PageProps) {
         WHERE l.slug = $1`,
       [slug],
     );
-    if (!rows.length) return { title: "Отчёт не найден" };
+    if (!rows.length) return { title: "Отчёт не найден · MarketRadar24" };
     const { domain, company_name, data } = rows[0];
-    const title = `Экспресс-аудит ${company_name ?? domain}`;
+    const brand = data?.brandName || company_name || domain;
+    const title = `Экспресс-аудит ${brand} · MarketRadar24`;
     const desc = data?.oneLineSummary ?? `Score ${data?.overallScore ?? "—"}/100, среднее по нише ${data?.nicheAverage ?? "—"}/100`;
     return { title, description: desc, openGraph: { title, description: desc } };
   } catch {
-    return { title: "Экспресс-отчёт" };
+    return { title: "Экспресс-отчёт · MarketRadar24" };
   }
 }
 
+// ─── Палитра marketradar24 ─────────────────────────────────────────────────
 const C = {
-  bg: "#0a0e1a",
+  bg: "#06070d",           // основной чёрный из лендинга
+  bgAlt: "#0e1119",
   card: "#10172a",
   cardElev: "#162035",
   border: "#1e293b",
+  borderBright: "#2d3748",
   fg: "#f1f5f9",
   fg2: "#cbd5e1",
   muted: "#64748b",
-  primary: "#7c3aed",
-  red: "#ef4444",
-  green: "#22c55e",
+  // Brand accents (из лендинга и логотипа)
+  primary: "#6366f1",       // accent
+  cyan: "#4FC3F7",          // neonCyan
+  cyanGlow: "#00D4FF",
+  magenta: "#D500F9",       // neonMagenta
+  green: "#69FF47",         // neonGreen
+  red: "#FF5252",           // neonRed
+  violet: "#9B59FF",
   orange: "#f59e0b",
-  cyan: "#06b6d4",
 };
 
 const S = {
   page: { minHeight: "100vh", background: C.bg, color: C.fg, fontFamily: "ui-sans-serif, system-ui, -apple-system" } as React.CSSProperties,
-  container: { maxWidth: 920, margin: "0 auto", padding: "40px 24px 80px" } as React.CSSProperties,
-  brand: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 700, color: C.primary, marginBottom: 28 } as React.CSSProperties,
-  h1: { fontSize: 32, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 } as React.CSSProperties,
-  h1Sub: { fontSize: 15, color: C.muted, marginBottom: 28 } as React.CSSProperties,
-  scoreCard: { background: `linear-gradient(135deg, ${C.card}, ${C.cardElev})`, border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, marginBottom: 28, display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, alignItems: "center" } as React.CSSProperties,
-  scoreBig: (color: string) => ({ fontSize: 72, fontWeight: 800, color, lineHeight: 1, letterSpacing: -2 }),
-  scoreLabel: { fontSize: 12, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.08em", fontWeight: 700, marginBottom: 6 },
-  compareGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 } as React.CSSProperties,
-  compareRow: { display: "flex", alignItems: "center", gap: 10, fontSize: 14 } as React.CSSProperties,
-  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 32 } as React.CSSProperties,
-  catCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 } as React.CSSProperties,
-  catLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 700, marginBottom: 6 } as React.CSSProperties,
-  catScore: (color: string) => ({ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }),
-  sectionTitle: { fontSize: 20, fontWeight: 700, margin: "32px 0 16px", display: "flex", alignItems: "center", gap: 10 } as React.CSSProperties,
-  problem: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.red}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10 } as React.CSSProperties,
-  opportunity: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10 } as React.CSSProperties,
-  itemTitle: { fontSize: 15, fontWeight: 700, marginBottom: 4 } as React.CSSProperties,
-  itemDesc: { fontSize: 13, color: C.fg2, lineHeight: 1.55 } as React.CSSProperties,
-  itemMeta: { fontSize: 12, color: C.green, fontWeight: 600, marginTop: 6 } as React.CSSProperties,
-  rec: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 16 } as React.CSSProperties,
-  recBlur: { filter: "blur(5px)", userSelect: "none" as const, pointerEvents: "none" as const, opacity: 0.85 } as React.CSSProperties,
+  bgGlow: {
+    position: "fixed" as const, inset: 0, pointerEvents: "none" as const, zIndex: 0,
+    background: `radial-gradient(circle at 20% 10%, ${C.cyan}11 0%, transparent 50%), radial-gradient(circle at 80% 90%, ${C.magenta}11 0%, transparent 50%)`,
+  },
+  container: { position: "relative" as const, zIndex: 1, maxWidth: 1000, margin: "0 auto", padding: "32px 24px 80px" } as React.CSSProperties,
+  // ─── Header
+  header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, paddingBottom: 20, borderBottom: `1px solid ${C.border}` } as React.CSSProperties,
+  brand: { display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: C.fg } as React.CSSProperties,
+  brandName: { fontSize: 18, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.1 } as React.CSSProperties,
+  brandSub: { fontSize: 11, color: C.muted, marginTop: 2, letterSpacing: "0.06em", textTransform: "uppercase" as const } as React.CSSProperties,
+  headerCta: { display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.magenta})`, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13, boxShadow: `0 4px 16px ${C.primary}55` } as React.CSSProperties,
+  // ─── Hero
+  heroBadge: { display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px 8px 12px", borderRadius: 999, background: `${C.green}15`, border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, marginBottom: 18, boxShadow: `0 0 20px ${C.green}20` } as React.CSSProperties,
+  h1: { fontSize: 48, fontWeight: 900, marginBottom: 8, letterSpacing: -1.5, lineHeight: 1.05 } as React.CSSProperties,
+  domainLine: { fontSize: 16, color: C.muted, marginBottom: 32, fontFamily: "ui-monospace, monospace" } as React.CSSProperties,
+  // ─── Score Hero
+  scoreHero: { background: `linear-gradient(135deg, ${C.card} 0%, ${C.cardElev} 100%)`, border: `1px solid ${C.border}`, borderRadius: 24, padding: 36, marginBottom: 28, position: "relative" as const, overflow: "hidden" } as React.CSSProperties,
+  scoreHeroGrid: { display: "grid", gridTemplateColumns: "auto 1fr", gap: 40, alignItems: "center" } as React.CSSProperties,
+  scoreLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.1em", fontWeight: 800, marginBottom: 8 } as React.CSSProperties,
+  scoreBig: (color: string) => ({ fontSize: 120, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -4, textShadow: `0 0 40px ${color}40` }),
+  scoreSlash: { fontSize: 32, color: C.muted, fontWeight: 600, marginLeft: 6 } as React.CSSProperties,
+  compareGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 16 } as React.CSSProperties,
+  compareNum: (color: string) => ({ fontSize: 44, fontWeight: 800, color, lineHeight: 1, letterSpacing: -1.5, marginTop: 4 }),
+  summary: { fontSize: 16, color: C.fg2, lineHeight: 1.55, padding: "14px 0 0", borderTop: `1px solid ${C.border}`, marginTop: 16 } as React.CSSProperties,
+  // ─── Category cards
+  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 40 } as React.CSSProperties,
+  catCard: (color: string) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, position: "relative" as const, overflow: "hidden" as const, borderTop: `3px solid ${color}` }),
+  catLabel: { fontSize: 11, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 700, marginBottom: 8 } as React.CSSProperties,
+  catScoreBig: (color: string) => ({ fontSize: 38, fontWeight: 900, color, lineHeight: 1, letterSpacing: -1 }),
+  catScoreOf: { fontSize: 14, color: C.muted, fontWeight: 600, marginLeft: 4 } as React.CSSProperties,
+  // ─── Section titles
+  sectionWrap: { marginBottom: 36 } as React.CSSProperties,
+  sectionEyebrow: { fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 } as React.CSSProperties,
+  sectionTitle: { fontSize: 30, fontWeight: 800, margin: "0 0 22px", display: "flex", alignItems: "center", gap: 12, letterSpacing: -0.7 } as React.CSSProperties,
+  // ─── AI Visibility (главный хук)
+  aiVisCard: (color: string) => ({ background: `linear-gradient(135deg, ${color}10 0%, ${C.card} 50%, ${C.card} 100%)`, border: `1px solid ${color}33`, borderRadius: 18, padding: 32, marginBottom: 16, boxShadow: `0 0 32px ${color}10` }),
+  aiVisScore: { display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, alignItems: "center", marginBottom: 24 } as React.CSSProperties,
+  aiVisBig: (color: string) => ({ fontSize: 86, fontWeight: 900, color, lineHeight: 0.9, letterSpacing: -3, textShadow: `0 0 30px ${color}50` }),
+  aiVisStatus: (color: string) => ({ fontSize: 24, fontWeight: 800, color, marginBottom: 4 }),
+  aiVisBlockers: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginTop: 18 } as React.CSSProperties,
+  blockerCard: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" } as React.CSSProperties,
+  queryGrid: { display: "grid", gap: 10, marginTop: 16 } as React.CSSProperties,
+  queryRow: { background: C.bgAlt, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" as const } as React.CSSProperties,
+  // ─── Item cards (problems / opportunities / recs)
+  problem: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.red}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10 } as React.CSSProperties,
+  opportunity: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.green}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10, position: "relative" as const } as React.CSSProperties,
+  rec: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "18px 22px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start" } as React.CSSProperties,
+  itemTitle: { fontSize: 18, fontWeight: 700, marginBottom: 6, letterSpacing: -0.2 } as React.CSSProperties,
+  itemDesc: { fontSize: 14, color: C.fg2, lineHeight: 1.6 } as React.CSSProperties,
+  potentialBadge: (color: string) => ({ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 800, color, padding: "5px 12px", background: `${color}18`, borderRadius: 8, marginTop: 10 } as React.CSSProperties),
+  moneyBadge: { display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, color: C.orange, padding: "5px 12px", background: `${C.orange}18`, borderRadius: 8, marginTop: 10, marginLeft: 8 } as React.CSSProperties,
+  // ─── Blur sections
+  recBlur: { filter: "blur(7px)", userSelect: "none" as const, pointerEvents: "none" as const, opacity: 0.85 } as React.CSSProperties,
   blurOverlay: { position: "relative" as const },
-  unlockBanner: { background: `linear-gradient(135deg, ${C.primary}, #5b21b6)`, borderRadius: 14, padding: 24, margin: "18px 0", textAlign: "center" as const, color: "#fff" } as React.CSSProperties,
-  unlockTitle: { fontSize: 18, fontWeight: 800, marginBottom: 6 } as React.CSSProperties,
-  unlockBody: { fontSize: 14, opacity: 0.95, marginBottom: 16, lineHeight: 1.55 } as React.CSSProperties,
-  unlockBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: C.primary, padding: "12px 24px", borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: "none" } as React.CSSProperties,
-  finalCta: { background: `linear-gradient(135deg, ${C.card}, ${C.cardElev})`, border: `2px solid ${C.primary}`, borderRadius: 16, padding: 36, marginTop: 36, textAlign: "center" as const } as React.CSSProperties,
+  unlockBanner: { background: `linear-gradient(135deg, ${C.primary}, ${C.magenta})`, borderRadius: 18, padding: "28px 30px", margin: "20px 0", textAlign: "center" as const, color: "#fff", boxShadow: `0 8px 32px ${C.primary}40` } as React.CSSProperties,
+  unlockTitle: { fontSize: 22, fontWeight: 800, marginBottom: 8, letterSpacing: -0.3 } as React.CSSProperties,
+  unlockBody: { fontSize: 15, opacity: 0.95, marginBottom: 18, lineHeight: 1.55, maxWidth: 600, margin: "0 auto 18px" } as React.CSSProperties,
+  unlockBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: C.primary, padding: "14px 28px", borderRadius: 10, fontWeight: 800, fontSize: 15, textDecoration: "none" } as React.CSSProperties,
+  // ─── Final CTA
+  finalCta: { background: `linear-gradient(135deg, ${C.card} 0%, ${C.cardElev} 100%)`, border: `2px solid ${C.primary}`, borderRadius: 20, padding: 44, marginTop: 44, textAlign: "center" as const, boxShadow: `0 12px 48px ${C.primary}20` } as React.CSSProperties,
+  finalH: { fontSize: 32, fontWeight: 900, marginBottom: 14, letterSpacing: -0.7, lineHeight: 1.15 } as React.CSSProperties,
+  finalSub: { fontSize: 16, color: C.fg2, marginBottom: 26, lineHeight: 1.6, maxWidth: 560, margin: "0 auto 26px" } as React.CSSProperties,
+  finalBtn: { display: "inline-flex", alignItems: "center", gap: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.magenta})`, color: "#fff", padding: "16px 36px", borderRadius: 12, fontWeight: 800, fontSize: 16, textDecoration: "none", boxShadow: `0 8px 32px ${C.primary}55` } as React.CSSProperties,
+  footer: { marginTop: 48, fontSize: 12, color: C.muted, textAlign: "center" as const, lineHeight: 1.6, paddingTop: 24, borderTop: `1px solid ${C.border}` } as React.CSSProperties,
 };
 
 function scoreColor(s: number): string {
@@ -113,6 +155,16 @@ function scoreColor(s: number): string {
   if (s >= 55) return C.cyan;
   if (s >= 40) return C.orange;
   return C.red;
+}
+
+function aiStatusLabel(s: LeadReport["aiVisibility"]["status"]): { label: string; color: string; emoji: string } {
+  switch (s) {
+    case "strong":   return { label: "ВИДИМЫ", color: C.green, emoji: "🟢" };
+    case "moderate": return { label: "ЧАСТИЧНО ВИДИМЫ", color: C.cyan, emoji: "🔵" };
+    case "weak":     return { label: "СЛАБО ВИДИМЫ", color: C.orange, emoji: "🟡" };
+    case "invisible":
+    default:         return { label: "НЕВИДИМЫ", color: C.red, emoji: "🔴" };
+  }
 }
 
 export default async function PublicReportPage({ params }: PageProps) {
@@ -134,170 +186,357 @@ export default async function PublicReportPage({ params }: PageProps) {
   if (!rows.length) notFound();
   const { domain, company_name, data: report, generated_at } = rows[0];
 
-  const titleName = company_name ?? domain;
+  // Бренд: приоритет brandName из отчёта (берётся со страницы) → CSV → домен.
+  const titleName = report.brandName || company_name || domain;
   const overallColor = scoreColor(report.overallScore);
   const lag = report.nicheAverage - report.overallScore;
   const dateStr = new Date(generated_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
-  // Видимое — первые N, остальное blurred.
-  const visibleRecs = report.recommendations.slice(0, 2);
-  const hiddenRecs = report.recommendations.slice(2);
-  const visibleCompetitors = report.competitors.slice(0, 1);
-  const hiddenCompetitors = report.competitors.slice(1);
+  // Видимое vs blur — теперь больше открыто.
+  const visibleRecs = report.recommendations.slice(0, 3);
+  const hiddenRecs = report.recommendations.slice(3);
+  const visibleCompetitors = report.competitors.slice(0, 2);
+  const hiddenCompetitors = report.competitors.slice(2);
+  // AI Visibility queries: 2 видны, остальные blurred
+  const aiVis = report.aiVisibility;
+  const visibleQueries = aiVis?.sampleQueries?.slice(0, 2) ?? [];
+  const hiddenQueries = aiVis?.sampleQueries?.slice(2) ?? [];
+
+  const aiStatus = aiStatusLabel(aiVis?.status ?? "invisible");
+  const aiScore = aiVis?.score ?? 0;
+  const aiColor = scoreColor(aiScore);
 
   return (
     <div style={S.page}>
+      <div style={S.bgGlow} aria-hidden />
       <div style={S.container}>
-        <Link href="/" style={{ ...S.brand, textDecoration: "none" }}>
-          <Sparkles size={18} /> MarketRadar24
-        </Link>
 
-        <h1 style={S.h1}>Экспресс-аудит {titleName}</h1>
-        <div style={S.h1Sub}>{domain} · сформирован {dateStr}</div>
+        {/* ─── Header с лого ─── */}
+        <header style={S.header}>
+          <Link href="/" style={S.brand}>
+            <MarketRadarLogo size={44} animated={false} />
+            <div>
+              <div style={S.brandName}>MarketRadar<span style={{ color: C.cyan }}>24</span></div>
+              <div style={S.brandSub}>Конкурентная разведка</div>
+            </div>
+          </Link>
+          <Link href="/register" style={S.headerCta}>
+            Войти на платформу <ChevronRight size={14} />
+          </Link>
+        </header>
 
-        <div style={S.scoreCard}>
-          <div>
-            <div style={S.scoreLabel}>Ваш score</div>
-            <div style={S.scoreBig(overallColor)}>{report.overallScore}<span style={{ fontSize: 22, color: C.muted, fontWeight: 600 }}>/100</span></div>
-          </div>
-          <div>
-            <div style={S.compareGrid}>
-              <div>
-                <div style={S.scoreLabel}>Среднее по нише</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: C.fg }}>{report.nicheAverage}/100</div>
-              </div>
-              <div>
-                <div style={S.scoreLabel}>Отставание</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: lag > 0 ? C.red : C.green }}>{lag > 0 ? `−${lag}` : `+${Math.abs(lag)}`}</div>
+        {/* ─── Hero ─── */}
+        <div style={S.heroBadge}>
+          <Sparkles size={14} /> Экспресс-аудит сайта · {dateStr}
+        </div>
+        <h1 style={S.h1}>{titleName}</h1>
+        <div style={S.domainLine}>{domain}</div>
+
+        {/* ─── Score Hero ─── */}
+        <div style={S.scoreHero}>
+          <div style={S.scoreHeroGrid}>
+            <div>
+              <div style={S.scoreLabel}>Общий Score</div>
+              <div style={{ display: "flex", alignItems: "baseline" }}>
+                <span style={S.scoreBig(overallColor)}>{report.overallScore}</span>
+                <span style={S.scoreSlash}>/100</span>
               </div>
             </div>
-            <div style={{ marginTop: 16, fontSize: 14, color: C.fg2, lineHeight: 1.55 }}>
-              {report.oneLineSummary}
+            <div>
+              <div style={S.compareGrid}>
+                <div>
+                  <div style={S.scoreLabel}>Среднее по нише</div>
+                  <div style={S.compareNum(C.fg)}>{report.nicheAverage}<span style={{ ...S.scoreSlash, fontSize: 18 }}>/100</span></div>
+                </div>
+                <div>
+                  <div style={S.scoreLabel}>Отставание</div>
+                  <div style={S.compareNum(lag > 0 ? C.red : C.green)}>
+                    {lag > 0 ? `−${lag}` : `+${Math.abs(lag)}`}
+                    <span style={{ ...S.scoreSlash, fontSize: 18 }}>баллов</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+          <div style={S.summary}>{report.oneLineSummary}</div>
         </div>
 
+        {/* ─── 6 категорий ─── */}
         <div style={S.catGrid}>
           {([
-            ["seo", "SEO"],
-            ["social", "Соцсети"],
-            ["content", "Контент"],
-            ["hrBrand", "HR-бренд"],
-            ["technical", "Технологии"],
-          ] as const).map(([key, label]) => (
-            <div key={key} style={S.catCard}>
-              <div style={S.catLabel}>{label}</div>
-              <div style={S.catScore(scoreColor(report.scores[key]))}>{report.scores[key]}</div>
+            ["seo",          "SEO",          C.cyan],
+            ["aiVisibility", "AI-нейросети", C.magenta],
+            ["social",       "Соцсети",      C.cyan],
+            ["content",      "Контент",      C.violet],
+            ["hrBrand",      "HR-бренд",     C.orange],
+            ["technical",    "Технологии",   C.green],
+          ] as const).map(([key, label, color]) => {
+            const score = (report.scores as Record<string, number>)[key] ?? 0;
+            const col = scoreColor(score);
+            void color;
+            return (
+              <div key={key} style={S.catCard(col)}>
+                <div style={S.catLabel}>{label}</div>
+                <div>
+                  <span style={S.catScoreBig(col)}>{score}</span>
+                  <span style={S.catScoreOf}>/100</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ─── AI Visibility — главный продающий блок ─── */}
+        {aiVis && (
+          <div style={S.sectionWrap}>
+            <div style={S.sectionEyebrow}>⚡ ГЛАВНАЯ ВОЗМОЖНОСТЬ 2026</div>
+            <h2 style={S.sectionTitle}>
+              <Bot size={32} color={C.magenta} />
+              Видимость в нейросетях
+            </h2>
+            <div style={S.aiVisCard(aiColor)}>
+              <div style={S.aiVisScore}>
+                <div>
+                  <div style={S.scoreLabel}>AI-видимость</div>
+                  <div style={{ display: "flex", alignItems: "baseline" }}>
+                    <span style={S.aiVisBig(aiColor)}>{aiScore}</span>
+                    <span style={S.scoreSlash}>/100</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={S.aiVisStatus(aiColor)}>{aiStatus.emoji} {aiStatus.label}</div>
+                  <div style={{ fontSize: 15, color: C.fg2, lineHeight: 1.55 }}>
+                    К концу 2026 года <b style={{ color: C.fg }}>до 40% B2B-решений</b> принимаются с участием ChatGPT, Claude, Yandex Neuro и GigaChat.
+                    {aiScore < 30 && (
+                      <> Ваши клиенты <b style={{ color: aiColor }}>не услышат о вас</b> через AI-ассистентов.</>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Что блокирует попадание */}
+              {aiVis.blockers && aiVis.blockers.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8, marginBottom: 12 }}>
+                    Что мешает попадать в выдачу AI:
+                  </div>
+                  <div style={S.aiVisBlockers}>
+                    {aiVis.blockers.map((b, i) => (
+                      <div key={i} style={S.blockerCard}>
+                        <X size={18} color={C.red} style={{ flexShrink: 0, marginTop: 2 }} />
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.fg, marginBottom: 4 }}>{b.title}</div>
+                          <div style={{ fontSize: 13, color: C.fg2, lineHeight: 1.55 }}>{b.description}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Примеры запросов */}
+              {visibleQueries.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+                    Запросы из вашей ниши:
+                  </div>
+                  <div style={S.queryGrid}>
+                    {visibleQueries.map((q, i) => (
+                      <div key={i} style={S.queryRow}>
+                        <div style={{ fontSize: 14, color: C.fg, fontWeight: 600, flex: 1 }}>
+                          «{q.query}»
+                        </div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: q.youArePresent ? C.green : C.red }}>
+                          {q.youArePresent ? "✓ упоминают" : "✗ не упоминают"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {hiddenQueries.length > 0 && (
+                    <div style={S.blurOverlay}>
+                      <div style={{ ...S.recBlur, ...S.queryGrid, marginTop: 10 }}>
+                        {hiddenQueries.map((q, i) => (
+                          <div key={i} style={S.queryRow}>
+                            <div style={{ fontSize: 14, color: C.fg, fontWeight: 600, flex: 1 }}>«{q.query}»</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.red }}>✗ не упоминают</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ ...S.unlockBanner, padding: "20px 26px", marginTop: 10 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>
+                          <Lock size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
+                          Ещё {hiddenQueries.length} запросов в полном GEO-аудите
+                        </div>
+                        <div style={{ fontSize: 13, opacity: 0.95, marginBottom: 14 }}>
+                          Платформа MarketRadar24 проверяет реальные упоминания вашего бренда в ChatGPT, Claude, YandexGPT, Gemini и Алисе/Нейро через Keys.so. Плюс готовый план — как туда попасть.
+                        </div>
+                        <Link href="/register" style={{ ...S.unlockBtn, padding: "10px 22px", fontSize: 13 }}>
+                          Получить полный аудит <ChevronRight size={14} />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Топ проблем ─── */}
+        <div style={S.sectionWrap}>
+          <div style={S.sectionEyebrow}>🩹 ЧТО БОЛИТ</div>
+          <h2 style={S.sectionTitle}>
+            <AlertTriangle size={28} color={C.red} />
+            Что прямо сейчас теряете
+          </h2>
+          {report.topProblems.map((p, i) => (
+            <div key={i} style={S.problem}>
+              <div style={S.itemTitle}>{p.title}</div>
+              <div style={S.itemDesc}>{p.description}</div>
             </div>
           ))}
         </div>
 
-        <h2 style={S.sectionTitle}><AlertTriangle size={20} color={C.red} /> Что прямо сейчас теряете</h2>
-        {report.topProblems.map((p, i) => (
-          <div key={i} style={S.problem}>
-            <div style={S.itemTitle}>{p.title}</div>
-            <div style={S.itemDesc}>{p.description}</div>
-          </div>
-        ))}
-
-        <h2 style={S.sectionTitle}><TrendingUp size={20} color={C.green} /> Что можно отжать</h2>
-        {report.opportunities.map((o, i) => (
-          <div key={i} style={S.opportunity}>
-            <div style={S.itemTitle}>{o.title}</div>
-            <div style={S.itemDesc}>{o.description}</div>
-            <div style={S.itemMeta}>↑ {o.potential}</div>
-          </div>
-        ))}
-
-        <h2 style={S.sectionTitle}><Target size={20} color={C.cyan} /> Рекомендации с приоритетом</h2>
-        {visibleRecs.map((r, i) => (
-          <div key={i} style={S.rec}>
-            <div>
-              <div style={S.itemTitle}>{r.title}</div>
-              <div style={S.itemDesc}>{r.description}</div>
+        {/* ─── Возможности ─── */}
+        <div style={S.sectionWrap}>
+          <div style={S.sectionEyebrow}>💰 ЧТО МОЖНО ОТЖАТЬ</div>
+          <h2 style={S.sectionTitle}>
+            <TrendingUp size={28} color={C.green} />
+            Возможности роста
+          </h2>
+          {report.opportunities.map((o, i) => (
+            <div key={i} style={S.opportunity}>
+              <div style={S.itemTitle}>{o.title}</div>
+              <div style={S.itemDesc}>{o.description}</div>
+              <div>
+                <span style={S.potentialBadge(C.green)}>
+                  <TrendingUp size={13} /> {o.potential}
+                </span>
+                {o.moneyEstimate && (
+                  <span style={S.moneyBadge}>
+                    <Zap size={13} /> {o.moneyEstimate}
+                  </span>
+                )}
+              </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-              <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${C.cyan}22`, color: C.cyan, fontWeight: 700 }}>impact: {r.impact}</span>
-              <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${C.muted}22`, color: C.muted, fontWeight: 700 }}>effort: {r.effort}</span>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
-        {hiddenRecs.length > 0 && (
-          <div style={S.blurOverlay}>
-            <div style={S.recBlur}>
-              {hiddenRecs.map((r, i) => (
-                <div key={i} style={S.rec}>
-                  <div>
-                    <div style={S.itemTitle}>{r.title}</div>
-                    <div style={S.itemDesc}>{r.description}</div>
+        {/* ─── Рекомендации ─── */}
+        <div style={S.sectionWrap}>
+          <div style={S.sectionEyebrow}>🎯 ПЛАН ДЕЙСТВИЙ</div>
+          <h2 style={S.sectionTitle}>
+            <Target size={28} color={C.cyan} />
+            Рекомендации с приоритетом
+          </h2>
+          {visibleRecs.map((r, i) => (
+            <div key={i} style={S.rec}>
+              <div>
+                <div style={S.itemTitle}>{r.title}</div>
+                <div style={S.itemDesc}>{r.description}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                <span style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, background: `${C.cyan}22`, color: C.cyan, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" as const }}>impact: {r.impact}</span>
+                <span style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, background: `${C.muted}22`, color: C.muted, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" as const }}>effort: {r.effort}</span>
+              </div>
+            </div>
+          ))}
+
+          {hiddenRecs.length > 0 && (
+            <div style={S.blurOverlay}>
+              <div style={S.recBlur}>
+                {hiddenRecs.map((r, i) => (
+                  <div key={i} style={S.rec}>
+                    <div>
+                      <div style={S.itemTitle}>{r.title}</div>
+                      <div style={S.itemDesc}>{r.description}</div>
+                    </div>
+                    <div />
                   </div>
-                  <div />
+                ))}
+              </div>
+              <div style={S.unlockBanner}>
+                <div style={S.unlockTitle}>🔒 Ещё {hiddenRecs.length} {hiddenRecs.length === 1 ? "рекомендация" : "рекомендации"} в полном отчёте</div>
+                <div style={S.unlockBody}>
+                  В платформе — детальный план роста с 30+ пунктами, конкретными исполнителями, сроками и сметой. Плюс анализ конкурентов, ЦА, СММ-стратегия, AI-генерация контента. <b>7 дней бесплатно</b>.
                 </div>
-              ))}
-            </div>
-            <div style={S.unlockBanner}>
-              <div style={S.unlockTitle}>🔒 Ещё {hiddenRecs.length} {hiddenRecs.length === 1 ? "рекомендация" : "рекомендации"} в полном отчёте</div>
-              <div style={S.unlockBody}>
-                В платформе MarketRadar24 — детальный план роста с 30+ рекомендациями, конкретными исполнителями и сроками. Плюс анализ конкурентов, ЦА, СММ-стратегия, генерация контента — за 29 ₽ в месяц на пробном тарифе.
+                <Link href="/register" style={S.unlockBtn}>
+                  Получить полный план <ChevronRight size={16} />
+                </Link>
               </div>
-              <Link href="/register" style={S.unlockBtn}>
-                Получить полный отчёт <ChevronRight size={16} />
-              </Link>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <h2 style={S.sectionTitle}><Award size={20} color={C.orange} /> Ваши конкуренты</h2>
-        {visibleCompetitors.map((c, i) => (
-          <div key={i} style={S.problem}>
-            <div style={S.itemTitle}>{c.name} <span style={{ fontSize: 12, color: C.muted, fontWeight: 400 }}>· {c.domain}</span></div>
-            <div style={S.itemDesc}>{c.advantage}</div>
-          </div>
-        ))}
-        {hiddenCompetitors.length > 0 && (
-          <div style={S.blurOverlay}>
-            <div style={S.recBlur}>
-              {hiddenCompetitors.map((c, i) => (
-                <div key={i} style={S.problem}>
-                  <div style={S.itemTitle}>{c.name} <span style={{ fontSize: 12, color: C.muted, fontWeight: 400 }}>· {c.domain}</span></div>
-                  <div style={S.itemDesc}>{c.advantage}</div>
+        {/* ─── Конкуренты ─── */}
+        <div style={S.sectionWrap}>
+          <div style={S.sectionEyebrow}>⚔️ КТО ОБХОДИТ</div>
+          <h2 style={S.sectionTitle}>
+            <Award size={28} color={C.orange} />
+            Ваши конкуренты
+          </h2>
+          {visibleCompetitors.map((c, i) => (
+            <div key={i} style={{ ...S.problem, borderLeftColor: C.orange }}>
+              <div style={S.itemTitle}>
+                {c.name} <span style={{ fontSize: 13, color: C.muted, fontWeight: 500, fontFamily: "ui-monospace, monospace", marginLeft: 6 }}>{c.domain}</span>
+              </div>
+              <div style={S.itemDesc}>{c.advantage}</div>
+            </div>
+          ))}
+          {hiddenCompetitors.length > 0 && (
+            <div style={S.blurOverlay}>
+              <div style={S.recBlur}>
+                {hiddenCompetitors.map((c, i) => (
+                  <div key={i} style={{ ...S.problem, borderLeftColor: C.orange }}>
+                    <div style={S.itemTitle}>
+                      {c.name} <span style={{ fontSize: 13, color: C.muted, fontWeight: 500, fontFamily: "ui-monospace, monospace", marginLeft: 6 }}>{c.domain}</span>
+                    </div>
+                    <div style={S.itemDesc}>{c.advantage}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ ...S.unlockBanner, background: `linear-gradient(135deg, ${C.orange}, ${C.red})` }}>
+                <div style={S.unlockTitle}>
+                  <Eye size={18} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
+                  +{hiddenCompetitors.length} {hiddenCompetitors.length === 1 ? "конкурент" : "конкурентов"} в полном анализе
                 </div>
-              ))}
-            </div>
-            <div style={{ ...S.unlockBanner, background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
-              <div style={S.unlockTitle}>
-                <Lock size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
-                + {hiddenCompetitors.length} {hiddenCompetitors.length === 1 ? "конкурент" : "конкурентов"} в полном анализе
+                <div style={S.unlockBody}>
+                  Полный разбор: SEO-позиции, цены, реклама, отзывы на картах, активность в соцсетях, HR-бренд каждого конкурента.
+                </div>
+                <Link href="/register" style={S.unlockBtn}>
+                  Увидеть всех <ChevronRight size={16} />
+                </Link>
               </div>
-              <div style={S.unlockBody}>
-                Полный список с разбором того, что у каждого конкурента работает лучше: SEO-позиции, отзывы на картах, активность в соцсетях, HR-бренд.
-              </div>
-              <Link href="/register" style={S.unlockBtn}>
-                Увидеть всех <ChevronRight size={16} />
-              </Link>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
+        {/* ─── Финальный CTA ─── */}
         <div style={S.finalCta}>
-          <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 10, color: C.fg }}>
+          <div style={{ marginBottom: 18 }}>
+            <MarketRadarLogo size={56} animated={false} />
+          </div>
+          <div style={S.finalH}>
             Готовы превратить отставание в рост?
           </div>
-          <div style={{ fontSize: 15, color: C.fg2, marginBottom: 22, lineHeight: 1.6, maxWidth: 520, margin: "0 auto 22px" }}>
-            MarketRadar24 — это полный конкурентный анализ, портрет ЦА, СММ-стратегия, AI-генерация постов и план контента. <b style={{ color: C.fg }}>7 дней бесплатно</b>, без карты на старте.
+          <div style={S.finalSub}>
+            <b>MarketRadar24</b> — полный конкурентный анализ, портрет ЦА, СММ-стратегия, видимость в нейросетях, AI-генерация постов, рилсов и лендингов.
+            <br />
+            <b style={{ color: C.green }}>7 дней бесплатно</b>, без карты на старте.
           </div>
-          <Link href="/register" style={{ ...S.unlockBtn, padding: "14px 32px", fontSize: 15 }}>
-            Начать бесплатно <ChevronRight size={18} />
+          <Link href="/register" style={S.finalBtn}>
+            Начать бесплатно <ChevronRight size={20} />
           </Link>
-          <div style={{ marginTop: 16, fontSize: 12, color: C.muted }}>
-            Уже на платформе? <Link href="/" style={{ color: C.primary, textDecoration: "none" }}>Войти</Link>
+          <div style={{ marginTop: 18, fontSize: 13, color: C.muted }}>
+            Уже на платформе? <Link href="/" style={{ color: C.cyan, textDecoration: "none", fontWeight: 600 }}>Войти</Link>
           </div>
         </div>
 
-        <div style={{ marginTop: 40, fontSize: 11, color: C.muted, textAlign: "center" }}>
-          Отчёт сформирован автоматически на основе публичных данных сайта {domain} и AI-анализа.<br />
-          Это короткая версия — полный анализ требует регистрации на marketradar24.ru
+        <div style={S.footer}>
+          Отчёт сформирован автоматически на основе публичных данных сайта {domain} и AI-анализа.
+          <br />
+          Это короткая версия — полный анализ доступен на <Link href="/" style={{ color: C.cyan, textDecoration: "none" }}>marketradar24.ru</Link>
         </div>
       </div>
     </div>

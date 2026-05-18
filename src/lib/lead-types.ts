@@ -62,17 +62,24 @@ export interface Lead {
 
 /** Структура AI-отчёта, хранится в `lead_reports.data` как JSONB. */
 export interface LeadReport {
+  /** Название бренда — берём СТРОГО из <title>/<h1> сайта, без транслитерации.
+   *  Если на сайте написано "RuDenta" — здесь "RuDenta", не "Руденталь". */
+  brandName: string;
+  /** Сырой <title> страницы — на случай если brandName странный */
+  siteTitle: string;
+
   /** Общий Score 0–100 (overall) */
   overallScore: number;
   /** Среднее по нише (из ниши/публичных данных) — для контраста */
   nicheAverage: number;
-  /** 5 баллов по категориям 0-100 */
+  /** 6 баллов по категориям 0-100. aiVisibility — отдельная важная категория. */
   scores: {
     seo: number;
     social: number;
     content: number;
     hrBrand: number;
     technical: number;
+    aiVisibility: number;
   };
   /** Топ-3 критичных проблемы (видны бесплатно) */
   topProblems: Array<{
@@ -85,20 +92,38 @@ export interface LeadReport {
     title: string;
     description: string;
     potential: string; // "+30% трафика за 2 мес"
+    moneyEstimate?: string; // "от 150 тыс ₽/мес" — если AI смог посчитать
   }>;
-  /** 5 рекомендаций — первые 2 видны, остальные blurred с CTA */
+  /** 5 рекомендаций — первые 3 видны, последние 2 blurred с CTA */
   recommendations: Array<{
     title: string;
     description: string;
     effort: "low" | "medium" | "high";
     impact: "low" | "medium" | "high";
   }>;
-  /** Конкуренты — первые 1-2 видны, остальные blurred */
+  /** Конкуренты — первые 2 видны, остальные blurred */
   competitors: Array<{
     name: string;
     domain: string;
     advantage: string; // что у них лучше
   }>;
+  /** Видимость в AI-ассистентах — отдельный блок про GEO/llms.txt/schema.
+   *  Это «крючок» — обычно у компаний score 0-30, что шокирует. */
+  aiVisibility: {
+    score: number;            // 0-100, обычно 0-40 у среднего сайта без работы
+    status: "invisible" | "weak" | "moderate" | "strong";
+    /** Что мешает находиться в нейросетях (3-4 пункта, видимы) */
+    blockers: Array<{
+      title: string;          // "Нет llms.txt"
+      description: string;    // "Файл-инструкция для AI-краулеров не настроен..."
+    }>;
+    /** Примеры запросов из ниши + упоминается ли клиент. Первые 2 видны, остальные blurred. */
+    sampleQueries: Array<{
+      query: string;          // "лучшая стоматология в москве с гарантией"
+      youArePresent: boolean; // упоминается ли клиент в выдаче AI
+      note?: string;          // короткая ремарка («упоминают сайты-агрегаторы вместо вашего»)
+    }>;
+  };
   /** Резюме одной строкой для email-превью */
   oneLineSummary: string;
   /** Когда отчёт устареет (~30 дней с даты генерации) */

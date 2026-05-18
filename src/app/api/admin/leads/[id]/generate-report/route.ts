@@ -44,52 +44,61 @@ function buildPrompt(scraped: {
   h1: string[];
   h2: string[];
   bodyText: string;
+  hasSchema: boolean;
+  hasLlmsTxt: boolean;
 }, domain: string, hintNiche: string | null) {
-  return `Ты опытный SEO/маркетинг-аудитор. Дан сайт ${domain}.
+  return `Ты опытный SEO/маркетинг/AI-аудитор. Дан сайт ${domain}.
 
-Тебе ВАЖНО создать «экспресс-отчёт», который покажет владельцу 1) что у них есть проблемы, и 2) что мы (MarketRadar24) знаем гораздо больше — чтобы он захотел купить полный анализ.
+ЦЕЛЬ: создать «экспресс-отчёт» который покажет владельцу 3-5 серьёзных проблем + видимость в нейросетях, чтобы он захотел купить полный анализ MarketRadar24.
 
 ВХОДНЫЕ ДАННЫЕ САЙТА:
-- Title: ${scraped.title || "(не задан)"}
-- Meta-description: ${scraped.metaDescription || "(не задан)"}
+- <title>: ${scraped.title || "(не задан)"}
+- <meta description>: ${scraped.metaDescription || "(не задан)"}
 - H1: ${scraped.h1.slice(0, 5).join(" | ") || "(нет H1)"}
 - H2: ${scraped.h2.join(" | ") || "(нет H2)"}
-- Ниша (если известна): ${hintNiche ?? "определи сам по контенту"}
-- Текст страницы (фрагмент): ${scraped.bodyText.slice(0, 4000)}
+- Ниша (если указана): ${hintNiche ?? "определи сам"}
+- Schema.org разметка: ${scraped.hasSchema ? "есть" : "НЕТ"}
+- llms.txt (инструкция для AI-краулеров): ${scraped.hasLlmsTxt ? "есть" : "НЕТ"}
+- Контент страницы: ${scraped.bodyText.slice(0, 4000)}
 
-ЗАДАЧА — верни СТРОГО валидный JSON (без markdown-обёртки) по схеме:
+Верни СТРОГО валидный JSON (без markdown) по схеме:
 {
-  "overallScore": number 0-100,                // общая оценка сайта
-  "nicheAverage": number 0-100,                // среднее по нише (твоя оценка)
+  "brandName": string,                 // СТРОГО из <title> или <h1>, как написано на сайте.
+                                       // НЕ транслитерируй: "RuDenta" остаётся "RuDenta", не "Руденталь".
+                                       // Если в title есть приписка "| Услуги" — выкинь её, оставь только бренд.
+  "siteTitle": string,                 // сырой title как пришёл
+  "overallScore": number 0-100,
+  "nicheAverage": number 0-100,
   "scores": {
     "seo": number 0-100,
     "social": number 0-100,
     "content": number 0-100,
     "hrBrand": number 0-100,
-    "technical": number 0-100
+    "technical": number 0-100,
+    "aiVisibility": number 0-100       // видимость в нейросетях
   },
-  "topProblems": [                             // 3 ОСТРЫЕ проблемы (что прямо сейчас теряете)
-    { "title": "...", "description": "1-2 предложения", "severity": "high" | "medium" }
-  ],
-  "opportunities": [                           // 3 ВОЗМОЖНОСТИ (что можно отжать)
-    { "title": "...", "description": "1-2 предложения", "potential": "конкретная цифра, например '+30% трафика за 2 мес'" }
-  ],
-  "recommendations": [                         // 5 РЕКОМЕНДАЦИЙ с приоритетом
-    { "title": "...", "description": "2-3 предложения", "effort": "low"|"medium"|"high", "impact": "low"|"medium"|"high" }
-  ],
-  "competitors": [                             // 3-5 КОНКУРЕНТОВ по нише
-    { "name": "...", "domain": "...", "advantage": "что у них лучше, в 1 предложении" }
-  ],
-  "oneLineSummary": "1 предложение для email-превью, цепляющее"
+  "topProblems": [{ "title": "...", "description": "1-2 предл.", "severity": "high"|"medium" }],
+  "opportunities": [{ "title": "...", "description": "...", "potential": "+X% за Y мес", "moneyEstimate": "от Z тыс ₽/мес" }],
+  "recommendations": [{ "title": "...", "description": "2-3 предл.", "effort": "low"|"medium"|"high", "impact": "low"|"medium"|"high" }],
+  "competitors": [{ "name": "...", "domain": "...", "advantage": "..." }],
+  "aiVisibility": {
+    "score": number 0-100,
+    "status": "invisible" | "weak" | "moderate" | "strong",
+    "blockers": [{ "title": "Нет llms.txt", "description": "..." }],
+    "sampleQueries": [{ "query": "...", "youArePresent": false, "note": "..." }]
+  },
+  "oneLineSummary": "1 цепляющее предложение"
 }
 
-ВАЖНО:
-- Все тексты на русском.
-- overallScore должен быть ниже nicheAverage на 5-25 баллов — чтобы было «к чему стремиться».
-- topProblems должны звучать конкретно и больно (например, «Schema.org разметки нет — теряете звёздочки в Яндексе»).
-- В recommendations первые 2 пункта пиши понятно для не-эксперта, остальные 3 — более экспертно, чтобы было видно «нам есть что ещё рассказать».
-- competitors — реальные конкуренты по нише, домены реальные (если знаешь), иначе придумай правдоподобные.
-- generatedAt не возвращай, я сам поставлю.
+КРИТИЧНО:
+- brandName ровно как на сайте, без перевода/транслитерации. "СМ-Стоматология | Сеть клиник" → brandName = "СМ-Стоматология".
+- overallScore на 10-25 баллов ниже nicheAverage.
+- aiVisibility.score обычно 5-35 у среднего сайта без GEO-работы. У большинства нет llms.txt и плохая schema.org → невидимость в нейросетях.
+- aiVisibility.blockers — конкретные технические: "Нет llms.txt", "Schema.org только Organization, нет MedicalClinic/LocalBusiness", "FAQ-секция не размечена", "Нет E-E-A-T сигналов".
+- sampleQueries — реальные запросы из ниши, youArePresent почти всегда false.
+- topProblems — конкретные и БОЛЕЗНЕННЫЕ.
+- recommendations: первые 3 понятные владельцу, последние 2 экспертные.
+- Весь текст на русском, лаконично.
 
 JSON и только JSON.`;
 }
@@ -143,19 +152,32 @@ export async function POST(_req: Request, { params }: Params) {
       h2?: string[];
       bodyText?: string;
       textContent?: string;
+      hasSchemaMarkup?: boolean;
     };
+    // Проверяем llms.txt — отдельный файл в корне сайта, не в HTML.
+    let hasLlmsTxt = false;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 1500);
+      const r = await fetch(`https://${lead.domain}/llms.txt`, { signal: ctrl.signal, redirect: "follow" });
+      clearTimeout(t);
+      hasLlmsTxt = r.ok;
+    } catch { /* host недоступен или нет llms.txt */ }
+
     const prompt = buildPrompt({
       title: sc.title ?? "",
       metaDescription: sc.metaDescription ?? "",
       h1: sc.h1 ?? [],
       h2: sc.h2 ?? [],
       bodyText: (sc.bodyText ?? sc.textContent ?? "").slice(0, 5000),
+      hasSchema: !!sc.hasSchemaMarkup,
+      hasLlmsTxt,
     }, lead.domain, lead.niche);
 
     // Шаг 2 — Haiku.
     const { text, error } = await safeAnthropicCreate({
       model: REPORT_MODEL,
-      max_tokens: 3500,
+      max_tokens: 5000,
       messages: [{ role: "user", content: prompt }],
     });
     if (!text) {
