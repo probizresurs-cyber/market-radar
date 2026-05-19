@@ -89,12 +89,17 @@ export interface LeadReport {
     description: string;
     severity: "high" | "medium";
   }>;
-  /** Топ-3 упущенные возможности (видны бесплатно) */
+  /** Топ-3 упущенные возможности (видны бесплатно).
+   *  potential — качественная характеристика эффекта, БЕЗ конкретных цифр
+   *  («рост видимости в Алисе», а не «+30% трафика»). Цифры — источник
+   *  галлюцинаций AI, мы их явно запретили в промпте.
+   *  moneyEstimate — оставлен в типе как опциональный для совместимости со
+   *  старыми отчётами в БД, но новые отчёты не должны его содержать. */
   opportunities: Array<{
     title: string;
     description: string;
-    potential: string; // "+30% трафика за 2 мес"
-    moneyEstimate?: string; // "от 150 тыс ₽/мес" — если AI смог посчитать
+    potential: string;
+    moneyEstimate?: string;
   }>;
   /** 5 рекомендаций — первые 3 видны, последние 2 blurred с CTA */
   recommendations: Array<{

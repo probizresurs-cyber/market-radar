@@ -50,60 +50,74 @@ function buildPrompt(scraped: {
   hasSchema: boolean;
   hasLlmsTxt: boolean;
 }, domain: string, hintNiche: string | null) {
+  // См. подробный комментарий в generate-batch/route.ts — anti-hallucination
+  // промпт. Тут та же логика «не знаешь → не выдумывай».
   return `Ты опытный SEO/маркетинг/AI-аудитор. Дан сайт ${domain}.
 
-ЦЕЛЬ: создать «экспресс-отчёт» который покажет владельцу 3-5 серьёзных проблем + видимость в нейросетях, чтобы он захотел купить полный анализ MarketRadar24.
+ЦЕЛЬ: создать честный экспресс-отчёт. Без галлюцинаций, без выдуманных цифр.
 
-ВХОДНЫЕ ДАННЫЕ САЙТА:
+═══ ВХОДНЫЕ ДАННЫЕ (это ВСЁ что у тебя есть) ═══
 - <title>: ${scraped.title || "(не задан)"}
 - <meta description>: ${scraped.metaDescription || "(не задан)"}
 - H1: ${scraped.h1.slice(0, 5).join(" | ") || "(нет H1)"}
 - H2: ${scraped.h2.join(" | ") || "(нет H2)"}
-- Ниша (если указана): ${hintNiche ?? "определи сам"}
-- Schema.org разметка: ${scraped.hasSchema ? "есть" : "НЕТ"}
-- llms.txt (инструкция для AI-краулеров): ${scraped.hasLlmsTxt ? "есть" : "НЕТ"}
+- Ниша: ${hintNiche ?? "определи сам"}
+- Schema.org: ${scraped.hasSchema ? "есть" : "НЕТ"}
+- llms.txt: ${scraped.hasLlmsTxt ? "есть" : "НЕТ"}
 - Контент страницы: ${scraped.bodyText.slice(0, 4000)}
 
-Верни СТРОГО валидный JSON (без markdown) по схеме:
+═══ АНТИ-ГАЛЛЮЦИНАЦИИ ═══
+ЗАПРЕЩЕНО выдумывать факты которых нет:
+- НЕ выдумывай статистику ("теряете 30% трафика", "средний CTR в нише")
+- НЕ выдумывай конкретные деньги
+- НЕ выдумывай конкурентов если не знаешь реальные домены в нише — лучше пустой список
+- НЕ выдумывай рейтинги Яндекс.Карт / Google если их нет на странице
+- НЕ выдумывай число отзывов, сотрудников, оборот
+- Качественная оценка ниши («есть потенциал роста») — ок. Конкретные цифры — НЕТ.
+
+═══ JSON ВЫХОД ═══
 {
-  "brandName": string,                 // СТРОГО из <title> или <h1>, как написано на сайте.
-                                       // НЕ транслитерируй: "RuDenta" остаётся "RuDenta", не "Руденталь".
-                                       // Если в title есть приписка "| Услуги" — выкинь её, оставь только бренд.
-  "siteTitle": string,                 // сырой title как пришёл
-  "overallScore": number 0-100,
-  "nicheAverage": number 0-100,
+  "brandName": string,                 // СТРОГО со страницы, без транслитерации.
+  "siteTitle": string,
+  "overallScore": number 0-100,        // Экспертная оценка по входным данным.
+  "nicheAverage": number 0-100,        // Качественная оценка ср. по нише (AI-гипотеза).
+                                       // Должна быть выше overallScore на 8-20 баллов.
   "scores": {
-    "seo": number 0-100,
-    "social": number 0-100,
-    "content": number 0-100,
-    "hrBrand": number 0-100,
-    "technical": number 0-100,
-    "aiVisibility": number 0-100       // видимость в нейросетях
+    "seo": number 0-100, "social": number 0-100, "content": number 0-100,
+    "hrBrand": number 0-100, "technical": number 0-100, "aiVisibility": number 0-100
   },
-  "topProblems": [{ "title": "...", "description": "1-2 предл.", "severity": "high"|"medium" }],
-  "opportunities": [{ "title": "...", "description": "...", "potential": "+X% за Y мес", "moneyEstimate": "от Z тыс ₽/мес" }],
-  "recommendations": [{ "title": "...", "description": "2-3 предл.", "effort": "low"|"medium"|"high", "impact": "low"|"medium"|"high" }],
-  "competitors": [{ "name": "...", "domain": "...", "advantage": "..." }],
+  "topProblems": [
+    { "title": "...", "description": "1-2 предл. по факту со страницы", "severity": "high"|"medium" }
+  ],
+    // ✓ "H1 отсутствует на главной"
+    // ✓ "Schema.org разметки нет"
+    // ✗ "Теряете 30% трафика"
+  "opportunities": [
+    { "title": "...", "description": "...",
+      "potential": "качественная характеристика — БЕЗ цифр которых ты не знаешь" }
+  ],
+    // ВАЖНО: moneyEstimate не возвращаем — источник галлюцинаций.
+    // potential: "рост видимости в Алисе" — ОК. "+30% за 2 мес" — НЕТ.
+  "recommendations": [
+    { "title": "...", "description": "2-3 предл.", "effort": "low"|"medium"|"high", "impact": "low"|"medium"|"high" }
+  ],
+  "competitors": [],
+    // ОСТОРОЖНО: выдавай только если знаешь реальные домены в нише.
+    // Сомневаешься — пустой массив. Лучше 0 чем 5 выдуманных.
   "aiVisibility": {
-    "score": number 0-100,
+    "score": number 0-100,             // На основе фактов: schema, llms.txt, FAQ-разметка, E-E-A-T.
     "status": "invisible" | "weak" | "moderate" | "strong",
     "blockers": [{ "title": "Нет llms.txt", "description": "..." }],
-    "sampleQueries": [{ "query": "...", "youArePresent": false, "note": "..." }]
+    "sampleQueries": [{ "query": "...", "youArePresent": false, "note": "AI-гипотеза" }]
+      // youArePresent: false по умолчанию (без реальной проверки нельзя знать).
   },
-  "oneLineSummary": "1 цепляющее предложение"
+  "oneLineSummary": "1 предложение для email — конкретно, без выдумок"
 }
 
-КРИТИЧНО:
-- brandName ровно как на сайте, без перевода/транслитерации. "СМ-Стоматология | Сеть клиник" → brandName = "СМ-Стоматология".
-- overallScore на 10-25 баллов ниже nicheAverage.
-- aiVisibility.score обычно 5-35 у среднего сайта без GEO-работы. У большинства нет llms.txt и плохая schema.org → невидимость в нейросетях.
-- aiVisibility.blockers — конкретные технические: "Нет llms.txt", "Schema.org только Organization, нет MedicalClinic/LocalBusiness", "FAQ-секция не размечена", "Нет E-E-A-T сигналов".
-- sampleQueries — реальные запросы из ниши, youArePresent почти всегда false.
-- topProblems — конкретные и БОЛЕЗНЕННЫЕ.
-- recommendations: первые 3 понятные владельцу, последние 2 экспертные.
-- Весь текст на русском, лаконично.
-
-JSON и только JSON.`;
+ПРАВИЛА:
+- Валидный JSON, без markdown.
+- Русский, лаконично.
+- НЕ ЗНАЕШЬ → НЕ ВЫДУМЫВАЙ.`;
 }
 
 export async function POST(_req: Request, { params }: Params) {

@@ -97,6 +97,13 @@ const S = {
   headerCta: { display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.magenta})`, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13, boxShadow: `0 4px 16px ${C.primary}55` } as React.CSSProperties,
   // ─── Hero
   heroBadge: { display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px 10px 14px", borderRadius: 999, background: `${C.green}15`, border: `1px solid ${C.green}40`, color: C.green, fontSize: 13, fontWeight: 700, marginBottom: 24, boxShadow: `0 0 20px ${C.green}20` } as React.CSSProperties,
+  // Бейдж «AI-гипотеза» — на полях которые AI оценил без точных данных.
+  // Прозрачно показывает что цифра не из реального замера, а из экспертной
+  // догадки AI. Это про доверие — гораздо лучше потерять «вау» в моменте,
+  // чем потом получить упрёк «вы всё выдумали».
+  aiBadge: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: `${C.cyan}1a`, border: `1px solid ${C.cyan}55`, color: C.cyan, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const, verticalAlign: "middle" as const } as React.CSSProperties,
+  // Disclaimer сверху всего отчёта — единая плашка про автоматический аудит.
+  disclaimer: { display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 18px", borderRadius: 10, background: `${C.cyan}0a`, border: `1px solid ${C.cyan}40`, marginBottom: 24, fontSize: 13, color: C.fg2, lineHeight: 1.6 } as React.CSSProperties,
   h1: { fontSize: 56, fontWeight: 900, marginBottom: 12, letterSpacing: -2, lineHeight: 1.05 } as React.CSSProperties,
   domainLine: { fontSize: 16, color: C.muted, marginBottom: 36, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" } as React.CSSProperties,
   // ─── Score Hero
@@ -245,6 +252,18 @@ export default async function PublicReportPage({ params }: PageProps) {
         <h1 className="mr-h1" style={S.h1}>{titleName}</h1>
         <div style={S.domainLine}>{domain}</div>
 
+        {/* Disclaimer: разделяем факты (со скрапа) и AI-гипотезы (оценки).
+            Без этого юзер может принять score за реальный замер — это нечестно. */}
+        <div style={S.disclaimer}>
+          <Sparkles size={16} color={C.cyan} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <b style={{ color: C.fg }}>Как читать отчёт.</b>{" "}
+            Технические факты (наличие H1, schema.org, llms.txt) — взяты со скрапа вашей страницы.
+            Все оценки в баллах, прогнозы и сравнения с конкурентами — это <b style={{ color: C.cyan }}>AI-гипотеза</b> (помечена бейджем) и требует верификации.
+            Полный анализ с реальными метриками — на платформе MarketRadar24.
+          </div>
+        </div>
+
         {/* ─── Score Hero ─── */}
         <div style={S.scoreHero}>
           <div className="mr-score-grid" style={S.scoreHeroGrid}>
@@ -258,7 +277,10 @@ export default async function PublicReportPage({ params }: PageProps) {
             <div>
               <div style={S.compareGrid}>
                 <div>
-                  <div style={S.scoreLabel}>Среднее по нише</div>
+                  <div style={{ ...S.scoreLabel, display: "flex", alignItems: "center", gap: 6 }}>
+                    Среднее по нише
+                    <span style={S.aiBadge}>✨ AI</span>
+                  </div>
                   <div style={S.compareNum(C.fg)}>{report.nicheAverage}<span style={{ ...S.scoreSlash, fontSize: 18 }}>/100</span></div>
                 </div>
                 <div>
@@ -350,8 +372,9 @@ export default async function PublicReportPage({ params }: PageProps) {
               {/* Примеры запросов */}
               {visibleQueries.length > 0 && (
                 <div style={{ marginTop: 20 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    Запросы из вашей ниши:
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    Примерные запросы из ниши
+                    <span style={S.aiBadge}>✨ AI</span>
                   </div>
                   <div style={S.queryGrid}>
                     {visibleQueries.map((q, i) => (
@@ -426,11 +449,8 @@ export default async function PublicReportPage({ params }: PageProps) {
                 <span style={S.potentialBadge(C.green)}>
                   <TrendingUp size={13} /> {o.potential}
                 </span>
-                {o.moneyEstimate && (
-                  <span style={S.moneyBadge}>
-                    <Zap size={13} /> {o.moneyEstimate}
-                  </span>
-                )}
+                {/* moneyEstimate отключён — был источником галлюцинаций.
+                    Если оставшиеся в БД старые отчёты содержат его — игнорируем. */}
               </div>
             </div>
           ))}
@@ -483,11 +503,13 @@ export default async function PublicReportPage({ params }: PageProps) {
         </div>
 
         {/* ─── Конкуренты ─── */}
+        {(visibleCompetitors.length > 0 || hiddenCompetitors.length > 0) && (
         <div style={S.sectionWrap}>
           <div style={S.sectionEyebrow}>⚔️ КТО ОБХОДИТ</div>
-          <h2 style={S.sectionTitle}>
+          <h2 style={{ ...S.sectionTitle, display: "flex", alignItems: "center", gap: 12 }}>
             <Award size={28} color={C.orange} />
             Ваши конкуренты
+            <span style={S.aiBadge}>✨ AI</span>
           </h2>
           {visibleCompetitors.map((c, i) => (
             <div key={i} style={{ ...S.problem, borderLeftColor: C.orange }}>
@@ -524,6 +546,7 @@ export default async function PublicReportPage({ params }: PageProps) {
             </div>
           )}
         </div>
+        )}
 
         {/* ─── Финальный CTA ─── */}
         <div style={S.finalCta}>
