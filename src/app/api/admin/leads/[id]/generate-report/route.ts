@@ -19,6 +19,7 @@ import { query, initDb } from "@/lib/db";
 import { scrapeWebsite } from "@/lib/scraper";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import type { LeadReport } from "@/lib/lead-types";
+import { enrichLeadContacts, applyEnrichmentToLead } from "@/lib/lead-enricher";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -176,12 +177,23 @@ export async function POST(_req: Request, { params }: Params) {
       hasLlmsTxt,
     }, lead.domain, lead.niche);
 
-    // Шаг 2 — Haiku.
-    const { text, error } = await safeAnthropicCreate({
-      model: REPORT_MODEL,
-      max_tokens: 5000,
-      messages: [{ role: "user", content: prompt }],
-    });
+    // Шаг 2 — Параллельно: AI + обогащение контактами.
+    //   AI — основной отчёт (Sonnet/Haiku, 5-30 сек)
+    //   Enrich — regex по email/телефонам на /contacts страницах (3-5 сек)
+    // Promise.all экономит wall-time. Enrich-падение не валит отчёт.
+    const [aiRes, enrichRes] = await Promise.all([
+      safeAnthropicCreate({
+        model: REPORT_MODEL,
+        max_tokens: 5000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      enrichLeadContacts(lead.domain, { withAI: false }).catch(e => {
+        console.warn(`[generate-report] enrich failed for ${lead.domain}:`, e);
+        return null;
+      }),
+    ]);
+
+    const { text, error } = aiRes;
     if (!text) {
       await query(
         `UPDATE lead_reports SET status = 'failed', error_message = $1 WHERE id = $2`,
@@ -215,12 +227,34 @@ export async function POST(_req: Request, { params }: Params) {
       [JSON.stringify(parsed), costCents, reportId],
     );
 
+    // Шаг 3 — применяем обогащение к лиду (только в пустые поля).
+    let enrichedFields: string[] = [];
+    if (enrichRes) {
+      try {
+        const cur = await query<{
+          contact_email: string | null;
+          contact_phone: string | null;
+          contact_person_name: string | null;
+        }>(
+          `SELECT contact_email, contact_phone, contact_person_name FROM leads WHERE id = $1`,
+          [leadId],
+        );
+        if (cur[0]) {
+          const updates = await applyEnrichmentToLead(leadId, enrichRes, cur[0], query);
+          enrichedFields = Object.keys(updates);
+        }
+      } catch (e) {
+        console.warn(`[generate-report] apply enrich failed:`, e);
+      }
+    }
+
     const durationMs = Date.now() - startedAt;
     return NextResponse.json({
       ok: true,
       reportId,
       durationMs,
       report: parsed,
+      enrichedFields,        // какие поля контактов заполнились автоматом
     });
   } catch (e) {
     console.error("admin/leads/[id]/generate-report error", e);

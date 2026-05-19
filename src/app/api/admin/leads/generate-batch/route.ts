@@ -23,6 +23,7 @@ import { query, initDb } from "@/lib/db";
 import { scrapeWebsite } from "@/lib/scraper";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import type { LeadReport } from "@/lib/lead-types";
+import { enrichLeadContacts, applyEnrichmentToLead } from "@/lib/lead-enricher";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -121,7 +122,7 @@ function buildPrompt(scraped: { title: string; metaDescription: string; h1: stri
 JSON и ТОЛЬКО JSON, без markdown-обёртки.`;
 }
 
-async function generateOne(leadId: string, domain: string, niche: string | null): Promise<{ ok: boolean; error?: string }> {
+async function generateOne(leadId: string, domain: string, niche: string | null): Promise<{ ok: boolean; error?: string; enrichedFields?: string[] }> {
   // Создаём running-запись отчёта.
   const reportId = randomUUID();
   try {
@@ -173,12 +174,24 @@ async function generateOne(leadId: string, domain: string, niche: string | null)
     hasLlmsTxt,
   }, domain, niche);
 
-  // Haiku.
-  const { text, error } = await safeAnthropicCreate({
-    model: REPORT_MODEL,
-    max_tokens: 5000,
-    messages: [{ role: "user", content: prompt }],
-  });
+  // ── Параллельно: AI-отчёт + обогащение контактами ─────────────────
+  // Оба процесса независимы и работают одновременно — экономит ~3-5 сек.
+  // Обогащение идёт без AI (только regex по email/телефонам), бесплатно.
+  // Тяжёлый поиск имён через Haiku оставляем для отдельного /enrich-batch.
+  const [aiRes, enrichRes] = await Promise.all([
+    safeAnthropicCreate({
+      model: REPORT_MODEL,
+      max_tokens: 5000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+    enrichLeadContacts(domain, { withAI: false }).catch(e => {
+      // Падение enrich не должно валить отчёт — это второстепенный апдейт.
+      console.warn(`[generate-batch] enrich failed for ${domain}:`, e);
+      return null;
+    }),
+  ]);
+
+  const { text, error } = aiRes;
   if (!text) {
     await query(`UPDATE lead_reports SET status='failed', error_message=$1 WHERE id=$2`, [`anthropic: ${error ?? "no text"}`, reportId]);
     return { ok: false, error: error ?? "AI empty" };
@@ -197,7 +210,29 @@ async function generateOne(leadId: string, domain: string, niche: string | null)
     [JSON.stringify(parsed), REPORT_COST_CENTS, reportId],
   );
 
-  return { ok: true };
+  // ── Применяем обогащение к лиду (только в пустые поля) ───────────
+  let enrichedFields: string[] = [];
+  if (enrichRes) {
+    try {
+      // Тянем current contact_* — это лёгкий select по primary key.
+      const cur = await query<{
+        contact_email: string | null;
+        contact_phone: string | null;
+        contact_person_name: string | null;
+      }>(
+        `SELECT contact_email, contact_phone, contact_person_name FROM leads WHERE id = $1`,
+        [leadId],
+      );
+      if (cur[0]) {
+        const updates = await applyEnrichmentToLead(leadId, enrichRes, cur[0], query);
+        enrichedFields = Object.keys(updates);
+      }
+    } catch (e) {
+      console.warn(`[generate-batch] apply enrich failed for ${domain}:`, e);
+    }
+  }
+
+  return { ok: true, enrichedFields };
 }
 
 interface BatchBody {

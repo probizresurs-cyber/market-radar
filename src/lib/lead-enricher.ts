@@ -186,6 +186,36 @@ export interface EnrichResult {
   domainEmailFound: boolean; // нашли ли хоть один email с домена компании
 }
 
+/** Применяет результат enrichment к лиду: заполняет ТОЛЬКО пустые поля.
+ *  Никогда не перетирает ручные правки CRM-менеджера.
+ *  Возвращает объект с применёнными ключ→значение (для логирования). */
+export async function applyEnrichmentToLead(
+  leadId: string,
+  found: EnrichResult,
+  existing: {
+    contact_email: string | null;
+    contact_phone: string | null;
+    contact_person_name: string | null;
+  },
+  queryFn: (sql: string, params?: unknown[]) => Promise<unknown>,
+): Promise<Record<string, string>> {
+  const updates: Record<string, string> = {};
+  if (!existing.contact_email && found.emails[0]) updates.contact_email = found.emails[0];
+  if (!existing.contact_phone && found.phones[0]) updates.contact_phone = found.phones[0];
+  if (!existing.contact_person_name && found.persons[0]?.name) updates.contact_person_name = found.persons[0].name;
+
+  if (Object.keys(updates).length > 0) {
+    const keys = Object.keys(updates);
+    const setClauses = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
+    const values = keys.map(k => updates[k]);
+    await queryFn(
+      `UPDATE leads SET ${setClauses}, updated_at = NOW() WHERE id = $${keys.length + 1}`,
+      [...values, leadId],
+    );
+  }
+  return updates;
+}
+
 export async function enrichLeadContacts(domain: string, opts: { withAI?: boolean } = {}): Promise<EnrichResult> {
   const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase();
   const urls = CANDIDATE_PATHS.map(p => `https://${cleanDomain}${p}`);

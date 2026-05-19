@@ -1354,8 +1354,11 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
   const [paused, setPaused] = useState(false);
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState(0);
+  // Сколько контактных полей заполнилось автоматически в ходе генерации —
+  // показываем чтобы юзер видел «отчёт = + контакт-данные бонусом».
+  const [enrichedTotal, setEnrichedTotal] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [logs, setLogs] = useState<Array<{ domain: string; ok: boolean; error?: string }>>([]);
+  const [logs, setLogs] = useState<Array<{ domain: string; ok: boolean; error?: string; enrichedFields?: string[] }>>([]);
 
   // Используем ref-ы для управления циклом — обычный state не виден внутри
   // запущенного промиса (closure ловит старое значение).
@@ -1376,7 +1379,7 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
         await new Promise(r => setTimeout(r, 500));
         continue;
       }
-      let d: { ok: boolean; error?: string; results?: Array<{ ok: boolean; domain: string; error?: string }>; remaining?: number };
+      let d: { ok: boolean; error?: string; results?: Array<{ ok: boolean; domain: string; error?: string; enrichedFields?: string[] }>; remaining?: number };
       try {
         const r = await fetch("/api/admin/leads/generate-batch", {
           method: "POST",
@@ -1397,8 +1400,12 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
       const results = d.results ?? [];
       const ok = results.filter(x => x.ok).length;
       const fail = results.length - ok;
+      // Считаем сколько контактных полей заполнилось в этой партии —
+      // сумма по всем лидам сколько ключей в enrichedFields.
+      const enrichedThis = results.reduce((s, r) => s + (r.enrichedFields?.length ?? 0), 0);
       setDone(prev => prev + ok);
       setFailed(prev => prev + fail);
+      setEnrichedTotal(prev => prev + enrichedThis);
       setLogs(prev => [...results, ...prev].slice(0, 50));
       setRemaining(d.remaining ?? null);
       onProgress();
@@ -1443,19 +1450,24 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
         </div>
 
         <div style={{ padding: 14, background: "#0f1117", borderRadius: 10, marginBottom: 16, border: "1px solid #2d3748", fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
-          Скрипт идёт пачками по 5 лидов параллельно через 3 коннекта (concurrency=3).
-          Один отчёт ≈ 15-30 сек, стоимость ≈ 1.5 ₽. Можно поставить на паузу или остановить.
+          Скрипт идёт пачками по 5 лидов параллельно через 5 коннектов (concurrency=5).
+          Один отчёт ≈ 15-30 сек. Параллельно <b>скрейпятся контакты с сайта</b> (email, телефон) и
+          сохраняются в карточку лида — бесплатный бонус к каждой генерации.
           Уже сгенерированные пропускаются.
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
           <div style={S.kpiCard}>
-            <div style={S.kpiLabel}>Готово</div>
+            <div style={S.kpiLabel}>Отчётов готово</div>
             <div style={S.kpiValue("#22c55e")}>{done}</div>
           </div>
           <div style={S.kpiCard}>
             <div style={S.kpiLabel}>Ошибок</div>
             <div style={S.kpiValue("#ef4444")}>{failed}</div>
+          </div>
+          <div style={S.kpiCard}>
+            <div style={S.kpiLabel}>Контактов найдено</div>
+            <div style={S.kpiValue("#4FC3F7")}>{enrichedTotal}</div>
           </div>
           <div style={S.kpiCard}>
             <div style={S.kpiLabel}>Осталось</div>
@@ -1487,7 +1499,11 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
           <div style={{ background: "#0f1117", borderRadius: 8, padding: 10, maxHeight: 220, overflow: "auto", border: "1px solid #2d3748" }}>
             {logs.map((l, i) => (
               <div key={i} style={{ fontSize: 12, padding: "3px 0", color: l.ok ? "#22c55e" : "#ef4444", fontFamily: "ui-monospace, monospace" }}>
-                {l.ok ? "✓" : "✗"} {l.domain} {l.error && <span style={{ color: "#64748b" }}>— {l.error}</span>}
+                {l.ok ? "✓" : "✗"} {l.domain}
+                {l.enrichedFields && l.enrichedFields.length > 0 && (
+                  <span style={{ color: "#4FC3F7", marginLeft: 6 }}>+ {l.enrichedFields.join(", ")}</span>
+                )}
+                {l.error && <span style={{ color: "#64748b" }}>— {l.error}</span>}
               </div>
             ))}
           </div>
