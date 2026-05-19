@@ -201,13 +201,19 @@ const TABS = [
   { href: "/admin/visits",    label: "Посещаемость" },
 ];
 
+// Плейсхолдер {report_url} обязателен — иначе в plain-text fallback (для
+// email-клиентов где HTML отключён) ссылки на отчёт не будет. В HTML-версии
+// дополнительно вставляется фирменная CTA-кнопка, но ссылка в тексте — это
+// гарантия что юзер сможет открыть отчёт даже в plain-режиме.
 const DEFAULT_EMAIL_TEMPLATE = `Здравствуйте!
 
 Меня зовут [имя], я из MarketRadar24 — платформы для конкурентного анализа.
 
 Мы сделали для вашего сайта {domain} автоматический экспресс-аудит. Если коротко: {summary}
 
-Ваш score сейчас {score}/100 при среднем по нише {niche_average}/100. Подробности и план роста — в коротком отчёте по ссылке ниже.
+Ваш score сейчас {score}/100 при среднем по нише {niche_average}/100. Подробности и план роста — в коротком отчёте:
+
+→ {report_url}
 
 Хорошего дня!`;
 
@@ -1853,6 +1859,11 @@ function EmailModal({ leadIds, onClose, onDone }: { leadIds: string[]; onClose: 
               Каждое письмо отрисовано с подставленными данными конкретного лида.
               Кликни <b>«Изменить»</b> на любом — отредактируешь тему/текст только для него.
               Скип-причины (нет email / нет отчёта) — не уйдут.
+            </div>
+            <div style={{ fontSize: 12, color: "#4FC3F7", marginBottom: 14, padding: "8px 12px", background: "#4FC3F710", border: "1px solid #4FC3F730", borderRadius: 8, lineHeight: 1.5 }}>
+              ℹ️ В HTML-версии письма помимо текста добавляется <b>фиолетовая кнопка «Открыть экспресс-отчёт →»</b>{" "}
+              со ссылкой на <code style={{ background: "#0f1117", padding: "1px 5px", borderRadius: 3 }}>/r/&#123;slug&#125;</code> через tracker (для open/click аналитики).
+              {" "}В plain-text — ссылка через плейсхолдер <code style={{ background: "#0f1117", padding: "1px 5px", borderRadius: 3 }}>&#123;report_url&#125;</code> (в дефолтном шаблоне уже есть).
             </div>
 
             <div style={{ maxHeight: "55vh", overflow: "auto", border: "1px solid #2d3748", borderRadius: 10, marginBottom: 14 }}>
