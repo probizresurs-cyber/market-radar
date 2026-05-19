@@ -20,7 +20,7 @@ import Link from "next/link";
 import {
   Upload, Search, ExternalLink, FileText, RefreshCw, Trash2, Send, BarChart3,
   ChevronDown, ChevronUp, Play, Pause, Loader2, Mail, LayoutGrid, List, MoveRight, X,
-  User, Phone, MessageSquare, Save,
+  User, Phone, MessageSquare, Save, Wand2,
 } from "lucide-react";
 import {
   LEAD_STATUSES,
@@ -224,6 +224,7 @@ export default function AdminLeadsPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkAutoStart, setBulkAutoStart] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [enrichOpen, setEnrichOpen] = useState(false);
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -449,6 +450,13 @@ export default function AdminLeadsPage() {
           <button style={S.btn("warn")} onClick={() => setBulkOpen(true)}>
             <Play size={14} /> Сгенерировать пачкой
           </button>
+          <button
+            style={{ ...S.btn("ghost"), color: "#4FC3F7", borderColor: "#4FC3F755", background: "#4FC3F708" }}
+            onClick={() => setEnrichOpen(true)}
+            title="Скрейпит сайты лидов и находит email, телефон, контактное лицо"
+          >
+            <Wand2 size={14} /> Обогатить контактами
+          </button>
           <button style={S.btn("ghost")} onClick={() => load()} title="Обновить">
             <RefreshCw size={14} />
           </button>
@@ -650,6 +658,13 @@ export default function AdminLeadsPage() {
         )}
 
         {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); load(); loadAnalytics(); }} />}
+        {enrichOpen && (
+          <BulkEnrichModal
+            selectedIds={Array.from(selected)}
+            onClose={() => setEnrichOpen(false)}
+            onProgress={() => { load(); loadAnalytics(); }}
+          />
+        )}
         {bulkOpen && (
           <BulkGenerateModal
             autoStart={bulkAutoStart}
@@ -981,6 +996,40 @@ function LeadEditPanel({
   const [notesLoading, setNotesLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  // Состояния обогащения: enriching = идёт, enrichResult = что нашли (для тоста)
+  const [enriching, setEnriching] = useState(false);
+  const [enrichMsg, setEnrichMsg] = useState<string | null>(null);
+
+  async function enrichContacts() {
+    setEnriching(true);
+    setEnrichMsg(null);
+    try {
+      const r = await fetch(`/api/admin/leads/${leadId}/enrich`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ withAI: true }),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        setEnrichMsg(`✗ ${d.error || "Не удалось"}`);
+        return;
+      }
+      const found = d.found ?? { emails: [], phones: [], persons: [], pagesScanned: 0 };
+      const appliedKeys = Object.keys(d.applied ?? {});
+      const bits: string[] = [];
+      if (found.emails.length) bits.push(`${found.emails.length} email`);
+      if (found.phones.length) bits.push(`${found.phones.length} телефон`);
+      if (found.persons.length) bits.push(`${found.persons.length} имён`);
+      const foundStr = bits.length ? `Найдено: ${bits.join(", ")}` : "Контактов не найдено";
+      const appliedStr = appliedKeys.length ? ` · применено: ${appliedKeys.length}` : "";
+      setEnrichMsg(`${foundStr}${appliedStr} (${found.pagesScanned} страниц)`);
+      onSaved();
+    } catch (e) {
+      setEnrichMsg(`✗ ${e instanceof Error ? e.message : "Ошибка"}`);
+    } finally {
+      setEnriching(false);
+    }
+  }
 
   // Загружаем заметки лида при первом рендере (карточка только что развернулась).
   useEffect(() => {
@@ -1133,7 +1182,26 @@ function LeadEditPanel({
         )}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4, flexWrap: "wrap", gap: 8 }}>
+        <button
+          onClick={enrichContacts}
+          disabled={enriching}
+          style={{
+            padding: "6px 12px", borderRadius: 7, border: "1px solid #4FC3F755",
+            background: enriching ? "#4FC3F715" : "#4FC3F708",
+            color: "#4FC3F7", fontSize: 11, fontWeight: 700, cursor: enriching ? "wait" : "pointer",
+            display: "inline-flex", alignItems: "center", gap: 5,
+          }}
+          title="Скрейпер пойдёт на сайт и попробует найти email, телефон, имя контактного лица. Перезаписи существующих значений не будет."
+        >
+          {enriching ? <Loader2 size={11} className="spin" /> : <Wand2 size={11} />}
+          {enriching ? "Ищем…" : "Найти контакты на сайте"}
+        </button>
+        {enrichMsg && (
+          <div style={{ fontSize: 11, color: enrichMsg.startsWith("✗") ? "#ef4444" : "#94a3b8", flex: 1, textAlign: "center" as const }}>
+            {enrichMsg}
+          </div>
+        )}
         <Link
           href={`/admin/leads/${leadId}`}
           style={{ fontSize: 11, color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}
@@ -1430,6 +1498,166 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
+    </div>
+  );
+}
+
+// ─── Bulk enrich modal ────────────────────────────────────────────────────
+// Скрейпит сайты лидов и находит email/телефон/имя контактного лица.
+// Если selectedIds.length > 0 — обогащает только выбранных.
+// Иначе — берёт всех лидов с пустыми контактами (без email или phone или person)
+// партиями по 10, concurrency 5 на сервере. Цикл пока remaining > 0.
+
+function BulkEnrichModal({
+  selectedIds, onClose, onProgress,
+}: { selectedIds: string[]; onClose: () => void; onProgress: () => void }) {
+  const [withAI, setWithAI] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [done, setDone] = useState(0);
+  const [foundTotal, setFoundTotal] = useState(0);
+  const [appliedTotal, setAppliedTotal] = useState(0);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [logs, setLogs] = useState<Array<{ domain: string; applied: Record<string, string>; foundCount: number; error?: string }>>([]);
+  const runningRef = React.useRef(false);
+  const pausedRef = React.useRef(false);
+
+  // Только-выбранные = просто один запрос (нет цикла, обработаем все за раз).
+  const onlySelected = selectedIds.length > 0;
+
+  async function start() {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    setRunning(true);
+    while (runningRef.current) {
+      if (pausedRef.current) { await new Promise(r => setTimeout(r, 500)); continue; }
+      let d: { ok: boolean; results?: Array<{ domain: string; applied: Record<string, string>; foundCount: number; error?: string }>; remaining?: number; error?: string };
+      try {
+        const r = await fetch("/api/admin/leads/enrich-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leadIds: onlySelected ? selectedIds : undefined,
+            limit: 10,
+            withAI,
+          }),
+        });
+        d = await r.json();
+      } catch {
+        // retry на сетевой сбой
+        await new Promise(r => setTimeout(r, 5000));
+        continue;
+      }
+      if (!d.ok) {
+        alert(`Ошибка партии: ${d.error}`);
+        break;
+      }
+      const results = d.results ?? [];
+      const appliedThis = results.reduce((s, r) => s + Object.keys(r.applied).length, 0);
+      const foundThis = results.reduce((s, r) => s + r.foundCount, 0);
+      setDone(prev => prev + results.length);
+      setAppliedTotal(prev => prev + appliedThis);
+      setFoundTotal(prev => prev + foundThis);
+      setLogs(prev => [...results, ...prev].slice(0, 80));
+      setRemaining(d.remaining ?? null);
+      onProgress();
+      // Если работаем только над выбранными — цикл из одной итерации.
+      if (onlySelected) break;
+      if ((d.remaining ?? 0) === 0 || results.length === 0) break;
+    }
+    runningRef.current = false;
+    setRunning(false);
+  }
+
+  function togglePause() { pausedRef.current = !pausedRef.current; setPaused(pausedRef.current); }
+  function stop() { runningRef.current = false; pausedRef.current = false; setRunning(false); setPaused(false); }
+
+  return (
+    <div style={S.modalBackdrop} onClick={() => !running && onClose()}>
+      <div style={S.modal} onClick={e => e.stopPropagation()}>
+        <div style={S.modalHead}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4 }}>ОБОГАЩЕНИЕ КОНТАКТАМИ</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
+              {onlySelected ? `Выбрано: ${selectedIds.length} лидов` : "Все лиды с неполными контактами"}
+            </div>
+          </div>
+          <button style={{ ...S.btn("ghost"), padding: "6px 14px" }} onClick={onClose} disabled={running}>Закрыть</button>
+        </div>
+
+        <div style={{ padding: 14, background: "#0f1117", borderRadius: 10, marginBottom: 14, border: "1px solid #2d3748", fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
+          Скрейпер обходит главную и страницы <code style={{ background: "#1a1f2e", padding: "1px 5px", borderRadius: 3 }}>/contacts</code>{" "}
+          <code style={{ background: "#1a1f2e", padding: "1px 5px", borderRadius: 3 }}>/контакты</code>{" "}
+          <code style={{ background: "#1a1f2e", padding: "1px 5px", borderRadius: 3 }}>/about</code>, находит email и телефоны.
+          Существующие значения <b>никогда не перезаписываются</b> — заполняются только пустые.
+          {!onlySelected && <> Партиями по 10, concurrency 5. На 100 лидов ≈ 3-4 минуты.</>}
+        </div>
+
+        <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", color: "#e2e8f0" }}>
+            <input
+              type="checkbox"
+              checked={withAI}
+              onChange={e => setWithAI(e.target.checked)}
+              disabled={running}
+            />
+            Извлекать имена контактных лиц через AI <span style={{ fontSize: 11, color: "#64748b" }}>(+~1 ₽/лид)</span>
+          </label>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 14 }}>
+          <div style={S.kpiCard}>
+            <div style={S.kpiLabel}>Обработано</div>
+            <div style={S.kpiValue("#4FC3F7")}>{done}</div>
+          </div>
+          <div style={S.kpiCard}>
+            <div style={S.kpiLabel}>Найдено всего</div>
+            <div style={S.kpiValue("#22c55e")}>{foundTotal}</div>
+          </div>
+          <div style={S.kpiCard}>
+            <div style={S.kpiLabel}>Записано</div>
+            <div style={S.kpiValue("#7c3aed")}>{appliedTotal}</div>
+          </div>
+          <div style={S.kpiCard}>
+            <div style={S.kpiLabel}>Осталось</div>
+            <div style={S.kpiValue("#f59e0b")}>{remaining ?? (onlySelected ? "—" : "?")}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          {!running ? (
+            <button style={S.btn("primary")} onClick={start}>
+              <Play size={14} /> Запустить
+            </button>
+          ) : (
+            <>
+              <button style={S.btn("warn")} onClick={togglePause}>
+                {paused ? <><Play size={14} /> Продолжить</> : <><Pause size={14} /> Пауза</>}
+              </button>
+              <button style={S.btn("ghost")} onClick={stop}>Стоп</button>
+              <div style={{ alignSelf: "center", color: "#94a3b8", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                <Loader2 size={14} className="spin" /> {paused ? "На паузе" : "Обогащаем…"}
+              </div>
+            </>
+          )}
+        </div>
+
+        {logs.length > 0 && (
+          <div style={{ background: "#0f1117", borderRadius: 8, padding: 10, maxHeight: 240, overflow: "auto", border: "1px solid #2d3748" }}>
+            {logs.map((l, i) => {
+              const appliedKeys = Object.keys(l.applied);
+              return (
+                <div key={i} style={{ fontSize: 12, padding: "4px 0", color: l.error ? "#ef4444" : (appliedKeys.length ? "#22c55e" : "#94a3b8"), fontFamily: "ui-monospace, monospace" }}>
+                  {l.error ? "✗" : appliedKeys.length ? "✓" : "·"} {l.domain}
+                  {appliedKeys.length > 0 && <span style={{ color: "#64748b", marginLeft: 6 }}>→ {appliedKeys.join(", ")}</span>}
+                  {l.foundCount > 0 && !appliedKeys.length && <span style={{ color: "#64748b", marginLeft: 6 }}>(нашли {l.foundCount}, всё уже заполнено)</span>}
+                  {l.error && <span style={{ color: "#64748b", marginLeft: 6 }}>— {l.error}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
