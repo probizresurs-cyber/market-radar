@@ -78,6 +78,63 @@ const CATEGORY_NEON: Record<AgentItem["category"], string> = {
 
 // Иконка под имя агента (lucide-react). Подставляется в карточку — узнаваемее
 // без иконок все карточки выглядят одинаково.
+// Что должно быть подключено для каждого агента чтобы он реально работал.
+// Используется для предупреждения «Включён, но не сработает — настройте X».
+interface ConnectionState {
+  telegramChat: boolean;
+  telegramChannel: boolean;
+  vkGroup: boolean;
+  smtp: boolean;
+  keysoApi: boolean;
+  yandexMapsApi: boolean;
+  googlePlacesApi: boolean;
+}
+interface MissingConnection {
+  label: string;
+  hint: string;
+  link?: string;
+}
+function getMissingConnections(agentName: string, c: ConnectionState): MissingConnection[] {
+  const out: MissingConnection[] = [];
+  if (agentName === "auto-publisher") {
+    if (!c.telegramChannel && !c.vkGroup) {
+      out.push({
+        label: "Нет ни одного канала публикации",
+        hint: "Подключите Telegram-канал или VK-группу в Профиле, иначе агенту некуда публиковать.",
+        link: "/?nav=account",
+      });
+    }
+  }
+  if (agentName === "yandex-reviews-watcher") {
+    if (!c.yandexMapsApi && !c.googlePlacesApi) {
+      out.push({
+        label: "Нет API-ключей для карт",
+        hint: "Нужен YANDEX_MAPS_API_KEY или GOOGLE_PLACES_API_KEY в окружении сервера. Обратитесь к админу платформы.",
+      });
+    }
+  }
+  if (agentName === "site-change-detector" && !c.telegramChat) {
+    out.push({
+      label: "Telegram-чат не подключён",
+      hint: "Алерты об изменениях идут в TG. Подключите бота в Профиле → Telegram.",
+      link: "/?nav=account",
+    });
+  }
+  if (agentName === "email-drip-sender" && !c.smtp) {
+    out.push({
+      label: "SMTP не настроен на сервере",
+      hint: "Нужны переменные SMTP_USER_HELLO/PASS на VPS. Обратитесь к админу платформы.",
+    });
+  }
+  if (agentName === "seo-position-tracker" && !c.keysoApi) {
+    out.push({
+      label: "Keys.so API не настроен",
+      hint: "Нужен KEYSO_API_TOKEN на сервере. Без него агент не получит данные по позициям.",
+    });
+  }
+  return out;
+}
+
 const AGENT_ICONS: Record<string, string> = {
   "auto-publisher":           "Send",
   "email-drip-sender":        "Mail",
@@ -301,6 +358,23 @@ export function AgentHubView({ c }: { c: Colors }) {
   const [loading, setLoading] = useState(true);
   const [runningName, setRunningName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Какая карточка сейчас показывает модал настроек. null = ни одна.
+  // Поднято с уровня AgentCard в hub чтобы исключить наслоение нескольких
+  // открытых модалок (раньше при клике на ⚙ второй карточки первая не
+  // закрывалась — оба диалога рендерились одновременно).
+  const [settingsOpenFor, setSettingsOpenFor] = useState<string | null>(null);
+  // Внешние коннекты юзера: TG-чат, TG-канал, VK-группа, SMTP, и т.д.
+  // Карточки агентов показывают предупреждение «нужно подключить X»
+  // если что-то не настроено и без этого агент не сможет работать.
+  const [connections, setConnections] = useState<{
+    telegramChat: boolean;
+    telegramChannel: boolean;
+    vkGroup: boolean;
+    smtp: boolean;
+    keysoApi: boolean;
+    yandexMapsApi: boolean;
+    googlePlacesApi: boolean;
+  }>({ telegramChat: false, telegramChannel: false, vkGroup: false, smtp: false, keysoApi: false, yandexMapsApi: false, googlePlacesApi: false });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -310,7 +384,10 @@ export function AgentHubView({ c }: { c: Colors }) {
         fetch("/api/agents", { cache: "no-store" }).then(r => r.json()),
         fetch("/api/agents/inbox", { cache: "no-store" }).then(r => r.json()),
       ]);
-      if (a.ok) setAgents(a.agents ?? []);
+      if (a.ok) {
+        setAgents(a.agents ?? []);
+        if (a.connections) setConnections(a.connections);
+      }
       if (i.ok) setInbox(i.inbox ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
@@ -553,6 +630,10 @@ export function AgentHubView({ c }: { c: Colors }) {
                   neonColor={neon}
                   running={runningName === agent.name}
                   schema={AGENT_PARAM_SCHEMAS[agent.name] ?? []}
+                  missingConnections={getMissingConnections(agent.name, connections)}
+                  settingsOpen={settingsOpenFor === agent.name}
+                  onOpenSettings={() => setSettingsOpenFor(agent.name)}
+                  onCloseSettings={() => setSettingsOpenFor(null)}
                   onToggle={enabled => toggleEnabled(agent.name, enabled)}
                   onScheduleChange={s => changeSchedule(agent.name, s)}
                   onParamsChange={p => updateParams(agent.name, p)}
@@ -576,19 +657,28 @@ export function AgentHubView({ c }: { c: Colors }) {
 }
 
 function AgentCard({
-  agent, neonColor, running, schema, onToggle, onScheduleChange, onParamsChange, onRunNow,
+  agent, neonColor, running, schema, missingConnections,
+  settingsOpen, onOpenSettings, onCloseSettings,
+  onToggle, onScheduleChange, onParamsChange, onRunNow,
 }: {
   agent: AgentItem;
   neonColor: string;
   running: boolean;
   schema: ParamField[];
+  missingConnections: MissingConnection[];
+  settingsOpen: boolean;
+  onOpenSettings: () => void;
+  onCloseSettings: () => void;
   onToggle: (enabled: boolean) => void;
   onScheduleChange: (s: Schedule) => void;
   onParamsChange: (params: Record<string, unknown>) => void;
   onRunNow: () => void;
 }) {
   const IconComp = ICON_MAP[AGENT_ICONS[agent.name] ?? "Bot"] ?? Bot;
-  const [showSettings, setShowSettings] = useState(false);
+  // showSettings теперь приходит из hub-а как single source of truth —
+  // только одна модалка может быть открыта по всем карточкам сразу.
+  const showSettings = settingsOpen;
+  const setShowSettings = (open: boolean) => open ? onOpenSettings() : onCloseSettings();
   const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(agent.params);
   const [paramsDirty, setParamsDirty] = useState(false);
   const [paramsSaving, setParamsSaving] = useState(false);
@@ -678,6 +768,32 @@ function AgentCard({
         </label>
       </div>
 
+      {/* Предупреждение о недостающих коннектах. Показываем если хоть один
+          missingConnection есть — даже когда агент выключен, юзер видит что
+          включать сейчас бесполезно. */}
+      {missingConnections.length > 0 && (
+        <div style={{
+          padding: "10px 12px", borderRadius: 8,
+          background: "#f59e0b14", border: "1px solid #f59e0b40",
+          fontSize: 12, color: "var(--foreground-secondary)", lineHeight: 1.5,
+        }}>
+          {missingConnections.map((m, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: i < missingConnections.length - 1 ? 6 : 0 }}>
+              <AlertCircle size={13} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: "#f59e0b", marginBottom: 2 }}>{m.label}</div>
+                <div>{m.hint}</div>
+                {m.link && (
+                  <a href={m.link} style={{ color: "#f59e0b", textDecoration: "underline", fontWeight: 600 }}>
+                    Настроить →
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Schedule + Last run */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <select
@@ -750,7 +866,7 @@ function AgentCard({
         </button>
         {schema.length > 0 && (
           <button
-            onClick={() => setShowSettings(v => !v)}
+            onClick={() => setShowSettings(!showSettings)}
             title="Настроить параметры агента"
             style={{
               padding: "8px 10px", borderRadius: 8,

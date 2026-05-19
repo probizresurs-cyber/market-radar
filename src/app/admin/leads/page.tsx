@@ -1184,45 +1184,277 @@ function BulkGenerateModal({ autoStart, onClose, onProgress }: { autoStart?: boo
 
 // ─── Email modal ──────────────────────────────────────────────────────────
 
+interface Preview {
+  leadId: string;
+  domain: string;
+  companyName: string | null;
+  email: string | null;
+  subject: string;
+  body: string;
+  canSend: boolean;
+  reason?: string;
+}
+
 function EmailModal({ leadIds, onClose, onDone }: { leadIds: string[]; onClose: () => void; onDone: () => void }) {
+  // Шаги: compose → preview → result. По дороге можно вернуться назад.
+  const [step, setStep] = useState<"compose" | "preview" | "result">("compose");
   const [subject, setSubject] = useState("Мини-аудит вашего сайта {domain} от MarketRadar24");
   const [template, setTemplate] = useState(DEFAULT_EMAIL_TEMPLATE);
-  const [sending, setSending] = useState(false);
+  // Выбор SMTP-аккаунта. По умолчанию hello — это outbound от админа.
+  const [fromAccount, setFromAccount] = useState<"hello" | "noreply" | "billing">("hello");
+  const [previews, setPreviews] = useState<Preview[]>([]);
+  // Per-lead перекрытия после ручного редактирования. Ключ = leadId.
+  const [overrides, setOverrides] = useState<Record<string, { subject?: string; body?: string }>>({});
+  // Какой лид сейчас в режиме редактирования (раскрыт inline).
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number; results: Array<{ domain: string; ok: boolean; reason?: string }> } | null>(null);
 
-  async function submit() {
-    if (!subject.trim() || !template.trim()) return;
-    if (!confirm(`Отправить ${leadIds.length} писем?`)) return;
-    setSending(true);
+  async function loadPreview() {
+    setBusy(true);
     try {
-      const r = await fetch("/api/admin/leads/send-email", {
+      const r = await fetch("/api/admin/leads/preview-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadIds, subject, template }),
       });
       const d = await r.json();
       if (d.ok) {
+        setPreviews(d.previews);
+        setOverrides({});
+        setStep("preview");
+      } else {
+        alert(d.error || "Ошибка превью");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function send() {
+    const sendable = previews.filter(p => p.canSend);
+    if (sendable.length === 0) {
+      alert("Нет получателей с готовыми отчётами и email");
+      return;
+    }
+    if (!confirm(`Отправить ${sendable.length} писем с аккаунта ${fromAccount}@marketradar24.ru?`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/admin/leads/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadIds: sendable.map(p => p.leadId),
+          subject,
+          template,
+          fromAccount,
+          perLeadOverrides: overrides,
+        }),
+      });
+      const d = await r.json();
+      if (d.ok) {
         setResult({ sent: d.sent, failed: d.failed, results: d.results });
+        setStep("result");
       } else {
         alert(d.error || "Ошибка отправки");
       }
     } finally {
-      setSending(false);
+      setBusy(false);
     }
   }
 
+  function updateOverride(leadId: string, field: "subject" | "body", value: string) {
+    setOverrides(prev => ({ ...prev, [leadId]: { ...prev[leadId], [field]: value } }));
+  }
+
+  // На preview-шаге даём модалке больше ширины — там длинные тексты.
+  const modalStyle = step === "preview"
+    ? { ...S.modal, maxWidth: 980 }
+    : S.modal;
+
   return (
-    <div style={S.modalBackdrop} onClick={() => !sending && onClose()}>
-      <div style={S.modal} onClick={e => e.stopPropagation()}>
+    <div style={S.modalBackdrop} onClick={() => !busy && onClose()}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
         <div style={S.modalHead}>
           <div>
-            <div style={{ fontSize: 11, color: "#64748b", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4 }}>EMAIL РАССЫЛКА</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>Отправить {leadIds.length} письмам</div>
+            <div style={{ fontSize: 11, color: "#64748b", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4 }}>
+              {step === "compose" && "EMAIL · ШАГ 1 ИЗ 3 — ШАБЛОН"}
+              {step === "preview" && `EMAIL · ШАГ 2 ИЗ 3 — ПРЕДПРОСМОТР ${previews.length} ПИСЕМ`}
+              {step === "result" && "EMAIL · ШАГ 3 ИЗ 3 — ИТОГ"}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
+              {step === "compose" && `Рассылка по ${leadIds.length} лидам`}
+              {step === "preview" && "Проверьте и отредактируйте перед отправкой"}
+              {step === "result" && "Готово"}
+            </div>
           </div>
-          <button style={{ ...S.btn("ghost"), padding: "6px 14px" }} onClick={onClose} disabled={sending}>Закрыть</button>
+          <button style={{ ...S.btn("ghost"), padding: "6px 14px" }} onClick={onClose} disabled={busy}>Закрыть</button>
         </div>
 
-        {result ? (
+        {/* ─── ШАГ 1: COMPOSE ────────────────────────────────────── */}
+        {step === "compose" && (
+          <>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, lineHeight: 1.6 }}>
+              Плейсхолдеры: <code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{domain}"}</code>,
+              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{company}"}</code>,
+              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{summary}"}</code>,
+              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{score}"}</code>,
+              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{niche_average}"}</code>.
+              {" "}Ссылка на отчёт добавляется автоматически кнопкой в HTML.
+            </div>
+
+            {/* Выбор SMTP-аккаунта */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 6 }}>Отправитель</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["hello", "noreply", "billing"] as const).map(acc => (
+                  <button
+                    key={acc}
+                    onClick={() => setFromAccount(acc)}
+                    style={{
+                      padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      background: fromAccount === acc ? "#7c3aed" : "#0f1117",
+                      color: fromAccount === acc ? "#fff" : "#94a3b8",
+                      border: `1px solid ${fromAccount === acc ? "#7c3aed" : "#2d3748"}`,
+                    }}
+                  >
+                    {acc}@marketradar24.ru
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                {fromAccount === "hello" && "Для outbound-аутрича к клиентам. Reply-To идёт сюда же."}
+                {fromAccount === "noreply" && "Для системных писем (welcome, восстановление пароля). Reply-To на hello."}
+                {fromAccount === "billing" && "Для счетов и финансовых документов. Reply-To на hello."}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Тема</label>
+              <input style={S.input} value={subject} onChange={e => setSubject(e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Текст письма</label>
+              <textarea
+                style={{ ...S.textarea, fontFamily: "inherit", fontSize: 13, minHeight: 220 }}
+                value={template}
+                onChange={e => setTemplate(e.target.value)}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+              <button style={S.btn("ghost")} onClick={onClose} disabled={busy}>Отмена</button>
+              <button style={S.btn("primary")} onClick={loadPreview} disabled={busy || !subject.trim() || !template.trim()}>
+                {busy ? "Загружаем…" : "Предпросмотр →"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ─── ШАГ 2: PREVIEW ────────────────────────────────────── */}
+        {step === "preview" && (
+          <>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14, lineHeight: 1.6 }}>
+              Каждое письмо отрисовано с подставленными данными конкретного лида.
+              Кликни <b>«Изменить»</b> на любом — отредактируешь тему/текст только для него.
+              Скип-причины (нет email / нет отчёта) — не уйдут.
+            </div>
+
+            <div style={{ maxHeight: "55vh", overflow: "auto", border: "1px solid #2d3748", borderRadius: 10, marginBottom: 14 }}>
+              {previews.map(p => {
+                const isEditing = editingLeadId === p.leadId;
+                const ov = overrides[p.leadId];
+                const finalSubject = ov?.subject ?? p.subject;
+                const finalBody = ov?.body ?? p.body;
+                return (
+                  <div key={p.leadId} style={{
+                    padding: "14px 16px",
+                    borderBottom: "1px solid #1e2737",
+                    background: !p.canSend ? "#0f111720" : (isEditing ? "#0f1117" : "transparent"),
+                    opacity: !p.canSend ? 0.5 : 1,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 12 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>
+                          {p.companyName || p.domain}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "ui-monospace, monospace" }}>
+                          {p.email ? `→ ${p.email}` : `✗ ${p.reason ?? "не отправится"}`}
+                        </div>
+                      </div>
+                      {p.canSend && (
+                        isEditing ? (
+                          <button style={{ ...S.btn("primary"), padding: "5px 12px", fontSize: 11 }} onClick={() => setEditingLeadId(null)}>
+                            Готово
+                          </button>
+                        ) : (
+                          <button style={{ ...S.btn("ghost"), padding: "5px 12px", fontSize: 11 }} onClick={() => setEditingLeadId(p.leadId)}>
+                            Изменить
+                          </button>
+                        )
+                      )}
+                      {ov && (ov.subject || ov.body) && (
+                        <button
+                          style={{ ...S.btn("ghost"), padding: "5px 12px", fontSize: 11, color: "#f59e0b" }}
+                          onClick={() => setOverrides(prev => { const n = { ...prev }; delete n[p.leadId]; return n; })}
+                          title="Сбросить ручные правки этого письма"
+                        >
+                          Сброс
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <>
+                        <input
+                          style={{ ...S.input, marginBottom: 6, fontSize: 12 }}
+                          value={finalSubject}
+                          onChange={e => updateOverride(p.leadId, "subject", e.target.value)}
+                          placeholder="Тема"
+                        />
+                        <textarea
+                          style={{ ...S.textarea, fontFamily: "inherit", fontSize: 12, minHeight: 140 }}
+                          value={finalBody}
+                          onChange={e => updateOverride(p.leadId, "body", e.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#cbd5e1", marginBottom: 4 }}>
+                          {ov?.subject && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#f59e0b22", color: "#f59e0b", marginRight: 6 }}>ИЗМЕНЕНО</span>}
+                          {finalSubject}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.55, whiteSpace: "pre-wrap" as const, maxHeight: 90, overflow: "hidden", position: "relative" }}>
+                          {ov?.body && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#f59e0b22", color: "#f59e0b", marginRight: 6 }}>ИЗМЕНЕНО</span>}
+                          {finalBody.length > 280 ? finalBody.slice(0, 280) + "…" : finalBody}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                Уйдёт: <b style={{ color: "#22c55e" }}>{previews.filter(p => p.canSend).length}</b> ·
+                {" "}пропустится: <b style={{ color: "#f59e0b" }}>{previews.filter(p => !p.canSend).length}</b>
+                {" "}· отправитель: <b style={{ color: "#f1f5f9" }}>{fromAccount}@</b>
+                {" "}· изменено вручную: <b style={{ color: "#f1f5f9" }}>{Object.keys(overrides).length}</b>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button style={S.btn("ghost")} onClick={() => setStep("compose")} disabled={busy}>
+                  ← Назад
+                </button>
+                <button style={S.btn("primary")} onClick={send} disabled={busy}>
+                  {busy ? "Отправляем…" : <><Send size={13} /> Отправить {previews.filter(p => p.canSend).length}</>}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ─── ШАГ 3: RESULT ─────────────────────────────────────── */}
+        {step === "result" && result && (
           <div>
             <div style={{ padding: 18, background: "#0f1117", borderRadius: 10, marginBottom: 14, border: "1px solid #2d3748" }}>
               <div style={{ display: "flex", gap: 18, fontSize: 14 }}>
@@ -1242,36 +1474,6 @@ function EmailModal({ leadIds, onClose, onDone }: { leadIds: string[]; onClose: 
             )}
             <button style={S.btn("primary")} onClick={onDone}>Закрыть</button>
           </div>
-        ) : (
-          <>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10, lineHeight: 1.6 }}>
-              В тексте можно использовать плейсхолдеры:
-              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{domain}"}</code>,
-              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{company}"}</code>,
-              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{summary}"}</code>,
-              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{score}"}</code>,
-              {" "}<code style={{ background: "#0f1117", padding: "1px 6px", borderRadius: 4 }}>{"{niche_average}"}</code>.
-              {" "}Ссылка на отчёт добавляется автоматически кнопкой. Пропускаются лиды без email или без готового отчёта.
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Тема</label>
-              <input style={S.input} value={subject} onChange={e => setSubject(e.target.value)} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Текст письма</label>
-              <textarea
-                style={{ ...S.textarea, fontFamily: "inherit", fontSize: 13, minHeight: 200 }}
-                value={template}
-                onChange={e => setTemplate(e.target.value)}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
-              <button style={S.btn("ghost")} onClick={onClose} disabled={sending}>Отмена</button>
-              <button style={S.btn("primary")} onClick={submit} disabled={sending || !subject.trim() || !template.trim()}>
-                {sending ? "Отправляем…" : <><Send size={13} /> Отправить {leadIds.length}</>}
-              </button>
-            </div>
-          </>
         )}
       </div>
     </div>

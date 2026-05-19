@@ -40,6 +40,28 @@ export async function GET() {
   );
   const cfgByName = new Map(configs.map(c => [c.agent_name, c]));
 
+  // Подтягиваем «коннекты» юзера — нужны UI чтобы показать что подключено,
+  // а что нет (TG-канал для Auto-Publisher, VK-группа, etc).
+  // Без этого agent можно включить, но он не будет публиковать.
+  const userRows = await query<{
+    telegram_chat_id: string | null;
+    telegram_channel_id: string | null;
+    vk_group_id: string | null;
+  }>(
+    `SELECT telegram_chat_id, telegram_channel_id, vk_group_id FROM users WHERE id = $1`,
+    [session.userId],
+  );
+  const user = userRows[0] ?? { telegram_chat_id: null, telegram_channel_id: null, vk_group_id: null };
+  const connections = {
+    telegramChat: !!user.telegram_chat_id,         // для алертов от агентов
+    telegramChannel: !!user.telegram_channel_id,   // для Auto-Publisher → TG
+    vkGroup: !!user.vk_group_id,                   // для Auto-Publisher → VK
+    smtp: !!process.env.SMTP_USER_HELLO,           // глобально для платформы
+    keysoApi: !!process.env.KEYSO_API_TOKEN,
+    yandexMapsApi: !!process.env.YANDEX_MAPS_API_KEY,
+    googlePlacesApi: !!process.env.GOOGLE_PLACES_API_KEY,
+  };
+
   // Merge: definitions × config (если конфиг есть)
   const agents = definitions.map(def => {
     const cfg = cfgByName.get(def.name);
@@ -62,7 +84,7 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ ok: true, agents });
+  return NextResponse.json({ ok: true, agents, connections });
 }
 
 export async function POST(req: Request) {

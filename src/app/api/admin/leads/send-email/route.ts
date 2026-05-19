@@ -39,6 +39,9 @@ interface BodyShape {
   subject: string;
   template: string;
   fromAccount?: MailAccount;
+  /** Перекрытие subject/body для конкретных лидов — после ручного редактирования
+   *  в админ-превью. Если ключа в perLeadOverrides нет — используется общий шаблон. */
+  perLeadOverrides?: Record<string, { subject?: string; body?: string }>;
 }
 
 interface LeadWithReport extends Lead {
@@ -169,8 +172,13 @@ export async function POST(req: Request) {
         niche_average: lead.report_data.nicheAverage ?? 0,
       };
 
-      const subject = fillTemplate(body.subject, vars);
-      const plain = fillTemplate(body.template, { ...vars, report_url: reportUrl });
+      // Сначала применяем шаблон с плейсхолдерами, потом — поверх — override
+      // от админа из preview-окна (если он там что-то редактировал вручную).
+      // Override НЕ перерендерится с плейсхолдерами — admin уже видел финальный
+      // текст и сам решил что нужно изменить.
+      const override = body.perLeadOverrides?.[lead.id];
+      const subject = override?.subject ?? fillTemplate(body.subject, vars);
+      const plain = override?.body ?? fillTemplate(body.template, { ...vars, report_url: reportUrl });
       const html = plainToHtml(plain, clickUrl, openPixelUrl);
 
       // Заполняем subject в записи теперь, когда он сформирован.
