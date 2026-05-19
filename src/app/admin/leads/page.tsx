@@ -20,6 +20,7 @@ import Link from "next/link";
 import {
   Upload, Search, ExternalLink, FileText, RefreshCw, Trash2, Send, BarChart3,
   ChevronDown, ChevronUp, Play, Pause, Loader2, Mail, LayoutGrid, List, MoveRight, X,
+  User, Phone, MessageSquare, Save,
 } from "lucide-react";
 import {
   LEAD_STATUSES,
@@ -32,8 +33,10 @@ interface LeadRow {
   id: string;
   domain: string;
   company_name: string | null;
+  contact_person_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  contact_telegram: string | null;
   city: string | null;
   niche: string | null;
   slug: string;
@@ -245,6 +248,11 @@ export default function AdminLeadsPage() {
   // над которой висит курсор (чтобы подсветить целевой статус).
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<LeadStatus | null>(null);
+
+  // Inline-раскрытая карточка. Только одна развёрнута за раз — компактнее и
+  // понятнее чем «можно открыть всё». При раскрытии загружаем заметки.
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const toggleExpand = (id: string) => setExpandedLeadId(prev => prev === id ? null : id);
 
   // Закрываем dropdown «Переместить в…» при клике вне меню.
   useEffect(() => {
@@ -532,6 +540,9 @@ export default function AdminLeadsPage() {
             setDraggingId={setDraggingId}
             setDragOverStatus={setDragOverStatus}
             fmtDate={fmtDate}
+            expandedLeadId={expandedLeadId}
+            onToggleExpand={toggleExpand}
+            onLeadUpdated={load}
           />
         ) : (
           <table style={S.table}>
@@ -557,8 +568,10 @@ export default function AdminLeadsPage() {
               {leads.map(l => {
                 const reportReady = l.report_status === "done";
                 const isChecked = selected.has(l.id);
+                const isExpanded = expandedLeadId === l.id;
                 return (
-                  <tr key={l.id} style={isChecked ? { background: "#7c3aed11" } : undefined}>
+                  <React.Fragment key={l.id}>
+                  <tr style={isChecked || isExpanded ? { background: "#7c3aed11" } : undefined}>
                     <td style={S.td}>
                       <input
                         type="checkbox"
@@ -568,12 +581,16 @@ export default function AdminLeadsPage() {
                       />
                     </td>
                     <td style={S.td}>
-                      <Link href={`/admin/leads/${l.id}`} style={{ ...S.domainCell, textDecoration: "none", color: "#f1f5f9" }}>
+                      <button
+                        onClick={() => toggleExpand(l.id)}
+                        style={{ ...S.domainCell, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "#f1f5f9", display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        {isExpanded ? <ChevronUp size={12} color="#94a3b8" /> : <ChevronDown size={12} color="#94a3b8" />}
                         {l.domain}
-                      </Link>
-                      {(l.company_name || l.niche || l.city) && (
+                      </button>
+                      {(l.company_name || l.contact_person_name || l.niche || l.city) && (
                         <div style={S.metaSmall}>
-                          {[l.company_name, l.niche, l.city].filter(Boolean).join(" · ")}
+                          {[l.contact_person_name, l.company_name, l.niche, l.city].filter(Boolean).join(" · ")}
                         </div>
                       )}
                     </td>
@@ -614,6 +631,18 @@ export default function AdminLeadsPage() {
                       </button>
                     </td>
                   </tr>
+                  {isExpanded && (
+                    <tr style={{ background: "#13182a" }}>
+                      <td colSpan={7} style={{ padding: "10px 16px 16px 50px", borderBottom: "1px solid #1e2737" }}>
+                        <LeadEditPanel
+                          leadId={l.id}
+                          initial={l}
+                          onSaved={load}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -755,11 +784,15 @@ interface KanbanProps {
   setDraggingId: (id: string | null) => void;
   setDragOverStatus: (s: LeadStatus | null) => void;
   fmtDate: (s: string | null) => string;
+  expandedLeadId: string | null;
+  onToggleExpand: (id: string) => void;
+  onLeadUpdated: () => void;
 }
 
 function KanbanBoard({
   leads, selected, onToggleSelect, onMove, onDelete,
   draggingId, dragOverStatus, setDraggingId, setDragOverStatus, fmtDate,
+  expandedLeadId, onToggleExpand, onLeadUpdated,
 }: KanbanProps) {
   // Группируем лидов по статусу для рендера колонок.
   const leadsByStatus = useMemo(() => {
@@ -827,11 +860,16 @@ function KanbanBoard({
                 cards.map(l => {
                   const isChecked = selected.has(l.id);
                   const isDragging = draggingId === l.id;
+                  const isExpanded = expandedLeadId === l.id;
                   return (
                     <div
                       key={l.id}
-                      style={S.kanCard(isChecked, isDragging)}
-                      draggable
+                      style={{
+                        ...S.kanCard(isChecked, isDragging),
+                        cursor: "default", // развёрнутый рендер не должен сразу мигать
+                        ...(isExpanded ? { border: `1px solid #7c3aed55`, background: "#7c3aed0d" } : {}),
+                      }}
+                      draggable={!isExpanded} // в развёрнутом — отключаем drag, чтоб не дёргалось при редактировании
                       onDragStart={e => handleDragStart(e, l.id)}
                       onDragEnd={handleDragEnd}
                     >
@@ -843,9 +881,13 @@ function KanbanBoard({
                           onClick={e => e.stopPropagation()}
                           style={{ cursor: "pointer", marginTop: 2 }}
                         />
-                        <Link href={`/admin/leads/${l.id}`} style={S.kanDomain} onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => onToggleExpand(l.id)}
+                          style={{ ...S.kanDomain, background: "transparent", border: "none", padding: 0, textAlign: "left" as const, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                        >
+                          {isExpanded ? <ChevronUp size={11} color="#94a3b8" /> : <ChevronDown size={11} color="#94a3b8" />}
                           {l.domain}
-                        </Link>
+                        </button>
                         <button
                           style={{ ...S.iconBtn, width: 22, height: 22, border: "none" }}
                           onClick={e => { e.stopPropagation(); onDelete(l.id, l.domain); }}
@@ -857,9 +899,11 @@ function KanbanBoard({
                       {l.company_name && (
                         <div style={S.kanCompany}>{l.company_name}</div>
                       )}
-                      {l.contact_email && (
-                        <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "ui-monospace, monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                          {l.contact_email}
+                      {(l.contact_person_name || l.contact_email) && (
+                        <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                          {l.contact_person_name && <span style={{ color: "#cbd5e1", fontWeight: 600 }}>{l.contact_person_name}</span>}
+                          {l.contact_person_name && l.contact_email && <span> · </span>}
+                          {l.contact_email && <span style={{ fontFamily: "ui-monospace, monospace" }}>{l.contact_email}</span>}
                         </div>
                       )}
                       <div style={S.kanFooter}>
@@ -878,8 +922,15 @@ function KanbanBoard({
                         </span>
                         <span>{fmtDate(l.created_at)}</span>
                       </div>
-                      {l.notes_count > 0 && (
+                      {l.notes_count > 0 && !isExpanded && (
                         <div style={{ fontSize: 10, color: "#64748b" }}>📝 {l.notes_count}</div>
+                      )}
+                      {isExpanded && (
+                        <LeadEditPanel
+                          leadId={l.id}
+                          initial={l}
+                          onSaved={() => { onLeadUpdated(); }}
+                        />
                       )}
                     </div>
                   );
@@ -889,6 +940,207 @@ function KanbanBoard({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Inline editor для развёрнутой карточки лида ──────────────────────────
+// Используется и в Kanban (внутри карточки), и в Table (новой строкой).
+// Поля: имя контактного лица, компания, email, телефон, telegram, город, ниша.
+// + Список заметок с формой «Добавить комментарий».
+// Каждое поле сохраняется одним PATCH-запросом при потере фокуса (onBlur),
+// заметка — отдельным запросом по кнопке.
+
+interface NoteRow {
+  id: string;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+}
+
+function LeadEditPanel({
+  leadId, initial, onSaved,
+}: {
+  leadId: string;
+  initial: LeadRow;
+  onSaved: () => void;
+}) {
+  // Локальный draft — чтобы редактирование было responsive и не дёргалось при
+  // оптимистичных обновлениях родителя.
+  const [draft, setDraft] = useState({
+    contact_person_name: initial.contact_person_name ?? "",
+    company_name: initial.company_name ?? "",
+    contact_email: initial.contact_email ?? "",
+    contact_phone: initial.contact_phone ?? "",
+    contact_telegram: initial.contact_telegram ?? "",
+    city: initial.city ?? "",
+    niche: initial.niche ?? "",
+  });
+  const [savingField, setSavingField] = useState<string | null>(null);
+  const [notes, setNotes] = useState<NoteRow[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [newNote, setNewNote] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+
+  // Загружаем заметки лида при первом рендере (карточка только что развернулась).
+  useEffect(() => {
+    let cancelled = false;
+    setNotesLoading(true);
+    fetch(`/api/admin/leads/${leadId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled || !d.ok) return;
+        setNotes(d.notes ?? []);
+      })
+      .finally(() => { if (!cancelled) setNotesLoading(false); });
+    return () => { cancelled = true; };
+  }, [leadId]);
+
+  // Сохраняем одно поле через PATCH. Вызывается onBlur — после ухода фокуса.
+  async function saveField(field: keyof typeof draft, value: string) {
+    const next = value.trim() || null;
+    // Не дёргаем сервер если значение не изменилось.
+    if (next === (initial[field] ?? null)) return;
+    setSavingField(field);
+    try {
+      await fetch(`/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: next }),
+      });
+      onSaved();
+    } finally {
+      setSavingField(null);
+    }
+  }
+
+  async function addNote() {
+    if (!newNote.trim()) return;
+    setAddingNote(true);
+    try {
+      const r = await fetch(`/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ add_note: newNote.trim() }),
+      });
+      if (r.ok) {
+        setNewNote("");
+        // Перезагружаем заметки и просим родителя обновить (notes_count в карточке).
+        const d = await fetch(`/api/admin/leads/${leadId}`).then(r => r.json());
+        if (d.ok) setNotes(d.notes ?? []);
+        onSaved();
+      }
+    } finally {
+      setAddingNote(false);
+    }
+  }
+
+  function fmtDate(s: string | null) {
+    if (!s) return "—";
+    return new Date(s).toLocaleString("ru-RU", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  const FIELDS: Array<{ key: keyof typeof draft; label: string; icon: React.ReactNode; placeholder?: string; full?: boolean }> = [
+    { key: "contact_person_name", label: "Контактное лицо", icon: <User size={11} /> },
+    { key: "company_name",        label: "Название компании", icon: null },
+    { key: "contact_phone",       label: "Телефон", icon: <Phone size={11} /> },
+    { key: "contact_email",       label: "Email", icon: <Mail size={11} /> },
+    { key: "contact_telegram",    label: "Telegram", icon: null, placeholder: "@username" },
+    { key: "city",                label: "Город", icon: null },
+    { key: "niche",               label: "Ниша", icon: null },
+  ];
+
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8, paddingTop: 12, borderTop: "1px solid #2d3748" }}
+    >
+      {/* Поля по 2 в ряд для компактности; на узких — 1 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+        {FIELDS.map(f => (
+          <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              {f.icon}
+              {f.label}
+              {savingField === f.key && <Loader2 size={9} className="spin" />}
+            </span>
+            <input
+              type="text"
+              value={draft[f.key]}
+              placeholder={f.placeholder}
+              onChange={e => setDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
+              onBlur={e => saveField(f.key, e.target.value)}
+              style={{
+                padding: "6px 9px", borderRadius: 6,
+                background: "#0f1117", border: "1px solid #2d3748", color: "#e2e8f0",
+                fontSize: 12, outline: "none", fontFamily: "inherit",
+              }}
+            />
+          </label>
+        ))}
+      </div>
+
+      {/* Заметки */}
+      <div style={{ marginTop: 4 }}>
+        <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+          <MessageSquare size={11} /> Комментарии · {notes.length}
+        </div>
+        <textarea
+          value={newNote}
+          onChange={e => setNewNote(e.target.value)}
+          placeholder="Добавить комментарий (что обсуждали по телефону, какие договорённости…)"
+          style={{
+            width: "100%", minHeight: 56, padding: "7px 10px",
+            background: "#0f1117", border: "1px solid #2d3748", color: "#e2e8f0",
+            fontSize: 12, borderRadius: 7, outline: "none", resize: "vertical" as const, fontFamily: "inherit",
+          }}
+        />
+        <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={addNote}
+            disabled={!newNote.trim() || addingNote}
+            style={{
+              padding: "5px 12px", borderRadius: 6, border: "none",
+              background: newNote.trim() ? "#7c3aed" : "#2d3748",
+              color: "#fff", fontSize: 11, fontWeight: 700, cursor: newNote.trim() ? "pointer" : "not-allowed",
+              display: "inline-flex", alignItems: "center", gap: 5,
+            }}
+          >
+            {addingNote ? <Loader2 size={10} className="spin" /> : <Save size={10} />}
+            Сохранить
+          </button>
+        </div>
+
+        {notesLoading ? (
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 8 }}>Загружаем…</div>
+        ) : notes.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#475569", marginTop: 8, fontStyle: "italic" as const }}>Заметок пока нет</div>
+        ) : (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            {notes.map(n => (
+              <div key={n.id} style={{
+                padding: "8px 10px", borderRadius: 6,
+                background: "#0f1117", border: "1px solid #1e2737",
+              }}>
+                <div style={{ fontSize: 10, color: "#64748b", marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
+                  <span>{n.author_name ?? "—"}</span>
+                  <span>{fmtDate(n.created_at)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#cbd5e1", whiteSpace: "pre-wrap" as const, lineHeight: 1.5 }}>{n.body}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        <Link
+          href={`/admin/leads/${leadId}`}
+          style={{ fontSize: 11, color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}
+        >
+          Открыть полную карточку →
+        </Link>
+      </div>
     </div>
   );
 }

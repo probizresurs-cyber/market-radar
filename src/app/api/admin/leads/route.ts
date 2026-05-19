@@ -19,6 +19,7 @@ interface LeadListRow {
   id: string;
   domain: string;
   company_name: string | null;
+  contact_person_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   contact_telegram: string | null;

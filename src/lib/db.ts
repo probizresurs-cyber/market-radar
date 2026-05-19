@@ -581,6 +581,10 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_leads_domain ON leads(domain)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC)`);
 
+  // Имя контактного лица (отдельно от company_name). Заполняется CRM-менеджером
+  // при первом контакте — «с кем разговаривал», «кому назначить встречу».
+  await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS contact_person_name TEXT`);
+
   // Экспресс-отчёт по сайту: ~1 страница AI-резюме + структурированные блоки.
   // Один лид может иметь несколько версий отчёта (перегенерация), берётся последняя по created_at.
   await query(`

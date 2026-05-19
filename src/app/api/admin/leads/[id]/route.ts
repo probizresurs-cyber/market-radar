@@ -30,6 +30,7 @@ interface LeadRow {
   id: string;
   domain: string;
   company_name: string | null;
+  contact_person_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   contact_telegram: string | null;
@@ -101,6 +102,7 @@ export async function GET(_req: Request, { params }: Params) {
 interface PatchBody {
   status?: LeadStatus;
   status_note?: string;
+  contact_person_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
   contact_telegram?: string | null;
@@ -133,6 +135,7 @@ export async function PATCH(req: Request, { params }: Params) {
       values.push(value);
       updates.push(`${field} = $${values.length}`);
     }
+    if (body.contact_person_name !== undefined) set("contact_person_name", body.contact_person_name);
     if (body.contact_email !== undefined) set("contact_email", body.contact_email);
     if (body.contact_phone !== undefined) set("contact_phone", body.contact_phone);
     if (body.contact_telegram !== undefined) set("contact_telegram", body.contact_telegram);
