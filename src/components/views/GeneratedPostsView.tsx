@@ -1741,7 +1741,11 @@ export function GeneratedPostsView({
   plan?: import("@/lib/content-types").ContentPlan | null;
   isGeneratingPost?: boolean;
   generatingPostId?: string | null;
-  onGeneratePost?: (idea: import("@/lib/content-types").ContentPostIdea, customPrompt?: string) => void;
+  onGeneratePost?: (
+    idea: import("@/lib/content-types").ContentPostIdea,
+    customPrompt?: string,
+    imageOpts?: { imagePromptOverride?: string; imageStyle?: string; imageWithTextOverlay?: boolean; imageOverlayText?: string },
+  ) => void;
 }) {
   // Фильтр по платформе + поиск по тексту: критично когда постов 20+
   const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");

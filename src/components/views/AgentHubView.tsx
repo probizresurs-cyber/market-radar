@@ -652,6 +652,31 @@ export function AgentHubView({ c }: { c: Colors }) {
           .mr-agent-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {/* Единственный инстанс модалки настроек — на все агенты сразу.
+          Когда юзер кликает на ⚙ карточки, мы запоминаем имя агента,
+          и эта модалка показывается с его данными. Никаких наслоений
+          физически не может быть — компонент один. */}
+      {settingsOpenFor && (() => {
+        const targetAgent = agents.find(a => a.name === settingsOpenFor);
+        if (!targetAgent) return null;
+        const cat = targetAgent.category as AgentItem["category"];
+        return (
+          <AgentSettingsModal
+            agent={targetAgent}
+            neonColor={CATEGORY_NEON[cat]}
+            schema={AGENT_PARAM_SCHEMAS[targetAgent.name] ?? []}
+            missingConnections={getMissingConnections(targetAgent.name, connections)}
+            onClose={() => setSettingsOpenFor(null)}
+            onSave={async (newParams) => {
+              await updateParams(targetAgent.name, newParams);
+              setSettingsOpenFor(null);
+            }}
+            onRunNow={() => { runNow(targetAgent.name); setSettingsOpenFor(null); }}
+            running={runningName === targetAgent.name}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -675,38 +700,11 @@ function AgentCard({
   onRunNow: () => void;
 }) {
   const IconComp = ICON_MAP[AGENT_ICONS[agent.name] ?? "Bot"] ?? Bot;
-  // showSettings теперь приходит из hub-а как single source of truth —
-  // только одна модалка может быть открыта по всем карточкам сразу.
+  // Карточка больше не держит draft параметров — это делает SettingsModal в HubView.
+  // Тут оставляем только helper-ы для UI кнопки «Настройки».
   const showSettings = settingsOpen;
-  const setShowSettings = (open: boolean) => open ? onOpenSettings() : onCloseSettings();
-  const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(agent.params);
-  const [paramsDirty, setParamsDirty] = useState(false);
-  const [paramsSaving, setParamsSaving] = useState(false);
-
-  // Если внешний state params изменился (после save или first load) — синкаем
-  useEffect(() => {
-    if (!paramsDirty) setParamsDraft(agent.params);
-  }, [agent.params, paramsDirty]);
-
-  const setField = (key: string, value: unknown) => {
-    setParamsDraft(prev => ({ ...prev, [key]: value }));
-    setParamsDirty(true);
-  };
-
-  const saveParams = async () => {
-    setParamsSaving(true);
-    try {
-      await onParamsChange(paramsDraft);
-      setParamsDirty(false);
-    } finally {
-      setParamsSaving(false);
-    }
-  };
-
-  const resetParams = () => {
-    setParamsDraft(agent.params);
-    setParamsDirty(false);
-  };
+  const openSettings = () => onOpenSettings();
+  void onCloseSettings; void onParamsChange; // используются модалкой в HubView
   const statusColor = agent.lastRunStatus ? STATUS_COLORS[agent.lastRunStatus] ?? "var(--muted-foreground)" : "var(--muted-foreground)";
   const lastRunStr = agent.lastRunAt
     ? new Date(agent.lastRunAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
@@ -866,7 +864,7 @@ function AgentCard({
         </button>
         {schema.length > 0 && (
           <button
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={openSettings}
             title="Настроить параметры агента"
             style={{
               padding: "8px 10px", borderRadius: 8,
@@ -899,106 +897,308 @@ function AgentCard({
         </a>
       </div>
 
-      {/* Settings — теперь полноценный модал, а не inline-раскрывашка.
-          Так нагляднее и не ломает 3-колоночный grid карточек. */}
-      {showSettings && schema.length > 0 && (
-        <div
-          onClick={() => setShowSettings(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 100,
-            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
+      {/* Модал настроек больше НЕ рендерится здесь — он живёт в AgentHubView
+          одним инстансом на всех агентов. Это гарантирует что наслоения не будет. */}
+    </div>
+  );
+}
+
+// ─── Полноценная модалка-«ЛК агента» с табами ─────────────────────────────
+// Renders ровно один раз в AgentHubView (lifted state). 3 таба:
+//   • Настройки — текущие params + сохранение
+//   • История — последние 10 запусков (agent_runs)
+//   • Подключения — что необходимо для работы, статус каждого
+
+interface AgentRunRow {
+  id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  summary: string | null;
+  duration_ms: number | null;
+  needs_approval: boolean;
+}
+
+function AgentSettingsModal({
+  agent, neonColor, schema, missingConnections,
+  onClose, onSave, onRunNow, running,
+}: {
+  agent: AgentItem;
+  neonColor: string;
+  schema: ParamField[];
+  missingConnections: MissingConnection[];
+  onClose: () => void;
+  onSave: (params: Record<string, unknown>) => Promise<void>;
+  onRunNow: () => void;
+  running: boolean;
+}) {
+  const IconComp = ICON_MAP[AGENT_ICONS[agent.name] ?? "Bot"] ?? Bot;
+  const [tab, setTab] = useState<"settings" | "history" | "connections">("settings");
+  const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(agent.params);
+  const [paramsDirty, setParamsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<AgentRunRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Загружаем историю только когда юзер открывает соответствующий таб —
+  // экономим на запросе при ленивых юзерах.
+  useEffect(() => {
+    if (tab !== "history" || history.length > 0) return;
+    setHistoryLoading(true);
+    fetch(`/api/agents/history?name=${encodeURIComponent(agent.name)}&limit=10`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setHistory(d.runs ?? []); })
+      .finally(() => setHistoryLoading(false));
+  }, [tab, agent.name, history.length]);
+
+  const setField = (key: string, value: unknown) => {
+    setParamsDraft(prev => ({ ...prev, [key]: value }));
+    setParamsDirty(true);
+  };
+  const save = async () => {
+    setSaving(true);
+    try { await onSave(paramsDraft); } finally { setSaving(false); }
+  };
+  const resetDraft = () => { setParamsDraft(agent.params); setParamsDirty(false); };
+
+  function fmt(s: string | null) {
+    if (!s) return "—";
+    return new Date(s).toLocaleString("ru-RU", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "var(--card)",
+          border: `1px solid var(--border)`,
+          borderTop: `4px solid ${neonColor}`,
+          borderRadius: 18, padding: 0,
+          maxWidth: 760, width: "100%", maxHeight: "88vh",
+          overflow: "hidden", display: "flex", flexDirection: "column",
+          boxShadow: `0 20px 80px rgba(0,0,0,0.6), 0 0 60px ${neonColor}22`,
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: "22px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <div style={{
+              width: 46, height: 46, borderRadius: 12,
+              background: `${neonColor}18`, border: `1px solid ${neonColor}40`,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              color: neonColor, boxShadow: `0 0 22px ${neonColor}30`,
+            }}>
+              <IconComp size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: neonColor, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                ЛИЧНЫЙ КАБИНЕТ АГЕНТА
+              </div>
+              <div style={{ fontSize: 21, fontWeight: 800, color: "var(--foreground)", marginTop: 4, letterSpacing: -0.3 }}>
+                {agent.label}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--foreground-secondary)", marginTop: 4, lineHeight: 1.5, maxWidth: 520 }}>
+                {agent.description}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
             style={{
-              background: "var(--card)",
-              border: `1px solid var(--border)`,
-              borderTop: `3px solid ${neonColor}`,
-              borderRadius: 16, padding: 28,
-              maxWidth: 560, width: "100%", maxHeight: "85vh", overflow: "auto",
-              boxShadow: `0 16px 64px rgba(0,0,0,0.5), 0 0 40px ${neonColor}20`,
+              background: "transparent", border: "1px solid var(--border)",
+              borderRadius: 8, padding: 7, cursor: "pointer",
+              color: "var(--foreground-secondary)", flexShrink: 0,
+            }}
+            aria-label="Закрыть"
+          >
+            <XIcon size={15} />
+          </button>
+        </div>
+
+        {/* Last run banner */}
+        {(agent.lastRunAt || agent.lastRunSummary) && (
+          <div style={{ margin: "14px 28px 0", padding: "10px 14px", background: "color-mix(in oklch, var(--primary) 6%, transparent)", border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)", borderRadius: 10, fontSize: 12, color: "var(--foreground-secondary)" }}>
+            <span style={{ fontWeight: 800, color: STATUS_COLORS[agent.lastRunStatus ?? "ok"] ?? "#6b7280" }}>{agent.lastRunStatus ?? "ok"}</span>
+            {" · "}{fmt(agent.lastRunAt)}
+            {agent.lastRunSummary && <><br /><span style={{ color: "var(--foreground)" }}>{agent.lastRunSummary}</span></>}
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, padding: "16px 28px 0", borderBottom: "1px solid var(--border)" }}>
+          {([
+            ["settings", "Настройки", <SettingsIcon size={13} key="s" />],
+            ["history", "История", <History size={13} key="h" />],
+            ["connections", "Подключения", <AlertCircle size={13} key="c" />],
+          ] as const).map(([key, label, icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                padding: "9px 16px", borderRadius: 0,
+                border: "none", borderBottom: tab === key ? `2px solid ${neonColor}` : "2px solid transparent",
+                background: "transparent",
+                color: tab === key ? neonColor : "var(--foreground-secondary)",
+                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontFamily: "inherit",
+                marginBottom: -1,
+              }}
+            >
+              {icon} {label}
+              {key === "connections" && missingConnections.length > 0 && (
+                <span style={{ background: "#f59e0b", color: "#000", borderRadius: 9, padding: "0 6px", fontSize: 10, fontWeight: 800, marginLeft: 4 }}>
+                  {missingConnections.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
+          {tab === "settings" && (
+            schema.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {schema.map(field => (
+                  <ParamFieldEditor
+                    key={field.key}
+                    field={field}
+                    value={paramsDraft[field.key]}
+                    onChange={v => setField(field.key, v)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "20px 0" }}>
+                У этого агента нет настраиваемых параметров. Поведение полностью автоматическое.
+              </div>
+            )
+          )}
+
+          {tab === "history" && (
+            historyLoading ? (
+              <div style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "20px 0" }}>
+                Загружаем историю…
+              </div>
+            ) : history.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "20px 0" }}>
+                Пока ни одного запуска. Нажмите «Запустить сейчас» внизу — появится запись.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {history.map(run => (
+                  <div key={run.id} style={{
+                    padding: "10px 14px", borderRadius: 8,
+                    background: "color-mix(in oklch, var(--primary) 3%, transparent)",
+                    border: "1px solid var(--border)",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: STATUS_COLORS[run.status] ?? "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        {run.status}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                        {fmt(run.started_at)}{run.duration_ms ? ` · ${Math.round(run.duration_ms / 1000)} сек` : ""}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+                      {run.summary || <span style={{ color: "var(--muted-foreground)" }}>(без описания)</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {tab === "connections" && (
+            <div>
+              {missingConnections.length === 0 ? (
+                <div style={{ padding: 14, borderRadius: 10, background: "color-mix(in oklch, #22c55e 8%, transparent)", border: "1px solid #22c55e40", color: "var(--foreground)", fontSize: 13, display: "flex", gap: 10, alignItems: "center" }}>
+                  <Check size={16} color="#22c55e" />
+                  Все необходимые подключения настроены. Агент готов работать.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {missingConnections.map((m, i) => (
+                    <div key={i} style={{ padding: 14, borderRadius: 10, background: "#f59e0b14", border: "1px solid #f59e0b40", fontSize: 13, color: "var(--foreground-secondary)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 800, color: "#f59e0b", marginBottom: 4 }}>{m.label}</div>
+                          <div style={{ lineHeight: 1.6, marginBottom: 6 }}>{m.hint}</div>
+                          {m.link && (
+                            <a href={m.link} style={{ color: "#f59e0b", textDecoration: "underline", fontWeight: 600, fontSize: 13 }}>
+                              Перейти к настройке →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "var(--card)" }}>
+          <button
+            onClick={() => { onRunNow(); }}
+            disabled={running}
+            style={{
+              padding: "9px 16px", borderRadius: 9, border: `1px solid ${neonColor}55`,
+              background: running ? `${neonColor}15` : "transparent",
+              color: neonColor, fontWeight: 700, fontSize: 13, cursor: running ? "wait" : "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  background: `${neonColor}18`, border: `1px solid ${neonColor}40`,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  color: neonColor,
-                }}>
-                  <IconComp size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: neonColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                    Настройки агента
-                  </div>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--foreground)", marginTop: 4, letterSpacing: -0.2 }}>
-                    {agent.label}
-                  </div>
-                </div>
-              </div>
+            {running ? <Loader2 size={13} className="mr-spin" /> : <Play size={13} />}
+            {running ? "Запускается…" : "Запустить сейчас"}
+          </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => { resetDraft(); onClose(); }}
+              style={{
+                padding: "9px 18px", borderRadius: 9,
+                border: "1px solid var(--border)", background: "transparent",
+                color: "var(--foreground-secondary)", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              Закрыть
+            </button>
+            {tab === "settings" && (
               <button
-                onClick={() => setShowSettings(false)}
+                onClick={save}
+                disabled={saving || !paramsDirty}
                 style={{
-                  background: "transparent", border: "1px solid var(--border)",
-                  borderRadius: 8, padding: 6, cursor: "pointer",
-                  color: "var(--foreground-secondary)",
-                }}
-                aria-label="Закрыть"
-              >
-                <XIcon size={14} />
-              </button>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {schema.map(field => (
-                <ParamFieldEditor
-                  key={field.key}
-                  field={field}
-                  value={paramsDraft[field.key]}
-                  onChange={v => setField(field.key, v)}
-                />
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => { resetParams(); setShowSettings(false); }}
-                style={{
-                  padding: "9px 18px", borderRadius: 8,
-                  border: "1px solid var(--border)", background: "transparent",
-                  color: "var(--foreground-secondary)",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={async () => { await saveParams(); setShowSettings(false); }}
-                disabled={paramsSaving || !paramsDirty}
-                style={{
-                  padding: "9px 20px", borderRadius: 8, border: "none",
+                  padding: "9px 22px", borderRadius: 9, border: "none",
                   background: paramsDirty ? neonColor : "var(--muted)",
                   color: "#fff",
-                  fontSize: 13, fontWeight: 700, cursor: paramsSaving ? "wait" : (paramsDirty ? "pointer" : "not-allowed"),
+                  fontSize: 13, fontWeight: 800,
+                  cursor: saving ? "wait" : (paramsDirty ? "pointer" : "not-allowed"),
                   display: "inline-flex", alignItems: "center", gap: 6,
                   fontFamily: "inherit",
-                  boxShadow: paramsDirty ? `0 4px 16px ${neonColor}40` : "none",
+                  boxShadow: paramsDirty ? `0 4px 16px ${neonColor}50` : "none",
                   opacity: paramsDirty ? 1 : 0.7,
                 }}
               >
-                {paramsSaving ? <Loader2 size={12} className="mr-spin" /> : <Save size={12} />}
+                {saving ? <Loader2 size={12} className="mr-spin" /> : <Save size={12} />}
                 Сохранить
               </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

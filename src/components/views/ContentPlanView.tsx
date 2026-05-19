@@ -254,7 +254,16 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   generatingPostId: string | null;
   isGeneratingReel: boolean;
   generatingReelId: string | null;
-  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGeneratePost: (
+    idea: ContentPostIdea,
+    customPrompt?: string,
+    imageOpts?: {
+      imagePromptOverride?: string;
+      imageStyle?: string;
+      imageWithTextOverlay?: boolean;
+      imageOverlayText?: string;
+    },
+  ) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
   brandBook: BrandBook;
   /** Когда задан — переключатель Post/Reel скрыт, используется только этот режим.
@@ -271,6 +280,15 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isExpandingPrompt, setIsExpandingPrompt] = useState(false);
   const [expandError, setExpandError] = useState<string | null>(null);
+
+  // ── Раздельные настройки для картинки (опционально, схлопнутая секция) ──
+  // showImageBlock — раскрытие секции «Параметры картинки»
+  // Остальные — поля передаваемые в API.
+  const [showImageBlock, setShowImageBlock] = useState(false);
+  const [imageStyle, setImageStyle] = useState<string>("");                  // "" = авто
+  const [imagePromptOverride, setImagePromptOverride] = useState<string>("");
+  const [imageWithTextOverlay, setImageWithTextOverlay] = useState(false);
+  const [imageOverlayText, setImageOverlayText] = useState<string>("");
 
   const selectedPost = plan.postIdeas.find(p => p.id === selectedPostId);
   const selectedReel = plan.reelIdeas.find(r => r.id === selectedReelId);
@@ -340,7 +358,17 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
         id: `scratch-${Date.now()}`, pillar: "С нуля", format: "single",
         hook: brief || "Новый пост", angle: brief, goal: "охват", cta: "", platform: "vk",
       };
-      onGeneratePost(idea, customPrompt);
+      // Собираем imageOpts — передаём только то что юзер реально задал.
+      const hasImageOpts = imageStyle || imagePromptOverride.trim() || imageWithTextOverlay;
+      const imageOpts = hasImageOpts
+        ? {
+            imageStyle: imageStyle || undefined,
+            imagePromptOverride: imagePromptOverride.trim() || undefined,
+            imageWithTextOverlay: imageWithTextOverlay || undefined,
+            imageOverlayText: imageOverlayText.trim() || undefined,
+          }
+        : undefined;
+      onGeneratePost(idea, customPrompt, imageOpts);
     } else {
       const idea: ContentReelIdea = selectedReel ?? {
         id: `scratch-${Date.now()}`, pillar: "С нуля", hook: brief || "Новый рилс",
@@ -504,6 +532,117 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           </div>
         )}
 
+        {/* Параметры картинки — раскрывающийся блок (только для постов).
+            Юзер может задать стиль, отдельный image-prompt и текст-оверлей. */}
+        {mode === "post" && (
+          <div style={{ marginBottom: 14 }}>
+            <button
+              onClick={() => setShowImageBlock(v => !v)}
+              style={{
+                width: "100%", textAlign: "left", padding: "11px 14px",
+                background: "var(--background)", border: `1px dashed ${accent}50`,
+                borderRadius: 10, cursor: "pointer", color: "var(--foreground)",
+                fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between",
+              }}
+            >
+              <span>🎨 Параметры картинки {(imageStyle || imagePromptOverride.trim() || imageWithTextOverlay) && <span style={{ color: accent, marginLeft: 6 }}>· настроено</span>}</span>
+              <span>{showImageBlock ? "▲" : "▼"}</span>
+            </button>
+            {showImageBlock && (
+              <div style={{
+                marginTop: 10, padding: 14, borderRadius: 10,
+                background: `${accent}06`, border: `1px solid ${accent}25`,
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                {/* Стиль */}
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СТИЛЬ КАРТИНКИ
+                  </label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {([
+                      ["", "🤖 Авто"],
+                      ["photo", "📷 Фото"],
+                      ["illustration", "🎨 Иллюстрация"],
+                      ["minimalist", "⬜ Минимализм"],
+                      ["3d", "🧊 3D"],
+                      ["anime", "🌸 Аниме"],
+                      ["sketch", "✏️ Скетч"],
+                      ["watercolor", "🖌 Акварель"],
+                    ] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setImageStyle(val)}
+                        style={{
+                          padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                          background: imageStyle === val ? accent : "var(--card)",
+                          color: imageStyle === val ? "#fff" : "var(--foreground)",
+                          border: imageStyle === val ? `1px solid ${accent}` : "1px solid var(--border)",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Кастомный image-prompt */}
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СВОЙ ПРОМПТ ДЛЯ КАРТИНКИ (на английском, опц)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={imagePromptOverride}
+                    onChange={e => setImagePromptOverride(e.target.value)}
+                    placeholder="A dentist clinic with modern equipment, soft natural lighting, professional photography..."
+                    style={{
+                      width: "100%", padding: "9px 12px", borderRadius: 8,
+                      background: "var(--background)", border: "1px solid var(--border)",
+                      color: "var(--foreground)", fontSize: 12, fontFamily: "ui-monospace, monospace",
+                      outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
+                    Если пусто — DALL-E получит промпт от GPT-4o, который описывает картинку под текст поста.
+                  </div>
+                </div>
+
+                {/* Текст-оверлей */}
+                <div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--foreground)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={imageWithTextOverlay}
+                      onChange={e => setImageWithTextOverlay(e.target.checked)}
+                    />
+                    Встроенный текст на картинке (заголовок / ключевая фраза)
+                  </label>
+                  {imageWithTextOverlay && (
+                    <input
+                      type="text"
+                      value={imageOverlayText}
+                      onChange={e => setImageOverlayText(e.target.value)}
+                      placeholder="Если пусто — возьмём хук из поста"
+                      maxLength={60}
+                      style={{
+                        width: "100%", padding: "8px 12px", borderRadius: 8, marginTop: 8,
+                        background: "var(--background)", border: "1px solid var(--border)",
+                        color: "var(--foreground)", fontSize: 12, outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                  )}
+                  {imageWithTextOverlay && (
+                    <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
+                      DALL-E будет инструктирован сделать этот текст крупно по центру картинки. Длина до 60 символов — иначе плохо читается.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Generate button */}
         <button
           onClick={handleGenerate}
@@ -531,7 +670,16 @@ export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGen
   dayIndex: number;
   isGeneratingPost: boolean;
   isGeneratingReel: boolean;
-  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGeneratePost: (
+    idea: ContentPostIdea,
+    customPrompt?: string,
+    imageOpts?: {
+      imagePromptOverride?: string;
+      imageStyle?: string;
+      imageWithTextOverlay?: boolean;
+      imageOverlayText?: string;
+    },
+  ) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
   onClose: () => void;
 }) {
@@ -595,7 +743,16 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
   generatingPostId: string | null;
   isGeneratingReel: boolean;
   generatingReelId: string | null;
-  onGeneratePost: (idea: ContentPostIdea, customPrompt?: string) => void;
+  onGeneratePost: (
+    idea: ContentPostIdea,
+    customPrompt?: string,
+    imageOpts?: {
+      imagePromptOverride?: string;
+      imageStyle?: string;
+      imageWithTextOverlay?: boolean;
+      imageOverlayText?: string;
+    },
+  ) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
   avatarSettings: AvatarSettings;
   onUpdateAvatarSettings: (next: AvatarSettings) => void;

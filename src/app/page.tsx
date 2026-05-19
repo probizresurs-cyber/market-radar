@@ -1297,7 +1297,16 @@ function MarketRadarDashboardInner() {
     });
   }, [myCompany, smmAnalysis, brandBook, companyStyleState, contentPlan, generatedPosts, generatedReels, avatarSettings, toast]);
 
-  const handleGeneratePost = async (idea: ContentPostIdea, customPrompt?: string) => {
+  const handleGeneratePost = async (
+    idea: ContentPostIdea,
+    customPrompt?: string,
+    imageOpts?: {
+      imagePromptOverride?: string;
+      imageStyle?: string;
+      imageWithTextOverlay?: boolean;
+      imageOverlayText?: string;
+    },
+  ) => {
     setGeneratingPostId(idea.id);
     try {
       const res = await fetch("/api/generate-post", {
@@ -1307,6 +1316,11 @@ function MarketRadarDashboardInner() {
           companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
           companyNiche: myCompany?.company?.description ?? "",
           idea,
+          // Раздельные настройки для текста и картинки.
+          imagePromptOverride: imageOpts?.imagePromptOverride,
+          imageStyle: imageOpts?.imageStyle,
+          imageWithTextOverlay: imageOpts?.imageWithTextOverlay,
+          imageOverlayText: imageOpts?.imageOverlayText,
           smmAnalysis,
           brandBook,
           companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,

@@ -227,7 +227,16 @@ export async function POST(req: Request) {
     const brandBook: BrandBook | null = body.brandBook ?? null;
     const styleProfile: CompanyStyleProfile | null = body.companyStyleProfile ?? null;
     const generateImage: boolean = body.generateImage !== false;
-    const userPrompt: string = body.userPrompt ?? ""; // custom prompt override
+    const userPrompt: string = body.userPrompt ?? ""; // custom prompt override для ТЕКСТА
+    // Новые поля раздельной настройки картинки. Все опциональны.
+    //   imagePromptOverride — полностью кастомный английский промпт для DALL-E
+    //   imageStyle — пресет стиля (photo/illustration/minimalist/3d/anime/sketch)
+    //   imageWithTextOverlay — добавлять ли заголовок/ключи на картинку
+    //   imageOverlayText — текст оверлея (если пусто — используется хук поста)
+    const imagePromptOverride: string = (body.imagePromptOverride ?? "").trim();
+    const imageStyle: string = (body.imageStyle ?? "").trim();
+    const imageWithTextOverlay: boolean = body.imageWithTextOverlay === true;
+    const imageOverlayText: string = (body.imageOverlayText ?? "").trim();
     // referenceImages не используем — OpenAI image-gen эндпоинт не принимает
     // референсы (только edits, и нам это пока не нужно).
 
@@ -304,12 +313,37 @@ export async function POST(req: Request) {
         const nichePrefix = effectiveNiche
           ? `Industry/niche context: ${effectiveNiche}. The image MUST visually depict this industry, not the literal meaning of the company name.`
           : "";
+        // Какой базовый promp используем для DALL-E:
+        //   1. Если юзер дал imagePromptOverride — это полностью его текст,
+        //      берём его как есть, к нему только nichePrefix приклеиваем.
+        //   2. Иначе — то что сгенерировал GPT в parsed.imagePrompt.
+        const basePrompt = imagePromptOverride || parsed.imagePrompt;
+
+        // Стиль картинки — пресет, превращается в английскую фразу для DALL-E.
+        const STYLE_PHRASES: Record<string, string> = {
+          photo:        "Photorealistic photo, natural lighting, professional photography",
+          illustration: "Flat vector illustration, modern style, bright colors",
+          minimalist:   "Minimalist composition, clean background, single focal subject",
+          "3d":         "3D render, soft shadows, modern isometric style",
+          anime:        "Anime / manga illustration style, vibrant",
+          sketch:       "Hand-drawn pencil sketch style, monochrome",
+          watercolor:   "Soft watercolor painting style, pastel palette",
+        };
+        const stylePhrase = imageStyle && STYLE_PHRASES[imageStyle] ? STYLE_PHRASES[imageStyle] : "";
+
+        // Текст на картинке. По умолчанию запрещаем (так чище для соцсетей).
+        // Если юзер явно попросил — добавляем инструкцию с конкретным текстом.
+        const textInstruction = imageWithTextOverlay
+          ? `Render this exact text large and clearly on the image (without any spelling mistakes), in a bold modern sans-serif: "${(imageOverlayText || parsed.hook || "").slice(0, 60)}". The text should be the main focal point and easily readable.`
+          : "No text, letters, words or watermarks in the image.";
+
         const enrichedPrompt = [
           nichePrefix,
-          parsed.imagePrompt,
+          basePrompt,
+          stylePhrase,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,
-          "No text, letters, words or watermarks in the image.",
+          textInstruction,
         ].filter(Boolean).join(" ");
 
         // Platform-aware aspect: helper смотрит и на платформу, и на формат идеи.
