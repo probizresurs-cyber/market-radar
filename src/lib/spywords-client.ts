@@ -154,11 +154,10 @@ export interface SpywordsCompetitor {
     adTraffic: number;
     adBudget: number;
   };
-  /** Топ-15 объявлений этого конкурента в платной выдаче (с креативом + ключами). */
+  /** До 50 объявлений конкурента в платной выдаче с метриками
+   *  (keyword + позиция + Volume + CPC + competition). Это весь список
+   *  ключевых слов в рекламе — то что SpyWords даёт на API Start. */
   topAds?: SpywordsAd[];
-  /** Топ-30 органических ключей конкурента из Keys.so (когда доступен).
-   *  SpyWords API Start не отдаёт DomainOrganic — берём из Keys.so. */
-  organicKeywords?: Array<{ keyword: string; position: number; volume: number }>;
 }
 
 export interface SpywordsAd {
@@ -169,8 +168,16 @@ export interface SpywordsAd {
   description?: string;
   /** Видимая ссылка. */
   visibleUrl?: string;
-  /** Позиция (если есть). */
+  /** Позиция (если есть). 1-7 для рекламной выдачи. */
   position?: number;
+  /** Частотность запроса в месяц (Volume в API). */
+  volume?: number;
+  /** Цена клика по ключу — рекомендованная ставка ₽. */
+  cpc?: number;
+  /** Уровень конкуренции по запросу (KeyComp, 0-100). */
+  competition?: number;
+  /** Реальный URL посадочной страницы. */
+  realUrl?: string;
 }
 
 export interface SpywordsOrganicPosition {
@@ -367,11 +374,9 @@ async function getDomainAds(domain: string, se: SearchEngine, limit = 10): Promi
   const objs = rowsToObjects(rows);
   return objs.map(o => {
     const adCopy = o.AdCopy ?? "";
-    // Разбиваем AdCopy: первая часть — заголовок, последующие — описание / vis.url
     const parts = adCopy.split(" / ").map(s => s.trim()).filter(Boolean);
     const title = parts[0];
     const description = parts.slice(1, -1).join(" • ") || parts[1];
-    // Последний фрагмент обычно содержит видимую ссылку (без http) + дублирующее имя — берём первый «домен-выглядящий» токен.
     const lastPart = parts[parts.length - 1] ?? "";
     const visibleUrl = lastPart.split(/\s+/)[0];
 
@@ -385,6 +390,10 @@ async function getDomainAds(domain: string, se: SearchEngine, limit = 10): Promi
       description: description || undefined,
       visibleUrl:  visibleUrl || undefined,
       position,
+      volume:      num(o.Volume) || undefined,
+      cpc:         num(o.CPC) || undefined,
+      competition: num(o.KeyComp) || undefined,
+      realUrl:     o.RealURL || undefined,
     };
   }).filter(a => a.keyword.length > 0).slice(0, limit);
 }
@@ -448,13 +457,13 @@ async function enrichCompetitors(
 
   await Promise.all(top.map(async c => {
     try {
-      // Тянем до 15 объявлений конкурента — это даёт нам и креативы, и
-      // список ключей в контексте (поле keyword у каждого объявления).
-      // На API Start DomainOrganic платный, поэтому ad-keywords — это всё
-      // что мы можем получить «бесплатно».
+      // Тянем до 50 объявлений конкурента — максимум что SpyWords отдаёт
+      // на API Start. Каждое объявление содержит keyword + позицию + Volume + CPC.
+      // DomainOrganic для конкурентов на API Start платный, поэтому ad-keywords —
+      // это всё что мы можем получить из SpyWords «бесплатно».
       const [overview, ads] = await Promise.all([
         getDomainOverview(c.domain).catch(() => null),
-        getDomainAds(c.domain, se, 15).catch(() => [] as SpywordsAd[]),
+        getDomainAds(c.domain, se, 50).catch(() => [] as SpywordsAd[]),
       ]);
       if (overview && overview[se]) {
         const o = overview[se]!;

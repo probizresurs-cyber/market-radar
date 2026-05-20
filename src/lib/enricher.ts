@@ -812,45 +812,6 @@ export async function enrichDomainData(
     getSpywordsData(domain).catch(() => null),
   ]);
 
-  // Обогащаем топ-3 SEO-конкурента из SpyWords их органическими ключами
-  // из Keys.so. SpyWords API Start не отдаёт DomainOrganic (платный тариф),
-  // но Keys.so отдаёт. Так мы получаем реальные ключи конкурента бесплатно.
-  if (spywords?.competitors && process.env.KEYSO_API_TOKEN) {
-    const enrichKeys = async (cs: typeof spywords.competitors.yandex, base: "msk" | "gru") => {
-      const top = cs.slice(0, 3);
-      await Promise.all(top.map(async (c) => {
-        try {
-          const dash = await fetchJson(
-            `https://api.keys.so/report/simple/domain_dashboard?base=${base}&domain=${encodeURIComponent(c.domain)}`,
-            { "X-Keyso-TOKEN": process.env.KEYSO_API_TOKEN!, "Accept": "application/json", "Content-Type": "application/json" },
-            20000,
-          ).catch(() => null) as { keys?: Array<Record<string, unknown>> } | null;
-
-          if (!dash?.keys || !Array.isArray(dash.keys)) return;
-          const orgKeys = dash.keys
-            .map(item => ({
-              keyword: String(item.word ?? ""),
-              position: parseInt(String(item.pos ?? "0"), 10),
-              volume:   parseInt(String(item.wsk ?? item.ws ?? "0"), 10),
-            }))
-            .filter(k => k.keyword && k.position > 0 && k.position <= 100)
-            .sort((a, b) => a.position - b.position)
-            .slice(0, 30);
-
-          if (orgKeys.length > 0) {
-            // ВАЖНО: мутируем напрямую — SpywordsCompetitor мы расширим
-            // полем organicKeywords в типах.
-            (c as { organicKeywords?: typeof orgKeys }).organicKeywords = orgKeys;
-          }
-        } catch { /* skip */ }
-      }));
-    };
-    await Promise.all([
-      enrichKeys(spywords.competitors.yandex, "msk"),
-      enrichKeys(spywords.competitors.google, "gru"),
-    ]);
-  }
-
   return {
     domainAge,
     telegram,

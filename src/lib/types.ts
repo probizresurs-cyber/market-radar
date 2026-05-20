@@ -23,9 +23,7 @@ export interface SpywordsCompetitorShape {
     adTraffic: number;
     adBudget: number;
   };
-  topAds?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
-  /** Органические ключи конкурента из Keys.so (если есть KEYSO_API_TOKEN). */
-  organicKeywords?: Array<{ keyword: string; position: number; volume: number }>;
+  topAds?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number; volume?: number; cpc?: number; competition?: number; realUrl?: string }>;
 }
 
 export interface Recommendation {

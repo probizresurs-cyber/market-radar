@@ -127,76 +127,57 @@ function CompetitorCard({ c, engineColor, engineLabel }: { c: Competitor; engine
               </div>
             </>
           )}
-          {/* Органические ключи конкурента (из Keys.so) — топ-30 запросов
-              по которым конкурент ранжируется в поиске */}
-          {c.organicKeywords && c.organicKeywords.length > 0 && (
-            <>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
-                ОРГАНИЧЕСКИЕ КЛЮЧИ КОНКУРЕНТА ({c.organicKeywords.length})
-                <span title="Реальные SEO-запросы по которым этот конкурент ранжируется в поиске. Данные из Keys.so (т.к. SpyWords API Start не даёт DomainOrganic)." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
-                  <Info size={10} />
-                </span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 280, overflowY: "auto" }}>
-                {c.organicKeywords.map((kw, i) => (
-                  <div key={`${kw.keyword}-${i}`} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "5px 10px", background: "var(--card)",
-                    border: "1px solid var(--border)", borderRadius: 6,
-                  }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, color: kw.position <= 3 ? "var(--success)" : kw.position <= 10 ? engineColor : "var(--muted-foreground)",
-                      minWidth: 24, textAlign: "center",
-                    }}>#{kw.position}</span>
-                    <span style={{ flex: 1, fontSize: 12, color: "var(--foreground)" }}>{kw.keyword}</span>
-                    {kw.volume > 0 && (
-                      <span style={{ fontSize: 10, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{fmt(kw.volume)}/мес</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
           {c.topAds && c.topAds.length > 0 && (() => {
-            // Уникальные ключи из всех объявлений (дедупликация по keyword)
-            const uniqueKeywords = Array.from(new Set(c.topAds.map(a => a.keyword.trim()).filter(Boolean)));
-            const topCreatives = c.topAds.slice(0, 3); // Первые 3 с полным креативом
+            // Дедуп по keyword — иногда один ключ повторяется с разными креативами
+            const seen = new Set<string>();
+            const uniqueAds: typeof c.topAds = [];
+            for (const a of c.topAds) {
+              if (!seen.has(a.keyword)) { seen.add(a.keyword); uniqueAds.push(a); }
+            }
+            const topCreatives = c.topAds.slice(0, 3);
 
             return (
               <>
-                {/* Список всех ключей в рекламе — chips */}
-                {uniqueKeywords.length > 0 && (
-                  <>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
-                      КЛЮЧИ В КОНТЕКСТЕ ({uniqueKeywords.length})
-                      <span title="Запросы, по которым этот конкурент выкупает платную рекламу. Доступно через SpyWords API Start. Органические ключи (по SEO-выдаче) на этом тарифе платные." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
-                        <Info size={10} />
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {uniqueKeywords.map(kw => (
-                        <span key={kw} style={{
-                          padding: "3px 8px", borderRadius: 5,
-                          background: `${engineColor}22`, color: engineColor,
-                          fontSize: 11, fontWeight: 600, fontFamily: "inherit",
-                        }}>
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {/* Полная таблица ключей в платной выдаче конкурента — позиция, объём, CPC, конкуренция */}
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                  КЛЮЧЕВЫЕ СЛОВА В ПЛАТНОЙ ВЫДАЧЕ ({uniqueAds.length})
+                  <span title="Поисковые запросы, по которым конкурент выкупает рекламу в Я.Директе / Google Ads. На SpyWords API Start доступен ТОЛЬКО список ad-ключей (DomainAdv). Органические ключи конкурента (DomainOrganic) требуют платный тариф SpyWords." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
+                    <Info size={10} />
+                  </span>
+                </div>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 50px 70px 65px 60px",
+                  gap: 4,
+                  maxHeight: 360, overflowY: "auto",
+                  fontSize: 11,
+                }}>
+                  {/* Заголовки */}
+                  <div style={{ padding: "4px 8px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, letterSpacing: "0.05em" }}>Запрос</div>
+                  <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, letterSpacing: "0.05em", textAlign: "center" }} title="Позиция объявления в платной выдаче (1 = самый верх)">Поз.</div>
+                  <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, letterSpacing: "0.05em", textAlign: "right" }} title="Частотность запроса в месяц (показы)">Объём</div>
+                  <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, letterSpacing: "0.05em", textAlign: "right" }} title="Рекомендованная цена клика ₽">CPC</div>
+                  <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, letterSpacing: "0.05em", textAlign: "center" }} title="Уровень конкуренции по запросу (0-100)">Конк.</div>
 
-                {/* Топ 3 с креативом */}
+                  {uniqueAds.map((a, i) => (
+                    <React.Fragment key={`${a.keyword}-${i}`}>
+                      <div style={{ padding: "5px 8px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--foreground)" }}>{a.keyword}</div>
+                      <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: a.position && a.position <= 2 ? "var(--success)" : engineColor, fontWeight: 700, textAlign: "center" }}>{a.position ?? "—"}</div>
+                      <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--foreground-secondary)", textAlign: "right" }}>{a.volume ? fmt(a.volume) : "—"}</div>
+                      <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--foreground-secondary)", textAlign: "right" }}>{a.cpc ? `${a.cpc.toFixed(0)}₽` : "—"}</div>
+                      <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--muted-foreground)", textAlign: "center" }}>{a.competition ?? "—"}</div>
+                    </React.Fragment>
+                  ))}
+                </div>
+
                 {topCreatives.length > 0 && (
                   <>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px" }}>
-                      ТОП ОБЪЯВЛЕНИЙ
+                      ПРИМЕРЫ ОБЪЯВЛЕНИЙ
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {topCreatives.map((a, i) => (
-                        <div key={`${a.keyword}-${i}`} style={{ padding: 8, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
+                        <div key={`creative-${a.keyword}-${i}`} style={{ padding: 8, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
                           <div style={{ fontSize: 10, fontWeight: 700, color: engineColor, marginBottom: 3, textTransform: "uppercase" }}>{a.keyword}</div>
                           {a.title && <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>{a.title}</div>}
                           {a.description && <div style={{ fontSize: 11, color: "var(--foreground-secondary)", lineHeight: 1.45 }}>{a.description}</div>}
@@ -205,6 +186,11 @@ function CompetitorCard({ c, engineColor, engineLabel }: { c: Competitor; engine
                     </div>
                   </>
                 )}
+
+                {/* Пояснение про органику */}
+                <div style={{ marginTop: 12, padding: "8px 10px", background: "var(--background)", borderRadius: 6, fontSize: 10, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                  💡 Органические ключи конкурента (DomainOrganic) на тарифе SpyWords <b>API Start</b> недоступны — требуется платный тариф. На API Start доступны только ключи в платной выдаче.
+                </div>
               </>
             );
           })()}
