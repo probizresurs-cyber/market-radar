@@ -74,7 +74,7 @@ function prependPostDedup(prev: GeneratedPost[], next: GeneratedPost): Generated
 // New Analysis View (inside dashboard sidebar)
 // ============================================================
 
-function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: (url: string) => Promise<void>; isAnalyzing: boolean }) {
+function NewAnalysisView({ c, onAnalyze, isAnalyzing }: { c: Colors; onAnalyze: (url: string) => Promise<unknown>; isAnalyzing: boolean }) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -674,13 +674,24 @@ function MarketRadarDashboardInner() {
     smm?: { vk?: string; telegram?: string; instagram?: string };
     competitorUrls?: string[];
   }) => {
-    await handleNewAnalysis(opts.url);
-    // Параллельно запускаем выбранные модули. Каждый имеет свой
-    // лоадер-state (isTAAnalyzing/isSMMAnalyzing) — UI отрисует.
+    // 1) Основной анализ. Получаем result ЯВНО, не из React state —
+    //    state ещё не обновится к моменту вызова дочерних модулей.
+    const result = await handleNewAnalysis(opts.url);
+    if (!result) {
+      console.warn("[wizard] основной анализ не удался, пропускаем доп.модули");
+      return;
+    }
+
+    // 2) Параллельно запускаем выбранные модули с явным companyOverride.
+    //    Каждый handler принимает result, не читает myCompany из закрытия,
+    //    поэтому модули работают сразу после анализа.
     const tasks: Promise<unknown>[] = [];
 
     if (opts.modules.includes("ta")) {
-      tasks.push(handleTAAnalysis("", "", "b2c").catch(() => {/* don't block */}));
+      // niche/extraContext пустые — TA-route сам возьмёт контекст из company
+      tasks.push(handleTAAnalysis("", "", "b2c", result).catch((e) => {
+        console.warn("[wizard] TA failed", e);
+      }));
     }
     if (opts.modules.includes("smm")) {
       const links = {
@@ -691,21 +702,29 @@ function MarketRadarDashboardInner() {
         tiktok: "",
         youtube: "",
       } as SMMSocialLinks;
-      tasks.push(handleSMMAnalysis("", links).catch(() => {/* don't block */}));
+      tasks.push(handleSMMAnalysis("", links, result).catch((e) => {
+        console.warn("[wizard] SMM failed", e);
+      }));
     }
     if (opts.modules.includes("competitors") && opts.competitorUrls?.length) {
-      for (const compUrl of opts.competitorUrls.slice(0, 3)) {
-        tasks.push(handleAddCompetitor(compUrl).catch(() => {/* don't block */}));
-      }
+      // handleAddCompetitor не зависит от myCompany — он просто добавляет
+      // новый конкурент через analyzeUrl. Однако его внутренний state-merge
+      // тоже опасен (последовательность гонок). Запускаем последовательно
+      // чтобы избежать race condition на setCompetitors.
+      tasks.push((async () => {
+        for (const compUrl of opts.competitorUrls!.slice(0, 3)) {
+          try { await handleAddCompetitor(compUrl); }
+          catch (e) { console.warn("[wizard] competitor failed", compUrl, e); }
+        }
+      })());
     }
-    // Reviews — не имеет дешёвого «запусти и забудь» endpoint'а, юзер запустит
-    // вручную из вкладки «Рынок и отзывы». Просто открываем эту вкладку как hint.
+    // Reviews — отдельная вкладка, юзер запускает вручную.
 
-    // Fire-and-forget: пускай работают в фоне, пользователь смотрит дашборд
+    // Fire-and-forget: пускай работают в фоне, пользователь смотрит дашборд.
     void Promise.all(tasks);
   };
 
-  const handleNewAnalysis = async (url: string) => {
+  const handleNewAnalysis = async (url: string): Promise<AnalysisResult | null> => {
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
@@ -734,6 +753,10 @@ function MarketRadarDashboardInner() {
           `✅ <b>MarketRadar</b>\n\nАнализ завершён: <b>${result.company.name}</b>\nScore: <b>${result.company.score}/100</b>\n\nОткройте приложение, чтобы посмотреть результаты.`
         );
       }
+      return result;
+    } catch (err) {
+      console.error("[handleNewAnalysis]", err);
+      return null;
     } finally {
       setIsAnalyzing(false);
     }
@@ -809,15 +832,18 @@ function MarketRadarDashboardInner() {
     }
   };
 
-  const handleTAAnalysis = async (niche: string, extraContext: string, audienceType: TAAudienceType = "b2c") => {
+  const handleTAAnalysis = async (niche: string, extraContext: string, audienceType: TAAudienceType = "b2c", companyOverride?: AnalysisResult) => {
+    // Когда вызывается из мастера сразу после handleNewAnalysis — React-state
+    // ещё не успел обновиться, поэтому принимаем companyOverride явно.
+    const company = companyOverride ?? myCompany;
     setIsTAAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-ta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: myCompany?.company.name ?? "",
-          companyUrl: myCompany?.company.url ?? "",
+          companyName: company?.company.name ?? "",
+          companyUrl: company?.company.url ?? "",
           niche,
           extraContext,
           audienceType,
@@ -841,7 +867,10 @@ function MarketRadarDashboardInner() {
         try { localStorage.setItem(`mr_ta_${currentUser.id}_${audienceType}`, JSON.stringify(newAnalysis)); } catch { /* ignore */ }
         syncToServer("ta", newAnalysis);
       }
-      setActiveNav("ta-dashboard");
+      // Когда запущено из мастера (companyOverride передан) — НЕ переключаем
+      // вкладку, оставляем юзера на dashboard. Иначе модули в фоне будут
+      // перетаскивать его с экрана на экран.
+      if (!companyOverride) setActiveNav("ta-dashboard");
     } finally {
       setIsTAAnalyzing(false);
     }
@@ -911,18 +940,21 @@ function MarketRadarDashboardInner() {
     }
   };
 
-  const handleSMMAnalysis = async (niche: string, links: SMMSocialLinks) => {
+  const handleSMMAnalysis = async (niche: string, links: SMMSocialLinks, companyOverride?: AnalysisResult) => {
+    // Принимаем companyOverride чтобы работало сразу после handleNewAnalysis
+    // (React state ещё не обновился в момент вызова из мастера).
+    const company = companyOverride ?? myCompany;
     setIsSMMAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-smm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: myCompany?.company.name ?? "",
-          companyUrl: myCompany?.company.url ?? "",
+          companyName: company?.company.name ?? "",
+          companyUrl: company?.company.url ?? "",
           niche,
           socialLinks: links,
-          websiteContext: myCompany?.company.description ?? "",
+          websiteContext: company?.company.description ?? "",
         }),
       });
       const json = await res.json();
@@ -932,7 +964,7 @@ function MarketRadarDashboardInner() {
         try { localStorage.setItem(`mr_smm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
         syncToServer("smm", json.data);
       }
-      setActiveNav("smm-dashboard");
+      if (!companyOverride) setActiveNav("smm-dashboard");
     } finally {
       setIsSMMAnalyzing(false);
     }
