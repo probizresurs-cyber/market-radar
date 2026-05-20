@@ -542,7 +542,7 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
 
       {/* SpyWords — дополнительный слой к Keys.so. Рендерим ВСЕГДА:
           если данных нет, показываем понятную причину, а не молча скрываем. */}
-      <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+      <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={true}>
         {data.spywordsDashboard ? (
           <SpywordsBlock data={data.spywordsDashboard} />
         ) : (
