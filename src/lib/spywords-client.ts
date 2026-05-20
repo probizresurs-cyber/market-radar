@@ -154,8 +154,11 @@ export interface SpywordsCompetitor {
     adTraffic: number;
     adBudget: number;
   };
-  /** Топ-3 объявлений этого конкурента в платной выдаче. */
+  /** Топ-15 объявлений этого конкурента в платной выдаче (с креативом + ключами). */
   topAds?: SpywordsAd[];
+  /** Топ-30 органических ключей конкурента из Keys.so (когда доступен).
+   *  SpyWords API Start не отдаёт DomainOrganic — берём из Keys.so. */
+  organicKeywords?: Array<{ keyword: string; position: number; volume: number }>;
 }
 
 export interface SpywordsAd {
@@ -445,9 +448,13 @@ async function enrichCompetitors(
 
   await Promise.all(top.map(async c => {
     try {
+      // Тянем до 15 объявлений конкурента — это даёт нам и креативы, и
+      // список ключей в контексте (поле keyword у каждого объявления).
+      // На API Start DomainOrganic платный, поэтому ad-keywords — это всё
+      // что мы можем получить «бесплатно».
       const [overview, ads] = await Promise.all([
         getDomainOverview(c.domain).catch(() => null),
-        getDomainAds(c.domain, se, 3).catch(() => [] as SpywordsAd[]),
+        getDomainAds(c.domain, se, 15).catch(() => [] as SpywordsAd[]),
       ]);
       if (overview && overview[se]) {
         const o = overview[se]!;
