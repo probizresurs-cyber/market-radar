@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { KeysoDashboardBlock } from "@/components/ui/KeysoDashboardBlock";
 import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
+import { SpywordsBlock } from "@/components/ui/SpywordsBlock";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
@@ -469,43 +470,28 @@ export function CompetitorProfileView({ c, data, onBack, onUpdateData }: { c: Co
         </div>
       </CollapsibleSection>
 
-      {/* ── Соцсети ── */}
-      {(data.social?.vk || data.social?.telegram || data.social?.yandexRating || data.social?.gisRating) && (
-        <CollapsibleSection c={c} title="Соцсети и отзывы" icon={<Smartphone size={16} />}>
-          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, padding: 20, boxShadow: "var(--shadow)", marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-              {data.social?.vk && (
-                <div style={{ background: "var(--background)", borderRadius: 12, padding: 14, border: `1px solid var(--border)` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>ВКонтакте</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)" }}>{data.social.vk.subscribers.toLocaleString("ru")}</div>
-                  <div style={{ fontSize: 11, color: "var(--foreground-secondary)" }}>подписчиков</div>
-                </div>
-              )}
-              {data.social?.telegram && (
-                <div style={{ background: "var(--background)", borderRadius: 12, padding: 14, border: `1px solid var(--border)` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>Telegram</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)" }}>{data.social.telegram.subscribers.toLocaleString("ru")}</div>
-                  <div style={{ fontSize: 11, color: "var(--foreground-secondary)" }}>подписчиков</div>
-                </div>
-              )}
-              {(data.social?.yandexRating ?? 0) > 0 && (
-                <div style={{ background: "var(--background)", borderRadius: 12, padding: 14, border: `1px solid var(--border)` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>Яндекс.Карты</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--warning)" }}>★ {data.social.yandexRating.toFixed(1)}</div>
-                  <div style={{ fontSize: 11, color: "var(--foreground-secondary)" }}>{data.social.yandexReviews} отзывов</div>
-                </div>
-              )}
-              {(data.social?.gisRating ?? 0) > 0 && (
-                <div style={{ background: "var(--background)", borderRadius: 12, padding: 14, border: `1px solid var(--border)` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>2ГИС</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--warning)" }}>★ {data.social.gisRating.toFixed(1)}</div>
-                  <div style={{ fontSize: 11, color: "var(--foreground-secondary)" }}>{data.social.gisReviews} отзывов</div>
-                </div>
-              )}
+      {/* ── SpyWords конкурента — органика, реклама, ключи, конкуренты ── */}
+      <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} />} defaultOpen={true}>
+        {data.spywordsDashboard ? (
+          <SpywordsBlock data={data.spywordsDashboard} />
+        ) : (
+          <div style={{
+            padding: "20px 18px", borderRadius: 10,
+            background: "var(--background)", border: "1px dashed var(--border)",
+            color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.6,
+          }}>
+            <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>
+              По этому конкуренту пока нет данных от SpyWords
             </div>
+            Возможные причины:
+            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+              <li>Конкурент добавлен до подключения SpyWords — переанализируйте</li>
+              <li>Молодой сайт или с малой посещаемостью — нет в базе SpyWords</li>
+              <li>Брендовый/прямой трафик без SEO-выдачи и контекстной рекламы</li>
+            </ul>
           </div>
-        </CollapsibleSection>
-      )}
+        )}
+      </CollapsibleSection>
     </div>
   );
 }
