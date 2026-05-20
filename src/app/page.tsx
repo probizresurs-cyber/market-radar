@@ -1917,8 +1917,28 @@ function MarketRadarDashboardInner() {
                 onUpdateCompanyStyle={handleUpdateCompanyStyle}
                 onOpenStyleTab={() => setActiveNav("content-style")}
                 activeSubNav={activeNav}
+                mode="seo"
               />
             : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "SEO-статьи"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />
+        )}
+        {/* GEO-статьи — то же что SEO, но в режиме mode="geo".
+            Шарят SEOArticlesView + localStorage с SEO, разделение по brief.articleMode. */}
+        {(activeNav === "geo-new" || activeNav === "geo-library") && (
+          featureOn("seo-articles")
+            ? <SEOArticlesView
+                c={c}
+                userId={currentUser?.id ?? ""}
+                analysis={myCompany ?? null}
+                taResult={taAnalysis}
+                brandBook={brandBook}
+                companyStyleProfile={companyStyleState.applyToGeneration ? companyStyleState.profile : null}
+                companyStyleState={companyStyleState}
+                onUpdateCompanyStyle={handleUpdateCompanyStyle}
+                onOpenStyleTab={() => setActiveNav("content-style")}
+                activeSubNav={activeNav}
+                mode="geo"
+              />
+            : <ComingSoonView c={c} featureId="seo-articles" title="GEO-статьи" description="Оптимизация статей под LLM-поисковики (Алиса, ChatGPT Search, Perplexity)" userEmail={currentUser?.email} />
         )}
         {activeNav === "reviews-analysis" && (
           featureOn("reviews-analysis")

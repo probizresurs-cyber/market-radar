@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief, SEOSection } from "@/lib/seo-types";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { geoRulesIfNeeded } from "@/lib/geo-rules";
 
 function buildStyleInstruction(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
       ? `Запрещённые слова: ${brandBook.forbiddenWords.join(", ")}.`
       : "";
     const styleBlock = buildStyleInstruction(companyStyleProfile ?? null);
+    const isGeo = brief.articleMode === "geo";
+    const geoBlock = geoRulesIfNeeded(brief.articleMode);
 
     if (mode === "section" && sectionId) {
       // Generate a single section
@@ -63,8 +66,8 @@ export async function POST(req: NextRequest) {
         .map(s => `## ${s.heading}\n${s.generatedContent}`)
         .join("\n\n");
 
-      const prompt = `Ты — SEO-копирайтер. Напиши раздел статьи.
-
+      const prompt = `Ты — ${isGeo ? "GEO-копирайтер (пишешь чтобы цитировали LLM-поисковики)" : "SEO-копирайтер"}. Напиши раздел статьи.
+${geoBlock}
 СТАТЬЯ: ${brief.topic}
 ПЛАТФОРМА: ${brief.platform}
 ${tov} ${forbidden}
@@ -100,8 +103,8 @@ ${prevContent ? `УЖЕ НАПИСАНО (для контекста):\n${prevCon
     // Full article mode (for short articles ≤ 2000 words)
     const outlineText = sections.map(s => `${"#".repeat(s.level)} ${s.heading}\n(${s.contentBrief}, ~${s.wordTarget} слов)`).join("\n\n");
 
-    const prompt = `Ты — SEO-копирайтер. Напиши полную статью по брифу.
-
+    const prompt = `Ты — ${isGeo ? "GEO-копирайтер (пишешь чтобы цитировали LLM-поисковики)" : "SEO-копирайтер"}. Напиши полную статью по брифу.
+${geoBlock}
 ТЕМА: ${brief.topic}
 ПЛАТФОРМА: ${brief.platform}
 ТИП: ${brief.articleType}

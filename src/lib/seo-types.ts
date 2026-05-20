@@ -150,6 +150,16 @@ export interface SEOArticleMeta {
   focusKeyword: string;
 }
 
+/**
+ * "seo"  — классическая SEO-оптимизация под поисковики (Яндекс, Google).
+ * "geo"  — GEO (Generative Engine Optimization) — статья пишется чтобы её
+ *          цитировали LLM-поисковики (Алиса с ИИ-ответами, ChatGPT Search,
+ *          Perplexity, Bing Chat, Gemini, YaGPT). Логика та же что SEO —
+ *          кластер ключей, бриф, аутлайн, генерация — но промпты тюнятся
+ *          под формат, который любят генеративные ассистенты.
+ */
+export type ArticleMode = "seo" | "geo";
+
 export interface SEOArticleBrief {
   articleType: SEOArticleType;
   platform: SEOPlatform;
@@ -162,6 +172,8 @@ export interface SEOArticleBrief {
   toneOfVoice: string[];
   callToAction: string;
   internalLinks: string[];
+  /** SEO/GEO. Старые брифы без поля считаются "seo". */
+  articleMode?: ArticleMode;
 }
 
 // ─── Full article ─────────────────────────────────────────────────────────────

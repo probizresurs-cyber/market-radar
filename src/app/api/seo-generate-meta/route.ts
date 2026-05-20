@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { geoRulesIfNeeded } from "@/lib/geo-rules";
+import type { ArticleMode } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,10 +31,14 @@ export async function POST(req: NextRequest) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
   try {
-    const { h1, intro, focusKeyword, platform, topic } = await req.json();
+    const { h1, intro, focusKeyword, platform, topic, articleMode } = await req.json() as {
+      h1: string; intro: string; focusKeyword: string; platform: string; topic: string;
+      articleMode?: ArticleMode;
+    };
+    const isGeo = articleMode === "geo";
 
-    const prompt = `Ты — SEO-специалист. Напиши мета-теги для статьи.
-
+    const prompt = `Ты — ${isGeo ? "GEO-специалист" : "SEO-специалист"}. Напиши мета-теги для статьи.
+${geoRulesIfNeeded(articleMode, "meta")}
 ТЕМА: ${topic}
 H1: ${h1}
 ЛИД: ${intro?.slice(0, 300)}

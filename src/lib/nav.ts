@@ -83,6 +83,16 @@ export const NAV_SECTIONS: NavSection[] = [
         ],
       },
       {
+        // GEO-статьи — оптимизация под LLM-поисковики (Алиса с ИИ-ответами,
+        // ChatGPT Search, Perplexity, Bing Chat). Шарят инфраструктуру с SEO,
+        // но используют отдельные промпты и фильтр библиотеки.
+        id: "geo-articles", icon: "Sparkles", label: "GEO-статьи", count: null,
+        children: [
+          { id: "geo-new",     icon: "Plus",    label: "Новая GEO-статья",     count: null },
+          { id: "geo-library", icon: "Library", label: "Библиотека GEO-статей", count: null },
+        ],
+      },
+      {
         id: "content-factory", icon: "Factory", label: "Контент-завод", count: null,
         children: [
           { id: "content-trends", icon: "TrendingUp", label: "Тренды по нише", count: null },

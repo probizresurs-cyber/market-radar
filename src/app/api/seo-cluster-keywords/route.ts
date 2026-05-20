@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { geoRulesIfNeeded } from "@/lib/geo-rules";
+import type { ArticleMode } from "@/lib/seo-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -14,10 +16,14 @@ export async function POST(req: NextRequest) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
   try {
-    const { topic, companyName, niche, taContext } = await req.json();
+    const { topic, companyName, niche, taContext, articleMode } = await req.json() as {
+      topic: string; companyName?: string; niche?: string; taContext?: string;
+      articleMode?: ArticleMode;
+    };
+    const isGeo = articleMode === "geo";
 
-    const prompt = `Ты — SEO-специалист. Составь семантический кластер ключевых слов для статьи.
-
+    const prompt = `Ты — ${isGeo ? "GEO-специалист (оптимизация под LLM-поисковики)" : "SEO-специалист"}. Составь семантический кластер ключевых слов для статьи.
+${geoRulesIfNeeded(articleMode)}
 ТЕМА: ${topic}
 КОМПАНИЯ: ${companyName || "—"}
 НИША: ${niche || "—"}

@@ -100,16 +100,19 @@ function CharCounter({ value, max, label }: { value: string; max: number; label:
 
 function SEOLibraryView({
   articles,
+  mode = "seo",
   onNew,
   onOpen,
   onDelete,
 }: {
   articles: SEOArticle[];
+  mode?: "seo" | "geo";
   onNew: () => void;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<SEOArticle["status"] | "all">("all");
+  const modeLabel = mode === "geo" ? "GEO" : "SEO";
 
   const shown = filter === "all" ? articles : articles.filter(a => a.status === filter);
 
@@ -117,12 +120,14 @@ function SEOLibraryView({
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 400, gap: 16 }}>
         <PenLine size={48} />
-        <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>Нет SEO-статей</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>Нет {modeLabel}-статей</div>
         <div style={{ color: "var(--muted-foreground)", textAlign: "center", maxWidth: 360 }}>
-          Создайте первую SEO-статью — AI составит бриф, структуру и текст
+          {mode === "geo"
+            ? "Создайте первую GEO-статью — она будет оптимизирована под цитирование в ИИ-поисковиках (Алиса, ChatGPT Search, Perplexity)"
+            : "Создайте первую SEO-статью — AI составит бриф, структуру и текст"}
         </div>
         <button className="ds-btn ds-btn-primary" onClick={onNew} style={{ marginTop: 8, gap: 6, display: "flex", alignItems: "center" }}>
-          <Plus size={14}/> Новая статья
+          <Plus size={14}/> Новая {modeLabel}-статья
         </button>
       </div>
     );
@@ -485,6 +490,7 @@ function SEOArticleEditor({
           focusKeyword: art.brief.focusKeyword,
           platform: art.brief.platform,
           topic: art.brief.topic,
+          articleMode: art.brief.articleMode,
         }),
       });
       const data = await res.json();
@@ -857,15 +863,19 @@ function SEONewArticleView({
   analysis,
   taResult,
   brandBook,
+  mode = "seo",
   onCreated,
   onBack,
 }: {
   analysis: AnalysisResult | null;
   taResult: TAResult | null;
   brandBook: BrandBook | null;
+  mode?: "seo" | "geo";
   onCreated: (article: SEOArticle) => void;
   onBack: () => void;
 }) {
+  const isGeo = mode === "geo";
+  const modeLabel = isGeo ? "GEO" : "SEO";
   const [step, setStep] = useState<"type" | "platform" | "topic" | "generating">("type");
   const [articleType, setArticleType] = useState<SEOArticleType>("informational");
   const [platform, setPlatform] = useState<SEOPlatform>("website");
@@ -936,6 +946,7 @@ function SEONewArticleView({
           articleType,
           taContext,
           brandBook,
+          articleMode: mode,
         }),
       });
       const briefData = await briefRes.json();
@@ -955,6 +966,7 @@ function SEONewArticleView({
         toneOfVoice: brandBook?.toneOfVoice || briefData.brief.toneOfVoice || [],
         callToAction: briefData.brief.callToAction || "",
         internalLinks: [],
+        articleMode: mode,
       };
 
       // Step 2: Generate outline
@@ -988,7 +1000,7 @@ function SEONewArticleView({
         const metaRes = await fetch("/api/seo-generate-meta", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ h1, intro, focusKeyword: brief.focusKeyword, platform, topic }),
+          body: JSON.stringify({ h1, intro, focusKeyword: brief.focusKeyword, platform, topic, articleMode: mode }),
         });
         const metaData = await metaRes.json();
         if (metaData.meta) meta = metaData.meta;
@@ -1026,8 +1038,21 @@ function SEONewArticleView({
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 20 }}>←</button>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)" }}>Новая SEO-статья</div>
-          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>Сначала бриф и структура — потом полный текст по разделам</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: 10 }}>
+            Новая {modeLabel}-статья
+            {isGeo && (
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
+                background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "#fff",
+                letterSpacing: "0.05em",
+              }}>GEO</span>
+            )}
+          </div>
+          <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>
+            {isGeo
+              ? "Статья оптимизирована под цитирование в Алисе, ChatGPT Search, Perplexity и Bing Chat"
+              : "Сначала бриф и структура — потом полный текст по разделам"}
+          </div>
         </div>
       </div>
 
@@ -1857,6 +1882,7 @@ export function SEOArticlesView({
   onUpdateCompanyStyle,
   onOpenStyleTab,
   activeSubNav,
+  mode = "seo",
 }: {
   c: Colors;
   userId: string;
@@ -1868,6 +1894,9 @@ export function SEOArticlesView({
   onUpdateCompanyStyle: (next: CompanyStyleState) => void;
   onOpenStyleTab: () => void;
   activeSubNav: string;
+  /** "seo" (default) или "geo". В geo-режиме библиотека и wizard фильтруют
+   *  статьи по `brief.articleMode === "geo"`, плюс API получает articleMode. */
+  mode?: "seo" | "geo";
 }) {
   void c; // CSS variables handle theming now
 
@@ -1885,15 +1914,23 @@ export function SEOArticlesView({
     } catch { /* */ }
   }, [storageKey]);
 
-  // Sync subView with activeSubNav prop
+  // Sync subView with activeSubNav prop (поддерживаем и seo-* и geo-* пути).
   useEffect(() => {
-    if (activeSubNav === "seo-new") setSubView("new");
+    if (activeSubNav === "seo-new" || activeSubNav === "geo-new") setSubView("new");
     else if (activeSubNav === "seo-keywords") setSubView("keywords");
-    else if (activeSubNav === "seo-library") setSubView("library");
+    else if (activeSubNav === "seo-library" || activeSubNav === "geo-library") setSubView("library");
     else if (activeSubNav === "seo-expand") setSubView("expand");
     else if (activeSubNav === "seo-paa") setSubView("paa");
     else if (activeSubNav === "seo-tech-audit") setSubView("tech-audit");
   }, [activeSubNav]);
+
+  // Фильтруем статьи по режиму: в geo-режиме показываем только статьи
+  // с articleMode === "geo". В seo-режиме — статьи с "seo" или без поля
+  // (старые статьи без указанного режима считаются SEO).
+  const filteredArticles = state.articles.filter(a => {
+    const m = a.brief.articleMode ?? "seo";
+    return m === mode;
+  });
 
   const save = useCallback((newState: SEOArticlesState) => {
     setState(newState);
@@ -1946,6 +1983,7 @@ export function SEOArticlesView({
           analysis={analysis}
           taResult={taResult}
           brandBook={brandBook}
+          mode={mode}
           onCreated={handleCreated}
           onBack={() => setSubView("library")}
         />
@@ -1972,7 +2010,8 @@ export function SEOArticlesView({
         />
       ) : (
         <SEOLibraryView
-          articles={state.articles}
+          articles={filteredArticles}
+          mode={mode}
           onNew={() => setSubView("new")}
           onOpen={handleOpen}
           onDelete={handleDelete}

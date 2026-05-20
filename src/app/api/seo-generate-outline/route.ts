@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { geoRulesIfNeeded } from "@/lib/geo-rules";
 
 // Robust JSON parser: tries multiple strategies to extract valid JSON
 function robustJsonParse(text: string): Record<string, unknown> | null {
@@ -52,8 +53,10 @@ export async function POST(req: NextRequest) {
     const { brief, keywords, customPlatformHint }: { brief: SEOArticleBrief; keywords: string[]; customPlatformHint?: string } = await req.json();
 
     const customBlock = customPlatformHint ? `\nДОПОЛНИТЕЛЬНО О ПЛОЩАДКЕ:\n${customPlatformHint}\n` : "";
+    const isGeo = brief.articleMode === "geo";
 
-    const prompt = `Ты — SEO-редактор. Составь детальную структуру (outline) для статьи.
+    const prompt = `Ты — ${isGeo ? "GEO-редактор (Generative Engine Optimization)" : "SEO-редактор"}. Составь детальную структуру (outline) для ${isGeo ? "GEO" : "SEO"}-статьи.
+${geoRulesIfNeeded(brief.articleMode)}
 
 БРИФ:
 - Тема: ${brief.topic}
