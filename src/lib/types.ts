@@ -186,6 +186,29 @@ export interface AnalysisResult {
     yandex?: KeysoDashboardData;
     google?: KeysoDashboardData;
   };
+  /** SpyWords-аналитика — дополнительный слой к Keys.so:
+   *  • объёмы органики и контекста, бюджет на рекламу
+   *  • топ объявлений конкурента в Я.Директе / Google Ads
+   *  • SEO-конкуренты по пересечению ключей
+   *  Опциональное поле — есть только если SPYWORDS_LOGIN/TOKEN сконфигурирован. */
+  spywordsDashboard?: {
+    overview?: {
+      yandex?: { visibility: number; organicKeywords: number; organicTraffic: number; adKeywords: number; adTraffic: number; adBudget: number };
+      google?: { visibility: number; organicKeywords: number; organicTraffic: number; adKeywords: number; adTraffic: number; adBudget: number };
+    };
+    competitors?: {
+      yandex?: Array<{ domain: string; commonKeywords: number; totalKeywords: number }>;
+      google?: Array<{ domain: string; commonKeywords: number; totalKeywords: number }>;
+    };
+    ads?: {
+      yandex?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
+      google?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
+    };
+    organic?: {
+      yandex?: Array<{ keyword: string; position: number; volume: number; url?: string }>;
+      google?: Array<{ keyword: string; position: number; volume: number; url?: string }>;
+    };
+  };
   techStack: {
     cms: string;
     analytics: string[];

@@ -170,6 +170,17 @@ export async function POST(request: NextRequest) {
       result.governmentContracts = real.govContracts;
     }
 
+    // SpyWords — дополнительный слой SEO/PPC-аналитики поверх Keys.so.
+    // Если ключей в env нет (или тариф упёрся в лимит) — просто не показываем блок.
+    if (real.spywords) {
+      result.spywordsDashboard = {
+        overview: real.spywords.overview,
+        competitors: real.spywords.competitors,
+        ads: real.spywords.ads,
+        organic: real.spywords.organic,
+      };
+    }
+
     // Keys.so — real keyword positions (Yandex + Google)
     if (real.keyso) {
       if (real.keyso.yandex.length > 0) {

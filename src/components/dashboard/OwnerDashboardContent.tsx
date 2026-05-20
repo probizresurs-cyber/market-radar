@@ -19,6 +19,7 @@ import {
   classifyChartHistory,
 } from "@/lib/data-quality";
 import { QuickAnalyzeCard } from "./QuickAnalyzeCard";
+import { SpywordsBlock } from "../ui/SpywordsBlock";
 
 // ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
 interface CJMTouchpoint { channel: string; action: string; icon: string }
@@ -1037,6 +1038,14 @@ export function OwnerDashboardContent({
                   </div>
                 );
               })()}
+
+              {/* SpyWords — дополнение к Keys.so: реклама, бюджеты, SEO-конкуренты.
+                  Показываем только если SPYWORDS_LOGIN/TOKEN заданы и API вернул данные. */}
+              {myCompany.spywordsDashboard && (
+                <div className="mr-card" style={{ padding: "18px 20px", marginBottom: 20, animationDelay: "650ms" }}>
+                  <SpywordsBlock data={myCompany.spywordsDashboard} />
+                </div>
+              )}
 
               {/* Main 2-col */}
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 20 }} className="mr-main-grid">

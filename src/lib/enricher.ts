@@ -777,6 +777,9 @@ export interface RealDomainData {
   pageSpeedDesktop: PageSpeedResult | null;
   wayback: WaybackResult | null;
   keyso: KeysoKeywords | null;
+  /** SpyWords — дополнительная SEO-аналитика (overview, ads, competitors).
+   *  Подтягивается только если SPYWORDS_LOGIN + SPYWORDS_TOKEN заданы в env. */
+  spywords: import("./spywords-client").SpywordsData | null;
 }
 
 export interface RealCompanyData {
@@ -796,13 +799,17 @@ export async function enrichDomainData(
   const vkUrl = socialLinks.vk ?? null;
   const fullUrl = `https://${domain}`;
 
-  const [domainAge, telegram, vk, pageSpeedBoth, wayback, keyso] = await Promise.all([
+  // Динамический импорт, чтобы цикла зависимостей не было если client потащит чего-то странного
+  const { getSpywordsData } = await import("./spywords-client");
+
+  const [domainAge, telegram, vk, pageSpeedBoth, wayback, keyso, spywords] = await Promise.all([
     getRealDomainAge(domain).catch(() => null),
     tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
     vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
     getPageSpeedBoth(fullUrl).catch(() => null),
     getFirstArchiveDate(domain).catch(() => null),
     getKeysoKeywords(domain).catch(() => null),
+    getSpywordsData(domain).catch(() => null),
   ]);
 
   return {
@@ -813,6 +820,7 @@ export async function enrichDomainData(
     pageSpeedDesktop: pageSpeedBoth?.desktop ?? null,
     wayback,
     keyso,
+    spywords,
   };
 }
 
