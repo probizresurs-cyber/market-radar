@@ -11,12 +11,14 @@ interface Props {
 }
 
 const METRIC_HINTS: Record<string, string> = {
-  "Ключей в органике": "Сколько уникальных запросов сайта показываются в выдаче поисковика",
+  "Ключей в ТОП-10": "Сколько запросов сайта попадают в первую страницу выдачи поисковика",
+  "Ключей в ТОП-50": "Всего запросов в видимой части выдачи (топ-50)",
   "Трафик из органики": "Оценка SpyWords о месячном бесплатном трафике из поиска",
   "Ключей в контексте": "Сколько запросов сайт выкупает в платной выдаче (Яндекс.Директ / Google Ads)",
+  "Уник. объявлений": "Количество уникальных объявлений в платной выдаче",
+  "Ср. позиция": "Средняя позиция объявлений сайта в платной выдаче",
   "Трафик из контекста": "Оценка месячного платного трафика из контекстной рекламы",
   "Бюджет на контекст": "Сколько сайт примерно тратит в месяц на платную рекламу (₽)",
-  "Видимость": "Доля видимости домена в выдаче по отслеживаемым SpyWords запросам",
 };
 
 function fmt(n: number): string {
@@ -119,8 +121,11 @@ export function SpywordsBlock({ data }: Props) {
             ОБЗОР В {engineLabel.toUpperCase()}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-            {ov.organicKeywords > 0 && (
-              <MetricCard icon={<BarChart2 size={12} />} label="Ключей в органике" value={fmt(ov.organicKeywords)} accent="var(--success)" />
+            {ov.organicKeysTop10 > 0 && (
+              <MetricCard icon={<BarChart2 size={12} />} label="Ключей в ТОП-10" value={fmt(ov.organicKeysTop10)} accent="var(--success)" />
+            )}
+            {ov.organicKeysTop50 > 0 && (
+              <MetricCard icon={<Eye size={12} />} label="Ключей в ТОП-50" value={fmt(ov.organicKeysTop50)} />
             )}
             {ov.organicTraffic > 0 && (
               <MetricCard icon={<TrendingUp size={12} />} label="Трафик из органики" value={`${fmt(ov.organicTraffic)} / мес`} />
@@ -128,14 +133,17 @@ export function SpywordsBlock({ data }: Props) {
             {ov.adKeywords > 0 && (
               <MetricCard icon={<Target size={12} />} label="Ключей в контексте" value={fmt(ov.adKeywords)} accent="var(--warning)" />
             )}
+            {ov.uniqueAds > 0 && (
+              <MetricCard icon={<Megaphone size={12} />} label="Уник. объявлений" value={fmt(ov.uniqueAds)} />
+            )}
             {ov.adTraffic > 0 && (
               <MetricCard icon={<Megaphone size={12} />} label="Трафик из контекста" value={`${fmt(ov.adTraffic)} / мес`} />
             )}
             {ov.adBudget > 0 && (
               <MetricCard icon={<Coins size={12} />} label="Бюджет на контекст" value={fmtMoney(ov.adBudget)} accent="var(--destructive)" />
             )}
-            {ov.visibility > 0 && (
-              <MetricCard icon={<Eye size={12} />} label="Видимость" value={`${ov.visibility.toFixed(1)}%`} />
+            {ov.avgAdPos > 0 && (
+              <MetricCard icon={<Target size={12} />} label="Ср. позиция" value={ov.avgAdPos.toFixed(1)} />
             )}
           </div>
         </div>

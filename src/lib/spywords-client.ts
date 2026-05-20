@@ -34,6 +34,7 @@ function buildUrl(method: string, params: Record<string, string | number | undef
   return SPYWORDS_BASE + usp.toString();
 }
 
+/** SpyWords отдаёт TSV в Windows-1251 (cp1251). Декодируем вручную. */
 async function fetchTsv(url: string, ms = DEFAULT_TIMEOUT): Promise<string[][] | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -46,11 +47,24 @@ async function fetchTsv(url: string, ms = DEFAULT_TIMEOUT): Promise<string[][] |
       console.warn(`[spywords] HTTP ${res.status} for ${url.replace(/token=[^&]+/, "token=***")}`);
       return null;
     }
-    const text = await res.text();
 
-    // API часто возвращает JSON-ошибку при пустых тарифах / неверном токене / лимитах:
-    // например: {"error":"low balance"}  или  {"error":"invalid token"}
+    // Декодируем как cp1251. У SpyWords latin-only методы тоже cp1251-совместимы,
+    // поэтому это безопасно для всех ответов.
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder("windows-1251").decode(buf);
     const trimmed = text.trim();
+
+    // API сигналит ошибки plain-текстом по-русски:
+    //   «Для запрашиваемой выборки доступен платный тариф :(»  — метод не входит в API Start
+    //   «Неверный токен» / «Недостаточно средств» — auth / balance
+    // Распознаём по отсутствию табов в первой строке + русскому тексту.
+    const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
+    if (!firstLine.includes("\t") && /[А-Яа-я]/.test(firstLine)) {
+      console.warn(`[spywords] API msg: ${firstLine.slice(0, 120)}`);
+      return null;
+    }
+
+    // На всякий случай — JSON-ошибки (если формат поменяется).
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
       try {
         const j = JSON.parse(trimmed) as { error?: string };
@@ -63,7 +77,6 @@ async function fetchTsv(url: string, ms = DEFAULT_TIMEOUT): Promise<string[][] |
       }
     }
 
-    // Parse TSV: split lines, split each by tab. Skip empty lines.
     const rows = trimmed.split(/\r?\n/).filter(l => l.length > 0).map(l => l.split("\t"));
     if (rows.length === 0) return null;
     return rows;
@@ -98,18 +111,22 @@ function num(v: string | undefined): number {
 export interface SpywordsDomainOverview {
   /** Контекстная реклама в Яндексе. */
   yandex?: {
-    visibility: number;       // Видимость по позициям в выдаче (если есть)
-    organicKeywords: number;  // Ключи в органике
-    organicTraffic: number;   // Трафик из органики
-    adKeywords: number;       // Ключи в контексте
-    adTraffic: number;        // Трафик из контекста
-    adBudget: number;         // Бюджет на контекст ₽/мес
+    organicKeysTop10: number; // Top10KeysOrgTot — ключей в топ-10 органики
+    organicKeysTop50: number; // Top50KeysOrgTot — ключей в топ-50 органики
+    organicTraffic: number;   // OrgTraf — оценочный месячный трафик из органики
+    adKeywords: number;       // KeysAdTot — ключей в контексте
+    uniqueAds: number;        // TotUniqAds — уникальных объявлений
+    avgAdPos: number;         // AvgAdPos — средняя позиция объявлений
+    adTraffic: number;        // AdTraf — трафик из контекста
+    adBudget: number;         // AdSpend — бюджет на контекст ₽/мес
   };
   google?: {
-    visibility: number;
-    organicKeywords: number;
+    organicKeysTop10: number;
+    organicKeysTop50: number;
     organicTraffic: number;
     adKeywords: number;
+    uniqueAds: number;
+    avgAdPos: number;
     adTraffic: number;
     adBudget: number;
   };
@@ -173,6 +190,13 @@ export interface SpywordsData {
 /**
  * DomainOverview — общая статистика по домену в обоих поисковиках.
  * На API Start этот метод доступен.
+ *
+ * Формат ответа (TSV, cp1251):
+ *   SE | KeysAdTot | TotUniqAds | AvgAdPos | AdSpend | AdTraf | Top50KeysOrgTot | Top10KeysOrgTot | OrgTraf | Уникальных url
+ *   Яндекс | 9408 | 4405 | 1 | 47 031,20 | 28144 | 73 712 | 23111 | 47 763 | 3 101
+ *   Google | 0   |      |   | 0         | 69687 | 17627  | 15 057 | 4 958
+ *
+ * Колонка SE приходит в cp1251. Распознаём по подстроке: «нд» → yandex, "Google" → google.
  */
 async function getDomainOverview(domain: string): Promise<SpywordsDomainOverview> {
   const url = buildUrl("DomainOverview", { site: domain });
@@ -180,62 +204,43 @@ async function getDomainOverview(domain: string): Promise<SpywordsDomainOverview
   if (!rows) return {};
 
   const objs = rowsToObjects(rows);
-
-  // Формат ответа DomainOverview бывает разный — иногда одна строка с парой колонок
-  // (yandex_*, google_*), иногда две строки se=yandex / se=google. Поддерживаем оба.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const grab = (o: any, ...keys: string[]): number => {
-    for (const k of keys) {
-      if (o[k] !== undefined && o[k] !== "") return num(o[k]);
-    }
-    return 0;
-  };
-
-  // Case A: одна строка с префиксами yandex_/google_
-  if (objs.length === 1) {
-    const o = objs[0];
-    const yandex = {
-      visibility:       grab(o, "yandex_visibility", "visibility_yandex"),
-      organicKeywords:  grab(o, "yandex_organic_keywords", "organic_keywords_yandex", "organic_keys_yandex"),
-      organicTraffic:   grab(o, "yandex_organic_traffic", "organic_traffic_yandex"),
-      adKeywords:       grab(o, "yandex_adv_keywords", "adv_keywords_yandex", "adv_keys_yandex"),
-      adTraffic:        grab(o, "yandex_adv_traffic", "adv_traffic_yandex"),
-      adBudget:         grab(o, "yandex_adv_budget", "adv_budget_yandex"),
-    };
-    const google = {
-      visibility:       grab(o, "google_visibility", "visibility_google"),
-      organicKeywords:  grab(o, "google_organic_keywords", "organic_keywords_google", "organic_keys_google"),
-      organicTraffic:   grab(o, "google_organic_traffic", "organic_traffic_google"),
-      adKeywords:       grab(o, "google_adv_keywords", "adv_keywords_google", "adv_keys_google"),
-      adTraffic:        grab(o, "google_adv_traffic", "adv_traffic_google"),
-      adBudget:         grab(o, "google_adv_budget", "adv_budget_google"),
-    };
-    const out: SpywordsDomainOverview = {};
-    if (yandex.organicKeywords + yandex.adKeywords > 0) out.yandex = yandex;
-    if (google.organicKeywords + google.adKeywords > 0) out.google = google;
-    return out;
-  }
-
-  // Case B: строки помечены `se`
   const out: SpywordsDomainOverview = {};
+
   for (const o of objs) {
-    const se = (o.se ?? o.search_engine ?? "").toLowerCase();
+    const seRaw = (o.SE ?? o.se ?? "").trim();
+    // «Яндекс» латиницей точно не пишут — определяем по наличию русских букв.
+    const se: "yandex" | "google" | null =
+      /Google/i.test(seRaw) ? "google" :
+      seRaw.length > 0 ? "yandex" : null;
+    if (!se) continue;
+
     const block = {
-      visibility:      grab(o, "visibility"),
-      organicKeywords: grab(o, "organic_keywords", "organic_keys", "keywords_organic"),
-      organicTraffic:  grab(o, "organic_traffic", "traffic_organic"),
-      adKeywords:      grab(o, "adv_keywords", "adv_keys", "keywords_adv"),
-      adTraffic:       grab(o, "adv_traffic", "traffic_adv"),
-      adBudget:        grab(o, "adv_budget", "budget_adv", "budget"),
+      organicKeysTop10: num(o.Top10KeysOrgTot),
+      organicKeysTop50: num(o.Top50KeysOrgTot),
+      organicTraffic:   num(o.OrgTraf),
+      adKeywords:       num(o.KeysAdTot),
+      uniqueAds:        num(o.TotUniqAds),
+      avgAdPos:         num(o.AvgAdPos),
+      adTraffic:        num(o.AdTraf),
+      adBudget:         num(o.AdSpend),
     };
-    if (se === "yandex") out.yandex = block;
-    else if (se === "google") out.google = block;
+
+    // Пропускаем строки где вообще ничего нет (Google без рекламы и без органики).
+    const hasAny =
+      block.organicKeysTop50 + block.organicKeysTop10 + block.organicTraffic +
+      block.adKeywords + block.adTraffic + block.adBudget > 0;
+    if (!hasAny) continue;
+
+    out[se] = block;
   }
   return out;
 }
 
 /**
  * DomainOrganicCompetitors — список доменов-конкурентов в органике.
+ *
+ * Колонки: Domain | Competition Level, % | KeyOverlap | Unique Keys |
+ *          Top50KeysOrgTot | Top10KeysOrgTot | OrgTraf
  */
 async function getOrganicCompetitors(domain: string, se: SearchEngine, limit = 10): Promise<SpywordsCompetitor[]> {
   const url = buildUrl("DomainOrganicCompetitors", { site: domain, se, limit });
@@ -244,14 +249,18 @@ async function getOrganicCompetitors(domain: string, se: SearchEngine, limit = 1
 
   const objs = rowsToObjects(rows);
   return objs.map(o => ({
-    domain: o.domain ?? o.site ?? o.competitor ?? "",
-    commonKeywords: num(o.common_keywords ?? o.intersect ?? o.common ?? ""),
-    totalKeywords:  num(o.total_keywords ?? o.keywords ?? o.organic_keywords ?? ""),
+    domain:         o.Domain ?? o.domain ?? "",
+    commonKeywords: num(o.KeyOverlap),
+    totalKeywords:  num(o.Top50KeysOrgTot),
   })).filter(c => c.domain.length > 0).slice(0, limit);
 }
 
 /**
  * DomainAdv — объявления домена в контекстной рекламе.
+ *
+ * Колонки: Keyword | AdCopy | Pos | Volume | VolumeBase | VolumeTot | CPC | TraffShare % | KeyComp | RealURL
+ * AdCopy: «Заголовок / Описание / VisibleURL Заголовок-2» — разделители ` / `.
+ * Pos формата "CP1"/"CP2" — спецпозиция, число извлекаем.
  */
 async function getDomainAds(domain: string, se: SearchEngine, limit = 10): Promise<SpywordsAd[]> {
   const url = buildUrl("DomainAdv", { site: domain, se, limit });
@@ -259,17 +268,34 @@ async function getDomainAds(domain: string, se: SearchEngine, limit = 10): Promi
   if (!rows) return [];
 
   const objs = rowsToObjects(rows);
-  return objs.map(o => ({
-    keyword:     o.keyword ?? o.phrase ?? o.query ?? "",
-    title:       o.title ?? o.ad_title ?? undefined,
-    description: o.text ?? o.description ?? o.ad_text ?? undefined,
-    visibleUrl:  o.visible_url ?? o.url ?? undefined,
-    position:    o.position ? num(o.position) : undefined,
-  })).filter(a => a.keyword.length > 0).slice(0, limit);
+  return objs.map(o => {
+    const adCopy = o.AdCopy ?? "";
+    // Разбиваем AdCopy: первая часть — заголовок, последующие — описание / vis.url
+    const parts = adCopy.split(" / ").map(s => s.trim()).filter(Boolean);
+    const title = parts[0];
+    const description = parts.slice(1, -1).join(" • ") || parts[1];
+    // Последний фрагмент обычно содержит видимую ссылку (без http) + дублирующее имя — берём первый «домен-выглядящий» токен.
+    const lastPart = parts[parts.length - 1] ?? "";
+    const visibleUrl = lastPart.split(/\s+/)[0];
+
+    const posRaw = o.Pos ?? "";
+    const posMatch = posRaw.match(/\d+/);
+    const position = posMatch ? Number(posMatch[0]) : undefined;
+
+    return {
+      keyword:     o.Keyword ?? "",
+      title:       title || undefined,
+      description: description || undefined,
+      visibleUrl:  visibleUrl || undefined,
+      position,
+    };
+  }).filter(a => a.keyword.length > 0).slice(0, limit);
 }
 
 /**
  * DomainOrganic — топ-позиции домена в органике.
+ * ⚠️ На тарифе API Start метод недоступен (возвращает «Для запрашиваемой
+ * выборки доступен платный тариф :(»). Оставляем для будущего апгрейда.
  */
 async function getDomainOrganic(domain: string, se: SearchEngine, limit = 20): Promise<SpywordsOrganicPosition[]> {
   const url = buildUrl("DomainOrganic", { site: domain, se, limit });
@@ -278,10 +304,10 @@ async function getDomainOrganic(domain: string, se: SearchEngine, limit = 20): P
 
   const objs = rowsToObjects(rows);
   return objs.map(o => ({
-    keyword:  o.keyword ?? o.phrase ?? o.query ?? "",
-    position: num(o.position ?? o.pos ?? "0"),
-    volume:   num(o.frequency ?? o.volume ?? o.ws ?? "0"),
-    url:      o.url ?? undefined,
+    keyword:  o.Keyword ?? o.keyword ?? "",
+    position: num(o.Pos ?? o.position ?? "0"),
+    volume:   num(o.Volume ?? o.frequency ?? "0"),
+    url:      o.RealURL ?? o.url ?? undefined,
   })).filter(p => p.keyword.length > 0 && p.position > 0 && p.position <= 100).slice(0, limit);
 }
 

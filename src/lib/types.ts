@@ -193,8 +193,8 @@ export interface AnalysisResult {
    *  Опциональное поле — есть только если SPYWORDS_LOGIN/TOKEN сконфигурирован. */
   spywordsDashboard?: {
     overview?: {
-      yandex?: { visibility: number; organicKeywords: number; organicTraffic: number; adKeywords: number; adTraffic: number; adBudget: number };
-      google?: { visibility: number; organicKeywords: number; organicTraffic: number; adKeywords: number; adTraffic: number; adBudget: number };
+      yandex?: { organicKeysTop10: number; organicKeysTop50: number; organicTraffic: number; adKeywords: number; uniqueAds: number; avgAdPos: number; adTraffic: number; adBudget: number };
+      google?: { organicKeysTop10: number; organicKeysTop50: number; organicTraffic: number; adKeywords: number; uniqueAds: number; avgAdPos: number; adTraffic: number; adBudget: number };
     };
     competitors?: {
       yandex?: Array<{ domain: string; commonKeywords: number; totalKeywords: number }>;
