@@ -149,17 +149,33 @@ export interface AnalysisResult {
     positions: SeoPosition[];
     issues: string[];
     lighthouseScores?: {
+      // Top-level поля = мобильная метрика (для обратной совместимости со
+      // старыми анализами и кодом который уже это читает).
       performance: number;
       seo: number;
       accessibility: number;
       bestPractices?: number;
-      // Core Web Vitals
+      // Core Web Vitals (mobile)
       lcp?: { value: number; display: string; score: number };   // Largest Contentful Paint
       fcp?: { value: number; display: string; score: number };   // First Contentful Paint
       cls?: { value: number; display: string; score: number };   // Cumulative Layout Shift
       tbt?: { value: number; display: string; score: number };   // Total Blocking Time
       si?:  { value: number; display: string; score: number };   // Speed Index
       tti?: { value: number; display: string; score: number };   // Time to Interactive
+      // Десктоп — отдельный набор для табы «ПК» в UI. Опционально:
+      // если PageSpeed для desktop не отработал, блок не показывается.
+      desktop?: {
+        performance: number;
+        seo: number;
+        accessibility: number;
+        bestPractices?: number;
+        lcp?: { value: number; display: string; score: number };
+        fcp?: { value: number; display: string; score: number };
+        cls?: { value: number; display: string; score: number };
+        tbt?: { value: number; display: string; score: number };
+        si?:  { value: number; display: string; score: number };
+        tti?: { value: number; display: string; score: number };
+      };
     };
     firstArchiveDate?: string;
     archiveAgeYears?: number;

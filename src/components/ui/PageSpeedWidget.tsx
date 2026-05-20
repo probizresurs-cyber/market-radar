@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 interface CWVMetric {
   value: number;
@@ -19,6 +19,20 @@ interface LighthouseScores {
   tbt?: CWVMetric;
   si?:  CWVMetric;
   tti?: CWVMetric;
+  // Desktop-метрики — отдельный набор для табы «ПК». Опционально:
+  // если анализ старый или PageSpeed для desktop не сработал — нет блока.
+  desktop?: {
+    performance: number;
+    seo: number;
+    accessibility: number;
+    bestPractices?: number;
+    lcp?: CWVMetric;
+    fcp?: CWVMetric;
+    cls?: CWVMetric;
+    tbt?: CWVMetric;
+    si?:  CWVMetric;
+    tti?: CWVMetric;
+  };
 }
 
 interface Props {
@@ -107,31 +121,72 @@ function CWVRow({ label, metric, good, poor }: {
 }
 
 export function PageSpeedWidget({ scores, url }: Props) {
+  // Если есть desktop-метрики — показываем переключатель «📱 / 🖥».
+  // Стартуем с мобильного, как раньше — на нём акцент Google PageSpeed.
+  const hasDesktop = !!scores.desktop;
+  const [strategy, setStrategy] = useState<"mobile" | "desktop">("mobile");
+
+  // Выбираем активный набор. При strategy='desktop' читаем из scores.desktop,
+  // иначе — top-level (=mobile).
+  const active = strategy === "desktop" && scores.desktop ? scores.desktop : scores;
+
   const gauges = [
-    { score: scores.performance,   label: "Производительность" },
-    { score: scores.accessibility, label: "Доступность" },
-    { score: scores.bestPractices ?? 0, label: "Best Practices" },
-    { score: scores.seo,           label: "SEO" },
+    { score: active.performance,        label: "Производительность" },
+    { score: active.accessibility,      label: "Доступность" },
+    { score: active.bestPractices ?? 0, label: "Best Practices" },
+    { score: active.seo,                label: "SEO" },
   ].filter(g => g.score > 0);
 
-  const hasCWV = scores.lcp || scores.fcp || scores.cls || scores.tbt;
+  const hasCWV = active.lcp || active.fcp || active.cls || active.tbt;
 
-  const overall = scores.performance;
+  const overall = active.performance;
   const overallColor = scoreColor(overall);
 
   return (
     <div style={{ background: "var(--card)", borderRadius: 16, border: "1px solid var(--border)", padding: 20, boxShadow: "var(--shadow)" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>
             Скорость сайта
           </div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-            Google PageSpeed Insights · Мобильные
+            Google PageSpeed Insights · {strategy === "desktop" ? "ПК" : "Мобильные"}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {/* Переключатель Мобильные / ПК — только если есть desktop-метрики.
+              Иначе показывать пустую вкладку нет смысла. */}
+          {hasDesktop && (
+            <div style={{ display: "inline-flex", background: "var(--background)", border: "1px solid var(--border)", borderRadius: 8, padding: 2 }}>
+              <button
+                type="button"
+                onClick={() => setStrategy("mobile")}
+                style={{
+                  padding: "5px 12px", borderRadius: 6, border: "none",
+                  background: strategy === "mobile" ? "var(--primary)" : "transparent",
+                  color: strategy === "mobile" ? "#fff" : "var(--foreground-secondary)",
+                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 4,
+                }}
+              >
+                📱 Мобильные
+              </button>
+              <button
+                type="button"
+                onClick={() => setStrategy("desktop")}
+                style={{
+                  padding: "5px 12px", borderRadius: 6, border: "none",
+                  background: strategy === "desktop" ? "var(--primary)" : "transparent",
+                  color: strategy === "desktop" ? "#fff" : "var(--foreground-secondary)",
+                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 4,
+                }}
+              >
+                🖥 ПК
+              </button>
+            </div>
+          )}
           <div style={{
             fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 8,
             background: overallColor + "20", color: overallColor,
@@ -140,7 +195,7 @@ export function PageSpeedWidget({ scores, url }: Props) {
             {overall >= 90 ? "Хорошо" : overall >= 50 ? "Требует улучшений" : "Плохо"}
           </div>
           {url && (
-            <a href={`https://pagespeed.web.dev/report?url=https://${url}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://pagespeed.web.dev/report?url=https://${url}${hasDesktop ? `&form_factor=${strategy}` : ""}`} target="_blank" rel="noopener noreferrer"
               style={{ fontSize: 11, color: "var(--primary)", textDecoration: "none", opacity: 0.85 }}>
               Полный отчёт →
             </a>
@@ -161,11 +216,11 @@ export function PageSpeedWidget({ scores, url }: Props) {
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.07em", marginBottom: 8 }}>
             CORE WEB VITALS
           </div>
-          <CWVRow label="LCP" metric={scores.lcp} good="≤2.5s" poor=">4s" />
-          <CWVRow label="FCP" metric={scores.fcp} good="≤1.8s" poor=">3s" />
-          <CWVRow label="CLS" metric={scores.cls} good="≤0.1"  poor=">0.25" />
-          <CWVRow label="TBT" metric={scores.tbt} good="≤200ms" poor=">600ms" />
-          <CWVRow label="Speed Index" metric={scores.si}  good="≤3.4s" poor=">5.8s" />
+          <CWVRow label="LCP" metric={active.lcp} good="≤2.5s" poor=">4s" />
+          <CWVRow label="FCP" metric={active.fcp} good="≤1.8s" poor=">3s" />
+          <CWVRow label="CLS" metric={active.cls} good="≤0.1"  poor=">0.25" />
+          <CWVRow label="TBT" metric={active.tbt} good="≤200ms" poor=">600ms" />
+          <CWVRow label="Speed Index" metric={active.si}  good="≤3.4s" poor=">5.8s" />
         </div>
       )}
     </div>

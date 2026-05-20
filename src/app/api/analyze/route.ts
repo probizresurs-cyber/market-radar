@@ -119,9 +119,19 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // PageSpeed Lighthouse scores
+    // PageSpeed Lighthouse scores — теперь и mobile, и desktop. Mobile —
+    // на top-level (старая структура), desktop — в подобъекте.
     if (real.pageSpeed) {
-      result.seo.lighthouseScores = real.pageSpeed;
+      result.seo.lighthouseScores = {
+        ...real.pageSpeed,
+        ...(real.pageSpeedDesktop ? { desktop: real.pageSpeedDesktop } : {}),
+      };
+    } else if (real.pageSpeedDesktop) {
+      // Mobile упал, desktop отработал — показываем хоть что-то.
+      result.seo.lighthouseScores = {
+        ...real.pageSpeedDesktop,
+        desktop: real.pageSpeedDesktop,
+      };
     }
 
     // Wayback Machine archive age

@@ -394,13 +394,16 @@ function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric |
   };
 }
 
-export async function getPageSpeedScores(url: string): Promise<PageSpeedResult | null> {
+export async function getPageSpeedScores(
+  url: string,
+  strategy: "mobile" | "desktop" = "mobile",
+): Promise<PageSpeedResult | null> {
   const fullUrl = url.startsWith("http") ? url : `https://${url}`;
   // Используем только PAGESPEED_API_KEY (без fallback на GOOGLE_PLACES_API_KEY,
   // у которого HTTP referrer-restriction → server-side даёт 403)
   const apiKey = process.env.PAGESPEED_API_KEY || "";
   const keyParam = apiKey ? `&key=${apiKey}` : "";
-  const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
+  const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=${strategy}&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
 
   // Lighthouse для production-сайтов часто занимает 30-90 секунд.
   // Для тяжёлых сайтов с большим объёмом JS — до 120s.
@@ -445,6 +448,21 @@ export async function getPageSpeedScores(url: string): Promise<PageSpeedResult |
     }
   }
   return null;
+}
+
+/** Тянем PageSpeed одновременно для mobile и desktop. PageSpeed API позволяет
+ *  делать 2 параллельных запроса с одним ключом, общая нагрузка та же
+ *  (это разные strategy-режимы Lighthouse). */
+export async function getPageSpeedBoth(url: string): Promise<{
+  mobile: PageSpeedResult | null;
+  desktop: PageSpeedResult | null;
+} | null> {
+  const [mobile, desktop] = await Promise.all([
+    getPageSpeedScores(url, "mobile"),
+    getPageSpeedScores(url, "desktop"),
+  ]);
+  if (!mobile && !desktop) return null;
+  return { mobile, desktop };
 }
 
 // ─── Wayback Machine — real first archive date ──────────────────────────────
@@ -754,7 +772,9 @@ export interface RealDomainData {
   domainAge: string | null;
   telegram: { subscribers: number; posts30d: number } | null;
   vk: { subscribers: number; posts30d: number; engagement: string; trend: string } | null;
+  // pageSpeed теперь хранит mobile + desktop одновременно. UI решает что показать.
   pageSpeed: PageSpeedResult | null;
+  pageSpeedDesktop: PageSpeedResult | null;
   wayback: WaybackResult | null;
   keyso: KeysoKeywords | null;
 }
@@ -776,16 +796,24 @@ export async function enrichDomainData(
   const vkUrl = socialLinks.vk ?? null;
   const fullUrl = `https://${domain}`;
 
-  const [domainAge, telegram, vk, pageSpeed, wayback, keyso] = await Promise.all([
+  const [domainAge, telegram, vk, pageSpeedBoth, wayback, keyso] = await Promise.all([
     getRealDomainAge(domain).catch(() => null),
     tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
     vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
-    getPageSpeedScores(fullUrl).catch(() => null),
+    getPageSpeedBoth(fullUrl).catch(() => null),
     getFirstArchiveDate(domain).catch(() => null),
     getKeysoKeywords(domain).catch(() => null),
   ]);
 
-  return { domainAge, telegram, vk, pageSpeed, wayback, keyso };
+  return {
+    domainAge,
+    telegram,
+    vk,
+    pageSpeed: pageSpeedBoth?.mobile ?? null,
+    pageSpeedDesktop: pageSpeedBoth?.desktop ?? null,
+    wayback,
+    keyso,
+  };
 }
 
 export async function enrichCompanyData(
