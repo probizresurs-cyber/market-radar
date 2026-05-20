@@ -78,12 +78,21 @@ function NavIcon({ name, size = 15, active }: { name: string; size?: number; act
 // Sidebar Component
 // ============================================================
 
-export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl, user, onLogout, hideBranding }: {
+export function SidebarComponent({
+  c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl,
+  user, onLogout, hideBranding,
+  workspaces, activeWorkspaceId, onSwitchWorkspace,
+}: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
   navSections: NavSection[]; companyUrl: string;
   user?: UserAccount | null; onLogout?: () => void;
   hideBranding?: boolean;
+  /** Список workspace'ов к которым у юзера есть доступ. Если 1 (=своя) — switcher скрыт. */
+  workspaces?: Array<{ workspaceId: string; displayName: string; role: "owner" | "editor" | "viewer" }>;
+  /** Активный workspace. По умолчанию = user.id. */
+  activeWorkspaceId?: string;
+  onSwitchWorkspace?: (workspaceId: string) => void;
 }) {
   // Auto-expand groups that contain the active item
   const getDefaultExpanded = () => {
@@ -308,6 +317,35 @@ export function SidebarComponent({ c, theme, setTheme, activeNav, setActiveNav, 
           </span>
           <span style={{ opacity: 0.85 }}>{theme === "light" ? "Тёмная тема" : theme === "dark" ? "Тёплая тема" : "Светлая тема"}</span>
         </div>
+        {/* Workspace switcher — показываем только если у юзера ≥ 2 доступных workspace'ов
+            (своя + хотя бы одна чужая). При одной — нет смысла показывать. */}
+        {workspaces && workspaces.length >= 2 && onSwitchWorkspace && (
+          <div style={{ padding: "10px", borderTop: `1px solid var(--sidebar-border)`, marginTop: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.07em", marginBottom: 6, textTransform: "uppercase" }}>
+              Рабочее пространство
+            </div>
+            <select
+              value={activeWorkspaceId ?? ""}
+              onChange={e => onSwitchWorkspace(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px", borderRadius: 8,
+                border: "1px solid var(--sidebar-border)",
+                background: "var(--sidebar-hover)",
+                color: "var(--sidebar-fg)",
+                fontSize: 13, fontFamily: "inherit", cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              {workspaces.map(w => (
+                <option key={w.workspaceId} value={w.workspaceId}>
+                  {w.displayName}{w.role !== "owner" ? ` · ${w.role === "editor" ? "редактор" : "просмотр"}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {user && (
           <div style={{ padding: "10px", borderTop: `1px solid var(--sidebar-border)`, marginTop: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>

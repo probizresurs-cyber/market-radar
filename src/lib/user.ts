@@ -68,12 +68,33 @@ export const NICHE_COMPETITORS: Record<string, Array<{ name: string; url: string
 
 // ─── Server sync helpers ────────────────────────────────────────────────────────
 
+/**
+ * Активный workspace для записи. Если null — пишем в свою (по сессии).
+ * Если задан — в чужую (нужны editor/owner права; читать может viewer).
+ *
+ * Глобальная переменная вместо контекста — потому что syncToServer вызывается
+ * из десятков мест по всему приложению, через хелпер. React-контекст пришлось
+ * бы прокидывать всюду.
+ */
+let _activeWorkspaceIdForSync: string | null = null;
+
+export function setActiveWorkspaceForSync(workspaceId: string | null): void {
+  _activeWorkspaceIdForSync = workspaceId;
+}
+
+export function getActiveWorkspaceForSync(): string | null {
+  return _activeWorkspaceIdForSync;
+}
+
 export async function syncToServer(key: string, value: unknown): Promise<void> {
   try {
+    const body: Record<string, unknown> = { key, value };
+    if (_activeWorkspaceIdForSync) body.workspaceId = _activeWorkspaceIdForSync;
+
     const res = await fetch("/api/data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value }),
+      body: JSON.stringify(body),
       credentials: "include",
     });
     if (!res.ok) {
@@ -84,9 +105,12 @@ export async function syncToServer(key: string, value: unknown): Promise<void> {
   }
 }
 
-export async function loadAllFromServer(): Promise<Record<string, unknown> | null> {
+export async function loadAllFromServer(workspaceId?: string | null): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch("/api/data", { credentials: "include" });
+    const url = workspaceId
+      ? `/api/data?workspaceId=${encodeURIComponent(workspaceId)}`
+      : `/api/data`;
+    const res = await fetch(url, { credentials: "include" });
     const json = await res.json();
     if (json.ok) {
       console.log("[sync] loaded from server:", Object.keys(json.data ?? {}));

@@ -9,6 +9,7 @@ import { loadWhiteLabel, saveWhiteLabel, ACCENT_PRESETS, type WhiteLabelConfig }
 import { BUSINESS_TYPES, type BusinessType } from "@/lib/business-types";
 import { RequisitesTab } from "./settings/RequisitesTab";
 import { DocumentsTab } from "./settings/DocumentsTab";
+import { TeamTab } from "./settings/TeamTab";
 
 interface SubState {
   plan: string;
@@ -54,7 +55,7 @@ function plural(n: number, one: string, few: string, many: string): string {
 
 
 export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c: Colors; user?: UserAccount | null; onUpdateUser?: (u: UserAccount) => void; onWhiteLabelChange?: (cfg: WhiteLabelConfig) => void }) {
-  const [tab, setTab] = useState<"profile" | "requisites" | "documents" | "subscription" | "notifications" | "whitelabel">("profile");
+  const [tab, setTab] = useState<"profile" | "team" | "requisites" | "documents" | "subscription" | "notifications" | "whitelabel">("profile");
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [companyName, setCompanyName] = useState(user?.companyName || "");
@@ -159,6 +160,7 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
 
   const tabs = [
     { id: "profile" as const, label: "Профиль" },
+    { id: "team" as const, label: "Команда" },
     { id: "requisites" as const, label: "Реквизиты" },
     { id: "documents" as const, label: "Документы" },
     { id: "subscription" as const, label: "Подписка" },
@@ -321,6 +323,8 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
           </div>
         </div>
       )}
+
+      {tab === "team" && <TeamTab />}
 
       {tab === "requisites" && <RequisitesTab />}
 

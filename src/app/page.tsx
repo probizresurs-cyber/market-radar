@@ -11,7 +11,9 @@ import type { Review, ReviewAnalysis } from "@/lib/review-types";
 
 // ─── Shared modules (extracted from this file) ─────────────────────────────────
 import { COLORS, type Theme, type Colors } from "@/lib/colors";
-import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification } from "@/lib/user";
+import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification, setActiveWorkspaceForSync } from "@/lib/user";
+import { resolveActiveWorkspace, saveActiveWorkspaceId, type ActiveWorkspaceState } from "@/lib/workspace-client";
+import type { WorkspaceSummary } from "@/lib/workspace";
 import { SOURCES_FREE } from "@/lib/data/sources";
 import { trackGoal } from "@/lib/metrika";
 
@@ -211,6 +213,17 @@ function MarketRadarDashboardInner() {
   }, []);
   const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  // ─── Workspace state ───────────────────────────────────────────────────
+  // activeWorkspace.isOwnWorkspace=true для собственной workspace юзера
+  // (поведение «как было раньше»). При isOwnWorkspace=false мы в чужом
+  // workspace и:
+  //   • данные читаются из user_data владельца через /api/data?workspaceId=
+  //   • писать может только если role !== "viewer"
+  //   • UI должен прятать кнопки запуска анализа и генерации для viewer'а
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspaceState | null>(null);
+  const [availableWorkspaces, setAvailableWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const isReadOnly = !!activeWorkspace && activeWorkspace.role === "viewer";
   const features = useFeatureFlags();
   // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов в БД.
   // Всем остальным пользователям модули видны только если они включены в админ-панели,
@@ -471,6 +484,52 @@ function MarketRadarDashboardInner() {
     return hasCompany;
   }, [applyUserData]);
 
+  // Загрузка данных foreign workspace (когда юзер — member чужого дашборда).
+  // Читаем напрямую из user_data владельца через /api/data?workspaceId=
+  // (НЕ из localStorage member'а — там его собственные данные).
+  const loadForeignWorkspaceData = React.useCallback(async (workspaceId: string, memberUid: string): Promise<boolean> => {
+    let data: Record<string, unknown> = {};
+    try {
+      data = (await loadAllFromServer(workspaceId)) ?? {};
+    } catch (err) {
+      console.warn("[workspace] foreign load failed:", err);
+    }
+    // applyUserData ожидает uid для fallback'ов в localStorage. Для foreign
+    // workspace localStorage пуст по этому uid — передаём memberUid просто
+    // как тех-параметр (его localStorage обращений не сработают и это ок).
+    applyUserData(data, memberUid);
+    return data.company != null;
+  }, [applyUserData]);
+
+  // Переключатель workspace: перезагружает данные с нужного source.
+  const handleSwitchWorkspace = React.useCallback(async (workspaceId: string) => {
+    if (!currentUser) return;
+    if (activeWorkspace?.workspaceId === workspaceId) return;
+
+    const target = availableWorkspaces.find(w => w.workspaceId === workspaceId);
+    if (!target) return;
+
+    const isOwn = workspaceId === currentUser.id;
+    const nextActive: ActiveWorkspaceState = {
+      workspaceId,
+      role: target.role,
+      isOwnWorkspace: isOwn,
+      displayName: target.ownerCompanyName || target.ownerName || target.ownerEmail || "Моя команда",
+      ownerEmail: target.ownerEmail || "",
+    };
+    setActiveWorkspace(nextActive);
+    saveActiveWorkspaceId(workspaceId);
+    setActiveWorkspaceForSync(isOwn ? null : workspaceId);
+
+    setStatus("loading");
+    if (isOwn) {
+      await loadAndApplyUserData(currentUser.id);
+    } else {
+      await loadForeignWorkspaceData(workspaceId, currentUser.id);
+    }
+    setStatus("done");
+  }, [currentUser, activeWorkspace, availableWorkspaces, loadAndApplyUserData, loadForeignWorkspaceData]);
+
   // Check for existing session + restore saved data on mount
   useEffect(() => {
     const initApp = async () => {
@@ -527,7 +586,25 @@ function MarketRadarDashboardInner() {
 
       setCurrentUser(user);
       setWhiteLabel(loadWhiteLabel(user.id));
-      const hasCompany = await loadAndApplyUserData(user.id);
+
+      // Резолвим активный workspace до загрузки данных, чтобы сразу читать
+      // нужный (свой или чужой через snapshot).
+      let ws: ActiveWorkspaceState | null = null;
+      try {
+        const resolved = await resolveActiveWorkspace(user.id);
+        ws = resolved.active;
+        setActiveWorkspace(ws);
+        setAvailableWorkspaces(resolved.available);
+        setActiveWorkspaceForSync(ws.isOwnWorkspace ? null : ws.workspaceId);
+      } catch (err) {
+        console.warn("[workspace] resolve failed, falling back to own:", err);
+      }
+
+      // Если мы в чужой workspace — грузим из её user_data, не из localStorage.
+      const hasCompany = ws && !ws.isOwnWorkspace
+        ? await loadForeignWorkspaceData(ws.workspaceId, user.id)
+        : await loadAndApplyUserData(user.id);
+
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
 
       // Auto-trigger analysis if user has companyUrl but no analysis yet
@@ -1732,7 +1809,10 @@ function MarketRadarDashboardInner() {
         </div>
         <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav}
           setActiveNav={setActiveNavMobile} navSections={navSections}
-          companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+          companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
+          workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
+          activeWorkspaceId={activeWorkspace?.workspaceId}
+          onSwitchWorkspace={handleSwitchWorkspace} />
       </div>
 
       <MobileBottomNav activeNav={activeNav}
@@ -1748,7 +1828,10 @@ function MarketRadarDashboardInner() {
         <style>{`::selection { background: "var(--primary)"30; } button { transition: opacity 0.15s ease, transform 0.1s ease; } button:hover:not(:disabled) { opacity: 0.92; } button:active:not(:disabled) { transform: scale(0.98); }`}</style>
         {mobileNav}
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-          <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} />
+          <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
+            workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
+            activeWorkspaceId={activeWorkspace?.workspaceId}
+            onSwitchWorkspace={handleSwitchWorkspace} />
           <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
             <CompetitorProfileView
               c={c}
@@ -1771,10 +1854,29 @@ function MarketRadarDashboardInner() {
       )}
       {mobileNav}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} hideBranding={whiteLabel?.enabled && whiteLabel.hideBranding} />
+      <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} hideBranding={whiteLabel?.enabled && whiteLabel.hideBranding}
+        workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
+        activeWorkspaceId={activeWorkspace?.workspaceId}
+        onSwitchWorkspace={handleSwitchWorkspace} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <TrialBanner userId={currentUser?.id} />
         <PaywallGuard />
+        {/* Баннер «вы смотрите чужой workspace» — для editor'а и viewer'а */}
+        {activeWorkspace && !activeWorkspace.isOwnWorkspace && (
+          <div style={{
+            marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+            background: isReadOnly ? "color-mix(in oklch, var(--warning) 12%, transparent)" : "color-mix(in oklch, var(--primary) 10%, transparent)",
+            color: isReadOnly ? "var(--warning)" : "var(--primary)",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span>👁️</span>
+            <span>
+              Вы в рабочем пространстве <b>{activeWorkspace.displayName}</b>
+              {" · "}
+              {isReadOnly ? "только для просмотра" : "редактор"}
+            </span>
+          </div>
+        )}
         <VisitTracker source="platform" />
         {/* Глобальные оверлеи — пакетная генерация */}
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
