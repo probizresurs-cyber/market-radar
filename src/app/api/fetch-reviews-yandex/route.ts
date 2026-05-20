@@ -19,14 +19,55 @@ import type { Review } from "@/lib/review-types";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+/** Достаёт город из строки адреса. Принимаем форматы:
+ *    «119071, г. Москва, ...»
+ *    «Москва, ул...»
+ *    «Россия, Санкт-Петербург, ...»
+ *  Берём первый сегмент похожий на город (без индекса, не «г.»-префикса). */
+function extractCity(addr: string): string {
+  for (const part of addr.split(",")) {
+    const p = part.trim().replace(/^г\.?\s*/i, "").replace(/^город\s+/i, "");
+    if (!p) continue;
+    if (/^\d/.test(p)) continue;                          // индекс
+    if (/^(россия|рф)$/i.test(p)) continue;
+    if (/^(респ|обл|край|округ|район)/i.test(p)) continue;
+    if (/^(ул|пр|пер|просп|шоссе|наб|пл|бул|внутригор|тер)/i.test(p)) continue;
+    return p;
+  }
+  return "";
+}
+
+/** Чистим название от юр.префиксов («ГК», «ООО», «ИП»...). Поиск идёт лучше
+ *  именно по бренду — «ОРЛИНК», а не «ГК ОРЛИНК». */
+function cleanBrandName(name: string): string {
+  return name
+    .replace(/^\s*(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО|ТСЖ|СНТ)\s+/i, "")
+    .replace(/[«»"]/g, "")
+    .trim();
+}
+
 async function findOrgId(name: string, address: string): Promise<string | null> {
   const apiKey = process.env.YANDEX_MAPS_API_KEY;
   if (!apiKey) return null;
-  const queries = [
-    address ? `${name} ${address}` : "",
-    name,
-  ].filter(Boolean);
-  for (const q of queries) {
+
+  // Стратегии в порядке от специфичной к общей. Чем выше — тем точнее.
+  // Раньше пробовали только 2 — расширили до 5, дополнительно `name+city`
+  // и вариант без юр.префикса.
+  const city = address ? extractCity(address) : "";
+  const brand = cleanBrandName(name);
+  const firstAddrLine = address.split(",").map(s => s.trim()).find(s => s && !/^\d{6}$/.test(s)) ?? "";
+
+  const queries: string[] = [];
+  if (city) queries.push(`${name} ${city}`);
+  if (brand && brand !== name && city) queries.push(`${brand} ${city}`);
+  if (firstAddrLine && firstAddrLine !== city) queries.push(`${name} ${firstAddrLine}`);
+  if (address) queries.push(`${name} ${address}`);
+  queries.push(name);
+  if (brand && brand !== name) queries.push(brand);
+
+  const unique = [...new Set(queries.filter(Boolean))];
+
+  for (const q of unique) {
     try {
       const res = await fetch(
         `https://search-maps.yandex.ru/v1/?text=${encodeURIComponent(q)}&type=biz&lang=ru_RU&apikey=${apiKey}&results=1`,

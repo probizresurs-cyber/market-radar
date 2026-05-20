@@ -80,18 +80,21 @@ async function trySearchQuery(query: string, apiKey?: string): Promise<string | 
 async function searchFirmByName(name: string, address?: string, apiKey?: string): Promise<string | null> {
   const city = address ? extractCity(address) : "";
   const latinName = extractLatinName(name);
+  const brand = name.replace(/^\s*(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i, "").replace(/[«»"]/g, "").trim();
 
   // Build queries in order of specificity
   const queries: string[] = [];
   if (city) {
     queries.push(`${name} ${city}`);
+    if (brand && brand !== name) queries.push(`${brand} ${city}`);
     if (latinName) queries.push(`${latinName} ${city}`);
   }
   if (address?.trim()) {
     const firstLine = address.split(",")[0]?.trim();
-    if (firstLine) queries.push(`${name} ${firstLine}`);
+    if (firstLine && !/^\d{6}$/.test(firstLine)) queries.push(`${name} ${firstLine}`);
   }
   queries.push(name);
+  if (brand && brand !== name) queries.push(brand);
   if (latinName && latinName !== name) queries.push(latinName);
 
   for (const q of [...new Set(queries)]) {

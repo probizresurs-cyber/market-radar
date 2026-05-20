@@ -78,6 +78,9 @@ export async function POST(req: Request) {
 
     const city = extractCity(address);
     const latinName = extractLatinName(companyName);
+    // Бренд без юр-префиксов («ГК», «ООО», «ИП») — Google лучше ищет именно
+    // по бренду чем по полному названию с юр-формой.
+    const brand = companyName.replace(/^\s*(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i, "").replace(/[«»"]/g, "").trim();
 
     // Build ordered list of queries to try (most specific → least specific)
     const queries: string[] = [];
@@ -85,15 +88,17 @@ export async function POST(req: Request) {
     if (address.trim()) {
       // 1. findplacefromtext with name + city (most reliable for known company)
       if (city) queries.push(`${companyName} ${city}`);
+      if (brand && brand !== companyName && city) queries.push(`${brand} ${city}`);
       if (latinName && city) queries.push(`${latinName} ${city}`);
       // 2. textsearch with name + first line of address
       const firstLine = address.split(",")[0]?.trim();
-      if (firstLine) queries.push(`${companyName} ${firstLine}`);
+      if (firstLine && !/^\d{6}$/.test(firstLine)) queries.push(`${companyName} ${firstLine}`);
       // 3. name + full address (original approach, may work for some)
       queries.push(`${companyName} ${address}`);
     }
     // Always add fallback: name only
     queries.push(companyName);
+    if (brand && brand !== companyName) queries.push(brand);
     if (latinName && latinName !== companyName) queries.push(latinName);
 
     // Deduplicate
