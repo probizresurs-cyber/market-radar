@@ -213,15 +213,45 @@ function SEOLibraryView({
 
 function SEOKeywordsView({
   analysis,
+  userId,
   onBack,
 }: {
   analysis: AnalysisResult | null;
+  userId: string;
   onBack: () => void;
 }) {
-  const [topic, setTopic] = useState("");
-  const [keywords, setKeywords] = useState<SEOKeyword[]>([]);
+  // Persist кластера в localStorage — без этого результат теряется при
+  // любом переходе между вкладками платформы (компонент анмаунтится).
+  // Ключ скоупим по userId, чтобы при логине под другим аккаунтом не
+  // подтягивались чужие кластеры.
+  const storageKey = `mr_seo_keywords_${userId ?? "anon"}`;
+  const [topic, setTopic] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return (JSON.parse(raw) as { topic?: string }).topic ?? "";
+    } catch { /* ignore */ }
+    return "";
+  });
+  const [keywords, setKeywords] = useState<SEOKeyword[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return (JSON.parse(raw) as { keywords?: SEOKeyword[] }).keywords ?? [];
+    } catch { /* ignore */ }
+    return [];
+  });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  // Сохраняем кластер при каждом изменении topic/keywords.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!topic && keywords.length === 0) return; // не сохраняем пустоту
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ topic, keywords }));
+    } catch { /* quota — игнорируем */ }
+  }, [topic, keywords, storageKey]);
 
   const generate = async () => {
     if (!topic.trim()) return;
@@ -1922,6 +1952,7 @@ export function SEOArticlesView({
       ) : subView === "keywords" ? (
         <SEOKeywordsView
           analysis={analysis}
+          userId={userId}
           onBack={() => setSubView("library")}
         />
       ) : subView === "expand" ? (
