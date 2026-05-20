@@ -658,4 +658,52 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_lead_emails_lead_id ON lead_emails(lead_id, sent_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_lead_emails_sent_at ON lead_emails(sent_at DESC)`);
+
+  // ─── Workspaces — мульти-юзер доступ к одному дашборду ─────────────────────
+  // Модель: каждый user.id ОДНОВРЕМЕННО является workspace_id своей собственной
+  // рабочей области. То есть "владелец workspace W" = "пользователь с id=W".
+  // Чтобы пригласить других пользователей видеть/редактировать данные владельца,
+  // создаются строки в workspace_members.
+  //
+  // Роли:
+  //   - "owner"  — implicit, не хранится в workspace_members (он = user.id)
+  //   - "editor" — может редактировать всё (запускать анализы, генерировать контент)
+  //   - "viewer" — только смотрит, не может ничего менять
+  //
+  // Все изменения, которые делает editor, пишутся в user_data СО СВОИМ
+  // workspace_id = owner.id, не member.id. Это значит при чтении данных
+  // мы смотрим на активный workspace, не на сессионного юзера.
+  await query(`
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      workspace_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      member_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('editor','viewer')),
+      invited_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (workspace_id, member_user_id)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_workspace_members_member ON workspace_members(member_user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace ON workspace_members(workspace_id)`);
+
+  // Приглашения отправляются по email с уникальным кодом-токеном.
+  // Если приглашённого юзера ещё нет в системе → он регистрируется,
+  // потом по тому же коду присоединяется к workspace. Если уже есть —
+  // сразу принимает.
+  await query(`
+    CREATE TABLE IF NOT EXISTS workspace_invites (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('editor','viewer')),
+      invited_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      accepted_at TIMESTAMPTZ,
+      accepted_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      revoked_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_workspace_invites_email ON workspace_invites(LOWER(email)) WHERE accepted_at IS NULL AND revoked_at IS NULL`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_workspace_invites_workspace ON workspace_invites(workspace_id, created_at DESC)`);
 }
