@@ -179,9 +179,11 @@ export async function fetchContextCompetitors(
   limit = 15,
 ): Promise<KeysoCompetitor[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  // context/concurents тоже только POST — иначе 400 «Method not allowed».
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/context/concurents",
     { domain: cleanDomain, base, page: 1, per_page: limit },
+    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((c) => ({
@@ -199,9 +201,12 @@ export async function fetchContextAds(
   limit = 20,
 ): Promise<KeysoAd[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
+  // Keys.so отвергает GET на context/ads — требует POST.
+  // Без method:"POST" возвращается 400 "Method not allowed. Must be one of: OPTIONS".
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/context/ads",
     { domain: cleanDomain, base, page: 1, per_page: limit },
+    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((ad) => ({
@@ -223,9 +228,11 @@ export async function fetchMarketShare(
 ): Promise<KeysoMarketShare[]> {
   if (domains.length === 0) return [];
   const cleaned = domains.map(d => d.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0]).filter(Boolean);
+  // Keys.so site-level endpoint требует POST (GET → 400 «Method not allowed»).
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/site/organic-comparison",
     { domains: cleaned.join(","), base },
+    "POST",
   );
   if (!data?.data) return [];
 
