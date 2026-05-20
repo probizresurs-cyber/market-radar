@@ -540,13 +540,29 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
         />
       </CollapsibleSection>
 
-      {/* SpyWords — дополнительный слой к Keys.so: реклама, SEO-конкуренты, бюджеты.
-          Показывается только если SPYWORDS_LOGIN/TOKEN заданы и API вернул данные. */}
-      {data.spywordsDashboard && (
-        <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+      {/* SpyWords — дополнительный слой к Keys.so. Рендерим ВСЕГДА:
+          если данных нет, показываем понятную причину, а не молча скрываем. */}
+      <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+        {data.spywordsDashboard ? (
           <SpywordsBlock data={data.spywordsDashboard} />
-        </CollapsibleSection>
-      )}
+        ) : (
+          <div style={{
+            padding: "20px 18px", borderRadius: 10,
+            background: "var(--background)", border: "1px dashed var(--border)",
+            color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.6,
+          }}>
+            <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>
+              По этому домену пока нет данных от SpyWords
+            </div>
+            Возможные причины:
+            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+              <li>Анализ был запущен до подключения интеграции SpyWords — запустите новый анализ</li>
+              <li>Сайт молодой или с малой посещаемостью — SpyWords индексирует крупные домены, мелкие в базу не попадают</li>
+              <li>Брендовый/прямой трафик — у домена нет SEO-выдачи или контекстной рекламы</li>
+            </ul>
+          </div>
+        )}
+      </CollapsibleSection>
 
       {/* Market share — only if we have at least 1 competitor */}
       <CollapsibleSection c={c} title="Доли рынка" icon={<PieChart size={16} strokeWidth={1.75} />} defaultOpen={false}>
