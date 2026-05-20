@@ -86,12 +86,17 @@ export async function POST(request: NextRequest) {
       result.social.vk = real.vk;
     }
     if (real.dadata) {
+      // DaData есть → берём ТОЛЬКО её данные. AI-fallback больше не оставляем —
+      // раньше при отсутствии конкретного поля в DaData показывали то что
+      // выдумал Claude (employees, revenue, founded, legalForm). UI не помечал
+      // это как «AI», пользователь думал что цифры из ФНС. Это анти-pattern,
+      // выпиливаем — лучше «—» чем выдуманное.
       const d = real.dadata;
       result.business = {
-        employees: d.employees !== "—" ? d.employees : result.business.employees,
-        revenue: d.revenue !== "—" ? d.revenue : result.business.revenue,
-        founded: d.registrationDate !== "—" ? `${d.registrationDate} г.` : result.business.founded,
-        legalForm: d.legalForm !== "—" ? d.legalForm : result.business.legalForm,
+        employees: d.employees !== "—" ? d.employees : "—",
+        revenue: d.revenue !== "—" ? d.revenue : "—",
+        founded: d.registrationDate !== "—" ? `${d.registrationDate} г.` : "—",
+        legalForm: d.legalForm !== "—" ? d.legalForm : "—",
       };
       // Append INN/OGRN to company description
       const extraInfo = [
@@ -103,6 +108,15 @@ export async function POST(request: NextRequest) {
       if (extraInfo) {
         result.company.description = (result.company.description ? result.company.description + "\n" : "") + extraInfo;
       }
+    } else {
+      // DaData недоступна или не нашла компанию → стираем ВСЕ AI-цифры
+      // которые Claude мог выдумать. Лучше «—» чем ложь.
+      result.business = {
+        employees: "—",
+        revenue: "—",
+        founded: "—",
+        legalForm: "—",
+      };
     }
 
     // PageSpeed Lighthouse scores

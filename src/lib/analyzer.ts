@@ -181,10 +181,10 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     "salaryRange": "string"
   },
   "business": {
-    "employees": "string (например: 20–50)",
-    "revenue": "string (например: 50–200 млн ₽/год)",
-    "founded": "string (например: ~2015)",
-    "legalForm": "string (ООО/ИП/АО/Неизвестно)"
+    "employees": "ВСЕГДА '—'. Эти данные подтягиваются из DaData (ФНС), AI выдумывать не должен.",
+    "revenue": "ВСЕГДА '—'. Подтягивается из DaData/Rusprofile, не выдумывай.",
+    "founded": "ВСЕГДА '—'. Берётся из DaData (дата регистрации в ФНС).",
+    "legalForm": "ВСЕГДА '—'. Берётся из DaData (ОПФ)."
   },
   "nicheForecast": {
     "trend": "growing|stable|declining",
