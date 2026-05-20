@@ -21,16 +21,33 @@ function extractJson(text: string): any {
     try { return JSON.parse(stripped.slice(start, end + 1)); } catch { /* fall through */ }
   }
 
-  // Response was truncated — try to close it by finding the last complete field
+  // ── Попытка 2: fix самые частые ошибки от Claude ───────────────────
+  // 1) Внутри значений строк бывают одиночные неэкранированные кавычки —
+  //    например `"name": "ГК "Орлинк""` — JSON.parse сразу падает.
+  // 2) Иногда Claude вставляет «умные» юникод-кавычки (″ ‟ « »).
+  // 3) Trailing commas перед }/] (валидно в JS, нет в JSON).
+  const candidate = end > start ? stripped.slice(start, end + 1) : stripped.slice(start);
+  const cleaned = candidate
+    // умные кавычки → обычные двойные
+    .replace(/[«»"„‟]/g, '"')
+    // trailing comma перед закрывающей скобкой
+    .replace(/,(\s*[}\]])/g, "$1")
+    // Экранируем неэкранированные кавычки ВНУТРИ значений (consequetive double-quotes
+    // часто = "name": "ГК "Орлинк"". Заменяем `""` на `"\"` если они НЕ в начале/конце).
+    .replace(/([^,{[:\s])"([^,}\]:\s])/g, '$1\\"$2');
+  try { return JSON.parse(cleaned); } catch { /* fall through */ }
+
+  // ── Попытка 3: truncated — ищем последнюю валидную } с конца ──────
   const partial = stripped.slice(start);
-  // Walk from end to find last valid closing brace sequence
   for (let i = partial.length - 1; i > 0; i--) {
     if (partial[i] === "}") {
       try { return JSON.parse(partial.slice(0, i + 1)); } catch { /* continue */ }
     }
   }
 
-  throw new Error("Failed to parse AI response as JSON");
+  // Логируем превью в server-side console — поможем будущему дебагу.
+  console.error("[analyzer.extractJson] failed, first 400 chars:", stripped.slice(0, 400));
+  throw new Error(`Failed to parse AI response as JSON. Превью: ${stripped.slice(0, 120)}...`);
 }
 
 function clamp(n: number): number {
@@ -203,7 +220,10 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
   // Use streaming so Cloudflare Worker sees the first byte within ~2s (avoiding the 30s subrequest timeout)
   const streamResponse = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 10000,
+    // 16000 — комфортный запас. На сложных нишах (металл, B2B, длинные
+    // описания категорий) 10000 обрывало JSON и extractJson падал даже на
+    // partial-парсинге. Sonnet 4.6 поддерживает до 64K output, не лимит.
+    max_tokens: 16000,
     messages: [{ role: "user", content: prompt }],
     stream: true,
   });
