@@ -9,7 +9,9 @@ import { query, initDb } from "@/lib/db";
 import type { BusinessType } from "@/lib/business-types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 90s — Claude analysis ~30s + scraping ~10s + SpyWords enrichment ~25s + others.
+// При 60s упирались в timeout когда SpyWords ходил за конкурентами.
+export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
   // Security: rate limit + logging setup

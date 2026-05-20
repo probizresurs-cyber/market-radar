@@ -13,7 +13,7 @@
  */
 
 const SPYWORDS_BASE = "https://api.spywords.ru/?";
-const DEFAULT_TIMEOUT = 12000;
+const DEFAULT_TIMEOUT = 8000;
 
 type SearchEngine = "yandex" | "google";
 
@@ -440,9 +440,11 @@ export async function getSpywordsBalance(): Promise<SpywordsBalance | null> {
  * будет пустой массив/объект, остальное при этом отдастся пользователю.
  */
 /** Сколько топ-конкурентов обогащать индивидуальными вызовами (overview + ads).
- *  Каждый конкурент = 2 доп. запроса к API (Overview + Ads), на каждый ПС = ×2.
- *  ENRICH_TOP=5 = 5*2*2 = 20 запросов. На балансе 1 млн юнитов это ничего. */
-const ENRICH_TOP_COMPETITORS = 5;
+ *  Каждый конкурент = 2 доп. запроса × 2 ПС × 8s timeout каждый.
+ *  ENRICH_TOP=3 уменьшает общее время на 40% по сравнению с 5 — критично
+ *  чтобы не упереться в 60s timeout роутов /api/analyze. */
+const ENRICH_TOP_COMPETITORS = 3;
+const COMPETITOR_ADS_LIMIT = 25;
 
 /**
  * Для top-N конкурентов параллельно дёргаем их DomainOverview + DomainAdv,
@@ -457,13 +459,12 @@ async function enrichCompetitors(
 
   await Promise.all(top.map(async c => {
     try {
-      // Тянем до 50 объявлений конкурента — максимум что SpyWords отдаёт
-      // на API Start. Каждое объявление содержит keyword + позицию + Volume + CPC.
-      // DomainOrganic для конкурентов на API Start платный, поэтому ad-keywords —
-      // это всё что мы можем получить из SpyWords «бесплатно».
+      // Тянем до COMPETITOR_ADS_LIMIT объявлений конкурента. На API Start
+      // максимум 50, но 25 — компромисс между объёмом данных и временем
+      // выполнения (60s hard-limit на route /api/analyze).
       const [overview, ads] = await Promise.all([
         getDomainOverview(c.domain).catch(() => null),
-        getDomainAds(c.domain, se, 50).catch(() => [] as SpywordsAd[]),
+        getDomainAds(c.domain, se, COMPETITOR_ADS_LIMIT).catch(() => [] as SpywordsAd[]),
       ]);
       if (overview && overview[se]) {
         const o = overview[se]!;
@@ -514,10 +515,14 @@ export async function getSpywordsData(domain: string): Promise<SpywordsData | nu
     ]);
 
     // Шаг 2 — обогащаем топ-конкурентов их персональными метриками + объявлениями.
-    // Каждый конкурент = 2 доп. вызова, лимит ENRICH_TOP_COMPETITORS.
-    await Promise.all([
-      enrichCompetitors(yCompetitors, "yandex"),
-      enrichCompetitors(gCompetitors, "google"),
+    // Лимит на ВСЁ обогащение — 25s, чтобы не упереться в 60s hard-limit роута.
+    // Если не успеем — оставим конкурентов без enrichment, остальное вернём.
+    await Promise.race([
+      Promise.all([
+        enrichCompetitors(yCompetitors, "yandex"),
+        enrichCompetitors(gCompetitors, "google"),
+      ]),
+      new Promise(resolve => setTimeout(resolve, 25000)),
     ]);
 
     const hasAnything =

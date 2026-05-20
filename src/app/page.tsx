@@ -633,6 +633,16 @@ function MarketRadarDashboardInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, businessType: currentUser?.businessType }),
     });
+    // Защита от HTML-ответов nginx (502/504 при таймауте) — не падаем на JSON.parse,
+    // а отдаём понятную ошибку «сервер не успел ответить».
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      const text = await res.text().catch(() => "");
+      console.error("[analyze] non-JSON response", res.status, text.slice(0, 200));
+      throw new Error(res.status === 504 || res.status === 502
+        ? "Сервер не успел проанализировать сайт (timeout). Попробуйте ещё раз — иногда внешние API медленно отвечают."
+        : `Ошибка сервера (${res.status})`);
+    }
     const json = await res.json();
     if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
     trackGoal("analyze_complete", { score: json.data?.company?.score });
