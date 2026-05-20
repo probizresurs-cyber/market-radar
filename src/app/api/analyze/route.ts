@@ -174,10 +174,12 @@ export async function POST(request: NextRequest) {
     // Если ключей в env нет (или тариф упёрся в лимит) — просто не показываем блок.
     if (real.spywords) {
       result.spywordsDashboard = {
-        overview: real.spywords.overview,
-        competitors: real.spywords.competitors,
-        ads: real.spywords.ads,
-        organic: real.spywords.organic,
+        overview:       real.spywords.overview,
+        competitors:    real.spywords.competitors,
+        advCompetitors: real.spywords.advCompetitors,
+        ads:            real.spywords.ads,
+        topPages:       real.spywords.topPages,
+        organic:        real.spywords.organic,
       };
     }
 

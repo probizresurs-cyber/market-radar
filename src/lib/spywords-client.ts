@@ -134,10 +134,28 @@ export interface SpywordsDomainOverview {
 
 export interface SpywordsCompetitor {
   domain: string;
-  /** Пересечение ключей с нашим доменом. */
+  /** Пересечение ключей с нашим доменом (в органике или контексте — зависит от
+   *  типа конкурента: organic vs adv). */
   commonKeywords: number;
-  /** Всего ключей у конкурента (если приходит). */
+  /** Сколько у конкурента всего ключей в выдаче (топ-50 органики или ключей в контексте). */
   totalKeywords: number;
+  /** Сколько у конкурента уникальных ключей (которые есть у него, но нет у нас). */
+  uniqueKeywords?: number;
+  /** Уровень конкуренции с нами в процентах (по SpyWords). 0-100. */
+  competitionLevel?: number;
+  /** Обогащённые данные — overview этого конкурента (organic + adv метрики).
+   *  Заполняется только для топ-N конкурентов чтобы не палить лимит на API. */
+  overview?: {
+    organicKeysTop10: number;
+    organicKeysTop50: number;
+    organicTraffic: number;
+    adKeywords: number;
+    uniqueAds: number;
+    adTraffic: number;
+    adBudget: number;
+  };
+  /** Топ-3 объявлений этого конкурента в платной выдаче. */
+  topAds?: SpywordsAd[];
 }
 
 export interface SpywordsAd {
@@ -168,17 +186,47 @@ export interface SpywordsBalance {
   raw: string;
 }
 
+/** Страница домена с метриками — DomainUrl. */
+export interface SpywordsDomainUrl {
+  /** Полный URL страницы. */
+  url: string;
+  /** Title страницы (как видит SpyWords при индексации). */
+  title: string;
+  /** Сколько ключей с этой страницы в топ-10 органики. */
+  top10Keys: number;
+  /** Сколько ключей в топ-50 органики. */
+  top50Keys: number;
+  /** Сколько ключей страница ПОТЕРЯЛА с предыдущего обновления базы. */
+  lostKeys: number;
+  /** Доля трафика домена, который приходится на эту страницу (%). */
+  trafficShare: number;
+}
+
 export interface SpywordsData {
   overview: SpywordsDomainOverview;
+  /** SEO-конкуренты (пересекаются с нашим доменом в органической выдаче). */
   competitors: {
     yandex: SpywordsCompetitor[];
     google: SpywordsCompetitor[];
   };
+  /** Рекламные конкуренты (пересекаются с нашим доменом в платной выдаче).
+   *  Отдельный список — рекламные и органические конкуренты часто разные. */
+  advCompetitors?: {
+    yandex: SpywordsCompetitor[];
+    google: SpywordsCompetitor[];
+  };
+  /** Наши объявления в платной выдаче. */
   ads: {
     yandex: SpywordsAd[];
     google: SpywordsAd[];
   };
-  /** Топ органических позиций (для дополнения Keys.so данных). */
+  /** Топ страниц домена по органике с метриками. */
+  topPages?: {
+    yandex: SpywordsDomainUrl[];
+    google: SpywordsDomainUrl[];
+  };
+  /** Топ органических позиций (для дополнения Keys.so данных).
+   *  ⚠️ На API Start метод недоступен (платный тариф). */
   organic: {
     yandex: SpywordsOrganicPosition[];
     google: SpywordsOrganicPosition[];
@@ -249,10 +297,56 @@ async function getOrganicCompetitors(domain: string, se: SearchEngine, limit = 1
 
   const objs = rowsToObjects(rows);
   return objs.map(o => ({
-    domain:         o.Domain ?? o.domain ?? "",
-    commonKeywords: num(o.KeyOverlap),
-    totalKeywords:  num(o.Top50KeysOrgTot),
+    domain:           o.Domain ?? o.domain ?? "",
+    commonKeywords:   num(o.KeyOverlap),
+    totalKeywords:    num(o.Top50KeysOrgTot),
+    uniqueKeywords:   num(o["Unique Keys"] ?? o.UniqueKeys),
+    competitionLevel: num(o["Competition Level, %"] ?? o.CompetitionLevel),
   })).filter(c => c.domain.length > 0).slice(0, limit);
+}
+
+/**
+ * DomainAdvCompetitors — конкуренты в платной выдаче (Я.Директ / Google Ads).
+ * Часто это совсем другой список чем органические конкуренты — рекламодатели
+ * выкупают наши же ключи. Доступен на API Start.
+ *
+ * Колонки: Domain | Competition Level, % | KeyOverlap | Unique Keys | KeysTot | TotUniqAds | AvgPos | AdTraf
+ */
+async function getAdvCompetitors(domain: string, se: SearchEngine, limit = 10): Promise<SpywordsCompetitor[]> {
+  const url = buildUrl("DomainAdvCompetitors", { site: domain, se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  return objs.map(o => ({
+    domain:           o.Domain ?? "",
+    commonKeywords:   num(o.KeyOverlap),
+    totalKeywords:    num(o.KeysTot),
+    uniqueKeywords:   num(o["Unique Keys"] ?? o.UniqueKeys),
+    competitionLevel: num(o["Competition Level, %"] ?? o.CompetitionLevel),
+  })).filter(c => c.domain.length > 0).slice(0, limit);
+}
+
+/**
+ * DomainUrl — топ страниц домена по органике.
+ * Доступен на API Start. Полезен для понимания «какая страница приносит трафик».
+ *
+ * Колонки: URL | UrlTitle | Top10KeysOrgTot | Top50KeysOrgTot | TotWordLost | TraffShare % | (раздел?) | URL ID
+ */
+async function getDomainTopPages(domain: string, se: SearchEngine, limit = 15): Promise<SpywordsDomainUrl[]> {
+  const url = buildUrl("DomainUrl", { site: domain, se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  return objs.map(o => ({
+    url:           o.URL ?? "",
+    title:         o.UrlTitle ?? "",
+    top10Keys:     num(o.Top10KeysOrgTot),
+    top50Keys:     num(o.Top50KeysOrgTot),
+    lostKeys:      num(o.TotWordLost),
+    trafficShare:  num(o["TraffShare %"] ?? o.TraffShare),
+  })).filter(p => p.url.length > 0).slice(0, limit);
 }
 
 /**
@@ -333,6 +427,47 @@ export async function getSpywordsBalance(): Promise<SpywordsBalance | null> {
  * Каждый внутренний метод обёрнут — если что-то не сработало, в выдаче
  * будет пустой массив/объект, остальное при этом отдастся пользователю.
  */
+/** Сколько топ-конкурентов обогащать индивидуальными вызовами (overview + ads).
+ *  Каждый конкурент = 2 доп. запроса к API (Overview + Ads), на каждый ПС = ×2.
+ *  ENRICH_TOP=5 = 5*2*2 = 20 запросов. На балансе 1 млн юнитов это ничего. */
+const ENRICH_TOP_COMPETITORS = 5;
+
+/**
+ * Для top-N конкурентов параллельно дёргаем их DomainOverview + DomainAdv,
+ * чтобы дашборд показывал «не только что они конкуренты, но и насколько
+ * больше у них трафика, сколько ключей в рекламе, какие топ-объявления».
+ */
+async function enrichCompetitors(
+  competitors: SpywordsCompetitor[],
+  se: SearchEngine,
+): Promise<SpywordsCompetitor[]> {
+  const top = competitors.slice(0, ENRICH_TOP_COMPETITORS);
+
+  await Promise.all(top.map(async c => {
+    try {
+      const [overview, ads] = await Promise.all([
+        getDomainOverview(c.domain).catch(() => null),
+        getDomainAds(c.domain, se, 3).catch(() => [] as SpywordsAd[]),
+      ]);
+      if (overview && overview[se]) {
+        const o = overview[se]!;
+        c.overview = {
+          organicKeysTop10: o.organicKeysTop10,
+          organicKeysTop50: o.organicKeysTop50,
+          organicTraffic:   o.organicTraffic,
+          adKeywords:       o.adKeywords,
+          uniqueAds:        o.uniqueAds,
+          adTraffic:        o.adTraffic,
+          adBudget:         o.adBudget,
+        };
+      }
+      if (ads.length > 0) c.topAds = ads;
+    } catch { /* skip this competitor on error, оставляем без enrichment */ }
+  }));
+
+  return competitors;
+}
+
 export async function getSpywordsData(domain: string): Promise<SpywordsData | null> {
   if (!hasCreds()) return null;
 
@@ -340,22 +475,41 @@ export async function getSpywordsData(domain: string): Promise<SpywordsData | nu
   if (!cleanDomain) return null;
 
   try {
-    const [overview, yCompetitors, gCompetitors, yAds, gAds, yOrganic, gOrganic] = await Promise.all([
+    // Шаг 1 — базовые вызовы параллельно (то что было раньше + новые).
+    const [
+      overview,
+      yCompetitors, gCompetitors,
+      yAdvCompetitors, gAdvCompetitors,
+      yAds, gAds,
+      yOrganic, gOrganic,
+      yPages, gPages,
+    ] = await Promise.all([
       getDomainOverview(cleanDomain).catch(() => ({} as SpywordsDomainOverview)),
       getOrganicCompetitors(cleanDomain, "yandex").catch(() => [] as SpywordsCompetitor[]),
       getOrganicCompetitors(cleanDomain, "google").catch(() => [] as SpywordsCompetitor[]),
+      getAdvCompetitors(cleanDomain, "yandex").catch(() => [] as SpywordsCompetitor[]),
+      getAdvCompetitors(cleanDomain, "google").catch(() => [] as SpywordsCompetitor[]),
       getDomainAds(cleanDomain, "yandex").catch(() => [] as SpywordsAd[]),
       getDomainAds(cleanDomain, "google").catch(() => [] as SpywordsAd[]),
       getDomainOrganic(cleanDomain, "yandex").catch(() => [] as SpywordsOrganicPosition[]),
       getDomainOrganic(cleanDomain, "google").catch(() => [] as SpywordsOrganicPosition[]),
+      getDomainTopPages(cleanDomain, "yandex").catch(() => [] as SpywordsDomainUrl[]),
+      getDomainTopPages(cleanDomain, "google").catch(() => [] as SpywordsDomainUrl[]),
     ]);
 
-    // Если вообще ничего нет — возвращаем null, чтобы UI не показывал пустой блок.
+    // Шаг 2 — обогащаем топ-конкурентов их персональными метриками + объявлениями.
+    // Каждый конкурент = 2 доп. вызова, лимит ENRICH_TOP_COMPETITORS.
+    await Promise.all([
+      enrichCompetitors(yCompetitors, "yandex"),
+      enrichCompetitors(gCompetitors, "google"),
+    ]);
+
     const hasAnything =
       !!overview.yandex || !!overview.google ||
       yCompetitors.length > 0 || gCompetitors.length > 0 ||
+      yAdvCompetitors.length > 0 || gAdvCompetitors.length > 0 ||
       yAds.length > 0 || gAds.length > 0 ||
-      yOrganic.length > 0 || gOrganic.length > 0;
+      yPages.length > 0 || gPages.length > 0;
 
     if (!hasAnything) {
       console.warn(`[spywords] No data for ${cleanDomain}`);
@@ -364,9 +518,11 @@ export async function getSpywordsData(domain: string): Promise<SpywordsData | nu
 
     return {
       overview,
-      competitors: { yandex: yCompetitors, google: gCompetitors },
-      ads:         { yandex: yAds, google: gAds },
-      organic:     { yandex: yOrganic, google: gOrganic },
+      competitors:    { yandex: yCompetitors, google: gCompetitors },
+      advCompetitors: { yandex: yAdvCompetitors, google: gAdvCompetitors },
+      ads:            { yandex: yAds, google: gAds },
+      topPages:       { yandex: yPages, google: gPages },
+      organic:        { yandex: yOrganic, google: gOrganic },
     };
   } catch (err) {
     console.error(`[spywords] getSpywordsData failed for ${cleanDomain}:`, err);

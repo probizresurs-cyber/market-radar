@@ -6,6 +6,26 @@ export interface CategoryScore {
   delta: number;
 }
 
+/** Shape конкурента в spywordsDashboard.competitors/advCompetitors.
+ *  Топ-N обогащены полями overview + topAds (через дополнительные API-вызовы). */
+export interface SpywordsCompetitorShape {
+  domain: string;
+  commonKeywords: number;
+  totalKeywords: number;
+  uniqueKeywords?: number;
+  competitionLevel?: number;
+  overview?: {
+    organicKeysTop10: number;
+    organicKeysTop50: number;
+    organicTraffic: number;
+    adKeywords: number;
+    uniqueAds: number;
+    adTraffic: number;
+    adBudget: number;
+  };
+  topAds?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
+}
+
 export interface Recommendation {
   priority: "high" | "medium" | "low";
   text: string;
@@ -196,13 +216,24 @@ export interface AnalysisResult {
       yandex?: { organicKeysTop10: number; organicKeysTop50: number; organicTraffic: number; adKeywords: number; uniqueAds: number; avgAdPos: number; adTraffic: number; adBudget: number };
       google?: { organicKeysTop10: number; organicKeysTop50: number; organicTraffic: number; adKeywords: number; uniqueAds: number; avgAdPos: number; adTraffic: number; adBudget: number };
     };
+    /** SEO-конкуренты (по органике). Топ-N обогащены метриками (overview + topAds). */
     competitors?: {
-      yandex?: Array<{ domain: string; commonKeywords: number; totalKeywords: number }>;
-      google?: Array<{ domain: string; commonKeywords: number; totalKeywords: number }>;
+      yandex?: SpywordsCompetitorShape[];
+      google?: SpywordsCompetitorShape[];
+    };
+    /** Рекламные конкуренты (по платной выдаче). */
+    advCompetitors?: {
+      yandex?: SpywordsCompetitorShape[];
+      google?: SpywordsCompetitorShape[];
     };
     ads?: {
       yandex?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
       google?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number }>;
+    };
+    /** Топ страниц домена по органике с метриками. */
+    topPages?: {
+      yandex?: Array<{ url: string; title: string; top10Keys: number; top50Keys: number; lostKeys: number; trafficShare: number }>;
+      google?: Array<{ url: string; title: string; top10Keys: number; top50Keys: number; lostKeys: number; trafficShare: number }>;
     };
     organic?: {
       yandex?: Array<{ keyword: string; position: number; volume: number; url?: string }>;
