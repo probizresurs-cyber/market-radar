@@ -23,6 +23,21 @@ function renderParagraphs(text: string): string {
     .join("");
 }
 
+/** Defensive нормализация — старые отчёты сохранены с разной схемой
+ *  (могут быть без subsections / intro / synthesis). Не падаем — рендерим
+ *  что есть, недостающее проставляем дефолтами. */
+function normalizeSection(s: Partial<SwotSection> | undefined, fallbackTitle: string): SwotSection {
+  return {
+    title: s?.title || fallbackTitle,
+    intro: s?.intro || "",
+    subsections: Array.isArray(s?.subsections) ? s.subsections.map(sub => ({
+      title: sub?.title || "",
+      paragraphs: Array.isArray(sub?.paragraphs) ? sub.paragraphs.filter(Boolean) : [],
+    })) : [],
+    synthesis: s?.synthesis || "",
+  };
+}
+
 function renderSection(s: SwotSection, color: string): string {
   return `
     <section class="swot-section" style="--accent: ${color};">
@@ -37,13 +52,28 @@ function renderSection(s: SwotSection, color: string): string {
   `;
 }
 
+/** Fallback для совсем старых отчётов где сохранены ТОЛЬКО rawItems
+ *  (список фраз S/W/O/T) без полной структуры. Рендерим минимальный
+ *  список вместо ошибки. */
+function renderRawItemsSection(title: string, items: string[] | undefined, color: string): string {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  return `
+    <section class="swot-section" style="--accent: ${color};">
+      <h2 class="section-title">${escape(title)}</h2>
+      <ul style="margin: 16px 0; padding-left: 22px;">
+        ${items.map(it => `<li style="margin: 4px 0;">${escape(it)}</li>`).join("")}
+      </ul>
+    </section>
+  `;
+}
+
 function renderTOC(report: SwotReport): string {
   const items = [
     { title: "Введение", subs: [] as string[] },
-    { title: report.strengths.title, subs: report.strengths.subsections.map(s => s.title) },
-    { title: report.weaknesses.title, subs: report.weaknesses.subsections.map(s => s.title) },
-    { title: report.opportunities.title, subs: report.opportunities.subsections.map(s => s.title) },
-    { title: report.threats.title, subs: report.threats.subsections.map(s => s.title) },
+    { title: report.strengths.title, subs: (report.strengths.subsections ?? []).map(s => s.title) },
+    { title: report.weaknesses.title, subs: (report.weaknesses.subsections ?? []).map(s => s.title) },
+    { title: report.opportunities.title, subs: (report.opportunities.subsections ?? []).map(s => s.title) },
+    { title: report.threats.title, subs: (report.threats.subsections ?? []).map(s => s.title) },
     { title: "Заключение", subs: [] as string[] },
   ];
   return `
@@ -58,7 +88,31 @@ function renderTOC(report: SwotReport): string {
   `;
 }
 
-export function buildSwotReportHTML(report: SwotReport): string {
+export function buildSwotReportHTML(rawReport: SwotReport): string {
+  // Нормализуем разделы — старые отчёты могут не иметь полной структуры.
+  // Берём из rawItems если в section.subsections пусто.
+  const raw = rawReport.rawItems ?? { strengths: [], weaknesses: [], opportunities: [], threats: [] };
+
+  const fillFromRaw = (s: SwotSection, items: string[], defaultTitle: string): SwotSection => {
+    const normalized = normalizeSection(s, defaultTitle);
+    // Если subsections пусто, но в rawItems есть — создаём один блок «Основные пункты» с items как paragraphs
+    if (normalized.subsections.length === 0 && Array.isArray(items) && items.length > 0) {
+      normalized.subsections = [{ title: "Основные пункты", paragraphs: items }];
+    }
+    return normalized;
+  };
+
+  const report: SwotReport = {
+    ...rawReport,
+    introduction: rawReport.introduction || "",
+    conclusion: rawReport.conclusion || "",
+    strengths:     fillFromRaw(rawReport.strengths,     raw.strengths,     "Сильные стороны"),
+    weaknesses:    fillFromRaw(rawReport.weaknesses,    raw.weaknesses,    "Слабые стороны"),
+    opportunities: fillFromRaw(rawReport.opportunities, raw.opportunities, "Возможности"),
+    threats:       fillFromRaw(rawReport.threats,       raw.threats,       "Угрозы"),
+    rawItems: raw,
+  };
+
   const date = new Date(report.generatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
   return `<!DOCTYPE html>
