@@ -8,6 +8,7 @@ import { generatePollinationsImage } from "@/lib/pollinations-image";
 import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 import { platformImageFormat } from "@/lib/image-aspect";
 import { persistImageDataUri } from "@/lib/image-store";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -43,7 +44,9 @@ function buildBrandBookBlock(bb: BrandBook | null): string {
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `Ты — эмоциональный копирайтер с 50-летним опытом и SMM-сторителлер, который держит миллионную аудиторию.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — эмоциональный копирайтер с 50-летним опытом и SMM-сторителлер, который держит миллионную аудиторию.
 
 Ты пишешь так, что люди останавливаются на середине ленты:
 - Каждое слово на своём месте

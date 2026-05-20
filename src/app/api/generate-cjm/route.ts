@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { TAResult } from "@/lib/ta-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -173,7 +174,9 @@ ${companyData.url ? `- Сайт: ${companyData.url}` : ""}
 ${companyData.description ? `- Описание: ${companyData.description}` : ""}`
       : "";
 
-  return `Создай CJM для бизнеса. Отвечай ТОЛЬКО JSON объектом, без markdown и пояснений.
+  return `${ANTI_HALLUCINATION_SHORT}
+
+Создай CJM для бизнеса. Отвечай ТОЛЬКО JSON объектом, без markdown и пояснений.
 
 КОМПАНИЯ: ${companyName}
 НИША: ${niche}${companySection}${taSection}

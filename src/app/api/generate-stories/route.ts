@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import type { GeneratedStory, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — мастер сторителлинга в сторис. Знаешь, что у сторис есть 3 секунды, чтобы зацепить.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — мастер сторителлинга в сторис. Знаешь, что у сторис есть 3 секунды, чтобы зацепить.
 
 Принципы:
 1. Каждый слайд — одна мысль. Никакого многабукв.

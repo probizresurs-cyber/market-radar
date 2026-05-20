@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -73,7 +74,9 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join(" | ");
 
-    const userPrompt = `Ты эксперт по контент-маркетингу. ${contextLine}
+    const userPrompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты эксперт по контент-маркетингу. ${contextLine}
 
 Проанализируй свежие публикации и создай 6 конкретных идей для контента. Форматы: пост (текст), карусель (слайды), рилс (короткое видео), сторис.
 

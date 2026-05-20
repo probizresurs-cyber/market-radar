@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult } from "@/lib/types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -41,7 +42,9 @@ function buildPrompt(myCompany: AnalysisResult, competitors: AnalysisResult[]): 
   Топ-ключи: ${c.seo.positions.slice(0, 5).map(p => `«${p.keyword}»(${p.position})`).join(", ") || "нет"}
   Ниша: ${c.nicheForecast.trend}, E-E-A-T expertise: ${c.aiPerception.eeat.expertise}`;
 
-  return `Ты — стратег по конкурентной разведке для российского рынка. Проведи анализ.
+  return `${ANTI_HALLUCINATION_SHORT}
+
+Ты — стратег по конкурентной разведке для российского рынка. Проведи анализ.
 
 МОЯ КОМПАНИЯ:${fmt(myCompany)}
 

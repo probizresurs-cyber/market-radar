@@ -20,6 +20,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import type { SwotItems } from "@/lib/swot";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -53,7 +54,9 @@ export interface TowsMatrix {
   generatedAt: string;
 }
 
-const SYSTEM_PROMPT = `Ты — стратегический консультант уровня McKinsey/BCG. Тебе дают результат SWOT-анализа.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — стратегический консультант уровня McKinsey/BCG. Тебе дают результат SWOT-анализа.
 
 Твоя работа — сгенерировать TOWS-матрицу: 4 квадранта стратегий, где каждый квадрант
 пересекает один из факторов:

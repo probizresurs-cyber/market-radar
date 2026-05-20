@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — бренд-стратег. На основе портрета целевой аудитории ты даёшь рекомендации по визуальному и вербальному стилю бренда.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — бренд-стратег. На основе портрета целевой аудитории ты даёшь рекомендации по визуальному и вербальному стилю бренда.
 
 Учитывай возраст, пол, доход, ценности, страхи и предпочтения аудитории. Предлагай конкретные решения, не абстрактные.
 

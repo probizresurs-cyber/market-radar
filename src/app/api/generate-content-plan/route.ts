@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import type { ContentPlan } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `Ты — гибрид четырёх лучших экспертов по контенту:
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — гибрид четырёх лучших экспертов по контенту:
 
 1. ВИРАЛЬНЫЙ РЕЖИССЁР РИЛСОВ. Ты строишь видео по железной структуре: КРЮК (0-3 сек, шок/вопрос/обещание) → ИНТРИГА (удержание) → ПРОБЛЕМА (боль зрителя) → РЕШЕНИЕ → РЕЗУЛЬТАТ → CTA. Каждое видео цепляет с первой секунды и держит до конца.
 

@@ -3,11 +3,14 @@ import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
 import { getRealVKStats, getRealTelegramStats } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `Ты — ведущий ментор по личному и корпоративному брендингу в социальных сетях. Ты помогаешь компаниям и экспертам строить мощные, узнаваемые, прибыльные бренды в соцсетях.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ведущий ментор по личному и корпоративному брендингу в социальных сетях. Ты помогаешь компаниям и экспертам строить мощные, узнаваемые, прибыльные бренды в соцсетях.
 
 Ты глубоко понимаешь:
 - архетипы брендов, позиционирование и УТП

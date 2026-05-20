@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { GeneratedReel, ContentReelIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 function buildBrandBookBlock(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -20,7 +21,9 @@ function buildBrandBookBlock(bb: BrandBook | null): string {
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `Ты — виральный режиссёр рилсов и эмоциональный копирайтер в одном лице.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — виральный режиссёр рилсов и эмоциональный копирайтер в одном лице.
 
 Ты строишь видео по железной структуре:
 1. КРЮК (0-3 сек) — шок / парадокс / вопрос / обещание

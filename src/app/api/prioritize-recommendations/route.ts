@@ -17,11 +17,14 @@ import { NextResponse } from "next/server";
 import { safeAnthropicCreate, extractJson, proxyErrorMessage } from "@/lib/anthropic-safe";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import type { Recommendation } from "@/lib/types";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — операционный директор с опытом запуска 50+ digital-проектов.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — операционный директор с опытом запуска 50+ digital-проектов.
 
 Тебе дают список рекомендаций по бизнесу. Твоя работа — оценить каждую по двум осям:
 

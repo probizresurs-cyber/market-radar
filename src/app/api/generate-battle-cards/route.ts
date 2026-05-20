@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import Anthropic from "@anthropic-ai/sdk";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -72,7 +73,9 @@ function buildPrompt(
   niche: string,
   competitors: Array<{ name: string; url: string; score: number; description?: string; strengths?: string[]; weaknesses?: string[] }>
 ): string {
-  return `Создай battle cards для компании "${myName}" (${myUrl}) в нише: ${niche}.
+  return `${ANTI_HALLUCINATION_SHORT}
+
+Создай battle cards для компании "${myName}" (${myUrl}) в нише: ${niche}.
 Оценка нашей компании по платформе MarketRadar: ${myScore}/100.
 
 Конкуренты для battle card:

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import type { GeneratedPost, GeneratedReel } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — старший SMM-аналитик с 10-летним опытом.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — старший SMM-аналитик с 10-летним опытом.
 
 Тебе дают сырые метрики постов и рилсов компании. Твоя задача — найти ЗАКОНОМЕРНОСТИ и дать ЖЁСТКИЕ практические рекомендации.
 

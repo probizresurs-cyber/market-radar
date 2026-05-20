@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
-const BASE_SYSTEM_PROMPT = `Ты — топ-презентационный дизайнер уровня Pitch.com / Beautiful.ai. Создаёшь структуру бренд-презентации компании.
+const BASE_SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — топ-презентационный дизайнер уровня Pitch.com / Beautiful.ai. Создаёшь структуру бренд-презентации компании.
 
 ТРЕБОВАНИЯ К КАЧЕСТВУ:
 - 11–14 слайдов, НЕ однообразных — чередуй типы: cover → bullets → stats → two-column → grid → quote → bullets → stats → cta

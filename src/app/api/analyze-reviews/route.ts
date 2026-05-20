@@ -3,11 +3,14 @@ import type { Review } from "@/lib/review-types";
 import type { ReviewAnalysis } from "@/lib/review-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — аналитик отзывов. Получаешь массив отзывов о компании и делаешь глубокий анализ.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — аналитик отзывов. Получаешь массив отзывов о компании и делаешь глубокий анализ.
 
 Анализируй:
 1. Общий sentiment (позитив / негатив / нейтрал) — подсчёт по количеству

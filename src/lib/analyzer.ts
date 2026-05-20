@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ScrapedData, AnalysisResult, CategoryScore, Recommendation, Insight, CopyImprovement, KeywordGap, PracticalAdvice, AiPerception } from "./types";
 import type { BusinessType } from "./business-types";
 import { buildBusinessTypePromptHint } from "./business-types";
+import { ANTI_HALLUCINATION_SHORT } from "./ai-rules";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -51,9 +52,11 @@ export async function analyzeWithClaude(data: ScrapedData, businessType?: Busine
 
   const businessTypeHint = buildBusinessTypePromptHint(businessType);
 
-  const prompt = `Ты эксперт по цифровому маркетингу, SEO и конкурентному анализу для российского рынка.
+  const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты эксперт по цифровому маркетингу, SEO и конкурентному анализу для российского рынка.
 Проанализируй сайт по собранным данным и верни ТОЛЬКО валидный JSON без markdown и без пояснений.
-Если данных не хватает — делай обоснованные экспертные оценки по типу и нише бизнеса.
+Если данных не хватает — НЕ выдумывай, ставь null или «недостаточно данных» в соответствующих полях.
 ${businessTypeHint}
 
 === ДАННЫЕ САЙТА: ${data.url} ===

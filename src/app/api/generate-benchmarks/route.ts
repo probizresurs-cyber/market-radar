@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" });
 
-const SYSTEM_PROMPT = `Ты — ведущий аналитик рынка и бенчмаркинга для российского и СНГ-рынка. Ты специализируешься на конкурентном анализе, отраслевых метриках и стратегическом позиционировании компаний.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ведущий аналитик рынка и бенчмаркинга для российского и СНГ-рынка. Ты специализируешься на конкурентном анализе, отраслевых метриках и стратегическом позиционировании компаний.
 
 Ты обладаешь глубокими знаниями о реальных бенчмарках для разных ниш российского рынка: средний уровень конверсии, CAC, LTV, показатели отказов, органический трафик, рейтинги на картах, активность в соцсетях, SEO-позиции.
 

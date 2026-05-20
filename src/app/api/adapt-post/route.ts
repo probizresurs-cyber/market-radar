@@ -27,6 +27,7 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import Anthropic from "@anthropic-ai/sdk";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,7 +45,9 @@ export interface PlatformVariants {
   telegram: PlatformVariant;
 }
 
-const SYSTEM_PROMPT = `Ты — эксперт по адаптации текстов под социальные сети.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — эксперт по адаптации текстов под социальные сети.
 
 Твоя задача: взять один и тот же пост и переписать его 3 раза — так, как будто его пишут 3 разных копирайтера, каждый эксперт в своей платформе.
 

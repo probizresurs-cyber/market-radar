@@ -18,6 +18,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult } from "./types";
 import type { TAResult } from "./ta-types";
 import type { SMMResult } from "./smm-types";
+import { ANTI_HALLUCINATION_SHORT } from "./ai-rules";
 
 export interface SwotItems {
   strengths: string[];
@@ -163,7 +164,9 @@ function ctxToText(ctx: CompanyContext): string {
 /** Шаг 1 — извлечение SWOT-фраз. Не пишем нарратив, только классифицируем. */
 export async function extractSwotItems(ctx: CompanyContext): Promise<SwotItems> {
   const client = getClient();
-  const userMessage = `${ctxToText(ctx)}
+  const userMessage = `${ANTI_HALLUCINATION_SHORT}
+
+${ctxToText(ctx)}
 
 Извлеки из этих данных конкретные пункты для SWOT-анализа компании. Не интерпретируй
 и не выдумывай — бери только то, что явно следует из текста.
@@ -235,7 +238,9 @@ export async function writeSection(
     };
   }
 
-  const userMessage = `Контекст компании:
+  const userMessage = `${ANTI_HALLUCINATION_SHORT}
+
+Контекст компании:
 ${ctxToText(ctx)}
 
 Категория: **${SECTION_TITLE[category].toUpperCase()}**
@@ -291,7 +296,9 @@ ${SECTION_TONE[category]}
 
 export async function writeIntroduction(ctx: CompanyContext, items: SwotItems): Promise<string> {
   const client = getClient();
-  const userMessage = `Контекст:
+  const userMessage = `${ANTI_HALLUCINATION_SHORT}
+
+Контекст:
 ${ctxToText(ctx)}
 
 Извлечённые SWOT-пункты:
@@ -325,7 +332,9 @@ export async function writeConclusion(
   sections: { strengths: SwotSection; weaknesses: SwotSection; opportunities: SwotSection; threats: SwotSection },
 ): Promise<string> {
   const client = getClient();
-  const userMessage = `Компания: ${ctx.companyName} (${ctx.industry})
+  const userMessage = `${ANTI_HALLUCINATION_SHORT}
+
+Компания: ${ctx.companyName} (${ctx.industry})
 
 Синтезы по 4 разделам SWOT:
 - STRENGTHS: ${sections.strengths.synthesis}

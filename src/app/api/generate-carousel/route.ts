@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import type { GeneratedCarousel, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — топовый контент-дизайнер Instagram-каруселей.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — топовый контент-дизайнер Instagram-каруселей.
 
 Принципы хорошей карусели:
 1. Первый слайд (cover) — мощный крючок, который заставляет свайпнуть. 3-6 слов, визуально контрастный.

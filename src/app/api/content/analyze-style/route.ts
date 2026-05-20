@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -36,7 +37,9 @@ export async function POST(req: Request) {
       .map((d, i) => `=== ДОКУМЕНТ ${i + 1}: ${d.name} ===\n${sampleText(d.fullText)}`)
       .join("\n\n");
 
-    const prompt = `Ты — редактор и лингвист. Перед тобой реальные тексты компании ${body.companyName ?? ""}.
+    const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — редактор и лингвист. Перед тобой реальные тексты компании ${body.companyName ?? ""}.
 Твоя задача — извлечь из них стилистический профиль так, чтобы другая модель могла писать НОВЫЕ тексты в точно такой же манере.
 
 Проанализируй:

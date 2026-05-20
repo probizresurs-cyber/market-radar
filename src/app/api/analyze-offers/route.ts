@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — маркетинговый аналитик. Тебе дают URL сайта и краткое описание компании.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — маркетинговый аналитик. Тебе дают URL сайта и краткое описание компании.
 
 Проанализируй офферы (предложения / услуги / товары) этой компании с сайта.
 
