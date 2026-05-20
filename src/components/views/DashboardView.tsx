@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { KeysoDashboardBlock } from "@/components/ui/KeysoDashboardBlock";
+import { SpywordsBlock } from "@/components/ui/SpywordsBlock";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
@@ -538,6 +539,14 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
           } : undefined}
         />
       </CollapsibleSection>
+
+      {/* SpyWords — дополнительный слой к Keys.so: реклама, SEO-конкуренты, бюджеты.
+          Показывается только если SPYWORDS_LOGIN/TOKEN заданы и API вернул данные. */}
+      {data.spywordsDashboard && (
+        <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+          <SpywordsBlock data={data.spywordsDashboard} />
+        </CollapsibleSection>
+      )}
 
       {/* Market share — only if we have at least 1 competitor */}
       <CollapsibleSection c={c} title="Доли рынка" icon={<PieChart size={16} strokeWidth={1.75} />} defaultOpen={false}>
