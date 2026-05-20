@@ -179,11 +179,9 @@ export async function fetchContextCompetitors(
   limit = 15,
 ): Promise<KeysoCompetitor[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
-  // context/concurents тоже только POST — иначе 400 «Method not allowed».
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/context/concurents",
     { domain: cleanDomain, base, page: 1, per_page: limit },
-    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((c) => ({
@@ -201,12 +199,9 @@ export async function fetchContextAds(
   limit = 20,
 ): Promise<KeysoAd[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
-  // Keys.so отвергает GET на context/ads — требует POST.
-  // Без method:"POST" возвращается 400 "Method not allowed. Must be one of: OPTIONS".
   const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
     "/report/simple/context/ads",
     { domain: cleanDomain, base, page: 1, per_page: limit },
-    "POST",
   );
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((ad) => ({
@@ -228,20 +223,31 @@ export async function fetchMarketShare(
 ): Promise<KeysoMarketShare[]> {
   if (domains.length === 0) return [];
   const cleaned = domains.map(d => d.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0]).filter(Boolean);
-  // Keys.so site-level endpoint требует POST (GET → 400 «Method not allowed»).
-  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/site/organic-comparison",
-    { domains: cleaned.join(","), base },
-    "POST",
+  // ВАЖНО: /report/site/organic-comparison — async-endpoint (требует
+  // create-report → poll workflow). Использовать его синхронно не получается.
+  // Вместо этого тянем per-domain видимость через simple-endpoint
+  // /report/simple/organic/info и считаем доли клиент-сайд.
+  const results = await Promise.all(
+    cleaned.map(async (domain) => {
+      const info = await keysoFetch<{ vis?: number; visibility?: number; traffic?: number }>(
+        "/report/simple/organic/info",
+        { domain, base },
+      );
+      if (!info) return null;
+      const visibility = typeof info.vis === "number"
+        ? info.vis
+        : (typeof info.visibility === "number" ? info.visibility : 0);
+      return {
+        domain,
+        visibility,
+        traffic: typeof info.traffic === "number" ? info.traffic : undefined,
+      };
+    }),
   );
-  if (!data?.data) return [];
 
-  // Считаем общую видимость для долей
-  const items = data.data.map((d) => ({
-    domain: String(d.domain ?? ""),
-    visibility: typeof d.vis === "number" ? d.vis : (typeof d.visibility === "number" ? d.visibility : 0),
-    traffic: typeof d.traffic === "number" ? d.traffic : undefined,
-  })).filter(x => x.domain && x.visibility > 0);
+  const items = results.filter((x): x is { domain: string; visibility: number; traffic?: number } =>
+    x !== null && x.visibility > 0,
+  );
 
   const total = items.reduce((s, x) => s + x.visibility, 0);
   if (total === 0) return [];

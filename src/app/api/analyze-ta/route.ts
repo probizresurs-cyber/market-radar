@@ -385,7 +385,10 @@ export async function POST(req: Request) {
             { role: "user", content: userPrompt },
           ],
           temperature: 0.85,
-          max_tokens: 7000,
+          // 16000 — потолок gpt-4o output. На детальных B2B-портретах
+          // (3 сегмента × психографика × возражения × JTBD) 7000 не хватало,
+          // JSON обрывался на 26900-м символе → ошибка «Unterminated string».
+          max_tokens: 16000,
           response_format: { type: "json_object" },
         }),
       });
