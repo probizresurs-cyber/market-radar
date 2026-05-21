@@ -20,6 +20,7 @@ import {
 } from "@/lib/data-quality";
 import { QuickAnalyzeCard } from "./QuickAnalyzeCard";
 import { SpywordsBlock } from "../ui/SpywordsBlock";
+import { MetricRing, StackedBar } from "../ui/Charts";
 
 // ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
 interface CJMTouchpoint { channel: string; action: string; icon: string }
@@ -974,18 +975,31 @@ export function OwnerDashboardContent({
                 <MetricCard p={p} label="Ваш балл" value={metrics.score} change={`из 100`} positive delayMs={550} neonColor="#D500F9" hero />
               </div>
 
-              {/* Keys.so краткая SEO-сводка — теперь ПОД основными метриками
-                  (это вторичный показатель, а не главный). */}
+              {/* Keys.so расширенная SEO-сводка — позиции, видимость, DR,
+                  ссылочный профиль, конкуренты. Раньше было 4 ячейки —
+                  теперь полный обзор для руководителя. */}
               {(myCompany.keysoDashboard?.yandex || myCompany.keysoDashboard?.google) && (() => {
                 const y = myCompany.keysoDashboard?.yandex;
                 const g = myCompany.keysoDashboard?.google;
-                const totalKw = (y?.top50 ?? 0) + (g?.top50 ?? 0);
-                const top3Total = (y?.top3 ?? 0) + (g?.top3 ?? 0);
-                const top10Total = (y?.top10 ?? 0) + (g?.top10 ?? 0);
-                const trafficTotal = (y?.traffic ?? 0) + (g?.traffic ?? 0);
+                // Все суммы — Яндекс + Google
+                const totalTop50 = (y?.top50 ?? 0) + (g?.top50 ?? 0);
+                const totalTop10 = (y?.top10 ?? 0) + (g?.top10 ?? 0);
+                const totalTop5 = (y?.top5 ?? 0) + (g?.top5 ?? 0);
+                const totalTop3 = (y?.top3 ?? 0) + (g?.top3 ?? 0);
+                const totalTop1 = (y?.top1 ?? 0) + (g?.top1 ?? 0);
+                const totalTraffic = (y?.traffic ?? 0) + (g?.traffic ?? 0);
+                const totalAdKeys = (y?.adKeys ?? 0) + (g?.adKeys ?? 0);
+                // Для ссылок и DR берём данные с Яндекса (они идут с одного
+                // и того же домена независимо от ПС).
+                const linkSource = y ?? g;
+                // Конкуренты — объединяем оба ПС с дедупом
+                const allCompetitors = Array.from(
+                  new Set([...(y?.competitors ?? []), ...(g?.competitors ?? [])])
+                ).slice(0, 8);
+
                 return (
                   <div className="mr-card" style={{ padding: "18px 20px", marginBottom: 20, animationDelay: "600ms" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 8,
                         background: `${p.primary}18`, color: p.primary,
@@ -995,44 +1009,131 @@ export function OwnerDashboardContent({
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: p.textPrimary }}>
-                          SEO-позиции (Keys.so)
+                          SEO-данные Keys.so
                         </div>
                         <div style={{ fontSize: 12, color: p.textSecondary, marginTop: 1 }}>
-                          Реальные данные по {y && g ? "Яндекс + Google" : y ? "Яндекс" : "Google"}
+                          Реальные данные по {y && g ? "Яндекс + Google" : y ? "Яндекс" : "Google"} ·
+                          {" "}{totalTop50.toLocaleString("ru-RU")} ключей в выдаче
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ВСЕГО КЛЮЧЕЙ</div>
-                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
-                          {totalKw.toLocaleString("ru-RU")}
-                        </div>
-                      </div>
-                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>В ТОП-3</div>
-                        <div style={{ fontSize: 22, fontWeight: 900, color: p.green, marginTop: 4, letterSpacing: -0.5 }}>
-                          {top3Total.toLocaleString("ru-RU")}
-                        </div>
-                      </div>
-                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>В ТОП-10</div>
-                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
-                          {top10Total.toLocaleString("ru-RU")}
-                        </div>
-                      </div>
-                      <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ТРАФИК / ДЕНЬ</div>
-                        <div style={{ fontSize: 22, fontWeight: 900, color: p.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
-                          {trafficTotal.toLocaleString("ru-RU")}
-                        </div>
-                      </div>
+
+                    {/* 4 кольца сверху — основные показатели */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                      gap: 12, padding: "14px 0", marginBottom: 16,
+                      borderBottom: `1px solid ${p.borderSecondary}`,
+                    }}>
+                      {(linkSource?.dr ?? 0) > 0 && (
+                        <MetricRing value={linkSource!.dr!} label="Domain Rating" />
+                      )}
+                      {(linkSource?.visibility ?? 0) > 0 && (
+                        <MetricRing value={linkSource!.visibility!} label="Видимость" />
+                      )}
+                      <MetricRing value={totalTop10} max={Math.max(100, totalTop10)} label="Ключей в ТОП-10" color="#0cce6b" />
+                      {totalAdKeys > 0 && (
+                        <MetricRing value={totalAdKeys} max={Math.max(50, totalAdKeys)} label="Рекл. запросов" color="#f59e0b" />
+                      )}
                     </div>
+
+                    {/* Stacked-bar распределения по позициям */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.05em", marginBottom: 10 }}>
+                        РАСПРЕДЕЛЕНИЕ КЛЮЧЕЙ ПО ПОЗИЦИЯМ
+                      </div>
+                      <StackedBar segments={[
+                        { label: "ТОП-1", value: totalTop1, color: "#16a34a" },
+                        { label: "ТОП-2-3", value: Math.max(0, totalTop3 - totalTop1), color: "#0cce6b" },
+                        { label: "ТОП-4-5", value: Math.max(0, totalTop5 - totalTop3), color: "#3b82f6" },
+                        { label: "ТОП-6-10", value: Math.max(0, totalTop10 - totalTop5), color: "#6366f1" },
+                        { label: "ТОП-11-50", value: Math.max(0, totalTop50 - totalTop10), color: "#9ca3af" },
+                      ].filter(s => s.value > 0)} />
+                    </div>
+
+                    {/* Ссылочный профиль + AI-mentions */}
+                    {linkSource && (linkSource.backlinks || linkSource.referringDomains || linkSource.aiMentions) && (
+                      <div style={{
+                        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                        gap: 10, marginBottom: 16,
+                      }}>
+                        {linkSource.backlinks ? (
+                          <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ВХОДЯЩИХ ССЫЛОК</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.textPrimary, marginTop: 4 }}>
+                              {linkSource.backlinks.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                        {linkSource.referringDomains ? (
+                          <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ССЫЛАЮЩИХСЯ ДОМЕНОВ</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.textPrimary, marginTop: 4 }}>
+                              {linkSource.referringDomains.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                        {linkSource.outboundLinks ? (
+                          <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ИСХОДЯЩИХ ССЫЛОК</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.textPrimary, marginTop: 4 }}>
+                              {linkSource.outboundLinks.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                        {linkSource.pagesInOrganic ? (
+                          <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>СТРАНИЦ В ВЫДАЧЕ</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.textPrimary, marginTop: 4 }}>
+                              {linkSource.pagesInOrganic.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                        {linkSource.aiMentions ? (
+                          <div style={{ padding: "10px 14px", background: `${p.primary}10`, borderRadius: 9, border: `1px solid ${p.primary}30` }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.primary, letterSpacing: "0.04em" }}>УПОМИНАНИЙ В АЛИСЕ</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.primary, marginTop: 4 }}>
+                              {linkSource.aiMentions.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                        {totalTraffic ? (
+                          <div style={{ padding: "10px 14px", background: p.bgSecondary, borderRadius: 9 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.04em" }}>ТРАФИК / ДЕНЬ</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: p.green, marginTop: 4 }}>
+                              {totalTraffic.toLocaleString("ru-RU")}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* Топ-конкуренты по органике (из Keys.so) */}
+                    {allCompetitors.length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: p.textTertiary, letterSpacing: "0.05em", marginBottom: 10 }}>
+                          ТОП-КОНКУРЕНТЫ В ОРГАНИКЕ
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {allCompetitors.map((c, i) => (
+                            <span key={c} style={{
+                              padding: "4px 10px",
+                              background: i === 0 ? `${p.primary}20` : p.bgSecondary,
+                              border: `1px solid ${i === 0 ? p.primary + "50" : p.borderSecondary}`,
+                              borderRadius: 6, fontSize: 12, fontWeight: 600,
+                              color: i === 0 ? p.primary : p.textSecondary,
+                            }}>{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Раздельные показатели Яндекс / Google */}
                     {(y && g) && (
-                      <div style={{ marginTop: 12, padding: "9px 14px", background: p.bgSecondary, borderRadius: 8, fontSize: 12, color: p.textSecondary }}>
-                        <b style={{ color: "#FF5500" }}>Яндекс</b>: {y.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10
+                      <div style={{ marginTop: 8, padding: "9px 14px", background: p.bgSecondary, borderRadius: 8, fontSize: 12, color: p.textSecondary }}>
+                        <b style={{ color: "#FF5500" }}>Яндекс</b>: {y.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10, трафик {y.traffic?.toLocaleString("ru-RU") ?? 0}
                         {" · "}
-                        <b style={{ color: "#4285F4" }}>Google</b>: {g.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10
+                        <b style={{ color: "#4285F4" }}>Google</b>: {g.top10?.toLocaleString("ru-RU") ?? 0} в ТОП-10, трафик {g.traffic?.toLocaleString("ru-RU") ?? 0}
                       </div>
                     )}
                   </div>
