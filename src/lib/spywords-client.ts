@@ -158,6 +158,13 @@ export interface SpywordsCompetitor {
    *  (keyword + позиция + Volume + CPC + competition). Это весь список
    *  ключевых слов в рекламе — то что SpyWords даёт на API Start. */
   topAds?: SpywordsAd[];
+  /** Общие органические ключи с НАШИМ доменом — пересечение через FightOrganic.
+   *  Это и есть «органические ключи конкурента» доступные на API Start. */
+  commonOrganicKeys?: SpywordsFightKeyword[];
+  /** Общие рекламные ключи с НАШИМ доменом — пересечение через FightAdv. */
+  commonAdKeys?: SpywordsFightKeyword[];
+  /** Side-by-side сравнение метрик нашего домена и конкурента. */
+  fightOverview?: SpywordsFightOverview | null;
 }
 
 export interface SpywordsAd {
@@ -235,6 +242,9 @@ export interface SpywordsData {
     yandex: SpywordsDomainUrl[];
     google: SpywordsDomainUrl[];
   };
+  /** Умный подбор похожих запросов через SmartKeywords (по топ-1 ключу
+   *  нашего домена). Заполняется только если у нас есть хоть один топ-ad-keyword. */
+  smartKeywords?: SpywordsSmartKeyword[];
   /** Топ органических позиций (для дополнения Keys.so данных).
    *  ⚠️ На API Start метод недоступен (платный тариф). */
   organic: {
@@ -417,6 +427,219 @@ async function getDomainOrganic(domain: string, se: SearchEngine, limit = 20): P
   })).filter(p => p.keyword.length > 0 && p.position > 0 && p.position <= 100).slice(0, limit);
 }
 
+// ─── Дополнительные методы API Start ──────────────────────────────────────
+
+/** SmartKeywords — генерация похожих/тематических запросов из seed-ключа. */
+export interface SpywordsSmartKeyword {
+  keyword: string;
+  volumeYandex: number;
+  volumeBase: number;
+  volumeTot: number;
+  cpc: number;
+  advTot: number;
+  topic?: string;
+  intent?: string;
+}
+
+export async function getSmartKeywords(seedKeyword: string, se: SearchEngine = "yandex", limit = 50): Promise<SpywordsSmartKeyword[]> {
+  if (!hasCreds()) return [];
+  const url = buildUrl("SmartKeywords", { word: seedKeyword, se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  // Колонки: Keyword | Volume Yandex | VolumeBase Yandex | VolumeTot Yandex | YandexCPC | YandexAdvTot | Тип ключа | Тематика
+  return objs.map(o => ({
+    keyword:      o.Keyword ?? "",
+    volumeYandex: num(o["Volume Yandex"] ?? o.Volume),
+    volumeBase:   num(o["VolumeBase Yandex"] ?? o.VolumeBase),
+    volumeTot:    num(o["VolumeTot Yandex"] ?? o.VolumeTot),
+    cpc:          num(o.YandexCPC ?? o.CPC),
+    advTot:       num(o.YandexAdvTot ?? o.AdvTot),
+    topic:        Object.values(o).slice(-1)[0] || undefined,
+    intent:       Object.values(o).slice(-2, -1)[0] || undefined,
+  })).filter(k => k.keyword.length > 0);
+}
+
+/** KeywordOverview — общая статистика по запросу (объём, CPC, количество рекламодателей). */
+export interface SpywordsKeywordOverview {
+  yandex?: { volume: number; volumeBase: number; volumeTot: number; advTot: number; cpc: number };
+  google?: { volume: number; volumeBase: number; volumeTot: number; advTot: number; cpc: number };
+}
+
+export async function getKeywordOverview(keyword: string): Promise<SpywordsKeywordOverview> {
+  if (!hasCreds()) return {};
+  const url = buildUrl("KeywordOverview", { word: keyword });
+  const rows = await fetchTsv(url);
+  if (!rows) return {};
+
+  const objs = rowsToObjects(rows);
+  const out: SpywordsKeywordOverview = {};
+  for (const o of objs) {
+    const seRaw = (o.SE ?? "").trim();
+    const se: "yandex" | "google" | null =
+      /Google/i.test(seRaw) ? "google" : seRaw.length > 0 ? "yandex" : null;
+    if (!se) continue;
+    out[se] = {
+      volume:     num(o.Volume),
+      volumeBase: num(o.VolumeBase),
+      volumeTot:  num(o.VolumeTot),
+      advTot:     num(o.AdvTot),
+      cpc:        num(o.AvgCPC ?? o.CPC),
+    };
+  }
+  return out;
+}
+
+/** KeywordAdv — кто РЕКЛАМИРУЕТСЯ по запросу. */
+export interface SpywordsKeywordAdvertiser {
+  domain: string;
+  avgPos: number;
+  totalKeys: number;
+  adCopy?: string;
+  url?: string;
+}
+
+export async function getKeywordAdvertisers(keyword: string, se: SearchEngine = "yandex", limit = 20): Promise<SpywordsKeywordAdvertiser[]> {
+  if (!hasCreds()) return [];
+  const url = buildUrl("KeywordAdv", { word: keyword, se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  return objs.map(o => {
+    const posRaw = o.AvgPos ?? "";
+    const posMatch = posRaw.match(/\d+/);
+    return {
+      domain:    o.Domain ?? "",
+      avgPos:    posMatch ? Number(posMatch[0]) : 0,
+      totalKeys: num(o.KeysTot),
+      adCopy:    o.AdCopy || undefined,
+      url:       o.RealURL || undefined,
+    };
+  }).filter(a => a.domain.length > 0);
+}
+
+/** KeywordOrganic — кто РАНЖИРУЕТСЯ в органике по запросу. */
+export interface SpywordsKeywordOrganicResult {
+  position: number;
+  domain: string;
+  snippet?: string;
+  domainKeys?: number;
+  url?: string;
+}
+
+export async function getKeywordOrganic(keyword: string, se: SearchEngine = "yandex", limit = 20): Promise<SpywordsKeywordOrganicResult[]> {
+  if (!hasCreds()) return [];
+  const url = buildUrl("KeywordOrganic", { word: keyword, se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  return objs.map(o => ({
+    position:   num(o.Pos),
+    domain:     o.Domain ?? "",
+    snippet:    o.Snippet || undefined,
+    domainKeys: num(o["Domen words"] ?? o.DomenWords),
+    url:        o.RealURL || undefined,
+  })).filter(r => r.domain.length > 0 && r.position > 0);
+}
+
+// ─── Fight* методы — сравнение двух доменов ────────────────────────────────
+
+/** FightOverview — side-by-side сравнение двух доменов. */
+export interface SpywordsFightOverview {
+  /** Метрики side1 / side2 по одинаковым параметрам (ключи в контексте, бюджет и т.д.). */
+  metrics: Array<{ parameter: string; site1Value: string; site2Value: string }>;
+}
+
+export async function getFightOverview(site1: string, site2: string, se: SearchEngine = "yandex"): Promise<SpywordsFightOverview | null> {
+  if (!hasCreds()) return null;
+  const url = buildUrl("FightOverview", { site1, site2, se });
+  const rows = await fetchTsv(url);
+  if (!rows) return null;
+
+  // Формат: Parameter | site1 | site2 — первая строка заголовки, дальше по строке на метрику
+  if (rows.length < 2) return null;
+  const metrics = rows.slice(1).map(r => ({
+    parameter:  (r[0] ?? "").trim(),
+    site1Value: (r[1] ?? "").trim(),
+    site2Value: (r[2] ?? "").trim(),
+  })).filter(m => m.parameter.length > 0);
+  return { metrics };
+}
+
+/** FightAdv / FightOrganic — общие или уникальные ключи между двумя доменами. */
+export interface SpywordsFightKeyword {
+  keyword: string;
+  volume: number;
+  volumeTot: number;
+  avgCpc?: number;
+  /** Позиция site1 (для общих — позиции обоих, для уникальных — только одного). */
+  site1Pos?: number;
+  site1Url?: string;
+  site2Pos?: number;
+  site2Url?: string;
+}
+
+/**
+ * sector: 1 = только site1, 2 = только site2, 12 = общие.
+ * Для конкурентного анализа: sector=12 показывает общие ключи (по ним идёт прямая борьба).
+ */
+async function getFightKeywords(
+  method: "FightAdv" | "FightOrganic",
+  site1: string, site2: string,
+  sector: 1 | 2 | 12,
+  se: SearchEngine = "yandex",
+  limit = 30,
+): Promise<SpywordsFightKeyword[]> {
+  if (!hasCreds()) return [];
+  const url = buildUrl(method, { site1, site2, sector: String(sector), se, limit });
+  const rows = await fetchTsv(url);
+  if (!rows) return [];
+
+  const objs = rowsToObjects(rows);
+  return objs.map(o => ({
+    keyword:    o.Keyword ?? "",
+    volume:     num(o.Volume),
+    volumeTot:  num(o.VolumeTot),
+    avgCpc:     num(o.AvgCPC),
+    // Колонки с именами доменов: `<domain>:Pos`, `<domain>:URL`, `<domain>:AdPos`.
+    site1Pos:   pickPosByDomain(o, site1),
+    site1Url:   pickUrlByDomain(o, site1),
+    site2Pos:   pickPosByDomain(o, site2),
+    site2Url:   pickUrlByDomain(o, site2),
+  })).filter(k => k.keyword.length > 0).slice(0, limit);
+}
+
+function pickPosByDomain(o: Record<string, string>, domain: string): number | undefined {
+  for (const sfx of ["Pos", "AdPos"]) {
+    const key = `${domain}:${sfx}`;
+    const v = o[key];
+    if (v && v !== "") {
+      const n = num(v);
+      if (n > 0) return n;
+      // CP1/CP2/CP3 — рекламная позиция, извлекаем цифру
+      const m = v.match(/\d+/);
+      if (m) return Number(m[0]);
+    }
+  }
+  return undefined;
+}
+
+function pickUrlByDomain(o: Record<string, string>, domain: string): string | undefined {
+  const v = o[`${domain}:URL`];
+  return v && v !== "" ? v : undefined;
+}
+
+export async function getFightAdv(site1: string, site2: string, sector: 1 | 2 | 12, se: SearchEngine = "yandex", limit = 30): Promise<SpywordsFightKeyword[]> {
+  return getFightKeywords("FightAdv", site1, site2, sector, se, limit);
+}
+
+export async function getFightOrganic(site1: string, site2: string, sector: 1 | 2 | 12, se: SearchEngine = "yandex", limit = 30): Promise<SpywordsFightKeyword[]> {
+  return getFightKeywords("FightOrganic", site1, site2, sector, se, limit);
+}
+
 /**
  * Balance — остаток на счёте. Удобно для health-check в логе.
  */
@@ -447,11 +670,15 @@ const ENRICH_TOP_COMPETITORS = 3;
 const COMPETITOR_ADS_LIMIT = 25;
 
 /**
- * Для top-N конкурентов параллельно дёргаем их DomainOverview + DomainAdv,
- * чтобы дашборд показывал «не только что они конкуренты, но и насколько
- * больше у них трафика, сколько ключей в рекламе, какие топ-объявления».
+ * Для top-N конкурентов параллельно дёргаем их DomainOverview + DomainAdv +
+ * Fight* (общие ключи с нашим доменом). Это даёт полную картину:
+ *   • метрики конкурента
+ *   • его топ-объявления
+ *   • органические/рекламные ключи где мы прямо конкурируем
+ *   • side-by-side сравнение метрик
  */
 async function enrichCompetitors(
+  ourDomain: string,
   competitors: SpywordsCompetitor[],
   se: SearchEngine,
 ): Promise<SpywordsCompetitor[]> {
@@ -459,12 +686,15 @@ async function enrichCompetitors(
 
   await Promise.all(top.map(async c => {
     try {
-      // Тянем до COMPETITOR_ADS_LIMIT объявлений конкурента. На API Start
-      // максимум 50, но 25 — компромисс между объёмом данных и временем
-      // выполнения (60s hard-limit на route /api/analyze).
-      const [overview, ads] = await Promise.all([
+      const [overview, ads, commonOrg, commonAds, fight] = await Promise.all([
         getDomainOverview(c.domain).catch(() => null),
         getDomainAds(c.domain, se, COMPETITOR_ADS_LIMIT).catch(() => [] as SpywordsAd[]),
+        // sector=12 = общие ключи (по которым прямо конкурируем).
+        // На FightOrganic API Start работает в обе стороны (наш ↔ конкурент)
+        // в отличие от DomainOrganic, который требует платный тариф.
+        getFightOrganic(ourDomain, c.domain, 12, se, 30).catch(() => [] as SpywordsFightKeyword[]),
+        getFightAdv(ourDomain, c.domain, 12, se, 30).catch(() => [] as SpywordsFightKeyword[]),
+        getFightOverview(ourDomain, c.domain, se).catch(() => null),
       ]);
       if (overview && overview[se]) {
         const o = overview[se]!;
@@ -479,6 +709,9 @@ async function enrichCompetitors(
         };
       }
       if (ads.length > 0) c.topAds = ads;
+      if (commonOrg.length > 0) c.commonOrganicKeys = commonOrg;
+      if (commonAds.length > 0) c.commonAdKeys = commonAds;
+      if (fight) c.fightOverview = fight;
     } catch { /* skip this competitor on error, оставляем без enrichment */ }
   }));
 
@@ -514,15 +747,17 @@ export async function getSpywordsData(domain: string): Promise<SpywordsData | nu
       getDomainTopPages(cleanDomain, "google").catch(() => [] as SpywordsDomainUrl[]),
     ]);
 
-    // Шаг 2 — обогащаем топ-конкурентов их персональными метриками + объявлениями.
-    // Лимит на ВСЁ обогащение — 25s, чтобы не упереться в 60s hard-limit роута.
-    // Если не успеем — оставим конкурентов без enrichment, остальное вернём.
+    // Шаг 2 — обогащаем топ-конкурентов их персональными метриками + объявлениями
+    // + общими ключами с нашим доменом (FightOrganic / FightAdv / FightOverview).
+    // Лимит на ВСЁ обогащение — 35s (5 параллельных вызовов на конкурента),
+    // чтобы не упереться в 90s hard-limit роута. Если не успеем — оставим
+    // конкурентов без enrichment, остальное вернём.
     await Promise.race([
       Promise.all([
-        enrichCompetitors(yCompetitors, "yandex"),
-        enrichCompetitors(gCompetitors, "google"),
+        enrichCompetitors(cleanDomain, yCompetitors, "yandex"),
+        enrichCompetitors(cleanDomain, gCompetitors, "google"),
       ]),
-      new Promise(resolve => setTimeout(resolve, 25000)),
+      new Promise(resolve => setTimeout(resolve, 35000)),
     ]);
 
     const hasAnything =
@@ -537,12 +772,21 @@ export async function getSpywordsData(domain: string): Promise<SpywordsData | nu
       return null;
     }
 
+    // Шаг 3 — SmartKeywords по топ-1 ключу нашего рекламного домена.
+    // Не блокируем основной результат — если упадёт, smartKeywords останется undefined.
+    let smartKeywords: SpywordsSmartKeyword[] = [];
+    const seedKeyword = yAds[0]?.keyword || gAds[0]?.keyword;
+    if (seedKeyword) {
+      smartKeywords = await getSmartKeywords(seedKeyword, "yandex", 30).catch(() => []);
+    }
+
     return {
       overview,
       competitors:    { yandex: yCompetitors, google: gCompetitors },
       advCompetitors: { yandex: yAdvCompetitors, google: gAdvCompetitors },
       ads:            { yandex: yAds, google: gAds },
       topPages:       { yandex: yPages, google: gPages },
+      smartKeywords:  smartKeywords.length > 0 ? smartKeywords : undefined,
       organic:        { yandex: yOrganic, google: gOrganic },
     };
   } catch (err) {

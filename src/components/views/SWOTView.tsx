@@ -83,10 +83,27 @@ export function SWOTView({
     } catch { /* ignore quota */ }
   }, [report, swotStateKey]);
   const [expandedSection, setExpandedSection] = useState<keyof SwotItems | null>(null);
-  // TOWS-матрица — генерируется отдельно по уже готовому SWOT
+  // TOWS-матрица — генерируется отдельно по уже готовому SWOT.
+  // Persist в localStorage скоупом по report.id чтобы при смене вкладки
+  // TOWS не терялся (та же логика что для SWOT отчёта).
+  const towsStateKey = userId ? `mr_tows_${userId}` : "mr_tows_anon";
   const [tows, setTows] = useState<TowsMatrix | null>(null);
   const [towsLoading, setTowsLoading] = useState(false);
   const [towsError, setTowsError] = useState<string | null>(null);
+
+  // При смене swot-отчёта подгружаем сохранённый TOWS если он от этого же отчёта.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!report?.id) { setTows(null); return; }
+    try {
+      const raw = localStorage.getItem(towsStateKey);
+      if (!raw) { setTows(null); return; }
+      const stored = JSON.parse(raw) as { reportId: string; tows: TowsMatrix };
+      // TOWS сохраняется привязанным к id SWOT-отчёта. Если SWOT
+      // перегенерировали — TOWS старого отчёта не показываем.
+      setTows(stored.reportId === report.id ? stored.tows : null);
+    } catch { setTows(null); }
+  }, [report?.id, towsStateKey]);
 
   const handleGenerateTows = async () => {
     if (!report) return;
@@ -103,19 +120,18 @@ export function SWOTView({
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
-      setTows(json.tows as TowsMatrix);
+      const generatedTows = json.tows as TowsMatrix;
+      setTows(generatedTows);
+      // Сохраняем TOWS привязанным к текущему swot-отчёту
+      try {
+        localStorage.setItem(towsStateKey, JSON.stringify({ reportId: report.id, tows: generatedTows }));
+      } catch { /* quota */ }
     } catch (e) {
       setTowsError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setTowsLoading(false);
     }
   };
-
-  // Сбрасываем TOWS при перегенерации SWOT
-  useEffect(() => {
-    setTows(null);
-    setTowsError(null);
-  }, [report?.id]);
 
   // Загружаем список прошлых отчётов
   useEffect(() => {

@@ -24,6 +24,12 @@ export interface SpywordsCompetitorShape {
     adBudget: number;
   };
   topAds?: Array<{ keyword: string; title?: string; description?: string; visibleUrl?: string; position?: number; volume?: number; cpc?: number; competition?: number; realUrl?: string }>;
+  /** Общие органические ключи с нашим доменом — пересечение через FightOrganic. */
+  commonOrganicKeys?: Array<{ keyword: string; volume: number; volumeTot: number; site1Pos?: number; site2Pos?: number; site1Url?: string; site2Url?: string }>;
+  /** Общие рекламные ключи с нашим доменом — пересечение через FightAdv. */
+  commonAdKeys?: Array<{ keyword: string; volume: number; volumeTot: number; avgCpc?: number; site1Pos?: number; site2Pos?: number }>;
+  /** Side-by-side метрики (от FightOverview). */
+  fightOverview?: { metrics: Array<{ parameter: string; site1Value: string; site2Value: string }> } | null;
 }
 
 export interface Recommendation {
@@ -235,6 +241,8 @@ export interface AnalysisResult {
       yandex?: Array<{ url: string; title: string; top10Keys: number; top50Keys: number; lostKeys: number; trafficShare: number }>;
       google?: Array<{ url: string; title: string; top10Keys: number; top50Keys: number; lostKeys: number; trafficShare: number }>;
     };
+    /** SmartKeywords — похожие запросы по топ-1 ключу нашего домена. */
+    smartKeywords?: Array<{ keyword: string; volumeYandex: number; volumeBase: number; volumeTot: number; cpc: number; advTot: number; topic?: string; intent?: string }>;
     organic?: {
       yandex?: Array<{ keyword: string; position: number; volume: number; url?: string }>;
       google?: Array<{ keyword: string; position: number; volume: number; url?: string }>;

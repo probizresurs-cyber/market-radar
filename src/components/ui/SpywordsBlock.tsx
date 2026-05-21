@@ -127,6 +127,56 @@ function CompetitorCard({ c, engineColor, engineLabel }: { c: Competitor; engine
               </div>
             </>
           )}
+          {/* Side-by-side сравнение наших метрик и метрик конкурента (FightOverview) */}
+          {c.fightOverview && c.fightOverview.metrics.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                ВЫ vs КОНКУРЕНТ — СРАВНЕНИЕ
+                <span title="SpyWords FightOverview — побитовое сравнение ваших и его метрик. Зелёный = вы выше, оранжевый = он выше." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
+                  <Info size={10} />
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 0, fontSize: 11, marginBottom: 8 }}>
+                <div style={{ padding: "4px 8px", color: "var(--muted-foreground)", fontWeight: 700, textTransform: "uppercase", fontSize: 9 }}>Метрика</div>
+                <div style={{ padding: "4px 10px", color: "var(--success)", fontWeight: 700, textTransform: "uppercase", fontSize: 9, textAlign: "right" }}>Вы</div>
+                <div style={{ padding: "4px 10px", color: engineColor, fontWeight: 700, textTransform: "uppercase", fontSize: 9, textAlign: "right" }}>{c.domain}</div>
+                {c.fightOverview.metrics.slice(0, 8).map((m, i) => (
+                  <React.Fragment key={`${m.parameter}-${i}`}>
+                    <div style={{ padding: "5px 8px", background: "var(--card)", border: "1px solid var(--border)", borderRight: "none", color: "var(--foreground)" }}>{m.parameter}</div>
+                    <div style={{ padding: "5px 10px", background: "var(--card)", border: "1px solid var(--border)", borderRight: "none", borderLeft: "none", color: "var(--foreground)", textAlign: "right", fontWeight: 700 }}>{m.site1Value || "—"}</div>
+                    <div style={{ padding: "5px 10px", background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground-secondary)", textAlign: "right" }}>{m.site2Value || "—"}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Общие органические ключи через FightOrganic */}
+          {c.commonOrganicKeys && c.commonOrganicKeys.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                ОБЩИЕ ОРГАНИЧЕСКИЕ КЛЮЧИ С ВАМИ ({c.commonOrganicKeys.length})
+                <span title="Запросы где и вы, и конкурент ранжируетесь в выдаче (FightOrganic sector=12). По этим ключам вы прямо боретесь за места в ТОПе." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
+                  <Info size={10} />
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 50px 50px 60px", gap: 4, maxHeight: 280, overflowY: "auto", fontSize: 11 }}>
+                <div style={{ padding: "4px 8px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase" }}>Запрос</div>
+                <div style={{ padding: "4px 6px", color: "var(--success)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "center" }}>Вы</div>
+                <div style={{ padding: "4px 6px", color: engineColor, fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "center" }}>Он</div>
+                <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "right" }}>Объём</div>
+                {c.commonOrganicKeys.map((k, i) => (
+                  <React.Fragment key={`org-${k.keyword}-${i}`}>
+                    <div style={{ padding: "5px 8px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4 }}>{k.keyword}</div>
+                    <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "center", fontWeight: 700, color: k.site1Pos && k.site1Pos <= 10 ? "var(--success)" : "var(--muted-foreground)" }}>{k.site1Pos ?? "—"}</div>
+                    <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "center", fontWeight: 700, color: k.site2Pos && k.site2Pos <= 10 ? engineColor : "var(--muted-foreground)" }}>{k.site2Pos ?? "—"}</div>
+                    <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "right", color: "var(--foreground-secondary)" }}>{k.volume > 0 ? fmt(k.volume) : "—"}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </>
+          )}
+
           {c.topAds && c.topAds.length > 0 && (() => {
             // Дедуп по keyword — иногда один ключ повторяется с разными креативами
             const seen = new Set<string>();
@@ -350,6 +400,35 @@ export function SpywordsBlock({ data }: Props) {
                   {p.lostKeys > 0 && <span style={{ color: "var(--destructive)" }}>− {fmt(p.lostKeys)} потеряно</span>}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Smart Keywords — похожие запросы для расширения семантики */}
+      {data.smartKeywords && data.smartKeywords.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+            УМНЫЙ ПОДБОР ЗАПРОСОВ ({data.smartKeywords.length})
+            <span title="SpyWords SmartKeywords — генерация похожих запросов на основе вашего топ-ключа в контексте. Готовый материал для расширения SEO/PPC-кампаний." style={{ cursor: "help", color: "var(--muted-foreground)", opacity: 0.5, display: "inline-flex" }}>
+              <Info size={10} />
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.5 }}>
+            Тематически близкие запросы — берите для расширения рекламных кампаний и SEO-семантики.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px", gap: 4, maxHeight: 280, overflowY: "auto", fontSize: 11 }}>
+            <div style={{ padding: "4px 8px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase" }}>Запрос</div>
+            <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "right" }}>Объём</div>
+            <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "right" }}>CPC</div>
+            <div style={{ padding: "4px 6px", color: "var(--muted-foreground)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", textAlign: "right" }}>Реклам.</div>
+            {data.smartKeywords.map((k, i) => (
+              <React.Fragment key={`sk-${k.keyword}-${i}`}>
+                <div style={{ padding: "5px 8px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--foreground)" }}>{k.keyword}</div>
+                <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "right", color: "var(--foreground-secondary)" }}>{k.volumeYandex > 0 ? fmt(k.volumeYandex) : "—"}</div>
+                <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "right", color: "var(--foreground-secondary)" }}>{k.cpc > 0 ? `${k.cpc.toFixed(0)}₽` : "—"}</div>
+                <div style={{ padding: "5px 6px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, textAlign: "right", color: "var(--muted-foreground)" }}>{k.advTot > 0 ? fmt(k.advTot) : "—"}</div>
+              </React.Fragment>
             ))}
           </div>
         </div>

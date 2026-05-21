@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
         advCompetitors: real.spywords.advCompetitors,
         ads:            real.spywords.ads,
         topPages:       real.spywords.topPages,
+        smartKeywords:  real.spywords.smartKeywords,
         organic:        real.spywords.organic,
       };
     }
