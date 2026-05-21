@@ -426,7 +426,22 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
           <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{story.slides.length} слайдов</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{story.title}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          {/* Dropdown статуса — двигаем серию между табами Черновики/Запл/Опубл */}
+          <select
+            value={story.manualStatus ?? (story.publishStatus?.vk?.ok || story.publishStatus?.telegram?.ok ? "published" : (story.scheduledFor && new Date(story.scheduledFor) > new Date() ? "scheduled" : "drafts"))}
+            onChange={e => onUpdate({ ...story, manualStatus: e.target.value as "drafts" | "scheduled" | "published" })}
+            style={{
+              padding: "4px 8px", borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--background)", color: "var(--foreground-secondary)",
+              fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            <option value="drafts">📝 Черновик</option>
+            <option value="scheduled">📅 Запланирован</option>
+            <option value="published">✅ Опубликован</option>
+          </select>
           <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{new Date(story.generatedAt).toLocaleDateString("ru-RU")}</span>
           <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>

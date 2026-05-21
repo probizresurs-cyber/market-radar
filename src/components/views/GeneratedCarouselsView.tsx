@@ -448,7 +448,21 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
           <span style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 8, background: "var(--background)", color: "var(--muted-foreground)", flexShrink: 0 }}>{carousel.slides.length} слайдов</span>
           <span style={{ fontSize: 16, fontWeight: 800, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.2 }}>{carousel.title}</span>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <select
+            value={carousel.manualStatus ?? (carousel.publishStatus?.vk?.ok || carousel.publishStatus?.telegram?.ok ? "published" : (carousel.scheduledFor && new Date(carousel.scheduledFor) > new Date() ? "scheduled" : "drafts"))}
+            onChange={e => onUpdate({ ...carousel, manualStatus: e.target.value as "drafts" | "scheduled" | "published" })}
+            style={{
+              padding: "5px 10px", borderRadius: 7,
+              border: "1px solid var(--border)",
+              background: "var(--background)", color: "var(--foreground-secondary)",
+              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            <option value="drafts">📝 Черновик</option>
+            <option value="scheduled">📅 Запланирован</option>
+            <option value="published">✅ Опубликован</option>
+          </select>
           <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{new Date(carousel.generatedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}</span>
           <span style={{ fontSize: 13, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>
