@@ -1396,20 +1396,41 @@ function SEONewArticleView({
 
 // ─── Keyword Expand View ─────────────────────────────────────────────────────
 
-function SEOKeywordExpandView({ analysis, onBack }: { analysis: AnalysisResult | null; onBack: () => void }) {
-  const [seed, setSeed] = useState("");
-  const [niche, setNiche] = useState(analysis?.company?.description?.slice(0, 80) || "");
-  const [count, setCount] = useState(80);
-  const [lang, setLang] = useState<"ru" | "en">("ru");
+function SEOKeywordExpandView({ analysis, userId, onBack }: { analysis: AnalysisResult | null; userId: string; onBack: () => void }) {
+  // Persist в localStorage — без этого результат теряется при любой смене вкладки.
+  // Ключ скоупим по userId чтобы не подтягивать чужие данные при смене аккаунта.
+  const storageKey = `mr_seo_expand_${userId || "anon"}`;
+  type ExpandState = {
+    seed: string; niche: string; count: number; lang: "ru" | "en";
+    result: { seed: string; totalCount: number; clusters: Record<string, string[]>; modifiers: Record<string, string[]> } | null;
+  };
+  const loadInitial = (): Partial<ExpandState> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? (JSON.parse(raw) as ExpandState) : {};
+    } catch { return {}; }
+  };
+  const init = loadInitial();
+
+  const [seed, setSeed] = useState(init.seed ?? "");
+  const [niche, setNiche] = useState(init.niche ?? (analysis?.company?.description?.slice(0, 80) || ""));
+  const [count, setCount] = useState(init.count ?? 80);
+  const [lang, setLang] = useState<"ru" | "en">(init.lang ?? "ru");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{
-    seed: string; totalCount: number;
-    clusters: Record<string, string[]>;
-    modifiers: Record<string, string[]>;
-  } | null>(null);
+  const [result, setResult] = useState<ExpandState["result"]>(init.result ?? null);
   const [copied, setCopied] = useState<string | null>(null);
   const [openCluster, setOpenCluster] = useState<string | null>(null);
+
+  // Сохраняем на каждое изменение seed/niche/count/lang/result
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!seed && !result) return; // не сохраняем пустоту
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ seed, niche, count, lang, result }));
+    } catch { /* quota — пропускаем */ }
+  }, [seed, niche, count, lang, result, storageKey]);
 
   const run = async () => {
     if (!seed.trim()) return;
@@ -1562,20 +1583,42 @@ function SEOKeywordExpandView({ analysis, onBack }: { analysis: AnalysisResult |
 
 // ─── PAA Questions View ───────────────────────────────────────────────────────
 
-function SEOPAAView({ analysis, onBack }: { analysis: AnalysisResult | null; onBack: () => void }) {
-  const [keyword, setKeyword] = useState("");
-  const [lang, setLang] = useState<"ru" | "en">("ru");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [result, setResult] = useState<{
+function SEOPAAView({ analysis, userId, onBack }: { analysis: AnalysisResult | null; userId: string; onBack: () => void }) {
+  // Persist в localStorage чтобы не терять при переключении вкладок.
+  const storageKey = `mr_seo_paa_${userId || "anon"}`;
+  type PAAResult = {
     keyword: string;
     autocomplete: string[];
     questions: string[];
     related: string[];
     alphabet: { letter: string; suggestions: string[] }[];
-  } | null>(null);
-  const [tab, setTab] = useState<"questions" | "autocomplete" | "related" | "alphabet">("questions");
+  };
+  type PAAState = { keyword: string; lang: "ru" | "en"; result: PAAResult | null; tab: "questions" | "autocomplete" | "related" | "alphabet" };
+  const loadInitial = (): Partial<PAAState> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? (JSON.parse(raw) as PAAState) : {};
+    } catch { return {}; }
+  };
+  const init = loadInitial();
+
+  const [keyword, setKeyword] = useState(init.keyword ?? "");
+  const [lang, setLang] = useState<"ru" | "en">(init.lang ?? "ru");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState<PAAResult | null>(init.result ?? null);
+  const [tab, setTab] = useState<"questions" | "autocomplete" | "related" | "alphabet">(init.tab ?? "questions");
   const [copied, setCopied] = useState(false);
+
+  // Сохраняем при каждом изменении состояния (кроме loading/copied/err)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!keyword && !result) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ keyword, lang, result, tab }));
+    } catch { /* quota — пропускаем */ }
+  }, [keyword, lang, result, tab, storageKey]);
 
   const defaultKeyword = analysis?.company?.name || "";
 
@@ -1996,11 +2039,13 @@ export function SEOArticlesView({
       ) : subView === "expand" ? (
         <SEOKeywordExpandView
           analysis={analysis}
+          userId={userId}
           onBack={() => setSubView("library")}
         />
       ) : subView === "paa" ? (
         <SEOPAAView
           analysis={analysis}
+          userId={userId}
           onBack={() => setSubView("library")}
         />
       ) : subView === "tech-audit" ? (
