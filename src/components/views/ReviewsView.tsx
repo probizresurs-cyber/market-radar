@@ -36,13 +36,28 @@ export function ReviewsView({ c, companyName, domain, niche }: {
     const log: string[] = [];
     const fetched: Review[] = [];
 
+    // АВТО-ДЕТЕКТ URL: если в name/address пользователь вставил ссылку на
+    // Yandex Maps или 2GIS — извлекаем orgId/firmId и ходим напрямую по нему,
+    // а текстовый адрес чистим. Это спасает от типовой ошибки:
+    // «вставил URL в Адрес → search-maps ничего не нашёл».
+    const all = `${name} ${address ?? ""}`;
+    const yandexUrlMatch = all.match(/yandex\.(?:ru|com)\/maps\/(?:org\/)?(?:[\w-]+\/)?(\d{6,})/i);
+    const gisUrlMatch = all.match(/2gis\.[a-z]+\/[\w-]+\/firm\/(\d+)/i);
+    const yandexOrgId = yandexUrlMatch?.[1];
+    const gisFirmUrl = gisUrlMatch ? `https://2gis.ru/firm/${gisUrlMatch[1]}` : "";
+    // Если ввёл URL в адрес — убираем его из текста чтобы не путал search
+    const cleanAddress = (address ?? "")
+      .replace(/https?:\/\/[^\s]+/g, "")
+      .trim() || undefined;
+    const cleanName = name.replace(/https?:\/\/[^\s]+/g, "").trim() || companyName;
+
     // Google Places — лимит API: максимум 5 отзывов на place (это ограничение Google,
     // не наше). Если юзер выбрал больше — всё равно вернётся не больше 5.
     try {
       const res = await fetch("/api/fetch-reviews-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
+        body: JSON.stringify({ companyName: cleanName, address: cleanAddress, limit, domain, niche }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -66,7 +81,12 @@ export function ReviewsView({ c, companyName, domain, niche }: {
       const res = await fetch("/api/fetch-reviews-yandex", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
+        body: JSON.stringify({
+          companyName: cleanName, address: cleanAddress, limit, domain, niche,
+          // Если в адрес/имя вставили URL Яндекс.Карт — берём orgId прямо из URL,
+          // минуя поиск (он самый частый source 8 промахов).
+          orgId: yandexOrgId,
+        }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -86,7 +106,11 @@ export function ReviewsView({ c, companyName, domain, niche }: {
       const res = await fetch("/api/fetch-reviews-2gis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
+        body: JSON.stringify({
+          companyName: cleanName, address: cleanAddress, limit, domain, niche,
+          // Прямой 2GIS-URL — даёт идеальный матчинг без поиска по имени.
+          url: gisFirmUrl || undefined,
+        }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -317,9 +341,12 @@ export function ReviewsView({ c, companyName, domain, niche }: {
               <input
                 value={addressInput}
                 onChange={e => setAddressInput(e.target.value)}
-                placeholder="Адрес (город, улица, дом) — необязательно, но улучшает поиск"
+                placeholder="Адрес (город, улица, дом) ИЛИ ссылка yandex.ru/maps/org/... / 2gis.ru/.../firm/..."
                 style={{ padding: "9px 14px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none" }}
               />
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: -4, lineHeight: 1.5 }}>
+                💡 Если автопоиск не нашёл организацию — найдите её вручную на Яндекс.Картах или 2ГИС, скопируйте URL карточки и вставьте сюда. Мы извлечём id и пойдём по нему напрямую.
+              </div>
 
               {/* Лимит отзывов на платформу */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
