@@ -191,38 +191,78 @@ export async function getRealTelegramStats(tgUrl: string): Promise<{ subscribers
 
 export async function getRealVKStats(vkUrl: string): Promise<{ subscribers: number; posts30d: number; engagement: string; trend: string } | null> {
   try {
-    // Extract group screen name
-    const match = vkUrl.match(/vk\.com\/([a-zA-Z0-9_.]+)/);
-    if (!match || match[1] === "share") return null;
+    // Extract group screen name. Поддерживаем формы:
+    //   https://vk.com/illumpro
+    //   vk.com/illumpro
+    //   @illumpro (если кто-то вставит так)
+    const match = vkUrl.match(/(?:vk\.com\/|@)([a-zA-Z0-9_.]+)/);
+    if (!match || ["share", "feed", "im", "search"].includes(match[1])) return null;
     const screenName = match[1];
 
-    // Use public VK widget stats endpoint (no auth needed)
-    const html = await fetchHtml(`https://vk.com/${screenName}`);
+    // КРИТИЧНО: VK блокирует не-браузерные UA и отдаёт stripped HTML
+    // без members_count. Используем «обычный» Chrome UA только для VK.
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    let html: string;
+    try {
+      const res = await fetch(`https://vk.com/${screenName}`, {
+        signal: ctrl.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+        },
+      });
+      if (!res.ok) return null;
+      html = await res.text();
+    } finally {
+      clearTimeout(t);
+    }
 
-    // Parse followers/members count
+    // Parse followers/members count. Самый надёжный — JSON-снапшот в HTML.
     const patterns = [
-      /(\d[\d\s]+)\s*(?:подписчик|участник|follower|member)/i,
       /"members_count":(\d+)/i,
-      /followers_count['":\s]+(\d+)/i,
+      /"followers_count":(\d+)/i,
+      /(\d[\d\s]+)\s*(?:подписчик|участник|follower|member)/i,
     ];
 
+    let subscribers = 0;
     for (const pattern of patterns) {
       const m = html.match(pattern);
       if (m) {
         const raw = m[1].replace(/\s/g, "");
         const n = parseInt(raw, 10);
         if (!isNaN(n) && n > 0 && n < 100_000_000) {
-          return {
-            subscribers: n,
-            posts30d: 0, // hard to extract without API
-            engagement: "—",
-            trend: "stable",
-          };
+          subscribers = n;
+          break;
         }
       }
     }
+    if (subscribers === 0) return null;
 
-    return null;
+    // Try to extract posts in last 30 days — VK на странице сообщества
+    // показывает дату постов в формате «5 окт в 12:30» / «вчера». Считаем
+    // упоминания «(N) ч назад» / «(N) мин назад» / последние 30 дней.
+    const now = Date.now();
+    const day = 24 * 3600 * 1000;
+    const monthAgo = now - 30 * day;
+
+    // Самый надёжный — JSON-снапшоты постов: "date":1730000000
+    let posts30d = 0;
+    const dateMatches = html.matchAll(/"date":(\d{10})/g);
+    for (const dm of dateMatches) {
+      const ts = Number(dm[1]) * 1000;
+      if (ts > monthAgo && ts <= now) posts30d++;
+    }
+    // Капим макс ~30 (если в HTML больше — это служебные timestamp'ы вроде last_seen)
+    posts30d = Math.min(posts30d, 30);
+
+    return {
+      subscribers,
+      posts30d,
+      engagement: posts30d > 0 ? `~${(posts30d * 100 / 30).toFixed(0)}% активности` : "—",
+      trend: "stable",
+    };
   } catch {
     return null;
   }
