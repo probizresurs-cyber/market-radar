@@ -7,11 +7,13 @@ import { Users, Sparkles, Plus } from "lucide-react";
 
 interface SuggestedCompetitor {
   domain: string;
-  sources: ("organic" | "context")[];
+  sources: ("organic" | "context" | "spywords-organic" | "spywords-adv")[];
   organicVisibility?: number;
   contextVisibility?: number;
   intersected?: number;
   similarity?: number;
+  spywordsCommonKeys?: number;
+  spywordsCompetitionLevel?: number;
 }
 
 export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor, onAddCompetitor, onDeleteCompetitor, isAnalyzing }: {
@@ -137,8 +139,8 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                 <Sparkles size={18} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>Конкуренты из Keys.so</div>
-                <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Реальные домены, ранжирующиеся по тем же ключевым словам</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--foreground)" }}>Предлагаемые конкуренты</div>
+                <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Реальные домены из Keys.so + SpyWords — ранжируются по тем же ключам</div>
               </div>
             </div>
             <button
@@ -163,15 +165,26 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
           )}
 
           {suggested && suggested.length === 0 && (
-            <div style={{ padding: "16px 0", textAlign: "center", color: "var(--muted-foreground)", fontSize: 13 }}>
-              Конкуренты не найдены или все уже добавлены
+            <div style={{ padding: "16px 0", textAlign: "center", color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.5 }}>
+              {competitors.length > 0
+                ? "Все найденные конкуренты уже добавлены вручную"
+                : "Keys.so и SpyWords не вернули конкурентов по этому домену. Возможные причины:"}
+              {competitors.length === 0 && (
+                <ul style={{ textAlign: "left", margin: "8px auto", padding: "0 0 0 18px", maxWidth: 460, fontSize: 12 }}>
+                  <li>Домен молодой или малопосещаемый — нет в базах</li>
+                  <li>Брендовый трафик без SEO/PPC активности</li>
+                  <li>Добавьте конкурентов вручную через кнопку «+ Добавить конкурента»</li>
+                </ul>
+              )}
             </div>
           )}
 
           {suggested && suggested.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
               {suggested.map((s) => {
-                const inBoth = s.sources.length === 2;
+                const inMany = s.sources.length >= 3;
+                const hasKeyso = s.sources.includes("organic") || s.sources.includes("context");
+                const hasSpywords = s.sources.includes("spywords-organic") || s.sources.includes("spywords-adv");
                 return (
                   <div key={s.domain} style={{
                     background: "var(--background)", borderRadius: 10, border: `1px solid var(--border)`,
@@ -181,18 +194,29 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {s.domain}
                       </div>
-                      <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                         {s.sources.includes("organic") && (
-                          <span style={{ fontSize: 9, fontWeight: 700, color: "#22c55e", background: "#22c55e15", padding: "2px 6px", borderRadius: 4 }}>SEO</span>
+                          <span title="Keys.so — SEO" style={{ fontSize: 9, fontWeight: 700, color: "#22c55e", background: "#22c55e15", padding: "2px 6px", borderRadius: 4 }}>K.SEO</span>
                         )}
                         {s.sources.includes("context") && (
-                          <span style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", background: "#f59e0b15", padding: "2px 6px", borderRadius: 4 }}>Я.Директ</span>
+                          <span title="Keys.so — Я.Директ" style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", background: "#f59e0b15", padding: "2px 6px", borderRadius: 4 }}>K.Дир</span>
                         )}
-                        {inBoth && (
+                        {s.sources.includes("spywords-organic") && (
+                          <span title="SpyWords — органика" style={{ fontSize: 9, fontWeight: 700, color: "#6366f1", background: "#6366f115", padding: "2px 6px", borderRadius: 4 }}>SW.SEO</span>
+                        )}
+                        {s.sources.includes("spywords-adv") && (
+                          <span title="SpyWords — реклама" style={{ fontSize: 9, fontWeight: 700, color: "#ec4899", background: "#ec489915", padding: "2px 6px", borderRadius: 4 }}>SW.Рек</span>
+                        )}
+                        {inMany && (
                           <span style={{ fontSize: 9, fontWeight: 700, color: "var(--primary)", background: "var(--primary)15", padding: "2px 6px", borderRadius: 4 }}>сильный</span>
                         )}
-                        {s.intersected !== undefined && (
-                          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{s.intersected} общих ключей</span>
+                        {hasKeyso && hasSpywords && !inMany && (
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "var(--primary)", background: "var(--primary)15", padding: "2px 6px", borderRadius: 4 }}>2 источника</span>
+                        )}
+                        {(s.intersected ?? s.spywordsCommonKeys) !== undefined && (
+                          <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                            {(s.intersected ?? s.spywordsCommonKeys)?.toLocaleString("ru-RU")} общих ключей
+                          </span>
                         )}
                       </div>
                     </div>
