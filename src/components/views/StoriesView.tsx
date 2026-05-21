@@ -9,12 +9,17 @@ import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
+import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 
-export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
+export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
   stories: GeneratedStory[];
   plan: ContentPlan | null;
   smmAnalysis: unknown;
+  /** Анализ компании — нужен для авто-генерации идей AI. */
+  myCompany?: import("@/lib/types").AnalysisResult | null;
+  /** ЦА — для авто-генерации идей. */
+  taResult?: import("@/lib/ta-types").TAResult | null;
   companyName: string;
   brandBook: BrandBook;
   onAdd: (story: GeneratedStory) => void;
@@ -210,12 +215,26 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
             ) : null}
           </div>
 
-          {/* Brief */}
+          {/* Brief + AI-идеи */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              ТЕМА / БРИФ
-              <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
-            </label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                ТЕМА / БРИФ
+                <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
+              </label>
+              <AutoIdeasModal
+                format="story"
+                myCompany={myCompany}
+                taResult={taResult}
+                smmResult={smmAnalysis as import("@/lib/smm-types").SMMResult | null}
+                brandBook={brandBook}
+                accentColor="#a855f7"
+                onSelectIdea={(idea: ContentIdea) => {
+                  setBrief(`${idea.hook}\n\n${idea.summary || idea.angle}`);
+                  if (idea.pillar) setPillar(idea.pillar);
+                }}
+              />
+            </div>
             <textarea
               value={brief}
               onChange={e => setBrief(e.target.value)}
@@ -570,6 +589,9 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                     {slide.bodyText && <Field c={c} label="Текст" value={slide.bodyText} />}
                     {slide.sticker && <Field c={c} label="Стикер / интерактив" value={slide.sticker} accent={accent} />}
                     {slide.cta && <Field c={c} label="CTA" value={slide.cta} accent={accent} />}
+                    {(slide.backgroundRu || slide.background) && (
+                      <Field c={c} label="🎨 Что будет на картинке" value={slide.backgroundRu || slide.background} muted />
+                    )}
                     <Field c={c} label="Режиссёрская пометка" value={slide.visualNote} muted />
                   </div>
                   {/* Nav arrows */}

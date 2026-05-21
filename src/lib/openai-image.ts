@@ -63,18 +63,35 @@ function pickSize(format: OpenAIImageInput["format"], model: string): string {
 function withEmbeddedText(basePrompt: string, embedText: string): string {
   const cleaned = embedText.trim();
   if (!cleaned) return basePrompt;
-  // gpt-image-2 best-practices: давать чёткие инструкции по типографике,
-  // переносу строк, языку текста. Кавычки помогают модели не "перевести"
-  // русские слова в латинские буквы.
+  // gpt-image-2 best-practices для русской типографики:
+  //   • Тройные кавычки + явное «Russian language» защищают от транслитерации
+  //   • Multi-line preservation — модель часто склеивает строки без «\n on a NEW LINE»
+  //   • «Pixel-perfect spelling» — против перепутывания «ё/е», «и/й»
+  //   • Реалистичный fallback — лучше потерять предложение чем коверкать буквы
+  // Каждая инструкция повторяется 2 раза в разных местах prompt'а — gpt-image-2
+  // лучше выполняет requirements, повторённые более одного раза.
   return `${basePrompt}
 
-IMPORTANT TYPOGRAPHY INSTRUCTION:
-Render the following text DIRECTLY ON THE IMAGE as clean, modern, perfectly legible typography. Preserve the exact wording and the original language (do not translate). Use bold sans-serif for the headline, smaller weight for body lines. Lay the text out so it does NOT overlap key visual elements, with enough contrast against the background (use overlay, shadow, or color block if needed). Spelling must be 100% correct.
+🎯 КРИТИЧЕСКИ ВАЖНО — ТИПОГРАФИКА:
+Нарисуй приведённый ниже текст ПРЯМО НА КАРТИНКЕ как чистую современную типографику.
 
-TEXT TO RENDER:
+ЖЁСТКИЕ ТРЕБОВАНИЯ (нельзя нарушать):
+1. ЯЗЫК — РУССКИЙ. Не переводи на английский, не транслитерируй ('Privet' вместо 'Привет' — ОШИБКА).
+2. ОРФОГРАФИЯ — 100% правильная. Каждое слово целиком, без пропусков букв. Если не уверен в букве — лучше пропусти предложение целиком, чем коверкай ('Свтиильник' вместо 'Светильник' — ОШИБКА).
+3. РАЗДЕЛЕНИЕ НА СТРОКИ — переносы как в исходном тексте между \\n. Не склеивай.
+4. ШРИФТ — bold sans-serif для заголовка, обычный для подзаголовка/тела.
+5. ЧИТАЕМОСТЬ — высокий контраст с фоном (overlay/тень/плашка). Не накладывай поверх ключевых визуальных элементов.
+
+ТЕКСТ ДЛЯ ОТРИСОВКИ (Russian language, preserve exact wording, render with PIXEL-PERFECT SPELLING):
 """
 ${cleaned}
-"""`;
+"""
+
+Финальная проверка перед рендером:
+• Все слова — целиком, не обрезаны
+• Кириллица, не латиница
+• Орфография как в исходнике
+• Переносы строк сохранены`;
 }
 
 export async function generateOpenAIImage(input: OpenAIImageInput): Promise<OpenAIImageResult> {

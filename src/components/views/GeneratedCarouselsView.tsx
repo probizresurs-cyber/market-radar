@@ -8,12 +8,15 @@ import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
+import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 
-export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
+export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
   carousels: GeneratedCarousel[];
   plan: ContentPlan | null;
   smmAnalysis: unknown;
+  myCompany?: import("@/lib/types").AnalysisResult | null;
+  taResult?: import("@/lib/ta-types").TAResult | null;
   companyName: string;
   brandBook: BrandBook;
   onAdd: (carousel: GeneratedCarousel) => void;
@@ -211,12 +214,26 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
             ) : null}
           </div>
 
-          {/* Brief */}
+          {/* Brief + AI-идеи */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              ТЕМА / БРИФ
-              <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
-            </label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                ТЕМА / БРИФ
+                <span style={{ fontWeight: 400, marginLeft: 6 }}>— можно оставить пустым, ИИ придумает по столпу</span>
+              </label>
+              <AutoIdeasModal
+                format="carousel"
+                myCompany={myCompany}
+                taResult={taResult}
+                smmResult={smmAnalysis as import("@/lib/smm-types").SMMResult | null}
+                brandBook={brandBook}
+                accentColor="#ec4899"
+                onSelectIdea={(idea: ContentIdea) => {
+                  setBrief(`${idea.hook}\n\n${idea.summary || idea.angle}`);
+                  if (idea.pillar) setPillar(idea.pillar);
+                }}
+              />
+            </div>
             <textarea
               value={brief}
               onChange={e => setBrief(e.target.value)}
@@ -629,6 +646,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
                         {slide.bulletPoints.map((b, i) => <li key={i}>{b}</li>)}
                       </ul>
                     </div>
+                  )}
+                  {(slide.backgroundRu || slide.background) && (
+                    <Field label="🎨 Что будет на картинке" value={slide.backgroundRu || slide.background} muted />
                   )}
                   <Field label="Режиссёрская пометка" value={slide.visualNote} muted />
                 </div>

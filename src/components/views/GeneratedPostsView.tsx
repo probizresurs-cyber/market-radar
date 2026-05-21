@@ -647,6 +647,13 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
   const [showTov, setShowTov] = useState(false);
   // Промпт-редактор для DALL-E (открывается по клику «Сгенерировать фото»)
   const [showPromptEditor, setShowPromptEditor] = useState(false);
+  // Локальный override формата и платформы для генерации картинки —
+  // юзер может в редакторе переключить «квадрат / 9:16 / 16:9» и
+  // «instagram / vk / telegram / tiktok» без смены платформы поста.
+  const [imageFormat, setImageFormat] = useState<"пост" | "сторис" | "пост-горизонтальный">("пост");
+  const [imagePlatform, setImagePlatform] = useState<"instagram" | "vk" | "telegram" | "tiktok">(
+    (post.platform as "instagram" | "vk" | "telegram" | "tiktok") ?? "instagram"
+  );
   const [imageGenError, setImageGenError] = useState("");
   // Платформо-адаптация (Insta / VK / TG)
   const [activeTab, setActiveTab] = useState<"canonical" | "instagram" | "vk" | "telegram">("canonical");
@@ -736,14 +743,12 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
       body: JSON.stringify({
         postText: post.body,
         hook: post.hook,
-        format: "пост",
-        platform: post.platform ?? "instagram",
+        format: imageFormat,
+        platform: imagePlatform,
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",
-        userPrompt, // ← пропускаем шаг Claude, рисуем именно эту строку
+        userPrompt,
         embedText: embedText || undefined,
-        // Передаём референсы в backend — он использует их как style hint
-        // (детали в /api/generate-image-anthropic).
         referenceImages: refs.length > 0 ? refs.map(r => ({ data: r.data, mimeType: r.mimeType })) : undefined,
       }),
     });
@@ -1270,12 +1275,14 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
                 params={{
                   postText: post.body,
                   hook: post.hook,
-                  format: "пост",
-                  platform: post.platform ?? "instagram",
+                  format: imageFormat,
+                  platform: imagePlatform,
                   brandColors: brandBook?.colors ?? [],
                   brandStyle: brandBook?.visualStyle ?? "",
                 }}
                 generateLabel={post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
+                onFormatChange={setImageFormat}
+                onPlatformChange={setImagePlatform}
                 onGenerate={handleGenerateWithPrompt}
                 onCancel={() => setShowPromptEditor(false)}
               />

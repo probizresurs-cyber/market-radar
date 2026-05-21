@@ -56,7 +56,8 @@ ${smmBlock}${brandBlock ? `\nБРЕНДБУК:\n${brandBlock}\n` : ""}
   "slides": [
     {
       "order": 1,
-      "background": "описание фона (цвет / фото / градиент / кадр)",
+      "background": "Image prompt in ENGLISH for AI generator: visual scene, composition, mood, colors, style. 1-2 sentences.",
+      "backgroundRu": "То же самое описание, но на РУССКОМ — для показа пользователю. Например: 'Тёплый офисный интерьер с большими окнами, мягкий вечерний свет, женщина смотрит в ноутбук.'",
       "headlineText": "КРУПНЫЙ ТЕКСТ НА ЭКРАНЕ (3-6 слов)",
       "bodyText": "маленький поясняющий текст под заголовком (или null)",
       "sticker": "тип стикера и текст — например: 'опрос: Согласен? ДА/НЕТ' или null",

@@ -60,7 +60,8 @@ ${smmBlock}${brandBlock ? `\nБРЕНДБУК:\n${brandBlock}\n` : ""}
     {
       "order": 1,
       "slideType": "cover",
-      "background": "описание картинки для фона слайда (цвет, сцена, настроение)",
+      "background": "Image prompt in ENGLISH for AI generator: scene, mood, composition, colors. 1-2 sentences.",
+      "backgroundRu": "То же описание на РУССКОМ для показа пользователю. Например: 'Минималистичный белый фон с яркими акцентами оранжевого цвета.'",
       "headlineText": "КРУПНЫЙ ТЕКСТ (3-7 слов)",
       "bodyText": "короткое пояснение под заголовком или null",
       "bulletPoints": null,
@@ -69,7 +70,8 @@ ${smmBlock}${brandBlock ? `\nБРЕНДБУК:\n${brandBlock}\n` : ""}
     {
       "order": 2,
       "slideType": "content",
-      "background": "описание картинки/фона",
+      "background": "Image prompt in ENGLISH",
+      "backgroundRu": "Описание на РУССКОМ",
       "headlineText": "ЗАГОЛОВОК СЛАЙДА",
       "bodyText": "пояснение или null если есть bulletPoints",
       "bulletPoints": ["пункт 1", "пункт 2", "пункт 3"],
