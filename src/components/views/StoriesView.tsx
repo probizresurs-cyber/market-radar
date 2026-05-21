@@ -66,25 +66,31 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
     const brandVisual = brandBook?.visualStyle?.trim();
     const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
 
-    // Локальная копия слайдов — каждый промис мутирует именно её и шлёт onUpdate.
-    let working = story;
-
-    // Стартуем баннер прогресса
     setBgProgress({ ready: 0, total: story.slides.length, storyId: story.id });
+
+    // КРИТИЧНО: раньше использовалась общая переменная `working`, которую
+    // каждый параллельный промис читал в начале → race condition →
+    // только результат последнего завершившегося промиса сохранялся.
+    // Исправляем — собираем результаты в массив (по индексу), потом ОДИН
+    // финальный onUpdate с уже мерджнутыми результатами.
+    type SlideResult = { imageUrl: string; hasEmbeddedText: boolean } | null;
+    const results: SlideResult[] = new Array(story.slides.length).fill(null);
 
     await Promise.all(story.slides.map(async (slide, i) => {
       try {
-        // Если embedText включён — НЕ пишем «No text overlay», иначе gpt-image-2
-        // запутается. И собираем сам текст слайда для вшивания в картинку.
         const slideTextLines = [
           slide.headlineText?.trim() ?? "",
           slide.bodyText?.trim() ?? "",
         ].filter(Boolean);
         const embeddedText = embedText ? slideTextLines.join("\n") : "";
 
+        // Делаем prompt уникальнее: добавляем индекс слайда + случайный seed,
+        // чтобы не получить identical image при одинаковом slide.background.
+        const seed = `${story.id.slice(-4)}-slide-${i + 1}`;
         const prompt = [
           `Story background for ${story.platform}: ${slide.background}.`,
           slide.visualNote && `Mood: ${slide.visualNote}.`,
+          `Variation: ${seed}.`,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,
           embedText
@@ -105,25 +111,22 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
           }),
         });
         const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
-        if (!j.ok || !j.data?.imageUrl) return;
-
-        // Мерджим картинку в i-й слайд + флаг hasEmbeddedText.
-        working = {
-          ...working,
-          slides: working.slides.map((s, idx) =>
-            idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl, hasEmbeddedText: !!embeddedText } : s,
-          ),
-        };
-        onUpdate(working);
+        if (j.ok && j.data?.imageUrl) {
+          results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!embeddedText };
+          // Прогрессивно обновляем UI — каждый завершившийся слайд сразу
+          // виден. Сборка делается из results[], не из stale `working`.
+          const partialSlides = story.slides.map((s, idx) => {
+            const r = results[idx];
+            return r ? { ...s, backgroundImageUrl: r.imageUrl, hasEmbeddedText: r.hasEmbeddedText } : s;
+          });
+          onUpdate({ ...story, slides: partialSlides });
+        }
         setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       } catch {
-        // Тихий отказ — пользователь сможет дотыкнуть «Перегенерировать» вручную.
-        // Учёт всё равно делаем (чтобы прогресс-бар не залип навсегда).
         setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       }
     }));
 
-    // Скрываем баннер через 3с после завершения
     setTimeout(() => setBgProgress(null), 3000);
   };
 

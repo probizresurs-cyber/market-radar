@@ -523,9 +523,38 @@ export async function POST(req: Request) {
     }
 
     const valid = requestedSources.filter(s => s in SOURCE_FETCHERS);
-    const allItems = (
-      await Promise.all(valid.map(s => SOURCE_FETCHERS[s](query).catch(() => [])))
-    ).flat();
+    // Параллельно собираем + считаем стату по каждому источнику отдельно.
+    // Нужно чтобы UI понимал «почему TikTok 0» (не настроен RAPIDAPI_KEY,
+    // или просто нечего нашли).
+    const perSourceResults = await Promise.all(
+      valid.map(async s => {
+        try {
+          const items = await SOURCE_FETCHERS[s](query);
+          return { source: s, items, error: null as string | null };
+        } catch (e) {
+          return { source: s, items: [], error: e instanceof Error ? e.message : "unknown" };
+        }
+      })
+    );
+    const allItems = perSourceResults.flatMap(r => r.items);
+
+    // Маркеры «не настроен ключ»
+    const SOURCE_NEEDS_KEY: Record<string, string> = {
+      tiktok: "RAPIDAPI_KEY",
+      instagram: "RAPIDAPI_KEY",
+      youtube: "YOUTUBE_API_KEY",
+      vk: "VK_SERVICE_TOKEN",
+    };
+    const sourceStats = perSourceResults.map(r => {
+      const needsKey = SOURCE_NEEDS_KEY[r.source];
+      const keyMissing = needsKey ? !process.env[needsKey] : false;
+      return {
+        source: r.source,
+        count: r.items.length,
+        status: r.error ? "error" : (keyMissing && r.items.length === 0 ? "not_configured" : (r.items.length === 0 ? "empty" : "ok")),
+        note: keyMissing && r.items.length === 0 ? `${needsKey} не настроен в .env` : (r.error ?? undefined),
+      };
+    });
 
     // Deduplicate by title
     const seen = new Set<string>();
@@ -545,6 +574,7 @@ export async function POST(req: Request) {
       sources: valid,
       total: deduped.length,
       items: deduped.slice(0, 50),
+      sourceStats,
     };
 
     return NextResponse.json({ ok: true, result });

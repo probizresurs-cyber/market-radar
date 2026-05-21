@@ -206,10 +206,12 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   // result (тренды), ideas (AI-рекомендации), filter. Иначе после смены
   // вкладки и возврата всё пересоздаётся с нуля.
   const storageKey = `mr_trends_${userId || "anon"}`;
+  type SourceStat = { source: string; count: number; status: string; note?: string };
+  type ResultShape = { query: string; total: number; items: TrendItem[]; sourceStats?: SourceStat[] };
   type TrendsPersist = {
     query: string;
     sources: string[];
-    result: { query: string; total: number; items: TrendItem[] } | null;
+    result: ResultShape | null;
     ideas: TrendContentIdea[] | null;
     filter: string;
   };
@@ -226,7 +228,7 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   const [sources, setSources] = useState<string[]>(init.sources ?? ["yandex_news", "habr", "vc"]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{ query: string; total: number; items: TrendItem[] } | null>(init.result ?? null);
+  const [result, setResult] = useState<ResultShape | null>(init.result ?? null);
   const [filter, setFilter] = useState<string>(init.filter ?? "all");
 
   // Trend analysis state
@@ -379,6 +381,33 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
       {/* Results */}
       {result && (
         <div>
+          {/* Статус каждого источника — почему TikTok=0 если он выбран */}
+          {result.sourceStats && result.sourceStats.some(s => s.status !== "ok") && (
+            <div style={{
+              marginBottom: 14, padding: "10px 14px",
+              background: "color-mix(in oklch, var(--warning) 8%, transparent)",
+              border: "1px solid color-mix(in oklch, var(--warning) 35%, transparent)",
+              borderRadius: 10, fontSize: 12, color: "var(--foreground-secondary)",
+              lineHeight: 1.6,
+            }}>
+              <div style={{ fontWeight: 700, color: "var(--warning)", marginBottom: 4 }}>Статус источников:</div>
+              {result.sourceStats.map(s => {
+                const label = s.status === "not_configured" ? "не настроен"
+                  : s.status === "empty" ? "ничего не нашлось"
+                  : s.status === "error" ? "ошибка"
+                  : `${s.count} публикаций`;
+                const color = s.status === "ok" ? "var(--success)"
+                  : s.status === "not_configured" ? "var(--destructive)"
+                  : "var(--muted-foreground)";
+                return (
+                  <div key={s.source} style={{ display: "inline-block", marginRight: 12 }}>
+                    <b style={{ color }}>{s.source}</b>: {label}
+                    {s.note && <span style={{ color: "var(--muted-foreground)", fontSize: 11 }}> ({s.note})</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontWeight: 700, color: "var(--foreground)", fontSize: 15 }}>
               {result.total} публикаций по «{result.query}»
