@@ -2103,7 +2103,7 @@ function MarketRadarDashboardInner() {
         )}
         {activeNav === "reviews-analysis" && (
           featureOn("reviews-analysis")
-            ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} />
+            ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} domain={myCompany?.company.url} niche={myCompany?.company.description ?? ""} />
             : <ComingSoonView c={c} featureId="reviews-analysis" title={features.labels["reviews-analysis"] ?? "Рынок и отзывы"} description={features.descriptions["reviews-analysis"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "brand-presentation" && (

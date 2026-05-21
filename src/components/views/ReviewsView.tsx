@@ -7,9 +7,13 @@ import { DataBadge } from "@/components/ui/DataBadge";
 import { AISummary } from "@/components/ui/AISummary";
 import { SentimentTimeline } from "@/components/ui/SentimentTimeline";
 
-export function ReviewsView({ c, companyName }: {
+export function ReviewsView({ c, companyName, domain, niche }: {
   c: Colors;
   companyName: string;
+  /** Домен компании — улучшает результат search-maps (URL + name-derivative). */
+  domain?: string;
+  /** Ниша/описание — добавляется как ключ к запросу. */
+  niche?: string;
 }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [analysis, setAnalysis] = useState<ReviewAnalysis | null>(null);
@@ -38,7 +42,7 @@ export function ReviewsView({ c, companyName }: {
       const res = await fetch("/api/fetch-reviews-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit }),
+        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -62,7 +66,7 @@ export function ReviewsView({ c, companyName }: {
       const res = await fetch("/api/fetch-reviews-yandex", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit }),
+        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {
@@ -82,7 +86,7 @@ export function ReviewsView({ c, companyName }: {
       const res = await fetch("/api/fetch-reviews-2gis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: name, address, limit }),
+        body: JSON.stringify({ companyName: name, address, limit, domain, niche }),
       });
       const json = await res.json();
       if (json.ok && json.data.reviews.length > 0) {

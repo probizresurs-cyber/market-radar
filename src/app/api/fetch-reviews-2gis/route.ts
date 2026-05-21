@@ -77,17 +77,28 @@ async function trySearchQuery(query: string, apiKey?: string): Promise<string | 
   return data.result?.items?.[0]?.id ?? null;
 }
 
-async function searchFirmByName(name: string, address?: string, apiKey?: string): Promise<string | null> {
+async function searchFirmByName(name: string, address?: string, domain?: string, niche?: string, apiKey?: string): Promise<string | null> {
   const city = address ? extractCity(address) : "";
   const latinName = extractLatinName(name);
   const brand = name.replace(/^\s*(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i, "").replace(/[«»"]/g, "").trim();
+  const ooo = /^(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i.test(name) ? "" : `ООО ${brand}`;
+  // Имя из домена
+  const domainName = (() => {
+    if (!domain) return "";
+    const cleaned = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
+    const parts = cleaned.split(".").filter(p => p && !["ru", "com", "net", "org", "info", "su"].includes(p));
+    if (!parts.length) return "";
+    return parts.sort((a, b) => b.length - a.length)[0].replace(/[-_]+/g, " ").trim();
+  })();
 
-  // Build queries in order of specificity
   const queries: string[] = [];
   if (city) {
     queries.push(`${name} ${city}`);
     if (brand && brand !== name) queries.push(`${brand} ${city}`);
+    if (ooo) queries.push(`${ooo} ${city}`);
     if (latinName) queries.push(`${latinName} ${city}`);
+    if (niche) queries.push(`${brand} ${niche.slice(0, 40)} ${city}`);
+    if (domainName) queries.push(`${domainName} ${city}`);
   }
   if (address?.trim()) {
     const firstLine = address.split(",")[0]?.trim();
@@ -95,7 +106,9 @@ async function searchFirmByName(name: string, address?: string, apiKey?: string)
   }
   queries.push(name);
   if (brand && brand !== name) queries.push(brand);
+  if (ooo) queries.push(ooo);
   if (latinName && latinName !== name) queries.push(latinName);
+  if (domainName) queries.push(domainName);
 
   for (const q of [...new Set(queries)]) {
     const id = await trySearchQuery(q, apiKey);
@@ -110,6 +123,8 @@ export async function POST(req: Request) {
     const url: string = body.url ?? "";
     const companyName: string = body.companyName ?? "";
     const address: string = body.address ?? "";
+    const domain: string = (body.domain ?? "").toString().trim();
+    const niche: string = (body.niche ?? "").toString().trim();
     const limit: number = Math.min(Math.max(Number(body.limit) || 50, 1), 50);
 
     const apiKey = process.env.TWOGIS_API_KEY;
@@ -126,7 +141,7 @@ export async function POST(req: Request) {
         );
       }
     } else if (companyName.trim()) {
-      firmId = await searchFirmByName(companyName, address || undefined, apiKey);
+      firmId = await searchFirmByName(companyName, address || undefined, domain || undefined, niche || undefined, apiKey);
       if (!firmId) {
         return NextResponse.json({ ok: true, data: { platform: "2gis", reviews: [], totalOnPlatform: 0 } });
       }

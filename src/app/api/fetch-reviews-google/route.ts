@@ -66,6 +66,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
     const address: string = body.address ?? "";
+    const domain: string = (body.domain ?? "").toString().trim();
+    const niche: string = (body.niche ?? "").toString().trim();
 
     if (!companyName.trim()) {
       return NextResponse.json({ ok: false, error: "Название компании не передано" }, { status: 400 });
@@ -78,28 +80,35 @@ export async function POST(req: Request) {
 
     const city = extractCity(address);
     const latinName = extractLatinName(companyName);
-    // Бренд без юр-префиксов («ГК», «ООО», «ИП») — Google лучше ищет именно
-    // по бренду чем по полному названию с юр-формой.
     const brand = companyName.replace(/^\s*(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i, "").replace(/[«»"]/g, "").trim();
+    const ooo = /^(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО)\s+/i.test(companyName) ? "" : `ООО ${brand}`;
+    // Имя из домена: "geologia.ra-grad.ru" → "ra grad"
+    const domainName = (() => {
+      if (!domain) return "";
+      const cleaned = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
+      const parts = cleaned.split(".").filter(p => p && !["ru", "com", "net", "org", "info", "su"].includes(p));
+      if (!parts.length) return "";
+      return parts.sort((a, b) => b.length - a.length)[0].replace(/[-_]+/g, " ").trim();
+    })();
 
-    // Build ordered list of queries to try (most specific → least specific)
     const queries: string[] = [];
 
     if (address.trim()) {
-      // 1. findplacefromtext with name + city (most reliable for known company)
       if (city) queries.push(`${companyName} ${city}`);
       if (brand && brand !== companyName && city) queries.push(`${brand} ${city}`);
+      if (ooo && city) queries.push(`${ooo} ${city}`);
       if (latinName && city) queries.push(`${latinName} ${city}`);
-      // 2. textsearch with name + first line of address
+      if (niche && city) queries.push(`${brand} ${niche.slice(0, 40)} ${city}`);
+      if (domainName && city) queries.push(`${domainName} ${city}`);
       const firstLine = address.split(",")[0]?.trim();
       if (firstLine && !/^\d{6}$/.test(firstLine)) queries.push(`${companyName} ${firstLine}`);
-      // 3. name + full address (original approach, may work for some)
       queries.push(`${companyName} ${address}`);
     }
-    // Always add fallback: name only
     queries.push(companyName);
     if (brand && brand !== companyName) queries.push(brand);
+    if (ooo) queries.push(ooo);
     if (latinName && latinName !== companyName) queries.push(latinName);
+    if (domainName) queries.push(domainName);
 
     // Deduplicate
     const uniqueQueries = [...new Set(queries)];

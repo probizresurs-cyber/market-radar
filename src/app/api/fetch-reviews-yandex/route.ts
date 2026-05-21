@@ -46,28 +46,63 @@ function cleanBrandName(name: string): string {
     .trim();
 }
 
-async function findOrgId(name: string, address: string): Promise<string | null> {
-  const apiKey = process.env.YANDEX_MAPS_API_KEY;
-  if (!apiKey) return null;
+/** Преобразует домен в name-fragment для поиска:
+ *   "geologia.ra-grad.ru" → "ra grad"
+ *   "orlink.ru" → "orlink" */
+function domainToSearchName(domain?: string): string {
+  if (!domain) return "";
+  const cleaned = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
+  const parts = cleaned.split(".").filter(p => p && !["ru", "com", "net", "org", "info", "su", "рф"].includes(p));
+  // Берём самую длинную часть — обычно это и есть имя бизнеса
+  if (parts.length === 0) return "";
+  const main = parts.sort((a, b) => b.length - a.length)[0];
+  // ra-grad → "ra grad" (тире/подчёркивания → пробелы)
+  return main.replace(/[-_]+/g, " ").trim();
+}
 
-  // Стратегии в порядке от специфичной к общей. Чем выше — тем точнее.
-  // Раньше пробовали только 2 — расширили до 5, дополнительно `name+city`
-  // и вариант без юр.префикса.
+async function findOrgId(
+  name: string,
+  address: string,
+  domain?: string,
+  niche?: string,
+): Promise<{ orgId: string | null; triedQueries: string[]; foundBy?: string }> {
+  const apiKey = process.env.YANDEX_MAPS_API_KEY;
+  if (!apiKey) return { orgId: null, triedQueries: [] };
+
   const city = address ? extractCity(address) : "";
   const brand = cleanBrandName(name);
   const firstAddrLine = address.split(",").map(s => s.trim()).find(s => s && !/^\d{6}$/.test(s)) ?? "";
+  const domainName = domainToSearchName(domain);
+  // Если у имени уже нет юр.префикса — пробуем добавить ООО (Yandex иногда
+  // индексирует только по юр.наименованию).
+  const ooo = /^(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО|ТСЖ|СНТ)\s+/i.test(name) ? "" : `ООО ${brand}`;
+  const nicheStr = niche?.trim();
 
   const queries: string[] = [];
+  // Самые специфичные — name + city
   if (city) queries.push(`${name} ${city}`);
   if (brand && brand !== name && city) queries.push(`${brand} ${city}`);
+  // С юр.формой
+  if (ooo && city) queries.push(`${ooo} ${city}`);
+  if (ooo) queries.push(ooo);
+  // С нишей
+  if (nicheStr && city) queries.push(`${brand} ${nicheStr.slice(0, 40)} ${city}`);
+  if (nicheStr) queries.push(`${brand} ${nicheStr.slice(0, 40)}`);
+  // Адрес
   if (firstAddrLine && firstAddrLine !== city) queries.push(`${name} ${firstAddrLine}`);
   if (address) queries.push(`${name} ${address}`);
+  // Просто имя
   queries.push(name);
   if (brand && brand !== name) queries.push(brand);
+  // Имя из домена
+  if (domainName && city) queries.push(`${domainName} ${city}`);
+  if (domainName) queries.push(domainName);
 
   const unique = [...new Set(queries.filter(Boolean))];
 
+  const tried: string[] = [];
   for (const q of unique) {
+    tried.push(q);
     try {
       const res = await fetch(
         `https://search-maps.yandex.ru/v1/?text=${encodeURIComponent(q)}&type=biz&lang=ru_RU&apikey=${apiKey}&results=1`,
@@ -77,10 +112,10 @@ async function findOrgId(name: string, address: string): Promise<string | null> 
         features?: Array<{ properties?: { CompanyMetaData?: { id?: string } } }>;
       };
       const id = data.features?.[0]?.properties?.CompanyMetaData?.id;
-      if (id) return id;
+      if (id) return { orgId: id, triedQueries: tried, foundBy: q };
     } catch { /* try next */ }
   }
-  return null;
+  return { orgId: null, triedQueries: tried };
 }
 
 interface ParsedReview {
@@ -126,8 +161,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const companyName: string = (body.companyName ?? "").toString().trim();
     const address: string = (body.address ?? "").toString().trim();
+    const domain: string = (body.domain ?? "").toString().trim();
+    const niche: string = (body.niche ?? "").toString().trim();
     const limit: number = Math.min(Math.max(Number(body.limit) || 20, 1), 50);
     let orgId: string = (body.orgId ?? "").toString().trim();
+
+    // Поддерживаем ручной ввод URL Яндекс.Карт — пользователь может вставить
+    // ссылку типа https://yandex.ru/maps/org/{ORG_ID}/ или /maps/-/CDfMnAj
+    // и мы извлечём id (полезно когда автопоиск не находит).
+    if (orgId && /yandex/.test(orgId)) {
+      const m = orgId.match(/\/org\/(\d+)/) || orgId.match(/\/maps\/(\d+)/);
+      if (m) orgId = m[1];
+    }
 
     if (!orgId) {
       if (!companyName) {
@@ -136,7 +181,7 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      const found = await findOrgId(companyName, address);
+      const { orgId: found, triedQueries, foundBy } = await findOrgId(companyName, address, domain, niche);
       if (!found) {
         return NextResponse.json({
           ok: true,
@@ -145,11 +190,13 @@ export async function POST(req: Request) {
             rating: 0,
             reviewCount: 0,
             orgId: null,
-            note: "Не нашли организацию в Яндекс.Картах. Уточните название или адрес.",
+            note: `Не нашли организацию в Яндекс.Картах. Попробовано ${triedQueries.length} вариантов запросов. Вставьте URL вручную: yandex.ru/maps/org/<id>`,
+            triedQueries,
           },
         });
       }
       orgId = found;
+      console.log(`[reviews-yandex] foundBy="${foundBy}" orgId=${orgId}`);
     }
 
     const parsed = await fetchWidget(orgId, limit);
