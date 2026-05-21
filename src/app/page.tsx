@@ -1899,6 +1899,7 @@ function MarketRadarDashboardInner() {
             <CompetitorProfileView
               c={c}
               data={competitors[selectedCompetitor]}
+              myCompany={myCompany}
               onBack={() => { setSelectedCompetitor(null); setActiveNav("competitors"); }}
               onUpdateData={(next) => handleUpdateCompetitor(selectedCompetitor, next)}
             />

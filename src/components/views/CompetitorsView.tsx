@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
-import { Users, Sparkles, Plus } from "lucide-react";
+import { Users, Sparkles, Plus, Loader2 } from "lucide-react";
 
 interface SuggestedCompetitor {
   domain: string;
@@ -108,6 +108,25 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
           <span style={{ fontSize: 16 }}>+</span> Добавить конкурента
         </button>
       </div>
+
+      {/* Глобальный баннер прогресса при добавлении из «Предлагаемых» */}
+      {addingDomain && (
+        <div style={{
+          background: "color-mix(in oklch, var(--primary) 12%, transparent)",
+          border: `1px solid color-mix(in oklch, var(--primary) 35%, transparent)`,
+          borderRadius: 10, padding: "12px 16px", marginBottom: 14,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          <Loader2 size={16} style={{ color: "var(--primary)", animation: "spin 1s linear infinite", flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>Анализируем конкурента {addingDomain}…</div>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
+              Это занимает 30-60 секунд: парсим сайт, тянем Keys.so + SpyWords + DaData + Yandex Maps. Можно продолжать работу, конкурент добавится в фоне.
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div style={{ background: "var(--card)", borderRadius: 14, border: `1px solid var(--border)`, padding: 20, marginBottom: 16, boxShadow: "var(--shadow)" }}>
@@ -232,7 +251,9 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                         display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
                       }}
                     >
-                      {addingDomain === s.domain ? "…" : <><Plus size={13} /> Добавить</>}
+                      {addingDomain === s.domain
+                        ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Анализ…</>
+                        : <><Plus size={13} /> Добавить</>}
                     </button>
                   </div>
                 );

@@ -5,7 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { KeysoDashboardBlock } from "@/components/ui/KeysoDashboardBlock";
 import { CompetitorAdsBlock } from "@/components/ui/CompetitorAdsBlock";
-import { SpywordsBlock } from "@/components/ui/SpywordsBlock";
+import { CompetitorSpywordsBlock } from "@/components/ui/CompetitorSpywordsBlock";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { CategoryCard } from "@/components/ui/CategoryCard";
@@ -17,7 +17,7 @@ import {
   Search, Building2, ClipboardList, Settings, Users, Smartphone,
 } from "lucide-react";
 
-export function CompetitorProfileView({ c, data, onBack, onUpdateData }: { c: Colors; data: AnalysisResult; onBack: () => void; onUpdateData?: (next: AnalysisResult) => void }) {
+export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData }: { c: Colors; data: AnalysisResult; myCompany?: AnalysisResult | null; onBack: () => void; onUpdateData?: (next: AnalysisResult) => void }) {
   const { company, recommendations, insights } = data;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [offers, setOffers] = useState<any>(null);
@@ -470,27 +470,9 @@ export function CompetitorProfileView({ c, data, onBack, onUpdateData }: { c: Co
         </div>
       </CollapsibleSection>
 
-      {/* ── SpyWords конкурента — органика, реклама, ключи, конкуренты ── */}
-      <CollapsibleSection c={c} title="Данные SpyWords" icon={<TrendingUp size={16} />} defaultOpen={true}>
-        {data.spywordsDashboard ? (
-          <SpywordsBlock data={data.spywordsDashboard} />
-        ) : (
-          <div style={{
-            padding: "20px 18px", borderRadius: 10,
-            background: "var(--background)", border: "1px dashed var(--border)",
-            color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.6,
-          }}>
-            <div style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 6 }}>
-              По этому конкуренту пока нет данных от SpyWords
-            </div>
-            Возможные причины:
-            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-              <li>Конкурент добавлен до подключения SpyWords — переанализируйте</li>
-              <li>Молодой сайт или с малой посещаемостью — нет в базе SpyWords</li>
-              <li>Брендовый/прямой трафик без SEO-выдачи и контекстной рекламы</li>
-            </ul>
-          </div>
-        )}
+      {/* ── SpyWords: сравнительный анализ КОНКУРЕНТ vs МЫ ── */}
+      <CollapsibleSection c={c} title="Данные SpyWords — сравнение с вами" icon={<TrendingUp size={16} />} defaultOpen={true}>
+        <CompetitorSpywordsBlock competitor={data} myCompany={myCompany} />
       </CollapsibleSection>
     </div>
   );
