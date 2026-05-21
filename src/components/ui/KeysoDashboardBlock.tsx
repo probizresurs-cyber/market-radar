@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { KeysoDashboardData, SeoPosition } from "@/lib/types";
 import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
+import { StackedBar, MetricRing } from "./Charts";
 
 export interface KeysoRefreshResult {
   keysoDashboard: { yandex?: KeysoDashboardData; google?: KeysoDashboardData };
@@ -161,6 +162,43 @@ export function KeysoDashboardBlock({ c, dash, domain, onRefresh }: {
           </div>
         )}
       </div>
+
+      {/* Визуальная сводка — кольца DR + Видимость + общий объём органики */}
+      {(d.dr || d.visibility || d.top10) ? (
+        <div style={{
+          marginBottom: 18, padding: "16px 18px",
+          background: "var(--background)", border: "1px solid var(--border)", borderRadius: 12,
+          display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center", justifyContent: "space-around",
+        }}>
+          {d.dr ? <MetricRing value={d.dr} label="Domain Rating" /> : null}
+          {d.visibility ? <MetricRing value={d.visibility} label="Видимость" /> : null}
+          {d.top10 ? <MetricRing value={d.top10} max={Math.max(100, d.top10)} label="Ключей в ТОП-10" color="#0cce6b" /> : null}
+        </div>
+      ) : null}
+
+      {/* Стек-бар распределение по позициям */}
+      {(d.top1 || d.top3 || d.top10 || d.top50) ? (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>
+            РАСПРЕДЕЛЕНИЕ КЛЮЧЕЙ ПО ПОЗИЦИЯМ
+          </div>
+          {(() => {
+            // Вычисляем эксклюзивные сегменты: TOP-1, TOP-3 (без 1), TOP-10 (без 3), TOP-50 (без 10)
+            const t1 = d.top1 ?? 0;
+            const t3 = Math.max(0, (d.top3 ?? 0) - t1);
+            const t10 = Math.max(0, (d.top10 ?? 0) - (d.top3 ?? 0));
+            const t50 = Math.max(0, (d.top50 ?? 0) - (d.top10 ?? 0));
+            return (
+              <StackedBar segments={[
+                { label: "ТОП-1", value: t1, color: "#16a34a" },
+                { label: "ТОП-2-3", value: t3, color: "#0cce6b" },
+                { label: "ТОП-4-10", value: t10, color: "#3b82f6" },
+                { label: "ТОП-11-50", value: t50, color: "#9ca3af" },
+              ].filter(s => s.value > 0)} />
+            );
+          })()}
+        </div>
+      ) : null}
 
       {/* Позиции в поиске */}
       {(d.top1 || d.top3 || d.top5 || d.top10 || d.top50) ? (

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import { BarChart2, Target, Coins, Eye, Swords, Megaphone, TrendingUp, FileText, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { DonutChart, HorizontalBarChart } from "./Charts";
 
 type SpywordsDashboard = NonNullable<AnalysisResult["spywordsDashboard"]>;
 type Competitor = NonNullable<NonNullable<SpywordsDashboard["competitors"]>["yandex"]>[number];
@@ -318,6 +319,70 @@ export function SpywordsBlock({ data }: Props) {
             {ov.adBudget > 0 && <MetricCard icon={<Coins size={12} />} label="Бюджет на контекст" value={fmtMoney(ov.adBudget)} accent="var(--destructive)" />}
             {ov.avgAdPos > 0 && <MetricCard icon={<Target size={12} />} label="Ср. позиция" value={ov.avgAdPos.toFixed(1)} />}
           </div>
+        </div>
+      )}
+
+      {/* Визуальные сводки — donut «органика vs реклама» */}
+      {ov && (ov.organicTraffic + ov.adTraffic > 0 || ov.organicKeysTop50 + ov.adKeywords > 0) && (
+        <div style={{
+          marginBottom: 18,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 12,
+        }}>
+          {(ov.organicTraffic + ov.adTraffic > 0) && (
+            <div style={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>
+                ИСТОЧНИКИ ТРАФИКА
+              </div>
+              <DonutChart
+                size={150}
+                ringWidth={22}
+                centerLabel="всего"
+                centerValue={fmt(ov.organicTraffic + ov.adTraffic)}
+                segments={[
+                  { label: "Органика", value: ov.organicTraffic, color: "#16a34a" },
+                  { label: "Реклама", value: ov.adTraffic, color: "#f59e0b" },
+                ].filter(s => s.value > 0)}
+              />
+            </div>
+          )}
+          {(ov.organicKeysTop50 + ov.adKeywords > 0) && (
+            <div style={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>
+                КЛЮЧИ: ОРГАНИКА vs КОНТЕКСТ
+              </div>
+              <DonutChart
+                size={150}
+                ringWidth={22}
+                centerLabel="всего ключей"
+                centerValue={fmt(ov.organicKeysTop50 + ov.adKeywords)}
+                segments={[
+                  { label: "В органике (топ-50)", value: ov.organicKeysTop50, color: "#16a34a" },
+                  { label: "В контексте", value: ov.adKeywords, color: "#f59e0b" },
+                ].filter(s => s.value > 0)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Бар-чарт топ-конкурентов по объёму ключей */}
+      {cmp && cmp.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>
+            СРАВНЕНИЕ С КОНКУРЕНТАМИ — КЛЮЧИ В ОРГАНИКЕ
+          </div>
+          <HorizontalBarChart
+            data={[
+              ...(ov?.organicKeysTop50 ? [{ label: "Ваш домен", value: ov.organicKeysTop50, highlight: true }] : []),
+              ...cmp.slice(0, 8).map(c => ({
+                label: c.domain,
+                value: c.totalKeywords,
+                color: engineColor,
+              })),
+            ].sort((a, b) => b.value - a.value)}
+          />
         </div>
       )}
 

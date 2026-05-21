@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Megaphone, ExternalLink, Sparkles, AlertTriangle } from "lucide-react";
+import { Megaphone, ExternalLink, Sparkles, AlertTriangle, BarChart2, Target, Hash } from "lucide-react";
+import { StackedBar } from "./Charts";
 
 interface Ad {
   title?: string;
@@ -84,8 +85,62 @@ export function CompetitorAdsBlock({ domain }: Props) {
         </div>
       )}
 
-      {ads && ads.length > 0 && (
+      {ads && ads.length > 0 && (() => {
+        // Анализ ads для charts: распределение по позициям + наличие с URL
+        const stats = ads.reduce((acc, a) => {
+          if (a.position === 1) acc.spec++;
+          else if (a.position && a.position <= 4) acc.premium++;
+          else if (a.position && a.position <= 8) acc.guarantee++;
+          else acc.other++;
+          if (a.url) acc.withUrl++;
+          if (a.title) acc.withTitle++;
+          return acc;
+        }, { spec: 0, premium: 0, guarantee: 0, other: 0, withUrl: 0, withTitle: 0 });
+        return (
         <>
+          {/* Сводка метрик */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+            <div style={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Hash size={11} /> Всего объявлений
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)" }}>{ads.length}</div>
+            </div>
+            <div style={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Target size={11} /> Ср. позиция
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--foreground)" }}>
+                {(() => {
+                  const withPos = ads.filter(a => typeof a.position === "number");
+                  if (!withPos.length) return "—";
+                  return (withPos.reduce((s, a) => s + (a.position ?? 0), 0) / withPos.length).toFixed(1);
+                })()}
+              </div>
+            </div>
+            <div style={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <BarChart2 size={11} /> С полным креативом
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>{stats.withTitle}</div>
+            </div>
+          </div>
+
+          {/* Распределение по позициям */}
+          {(stats.spec + stats.premium + stats.guarantee + stats.other > 0) && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>
+                РАСПРЕДЕЛЕНИЕ ПО ПОЗИЦИЯМ
+              </div>
+              <StackedBar segments={[
+                { label: "Спецразмещение (1)", value: stats.spec, color: "#dc2626" },
+                { label: "Премиум (2-4)", value: stats.premium, color: "#f59e0b" },
+                { label: "Гарантия (5-8)", value: stats.guarantee, color: "#3b82f6" },
+                { label: "Прочие", value: stats.other, color: "#9ca3af" },
+              ].filter(s => s.value > 0)} />
+            </div>
+          )}
+
           <div style={{ display: "grid", gap: 10 }}>
             {ads.map((ad, i) => (
               <div key={i} style={{
@@ -129,7 +184,8 @@ export function CompetitorAdsBlock({ domain }: Props) {
             💡 Используйте эти заголовки и УТП в ваших Battle Cards — отдел продаж сможет точно отстраиваться от того, что обещают конкуренты.
           </div>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

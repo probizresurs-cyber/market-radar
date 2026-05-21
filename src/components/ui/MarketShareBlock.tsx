@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { PieChart, Sparkles, AlertTriangle } from "lucide-react";
+import { DonutChart, type DonutSegment } from "./Charts";
 
 interface Share {
   domain: string;
@@ -124,7 +125,26 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
             </div>
           )}
 
-          {/* Bar chart */}
+          {/* Donut chart — наглядное распределение долей */}
+          <div style={{ marginBottom: 22, padding: "18px 0", borderBottom: "1px solid var(--border)" }}>
+            <DonutChart
+              segments={shares.map((s, i): DonutSegment => {
+                const domNorm = s.domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+                const isMe = domNorm === myDomainNorm;
+                return {
+                  label: s.domain,
+                  value: s.share,
+                  color: isMe ? "var(--primary)" : PALETTE[i % PALETTE.length],
+                };
+              })}
+              centerLabel="всего видимость"
+              centerValue={`${shares.reduce((s, x) => s + x.share, 0)}%`}
+              size={180}
+              ringWidth={28}
+            />
+          </div>
+
+          {/* Bar chart — детальный список с прогрессом */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {shares.map((s, i) => {
               const color = PALETTE[i % PALETTE.length];
