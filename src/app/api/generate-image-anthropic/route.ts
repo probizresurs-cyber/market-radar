@@ -153,9 +153,35 @@ ${contextBlock}
       usedPrompt += " No text, letters, words, or watermarks in the image.";
     }
 
-    // — Step 2: OpenAI renders the prompt —
-    // Если задан embedText — поднимаем quality до "high", чтобы gpt-image-2
-    // отрисовал шрифт без артефактов; обычные фоны идут в "medium".
+    // — Step 2: Provider routing —
+    // OPTIMIZATION: gpt-image-2 нужен ТОЛЬКО когда есть embedText (типографика
+    // в картинке). Для обычных фонов Gemini в 3-5 раз быстрее и почти такого же
+    // качества. Раньше всегда ходили в OpenAI → ждали 10-30s → потом в fallback.
+    // Теперь если embedText пустой — пропускаем OpenAI и сразу идём в Gemini.
+    const aspectHintEarly = imageFormat === "portrait"
+      ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
+      : imageFormat === "landscape"
+      ? " Render in horizontal 16:9 aspect ratio (landscape orientation)."
+      : " Render in square 1:1 aspect ratio.";
+
+    if (!embedText && GEMINI_API_KEY) {
+      const gemFast = await generateGeminiImage({
+        prompt: usedPrompt + aspectHintEarly + " No text, letters, words, or watermarks in the image.",
+      });
+      if (gemFast.ok) {
+        const safeUrl = await persistImageDataUri(gemFast.imageUrl, access.userId);
+        return NextResponse.json({
+          ok: true,
+          data: { imageUrl: safeUrl },
+          usedPrompt,
+          provider: "gemini-fast",
+        });
+      }
+      // Gemini упал — продолжаем в обычный fallback chain
+    }
+
+    // Если есть embedText — нужен OpenAI gpt-image-2 (единственный кто
+    // нормально рисует русский текст). Поднимаем quality до "high".
     const imgResult = await generateOpenAIImage({
       prompt: usedPrompt,
       format: imageFormat,

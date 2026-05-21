@@ -8,6 +8,7 @@ import { Smartphone, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Maximize
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -32,6 +33,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
   // Прогресс авто-генерации фонов для серии: { ready, total, storyId }
   const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; storyId: string } | null>(null);
+  const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -304,7 +306,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
         </div>
       )}
 
-      {/* Stories list */}
+      {/* Stories list — с табами статусов как в постах */}
       {stories.length === 0 ? (
         <>
           {onboardingState && (
@@ -324,13 +326,30 @@ export function StoriesView({ c, stories, plan, smmAnalysis, companyName, brandB
             </div>
           </div>
         </>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {stories.map(story => (
-            <StoryCard key={story.id} c={c} story={story} onDelete={onDelete} onUpdate={onUpdate} brandBook={brandBook} />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        const counts = {
+          drafts: stories.filter(s => computeStatus(s) === "drafts").length,
+          scheduled: stories.filter(s => computeStatus(s) === "scheduled").length,
+          published: stories.filter(s => computeStatus(s) === "published").length,
+        };
+        const filtered = stories.filter(s => computeStatus(s) === statusTab);
+        return (
+          <>
+            <StatusTabs value={statusTab} onChange={setStatusTab} counts={counts} />
+            {filtered.length === 0 ? (
+              <div style={{ padding: "28px 24px", textAlign: "center", color: "var(--muted-foreground)", fontSize: 14, background: "var(--card)", borderRadius: 14, border: "1px dashed var(--border)" }}>
+                В этой вкладке пока пусто
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {filtered.map(story => (
+                  <StoryCard key={story.id} c={c} story={story} onDelete={onDelete} onUpdate={onUpdate} brandBook={brandBook} />
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -474,8 +493,15 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
                       ))}
                     </div>
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "8px 4px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1.3, marginBottom: 8, textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>{slide.headlineText}</div>
-                      {slide.bodyText && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.9)", lineHeight: 1.4, marginBottom: 8, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{slide.bodyText}</div>}
+                      {/* Если текст уже «вшит» в backgroundImageUrl через gpt-image-2 —
+                         не рисуем CSS-оверлей чтобы не было дубля. Stickers/CTA
+                         всё равно показываем — они интерактивные элементы, не текст. */}
+                      {!slide.hasEmbeddedText && (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1.3, marginBottom: 8, textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>{slide.headlineText}</div>
+                          {slide.bodyText && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.9)", lineHeight: 1.4, marginBottom: 8, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{slide.bodyText}</div>}
+                        </>
+                      )}
                       {slide.sticker && (
                         <div style={{ background: "rgba(255,255,255,0.25)", backdropFilter: "blur(4px)", borderRadius: 8, padding: "4px 8px", fontSize: 9, color: "#fff", fontWeight: 700, marginBottom: 6 }}>
                           🎯 {slide.sticker}

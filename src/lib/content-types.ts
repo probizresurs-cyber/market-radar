@@ -267,7 +267,9 @@ export interface ContentFactoryState {
 
 export interface StorySlide {
   order: number;
-  background: string;           // описание фона / картинки за текстом
+  background: string;           // описание фона / картинки за текстом (en, для AI)
+  /** Русский промпт картинки — что AI планирует нарисовать. */
+  backgroundRu?: string;
   backgroundImageUrl?: string;  // сгенерированная картинка (base64 data URL)
   headlineText: string;         // крупный текст на экране (3-6 слов)
   bodyText?: string;            // дополнительный мелкий текст
@@ -288,6 +290,12 @@ export interface GeneratedStory {
   slides: StorySlide[];
   hashtags: string[];
   generatedAt: string;
+  /** Дата запланированной публикации (ISO). Используется фильтром «Запланированы». */
+  scheduledFor?: string;
+  /** Ручной статус — приоритетнее автоматического. */
+  manualStatus?: "drafts" | "scheduled" | "published";
+  /** В какие соцсети опубликовано (для бейджей в карточке). */
+  publishStatus?: PublishStatus;
 }
 
 // ---------- Carousels (Instagram-style swipeable posts) ----------
@@ -297,7 +305,9 @@ export type CarouselSlideType = "cover" | "content" | "cta";
 export interface CarouselSlide {
   order: number;
   slideType: CarouselSlideType;   // cover / content / cta
-  background: string;             // описание картинки для фона слайда
+  background: string;             // описание картинки для фона слайда (en, для AI)
+  /** Русский промпт картинки — что AI планирует нарисовать. Показывается юзеру. */
+  backgroundRu?: string;
   backgroundImageUrl?: string;    // сгенерированная картинка (data URL или URL)
   headlineText: string;           // крупный текст слайда (3-7 слов)
   bodyText?: string;              // пояснение под заголовком (1-2 предложения)
@@ -320,6 +330,9 @@ export interface GeneratedCarousel {
   caption: string;                // основной текст поста, который публикуется под каруселью
   hashtags: string[];
   generatedAt: string;
+  scheduledFor?: string;
+  manualStatus?: "drafts" | "scheduled" | "published";
+  publishStatus?: PublishStatus;
 }
 
 // ---------- Custom HeyGen assets (user-uploaded) ----------

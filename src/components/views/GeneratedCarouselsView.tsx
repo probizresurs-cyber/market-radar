@@ -7,6 +7,7 @@ import { Layers, Sparkles, Camera, Users, Send, Loader2, RefreshCw, Copy, Maximi
 import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -21,7 +22,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
   onboardingState?: OnboardingState;
 }) {
   const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
-  const [slidesCount, setSlidesCount] = useState<6 | 7 | 8 | 10>(7);
+  const [slidesCount, setSlidesCount] = useState<number>(7);
   const [goal, setGoal] = useState("обучение");
   const [brief, setBrief] = useState("");
   const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
@@ -30,6 +31,8 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
   // Если ON — при рендере фонов каждого слайда чекбокс «Встроить текст»
   // будет уже включен по умолчанию (text-on-image).
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
+  const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; carouselId: string } | null>(null);
+  const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -42,18 +45,78 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
       });
       const json = await res.json() as { ok: boolean; data?: GeneratedCarousel; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      // Применяем embedTextDefault ко всем слайдам сразу — позже UI знает
-      // что чекбокс должен стартовать ON у каждого слайда.
       const result: GeneratedCarousel = embedTextDefault
         ? { ...json.data!, slides: json.data!.slides.map(s => ({ ...s, hasEmbeddedText: true })) }
         : json.data!;
+      // 1. Сначала добавляем серию — юзер сразу видит превью.
       onAdd(result);
       setBrief("");
+
+      // 2. Параллельно догружаем фоны для всех слайдов в фоне (как в сториз).
+      void autoGenerateCarouselBackgrounds(result, embedTextDefault);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setGenerating(false);
     }
+  };
+
+  /** Параллельная авто-генерация фонов для всех слайдов карусели.
+   *  Использует массив results[] (как в сториз) чтобы избежать race condition. */
+  const autoGenerateCarouselBackgrounds = async (carousel: GeneratedCarousel, embedText: boolean) => {
+    const brandVisual = brandBook?.visualStyle?.trim();
+    const brandColorsLine = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+
+    setBgProgress({ ready: 0, total: carousel.slides.length, carouselId: carousel.id });
+    type SlideResult = { imageUrl: string; hasEmbeddedText: boolean } | null;
+    const results: SlideResult[] = new Array(carousel.slides.length).fill(null);
+
+    await Promise.all(carousel.slides.map(async (slide, i) => {
+      try {
+        const slideText = embedText
+          ? [slide.headlineText?.trim(), slide.bodyText?.trim(), ...(slide.bulletPoints ?? [])].filter(Boolean).join("\n")
+          : "";
+        const seed = `${carousel.id.slice(-4)}-slide-${i + 1}`;
+        const prompt = [
+          `Carousel slide for ${carousel.platform}: ${slide.background}.`,
+          slide.visualNote && `Mood: ${slide.visualNote}.`,
+          `Variation: ${seed}.`,
+          brandVisual && `Brand visual style: ${brandVisual}.`,
+          brandColorsLine,
+          embedText
+            ? "Vertical 9:16 format. Leave clean space for typography."
+            : "Vertical 9:16 format. No text overlay. Clean composition.",
+        ].filter(Boolean).join(" ");
+
+        const res = await fetch("/api/generate-image-anthropic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            postText: prompt,
+            format: "сторис",
+            platform: carousel.platform,
+            brandColors: brandBook?.colors ?? [],
+            brandStyle: brandBook?.visualStyle ?? "",
+            embedText: slideText || undefined,
+          }),
+        });
+        const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
+        if (j.ok && j.data?.imageUrl) {
+          results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!slideText };
+          // Прогрессивно обновляем — каждый завершившийся слайд виден сразу
+          const partialSlides = carousel.slides.map((s, idx) => {
+            const r = results[idx];
+            return r ? { ...s, backgroundImageUrl: r.imageUrl, hasEmbeddedText: r.hasEmbeddedText } : s;
+          });
+          onUpdate({ ...carousel, slides: partialSlides });
+        }
+        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1 } : p);
+      } catch {
+        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1 } : p);
+      }
+    }));
+
+    setTimeout(() => setBgProgress(null), 3000);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -97,18 +160,32 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
               </div>
             </div>
 
-            {/* Slides count */}
+            {/* Slides count — теперь ручной ввод, 3-15 */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>КОЛ-ВО СЛАЙДОВ</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                {([6, 7, 8, 10] as const).map(n => (
-                  <button key={n} onClick={() => setSlidesCount(n)}
-                    style={{ flex: 1, padding: "10px 8px", borderRadius: 9, border: `1.5px solid ${slidesCount === n ? accent : "var(--border)"}`,
-                      background: slidesCount === n ? accent + "15" : "var(--background)", color: slidesCount === n ? accent : "var(--foreground-secondary)",
-                      fontSize: 15, fontWeight: 700, cursor: "pointer", minHeight: 38 }}>
-                    {n}
-                  </button>
-                ))}
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                КОЛ-ВО СЛАЙДОВ ({slidesCount})
+              </label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="range" min={3} max={15} step={1}
+                  value={slidesCount}
+                  onChange={e => setSlidesCount(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: accent }}
+                />
+                <input
+                  type="number" min={3} max={15}
+                  value={slidesCount}
+                  onChange={e => {
+                    const n = Math.max(3, Math.min(15, Number(e.target.value) || 7));
+                    setSlidesCount(n);
+                  }}
+                  style={{
+                    width: 60, padding: "8px 10px", borderRadius: 8,
+                    border: `1.5px solid ${accent}`, background: "var(--background)",
+                    color: accent, fontSize: 14, fontWeight: 700, textAlign: "center",
+                    fontFamily: "inherit",
+                  }}
+                />
               </div>
             </div>
 
@@ -190,6 +267,19 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
         </div>
       </div>
 
+      {/* Auto-bg progress banner */}
+      {bgProgress && (
+        <div style={{ background: `linear-gradient(135deg, #ec4899, #f472b6)`, color: "#fff", borderRadius: 12, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, animation: "fadeIn 0.3s" }}>
+          <Loader2 size={18} className="spin" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800 }}>Генерируем фоны для всех слайдов параллельно: {bgProgress.ready} / {bgProgress.total}</div>
+            <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>
+              Каждый слайд получит уникальную картинку по своему промпту. Можно продолжать работу.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       {carousels.length === 0 ? (
         <>
@@ -210,13 +300,30 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, compan
             </div>
           </div>
         </>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {carousels.map(car => (
-            <CarouselCard key={car.id} c={c} carousel={car} onDelete={onDelete} onUpdate={onUpdate} brandBook={brandBook} />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        const counts = {
+          drafts: carousels.filter(c => computeStatus(c) === "drafts").length,
+          scheduled: carousels.filter(c => computeStatus(c) === "scheduled").length,
+          published: carousels.filter(c => computeStatus(c) === "published").length,
+        };
+        const filtered = carousels.filter(c => computeStatus(c) === statusTab);
+        return (
+          <>
+            <StatusTabs value={statusTab} onChange={setStatusTab} counts={counts} />
+            {filtered.length === 0 ? (
+              <div style={{ padding: "28px 24px", textAlign: "center", color: "var(--muted-foreground)", fontSize: 14, background: "var(--card)", borderRadius: 14, border: "1px dashed var(--border)" }}>
+                В этой вкладке пока пусто
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {filtered.map(car => (
+                  <CarouselCard key={car.id} c={c} carousel={car} onDelete={onDelete} onUpdate={onUpdate} brandBook={brandBook} />
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
