@@ -34,12 +34,24 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const script: string = (body.script ?? "").toString().trim();
+    let script: string = (body.script ?? "").toString().trim();
     const customPrompt: string = (body.prompt ?? "").toString().trim();
     const avatarId: string | undefined =
       typeof body.avatarId === "string" && body.avatarId.trim() ? body.avatarId.trim() : undefined;
     const voiceId: string | undefined =
       typeof body.voiceId === "string" && body.voiceId.trim() ? body.voiceId.trim() : undefined;
+    // Voice modulation — speed (0.5-2.0) и pitch (-12..+12 semitones). Без
+    // этих параметров HeyGen озвучивает «как из коробки», часто слишком
+    // монотонно или быстро. Дефолты ставим чуть медленнее (0.95) чтобы
+    // русская речь звучала разборчивее.
+    const voiceSpeed: number = (() => {
+      const n = Number(body.voiceSpeed);
+      return Number.isFinite(n) && n >= 0.5 && n <= 2.0 ? n : 0.95;
+    })();
+    const voicePitch: number = (() => {
+      const n = Number(body.voicePitch);
+      return Number.isFinite(n) && n >= -12 && n <= 12 ? n : 0;
+    })();
     const aspect: "portrait" | "landscape" =
       body.aspect === "landscape" ? "landscape" : "portrait";
     const companyName: string = (body.companyName ?? "").toString().trim();
@@ -86,6 +98,27 @@ export async function POST(req: Request) {
         if (m) filesForAgent.push({ type: "base64", media_type: m[1], data: m[2] });
       }
       if (filesForAgent.length >= 20) break; // HeyGen лимит
+    }
+
+    // Auto-trim script под длительность видео. Русская TTS-озвучка идёт
+    // примерно 2.2 слова/сек (132 wpm) — если скрипт длиннее, HeyGen
+    // либо обрезает на полуслове, либо ускоряет речь до невнятности.
+    // Лучше обрезать заранее по последнему завершённому предложению.
+    if (script) {
+      const wordsPerSec = 2.2;
+      const maxWords = Math.floor(targetDurationSec * wordsPerSec);
+      const wordCount = script.split(/\s+/).filter(Boolean).length;
+      if (wordCount > maxWords) {
+        // Берём первые maxWords слов и обрезаем по последнему «.» или «!»/«?»
+        const truncated = script.split(/\s+/).slice(0, maxWords).join(" ");
+        const lastSentence = Math.max(
+          truncated.lastIndexOf(". "),
+          truncated.lastIndexOf("! "),
+          truncated.lastIndexOf("? "),
+        );
+        script = lastSentence > 50 ? truncated.slice(0, lastSentence + 1) : truncated + "…";
+        console.log(`[reel-video] script auto-trimmed: ${wordCount} → ${script.split(/\s+/).length} words for ${targetDurationSec}s`);
+      }
     }
 
     if (!script && !customPrompt) {
@@ -219,8 +252,18 @@ export async function POST(req: Request) {
         `5) Video mode: ${modeDesc}.`
       );
 
-      // HeyGen лимит — 10000 символов на промпт.
-      prompt = parts.join("\n\n").slice(0, 9800);
+      // HeyGen лимит — 10000 символов на промпт. Обрезаем по концу
+      // абзаца, чтобы не оборвать b-roll или final-checklist инструкции на
+      // полу-слове — это самая частая причина «агент проигнорировал
+      // требование».
+      const fullPrompt = parts.join("\n\n");
+      if (fullPrompt.length <= 9800) {
+        prompt = fullPrompt;
+      } else {
+        const cut = fullPrompt.slice(0, 9800);
+        const lastBreak = Math.max(cut.lastIndexOf("\n\n"), cut.lastIndexOf(". "));
+        prompt = lastBreak > 5000 ? cut.slice(0, lastBreak) : cut;
+      }
     }
 
     const orientation = aspect === "portrait" ? "portrait" : "landscape";
@@ -231,6 +274,7 @@ export async function POST(req: Request) {
       orientation: "portrait" | "landscape";
       avatar_id?: string;
       voice_id?: string;
+      voice_settings?: { speed?: number; pitch?: number };
       files?: HeygenFile[];
     }
     const payload: AgentPayload = {
@@ -239,7 +283,16 @@ export async function POST(req: Request) {
       orientation,
     };
     if (avatarId) payload.avatar_id = avatarId;
-    if (voiceId) payload.voice_id = voiceId;
+    if (voiceId) {
+      payload.voice_id = voiceId;
+      // Voice modulation — добавляем только если есть voice_id
+      // (без id HeyGen может проигнорировать settings).
+      if (voiceSpeed !== 1.0 || voicePitch !== 0) {
+        payload.voice_settings = {};
+        if (voiceSpeed !== 1.0) payload.voice_settings.speed = voiceSpeed;
+        if (voicePitch !== 0) payload.voice_settings.pitch = voicePitch;
+      }
+    }
     if (filesForAgent.length > 0) payload.files = filesForAgent;
 
     const res = await fetch("https://api.heygen.com/v3/video-agents", {

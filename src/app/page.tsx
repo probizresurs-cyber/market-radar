@@ -1029,10 +1029,26 @@ function MarketRadarDashboardInner() {
     }
   };
 
+  // Дешёвая sanitization для media-полей: data:image/...;base64,... URI
+  // имеют длину 1-2MB и при persist-е забивают localStorage / 413'ят POST /api/data.
+  // Должны были стать /api/image/{id}, но если persistImageDataUri упал
+  // (DB down, userId не подгружен) — клиент получил raw base64. Защищаемся:
+  // вырезаем base64-URI на стороне UI, оставляем только короткие ссылки.
+  // Пользователь увидит пустой слайд и сможет регенерировать одной кнопкой,
+  // вместо «тихого» исчезновения всего набора при QuotaExceededError.
+  const sanitizeDataUrls = <T,>(obj: T): T => {
+    const s = JSON.stringify(obj);
+    if (!s.includes("data:image/")) return obj;
+    // Заменяем только содержимое в значениях string, не ломая структуру JSON.
+    const cleaned = s.replace(/"data:image\/[^"\\]+(?:\\.[^"\\]*)*"/g, '""');
+    try { return JSON.parse(cleaned) as T; } catch { return obj; }
+  };
+
   const persistStories = (stories: GeneratedStory[]) => {
     if (!currentUser?.id) return;
-    try { localStorage.setItem(`mr_stories_${currentUser.id}`, JSON.stringify(stories)); } catch { /* ignore */ }
-    syncToServer("stories", stories);
+    const safe = sanitizeDataUrls(stories);
+    try { localStorage.setItem(`mr_stories_${currentUser.id}`, JSON.stringify(safe)); } catch { /* ignore */ }
+    syncToServer("stories", safe);
   };
 
   const handleAddStory = (story: GeneratedStory) => {
@@ -1061,8 +1077,9 @@ function MarketRadarDashboardInner() {
 
   const persistCarousels = (carousels: GeneratedCarousel[]) => {
     if (!currentUser?.id) return;
-    try { localStorage.setItem(`mr_carousels_${currentUser.id}`, JSON.stringify(carousels)); } catch { /* ignore */ }
-    syncToServer("carousels", carousels);
+    const safe = sanitizeDataUrls(carousels);
+    try { localStorage.setItem(`mr_carousels_${currentUser.id}`, JSON.stringify(safe)); } catch { /* ignore */ }
+    syncToServer("carousels", safe);
   };
 
   const handleAddCarousel = (carousel: GeneratedCarousel) => {

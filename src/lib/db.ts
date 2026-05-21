@@ -455,6 +455,10 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Релаксим NOT NULL на user_id — иногда image-gen вызывается до того
+  // как сессия зарезолвилась (anon-flow), и FK ломал INSERT → клиент
+  // получал raw base64 → localStorage переполнялся → картинки терялись.
+  await query(`ALTER TABLE user_images ALTER COLUMN user_id DROP NOT NULL`).catch(() => { /* старый PG */ });
   await query(`CREATE INDEX IF NOT EXISTS idx_user_images_user_id ON user_images(user_id)`);
 
   // ─── SWOT-отчёты ──────────────────────────────────────────────────────────

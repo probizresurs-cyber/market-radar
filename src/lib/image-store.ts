@@ -34,11 +34,6 @@ export async function persistImageDataUri(
     // уже обычный URL — ничего не делаем
     return imageUrlOrDataUri;
   }
-  if (!userId) {
-    // анонимный поток (логотип-превью, тест) — оставляем base64,
-    // потеря не критична, юзера в БД нет
-    return imageUrlOrDataUri;
-  }
   const match = imageUrlOrDataUri.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return imageUrlOrDataUri;
   const mimeType = match[1];
@@ -52,14 +47,15 @@ export async function persistImageDataUri(
   }
   const id = randomUUID();
   try {
+    // user_id NULL допустим (anon-flow) — мы релакснули колонку в db.ts
     await query(
       `INSERT INTO user_images (id, user_id, mime_type, data, size_bytes)
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, userId, mimeType, bytes, bytes.length],
+      [id, userId ?? null, mimeType, bytes, bytes.length],
     );
     return `/api/image/${id}`;
   } catch (e) {
-    console.error("[image-store] DB insert failed, keeping inline base64:", e);
+    console.error(`[image-store] DB insert failed for ${userId ? "user " + userId : "anon"}, size=${bytes.length}, keeping inline base64:`, e);
     return imageUrlOrDataUri;
   }
 }
