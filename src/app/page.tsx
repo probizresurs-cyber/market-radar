@@ -688,8 +688,12 @@ function MarketRadarDashboardInner() {
     const tasks: Promise<unknown>[] = [];
 
     if (opts.modules.includes("ta")) {
-      // niche/extraContext пустые — TA-route сам возьмёт контекст из company
-      tasks.push(handleTAAnalysis("", "", "b2c", result).catch((e) => {
+      // niche/extraContext пустые — TA-route сам возьмёт контекст из company.
+      // Тип аудитории определяем из user.businessType: BusinessType строки
+      // вида 'b2b-services'/'b2c-retail' — берём префикс.
+      const bt = currentUser?.businessType ?? "";
+      const audienceType: TAAudienceType = bt.startsWith("b2b") ? "b2b" : "b2c";
+      tasks.push(handleTAAnalysis("", "", audienceType, result).catch((e) => {
         console.warn("[wizard] TA failed", e);
       }));
     }
