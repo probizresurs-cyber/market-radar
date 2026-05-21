@@ -1985,7 +1985,7 @@ function MarketRadarDashboardInner() {
         {(activeNav === "content-trends" || activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && featureOn("content-factory") && !featureOn(activeNav) && (
           <ComingSoonView c={c} featureId={activeNav} title={features.labels[activeNav] ?? "Модуль"} description={features.descriptions[activeNav]} userEmail={currentUser?.email} />
         )}
-        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
+        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} userId={currentUser?.id} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
         {activeNav === "content-plan" && featureOn("content-factory") && featureOn("content-plan") && (
           contentPlan
             ? <ContentPlanView

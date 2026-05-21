@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 
@@ -189,8 +189,10 @@ function IdeaCard({ idea, onCreate, creating, onCreatePackage, creatingPackage }
   );
 }
 
-export function ContentTrendsView({ analysis, onCreateFromIdea, onCreatePackage }: {
+export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreatePackage }: {
   analysis: AnalysisResult | null;
+  /** Per-user скоуп localStorage. */
+  userId?: string;
   /** Callback вызывается, когда пользователь нажимает «Создать пост/сторис/…»
    *  на карточке идеи. Должен вернуть Promise — пока он не разрешится, кнопка
    *  показывает спиннер. */
@@ -200,19 +202,48 @@ export function ContentTrendsView({ analysis, onCreateFromIdea, onCreatePackage 
   onCreatePackage?: (idea: TrendContentIdea) => Promise<void>;
 }) {
   const defaultQuery = analysis?.company?.description?.split("\n")[0]?.slice(0, 80) || analysis?.company?.name || "";
-  const [query, setQuery] = useState(defaultQuery);
-  const [sources, setSources] = useState<string[]>(["yandex_news", "habr", "vc"]);
+  // Persist всё нужное состояние под mr_trends_<uid>: query, sources,
+  // result (тренды), ideas (AI-рекомендации), filter. Иначе после смены
+  // вкладки и возврата всё пересоздаётся с нуля.
+  const storageKey = `mr_trends_${userId || "anon"}`;
+  type TrendsPersist = {
+    query: string;
+    sources: string[];
+    result: { query: string; total: number; items: TrendItem[] } | null;
+    ideas: TrendContentIdea[] | null;
+    filter: string;
+  };
+  const loadInitial = (): Partial<TrendsPersist> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? (JSON.parse(raw) as TrendsPersist) : {};
+    } catch { return {}; }
+  };
+  const init = loadInitial();
+
+  const [query, setQuery] = useState(init.query ?? defaultQuery);
+  const [sources, setSources] = useState<string[]>(init.sources ?? ["yandex_news", "habr", "vc"]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{ query: string; total: number; items: TrendItem[] } | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [result, setResult] = useState<{ query: string; total: number; items: TrendItem[] } | null>(init.result ?? null);
+  const [filter, setFilter] = useState<string>(init.filter ?? "all");
 
   // Trend analysis state
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeErr, setAnalyzeErr] = useState("");
-  const [ideas, setIdeas] = useState<TrendContentIdea[] | null>(null);
+  const [ideas, setIdeas] = useState<TrendContentIdea[] | null>(init.ideas ?? null);
   const [creatingId, setCreatingId] = useState<string | null>(null);
   const [creatingPackageId, setCreatingPackageId] = useState<string | null>(null);
+
+  // Сохраняем при каждом изменении персистируемых полей
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!query && !result && !ideas) return; // skip empty state
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ query, sources, result, ideas, filter }));
+    } catch { /* quota — пропускаем */ }
+  }, [query, sources, result, ideas, filter, storageKey]);
 
   const handleCreate = async (idea: TrendContentIdea) => {
     if (!onCreateFromIdea) return;
