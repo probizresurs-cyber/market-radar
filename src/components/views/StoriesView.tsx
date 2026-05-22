@@ -10,6 +10,7 @@ import { OnboardingChecklist, type OnboardingState } from "@/components/ui/Onboa
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
+import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -28,7 +29,10 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
   onboardingState?: OnboardingState;
 }) {
   const [platform, setPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
-  const [slidesCount, setSlidesCount] = useState<3 | 5 | 7>(5);
+  // Кол-во слайдов — теперь свободный ввод 2-10 (как в каруселях),
+  // чтобы пользователь мог сделать короткую серию из 2 слайдов или
+  // длинную из 8-10, не ограничиваясь фиксированными 3/5/7.
+  const [slidesCount, setSlidesCount] = useState<number>(5);
   const [goal, setGoal] = useState("прогрев");
   const [brief, setBrief] = useState("");
   const [pillar, setPillar] = useState(plan?.pillars?.[0]?.name ?? "");
@@ -39,6 +43,10 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
   // Прогресс авто-генерации фонов для серии: { ready, total, storyId }
   const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; storyId: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
+  // Параметры картинки — как в «Создать пост».
+  const [showImageBlock, setShowImageBlock] = useState(false);
+  const [imageStyle, setImageStyle] = useState<ImageStyleKey>("");
+  const [customImagePrompt, setCustomImagePrompt] = useState("");
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -58,7 +66,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
 
       // Затем параллельно генерируем фоны для всех слайдов в фоне.
       // Каждый успешный bg прокидываем через onUpdate, чтобы UI прогрессивно обновлялся.
-      void autoGenerateBackgrounds(story, embedTextDefault);
+      void autoGenerateBackgrounds(story, embedTextDefault, imageStyle, customImagePrompt.trim());
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -66,12 +74,22 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
     }
   };
 
-  // Параллельная авто-генерация фонов для всех слайдов серии.
-  // Не дожидаемся каждого — каждый завершившийся обновляет свою карточку.
-  // Параллельно ведём bgProgress: { ready, total } для UI-баннера.
-  const autoGenerateBackgrounds = async (story: GeneratedStory, embedText: boolean) => {
+  // Авто-генерация фонов для всех слайдов серии с ограничением concurrency=2.
+  //
+  // Раньше использовали Promise.all — все 5-7 запросов уходили в OpenAI
+  // одновременно. На gpt-image-2 quality=high это упирается в rate-limit
+  // или 60-секундный timeout каждой Next.js-route, и часть запросов
+  // возвращалась с ok=false. Юзер видел только 2 картинки из 5.
+  // Concurrency=2 — золотая середина: быстро (две параллельно) и стабильно.
+  const autoGenerateBackgrounds = async (
+    story: GeneratedStory,
+    embedText: boolean,
+    style: ImageStyleKey,
+    customPrompt: string,
+  ) => {
     const brandVisual = brandBook?.visualStyle?.trim();
     const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+    const stylePhrase = stylePhraseFor(style);
 
     setBgProgress({ ready: 0, total: story.slides.length, storyId: story.id });
 
@@ -83,7 +101,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
     type SlideResult = { imageUrl: string; hasEmbeddedText: boolean } | null;
     const results: SlideResult[] = new Array(story.slides.length).fill(null);
 
-    await Promise.all(story.slides.map(async (slide, i) => {
+    await runWithConcurrency(story.slides, 2, async (slide, i) => {
       try {
         const slideTextLines = [
           slide.headlineText?.trim() ?? "",
@@ -94,10 +112,16 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
         // Делаем prompt уникальнее: добавляем индекс слайда + случайный seed,
         // чтобы не получить identical image при одинаковом slide.background.
         const seed = `${story.id.slice(-4)}-slide-${i + 1}`;
+        // Если юзер вписал свой английский промпт — он становится базой
+        // (как в «Создать пост»). Если пусто — берём AI-описание слайда.
+        const baseScene = customPrompt
+          ? `${customPrompt} (variation for slide ${i + 1}: ${slide.background})`
+          : `Story background for ${story.platform}: ${slide.background}.`;
         const prompt = [
-          `Story background for ${story.platform}: ${slide.background}.`,
+          baseScene,
           slide.visualNote && `Mood: ${slide.visualNote}.`,
           `Variation: ${seed}.`,
+          stylePhrase,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColors,
           embedText
@@ -132,7 +156,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
       } catch {
         setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       }
-    }));
+    });
 
     setTimeout(() => setBgProgress(null), 3000);
   };
@@ -178,18 +202,34 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
               </div>
             </div>
 
-            {/* Slides count */}
+            {/* Slides count — ручной ввод 2-10. Раньше было фикс. 3/5/7,
+               но для коротких серий (анонс, миф-факт) нужно 2; для длинных
+               прогревов — 8-10. */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>КОЛ-ВО СЛАЙДОВ</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                {([3, 5, 7] as const).map(n => (
-                  <button key={n} onClick={() => setSlidesCount(n)}
-                    style={{ flex: 1, padding: "10px 8px", borderRadius: 9, border: `1.5px solid ${slidesCount === n ? accent : "var(--border)"}`,
-                      background: slidesCount === n ? accent + "15" : "var(--background)", color: slidesCount === n ? accent : "var(--foreground-secondary)",
-                      fontSize: 15, fontWeight: 700, cursor: "pointer", minHeight: 38 }}>
-                    {n}
-                  </button>
-                ))}
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                КОЛ-ВО СЛАЙДОВ ({slidesCount})
+              </label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="range" min={2} max={10} step={1}
+                  value={slidesCount}
+                  onChange={e => setSlidesCount(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: accent }}
+                />
+                <input
+                  type="number" min={2} max={10}
+                  value={slidesCount}
+                  onChange={e => {
+                    const n = Math.max(2, Math.min(10, Number(e.target.value) || 5));
+                    setSlidesCount(n);
+                  }}
+                  style={{
+                    width: 60, padding: "8px 10px", borderRadius: 8,
+                    border: `1.5px solid ${accent}`, background: "var(--background)",
+                    color: accent, fontSize: 14, fontWeight: 700, textAlign: "center",
+                    fontFamily: "inherit",
+                  }}
+                />
               </div>
             </div>
 
@@ -267,6 +307,74 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
               </span>
             </div>
           </label>
+
+          {/* Параметры картинки — стиль + кастомный промпт (как в «Создать пост») */}
+          <div style={{ marginBottom: 14 }}>
+            <button
+              type="button"
+              onClick={() => setShowImageBlock(v => !v)}
+              style={{
+                width: "100%", textAlign: "left", padding: "11px 14px",
+                background: "var(--background)", border: `1px dashed ${accent}50`,
+                borderRadius: 10, cursor: "pointer", color: "var(--foreground)",
+                fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between",
+              }}
+            >
+              <span>🎨 Параметры картинки {(imageStyle || customImagePrompt.trim()) && <span style={{ color: accent, marginLeft: 6 }}>· настроено</span>}</span>
+              <span>{showImageBlock ? "▲" : "▼"}</span>
+            </button>
+            {showImageBlock && (
+              <div style={{
+                marginTop: 10, padding: 14, borderRadius: 10,
+                background: `${accent}06`, border: `1px solid ${accent}25`,
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СТИЛЬ КАРТИНКИ
+                  </label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {IMAGE_STYLE_OPTIONS.map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setImageStyle(val)}
+                        style={{
+                          padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                          background: imageStyle === val ? accent : "var(--card)",
+                          color: imageStyle === val ? "#fff" : "var(--foreground)",
+                          border: imageStyle === val ? `1px solid ${accent}` : "1px solid var(--border)",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СВОЙ ПРОМПТ ДЛЯ КАРТИНКИ (на английском, опц)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={customImagePrompt}
+                    onChange={e => setCustomImagePrompt(e.target.value)}
+                    placeholder="A modern office interior with warm evening lighting, woman looking at laptop, cinematic photography..."
+                    style={{
+                      width: "100%", padding: "9px 12px", borderRadius: 8,
+                      background: "var(--background)", border: "1px solid var(--border)",
+                      color: "var(--foreground)", fontSize: 12, fontFamily: "ui-monospace, monospace",
+                      outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
+                    Если пусто — AI сам опишет фон под каждый слайд. Если заполнено — этот промпт станет базой для всех слайдов (с вариацией).
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {genError && <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
 

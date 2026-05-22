@@ -9,6 +9,7 @@ import { OnboardingChecklist, type OnboardingState } from "@/components/ui/Onboa
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
+import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -36,6 +37,10 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
   const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; carouselId: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
+  // Параметры картинки — пресет стиля + кастомный английский промпт.
+  const [showImageBlock, setShowImageBlock] = useState(false);
+  const [imageStyle, setImageStyle] = useState<ImageStyleKey>("");
+  const [customImagePrompt, setCustomImagePrompt] = useState("");
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -56,7 +61,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
       setBrief("");
 
       // 2. Параллельно догружаем фоны для всех слайдов в фоне (как в сториз).
-      void autoGenerateCarouselBackgrounds(result, embedTextDefault);
+      void autoGenerateCarouselBackgrounds(result, embedTextDefault, imageStyle, customImagePrompt.trim());
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -64,26 +69,40 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
     }
   };
 
-  /** Параллельная авто-генерация фонов для всех слайдов карусели.
+  /** Авто-генерация фонов для всех слайдов карусели с concurrency=2.
+   *
+   *  Раньше Promise.all запускал 7-10 параллельных gpt-image-2 → часть
+   *  упиралась в rate-limit OpenAI или 60-сек таймаут роута. Юзер видел
+   *  только 2-3 картинки. Concurrency=2 решает эту проблему.
    *  Использует массив results[] (как в сториз) чтобы избежать race condition. */
-  const autoGenerateCarouselBackgrounds = async (carousel: GeneratedCarousel, embedText: boolean) => {
+  const autoGenerateCarouselBackgrounds = async (
+    carousel: GeneratedCarousel,
+    embedText: boolean,
+    style: ImageStyleKey,
+    customPrompt: string,
+  ) => {
     const brandVisual = brandBook?.visualStyle?.trim();
     const brandColorsLine = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
+    const stylePhrase = stylePhraseFor(style);
 
     setBgProgress({ ready: 0, total: carousel.slides.length, carouselId: carousel.id });
     type SlideResult = { imageUrl: string; hasEmbeddedText: boolean } | null;
     const results: SlideResult[] = new Array(carousel.slides.length).fill(null);
 
-    await Promise.all(carousel.slides.map(async (slide, i) => {
+    await runWithConcurrency(carousel.slides, 2, async (slide, i) => {
       try {
         const slideText = embedText
           ? [slide.headlineText?.trim(), slide.bodyText?.trim(), ...(slide.bulletPoints ?? [])].filter(Boolean).join("\n")
           : "";
         const seed = `${carousel.id.slice(-4)}-slide-${i + 1}`;
+        const baseScene = customPrompt
+          ? `${customPrompt} (variation for slide ${i + 1}: ${slide.background})`
+          : `Carousel slide for ${carousel.platform}: ${slide.background}.`;
         const prompt = [
-          `Carousel slide for ${carousel.platform}: ${slide.background}.`,
+          baseScene,
           slide.visualNote && `Mood: ${slide.visualNote}.`,
           `Variation: ${seed}.`,
+          stylePhrase,
           brandVisual && `Brand visual style: ${brandVisual}.`,
           brandColorsLine,
           embedText
@@ -117,7 +136,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
       } catch {
         setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1 } : p);
       }
-    }));
+    });
 
     setTimeout(() => setBgProgress(null), 3000);
   };
@@ -266,6 +285,74 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
               </span>
             </div>
           </label>
+
+          {/* Параметры картинки — стиль + кастомный промпт (как в «Создать пост») */}
+          <div style={{ marginBottom: 14 }}>
+            <button
+              type="button"
+              onClick={() => setShowImageBlock(v => !v)}
+              style={{
+                width: "100%", textAlign: "left", padding: "11px 14px",
+                background: "var(--background)", border: `1px dashed ${accent}50`,
+                borderRadius: 10, cursor: "pointer", color: "var(--foreground)",
+                fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between",
+              }}
+            >
+              <span>🎨 Параметры картинки {(imageStyle || customImagePrompt.trim()) && <span style={{ color: accent, marginLeft: 6 }}>· настроено</span>}</span>
+              <span>{showImageBlock ? "▲" : "▼"}</span>
+            </button>
+            {showImageBlock && (
+              <div style={{
+                marginTop: 10, padding: 14, borderRadius: 10,
+                background: `${accent}06`, border: `1px solid ${accent}25`,
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СТИЛЬ КАРТИНКИ
+                  </label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {IMAGE_STYLE_OPTIONS.map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setImageStyle(val)}
+                        style={{
+                          padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                          background: imageStyle === val ? accent : "var(--card)",
+                          color: imageStyle === val ? "#fff" : "var(--foreground)",
+                          border: imageStyle === val ? `1px solid ${accent}` : "1px solid var(--border)",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    СВОЙ ПРОМПТ ДЛЯ КАРТИНКИ (на английском, опц)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={customImagePrompt}
+                    onChange={e => setCustomImagePrompt(e.target.value)}
+                    placeholder="Modern infographic design with clean typography, gradient background, professional editorial style..."
+                    style={{
+                      width: "100%", padding: "9px 12px", borderRadius: 8,
+                      background: "var(--background)", border: "1px solid var(--border)",
+                      color: "var(--foreground)", fontSize: 12, fontFamily: "ui-monospace, monospace",
+                      outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>
+                    Если пусто — AI сам опишет каждый слайд. Если заполнено — этот промпт станет базой для всех слайдов карусели (с вариацией).
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {genError && <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", color: "var(--destructive)", padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 12 }}>❌ {genError}</div>}
 
