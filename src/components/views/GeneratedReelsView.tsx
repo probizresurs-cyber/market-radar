@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Edit2, Save, Trash2, ClipboardList, Mic, X, Loader2, Film, Sparkles, RefreshCw, Play } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { GeneratedReel, AvatarSettings, BrandBook, BrollClip, ContentPlan, ContentReelIdea } from "@/lib/content-types";
@@ -79,6 +79,16 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   // brollProvider больше не используется — провайдер выбирается video-agent'ом
   const clips = reel.brollClips ?? [];
 
+  // Стабильный ключ зависимости — пересчитываем только когда у клипа
+  // меняется id/status. Раньше зависимость считалась через `.map().join()`
+  // прямо в массиве deps useEffect: при каждом рендере получалась новая
+  // строка → React не успевал понять что dep не изменился → setInterval
+  // пересоздавался каждые 16мс и DDOS-ил наш /api/heygen-broll-status.
+  const clipsPollKey = useMemo(
+    () => clips.map(c => `${c.id}:${c.status}`).join(","),
+    [clips],
+  );
+
   // Poll pending clips каждые 8 секунд. Останавливаемся когда все completed/failed.
   useEffect(() => {
     const pending = clips.filter(c => c.status === "pending" && c.executionId);
@@ -110,7 +120,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
     }, 8000);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips.map(c => `${c.id}:${c.status}`).join(",")]);
+  }, [clipsPollKey]);
 
   const handleGenerateBrollPrompts = async () => {
     setBrollLoading(true);

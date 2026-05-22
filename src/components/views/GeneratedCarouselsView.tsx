@@ -10,6 +10,7 @@ import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
+import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -35,7 +36,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
   // Если ON — при рендере фонов каждого слайда чекбокс «Встроить текст»
   // будет уже включен по умолчанию (text-on-image).
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
-  const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; carouselId: string } | null>(null);
+  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; carouselId: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
   // Параметры картинки — пресет стиля + кастомный английский промпт.
   const [showImageBlock, setShowImageBlock] = useState(false);
@@ -53,9 +54,12 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
       });
       const json = await res.json() as { ok: boolean; data?: GeneratedCarousel; error?: string };
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
-      const result: GeneratedCarousel = embedTextDefault
-        ? { ...json.data!, slides: json.data!.slides.map(s => ({ ...s, hasEmbeddedText: true })) }
-        : json.data!;
+      // hasEmbeddedText ставим в autoGenerateCarouselBackgrounds ТОЛЬКО
+      // после успешной генерации фона со встроенным текстом. Раньше мы
+      // помечали все слайды как hasEmbeddedText=true заранее → если фон
+      // не сгенерировался, CSS-оверлей скрывался (см. !slide.hasEmbeddedText
+      // условие в рендере) и слайд оставался пустым.
+      const result: GeneratedCarousel = json.data!;
       // 1. Сначала добавляем серию — юзер сразу видит превью.
       onAdd(result);
       setBrief("");
@@ -85,7 +89,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
     const brandColorsLine = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
     const stylePhrase = stylePhraseFor(style);
 
-    setBgProgress({ ready: 0, total: carousel.slides.length, carouselId: carousel.id });
+    setBgProgress({ ready: 0, attempted: 0, total: carousel.slides.length, carouselId: carousel.id });
     type SlideResult = { imageUrl: string; hasEmbeddedText: boolean } | null;
     const results: SlideResult[] = new Array(carousel.slides.length).fill(null);
 
@@ -131,14 +135,18 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
             return r ? { ...s, backgroundImageUrl: r.imageUrl, hasEmbeddedText: r.hasEmbeddedText } : s;
           });
           onUpdate({ ...carousel, slides: partialSlides });
+          setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1, attempted: p.attempted + 1 } : p);
+        } else {
+          // ok=false — счётчик attempts++, ready не растёт.
+          setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1 } : p);
         }
-        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1 } : p);
       } catch {
-        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1 } : p);
+        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1 } : p);
       }
     });
 
-    setTimeout(() => setBgProgress(null), 3000);
+    // Если есть провалы — баннер держим 8 сек, чтобы юзер увидел.
+    setTimeout(() => setBgProgress(null), results.every(r => r != null) ? 3000 : 8000);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -371,18 +379,52 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
         </div>
       </div>
 
-      {/* Auto-bg progress banner */}
-      {bgProgress && (
-        <div style={{ background: `linear-gradient(135deg, #ec4899, #f472b6)`, color: "#fff", borderRadius: 12, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, animation: "fadeIn 0.3s" }}>
-          <Loader2 size={18} className="spin" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800 }}>Генерируем фоны для всех слайдов параллельно: {bgProgress.ready} / {bgProgress.total}</div>
-            <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>
-              Каждый слайд получит уникальную картинку по своему промпту. Можно продолжать работу.
+      {/* Auto-bg progress banner — синхронизирован со стилем сториз:
+         спокойный pink-вариант пока идёт работа, красный warning если
+         часть слайдов не получилась. */}
+      {bgProgress && (bgProgress.attempted < bgProgress.total || bgProgress.ready < bgProgress.total) && (() => {
+        const inProgress = bgProgress.attempted < bgProgress.total;
+        const failed = bgProgress.total - bgProgress.ready;
+        return (
+          <div style={{
+            marginBottom: 16,
+            padding: "12px 18px",
+            background: inProgress
+              ? "color-mix(in oklch, #ec4899 8%, var(--card))"
+              : "color-mix(in oklch, var(--destructive) 8%, var(--card))",
+            border: `1.5px solid ${inProgress
+              ? "color-mix(in oklch, #ec4899 35%, var(--border))"
+              : "color-mix(in oklch, var(--destructive) 35%, var(--border))"}`,
+            borderRadius: 12,
+            display: "flex", alignItems: "center", gap: 12,
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 9,
+              background: inProgress
+                ? "color-mix(in oklch, #ec4899 18%, transparent)"
+                : "color-mix(in oklch, var(--destructive) 18%, transparent)",
+              color: inProgress ? "#ec4899" : "var(--destructive)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {inProgress
+                ? <Loader2 size={18} className="spin" />
+                : <span style={{ fontSize: 16 }}>⚠️</span>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, color: "var(--foreground)" }}>
+                {inProgress
+                  ? `Рисую фоны слайдов: ${bgProgress.ready} / ${bgProgress.total}`
+                  : `Нарисовано ${bgProgress.ready} из ${bgProgress.total} — ${failed} не вышло`}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
+                {inProgress
+                  ? "Каждый слайд получит уникальную картинку. Можно продолжать работу."
+                  : "Откройте карусель и нажмите «Перегенерировать фон» на пустых слайдах."}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* List */}
       {carousels.length === 0 ? (
@@ -767,6 +809,15 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
               <div style={{ fontSize: 13, color: "var(--foreground-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{carousel.caption}</div>
             </div>
           )}
+
+          {/* Метрики карусели — те же поля что и у поста. */}
+          <MetricsBlock
+            c={c}
+            kind="carousel"
+            metrics={carousel.metrics}
+            onChange={next => onUpdate({ ...carousel, metrics: next })}
+            locked={carousel.manualStatus !== "published" && !(carousel.publishStatus?.vk?.ok || carousel.publishStatus?.telegram?.ok)}
+          />
 
           {/* Hashtags + delete */}
           <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>

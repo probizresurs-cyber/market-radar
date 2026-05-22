@@ -238,11 +238,18 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   const [creatingId, setCreatingId] = useState<string | null>(null);
   const [creatingPackageId, setCreatingPackageId] = useState<string | null>(null);
 
-  // Сохраняем при каждом изменении персистируемых полей
+  // Сохраняем при каждом изменении персистируемых полей.
+  // ВАЖНО: не выходим раньше при пустом state — иначе после очистки
+  // (setResult(null) / setIdeas(null) на повторном запросе) старые
+  // данные остаются в localStorage и подтягиваются при следующем mount.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!query && !result && !ideas) return; // skip empty state
     try {
+      // Если всё пусто — снимаем ключ полностью, не оставляем мусор.
+      if (!query && !result && !ideas) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
       localStorage.setItem(storageKey, JSON.stringify({ query, sources, result, ideas, filter }));
     } catch { /* quota — пропускаем */ }
   }, [query, sources, result, ideas, filter, storageKey]);

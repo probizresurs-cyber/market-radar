@@ -664,75 +664,9 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   );
 }
 
-export function CalendarDayPanel({ c, dayText, dayIndex, isGeneratingPost, isGeneratingReel, onGeneratePost, onGenerateReel, onClose }: {
-  c: Colors;
-  dayText: string;
-  dayIndex: number;
-  isGeneratingPost: boolean;
-  isGeneratingReel: boolean;
-  onGeneratePost: (
-    idea: ContentPostIdea,
-    customPrompt?: string,
-    imageOpts?: {
-      imagePromptOverride?: string;
-      imageStyle?: string;
-      imageWithTextOverlay?: boolean;
-      imageOverlayText?: string;
-    },
-  ) => void;
-  onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
-  onClose: () => void;
-}) {
-  const isReel = /рилс/i.test(dayText);
-  const accentColor = isReel ? "#ec4899" : "#f59e0b";
-
-  const defaultPrompt = isReel
-    ? `Напиши сценарий рилса по теме: ${dayText}\n\nСтруктура: крюк (0-3 сек) → интрига → проблема → решение → результат → CTA.\nВерни JSON: { "title": "...", "scenario": "...", "voiceoverScript": "...", "hashtags": [...] }`
-    : `Напиши пост на тему: ${dayText}\n\nИспользуй сильный крючок, тело с конкретикой и призыв к действию.\nВерни JSON: { "hook": "...", "body": "...", "hashtags": [...], "imagePrompt": "..." }`;
-
-  const [prompt, setPrompt] = useState(defaultPrompt);
-  const busy = isReel ? isGeneratingReel : isGeneratingPost;
-
-  const fakeIdBase = { id: `cal-${dayIndex}`, pillar: "Календарь", format: "single" as const, hook: dayText, angle: dayText, goal: "охват", cta: "", platform: "instagram" };
-  const fakeReelBase = { id: `cal-${dayIndex}`, pillar: "Календарь", hook: dayText, intrigue: "", problem: "", solution: "", result: "", cta: "", durationSec: 30, visualStyle: "", hashtags: [] };
-
-  return (
-    <div style={{ marginTop: 14, background: "var(--card)", borderRadius: 12, border: `1.5px solid ${accentColor}40`, padding: 18, boxShadow: "var(--shadow)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, marginBottom: 4, letterSpacing: "0.05em" }}>ДЕНЬ {dayIndex + 1}</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{dayText}</div>
-        </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted-foreground)", lineHeight: 1 }}>×</button>
-      </div>
-
-      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 5, letterSpacing: "0.05em" }}>ПРОМПТ ДЛЯ ГЕНЕРАЦИИ (можно редактировать)</label>
-      <textarea
-        value={prompt}
-        onChange={e => setPrompt(e.target.value)}
-        rows={6}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${accentColor}50`, background: "var(--background)", color: "var(--foreground)", fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.55, boxSizing: "border-box" }}
-      />
-
-      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        <button
-          onClick={() => isReel
-            ? onGenerateReel(fakeReelBase, prompt)
-            : onGeneratePost(fakeIdBase, prompt)
-          }
-          disabled={busy}
-          style={{ flex: 1, padding: "10px 16px", borderRadius: 9, border: "none", background: busy ? "var(--muted)" : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}>
-          {busy ? "Генерируем…" : isReel ? "Создать сценарий рилса" : "Создать пост с картинкой"}
-        </button>
-        <button
-          onClick={() => setPrompt(defaultPrompt)}
-          style={{ padding: "10px 14px", borderRadius: 9, border: `1px solid var(--border)`, background: "transparent", color: "var(--foreground-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-          Сбросить промпт
-        </button>
-      </div>
-    </div>
-  );
-}
+// CalendarDayPanel удалён — раньше использовался для 30-дневного календаря
+// внутри ContentPlanView. Календарь переехал в отдельный таб ContentCalendarView
+// со своим drag-and-drop, поэтому панель никем не импортируется.
 
 // ---------- ContentPlanView ----------
 
@@ -832,34 +766,6 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
           ))}
         </div>
       </CollapsibleSection>
-
-      {/* Раньше здесь был блок «Создать контент». Он переехал в отдельные
-          табы «Создать пост» и «Создать видео» — там и пост-генератор, и
-          список черновиков/опубликованных в одном месте. */}
-      <div style={{
-        padding: "14px 18px", borderRadius: 12,
-        background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
-        border: "1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))",
-        marginTop: 14, marginBottom: 16,
-        display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
-      }}>
-        <span style={{ fontSize: 13.5, color: "var(--foreground-secondary)", flex: 1, minWidth: 200 }}>
-          Генератор контента переехал в отдельные табы:
-        </span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a href="/?nav=content-posts" style={{
-            padding: "7px 14px", borderRadius: 8,
-            background: "var(--primary)", color: "#fff",
-            fontSize: 13, fontWeight: 700, textDecoration: "none",
-          }}>Создать пост →</a>
-          <a href="/?nav=content-reels" style={{
-            padding: "7px 14px", borderRadius: 8,
-            background: "color-mix(in oklch, var(--primary) 12%, transparent)",
-            color: "var(--primary)", fontSize: 13, fontWeight: 700, textDecoration: "none",
-            border: "1px solid var(--primary)",
-          }}>Создать видео →</a>
-        </div>
-      </div>
 
       {/* Brand Book */}
       <BrandBookPanel c={c} brandBook={brandBook} onChange={onUpdateBrandBook} />

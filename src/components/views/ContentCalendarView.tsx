@@ -15,22 +15,54 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
-import type { GeneratedPost, GeneratedReel } from "@/lib/content-types";
+import type { GeneratedPost, GeneratedReel, GeneratedStory, GeneratedCarousel } from "@/lib/content-types";
 import {
   Calendar,
   ChevronLeft,
   ChevronRight,
   Film,
   FileText,
+  Smartphone,
+  Layers,
   X,
-  Image as ImageIcon,
   Inbox,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 type SchedulableItem =
   | { kind: "post"; item: GeneratedPost }
-  | { kind: "reel"; item: GeneratedReel };
+  | { kind: "reel"; item: GeneratedReel }
+  | { kind: "story"; item: GeneratedStory }
+  | { kind: "carousel"; item: GeneratedCarousel };
+
+// Цвета и иконки на одном уровне — чтобы не повторять if/else в каждом
+// месте отображения чипа/карточки. Сторис → фиолетовый (#a855f7), карусели
+// → розовый (#ec4899, такой же как рилсы, но иконка Layers), посты → жёлтый,
+// рилсы → розовый c фильмом.
+const KIND_META: Record<SchedulableItem["kind"], { accent: string; label: string }> = {
+  post:     { accent: "#f59e0b", label: "Пост" },
+  reel:     { accent: "#ec4899", label: "Рилс" },
+  story:    { accent: "#a855f7", label: "Сторис" },
+  carousel: { accent: "#0ea5e9", label: "Карусель" },
+};
+
+function itemTitle(it: SchedulableItem): string {
+  switch (it.kind) {
+    case "post":     return (it.item as GeneratedPost).hook;
+    case "reel":     return (it.item as GeneratedReel).title;
+    case "story":    return (it.item as GeneratedStory).title;
+    case "carousel": return (it.item as GeneratedCarousel).title;
+  }
+}
+
+function KindIcon({ kind, size, color }: { kind: SchedulableItem["kind"]; size: number; color: string }) {
+  switch (kind) {
+    case "post":     return <FileText size={size} style={{ color, flexShrink: 0 }} />;
+    case "reel":     return <Film size={size} style={{ color, flexShrink: 0 }} />;
+    case "story":    return <Smartphone size={size} style={{ color, flexShrink: 0 }} />;
+    case "carousel": return <Layers size={size} style={{ color, flexShrink: 0 }} />;
+  }
+}
 
 const RU_WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const RU_MONTHS = [
@@ -64,18 +96,34 @@ export function ContentCalendarView({
   c,
   posts,
   reels,
+  stories = [],
+  carousels = [],
   onUpdatePost,
   onUpdateReel,
+  onUpdateStory,
+  onUpdateCarousel,
   onGoToPost,
   onGoToReel,
+  onGoToStory,
+  onGoToCarousel,
 }: {
   c: Colors;
   posts: GeneratedPost[];
   reels: GeneratedReel[];
+  // Сторис и карусели — опциональны: их добавили в календарь позже,
+  // чтобы все 4 формата планировались в одном месте. Раньше для них
+  // была отдельная вкладка «Сторис-сценарии», где можно было пометить
+  // «Запланирован», но реальной даты не было.
+  stories?: GeneratedStory[];
+  carousels?: GeneratedCarousel[];
   onUpdatePost: (post: GeneratedPost) => void;
   onUpdateReel: (reel: GeneratedReel) => void;
+  onUpdateStory?: (story: GeneratedStory) => void;
+  onUpdateCarousel?: (carousel: GeneratedCarousel) => void;
   onGoToPost?: (id: string) => void;
   onGoToReel?: (id: string) => void;
+  onGoToStory?: (id: string) => void;
+  onGoToCarousel?: (id: string) => void;
 }) {
   void c;
   const today = new Date();
@@ -91,34 +139,72 @@ export function ContentCalendarView({
 
   const scheduled: Map<string, SchedulableItem[]> = useMemo(() => {
     const map = new Map<string, SchedulableItem[]>();
-    for (const p of posts) {
-      if (!p.scheduledFor) continue;
-      const k = dateKey(p.scheduledFor);
+    const push = (it: SchedulableItem, scheduledFor: string | undefined) => {
+      if (!scheduledFor) return;
+      const k = dateKey(scheduledFor);
       const arr = map.get(k) ?? [];
-      arr.push({ kind: "post", item: p });
+      arr.push(it);
       map.set(k, arr);
-    }
-    for (const r of reels) {
-      if (!r.scheduledFor) continue;
-      const k = dateKey(r.scheduledFor);
-      const arr = map.get(k) ?? [];
-      arr.push({ kind: "reel", item: r });
-      map.set(k, arr);
-    }
+    };
+    for (const p of posts)     push({ kind: "post", item: p }, p.scheduledFor);
+    for (const r of reels)     push({ kind: "reel", item: r }, r.scheduledFor);
+    for (const s of stories)   push({ kind: "story", item: s }, s.scheduledFor);
+    for (const c of carousels) push({ kind: "carousel", item: c }, c.scheduledFor);
     return map;
-  }, [posts, reels]);
+  }, [posts, reels, stories, carousels]);
 
   const unscheduled: SchedulableItem[] = useMemo(() => {
     const out: SchedulableItem[] = [];
-    for (const p of posts) if (!p.scheduledFor) out.push({ kind: "post", item: p });
-    for (const r of reels) if (!r.scheduledFor) out.push({ kind: "reel", item: r });
+    for (const p of posts)     if (!p.scheduledFor) out.push({ kind: "post", item: p });
+    for (const r of reels)     if (!r.scheduledFor) out.push({ kind: "reel", item: r });
+    for (const s of stories)   if (!s.scheduledFor) out.push({ kind: "story", item: s });
+    for (const c of carousels) if (!c.scheduledFor) out.push({ kind: "carousel", item: c });
     // Newest first
     return out.sort(
       (a, b) =>
         new Date(b.item.generatedAt).getTime() -
         new Date(a.item.generatedAt).getTime(),
     );
-  }, [posts, reels]);
+  }, [posts, reels, stories, carousels]);
+
+  // Один универсальный обработчик апдейта — обновляет любой из 4 форматов.
+  const updateScheduledFor = (it: SchedulableItem, scheduledFor: string | undefined) => {
+    switch (it.kind) {
+      case "post": {
+        const next = { ...it.item, scheduledFor } as GeneratedPost;
+        if (!scheduledFor) delete next.scheduledFor;
+        onUpdatePost(next);
+        break;
+      }
+      case "reel": {
+        const next = { ...it.item, scheduledFor } as GeneratedReel;
+        if (!scheduledFor) delete next.scheduledFor;
+        onUpdateReel(next);
+        break;
+      }
+      case "story": {
+        const next = { ...it.item, scheduledFor } as GeneratedStory;
+        if (!scheduledFor) delete next.scheduledFor;
+        onUpdateStory?.(next);
+        break;
+      }
+      case "carousel": {
+        const next = { ...it.item, scheduledFor } as GeneratedCarousel;
+        if (!scheduledFor) delete next.scheduledFor;
+        onUpdateCarousel?.(next);
+        break;
+      }
+    }
+  };
+
+  const goTo = (it: SchedulableItem) => {
+    switch (it.kind) {
+      case "post":     onGoToPost?.(it.item.id); break;
+      case "reel":     onGoToReel?.(it.item.id); break;
+      case "story":    onGoToStory?.(it.item.id); break;
+      case "carousel": onGoToCarousel?.(it.item.id); break;
+    }
+  };
 
   // ── Drag & drop handlers ───────────────────────────────────────
   const handleDragStart = (e: React.DragEvent, it: SchedulableItem) => {
@@ -137,26 +223,14 @@ export function ContentCalendarView({
     e.preventDefault();
     if (!dragItem) return;
     const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString();
-    if (dragItem.kind === "post") {
-      onUpdatePost({ ...dragItem.item, scheduledFor: iso });
-    } else {
-      onUpdateReel({ ...dragItem.item, scheduledFor: iso });
-    }
+    updateScheduledFor(dragItem, iso);
     setDragItem(null);
     setDragOverKey(null);
   };
   const handleDropOnBank = (e: React.DragEvent) => {
     e.preventDefault();
     if (!dragItem) return;
-    if (dragItem.kind === "post") {
-      const next = { ...dragItem.item };
-      delete next.scheduledFor;
-      onUpdatePost(next);
-    } else {
-      const next = { ...dragItem.item };
-      delete next.scheduledFor;
-      onUpdateReel(next);
-    }
+    updateScheduledFor(dragItem, undefined);
     setDragItem(null);
     setDragOverKey(null);
   };
@@ -165,8 +239,7 @@ export function ContentCalendarView({
   const handleScheduleViaInput = (it: SchedulableItem, isoDate: string) => {
     if (!isoDate) return;
     const iso = new Date(isoDate + "T12:00:00").toISOString();
-    if (it.kind === "post") onUpdatePost({ ...it.item, scheduledFor: iso });
-    else onUpdateReel({ ...it.item, scheduledFor: iso });
+    updateScheduledFor(it, iso);
     setScheduleTarget(null);
   };
 
@@ -198,7 +271,7 @@ export function ContentCalendarView({
     return () => window.removeEventListener("keydown", handler);
   }, [openDate]);
 
-  const hasAnyContent = posts.length + reels.length > 0;
+  const hasAnyContent = posts.length + reels.length + stories.length + carousels.length > 0;
 
   return (
     <div style={{ maxWidth: 1280 }}>
@@ -274,9 +347,11 @@ export function ContentCalendarView({
               Сегодня
             </button>
             <div style={{ flex: 1 }} />
-            <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--muted-foreground)" }}>
-              <Legend color="#f59e0b" label="Пост" />
-              <Legend color="#ec4899" label="Рилс" />
+            <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--muted-foreground)", flexWrap: "wrap" }}>
+              <Legend color={KIND_META.post.accent}     label="Пост" />
+              <Legend color={KIND_META.story.accent}    label="Сторис" />
+              <Legend color={KIND_META.carousel.accent} label="Карусель" />
+              <Legend color={KIND_META.reel.accent}     label="Рилс" />
             </div>
           </div>
 
@@ -485,20 +560,9 @@ export function ContentCalendarView({
           dateKey={openDate}
           items={scheduled.get(openDate) ?? []}
           onClose={() => setOpenDate(null)}
-          onUnschedule={it => {
-            if (it.kind === "post") {
-              const n = { ...it.item };
-              delete n.scheduledFor;
-              onUpdatePost(n);
-            } else {
-              const n = { ...it.item };
-              delete n.scheduledFor;
-              onUpdateReel(n);
-            }
-          }}
+          onUnschedule={it => updateScheduledFor(it, undefined)}
           onGoTo={it => {
-            if (it.kind === "post") onGoToPost?.(it.item.id);
-            else onGoToReel?.(it.item.id);
+            goTo(it);
             setOpenDate(null);
           }}
         />
@@ -545,9 +609,7 @@ function navBtnStyle(): React.CSSProperties {
 }
 
 function DayChip({ item, compact }: { item: SchedulableItem; compact?: boolean }) {
-  const isReel = item.kind === "reel";
-  const accent = isReel ? "#ec4899" : "#f59e0b";
-  const title = isReel ? (item.item as GeneratedReel).title : (item.item as GeneratedPost).hook;
+  const { accent } = KIND_META[item.kind];
   return (
     <div
       style={{
@@ -567,12 +629,8 @@ function DayChip({ item, compact }: { item: SchedulableItem; compact?: boolean }
         gap: 5,
       }}
     >
-      {isReel ? (
-        <Film size={10} style={{ color: accent, flexShrink: 0 }} />
-      ) : (
-        <FileText size={10} style={{ color: accent, flexShrink: 0 }} />
-      )}
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+      <KindIcon kind={item.kind} size={10} color={accent} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{itemTitle(item)}</span>
     </div>
   );
 }
@@ -588,13 +646,33 @@ function BankCard({
   onSchedule: () => void;
   onOpen: () => void;
 }) {
-  const isReel = item.kind === "reel";
-  const accent = isReel ? "#ec4899" : "#f59e0b";
-  const title = isReel ? (item.item as GeneratedReel).title : (item.item as GeneratedPost).hook;
-  const subtitle = isReel
-    ? `Рилс · ${(item.item as GeneratedReel).durationSec}с`
-    : `Пост · ${(item.item as GeneratedPost).platform || ""}`;
-  const imageUrl = !isReel ? (item.item as GeneratedPost).imageUrl : undefined;
+  const { accent, label } = KIND_META[item.kind];
+  const title = itemTitle(item);
+  // Превью-картинка: для постов — imageUrl, для каруселей — первый слайд,
+  // для сторис — первый слайд. Для рилсов превью нет (видео).
+  let imageUrl: string | undefined;
+  let subtitle = label;
+  switch (item.kind) {
+    case "post":
+      imageUrl = (item.item as GeneratedPost).imageUrl;
+      subtitle = `Пост · ${(item.item as GeneratedPost).platform || ""}`;
+      break;
+    case "reel":
+      subtitle = `Рилс · ${(item.item as GeneratedReel).durationSec}с`;
+      break;
+    case "story": {
+      const s = item.item as GeneratedStory;
+      imageUrl = s.slides?.find(sl => sl.backgroundImageUrl)?.backgroundImageUrl;
+      subtitle = `Сторис · ${s.slides?.length ?? 0} слайдов`;
+      break;
+    }
+    case "carousel": {
+      const cr = item.item as GeneratedCarousel;
+      imageUrl = cr.slides?.find(sl => sl.backgroundImageUrl)?.backgroundImageUrl;
+      subtitle = `Карусель · ${cr.slides?.length ?? 0} слайдов`;
+      break;
+    }
+  }
 
   return (
     <div
@@ -629,7 +707,7 @@ function BankCard({
           flexShrink: 0,
         }}
       >
-        {!imageUrl && (isReel ? <Film size={16} /> : <ImageIcon size={16} />)}
+        {!imageUrl && <KindIcon kind={item.kind} size={16} color={accent} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
@@ -783,9 +861,8 @@ function DayDetailModal({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {items.map(it => {
-              const isReel = it.kind === "reel";
-              const accent = isReel ? "#ec4899" : "#f59e0b";
-              const title = isReel ? (it.item as GeneratedReel).title : (it.item as GeneratedPost).hook;
+              const { accent, label } = KIND_META[it.kind];
+              const title = itemTitle(it);
               return (
                 <div
                   key={it.item.id}
@@ -798,9 +875,9 @@ function DayDetailModal({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    {isReel ? <Film size={13} style={{ color: accent }} /> : <FileText size={13} style={{ color: accent }} />}
+                    <KindIcon kind={it.kind} size={13} color={accent} />
                     <span style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                      {isReel ? "Рилс" : "Пост"}
+                      {label}
                     </span>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", lineHeight: 1.4, marginBottom: 8 }}>
@@ -884,8 +961,7 @@ function SchedulePickerModal({
   onClose: () => void;
   onPick: (iso: string) => void;
 }) {
-  const isReel = item.kind === "reel";
-  const title = isReel ? (item.item as GeneratedReel).title : (item.item as GeneratedPost).hook;
+  const title = itemTitle(item);
   const [picked, setPicked] = useState<string>(
     new Date().toISOString().slice(0, 10),
   );

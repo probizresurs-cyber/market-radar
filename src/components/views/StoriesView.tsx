@@ -11,6 +11,7 @@ import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
+import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -41,7 +42,10 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
   // Глобальный флаг — встроить текст слайдов в каждое изображение через gpt-image-2.
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
   // Прогресс авто-генерации фонов для серии: { ready, total, storyId }
-  const [bgProgress, setBgProgress] = useState<{ ready: number; total: number; storyId: string } | null>(null);
+  // ready — успешно сгенерированные, attempted — отработавшие (ok или err);
+  // total — сколько всего слайдов. Если в конце attempted === total, но
+  // ready < total — пользователь видит «нарисовали 3 из 5, остальные не вышли».
+  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; storyId: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
   // Параметры картинки — как в «Создать пост».
   const [showImageBlock, setShowImageBlock] = useState(false);
@@ -91,7 +95,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
     const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
     const stylePhrase = stylePhraseFor(style);
 
-    setBgProgress({ ready: 0, total: story.slides.length, storyId: story.id });
+    setBgProgress({ ready: 0, attempted: 0, total: story.slides.length, storyId: story.id });
 
     // КРИТИЧНО: раньше использовалась общая переменная `working`, которую
     // каждый параллельный промис читал в начале → race condition →
@@ -151,14 +155,20 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
             return r ? { ...s, backgroundImageUrl: r.imageUrl, hasEmbeddedText: r.hasEmbeddedText } : s;
           });
           onUpdate({ ...story, slides: partialSlides });
+          setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1, attempted: p.attempted + 1 } : p);
+        } else {
+          // API ответил ok=false (квота/rate-limit/etc) — счётчик attempts++,
+          // но ready не растёт. Юзер увидит «3 из 5» в финальном баннере.
+          setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1 } : p);
         }
-        setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
       } catch {
-        setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1 } : p);
+        setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1 } : p);
       }
     });
 
-    setTimeout(() => setBgProgress(null), 3000);
+    // Если всё успешно — через 3 сек убираем баннер. Если есть сбои —
+    // оставляем на 8 сек, чтобы юзер успел прочитать и нажать «Перегенерировать».
+    setTimeout(() => setBgProgress(null), results.every(r => r != null) ? 3000 : 8000);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -393,45 +403,65 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
         </div>
       </div>
 
-      {/* BG generation progress banner */}
-      {bgProgress && bgProgress.ready < bgProgress.total && (
-        <div style={{
-          marginBottom: 18,
-          padding: "16px 20px",
-          background: "color-mix(in oklch, #a855f7 8%, var(--card))",
-          border: "1.5px solid color-mix(in oklch, #a855f7 35%, var(--border))",
-          borderRadius: 14,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-        }}>
+      {/* BG generation progress banner. Показываем пока attempted < total
+         (ещё в процессе) ИЛИ когда всё закончилось, но часть слайдов
+         упала (ready < total) — тогда красным предупреждением. */}
+      {bgProgress && (bgProgress.attempted < bgProgress.total || bgProgress.ready < bgProgress.total) && (() => {
+        const inProgress = bgProgress.attempted < bgProgress.total;
+        const failed = bgProgress.total - bgProgress.ready;
+        return (
           <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: "color-mix(in oklch, #a855f7 18%, transparent)",
-            color: "#a855f7",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            marginBottom: 18,
+            padding: "16px 20px",
+            background: inProgress
+              ? "color-mix(in oklch, #a855f7 8%, var(--card))"
+              : "color-mix(in oklch, var(--destructive) 8%, var(--card))",
+            border: `1.5px solid ${inProgress
+              ? "color-mix(in oklch, #a855f7 35%, var(--border))"
+              : "color-mix(in oklch, var(--destructive) 35%, var(--border))"}`,
+            borderRadius: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
           }}>
-            <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }}/>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: inProgress
+                ? "color-mix(in oklch, #a855f7 18%, transparent)"
+                : "color-mix(in oklch, var(--destructive) 18%, transparent)",
+              color: inProgress ? "#a855f7" : "var(--destructive)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {inProgress
+                ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }}/>
+                : <span style={{ fontSize: 18 }}>⚠️</span>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 6 }}>
+                {inProgress
+                  ? `Рисую фоны слайдов: ${bgProgress.ready} / ${bgProgress.total}`
+                  : `Нарисовано ${bgProgress.ready} из ${bgProgress.total} — ${failed} не вышло`}
+              </div>
+              <div style={{ height: 6, background: "var(--background)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%",
+                  width: `${(bgProgress.ready / bgProgress.total) * 100}%`,
+                  background: inProgress
+                    ? "linear-gradient(90deg, #a855f7, #c084fc)"
+                    : "var(--destructive)",
+                  borderRadius: 3,
+                  transition: "width 0.5s ease",
+                }}/>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>
+                {inProgress
+                  ? "Серия уже сохранена с текстом — фоны догружаются по мере готовности."
+                  : "Откройте серию и нажмите «Перегенерировать фон» на пустых слайдах."}
+              </div>
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 6 }}>
-              Рисую фоны слайдов: {bgProgress.ready} / {bgProgress.total}
-            </div>
-            <div style={{ height: 6, background: "var(--background)", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{
-                height: "100%",
-                width: `${(bgProgress.ready / bgProgress.total) * 100}%`,
-                background: "linear-gradient(90deg, #a855f7, #c084fc)",
-                borderRadius: 3,
-                transition: "width 0.5s ease",
-              }}/>
-            </div>
-            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>
-              Серия уже сохранена с текстом — фоны догружаются по мере готовности.
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Stories list — с табами статусов как в постах */}
       {stories.length === 0 ? (
@@ -717,6 +747,17 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
               </div>
             );
           })()}
+
+          {/* Метрики серии — те же поля что и у поста (reach/likes/leads/...).
+             Заблокированы пока серия в draft/scheduled; разблокируются когда
+             юзер ставит статус «Опубликован» вручную или autopublisher. */}
+          <MetricsBlock
+            c={c}
+            kind="story"
+            metrics={story.metrics}
+            onChange={next => onUpdate({ ...story, metrics: next })}
+            locked={story.manualStatus !== "published" && !(story.publishStatus?.vk?.ok || story.publishStatus?.telegram?.ok)}
+          />
 
           {/* Hashtags + delete */}
           <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>

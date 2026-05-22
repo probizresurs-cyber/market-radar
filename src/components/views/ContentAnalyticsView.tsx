@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
-import type { GeneratedPost, GeneratedReel } from "@/lib/content-types";
+import type { GeneratedPost, GeneratedReel, GeneratedStory, GeneratedCarousel } from "@/lib/content-types";
 import { fmtNumber } from "@/components/views/GeneratedPostsView";
 
 // ============================================================
@@ -19,9 +19,9 @@ interface PerformanceInsights {
   nextWeekPlan: string[];
 }
 
-type AnalyticsRow = {
+export type AnalyticsRow = {
   id: string;
-  kind: "post" | "reel";
+  kind: "post" | "reel" | "story" | "carousel";
   title: string;
   pillar: string;
   format: string;
@@ -35,59 +35,94 @@ type AnalyticsRow = {
   generatedAt: string;
 };
 
-export function buildAnalyticsRows(posts: GeneratedPost[], reels: GeneratedReel[]): AnalyticsRow[] {
+/** Универсальный билдер строки из metrics — те же формулы для всех 4 форматов
+ *  (PostMetrics-совместимая структура). Сторис и карусели тоже её используют. */
+function rowFromMetrics(opts: {
+  id: string;
+  kind: AnalyticsRow["kind"];
+  title: string;
+  pillar: string;
+  format: string;
+  generatedAt: string;
+  m: {
+    reach?: number; views?: number; impressions?: number;
+    likes?: number; comments?: number; shares?: number; saves?: number;
+    leads?: number; revenue?: number; adSpend?: number;
+  };
+}): AnalyticsRow {
+  const { m } = opts;
+  const reach = m.reach ?? m.views ?? m.impressions ?? 0;
+  const eng = (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (m.saves ?? 0);
+  const er = reach > 0 ? (eng / reach) * 100 : 0;
+  const adSpend = m.adSpend ?? 0;
+  const revenue = m.revenue ?? 0;
+  return {
+    id: opts.id, kind: opts.kind, title: opts.title, pillar: opts.pillar, format: opts.format,
+    reach, engagement: eng, er,
+    leads: m.leads ?? 0, revenue, adSpend,
+    romi: adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : null,
+    generatedAt: opts.generatedAt,
+  };
+}
+
+export function buildAnalyticsRows(
+  posts: GeneratedPost[],
+  reels: GeneratedReel[],
+  stories: GeneratedStory[] = [],
+  carousels: GeneratedCarousel[] = [],
+): AnalyticsRow[] {
   const rows: AnalyticsRow[] = [];
   for (const p of posts) {
     if (!p.metrics) continue;
-    const m = p.metrics;
-    const reach = m.reach ?? m.impressions ?? 0;
-    const eng = (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (m.saves ?? 0);
-    const er = reach > 0 ? (eng / reach) * 100 : 0;
-    const adSpend = m.adSpend ?? 0;
-    const revenue = m.revenue ?? 0;
-    rows.push({
+    rows.push(rowFromMetrics({
       id: p.id, kind: "post", title: p.hook, pillar: p.pillar,
       format: p.body.includes("---") ? "carousel" : "single",
-      reach, engagement: eng, er,
-      leads: m.leads ?? 0, revenue, adSpend,
-      romi: adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : null,
-      generatedAt: p.generatedAt,
-    });
+      generatedAt: p.generatedAt, m: p.metrics,
+    }));
   }
   for (const r of reels) {
     if (!r.metrics) continue;
-    const m = r.metrics;
-    const reach = m.reach ?? m.views ?? 0;
-    const eng = (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (m.saves ?? 0);
-    const er = reach > 0 ? (eng / reach) * 100 : 0;
-    const adSpend = m.adSpend ?? 0;
-    const revenue = m.revenue ?? 0;
-    rows.push({
+    rows.push(rowFromMetrics({
       id: r.id, kind: "reel", title: r.title, pillar: r.pillar,
       format: `reel-${r.durationSec}s`,
-      reach, engagement: eng, er,
-      leads: m.leads ?? 0, revenue, adSpend,
-      romi: adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : null,
-      generatedAt: r.generatedAt,
-    });
+      generatedAt: r.generatedAt, m: r.metrics,
+    }));
+  }
+  for (const s of stories) {
+    if (!s.metrics) continue;
+    rows.push(rowFromMetrics({
+      id: s.id, kind: "story", title: s.title, pillar: s.pillar,
+      format: `story-${s.slides?.length ?? 0}sl`,
+      generatedAt: s.generatedAt, m: s.metrics,
+    }));
+  }
+  for (const cr of carousels) {
+    if (!cr.metrics) continue;
+    rows.push(rowFromMetrics({
+      id: cr.id, kind: "carousel", title: cr.title, pillar: cr.pillar,
+      format: `carousel-${cr.slides?.length ?? 0}sl`,
+      generatedAt: cr.generatedAt, m: cr.metrics,
+    }));
   }
   return rows;
 }
 
-export function ContentAnalyticsView({ c, posts, reels, companyName }: {
+export function ContentAnalyticsView({ c, posts, reels, stories = [], carousels = [], companyName }: {
   c: Colors;
   posts: GeneratedPost[];
   reels: GeneratedReel[];
+  stories?: GeneratedStory[];
+  carousels?: GeneratedCarousel[];
   companyName: string;
 }) {
   const [periodDays, setPeriodDays] = useState<number>(0); // 0 = all time
-  const [filterKind, setFilterKind] = useState<"all" | "post" | "reel">("all");
+  const [filterKind, setFilterKind] = useState<"all" | "post" | "reel" | "story" | "carousel">("all");
   const [sortBy, setSortBy] = useState<"er" | "reach" | "romi" | "revenue" | "date">("er");
   const [insights, setInsights] = useState<PerformanceInsights | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
-  const allRows = buildAnalyticsRows(posts, reels);
+  const allRows = buildAnalyticsRows(posts, reels, stories, carousels);
 
   // Apply period filter
   const periodRows = periodDays === 0
@@ -187,7 +222,13 @@ export function ContentAnalyticsView({ c, posts, reels, companyName }: {
               fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{label}</button>
         ))}
         <div style={{ width: 1, background: "var(--muted)", margin: "0 4px" }} />
-        {([["all", "Всё"], ["post", "Посты"], ["reel", "Рилсы"]] as const).map(([k, label]) => (
+        {([
+          ["all", "Всё"],
+          ["post", "Посты"],
+          ["story", "Сторис"],
+          ["carousel", "Карусели"],
+          ["reel", "Рилсы"],
+        ] as const).map(([k, label]) => (
           <button key={k} onClick={() => setFilterKind(k)}
             style={{ padding: "6px 14px", borderRadius: 8, border: `1.5px solid ${filterKind === k ? "var(--primary)" : "var(--border)"}`,
               background: filterKind === k ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "var(--background)", color: filterKind === k ? "var(--primary)" : "var(--foreground-secondary)",
@@ -377,17 +418,19 @@ export function InsightsDisplay({ c, insights }: { c: Colors; insights: Performa
 // ROI Calculator View
 // ============================================================
 
-export function ROICalculatorView({ c, posts, reels }: {
+export function ROICalculatorView({ c, posts, reels, stories = [], carousels = [] }: {
   c: Colors;
   posts: GeneratedPost[];
   reels: GeneratedReel[];
+  stories?: GeneratedStory[];
+  carousels?: GeneratedCarousel[];
 }) {
   const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
   const [avgCheck, setAvgCheck] = useState<number>(0);
   const [marginPct, setMarginPct] = useState<number>(40);
   const [postsPerMonth, setPostsPerMonth] = useState<number>(20);
 
-  const rows = buildAnalyticsRows(posts, reels);
+  const rows = buildAnalyticsRows(posts, reels, stories, carousels);
   const withSpend = rows.filter(r => r.adSpend > 0 && r.leads > 0);
   const withRevenue = rows.filter(r => r.revenue > 0 && r.adSpend > 0);
 

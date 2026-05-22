@@ -2021,10 +2021,16 @@ function MarketRadarDashboardInner() {
             c={c}
             posts={generatedPosts}
             reels={generatedReels}
+            stories={generatedStories}
+            carousels={generatedCarousels}
             onUpdatePost={handleUpdatePost}
             onUpdateReel={handleUpdateReel}
+            onUpdateStory={handleUpdateStory}
+            onUpdateCarousel={handleUpdateCarousel}
             onGoToPost={() => setActiveNav("content-posts")}
             onGoToReel={() => setActiveNav("content-reels")}
+            onGoToStory={() => setActiveNav("content-stories")}
+            onGoToCarousel={() => setActiveNav("content-carousels")}
           />
         )}
         {activeNav === "content-posts" && featureOn("content-factory") && featureOn("content-posts") && (
@@ -2068,8 +2074,8 @@ function MarketRadarDashboardInner() {
         )}
         {activeNav === "content-stories" && featureOn("content-factory") && featureOn("content-stories") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} myCompany={myCompany} taResult={taAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
         {activeNav === "content-carousels" && featureOn("content-factory") && featureOn("content-carousels") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} myCompany={myCompany} taResult={taAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} onboardingState={onboardingState} />}
-        {activeNav === "content-analytics" && featureOn("content-factory") && featureOn("content-analytics") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} companyName={myCompany?.company.name ?? ""} />}
-        {activeNav === "content-roi" && featureOn("content-factory") && featureOn("content-roi") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} />}
+        {activeNav === "content-analytics" && featureOn("content-factory") && featureOn("content-analytics") && <ContentAnalyticsView c={c} posts={generatedPosts} reels={generatedReels} stories={generatedStories} carousels={generatedCarousels} companyName={myCompany?.company.name ?? ""} />}
+        {activeNav === "content-roi" && featureOn("content-factory") && featureOn("content-roi") && <ROICalculatorView c={c} posts={generatedPosts} reels={generatedReels} stories={generatedStories} carousels={generatedCarousels} />}
         {(activeNav === "seo-new" || activeNav === "seo-library" || activeNav === "seo-keywords" || activeNav === "seo-expand" || activeNav === "seo-paa" || activeNav === "seo-tech-audit") && (
           featureOn("seo-articles")
             ? <SEOArticlesView

@@ -203,14 +203,27 @@ export function fmtNumber(n: number | undefined): string {
 
 export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
   c: Colors;
-  kind: "post" | "reel";
+  /** Тип контента влияет только на лейблы/набор полей. story и carousel
+   *  используют POST_METRIC_FIELDS (та же структура — reach/likes/leads/...). */
+  kind: "post" | "reel" | "story" | "carousel";
   metrics: AnyMetrics | undefined;
   onChange: (next: AnyMetrics | undefined) => void;
   /** Когда true — блок не редактируется, показывается подсказка о смене статуса. */
   locked?: boolean;
 }) {
+  // ВАЖНО: все useState — ДО любого условного return. Раньше часть хуков
+  // была после `if (locked) return …` — React выкидывал "Rendered fewer
+  // hooks than expected" при смене статуса поста (drafts ↔ published).
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AnyMetrics>(metrics ?? {});
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(metrics?.screenshotUrl ?? null);
+  const [dragging, setDragging] = useState(false);
+  // Авто-fetch metrics из публичного URL (VK / Telegram)
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   // Если контент не опубликован — показываем placeholder вместо формы.
   if (locked) {
@@ -223,18 +236,10 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <BarChart2 size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
-        <span>Метрики можно внести только для опубликованного {kind === "reel" ? "рилса" : "поста"}. Переместите в «Опубликован» в шапке.</span>
+        <span>Метрики можно внести только для опубликованного {kind === "reel" ? "рилса" : kind === "story" ? "сторис" : kind === "carousel" ? "карусели" : "поста"}. Переместите в «Опубликован» в шапке.</span>
       </div>
     );
   }
-  const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<AnyMetrics>(metrics ?? {});
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(metrics?.screenshotUrl ?? null);
-  const [dragging, setDragging] = useState(false);
-  // Авто-fetch metrics из публичного URL (VK / Telegram)
-  const [urlInput, setUrlInput] = useState("");
-  const [urlFetching, setUrlFetching] = useState(false);
-  const [urlError, setUrlError] = useState<string | null>(null);
 
   const handleFetchFromUrl = async () => {
     const url = urlInput.trim();
@@ -257,8 +262,13 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
     }
   };
 
+  // Сторис и карусели используют тот же набор полей что и пост:
+  // reach/likes/comments/shares/saves/leads/revenue/adSpend.
   const fields = kind === "reel" ? REEL_METRIC_FIELDS : POST_METRIC_FIELDS;
-  const accent = kind === "reel" ? "#ec4899" : "#f59e0b";
+  const accent = kind === "reel" ? "#ec4899"
+    : kind === "story" ? "#a855f7"
+    : kind === "carousel" ? "#0ea5e9"
+    : "#f59e0b";
 
   const reach = draft.reach ?? draft.views ?? 0;
   const engagement = (draft.likes ?? 0) + (draft.comments ?? 0) + (draft.shares ?? 0) + (draft.saves ?? 0);
@@ -364,7 +374,7 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
   return (
     <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "var(--background)", border: `1.5px solid ${accent}40` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: accent }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={12}/>Метрики {kind === "reel" ? "рилса" : "поста"}</span></div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: accent }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><BarChart2 size={12}/>Метрики {kind === "reel" ? "рилса" : kind === "story" ? "сторис" : kind === "carousel" ? "карусели" : "поста"}</span></div>
         <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>×</button>
       </div>
 

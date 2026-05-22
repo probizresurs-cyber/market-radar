@@ -296,6 +296,9 @@ export interface GeneratedStory {
   manualStatus?: "drafts" | "scheduled" | "published";
   /** В какие соцсети опубликовано (для бейджей в карточке). */
   publishStatus?: PublishStatus;
+  /** Метрики публикации — те же поля что у постов (reach/likes/leads/...).
+   *  Позволяют сериям сторис попадать в аналитику и ROI на равных с постами. */
+  metrics?: PostMetrics;
 }
 
 // ---------- Carousels (Instagram-style swipeable posts) ----------
@@ -333,6 +336,8 @@ export interface GeneratedCarousel {
   scheduledFor?: string;
   manualStatus?: "drafts" | "scheduled" | "published";
   publishStatus?: PublishStatus;
+  /** Метрики публикации — те же поля что у постов. См. комментарий у GeneratedStory. */
+  metrics?: PostMetrics;
 }
 
 // ---------- Custom HeyGen assets (user-uploaded) ----------
