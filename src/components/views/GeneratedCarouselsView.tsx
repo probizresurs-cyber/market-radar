@@ -481,7 +481,8 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
   onUpdate: (updated: GeneratedCarousel) => void;
   brandBook?: BrandBook;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  // По умолчанию свёрнуто — см. комментарий в StoryCard.
+  const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   // Какому слайду открыли промпт-редактор. null = не открыт.
@@ -613,6 +614,60 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
           <span style={{ fontSize: 13, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>
       </div>
+
+      {/* Compact preview — миниатюры слайдов + заголовок cover-слайда. */}
+      {!expanded && (
+        <div
+          style={{
+            padding: "12px 22px 14px",
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            cursor: "pointer",
+            background: "color-mix(in oklch, var(--muted) 30%, var(--card))",
+          }}
+          onClick={() => setExpanded(true)}
+        >
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {carousel.slides.slice(0, 6).map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 6,
+                  background: s.backgroundImageUrl
+                    ? `url(${s.backgroundImageUrl}) center/cover`
+                    : `linear-gradient(135deg, ${slideTypeColor(s.slideType)}30, ${slideTypeColor(s.slideType)}10)`,
+                  border: `1px solid ${slideTypeColor(s.slideType)}40`,
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+            {carousel.slides.length > 6 && (
+              <div style={{
+                width: 36, height: 36, borderRadius: 6,
+                background: "var(--background)",
+                border: `1px solid var(--border)`,
+                fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>+{carousel.slides.length - 6}</div>
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {carousel.slides[0]?.headlineText || "—"}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {carousel.goal} · {carousel.hashtags.slice(0, 3).join(" ")}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: accent, fontWeight: 600, whiteSpace: "nowrap" }}>
+            Развернуть →
+          </div>
+        </div>
+      )}
 
       {expanded && (
         <div style={{ padding: "16px 18px" }}>

@@ -57,7 +57,18 @@ async function runAll() {
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // если секрет не настроен — пускаем (dev)
+  // Раньше: «нет секрета → пускаем (dev)». Это опасно — если на новом VPS
+  // забыли установить CRON_SECRET, endpoint становится открытым и любой
+  // может запускать всех агентов (платные AI-вызовы) по своему расписанию.
+  // Теперь: в dev (NODE_ENV !== "production") пускаем для удобства, на
+  // проде ОБЯЗАТЕЛЬНО требуем секрет.
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[cron/run-agents] CRON_SECRET not configured in production — refusing to run");
+      return false;
+    }
+    return true; // dev — пускаем
+  }
   const url = new URL(req.url);
   // Поддерживаем три формата (как у /api/cron/check-prices, чтобы один
   // CRON_SECRET работал везде):

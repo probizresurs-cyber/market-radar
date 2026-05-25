@@ -2092,6 +2092,10 @@ function MarketRadarDashboardInner() {
             isGeneratingPost={generatingPostId !== null}
             generatingPostId={generatingPostId}
             onGeneratePost={handleGeneratePost}
+            // Контекст для AutoIdeasModal в блоке «Создать пост»
+            myCompany={myCompany}
+            taResult={taAnalysis}
+            smmAnalysis={smmAnalysis}
           />
         )}
         {activeNav === "content-reels" && featureOn("content-factory") && featureOn("content-reels") && (
@@ -2114,6 +2118,10 @@ function MarketRadarDashboardInner() {
             // Контекст компании — критично для b-roll промптов
             companyName={myCompany?.company.name}
             companyNiche={myCompany?.company.description ?? ""}
+            // Контекст для AutoIdeasModal в блоке «Создать видео»
+            myCompany={myCompany}
+            taResult={taAnalysis}
+            smmAnalysis={smmAnalysis}
           />
         )}
         {activeNav === "content-stories" && featureOn("content-factory") && featureOn("content-stories") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} myCompany={myCompany} taResult={taAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}

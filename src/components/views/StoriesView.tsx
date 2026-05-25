@@ -518,7 +518,10 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
   onUpdate: (updated: GeneratedStory) => void;
   brandBook?: BrandBook;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  // По умолчанию серия СВЁРНУТА — в библиотеке из 10+ серий открытые
+  // карточки делают 5000px скролла. Юзер сам кликает шапку чтобы
+  // развернуть. Удобнее видеть всё списком и выбирать нужное.
+  const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   // Какому слайду открыли промпт-редактор. null = не открыт.
@@ -603,6 +606,62 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
           <span style={{ fontSize: 11, color: "var(--muted-foreground)", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
         </div>
       </div>
+
+      {/* Сompact preview когда свёрнуто — горизонтальная лента миниатюр
+         + первая headline. Кликом по миниатюре — раскрываем и сразу
+         показываем нужный слайд. */}
+      {!expanded && (
+        <div
+          style={{
+            padding: "10px 18px 12px",
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            cursor: "pointer",
+            background: "color-mix(in oklch, var(--muted) 30%, var(--card))",
+          }}
+          onClick={() => setExpanded(true)}
+        >
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {story.slides.slice(0, 5).map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 28,
+                  height: 50,
+                  borderRadius: 4,
+                  background: s.backgroundImageUrl
+                    ? `url(${s.backgroundImageUrl}) center/cover`
+                    : `linear-gradient(135deg, ${accent}30, ${accent}10)`,
+                  border: `1px solid ${accent}30`,
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+            {story.slides.length > 5 && (
+              <div style={{
+                width: 28, height: 50, borderRadius: 4,
+                background: "var(--background)",
+                border: `1px solid var(--border)`,
+                fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>+{story.slides.length - 5}</div>
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {story.slides[0]?.headlineText || "—"}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {story.goal} · {story.hashtags.slice(0, 3).join(" ")}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: accent, fontWeight: 600, whiteSpace: "nowrap" }}>
+            Развернуть →
+          </div>
+        </div>
+      )}
 
       {expanded && (
         <div style={{ padding: "16px 18px" }}>

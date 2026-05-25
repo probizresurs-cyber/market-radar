@@ -135,7 +135,10 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "generate-stories", model: "claude-sonnet-4-6" });
+    // Логируем именно тот model, который реально вызывали (gpt-4o выше в route).
+    // Раньше писалось claude-sonnet-4-6 — это ломало AI-logs графики и atribution
+    // токенов в admin-панели.
+    await access.log({ endpoint: "generate-stories", model: "gpt-4o" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

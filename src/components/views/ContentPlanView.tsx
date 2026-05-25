@@ -9,6 +9,7 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { BrandBookPanel } from "@/components/ui/BrandBookPanel";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
+import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { Factory, Smartphone, Rocket } from "lucide-react";
 
 // ============================================================
@@ -247,7 +248,7 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
 
 // ---------- ContentGeneratorBlock ----------
 
-export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook, lockedMode }: {
+export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook, lockedMode, myCompany, taResult, smmAnalysis }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -269,6 +270,11 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   /** Когда задан — переключатель Post/Reel скрыт, используется только этот режим.
    *  Нужно когда блок встраивается в специализированный таб (Создать пост / Создать видео). */
   lockedMode?: "post" | "reel";
+  /** Контекст для AutoIdeasModal — может быть undefined если блок встроен
+   *  на месте где этих данных нет. В таком случае модалку не показываем. */
+  myCompany?: AnalysisResult | null;
+  taResult?: import("@/lib/ta-types").TAResult | null;
+  smmAnalysis?: SMMResult | null;
 }) {
   const [mode, setMode] = useState<"post" | "reel">(lockedMode ?? "post");
   const [scratchMode, setScratchMode] = useState(false);
@@ -471,10 +477,35 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
 
         {/* Brief / instructions field */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>
-            БРИФ / УТОЧНЕНИЕ
-            <span style={{ fontWeight: 400, marginLeft: 6 }}>— необязательно, можно оставить пустым</span>
-          </label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 8, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
+              БРИФ / УТОЧНЕНИЕ
+              <span style={{ fontWeight: 400, marginLeft: 6 }}>— необязательно, можно оставить пустым</span>
+            </label>
+            {/* AI-идеи доступны если у нас есть хотя бы myCompany — без неё
+               модалка не сможет построить контекст. Прячем кнопку молча,
+               чтобы юзер не разочаровался «нажал — ничего». */}
+            {myCompany && (
+              <AutoIdeasModal
+                format={mode === "post" ? "post" : "reel"}
+                myCompany={myCompany}
+                taResult={taResult ?? null}
+                smmResult={smmAnalysis ?? null}
+                brandBook={brandBook}
+                accentColor={accent}
+                onSelectIdea={(idea: ContentIdea) => {
+                  // Подставляем идею в бриф (хук + ангуляция). Юзер может
+                  // дальше отредактировать или нажать «Подготовить промпт».
+                  setBrief(`${idea.hook}\n\n${idea.summary || idea.angle}`);
+                  // Если идея с pillar — переключаемся в scratch (нет привязки к idea.id).
+                  setScratchMode(true);
+                  setSelectedPostId(null);
+                  setSelectedReelId(null);
+                  setGeneratedPrompt("");
+                }}
+              />
+            )}
+          </div>
           <textarea
             value={brief}
             onChange={e => setBrief(e.target.value)}

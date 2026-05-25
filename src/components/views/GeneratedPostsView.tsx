@@ -1743,6 +1743,9 @@ export function GeneratedPostsView({
   brandBook, onboardingState,
   // Доп. пропсы — для встроенного блока «Создать пост»:
   plan, isGeneratingPost, generatingPostId, onGeneratePost,
+  // Контекст для AutoIdeasModal (генерация идей из ниши/ЦА/СММ) —
+  // одинаково с StoriesView/GeneratedCarouselsView.
+  myCompany, taResult, smmAnalysis,
 }: {
   c: Colors;
   posts: GeneratedPost[];
@@ -1763,6 +1766,9 @@ export function GeneratedPostsView({
     customPrompt?: string,
     imageOpts?: { imagePromptOverride?: string; imageStyle?: string; imageWithTextOverlay?: boolean; imageOverlayText?: string },
   ) => void;
+  myCompany?: import("@/lib/types").AnalysisResult | null;
+  taResult?: import("@/lib/ta-types").TAResult | null;
+  smmAnalysis?: import("@/lib/smm-types").SMMResult | null;
 }) {
   // Фильтр по платформе + поиск по тексту: критично когда постов 20+
   const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");
@@ -1858,6 +1864,9 @@ export function GeneratedPostsView({
           onGenerateReel={() => {}}
           brandBook={brandBook as BrandBook}
           lockedMode="post"
+          myCompany={myCompany}
+          taResult={taResult}
+          smmAnalysis={smmAnalysis}
         />
       ) : (
         <div style={{

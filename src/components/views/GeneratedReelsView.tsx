@@ -789,6 +789,8 @@ export function GeneratedReelsView({
   plan, isGeneratingReel, generatingReelId, onGenerateReelScenario,
   // Контекст компании — пробрасывается в ReelCard → /api/generate-broll-prompts
   companyName, companyNiche,
+  // Контекст для AutoIdeasModal внутри ContentGeneratorBlock
+  myCompany, taResult, smmAnalysis,
 }: {
   c: Colors;
   reels: GeneratedReel[];
@@ -807,6 +809,9 @@ export function GeneratedReelsView({
   onGenerateReelScenario?: (idea: ContentReelIdea, customPrompt?: string) => void;
   companyName?: string;
   companyNiche?: string;
+  myCompany?: import("@/lib/types").AnalysisResult | null;
+  taResult?: import("@/lib/ta-types").TAResult | null;
+  smmAnalysis?: import("@/lib/smm-types").SMMResult | null;
 }) {
   // Главный sub-tab: «Аватары» (создать/выбрать) или «Видео» (генератор сценариев + список).
   // Если у юзера ещё нет ни одного аватара — стартуем сразу на «Аватары».
@@ -977,6 +982,9 @@ export function GeneratedReelsView({
           onGenerateReel={onGenerateReelScenario}
           brandBook={brandBook as BrandBook}
           lockedMode="reel"
+          myCompany={myCompany}
+          taResult={taResult}
+          smmAnalysis={smmAnalysis}
         />
       ) : (
         <div style={{

@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -278,7 +279,7 @@ export async function POST(req: Request) {
     const userMessage = userPrompt.trim()
       ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}${nicheRule}` : `${userPrompt.trim()}${nicheRule}`)
       : buildPrompt(companyName, effectiveNiche, idea, smm, brandBook, styleProfile);
-    const textRes = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const textRes = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -421,7 +422,9 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "generate-post", model: "claude-sonnet-4-6" });
+    // Используется gpt-4o (см. payload выше), не claude. Раньше логировалось
+    // ошибочное claude-sonnet-4-6 → admin-аналитика по моделям была кривая.
+    await access.log({ endpoint: "generate-post", model: "gpt-4o" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

@@ -10,12 +10,18 @@ function admin403() {
 }
 
 // Short, memorable code like "PROMO30-50" → collision-safe via UNIQUE constraint.
+// КРИТИЧНО: используем crypto.randomBytes вместо Math.random — раньше Math.random
+// давал ~60M комбинаций для 5 char суффикса с предсказуемой энтропией
+// (Math.random в браузерах/Node — не криптостойкий). crypto.randomBytes(3) →
+// 16M гарантированно непредсказуемых комбинаций, плюс UNIQUE constraint в БД.
+import { randomBytes } from "crypto";
+
 function generateCode(name: string): string {
   const base = (name || "REF")
     .replace(/[^a-zA-Z0-9а-яА-ЯёЁ]/g, "")
     .slice(0, 6)
     .toUpperCase() || "REF";
-  const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
+  const suffix = randomBytes(3).toString("hex").toUpperCase(); // 6 hex chars = 16M вариантов
   return `${base}-${suffix}`;
 }
 
