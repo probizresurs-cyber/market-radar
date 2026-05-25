@@ -254,6 +254,13 @@ export interface AvatarSettings {
   // Пользовательские аватары и голоса (загруженные через upload/clone)
   customAvatars?: CustomAvatar[];
   customVoices?: CustomVoice[];
+  // ─── Voice quality knobs для HeyGen v3 ───
+  // Скорость речи 0.5-2.0. Дефолт 0.95 (чуть медленнее для разборчивости рус).
+  voiceSpeed?: number;
+  // Питч в полутонах -12..+12. Дефолт 0.
+  voicePitch?: number;
+  // Эмоция голоса: friendly (default) / professional / happy / serious / excited / calm.
+  voiceEmotion?: "friendly" | "professional" | "happy" | "serious" | "excited" | "calm";
 }
 
 export interface ContentFactoryState {

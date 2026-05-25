@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SEOArticleBrief } from "@/lib/seo-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
@@ -55,7 +56,9 @@ export async function POST(req: NextRequest) {
     const customBlock = customPlatformHint ? `\nДОПОЛНИТЕЛЬНО О ПЛОЩАДКЕ:\n${customPlatformHint}\n` : "";
     const isGeo = brief.articleMode === "geo";
 
-    const prompt = `Ты — ${isGeo ? "GEO-редактор (Generative Engine Optimization)" : "SEO-редактор"}. Составь детальную структуру (outline) для ${isGeo ? "GEO" : "SEO"}-статьи.
+    const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ${isGeo ? "GEO-редактор (Generative Engine Optimization)" : "SEO-редактор"}. Составь детальную структуру (outline) для ${isGeo ? "GEO" : "SEO"}-статьи.
 ${geoRulesIfNeeded(brief.articleMode)}
 
 БРИФ:

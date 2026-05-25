@@ -490,13 +490,72 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
             <button
               onClick={() => update({ aspect: "portrait" })}
               style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "portrait" ? "var(--primary)" : "var(--border)"}`, background: settings.aspect === "portrait" ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", color: settings.aspect === "portrait" ? "var(--primary)" : "var(--foreground-secondary)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Smartphone size={12}/>Вертикально (720×1280)</span>
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Smartphone size={12}/>Вертикально (1080×1920 Full HD)</span>
             </button>
             <button
               onClick={() => update({ aspect: "landscape" })}
               style={{ padding: "6px 12px", borderRadius: 7, border: `1.5px solid ${settings.aspect === "landscape" ? "var(--primary)" : "var(--border)"}`, background: settings.aspect === "landscape" ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent", color: settings.aspect === "landscape" ? "var(--primary)" : "var(--foreground-secondary)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Monitor size={12}/>Горизонтально (1280×720)</span>
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Monitor size={12}/>Горизонтально (1920×1080 Full HD)</span>
             </button>
+          </div>
+
+          {/* ─── Voice quality knobs ───
+             Раньше пользователь не мог настраивать эмоцию/темп голоса — HeyGen
+             озвучивал плоско. Эти 3 контрола пробрасываются в /api/generate-reel-video
+             → voice_settings.{ emotion, speed, pitch } для HeyGen v3.
+             Дефолты подобраны под русскую речь: speed=0.95 (чуть медленнее
+             для разборчивости), emotion=friendly, pitch=0. */}
+          <div style={{ marginTop: 18, padding: "12px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "color-mix(in oklch, var(--primary) 3%, var(--background))" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 10 }}>
+              КАЧЕСТВО ГОЛОСА (HeyGen v3)
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Emotion */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)" }}>Эмоция:</label>
+                <select
+                  value={settings.voiceEmotion ?? "friendly"}
+                  onChange={e => update({ voiceEmotion: e.target.value as AvatarSettings["voiceEmotion"] })}
+                  style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, fontFamily: "inherit", cursor: "pointer" }}
+                >
+                  <option value="friendly">😊 Дружелюбная</option>
+                  <option value="professional">💼 Профессиональная</option>
+                  <option value="happy">🙂 Радостная</option>
+                  <option value="excited">🤩 Энергичная</option>
+                  <option value="calm">😌 Спокойная</option>
+                  <option value="serious">😐 Серьёзная</option>
+                </select>
+              </div>
+              {/* Speed */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)" }}>
+                  Темп: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{(settings.voiceSpeed ?? 0.95).toFixed(2)}x</span>
+                </label>
+                <input
+                  type="range"
+                  min="0.5" max="1.5" step="0.05"
+                  value={settings.voiceSpeed ?? 0.95}
+                  onChange={e => update({ voiceSpeed: Number(e.target.value) })}
+                  style={{ width: 110 }}
+                />
+              </div>
+              {/* Pitch */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)" }}>
+                  Питч: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{(settings.voicePitch ?? 0) > 0 ? "+" : ""}{settings.voicePitch ?? 0}</span>
+                </label>
+                <input
+                  type="range"
+                  min="-6" max="6" step="1"
+                  value={settings.voicePitch ?? 0}
+                  onChange={e => update({ voicePitch: Number(e.target.value) })}
+                  style={{ width: 90 }}
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginTop: 8, lineHeight: 1.45 }}>
+              Дефолты подобраны под рус. речь: темп 0.95 для разборчивости, дружелюбная эмоция. Меняйте под тон ролика — для серьёзных тем «Профессиональная» или «Серьёзная», для рекламы — «Энергичная».
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>

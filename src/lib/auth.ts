@@ -1,9 +1,17 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "mr_fallback_secret_change_in_prod"
-);
+// КРИТИЧНО: НЕ оставляем fallback на public-строку. Если JWT_SECRET
+// случайно отвалится при деплое (например забыли пробросить .env), мы
+// должны падать громко на boot'е, а НЕ начать подписывать токены публично
+// известной строкой — иначе любой, кто прочитает репо, форжит admin-токен.
+// В dev допускаем fallback (NODE_ENV=development), на проде — throw.
+const RAW_SECRET = process.env.JWT_SECRET ??
+  (process.env.NODE_ENV === "production"
+    ? (() => { throw new Error("JWT_SECRET is required in production. Set it in .env before starting the server."); })()
+    : "mr_dev_only_fallback_DO_NOT_USE_IN_PROD");
+
+const JWT_SECRET = new TextEncoder().encode(RAW_SECRET);
 const COOKIE_NAME = "mr_token";
 
 export interface JWTPayload {

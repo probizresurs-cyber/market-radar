@@ -17,6 +17,7 @@
  * Если реального ключа нет → Claude симулирует «как мог бы ответить» тот ассистент,
  * но БЕЗ биас-подсказок. Ответ помечается isSimulated: true.
  */
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import type { AIMention, LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
@@ -101,7 +102,7 @@ async function callChatGPT(query: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return "";
   const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com";
-  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+  const res = await fetchWithTimeout(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -132,7 +133,7 @@ async function callClaudeDirect(query: string): Promise<string> {
 async function callPerplexity(query: string): Promise<string> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) return "";
-  const res = await fetch("https://api.perplexity.ai/chat/completions", {
+  const res = await fetchWithTimeout("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -153,7 +154,7 @@ async function callYandexGPT(query: string): Promise<string> {
   const iamToken = process.env.YANDEX_GPT_IAM_TOKEN;
   const folderId = process.env.YANDEX_GPT_FOLDER_ID;
   if (!iamToken || !folderId) return "";
-  const res = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
+  const res = await fetchWithTimeout("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
     method: "POST",
     headers: { Authorization: `Bearer ${iamToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({

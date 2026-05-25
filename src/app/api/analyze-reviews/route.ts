@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { Review } from "@/lib/review-types";
 import type { ReviewAnalysis } from "@/lib/review-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
@@ -79,7 +80,7 @@ ${reviewsDump}
 
 Проведи полный анализ и верни JSON.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

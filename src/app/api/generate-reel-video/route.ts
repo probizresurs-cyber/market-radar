@@ -52,6 +52,23 @@ export async function POST(req: Request) {
       const n = Number(body.voicePitch);
       return Number.isFinite(n) && n >= -12 && n <= 12 ? n : 0;
     })();
+    // Эмоция голоса — пробрасываем в voice_settings.emotion. HeyGen
+    // поддерживает: "happy", "serious", "excited", "calm", "friendly",
+    // "professional". По умолчанию "friendly" для маркетингового тона.
+    const VOICE_EMOTIONS = new Set(["happy", "serious", "excited", "calm", "friendly", "professional"]);
+    const voiceEmotion: string = (() => {
+      const v = String(body.voiceEmotion ?? "").trim().toLowerCase();
+      return VOICE_EMOTIONS.has(v) ? v : "friendly";
+    })();
+    // Стиль речи: "conversational" (по умолчанию — живой разговор) или
+    // "narrative" (ровный закадровый голос, для broll-only).
+    const VOICE_STYLES = new Set(["conversational", "narrative"]);
+    const voiceStyle: string = (() => {
+      const v = String(body.voiceStyle ?? "").trim().toLowerCase();
+      if (VOICE_STYLES.has(v)) return v;
+      // По умолчанию: для broll-only → narrative, иначе conversational
+      return body.videoMode === "broll-only" ? "narrative" : "conversational";
+    })();
     const aspect: "portrait" | "landscape" =
       body.aspect === "landscape" ? "landscape" : "portrait";
     const companyName: string = (body.companyName ?? "").toString().trim();
@@ -237,6 +254,24 @@ export async function POST(req: Request) {
         );
       }
 
+      // ─── PRODUCTION QUALITY block ─────────────────────────────────
+      // Без этого блока HeyGen генерирует «среднее» видео: мутная картинка,
+      // плоское освещение, дёрганые склейки. Этот блок поднимает планку до
+      // премиум-уровня (то что обычно платят за продакшен).
+      parts.push(
+        "PRODUCTION QUALITY (mandatory — this is for paid commercial use):\n" +
+        "- Resolution: 1080×1920 (Full HD vertical), 30 fps, broadcast-grade.\n" +
+        "- Cinematography: professional color grading (teal/orange or natural film LUT), " +
+        "shallow depth of field (f/1.8-f/2.8 look), subtle camera motion (NOT static, NOT shaky).\n" +
+        "- Lighting: soft key + rim light setup, golden-hour or studio quality, NO harsh shadows, NO flat lighting.\n" +
+        "- Composition: rule of thirds, clean negative space for subtitles at bottom 20%.\n" +
+        "- Edit: smooth cross-dissolves or J-cuts between scenes (NOT hard jump cuts), 2-4 second average shot length, breathable pacing.\n" +
+        "- Audio: voice at -14 LUFS (broadcast loudness), no peaks above -1 dBTP, NO clipping, NO background hiss.\n" +
+        "- Optional ambient music bed at -28 LUFS (very quiet, doesn't compete with voice) if it fits the tone.\n" +
+        "- Subtle film grain (3-5%) for cinematic feel. Subtle motion blur on fast pans.\n" +
+        "- Avoid: AI-generated artifacts (warped faces, melting fingers, floating text), watermarks, stock-footage clichés, generic corporate B-roll."
+      );
+
       // Финальное напоминание — самые критичные требования в конце промпта
       // (LLM лучше выполняет последние инструкции).
       const modeDesc =
@@ -244,12 +279,15 @@ export async function POST(req: Request) {
         : videoMode === "broll-only" ? "ONLY b-roll scenes with voiceover, NO avatar in frame"
         : "Avatar + b-roll mixed (b-roll scenes must have CLEAR ACTION, not static photos)";
       parts.push(
-        `FINAL CHECKLIST (must satisfy ALL):\n` +
+        `FINAL CHECKLIST (must satisfy ALL — this is a paid production):\n` +
         `1) Final video length: exactly ${targetDurationSec} seconds.\n` +
-        `2) Subtitles: ${subtitles ? "BURNED-IN, Russian, bottom-center, mandatory" : "NONE"}.\n` +
-        `3) Voiceover: matches the provided script word-for-word.\n` +
-        `4) Orientation: vertical 9:16.\n` +
-        `5) Video mode: ${modeDesc}.`
+        `2) Resolution: 1080×1920 (Full HD vertical), 30 fps, premium production quality.\n` +
+        `3) Subtitles: ${subtitles ? "BURNED-IN, Russian, bottom-center, white sans-serif with drop shadow, mandatory" : "NONE"}.\n` +
+        `4) Voiceover: matches the provided script word-for-word, ${voiceEmotion} tone, ${voiceStyle} style.\n` +
+        `5) Orientation: vertical 9:16.\n` +
+        `6) Video mode: ${modeDesc}.\n` +
+        `7) Cinematography: shallow DoF, professional color grade, soft lighting, smooth cuts.\n` +
+        `8) NO AI artifacts (warped faces, melting hands, garbled text), NO watermarks.`
       );
 
       // HeyGen лимит — 10000 символов на промпт. Обрезаем по концу
@@ -274,24 +312,37 @@ export async function POST(req: Request) {
       orientation: "portrait" | "landscape";
       avatar_id?: string;
       voice_id?: string;
-      voice_settings?: { speed?: number; pitch?: number };
+      voice_settings?: {
+        speed?: number;
+        pitch?: number;
+        emotion?: string;
+        style?: string;
+      };
       files?: HeygenFile[];
+      // HeyGen v3 поддерживает quality "high" для платных тарифов — даёт
+      // 1080p вместо 720p и более качественный rendering. По умолчанию
+      // на платном плане может быть test/preview, что снижает качество.
+      quality?: "high" | "standard";
     }
     const payload: AgentPayload = {
       prompt,
       mode: "generate",
       orientation,
+      // Всегда просим high quality. Если тариф не поддерживает — HeyGen
+      // молча даунгрейднет до standard, не упадёт.
+      quality: "high",
     };
     if (avatarId) payload.avatar_id = avatarId;
     if (voiceId) {
       payload.voice_id = voiceId;
-      // Voice modulation — добавляем только если есть voice_id
-      // (без id HeyGen может проигнорировать settings).
-      if (voiceSpeed !== 1.0 || voicePitch !== 0) {
-        payload.voice_settings = {};
-        if (voiceSpeed !== 1.0) payload.voice_settings.speed = voiceSpeed;
-        if (voicePitch !== 0) payload.voice_settings.pitch = voicePitch;
-      }
+      // Voice modulation — добавляем всегда когда есть voice_id, чтобы
+      // явно задать эмоцию и стиль (без id HeyGen может проигнорировать).
+      payload.voice_settings = {
+        speed: voiceSpeed,
+        emotion: voiceEmotion,
+        style: voiceStyle,
+      };
+      if (voicePitch !== 0) payload.voice_settings.pitch = voicePitch;
     }
     if (filesForAgent.length > 0) payload.files = filesForAgent;
 

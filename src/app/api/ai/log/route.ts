@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   await initDb();
 
-  const body = await req.json();
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const {
     endpoint,
     model,

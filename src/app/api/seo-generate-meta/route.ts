@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { geoRulesIfNeeded } from "@/lib/geo-rules";
@@ -37,7 +38,9 @@ export async function POST(req: NextRequest) {
     };
     const isGeo = articleMode === "geo";
 
-    const prompt = `Ты — ${isGeo ? "GEO-специалист" : "SEO-специалист"}. Напиши мета-теги для статьи.
+    const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ${isGeo ? "GEO-специалист" : "SEO-специалист"}. Напиши мета-теги для статьи.
 ${geoRulesIfNeeded(articleMode, "meta")}
 ТЕМА: ${topic}
 H1: ${h1}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
@@ -22,7 +23,9 @@ export async function POST(req: Request) {
     if (brandBook?.tagline) contextParts.push(`Слоган: ${brandBook.tagline}`);
     if (style) contextParts.push(`Стиль: ${style.name}, настроение: ${style.mood}`);
 
-    const systemPrompt = `Ты — презентационный дизайнер. Тебе дан массив слайдов бренд-презентации в JSON.
+    const systemPrompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — презентационный дизайнер. Тебе дан массив слайдов бренд-презентации в JSON.
 Пользователь просит внести изменения. Верни ПОЛНЫЙ массив слайдов с изменениями.
 
 Правила:

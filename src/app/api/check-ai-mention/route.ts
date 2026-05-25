@@ -5,6 +5,7 @@
  * Никакого coaching — запрос идёт без подсказок про бренд.
  * Возвращаем сырой ответ + флаг упоминания.
  */
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
       const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com";
       for (const query of queries) {
         try {
-          const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+          const res = await fetchWithTimeout(`${baseUrl}/v1/chat/completions`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${openaiKey}`,

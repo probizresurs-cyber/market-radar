@@ -16,7 +16,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "ADMIN_SETUP_SECRET не задан" }, { status: 403 });
   }
 
-  const { secret: provided, email, password, name } = await req.json();
+  // КРИТИЧНО: разбираем body ДО проверки secret через try/catch — иначе
+  // пустой body → 500 SyntaxError → лог-spam, и любой curl-нюхач может
+  // отличить «есть ADMIN_SETUP_SECRET» от «нет» по форме ответа.
+  let body: { secret?: string; email?: string; password?: string; name?: string };
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 }); }
+  const { secret: provided, email, password, name } = body;
   if (provided !== secret) {
     return NextResponse.json({ ok: false, error: "Неверный секрет" }, { status: 403 });
   }

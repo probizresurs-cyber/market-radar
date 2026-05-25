@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { geoRulesIfNeeded } from "@/lib/geo-rules";
@@ -45,7 +46,9 @@ export async function POST(req: NextRequest) {
     const isGeo = articleMode === "geo";
     const today = new Date().toLocaleDateString("ru-RU");
 
-    const prompt = `Ты — ${isGeo ? "GEO-эксперт (Generative Engine Optimization)" : "SEO-эксперт"} и редактор. Составь детальный бриф для ${isGeo ? "GEO" : "SEO"}-статьи.
+    const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ${isGeo ? "GEO-эксперт (Generative Engine Optimization)" : "SEO-эксперт"} и редактор. Составь детальный бриф для ${isGeo ? "GEO" : "SEO"}-статьи.
 ${geoRulesIfNeeded(articleMode)}
 ДАТА: ${today}
 КОМПАНИЯ: ${companyName || "не указана"}

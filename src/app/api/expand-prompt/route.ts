@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import type { BrandBook } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
@@ -50,7 +51,9 @@ export async function POST(req: Request) {
     ].filter(Boolean).join("\n");
 
     const systemPrompt = type === "post"
-      ? `Ты — опытный SMM-копирайтер и контент-стратег с 15-летним опытом.
+      ? `${ANTI_HALLUCINATION_SHORT}
+
+Ты — опытный SMM-копирайтер и контент-стратег с 15-летним опытом.
 
 Твоя задача: написать детальный промпт для генерации готового поста в соцсетях.
 
@@ -63,7 +66,9 @@ export async function POST(req: Request) {
    Верни СТРОГО JSON: { "hook": "...", "body": "...", "hashtags": [...], "imagePrompt": "..." }
 
 Отвечай ТОЛЬКО промптом (текст, без JSON-обёртки и без вопросов).`
-      : `Ты — опытный SMM-сценарист вирального видеоконтента.
+      : `${ANTI_HALLUCINATION_SHORT}
+
+Ты — опытный SMM-сценарист вирального видеоконтента.
 
 Твоя задача: написать детальный промпт для генерации сценария рилса/видео.
 

@@ -10,6 +10,7 @@
  *
  * Returns: { ok, prompt }
  */
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { safeAnthropicCreate, proxyErrorMessage } from "@/lib/anthropic-safe";
@@ -50,7 +51,9 @@ export async function POST(req: Request) {
       brandStyle && `Визуальный стиль бренда: ${brandStyle}`,
     ].filter(Boolean).join("\n");
 
-    const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений (DALL-E / OpenAI).
+    const claudePrompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты арт-директор и prompt-инженер для AI-генерации изображений (DALL-E / OpenAI).
 
 Создай детальный промпт на английском языке для генерации изображения к этому контенту:
 

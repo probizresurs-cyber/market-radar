@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X, Moon, Sun, Coffee } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment, TAAudienceType } from "@/lib/ta-types";
@@ -309,6 +309,16 @@ function MarketRadarDashboardInner() {
   const [contentPlan, setContentPlan] = useState<ContentPlan | null>(null);
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [generatedReels, setGeneratedReels] = useState<GeneratedReel[]>([]);
+  // Refs всегда содержат СВЕЖИЕ значения state. Нужны для async коллбэков
+  // (parallel Promise.all из handleCreatePackageFromTrend, HeyGen poller),
+  // которые иначе захватывают snapshot из замыкания и затирают друг друга
+  // при одновременной записи в persistContent / persistStories.
+  const contentPlanRef = useRef(contentPlan);
+  const generatedPostsRef = useRef(generatedPosts);
+  const generatedReelsRef = useRef(generatedReels);
+  useEffect(() => { contentPlanRef.current = contentPlan; }, [contentPlan]);
+  useEffect(() => { generatedPostsRef.current = generatedPosts; }, [generatedPosts]);
+  useEffect(() => { generatedReelsRef.current = generatedReels; }, [generatedReels]);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
@@ -978,7 +988,14 @@ function MarketRadarDashboardInner() {
 
   const persistContent = (plan: ContentPlan | null, posts: GeneratedPost[], reels: GeneratedReel[]) => {
     if (!currentUser?.id) return;
-    const payload = JSON.stringify({ plan, posts, reels });
+    // КРИТИЧНО: data:image/...;base64,... в posts[].imageUrl (например когда
+    // persistImageDataUri упал и API вернул raw base64) забивает 5MB localStorage
+    // за один пост. Раньше posts/reels шли без sanitize → QuotaExceededError
+    // → ВСЕ последующие saveItem падали молча → юзер генерил, всё пропадало.
+    // persistStories/persistCarousels уже чистились, posts/reels — нет.
+    const safePosts = sanitizeDataUrls(posts);
+    const safeReels = sanitizeDataUrls(reels);
+    const payload = JSON.stringify({ plan, posts: safePosts, reels: safeReels });
     try {
       localStorage.setItem(`mr_content_${currentUser.id}`, payload);
     } catch (e) {
@@ -996,8 +1013,10 @@ function MarketRadarDashboardInner() {
       });
     }
     // Серверный sync независимый: даже если localStorage упал, постараемся
-    // сохранить на сервере. Если сервер тоже отвергает (413 — слишком большое
-    // тело), warn уже улетит из самого syncToServer.
+    // сохранить на сервере. На сервер шлём ОРИГИНАЛЬНЫЕ posts/reels (без
+    // sanitize) — там Postgres TEXT поле выдерживает большие base64, а
+    // картинка нужна для отображения в чужих браузерах. Если 413 — warn
+    // прилетит из syncToServer.
     syncToServer("content", { plan, posts, reels });
   };
 
@@ -1223,10 +1242,14 @@ function MarketRadarDashboardInner() {
           action: { label: "Открыть", onClick: () => setActiveNav("content-stories") },
         });
 
-        // Параллельно генерим фоны и обновляем серию по мере готовности.
+        // Параллельно генерим фоны. КРИТИЧНО: раньше через общий `let working`
+        // 2-3 параллельных промиса читали stale snapshot и затирали друг друга
+        // — из 5 слайдов оставалась только 1 картинка. Делаем как в
+        // StoriesView.tsx: массив results[] по индексу, и в каждом setState
+        // пересобираем slides[] из results, а не из stale working.
         const brandVisual = brandBook?.visualStyle?.trim();
         const brandColors = brandBook?.colors?.length ? `Brand palette: ${brandBook.colors.join(", ")}.` : "";
-        let working = story;
+        const results: (string | null)[] = new Array(story.slides.length).fill(null);
         await Promise.all(story.slides.map(async (slide, i) => {
           try {
             const prompt = [
@@ -1234,6 +1257,7 @@ function MarketRadarDashboardInner() {
               slide.visualNote && `Mood: ${slide.visualNote}.`,
               brandVisual && `Brand visual style: ${brandVisual}.`,
               brandColors,
+              `Variation seed: ${story.id.slice(-4)}-${i + 1}.`,
               "Vertical 9:16 format. No text overlay.",
             ].filter(Boolean).join(" ");
             const r = await fetch("/api/generate-image-anthropic", {
@@ -1249,15 +1273,19 @@ function MarketRadarDashboardInner() {
             });
             const j = await r.json() as { ok: boolean; data?: { imageUrl: string } };
             if (!j.ok || !j.data?.imageUrl) return;
-            working = {
-              ...working,
-              slides: working.slides.map((s, idx) =>
-                idx === i ? { ...s, backgroundImageUrl: j.data!.imageUrl } : s,
-              ),
-            };
-            // Обновляем серию в стейте
+            results[i] = j.data.imageUrl;
+            // Атомарный setState — собираем slides из results, не из замыкания
             setGeneratedStories(prev => {
-              const next = prev.map(s => s.id === working.id ? working : s);
+              const next = prev.map(s => {
+                if (s.id !== story.id) return s;
+                return {
+                  ...s,
+                  slides: s.slides.map((sl, idx) => {
+                    const url = results[idx];
+                    return url ? { ...sl, backgroundImageUrl: url } : sl;
+                  }),
+                };
+              });
               persistStories(next);
               return next;
             });
@@ -1317,7 +1345,9 @@ function MarketRadarDashboardInner() {
       if (json?.ok && json.data) {
         setGeneratedPosts(prev => {
           const next = prependPostDedup(prev, json.data as GeneratedPost);
-          persistContent(contentPlan, next, generatedReels);
+          // Используем refs для plan/reels — иначе stale snapshot из закрытия
+          // затёр бы reel, который уже успел добавиться параллельно.
+          persistContent(contentPlanRef.current, next, generatedReelsRef.current);
           return next;
         });
         setPackageProgress(p => p ? { ...p, post: "done" } : p);
@@ -1366,7 +1396,7 @@ function MarketRadarDashboardInner() {
       if (json?.ok && json.data) {
         setGeneratedPosts(prev => {
           const next = prependPostDedup(prev, json.data as GeneratedPost);
-          persistContent(contentPlan, next, generatedReels);
+          persistContent(contentPlanRef.current, next, generatedReelsRef.current);
           return next;
         });
         setPackageProgress(p => p ? { ...p, carousel: "done" } : p);
@@ -1403,7 +1433,7 @@ function MarketRadarDashboardInner() {
       if (json?.ok && json.data) {
         setGeneratedReels(prev => {
           const next = [json.data as GeneratedReel, ...prev];
-          persistContent(contentPlan, generatedPosts, next);
+          persistContent(contentPlanRef.current, generatedPostsRef.current, next);
           return next;
         });
         setPackageProgress(p => p ? { ...p, reel: "done" } : p);
@@ -1503,7 +1533,7 @@ function MarketRadarDashboardInner() {
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации сценария");
       setGeneratedReels(prev => {
         const next = [json.data as GeneratedReel, ...prev];
-        persistContent(contentPlan, generatedPosts, next);
+        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
         return next;
       });
     } catch (e) {
@@ -1524,7 +1554,7 @@ function MarketRadarDashboardInner() {
   const handleUpdateReel = (updated: GeneratedReel) => {
     setGeneratedReels(prev => {
       const next = prev.map(r => r.id === updated.id ? updated : r);
-      persistContent(contentPlan, generatedPosts, next);
+      persistContent(contentPlanRef.current, generatedPostsRef.current, next);
       return next;
     });
   };
@@ -1540,7 +1570,7 @@ function MarketRadarDashboardInner() {
   const handleDeleteReel = (reelId: string) => {
     setGeneratedReels(prev => {
       const next = prev.filter(r => r.id !== reelId);
-      persistContent(contentPlan, generatedPosts, next);
+      persistContent(contentPlanRef.current, generatedPostsRef.current, next);
       return next;
     });
   };
@@ -1581,6 +1611,11 @@ function MarketRadarDashboardInner() {
           targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
           subtitles: reel.subtitles !== false,
           videoMode: reel.videoMode ?? "mixed",
+          // Voice quality knobs из глобальных AvatarSettings — пробрасываем
+          // в HeyGen v3 для разборчивого, эмоционально окрашенного голоса.
+          voiceSpeed: avatarSettings.voiceSpeed,
+          voicePitch: avatarSettings.voicePitch,
+          voiceEmotion: avatarSettings.voiceEmotion,
         }),
       });
       const json = await res.json();
@@ -1590,7 +1625,7 @@ function MarketRadarDashboardInner() {
         const next = prev.map(r => r.id === reelId
           ? { ...r, heygenVideoId: videoId, videoStatus: "generating" as const, videoError: undefined }
           : r);
-        persistContent(contentPlan, generatedPosts, next);
+        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
         return next;
       });
     } catch (e) {
@@ -1599,13 +1634,20 @@ function MarketRadarDashboardInner() {
         const next = prev.map(r => r.id === reelId
           ? { ...r, videoStatus: "failed" as const, videoError: msg }
           : r);
-        persistContent(contentPlan, generatedPosts, next);
+        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
         return next;
       });
     } finally {
       setGeneratingVideoFor(null);
     }
   };
+
+  // Стабильный depKey для poll-effect ниже. Без useMemo `.map().join()`
+  // создавался на каждый рендер → setInterval пересоздавался → DDOS API.
+  const reelsPollKey = useMemo(
+    () => generatedReels.map(r => `${r.id}:${r.videoStatus}`).join(","),
+    [generatedReels],
+  );
 
   // Poll HeyGen for any reels currently generating
   useEffect(() => {
@@ -1623,7 +1665,7 @@ function MarketRadarDashboardInner() {
               const next = prev.map(r => r.id === reel.id
                 ? { ...r, videoStatus: "ready" as const, videoUrl: json.data.videoUrl as string }
                 : r);
-              persistContent(contentPlan, generatedPosts, next);
+              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
               return next;
             });
           } else if (status === "failed") {
@@ -1631,7 +1673,7 @@ function MarketRadarDashboardInner() {
               const next = prev.map(r => r.id === reel.id
                 ? { ...r, videoStatus: "failed" as const, videoError: json.data.error ?? "HeyGen вернул failed" }
                 : r);
-              persistContent(contentPlan, generatedPosts, next);
+              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
               return next;
             });
           }
@@ -1639,8 +1681,10 @@ function MarketRadarDashboardInner() {
       }
     }, 10_000);
     return () => clearInterval(interval);
+    // Стабильный ключ — иначе `.map().join()` пересчитывался каждый рендер,
+    // setInterval пересоздавался, /api/video-status DDOS-ился.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generatedReels.map(r => `${r.id}:${r.videoStatus}`).join(",")]);
+  }, [reelsPollKey]);
 
   // Onboarding complete: run initial analysis
   const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {

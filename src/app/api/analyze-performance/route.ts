@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { GeneratedPost, GeneratedReel } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
@@ -134,7 +135,7 @@ ${dataDump}
 
 Все числа — реальные, посчитанные из данных. ER = (likes+comments+shares+saves)/(reach или views) × 100.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

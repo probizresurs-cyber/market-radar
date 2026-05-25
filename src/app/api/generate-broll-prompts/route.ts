@@ -16,6 +16,7 @@
  * Body: { title, scenario, voiceoverScript?, brandBook?, count?, companyName?, companyNiche? }
  * Returns: { ok, prompts: Array<{prompt, motionHint, position}> }
  */
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BrandBook } from "@/lib/content-types";
@@ -24,7 +25,9 @@ import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Ты — режиссёр-оператор (DOP) с опытом TikTok и рекламной режиссуры.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — режиссёр-оператор (DOP) с опытом TikTok и рекламной режиссуры.
 
 Тебе дают сценарий короткого вертикального видео (рилс/Shorts). Твоя задача — составить b-roll промпты, которые будут вставляться между кадрами с говорящим аватаром.
 

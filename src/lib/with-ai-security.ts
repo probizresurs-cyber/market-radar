@@ -60,6 +60,30 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
     || req.headers.get("x-real-ip")
     || "unknown";
+
+  // КРИТИЧНО: требуем auth. Раньше анонимные звонки пропускались через
+  // IP-rate-limit 100/день — с ротирующимся прокси любой мог разорить
+  // наш Claude/OpenAI бюджет на $100+ за пару часов. И token usage
+  // не записывался без userId — мы даже не видели куда уходит лимит.
+  //
+  // Bypass: NEXT_PUBLIC_DEMO_MODE=true или AI_ALLOW_ANONYMOUS=true (для
+  // показов клиентам / демо-окружения), плюс некоторые публичные роуты
+  // могут передать opts.allowAnonymous=true (не реализовано в текущей
+  // сигнатуре — добавим если понадобится).
+  if (!session?.userId && process.env.AI_ALLOW_ANONYMOUS !== "true") {
+    return {
+      allowed: false,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: "Войдите в аккаунт, чтобы пользоваться AI-функциями платформы.",
+          reason: "unauthenticated",
+        },
+        { status: 401 }
+      ),
+    };
+  }
+
   const identifier = session?.userId || `ip:${ip}`;
 
   // Rate limit check

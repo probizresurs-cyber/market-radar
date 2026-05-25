@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -50,6 +51,12 @@ async function dashboardRaw(domain: string, base: string, token: string) {
 }
 
 export async function GET(req: Request) {
+  // КРИТИЧНО: этот endpoint жжёт ~16 платных Keys.so запросов за вызов.
+  // Раньше был доступен без auth — любой curl-ом мог осушить квоту.
+  const session = await getSessionUser();
+  if (!session || session.role !== "admin") {
+    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+  }
   const { searchParams } = new URL(req.url);
   const domain = searchParams.get("domain") ?? "me-dent.ru";
   const base = searchParams.get("base") ?? "msk";

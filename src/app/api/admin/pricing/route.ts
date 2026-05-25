@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (!session || session.role !== "admin") return admin403();
 
   await initDb();
-  const body = await req.json();
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const {
     id,
     name,

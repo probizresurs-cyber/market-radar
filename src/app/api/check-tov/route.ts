@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { BrandBook, TovCheckResult } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
 
-const SYSTEM_PROMPT = `Ты — редактор бренд-голоса. Твоя работа — проверять тексты на соответствие брендбуку и исправлять нарушения.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — редактор бренд-голоса. Твоя работа — проверять тексты на соответствие брендбуку и исправлять нарушения.
 
 Ты анализируешь:
 1. Запрещённые слова и формулировки — ищи их дотошно, включая синонимы
@@ -79,7 +83,7 @@ ${text}
 Если issues пустой — score должен быть 85-100. Если issues есть — score ниже соответственно.
 correctedHook и correctedBody — всегда готовый к публикации текст, полностью в стиле брендбука.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

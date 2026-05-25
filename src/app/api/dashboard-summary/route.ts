@@ -13,6 +13,7 @@
  *
  * Использует Haiku ради скорости (2-3 предложения, ≤220 токенов).
  */
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { NextResponse } from "next/server";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { safeAnthropicCreate, extractJson, proxyErrorMessage } from "@/lib/anthropic-safe";
@@ -22,7 +23,9 @@ export const maxDuration = 45;
 
 type Dashboard = "company" | "ta" | "smm" | "reviews";
 
-const SYSTEM_PROMPT = `Ты — главный консультант по росту бизнеса, говорящий руководителю компании.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — главный консультант по росту бизнеса, говорящий руководителю компании.
 
 Тебе дают компактный снимок дашборда. Твоя задача — в 2-3 коротких предложениях:
 1. Сказать, **что важно прямо сейчас** (одно главное наблюдение).

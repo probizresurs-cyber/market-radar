@@ -47,16 +47,16 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const prompt: string = String(body.prompt ?? "").trim();
-    if (!prompt) {
+    const rawPrompt: string = String(body.prompt ?? "").trim();
+    if (!rawPrompt) {
       return NextResponse.json(
         { ok: false, error: "prompt обязателен" },
         { status: 400 },
       );
     }
-    if (prompt.length > 10000) {
+    if (rawPrompt.length > 9000) {
       return NextResponse.json(
-        { ok: false, error: "prompt длиннее 10000 символов (лимит HeyGen)" },
+        { ok: false, error: "prompt длиннее 9000 символов (лимит с учётом quality-block)" },
         { status: 400 },
       );
     }
@@ -64,16 +64,32 @@ export async function POST(req: Request) {
     const aspectRatio = HEYGEN_ASPECT_RATIOS.has(body.aspectRatio) ? body.aspectRatio : "9:16";
     const orientation = mapOrientation(aspectRatio);
 
+    // Оборачиваем пользовательский prompt в quality-block. Без этих требований
+    // b-roll получается «средний» — 720p, плоское освещение, дёрганые склейки.
+    const prompt = [
+      rawPrompt,
+      "",
+      "PRODUCTION QUALITY (mandatory):",
+      "- Resolution: 1080p, 30 fps, cinematic.",
+      "- Shallow depth of field (f/1.8-f/2.8 look), professional color grade.",
+      "- Soft natural or studio lighting, NO harsh shadows, NO flat lighting.",
+      "- Clear action happening (movement, motion, real activity) — NOT static photo with camera pan/zoom.",
+      "- Avoid: AI-generated artifacts (warped faces, melting fingers, garbled text), watermarks, stock-footage clichés.",
+      "- NO competitor brand names, logos, or recognizable third-party signage.",
+    ].join("\n");
+
     // Тело v3-эндпоинта. Только обязательное (prompt) и явно нужные поля.
     interface AgentPayload {
       prompt: string;
       mode: "generate";
       orientation?: "landscape" | "portrait";
       files?: Array<{ url: string }>;
+      quality?: "high" | "standard";
     }
     const payload: AgentPayload = {
       prompt,
       mode: "generate",
+      quality: "high",
     };
     if (orientation) payload.orientation = orientation;
     if (typeof body.referenceImageUrl === "string" && body.referenceImageUrl.startsWith("http")) {

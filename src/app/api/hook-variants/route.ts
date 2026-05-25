@@ -11,6 +11,7 @@
  *
  * Использует Sonnet — у Haiku хуки получаются плоскими.
  */
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BrandBook } from "@/lib/content-types";
@@ -19,7 +20,9 @@ import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 export const runtime = "nodejs";
 export const maxDuration = 45;
 
-const SYSTEM_PROMPT = `Ты — копирайтер с 20-летним опытом, специалист по крючкам и заголовкам.
+const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — копирайтер с 20-летним опытом, специалист по крючкам и заголовкам.
 
 Твоя задача — переписать крючок поста в 3 разных вариантах, каждый — по другой механике:
 1. **Цифровой/конкретный** — с числом, статистикой, временной рамкой
