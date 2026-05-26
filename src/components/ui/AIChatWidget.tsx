@@ -78,13 +78,13 @@ function calcWorkflowStep(
   if (!taAnalysis) return {
     step: 2, total: 6,
     nextAction: "Сгенерировать портрет ЦА",
-    nextNav: "ta",
+    nextNav: "ta-new",
     greeting: "Конкуренты добавлены! 👍 Теперь разберёмся с целевой аудиторией.",
   };
   if (!smmAnalysis) return {
     step: 3, total: 6,
     nextAction: "Запустить анализ СММ",
-    nextNav: "smm",
+    nextNav: "smm-new",
     greeting: "ЦА готова! 📊 Теперь выстроим SMM-стратегию на основе аудитории.",
   };
   return {

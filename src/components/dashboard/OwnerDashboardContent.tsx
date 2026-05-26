@@ -2233,7 +2233,7 @@ function ReputationTab({ p, data, competitors }: {
 
       {/* CTA — открыть полный модуль */}
       <a
-        href="/?nav=reviews"
+        href="/?nav=reviews-analysis"
         style={{
           display: "block",
           padding: "20px 24px",

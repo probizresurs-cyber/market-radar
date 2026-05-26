@@ -1846,7 +1846,7 @@ export function GeneratedPostsView({
             <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
               Без анализа AI не знает, о чём писать. Запустите главный анализ — и сразу сможете создавать посты.
             </div>
-            <a href="/?nav=home" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+            <a href="/?nav=new-analysis" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
               К анализу →
             </a>
           </div>
@@ -1897,7 +1897,7 @@ export function GeneratedPostsView({
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
         }}>
           <span>Сначала запустите анализ компании — без него AI не знает контекст.</span>
-          <a href="/?nav=home" style={{
+          <a href="/?nav=new-analysis" style={{
             padding: "7px 14px", borderRadius: 8,
             background: "var(--primary)", color: "#fff",
             fontSize: 13, fontWeight: 700, textDecoration: "none",

@@ -101,7 +101,7 @@ function getMissingConnections(agentName: string, c: ConnectionState): MissingCo
       out.push({
         label: "Нет ни одного канала публикации",
         hint: "Подключите Telegram-канал или VK-группу в Профиле, иначе агенту некуда публиковать.",
-        link: "/?nav=account",
+        link: "/?nav=settings",
       });
     }
   }
@@ -117,7 +117,7 @@ function getMissingConnections(agentName: string, c: ConnectionState): MissingCo
     out.push({
       label: "Telegram-чат не подключён",
       hint: "Алерты об изменениях идут в TG. Подключите бота в Профиле → Telegram.",
-      link: "/?nav=account",
+      link: "/?nav=settings",
     });
   }
   if (agentName === "email-drip-sender" && !c.smtp) {
