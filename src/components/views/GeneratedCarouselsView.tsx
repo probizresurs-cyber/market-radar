@@ -36,7 +36,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
   // Если ON — при рендере фонов каждого слайда чекбокс «Встроить текст»
   // будет уже включен по умолчанию (text-on-image).
   const [embedTextDefault, setEmbedTextDefault] = useState(false);
-  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; carouselId: string } | null>(null);
+  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; carouselId: string; lastError?: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
   // Параметры картинки — пресет стиля + кастомный английский промпт.
   const [showImageBlock, setShowImageBlock] = useState(false);
@@ -126,7 +126,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
             embedText: slideText || undefined,
           }),
         });
-        const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
+        const j = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
         if (j.ok && j.data?.imageUrl) {
           results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!slideText };
           // Прогрессивно обновляем — каждый завершившийся слайд виден сразу
@@ -137,16 +137,24 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
           onUpdate({ ...carousel, slides: partialSlides });
           setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, ready: p.ready + 1, attempted: p.attempted + 1 } : p);
         } else {
-          // ok=false — счётчик attempts++, ready не растёт.
-          setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1 } : p);
+          // ok=false — сохраняем текст ошибки чтобы юзер видел причину
+          // вместо тихого «0 из N».
+          const errText = j.error ?? `HTTP ${res.status}`;
+          console.error(`[carousel-bg] slide ${i + 1} failed:`, errText);
+          setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1, lastError: errText } : p);
         }
-      } catch {
-        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1 } : p);
+      } catch (err) {
+        const errText = err instanceof Error ? err.message : String(err);
+        console.error(`[carousel-bg] slide ${i + 1} exception:`, errText);
+        setBgProgress(p => p && p.carouselId === carousel.id ? { ...p, attempted: p.attempted + 1, lastError: errText } : p);
       }
     });
 
-    // Если есть провалы — баннер держим 8 сек, чтобы юзер увидел.
-    setTimeout(() => setBgProgress(null), results.every(r => r != null) ? 3000 : 8000);
+    // Только при полном успехе скрываем через 5 сек. При ошибках —
+    // баннер остаётся пока юзер не закроет (×), чтобы успеть прочитать.
+    if (results.every(r => r != null)) {
+      setTimeout(() => setBgProgress(null), 5000);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -421,7 +429,30 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
                   ? "Каждый слайд получит уникальную картинку. Можно продолжать работу."
                   : "Откройте карусель и нажмите «Перегенерировать фон» на пустых слайдах."}
               </div>
+              {/* Реальный текст ошибки — раньше глоталось молча. */}
+              {!inProgress && bgProgress.lastError && (
+                <div style={{
+                  marginTop: 8, padding: "8px 12px", borderRadius: 8,
+                  background: "color-mix(in oklch, var(--destructive) 12%, transparent)",
+                  border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)",
+                  fontSize: 11.5, color: "var(--destructive)", fontFamily: "ui-monospace, monospace",
+                  wordBreak: "break-word",
+                }}>
+                  Ошибка: {bgProgress.lastError.slice(0, 280)}
+                </div>
+              )}
             </div>
+            {!inProgress && (
+              <button
+                onClick={() => setBgProgress(null)}
+                style={{
+                  background: "transparent", border: "none",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  fontSize: 18, padding: 4, lineHeight: 1, flexShrink: 0,
+                }}
+                title="Скрыть"
+              >×</button>
+            )}
           </div>
         );
       })()}

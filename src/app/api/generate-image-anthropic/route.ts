@@ -41,7 +41,10 @@ import { platformImageFormat } from "@/lib/image-aspect";
 import { persistImageDataUri } from "@/lib/image-store";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 180s — даём время на: Claude Haiku промпт (5-10с) + OpenAI gpt-image-2
+// medium quality (~30-50с) + fallback на Gemini (10-15с) при таймауте/quota.
+// Раньше 60с — успевал только сам OpenAI, fallback не вызывался при таймауте.
+export const maxDuration = 180;
 
 export async function POST(req: Request) {
   const access = await checkAiAccess(req);
@@ -181,22 +184,31 @@ ${contextBlock}
     }
 
     // Если есть embedText — нужен OpenAI gpt-image-2 (единственный кто
-    // нормально рисует русский текст). Поднимаем quality до "high".
+    // нормально рисует русский текст). Quality=medium — high занимает 90-120с
+    // и упирается в таймаут Cloudflare-воркера-прокси (~100s). Medium даёт
+    // ~30-50с и нормальное качество для типографики.
     const imgResult = await generateOpenAIImage({
       prompt: usedPrompt,
       format: imageFormat,
       embedText: embedText || undefined,
-      quality: embedText ? "high" : undefined,
+      quality: embedText ? "medium" : undefined,
     });
 
-    // Если OpenAI отказал (quota / billing / rate-limit) — пробуем Gemini
-    // как fallback, чтобы у пользователя не пропадал контент-завод из-за
-    // того что у нас кончился баланс OpenAI.
+    // Если OpenAI отказал — пробуем Gemini/Pollinations как fallback.
+    // Раньше fallback срабатывал только на quota/billing, но НЕ на timeout/
+    // network — а у нас на российском VPS чаще ложится именно таймаут
+    // через Cloudflare-прокси. Теперь fallback тоже триггерится на:
+    //   • timeout (Request timeout, ECONNRESET, ETIMEDOUT)
+    //   • network (fetch failed, ENOTFOUND, ECONNREFUSED)
+    //   • 5xx от прокси (502/503/504)
     if (!imgResult.ok) {
+      const errMsg = imgResult.error ?? "";
       const isQuotaIssue =
-        /Лимит OpenAI|квота OpenAI|rate.?limit|billing/i.test(imgResult.error ?? "");
+        /Лимит OpenAI|квота OpenAI|rate.?limit|billing/i.test(errMsg);
+      const isInfraIssue =
+        /timeout|fetch failed|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|502|503|504|workers\.dev/i.test(errMsg);
 
-      if (isQuotaIssue) {
+      if (isQuotaIssue || isInfraIssue) {
         // Цепочка fallback: Gemini → Pollinations (free, no key)
         const aspectHint = imageFormat === "portrait"
           ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
@@ -246,10 +258,11 @@ ${contextBlock}
         }
 
         // Все 3 провайдера упали
+        const why = isQuotaIssue ? "квота/билинг OpenAI" : "OpenAI прокси не отвечает (timeout/network)";
         return NextResponse.json(
           {
             ok: false,
-            error: `${imgResult.error}. Все резервные генераторы тоже недоступны (Pollinations: ${poll.error}).`,
+            error: `${why}: ${imgResult.error}. Резервные генераторы тоже недоступны (Pollinations: ${poll.error}).`,
             usedPrompt,
           },
           { status: 502 },

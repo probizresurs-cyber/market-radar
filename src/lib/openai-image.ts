@@ -1,4 +1,4 @@
-import { fetchWithTimeout, LONG_TIMEOUT_MS } from "@/lib/fetch-timeout";
+import { fetchWithTimeout } from "@/lib/fetch-timeout";
 
 /**
  * OpenAI image generation (DALL-E 3 / gpt-image-1 / gpt-image-2).
@@ -128,8 +128,9 @@ export async function generateOpenAIImage(input: OpenAIImageInput): Promise<Open
 
   let res: Response;
   try {
-    // 120 сек — gpt-image-2 quality=high иногда генерирует 60-90 сек.
-    // Без таймаута зависший запрос держал бы PM2-воркер до 5 минут.
+    // 70 сек — медленнее и Cloudflare-воркер вернёт 524 (его лимит ~100s),
+    // и юзер ждёт впустую. gpt-image-2 quality=medium укладывается в 40-60с.
+    // На таймауте route.ts автоматически фолбэкнется на Gemini/Pollinations.
     res = await fetchWithTimeout(`${OPENAI_BASE_URL}/v1/images/generations`, {
       method: "POST",
       headers: {
@@ -137,7 +138,7 @@ export async function generateOpenAIImage(input: OpenAIImageInput): Promise<Open
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
-    }, LONG_TIMEOUT_MS);
+    }, 70_000);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `OpenAI fetch failed: ${msg}. Проверьте OPENAI_BASE_URL.` };
