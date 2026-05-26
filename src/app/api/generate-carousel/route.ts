@@ -138,12 +138,19 @@ export async function POST(req: Request) {
       slides?: GeneratedCarousel["slides"];
     };
 
-    const slides = (parsed.slides ?? []).map((s, i, arr) => ({
-      ...s,
-      order: i + 1,
-      slideType: s.slideType ?? (i === 0 ? "cover" : i === arr.length - 1 ? "cta" : "content"),
-      bulletPoints: Array.isArray(s.bulletPoints) ? s.bulletPoints : undefined,
-    }));
+    // КРИТИЧНО: GPT часто возвращает на 1-2 слайда больше чем просили
+    // (особенно при slidesCount=3 — добавляет от себя четвёртый «бонусный»).
+    // Жёстко обрезаем до запрошенного значения, чтобы юзер получил ровно
+    // столько, сколько указал в слайдере. slideType пересчитываем ПОСЛЕ
+    // обрезки, чтобы последний слайд гарантированно был cta.
+    const slides = (parsed.slides ?? [])
+      .slice(0, slidesCount)
+      .map((s, i, arr) => ({
+        ...s,
+        order: i + 1,
+        slideType: s.slideType ?? (i === 0 ? "cover" : i === arr.length - 1 ? "cta" : "content"),
+        bulletPoints: Array.isArray(s.bulletPoints) ? s.bulletPoints : undefined,
+      }));
 
     const result: GeneratedCarousel = {
       id: `carousel-${Date.now()}`,

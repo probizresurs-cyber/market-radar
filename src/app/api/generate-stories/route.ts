@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
     const platform: "instagram" | "vk" | "telegram" = body.platform ?? "instagram";
-    const slidesCount: number = body.slidesCount ?? 5;
+    const slidesCount: number = Math.max(2, Math.min(10, Number(body.slidesCount) || 5));
     const goal: string = body.goal ?? "прогрев";
     const brief: string = body.brief ?? "";
     const pillar: string = body.pillar ?? "";
@@ -130,7 +130,9 @@ export async function POST(req: Request) {
       platform,
       goal,
       title: parsed.title ?? brief ?? "Серия сторис",
-      slides: (parsed.slides ?? []).map((s, i) => ({ ...s, order: i + 1 })),
+      // Жёстко обрезаем до запрошенного числа — GPT иногда добавляет лишний
+      // «бонусный» слайд от себя, особенно при slidesCount=2-3.
+      slides: (parsed.slides ?? []).slice(0, slidesCount).map((s, i) => ({ ...s, order: i + 1 })),
       hashtags: parsed.hashtags ?? [],
       generatedAt: new Date().toISOString(),
     };
