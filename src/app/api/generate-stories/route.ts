@@ -101,7 +101,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage },
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
     // Логируем именно тот model, который реально вызывали (gpt-4o выше в route).
     // Раньше писалось claude-sonnet-4-6 — это ломало AI-logs графики и atribution
     // токенов в admin-панели.
-    await access.log({ endpoint: "generate-stories", model: "gpt-4o" });
+    await access.log({ endpoint: "generate-stories", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

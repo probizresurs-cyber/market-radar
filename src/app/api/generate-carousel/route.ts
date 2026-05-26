@@ -114,7 +114,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage },
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "generate-carousel", model: "gpt-4o" });
+    await access.log({ endpoint: "generate-carousel", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

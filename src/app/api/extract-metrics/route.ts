@@ -76,7 +76,7 @@ ${fieldsHint}
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -127,7 +127,7 @@ ${fieldsHint}
 
     await access.log({
       endpoint: "extract-metrics",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       // Vision images are ~1000 tokens regardless of text length
       promptTokens: estimateTokens(userPrompt + SYSTEM_PROMPT) + 1000,
       completionTokens: estimateTokens(raw),
@@ -135,7 +135,7 @@ ${fieldsHint}
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "extract-metrics", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "extract-metrics", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

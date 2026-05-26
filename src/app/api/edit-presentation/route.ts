@@ -46,7 +46,7 @@ ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Слайды:\n${JSON.stringify(slides, null, 2)}\n\nПожелание: ${wish}` },
@@ -67,7 +67,7 @@ ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""
     const parsed = JSON.parse(rawContent);
     await access.log({
       endpoint: "edit-presentation",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       promptTokens: estimateTokens(systemPrompt + JSON.stringify(slides) + wish),
       completionTokens: estimateTokens(rawContent),
     });
@@ -78,7 +78,7 @@ ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""
     return NextResponse.json({ ok: true, data: { slides: parsed.slides ?? [] } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
-    await access.log({ endpoint: "edit-presentation", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "edit-presentation", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

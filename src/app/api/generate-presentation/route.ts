@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           // Кастомные пожелания пользователя — в user-сообщение, не в system.
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
     };
     await access.log({
       endpoint: "generate-presentation",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
       success: true,

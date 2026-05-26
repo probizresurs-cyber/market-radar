@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages,
         temperature: 0.2,
         max_tokens: 4000,
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     const rawContent = data.choices[0]?.message?.content ?? "";
     await access.log({
       endpoint: "extract-reviews",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       promptTokens: estimateTokens(SYSTEM_PROMPT + (pastedText ?? "")) + (screenshot ? 1000 : 0),
       completionTokens: estimateTokens(rawContent),
     });
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "extract-reviews", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "extract-reviews", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

@@ -87,7 +87,7 @@ ${reviewsDump}
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
@@ -125,14 +125,14 @@ ${reviewsDump}
 
     await access.log({
       endpoint: "analyze-reviews",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       promptTokens: estimateTokens(SYSTEM_PROMPT + userPrompt),
       completionTokens: estimateTokens(rawContent),
     });
     return NextResponse.json({ ok: true, data: analysis });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "analyze-reviews", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "analyze-reviews", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     const { message, status } = friendlyAiError(err);
     return NextResponse.json({ ok: false, error: message }, { status });
   }

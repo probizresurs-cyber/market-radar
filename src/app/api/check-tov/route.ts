@@ -90,7 +90,7 @@ correctedHook и correctedBody — всегда готовый к публика
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
@@ -113,14 +113,14 @@ correctedHook и correctedBody — всегда готовый к публика
 
     await access.log({
       endpoint: "check-tov",
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       promptTokens: estimateTokens(SYSTEM_PROMPT + userPrompt),
       completionTokens: estimateTokens(rawContent),
     });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "check-tov", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "check-tov", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
