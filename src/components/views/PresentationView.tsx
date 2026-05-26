@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
@@ -97,6 +97,14 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [premiumSubmitting, setPremiumSubmitting] = useState(false);
   const [premiumError, setPremiumError] = useState("");
   const [premiumViewer, setPremiumViewer] = useState<number | null>(null);
+  const premiumViewerRef = useRef<HTMLDivElement | null>(null);
+  // Фокус ставим ОДИН раз когда viewer открылся (premiumViewer != null).
+  // Замыкание captures premiumViewerRef.current — стабильное.
+  useEffect(() => {
+    if (premiumViewer !== null && premiumViewerRef.current) {
+      premiumViewerRef.current.focus();
+    }
+  }, [premiumViewer]);
   const [premiumHistory, setPremiumHistory] = useState<Array<{
     id: string;
     jobId: string;
@@ -204,6 +212,70 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   // Выбранный отраслевой шаблон. Если задан — buildTemplatePromptBlock()
   // подмешивается в customPrompt при handleGenerate.
   const [selectedTemplate, setSelectedTemplate] = useState<IndustryTemplate | null>(null);
+  // Brand-check результат и состояние загрузки
+  interface BrandCheckIssue {
+    category: "color" | "font" | "tone" | "forbidden-word" | "consistency";
+    severity: "high" | "medium" | "low";
+    slideIndex: number;
+    issue: string;
+    suggestion: string;
+  }
+  const [brandCheckResult, setBrandCheckResult] = useState<{ score: number; summary: string; issues: BrandCheckIssue[] } | null>(null);
+  const [isBrandChecking, setIsBrandChecking] = useState(false);
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+
+  const handleBrandCheck = async () => {
+    if (!brandBook.colors?.length) return;
+    setIsBrandChecking(true);
+    try {
+      const res = await fetch("/api/presentation-brand-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides,
+          brandBook,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Ошибка проверки");
+      setBrandCheckResult(json.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка проверки");
+    } finally {
+      setIsBrandChecking(false);
+    }
+  };
+
+  const handleGenerateSpeakerNotes = async () => {
+    if (slides.length === 0) return;
+    setIsGeneratingNotes(true);
+    try {
+      const res = await fetch("/api/presentation-speaker-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides,
+          companyName: myCompany?.company.name,
+          audience: taAnalysis?.segments?.[0]?.segmentName?.slice(0, 200),
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Не удалось сгенерировать заметки");
+      const notes: string[] = json.data?.notes ?? [];
+      setSlides(prev => prev.map((s, i) => {
+        const newNote = notes[i];
+        const existing = s.note ?? "";
+        // Если AI вернул более длинный текст — берём его, иначе оставляем
+        // существующий (юзер мог уже отредактировать вручную).
+        const final = newNote && newNote.length > existing.length ? newNote : (existing || newNote || "");
+        return { ...s, note: final };
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка генерации заметок");
+    } finally {
+      setIsGeneratingNotes(false);
+    }
+  };
   const [slides, setSlides] = useState<PresentationSlide[]>([]);
   const [presTitle, setPresTitle] = useState("");
   const [error, setError] = useState("");
@@ -957,6 +1029,10 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   }
 
   // Premium fullscreen slideshow viewer
+  // Раньше использовался `ref={el => { el?.focus(); }}` — React зовёт ref
+  // на КАЖДЫЙ рендер, и фокус ускакивал обратно даже если юзер кликнул
+  // на другой элемент. Заменили на useEffect ниже — фокус ставится один
+  // раз при открытии viewer'а.
   const premiumViewerNode = premiumViewer !== null && premiumSlideFiles.length > 0 && (
     <div
       onClick={() => setPremiumViewer(null)}
@@ -966,7 +1042,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         else if (e.key === "ArrowLeft") setPremiumViewer(v => v === null ? 0 : Math.max(0, v - 1));
       }}
       tabIndex={-1}
-      ref={el => { el?.focus(); }}
+      ref={premiumViewerRef}
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 9999,
         display: "flex", alignItems: "center", justifyContent: "center", padding: 40, outline: "none",
@@ -1689,11 +1765,84 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               background: isExportingSlidev ? "var(--muted-foreground)" : "#7c3aed", color: "#fff", cursor: isExportingSlidev ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Sparkles size={12} /> {isExportingSlidev ? "Экспорт..." : "Slidev .md"}</span>
             </button>
+            <button
+              onClick={handleBrandCheck}
+              disabled={isBrandChecking || (brandBook.colors?.length ?? 0) === 0}
+              title={(brandBook.colors?.length ?? 0) === 0 ? "Заполните брендбук чтобы проверить соответствие" : "Проверить соответствие слайдов брендбуку"}
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+                background: isBrandChecking ? "var(--muted-foreground)" : "#f59e0b",
+                color: "#fff",
+                cursor: isBrandChecking || (brandBook.colors?.length ?? 0) === 0 ? "not-allowed" : "pointer",
+                opacity: (brandBook.colors?.length ?? 0) === 0 ? 0.5 : 1,
+                fontWeight: 600, fontSize: 12 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                ✓ {isBrandChecking ? "Проверяю..." : "Brand-check"}
+              </span>
+            </button>
+            <button
+              onClick={handleGenerateSpeakerNotes}
+              disabled={isGeneratingNotes}
+              title="AI напишет текст ведущего для каждого слайда (60-90 сек/слайд)"
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+                background: isGeneratingNotes ? "var(--muted-foreground)" : "#0ea5e9",
+                color: "#fff",
+                cursor: isGeneratingNotes ? "wait" : "pointer",
+                fontWeight: 600, fontSize: 12 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Mic size={12} /> {isGeneratingNotes ? "Пишу..." : "Speaker notes"}
+              </span>
+            </button>
             <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`,
               background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} /> Заново</span>
             </button>
           </div>
+
+          {/* Brand-check result panel */}
+          {brandCheckResult && (
+            <div style={{
+              marginBottom: 16, padding: "14px 16px",
+              background: brandCheckResult.score >= 80
+                ? "color-mix(in oklch, #10b981 6%, var(--card))"
+                : brandCheckResult.score >= 60
+                ? "color-mix(in oklch, #f59e0b 6%, var(--card))"
+                : "color-mix(in oklch, var(--destructive) 6%, var(--card))",
+              border: `1.5px solid ${brandCheckResult.score >= 80 ? "#10b981" : brandCheckResult.score >= 60 ? "#f59e0b" : "var(--destructive)"}`,
+              borderRadius: 10,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                <div style={{
+                  fontSize: 28, fontWeight: 900,
+                  color: brandCheckResult.score >= 80 ? "#10b981" : brandCheckResult.score >= 60 ? "#f59e0b" : "var(--destructive)",
+                }}>{brandCheckResult.score}/100</div>
+                <div style={{ flex: 1, fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.5 }}>
+                  {brandCheckResult.summary}
+                </div>
+                <button onClick={() => setBrandCheckResult(null)}
+                  style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted-foreground)" }}>×</button>
+              </div>
+              {brandCheckResult.issues.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                  {brandCheckResult.issues.map((iss, i) => (
+                    <div key={i} style={{
+                      padding: "8px 12px", borderRadius: 6,
+                      background: "var(--card)",
+                      borderLeft: `3px solid ${iss.severity === "high" ? "var(--destructive)" : iss.severity === "medium" ? "#f59e0b" : "#94a3b8"}`,
+                      fontSize: 12, lineHeight: 1.5,
+                    }}>
+                      <div style={{ fontWeight: 700, color: "var(--foreground)", marginBottom: 2 }}>
+                        {iss.slideIndex >= 0 ? `Слайд ${iss.slideIndex + 1}` : "Презентация"} · {iss.category} ({iss.severity})
+                      </div>
+                      <div style={{ color: "var(--foreground-secondary)" }}>{iss.issue}</div>
+                      {iss.suggestion && (
+                        <div style={{ color: "#10b981", marginTop: 4, fontStyle: "italic" }}>→ {iss.suggestion}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Wish input */}
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>

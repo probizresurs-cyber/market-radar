@@ -1,6 +1,36 @@
 /**
  * anthropic-safe — обёртка вокруг Anthropic SDK с auto-fallback.
  *
+ * TODO MIGRATION: следующие роуты используют прямой `new Anthropic()` +
+ * `client.messages.create()` БЕЗ retry/timeout/circuit-breaker. Перевести
+ * на safeAnthropicCreate когда будет время:
+ *   - src/app/api/adapt-post/route.ts
+ *   - src/app/api/chat/route.ts
+ *   - src/app/api/content/analyze-style/route.ts
+ *   - src/app/api/content/auto-ideas-batch/route.ts
+ *   - src/app/api/content/trends/analyze/route.ts
+ *   - src/app/api/ai-visibility/generate-queries/route.ts
+ *   - src/app/api/ai-visibility/generate-recommendations/route.ts
+ *   - src/app/api/generate-battle-cards/route.ts
+ *   - src/app/api/generate-benchmarks/route.ts
+ *   - src/app/api/generate-broll-prompts/route.ts
+ *   - src/app/api/generate-cjm/route.ts
+ *   - src/app/api/generate-competitor-insights/route.ts
+ *   - src/app/api/generate-tows/route.ts
+ *   - src/app/api/hook-variants/route.ts
+ *   - src/app/api/presentation-brand-check/route.ts
+ *   - src/app/api/seo/keyword-expand/route.ts
+ *   - src/app/api/seo-cluster-keywords/route.ts
+ *   - src/app/api/seo-generate-article/route.ts
+ *   - src/app/api/seo-generate-brief/route.ts
+ *   - src/app/api/seo-generate-outline/route.ts
+ *   - src/app/api/seo-generate-meta/route.ts
+ *
+ * Workaround temporary: новые Anthropic-инстансы используют SDK
+ * default timeout (10 минут). Если зависнет — клиент HTTP уже
+ * timed out по 60s (см. fetchWithTimeout-обёртку выше). Не идеально,
+ * но не катастрофа.
+ *
  * Проблема: Cloudflare Worker между нами и api.anthropic.com иногда
  * возвращает HTML страницу ошибки вместо JSON. Anthropic SDK падает с
  * `SyntaxError: Unexpected token '<', "<html"...`. В UI пользователь

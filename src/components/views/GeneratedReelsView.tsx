@@ -89,35 +89,50 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
     [clips],
   );
 
-  // Poll pending clips каждые 8 секунд. Останавливаемся когда все completed/failed.
+  // Poll pending clips. Раньше всегда 8 сек, но при N открытых reel'ах
+  // с pending clips это давало N*clips fetch'ей каждые 8 сек.
+  // Адаптивный интервал: больше клипов в очереди = реже poll, чтобы
+  // не DDOS-ить HeyGen API. Floor 8s, ceil 30s.
   useEffect(() => {
     const pending = clips.filter(c => c.status === "pending" && c.executionId);
     if (pending.length === 0) return;
+    // Адаптивный интервал: 8s base + 1s на каждый pending клип сверх первого.
+    const intervalMs = Math.min(30_000, 8_000 + (pending.length - 1) * 1_000);
+    // Используем in-flight guard: предыдущий poll должен закончиться
+    // прежде чем стартует новый. Без него при медленной сети накапливаются
+    // одновременные запросы.
+    let inFlight = false;
     const id = setInterval(async () => {
-      let changed = false;
-      const updated = await Promise.all(
-        (reel.brollClips ?? []).map(async (c) => {
-          if (c.status !== "pending" || !c.executionId) return c;
-          try {
-            const r = await fetch(`/api/heygen-broll-status?executionId=${encodeURIComponent(c.executionId)}`);
-            const j = await r.json();
-            const s = j?.data?.status;
-            if (s === "completed" && j?.data?.videoUrl) {
-              changed = true;
-              return { ...c, status: "completed" as const, videoUrl: j.data.videoUrl, thumbnailUrl: j.data.thumbnailUrl };
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        let changed = false;
+        const updated = await Promise.all(
+          (reel.brollClips ?? []).map(async (c) => {
+            if (c.status !== "pending" || !c.executionId) return c;
+            try {
+              const r = await fetch(`/api/heygen-broll-status?executionId=${encodeURIComponent(c.executionId)}`);
+              const j = await r.json();
+              const s = j?.data?.status;
+              if (s === "completed" && j?.data?.videoUrl) {
+                changed = true;
+                return { ...c, status: "completed" as const, videoUrl: j.data.videoUrl, thumbnailUrl: j.data.thumbnailUrl };
+              }
+              if (s === "failed") {
+                changed = true;
+                return { ...c, status: "failed" as const, error: j?.data?.error ?? "HeyGen failed" };
+              }
+              return c;
+            } catch {
+              return c;
             }
-            if (s === "failed") {
-              changed = true;
-              return { ...c, status: "failed" as const, error: j?.data?.error ?? "HeyGen failed" };
-            }
-            return c;
-          } catch {
-            return c;
-          }
-        }),
-      );
-      if (changed) onUpdate({ ...reel, brollClips: updated });
-    }, 8000);
+          }),
+        );
+        if (changed) onUpdate({ ...reel, brollClips: updated });
+      } finally {
+        inFlight = false;
+      }
+    }, intervalMs);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clipsPollKey]);

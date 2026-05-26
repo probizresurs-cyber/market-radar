@@ -134,10 +134,34 @@ ${JSON.stringify(slidesCompact, null, 2)}
     if (!jsonMatch) {
       throw new Error("Claude не вернул JSON");
     }
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      score: number;
-      summary: string;
-      issues: BrandCheckIssue[];
+    // Парсим + валидируем строго: Claude может вернуть «score: "high"» вместо
+    // числа, или забыть issues. Без валидации клиент крашится.
+    const rawParsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    const scoreNum = typeof rawParsed.score === "number"
+      ? rawParsed.score
+      : typeof rawParsed.score === "string"
+        ? parseInt(String(rawParsed.score).replace(/[^0-9]/g, ""), 10) || 50
+        : 50;
+    const validSeverities = new Set(["high", "medium", "low"]);
+    const validCategories = new Set(["color", "font", "tone", "forbidden-word", "tagline", "logo", "other"]);
+    const rawIssues = Array.isArray(rawParsed.issues) ? rawParsed.issues : [];
+    const issues: BrandCheckIssue[] = rawIssues
+      .slice(0, 15)
+      .map((it: unknown) => {
+        const i = (it ?? {}) as Record<string, unknown>;
+        return {
+          category: validCategories.has(String(i.category)) ? String(i.category) as BrandCheckIssue["category"] : "other",
+          severity: validSeverities.has(String(i.severity)) ? String(i.severity) as BrandCheckIssue["severity"] : "low",
+          slideIndex: typeof i.slideIndex === "number" ? i.slideIndex : -1,
+          issue: typeof i.issue === "string" ? i.issue.slice(0, 500) : "",
+          suggestion: typeof i.suggestion === "string" ? i.suggestion.slice(0, 500) : "",
+        };
+      })
+      .filter(it => it.issue);
+    const parsed = {
+      score: Math.max(0, Math.min(100, scoreNum)),
+      summary: typeof rawParsed.summary === "string" ? rawParsed.summary.slice(0, 600) : "",
+      issues,
     };
 
     await access.log({

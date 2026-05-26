@@ -242,16 +242,21 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   // ВАЖНО: не выходим раньше при пустом state — иначе после очистки
   // (setResult(null) / setIdeas(null) на повторном запросе) старые
   // данные остаются в localStorage и подтягиваются при следующем mount.
+  // Debounce 500ms: раньше каждый набор символа в `query` дёргал
+  // JSON.stringify({...result.items[50]…}) → setItem → блокировал main
+  // thread при быстрой печати. setTimeout позволяет печатать плавно.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      // Если всё пусто — снимаем ключ полностью, не оставляем мусор.
-      if (!query && !result && !ideas) {
-        localStorage.removeItem(storageKey);
-        return;
-      }
-      localStorage.setItem(storageKey, JSON.stringify({ query, sources, result, ideas, filter }));
-    } catch { /* quota — пропускаем */ }
+    const t = setTimeout(() => {
+      try {
+        if (!query && !result && !ideas) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
+        localStorage.setItem(storageKey, JSON.stringify({ query, sources, result, ideas, filter }));
+      } catch { /* quota — пропускаем */ }
+    }, 500);
+    return () => clearTimeout(t);
   }, [query, sources, result, ideas, filter, storageKey]);
 
   const handleCreate = async (idea: TrendContentIdea) => {

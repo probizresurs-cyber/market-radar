@@ -12,7 +12,6 @@ interface LandingResult {
   screenId: string;
   htmlUrl: string;
   imageUrl: string;
-  htmlContent?: string;
 }
 
 const STYLE_PRESETS = [
@@ -59,10 +58,46 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
   const [error, setError]               = useState("");
   const [editPrompt, setEditPrompt]     = useState("");
   const [isEditing, setIsEditing]       = useState(false);
-  const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string; htmlContent?: string }>>([]);
+  const [variants, setVariants]         = useState<Array<{ screenId: string; htmlUrl: string; imageUrl: string }>>([]);
   const [imgZoom, setImgZoom]           = useState(1);
   const [showPreview, setShowPreview]   = useState(false);
-  const [previewMode, setPreviewMode]   = useState<"screenshot" | "iframe">("iframe");
+  // previewMode был запланирован для toggle между screenshot и iframe, но
+  // фича так и не была реализована в JSX. Удалили — см. #5 dead state cleanup.
+  // Device-frame Desktop/Tablet/Mobile теперь под отдельным state (см. #7).
+  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  // Кеш статуса htmlUrl/imageUrl каждого истории-лендинга. Stitch даёт URL
+  // на 1-7 дней, потом 404 — без индикатора юзер видит «битое» превью и
+  // не понимает почему. Заполняется через /api/check-url-alive.
+  const [expiryStatus, setExpiryStatus] = useState<Record<string, "alive" | "expired" | "unknown">>({});
+
+  // Когда юзер открыл «История» — пробежать по карточкам, проверить
+  // htmlUrl HEAD-запросом. Делаем последовательно с задержкой, чтобы не
+  // DDOS-ить Stitch CDN.
+  useEffect(() => {
+    if (tab !== "history") return;
+    let cancelled = false;
+    (async () => {
+      for (const h of landingHistory) {
+        if (cancelled) return;
+        if (expiryStatus[h.id]) continue;
+        try {
+          const res = await fetch("/api/check-url-alive", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: h.htmlUrl }),
+          });
+          const json = await res.json();
+          if (cancelled) return;
+          setExpiryStatus(prev => ({ ...prev, [h.id]: json.alive ? "alive" : "expired" }));
+        } catch {
+          if (!cancelled) setExpiryStatus(prev => ({ ...prev, [h.id]: "unknown" }));
+        }
+        await new Promise(r => setTimeout(r, 250));
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, landingHistory.length]);
 
   useEffect(() => {
     if (!userId) return;
@@ -193,7 +228,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Ошибка редактирования");
-      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl, htmlContent: data.htmlContent ?? prev.htmlContent } : null);
+      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl } : null);
       setEditPrompt("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -302,6 +337,19 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                       </div>
                       <img src={h.imageUrl} alt={h.title} style={{ width: "100%", display: "block", maxHeight: 180, objectFit: "cover" }}
                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      {/* Expiry badge — Stitch URL живёт 1-7 дней, потом 404. */}
+                      {expiryStatus[h.id] === "expired" && (
+                        <div style={{
+                          position: "absolute", top: 36, right: 8,
+                          background: "color-mix(in oklch, var(--destructive) 85%, #000)",
+                          color: "#fff", fontSize: 10, fontWeight: 700,
+                          padding: "3px 8px", borderRadius: 5,
+                          letterSpacing: "0.04em", textTransform: "uppercase",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                        }} title="Stitch URL истёк (1-7 дней). Регенерируйте лендинг — он автоматически сохранится с новыми ссылками.">
+                          Срок истёк
+                        </div>
+                      )}
                     </div>
                     <div style={{ padding: "12px 14px" }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 3 }}>{h.title}</div>
@@ -539,27 +587,77 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                 <button onClick={() => setImgZoom(z => Math.min(3, z + 0.2))} style={{ width: 24, height: 24, borderRadius: 4, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                 <button onClick={() => setImgZoom(1)} title="Сбросить" style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--muted-foreground)", cursor: "pointer", fontSize: 11 }}>↺</button>
               </div>
+              {/* Device toggle — Desktop/Tablet/Mobile через CSS-frame. */}
+              <div style={{ display: "flex", gap: 2, marginRight: 6 }}>
+                {([
+                  ["desktop", "🖥", "Desktop 1280px"],
+                  ["tablet", "📱", "Tablet 768px"],
+                  ["mobile", "📲", "Mobile 375px"],
+                ] as const).map(([id, icon, title]) => (
+                  <button
+                    key={id}
+                    onClick={() => setDevice(id)}
+                    title={title}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      border: `1px solid ${device === id ? "var(--primary)" : "var(--border)"}`,
+                      background: device === id ? "color-mix(in oklch, var(--primary) 12%, var(--background))" : "var(--background)",
+                      color: device === id ? "var(--primary)" : "var(--muted-foreground)",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >{icon}</button>
+                ))}
+              </div>
               <a href={result.htmlUrl} target="_blank" rel="noopener noreferrer"
                 style={{ padding: "4px 12px", borderRadius: 6, background: primary, color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
                 🌐 Открыть
               </a>
             </div>
 
-            {/* Zoomable screenshot */}
-            <div
-              style={{ height: 560, overflow: "auto", background: "#f0f0f0", position: "relative", cursor: imgZoom > 1 ? "grab" : "zoom-in" }}
-              onWheel={e => { e.preventDefault(); setImgZoom(z => Math.min(3, Math.max(0.3, z - e.deltaY * 0.0008))); }}
-              onClick={() => { if (imgZoom === 1) window.open(result.htmlUrl, "_blank"); }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={result.imageUrl}
-                alt="Landing preview"
-                style={{ width: `${imgZoom * 100}%`, display: "block", transformOrigin: "top left" }}
-                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+            {/* Zoomable screenshot with device frame */}
+            {(() => {
+              // Device width — desktop 100% (без рамки), tablet 768, mobile 375.
+              const deviceWidth = device === "mobile" ? 375 : device === "tablet" ? 768 : null;
+              return (
+                <div
+                  style={{
+                    height: 560,
+                    overflow: "auto",
+                    background: device === "desktop" ? "#f0f0f0" : "#1a1a1a",
+                    position: "relative",
+                    cursor: imgZoom > 1 ? "grab" : "zoom-in",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: deviceWidth ? "flex-start" : "stretch",
+                    padding: deviceWidth ? 24 : 0,
+                  }}
+                  onWheel={e => { e.preventDefault(); setImgZoom(z => Math.min(3, Math.max(0.3, z - e.deltaY * 0.0008))); }}
+                  onClick={() => { if (imgZoom === 1) window.open(result.htmlUrl, "_blank"); }}
+                >
+                  <div style={deviceWidth ? {
+                    width: deviceWidth,
+                    background: "#fff",
+                    borderRadius: device === "mobile" ? 18 : 8,
+                    overflow: "hidden",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.4)",
+                    border: device === "mobile" ? "6px solid #2a2a2a" : "3px solid #2a2a2a",
+                  } : { width: "100%" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={result.imageUrl}
+                      alt="Landing preview"
+                      style={{
+                        width: deviceWidth ? "100%" : `${imgZoom * 100}%`,
+                        display: "block",
+                        transformOrigin: "top left",
+                      }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  </div>
               {/* Click hint overlay when at 100% */}
-              {imgZoom === 1 && (
+              {imgZoom === 1 && !deviceWidth && (
                 <div style={{
                   position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
                   background: "rgba(0,0,0,0)", transition: "background 0.2s",
@@ -574,7 +672,9 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                   </a>
                 </div>
               )}
-            </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Variants */}
@@ -586,7 +686,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
                 {variants.map((v, vi) => (
                   <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid var(--border)`, cursor: "pointer", transition: "all 0.15s" }}
-                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl, htmlContent: v.htmlContent ?? prev?.htmlContent } : null)}>
+                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl } : null)}>
                     <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "contain", background: "#f8f8f8" }} />
                     <div style={{ padding: "8px 12px", background: "var(--card)", fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>Вариант {vi + 1}</span>

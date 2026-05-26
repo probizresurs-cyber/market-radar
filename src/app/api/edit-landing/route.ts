@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { sanitizeUserPrompt } from "@/lib/prompt-sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -24,22 +25,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "projectId and screenId required" }, { status: 400 });
     }
 
-    // Проверяем что projectId принадлежит вызывающему юзеру (или его workspace).
-    // Если запись отсутствует — это либо старый лендинг до миграции (мы пускаем
-    // только владельца session), либо чужой projectId (отказ).
+    // КРИТИЧНО (P0): теперь требуем явную запись владельца. Раньше при
+    // отсутствии record'а в landing_projects fallback пропускал edit —
+    // это означало что legacy-projectId (созданный до migration или
+    // напрямую через Stitch UI) могли редактировать ВСЕ залогиненные,
+    // зная projectId. Если запись отсутствует → 404 «лендинг не найден»,
+    // юзер должен регенерировать его через /api/generate-landing
+    // (там сразу запишется ownership).
     const session = await getSessionUser().catch(() => null);
-    if (session?.userId) {
-      const owned = await query<{ user_id: string }>(
-        "SELECT user_id FROM landing_projects WHERE project_id = $1",
-        [projectId],
-      );
-      if (owned.length > 0 && owned[0].user_id !== session.userId) {
-        return NextResponse.json(
-          { ok: false, error: "Этот лендинг принадлежит другому аккаунту" },
-          { status: 403 },
-        );
-      }
+    if (!session?.userId) {
+      return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
     }
+    const owned = await query<{ user_id: string }>(
+      "SELECT user_id FROM landing_projects WHERE project_id = $1",
+      [projectId],
+    );
+    if (owned.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "Лендинг не найден или создан до миграции. Сгенерируйте заново — он автоматически прикрепится к вашему аккаунту." },
+        { status: 404 },
+      );
+    }
+    if (owned[0].user_id !== session.userId) {
+      return NextResponse.json(
+        { ok: false, error: "Этот лендинг принадлежит другому аккаунту" },
+        { status: 403 },
+      );
+    }
+    // Sanitize editPrompt (prompt injection защита для Stitch / Gemini 3 Pro).
+    const safeEditPrompt = editPrompt ? sanitizeUserPrompt(editPrompt, { maxLength: 800 }) : "";
 
     const { StitchToolClient, Stitch } = await import("@google/stitch-sdk");
     const client = new StitchToolClient({ apiKey });
@@ -49,8 +63,8 @@ export async function POST(req: Request) {
     const screen = await project.getScreen(screenId);
 
     // ── Action: edit ──────────────────────────────────────────
-    if (action === "edit" && editPrompt) {
-      const edited = await screen.edit(editPrompt, "DESKTOP");
+    if (action === "edit" && safeEditPrompt) {
+      const edited = await screen.edit(safeEditPrompt, "DESKTOP");
       const [htmlUrl, imageUrl] = await Promise.all([
         edited.getHtml(),
         edited.getImage(),
@@ -68,7 +82,7 @@ export async function POST(req: Request) {
     // ── Action: variants ────────────────────────────────────
     if (action === "variants") {
       const variants = await screen.variants(
-        editPrompt || "Create alternative layout variants",
+        safeEditPrompt || "Create alternative layout variants",
         { variantCount: 3, creativeRange: "EXPLORE", aspects: ["LAYOUT", "COLOR_SCHEME"] },
         "DESKTOP"
       );
@@ -87,7 +101,7 @@ export async function POST(req: Request) {
     // ── Action: mobile version ──────────────────────────────
     if (action === "mobile") {
       const mobile = await screen.edit(
-        editPrompt || "Optimize this design for mobile. Stack elements vertically, increase touch targets, make text larger.",
+        safeEditPrompt || "Optimize this design for mobile. Stack elements vertically, increase touch targets, make text larger.",
         "MOBILE"
       );
       const [htmlUrl, imageUrl] = await Promise.all([

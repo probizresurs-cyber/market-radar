@@ -3,7 +3,7 @@
  */
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { getJob } from "@/lib/agent-runner";
+import { getJob, getJobFromDb } from "@/lib/agent-runner";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,9 @@ export async function GET(
   if (!session) return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
 
   const { id } = await ctx.params;
-  const job = getJob(id);
+  // Сначала пытаемся достать из RAM (быстро для активных pollers). Если нет —
+  // достаём из БД (выжил после PM2 restart).
+  const job = getJob(id) ?? await getJobFromDb(id);
   if (!job) return NextResponse.json({ ok: false, error: "Job не найден" }, { status: 404 });
 
   // IDOR: раньше любой залогиненный мог поллить чужой jobId и видеть

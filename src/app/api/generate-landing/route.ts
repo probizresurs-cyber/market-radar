@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { sanitizeUserPrompt } from "@/lib/prompt-sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     promptParts.push(typeMap[landingType] || typeMap.main);
 
     // Style from preset/custom
-    if (sc.customPrompt) promptParts.push(`Style requirements: ${sc.customPrompt}`);
+    if (sc.customPrompt) promptParts.push(`Style requirements: ${sanitizeUserPrompt(sc.customPrompt, { maxLength: 600 })}`);
     if (resolvedColors.length) promptParts.push(`Use these exact colors: ${resolvedColors.join(", ")} — primary, secondary, accent.`);
     if (resolvedFont) promptParts.push(`Typography: Use "${resolvedFont}" as the main font family.`);
 
@@ -89,9 +90,11 @@ export async function POST(req: Request) {
     // SMM
     if (smmData?.brandArchetype) promptParts.push(`Brand archetype: ${smmData.brandArchetype}`);
 
-    // User's custom prompt — highest priority
+    // User's custom prompt — highest priority. Sanitize against
+    // prompt-injection (юзер передаёт строку, не control-text для Stitch).
     if (userPrompt?.trim()) {
-      promptParts.push(`IMPORTANT — User's specific requirements (apply these first):\n${userPrompt.trim()}`);
+      const safe = sanitizeUserPrompt(userPrompt, { maxLength: 800 });
+      if (safe) promptParts.push(`User's specific style/content requirements:\n${safe}`);
     }
 
     // Base requirements

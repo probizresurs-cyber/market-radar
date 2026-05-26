@@ -34,6 +34,7 @@ function query(opts: Parameters<NonNullable<typeof _sdkQuery>>[0]) {
 import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
+import { query as dbQuery } from "@/lib/db";
 
 export interface ContextFile {
   name: string;
@@ -164,15 +165,33 @@ export function startAgentJob(opts: {
     }
   }
   ensureRunRoot();
-  const id = randomBytes(8).toString("hex");
+  // Используем 16 байт энтропии (32 hex chars) вместо 8 — снижает шанс
+  // случайного collision если несколько jobs запускаются одновременно
+  // и брутфорс jobId через утечку ID становится нереалистичным.
+  const id = randomBytes(16).toString("hex");
   const cwd = join(RUN_ROOT, id);
   mkdirSync(cwd, { recursive: true });
 
   // Drop context files into the working directory so the agent can read them
   // with its Read tool (avoids stuffing them into the prompt).
+  //
+  // КРИТИЧНО: contextFile.name приходит от vyzova (через formData в premium
+  // route). Без проверки можно было передать `../<otherJobId>/data.json`
+  // и перезаписать чужой job. Проверяем path containment строго.
   if (opts.contextFiles) {
     for (const f of opts.contextFiles) {
+      // Запрещаем абсолютные пути, .. и null-байты.
+      if (f.name.includes("..") || f.name.startsWith("/") || f.name.includes("\0")) {
+        console.warn(`[agent-runner] skipping suspicious file name: ${f.name}`);
+        continue;
+      }
       const filePath = join(cwd, f.name);
+      // Финальный путь должен быть строго внутри cwd. Если path-traversal
+      // через символы прошёл — отбрасываем.
+      if (!filePath.startsWith(cwd + "/") && filePath !== cwd) {
+        console.warn(`[agent-runner] path-traversal blocked: ${f.name}`);
+        continue;
+      }
       // Ensure subdirectories exist (e.g. references/ref-1.jpg)
       const dir = filePath.substring(0, filePath.lastIndexOf("/"));
       if (dir && dir !== cwd && !existsSync(dir)) {
@@ -271,4 +290,75 @@ async function runAgent(
   job.outputFiles = collectOutputFiles(job.cwd);
   job.status = job.error ? "failed" : "succeeded";
   job.finishedAt = Date.now();
+  // Persist финальное состояние в БД. После PM2 restart juzer всё ещё
+  // увидит «job был выполнен» в истории (хоть и файлы могут быть
+  // недоступны если /tmp очистится). Без БД история показывала бы 404
+  // на ВСЕ старые превью.
+  void persistJobToDb(job).catch(e => {
+    console.warn("[agent-runner] persistJobToDb failed:", e);
+  });
+}
+
+async function persistJobToDb(job: AgentJob): Promise<void> {
+  try {
+    await dbQuery(
+      `INSERT INTO agent_jobs (id, user_id, status, prompt, cwd, log, output_files, error, started_at, finished_at)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))
+       ON CONFLICT (id) DO UPDATE SET
+         status = EXCLUDED.status,
+         log = EXCLUDED.log,
+         output_files = EXCLUDED.output_files,
+         error = EXCLUDED.error,
+         finished_at = EXCLUDED.finished_at`,
+      [
+        job.id,
+        job.userId ?? null,
+        job.status,
+        job.prompt.slice(0, 4000),
+        job.cwd,
+        JSON.stringify(job.log.slice(-50)),
+        JSON.stringify(job.outputFiles),
+        job.error ?? null,
+        job.startedAt,
+        job.finishedAt ?? Date.now(),
+      ],
+    );
+  } catch (e) {
+    // БД может быть недоступна, не fail полностью — лог только.
+    console.warn("[agent-runner] DB persist error:", e);
+  }
+}
+
+/** Получить job из БД (для просмотра истории после PM2 restart). */
+export async function getJobFromDb(id: string): Promise<AgentJob | null> {
+  try {
+    const rows = await dbQuery<{
+      id: string;
+      user_id: string | null;
+      status: JobStatus;
+      prompt: string;
+      cwd: string;
+      log: string[];
+      output_files: string[];
+      error: string | null;
+      started_at: Date;
+      finished_at: Date | null;
+    }>("SELECT * FROM agent_jobs WHERE id = $1", [id]);
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      id: r.id,
+      userId: r.user_id ?? undefined,
+      status: r.status,
+      prompt: r.prompt,
+      cwd: r.cwd,
+      log: Array.isArray(r.log) ? r.log : [],
+      outputFiles: Array.isArray(r.output_files) ? r.output_files : [],
+      error: r.error ?? undefined,
+      startedAt: new Date(r.started_at).getTime(),
+      finishedAt: r.finished_at ? new Date(r.finished_at).getTime() : undefined,
+    };
+  } catch {
+    return null;
+  }
 }

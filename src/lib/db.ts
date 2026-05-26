@@ -755,4 +755,59 @@ export async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // Расшаренные презентации — view tracking + публичная ссылка /share/[slug].
+  // Юзер кликает «Поделиться» → создаётся запись с публичным slug. Просмотры
+  // в presentation_views (slide-impression events). Sales-команды видят кто
+  // из лидов смотрел дольше.
+  await query(`
+    CREATE TABLE IF NOT EXISTS shared_presentations (
+      slug TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slides_json JSONB NOT NULL,
+      style_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      password_hash TEXT,
+      view_count INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_shared_presentations_user ON shared_presentations(user_id, created_at DESC)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS presentation_views (
+      id BIGSERIAL PRIMARY KEY,
+      share_slug TEXT REFERENCES shared_presentations(slug) ON DELETE CASCADE,
+      session_id TEXT NOT NULL,
+      slide_index INTEGER NOT NULL,
+      time_on_slide_ms INTEGER NOT NULL DEFAULT 0,
+      ip_hash TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_presentation_views_slug ON presentation_views(share_slug, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_presentation_views_session ON presentation_views(session_id)`);
+
+  // Persistent agent jobs — состояние премиум-генерации презентаций.
+  // Раньше жило в RAM Map → PM2 restart всё стирал, история premium-decks
+  // в localStorage у юзера превращалась в битые ссылки. Теперь в БД,
+  // а файлы — в /var/lib/marketradar/agent-files (см. agent-runner).
+  await query(`
+    CREATE TABLE IF NOT EXISTS agent_jobs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      prompt TEXT,
+      cwd TEXT NOT NULL,
+      log JSONB DEFAULT '[]'::jsonb,
+      output_files JSONB DEFAULT '[]'::jsonb,
+      error TEXT,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      finished_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_jobs_user ON agent_jobs(user_id, started_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_agent_jobs_status ON agent_jobs(status) WHERE status IN ('queued', 'running')`);
 }
