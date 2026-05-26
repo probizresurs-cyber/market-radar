@@ -391,7 +391,20 @@ function MarketRadarDashboardInner() {
     setCompanyStyleState({ docs: [], profile: null, applyToGeneration: false });
 
     const company = get("company") ?? JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
-    if (company) { setMyCompany(company as AnalysisResult); setStatus("done"); setActiveNav("dashboard"); }
+    if (company) {
+      setMyCompany(company as AnalysisResult);
+      setStatus("done");
+      // Если в URL есть ?nav=X — НЕ форсим dashboard, иначе перезатрём
+      // target tab (приходим из owner-dashboard / онбординга / прямых CTA).
+      // URL-handler в отдельном useEffect ниже подхватит nav-param.
+      let hasNavParam = false;
+      try {
+        if (typeof window !== "undefined") {
+          hasNavParam = !!new URLSearchParams(window.location.search).get("nav");
+        }
+      } catch { /* ignore */ }
+      if (!hasNavParam) setActiveNav("dashboard");
+    }
 
     const comps = get("competitors") ?? JSON.parse(localStorage.getItem(`mr_competitors_${uid}`) ?? "null");
     if (Array.isArray(comps) && comps.length > 0) setCompetitors(comps as AnalysisResult[]);

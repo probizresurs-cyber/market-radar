@@ -45,7 +45,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
   // ready — успешно сгенерированные, attempted — отработавшие (ok или err);
   // total — сколько всего слайдов. Если в конце attempted === total, но
   // ready < total — пользователь видит «нарисовали 3 из 5, остальные не вышли».
-  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; storyId: string } | null>(null);
+  const [bgProgress, setBgProgress] = useState<{ ready: number; attempted: number; total: number; storyId: string; lastError?: string } | null>(null);
   const [statusTab, setStatusTab] = useState<ContentStatus>("drafts");
   // Параметры картинки — как в «Создать пост».
   const [showImageBlock, setShowImageBlock] = useState(false);
@@ -145,7 +145,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
             embedText: embeddedText || undefined,
           }),
         });
-        const j = await res.json() as { ok: boolean; data?: { imageUrl: string } };
+        const j = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
         if (j.ok && j.data?.imageUrl) {
           results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!embeddedText };
           // Прогрессивно обновляем UI — каждый завершившийся слайд сразу
@@ -157,18 +157,26 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
           onUpdate({ ...story, slides: partialSlides });
           setBgProgress(p => p && p.storyId === story.id ? { ...p, ready: p.ready + 1, attempted: p.attempted + 1 } : p);
         } else {
-          // API ответил ok=false (квота/rate-limit/etc) — счётчик attempts++,
-          // но ready не растёт. Юзер увидит «3 из 5» в финальном баннере.
-          setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1 } : p);
+          // API ответил ok=false (квота/rate-limit/proxy down/etc) —
+          // сохраняем текст ошибки в баннер, чтобы юзер видел причину
+          // вместо немого «0 из 3».
+          const errText = j.error ?? `HTTP ${res.status}`;
+          console.error(`[stories-bg] slide ${i + 1} failed:`, errText);
+          setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1, lastError: errText } : p);
         }
-      } catch {
-        setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1 } : p);
+      } catch (err) {
+        const errText = err instanceof Error ? err.message : String(err);
+        console.error(`[stories-bg] slide ${i + 1} exception:`, errText);
+        setBgProgress(p => p && p.storyId === story.id ? { ...p, attempted: p.attempted + 1, lastError: errText } : p);
       }
     });
 
-    // Если всё успешно — через 3 сек убираем баннер. Если есть сбои —
-    // оставляем на 8 сек, чтобы юзер успел прочитать и нажать «Перегенерировать».
-    setTimeout(() => setBgProgress(null), results.every(r => r != null) ? 3000 : 8000);
+    // Если все успешно — через 5 сек убираем баннер. Если есть сбои —
+    // НЕ скрываем автоматически (раньше скрывали через 8 сек), юзер сам
+    // закроет, увидев текст ошибки. Иначе банеры мигают и теряются.
+    if (results.every(r => r != null)) {
+      setTimeout(() => setBgProgress(null), 5000);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -458,7 +466,31 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
                   ? "Серия уже сохранена с текстом — фоны догружаются по мере готовности."
                   : "Откройте серию и нажмите «Перегенерировать фон» на пустых слайдах."}
               </div>
+              {/* Текст реальной ошибки (rate-limit, proxy down, OPENAI_BASE_URL
+                  не задан и т.п.) — раньше глоталось молча. */}
+              {!inProgress && bgProgress.lastError && (
+                <div style={{
+                  marginTop: 8, padding: "8px 12px", borderRadius: 8,
+                  background: "color-mix(in oklch, var(--destructive) 12%, transparent)",
+                  border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)",
+                  fontSize: 11.5, color: "var(--destructive)", fontFamily: "ui-monospace, monospace",
+                  wordBreak: "break-word",
+                }}>
+                  Ошибка: {bgProgress.lastError.slice(0, 280)}
+                </div>
+              )}
             </div>
+            {!inProgress && (
+              <button
+                onClick={() => setBgProgress(null)}
+                style={{
+                  background: "transparent", border: "none",
+                  color: "var(--muted-foreground)", cursor: "pointer",
+                  fontSize: 18, padding: 4, lineHeight: 1, flexShrink: 0,
+                }}
+                title="Скрыть"
+              >×</button>
+            )}
           </div>
         );
       })()}
