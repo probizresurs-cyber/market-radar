@@ -743,17 +743,51 @@ function MarketRadarDashboardInner() {
         console.warn("[wizard] SMM failed", e);
       }));
     }
-    if (opts.modules.includes("competitors") && opts.competitorUrls?.length) {
-      // handleAddCompetitor не зависит от myCompany — он просто добавляет
-      // новый конкурент через analyzeUrl. Однако его внутренний state-merge
-      // тоже опасен (последовательность гонок). Запускаем последовательно
-      // чтобы избежать race condition на setCompetitors.
-      tasks.push((async () => {
-        for (const compUrl of opts.competitorUrls!.slice(0, 3)) {
-          try { await handleAddCompetitor(compUrl); }
-          catch (e) { console.warn("[wizard] competitor failed", compUrl, e); }
+    if (opts.modules.includes("competitors")) {
+      // Раньше: если competitorUrls пустой — модуль молча пропускался,
+      // юзер думал «отметил же галочку!». Теперь fallback на Keys.so /
+      // SpyWords из результата основного анализа — они уже содержат
+      // топ-5 SEO-конкурентов по пересечению ключей.
+      let urls = (opts.competitorUrls ?? []).filter(u => u.trim().length > 0);
+      if (urls.length === 0) {
+        // 1. SpyWords (приоритет — у нас более точная метрика commonKeywords)
+        const sw = result.spywordsDashboard?.competitors?.yandex
+          ?? result.spywordsDashboard?.competitors?.google
+          ?? [];
+        const swDomains = sw
+          .slice(0, 3)
+          .map(c => c.domain)
+          .filter(d => d && !d.includes(result.company.url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]));
+        // 2. Keys.so — массив имён доменов (без https). Берём первые 3
+        //    исключая собственный домен.
+        const ks = result.keysoDashboard?.yandex?.competitors
+          ?? result.keysoDashboard?.google?.competitors
+          ?? [];
+        const ownDomain = result.company.url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+        const ksDomains = ks
+          .slice(0, 3)
+          .filter(d => d && !d.includes(ownDomain));
+        // Объединяем (SpyWords первый — обычно качественнее), дедуп.
+        const merged = Array.from(new Set([...swDomains, ...ksDomains])).slice(0, 3);
+        urls = merged.map(d => `https://${d.replace(/^https?:\/\//, "")}`);
+        if (urls.length > 0) {
+          console.info("[wizard] auto-filled competitors from Keys.so/SpyWords:", urls);
         }
-      })());
+      }
+      if (urls.length === 0) {
+        console.warn("[wizard] competitors module отмечен, но конкурентов не нашлось ни в формe, ни в Keys.so/SpyWords");
+      } else {
+        // handleAddCompetitor не зависит от myCompany — он просто добавляет
+        // новый конкурент через analyzeUrl. Однако его внутренний state-merge
+        // тоже опасен (последовательность гонок). Запускаем последовательно
+        // чтобы избежать race condition на setCompetitors.
+        tasks.push((async () => {
+          for (const compUrl of urls.slice(0, 3)) {
+            try { await handleAddCompetitor(compUrl); }
+            catch (e) { console.warn("[wizard] competitor failed", compUrl, e); }
+          }
+        })());
+      }
     }
     // Reviews — отдельная вкладка, юзер запускает вручную.
 

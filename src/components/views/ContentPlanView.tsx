@@ -80,8 +80,18 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
           <div style={{ color: "var(--foreground-secondary)", marginTop: 4 }}>{smm.brandIdentity.positioning}</div>
         </div>
       ) : (
-        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "var(--destructive)" }}>
-          ⚠️ СММ-анализ не найден. Сначала запустите его в разделе «Анализ СММ».
+        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 12, padding: "14px 16px", marginBottom: 20, fontSize: 13, color: "var(--destructive)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span>⚠️ СММ-анализ не найден. Контент-завод работает на его основе.</span>
+          <a
+            href="/?nav=smm-new"
+            style={{
+              padding: "7px 16px", borderRadius: 8, background: "var(--destructive)",
+              color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Запустить СММ-анализ →
+          </a>
         </div>
       )}
 
