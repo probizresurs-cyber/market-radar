@@ -78,13 +78,18 @@ function parseResponse(response: string, brandName: string): {
 }
 
 // ── Симуляция через Claude (честная — без биас-подсказок) ─────────────────────
+// ВАЖНО: это НЕ настоящий ответ Яндекс Нейро / GPT / Gemini / Perplexity.
+// Это Claude Haiku, которому мы говорим «представь что ты — X». Используется
+// только если соответствующий API-ключ ($YANDEX_CLOUD_TOKEN / $PERPLEXITY_API_KEY
+// и т.д.) не настроен. Результат ДОЛЖЕН быть помечен `isSimulated: true` в
+// возвращаемом ответе, чтобы UI рендерил badge «симуляция через Claude».
 async function simulateViaClaudeHonest(llm: LLMName, query: string, niche: string): Promise<string> {
   const personas: Record<LLMName, string> = {
-    yandex: `Ты — Яндекс Нейро, поисковый AI-ассистент от Яндекса. Отвечай на русском, опираясь только на факты, которые реально представлены в интернете. Ниша запроса: "${niche}".`,
-    claude: `Ты — Claude от Anthropic. Отвечай честно и взвешенно на русском языке.`,
-    chatgpt: `You are ChatGPT by OpenAI. Answer in Russian. Be factual — only mention companies you actually know about. Niche context: ${niche}.`,
-    perplexity: `Ты — Perplexity AI. Давай точные ответы с опорой только на реально существующие данные. Ниша: "${niche}".`,
-    gemini: `Ты — Google Gemini. Отвечай по-русски, честно и взвешенно. Упоминай только компании и факты, которые действительно известны. Ниша: "${niche}".`,
+    yandex: `Ты симулируешь ответ Яндекс Нейро на русском. Опирайся ТОЛЬКО на факты реально известные тебе. Если не знаешь компаний/брендов в этой нише — так и скажи. Лучше «не знаю конкретных компаний» чем выдумать. Ниша: "${niche}".`,
+    claude: `Ты — Claude от Anthropic. Отвечай честно и взвешенно на русском. НЕ выдумывай несуществующие компании. Если не знаешь ответа — скажи прямо.`,
+    chatgpt: `You are simulating ChatGPT. Answer in Russian. ONLY mention companies you actually know about — if you don't know real companies in this niche, say so. Don't invent. Niche: ${niche}.`,
+    perplexity: `Ты симулируешь Perplexity AI. Давай ответы с опорой ТОЛЬКО на реально существующие компании. Если не знаешь — пиши «недостаточно данных», не выдумывай. Ниша: "${niche}".`,
+    gemini: `Ты симулируешь Google Gemini. Отвечай по-русски. Упоминай ТОЛЬКО компании которые ты ДЕЙСТВИТЕЛЬНО знаешь. Не выдумывай — лучше короткий ответ, чем подробный с фейками. Ниша: "${niche}".`,
   };
 
   const { text } = await safeAnthropicCreate({

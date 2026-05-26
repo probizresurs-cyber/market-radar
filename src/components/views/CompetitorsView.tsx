@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { Users, Sparkles, Plus, Loader2 } from "lucide-react";
+import { DataBadge } from "@/components/ui/DataBadge";
 
 interface SuggestedCompetitor {
   domain: string;
@@ -318,6 +319,10 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                     {sc}
                   </div>
                 </div>
+                {/* AI-сгенерированный общий score + категории */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4, alignItems: "center" }}>
+                  <DataBadge variant="ai" compact />
+                </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                   {comp.company.categories.map(cat => (
                     <span key={cat.name} style={{ fontSize: 11, color: "var(--foreground-secondary)", background: "var(--muted)", padding: "2px 8px", borderRadius: 6 }}>
@@ -325,19 +330,24 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
                     </span>
                   ))}
                 </div>
-                {/* Map ratings */}
+                {/* Map ratings — РЕАЛЬНЫЕ данные с Yandex / 2GIS API */}
                 {((comp.social?.yandexRating ?? 0) > 0 || (comp.social?.gisRating ?? 0) > 0) && (
-                  <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: `1px solid var(--border)` }}>
-                    {(comp.social?.yandexRating ?? 0) > 0 && (
-                      <span style={{ fontSize: 11, color: "#FC3F1D", fontWeight: 600 }}>
-                        Я.К: ★{comp.social.yandexRating.toFixed(1)} ({comp.social.yandexReviews})
-                      </span>
-                    )}
-                    {(comp.social?.gisRating ?? 0) > 0 && (
-                      <span style={{ fontSize: 11, color: "#04AE30", fontWeight: 600 }}>
-                        2ГИС: ★{comp.social.gisRating.toFixed(1)} ({comp.social.gisReviews})
-                      </span>
-                    )}
+                  <div style={{ paddingTop: 8, borderTop: `1px solid var(--border)` }}>
+                    <div style={{ marginBottom: 4 }}>
+                      <DataBadge variant="real" source="Карты" compact />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {(comp.social?.yandexRating ?? 0) > 0 && (
+                        <span style={{ fontSize: 11, color: "#FC3F1D", fontWeight: 600 }}>
+                          Я.К: ★{comp.social.yandexRating.toFixed(1)} ({comp.social.yandexReviews})
+                        </span>
+                      )}
+                      {(comp.social?.gisRating ?? 0) > 0 && (
+                        <span style={{ fontSize: 11, color: "#04AE30", fontWeight: 600 }}>
+                          2ГИС: ★{comp.social.gisRating.toFixed(1)} ({comp.social.gisReviews})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 </div>{/* end clickable wrapper */}

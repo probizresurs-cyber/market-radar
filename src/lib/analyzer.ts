@@ -92,16 +92,18 @@ Sitemap: ${data.hasSitemap ? "есть" : "нет"} | Robots.txt: ${data.hasRobo
 JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 Текст (фрагмент): ${data.rawTextSample || "(пусто)"}
 
-=== ИНСТРУКЦИИ ===
-- Для SEO-позиций: придумай 6 реалистичных ключевых слов для этого сайта с реальными позициями (1-100) и объёмом поиска.
-- Для соцсетей: если ссылка есть в списке — дай реалистичные цифры, иначе null.
-- Для найма, бизнеса — оцени по типу компании и нише.
-- Для прогноза — анализируй рыночные тренды именно в нише этого сайта.
-- Для copyImprovements: анализируй реальный текст сайта (title, h1, h2, фрагмент текста) и давай КОНКРЕТНЫЕ переформулировки с примерами.
-- Для keywordGaps: давай ключевые слова, которые конкуренты в нише используют, а этот сайт — нет. Реалистичные объёмы.
-- Для offerAnalysis: опиши текущий оффер как он есть, найди слабые места, предложи конкретную переформулировку УТП.
-- Для aiPerception: представь, что ты ChatGPT/Claude/Gemini, и пользователь спрашивает тебя об этой компании. Как ты ответишь? Что знаешь о ней? Насколько хорошо она представлена в информационном пространстве, которое используют LLM для обучения? E-E-A-T — это Google-стандарт оценки контента (Expertise, Experience, Authority, Trust), оцени по нему.
-- Все текстовые поля — на русском языке.
+=== ИНСТРУКЦИИ (СТРОГО: не выдумывай конкретику если нет источника) ===
+- ВАЖНО: ты НЕ имеешь доступа к Keys.so / SimilarWeb / DaData. Любые конкретные SEO-позиции, объёмы поиска, число сотрудников, оборот, число клиентов, рейтинги Я.К/2GIS — выдумывать ЗАПРЕЩЕНО.
+- Для SEO: верни ПУСТОЙ массив positions: []. Реальные позиции подтягиваются из Keys.so на сервере. Если данных нет — лучше пусто, чем выдуманно.
+- Для соцсетей: возвращай null для подписчиков/постов. Реальные цифры подтягиваются getRealVKStats / getRealTelegramStats на сервере.
+- Для бизнеса (employees, founded, taxRegime): ВСЕГДА верни строку «—». Реальные данные тянутся из DaData на сервере, твои догадки будут перезаписаны.
+- Для найма: vacancies верни 0, salaryAvg верни 0 если не уверен. HH.ru-data подтягивается отдельно.
+- Для прогноза ниши — общая качественная оценка («рост умеренный», «зрелый рынок») БЕЗ конкретных процентов.
+- Для copyImprovements: анализируй РЕАЛЬНЫЙ текст сайта (title, h1, h2, фрагмент) и давай конкретные переформулировки. Если текста сайта мало — верни пустой массив, не выдумывай.
+- Для keywordGaps: верни пустой массив. Реальные ключи берутся из Keys.so/SpyWords конкурентов.
+- Для offerAnalysis: опиши то что РЕАЛЬНО видишь на сайте; не выдумывай несуществующие услуги.
+- Для aiPerception: качественная оценка с явными гипотезами («скорее всего», «вероятно»). E-E-A-T-баллы — диапазоны (low/medium/high), не конкретные числа.
+- Все текстовые поля — на русском.
 
 === ТРЕБУЕМЫЙ JSON (строго такая структура) ===
 {
@@ -243,12 +245,16 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
   if (!responseText) throw new Error("Empty response from AI model");
   const p = extractJson(responseText);
 
+  // Раньше тут были fallback'ы с правдоподобными числами (seo: 50, social: 30
+   // и т.п.) — это означало что при пустом/мусорном ответе AI пользователь
+   // видел «оценка SEO 50/100» как реальную оценку. Теперь 0 — явный признак
+   // «оценка не получена», UI это рендерит как «—».
   const scores = {
-    seo: clamp(safeNum(p.scores?.seo, 50)),
-    social: clamp(safeNum(p.scores?.social, 30)),
-    content: clamp(safeNum(p.scores?.content, 50)),
-    hrBrand: clamp(safeNum(p.scores?.hrBrand, 40)),
-    technology: clamp(safeNum(p.scores?.technology, 50)),
+    seo: clamp(safeNum(p.scores?.seo, 0)),
+    social: clamp(safeNum(p.scores?.social, 0)),
+    content: clamp(safeNum(p.scores?.content, 0)),
+    hrBrand: clamp(safeNum(p.scores?.hrBrand, 0)),
+    technology: clamp(safeNum(p.scores?.technology, 0)),
   };
 
   const overallScore = clamp(
@@ -394,16 +400,18 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     legalForm: safeStr(bizRaw.legalForm, "Неизвестно"),
   };
 
-  // Niche forecast
+  // Niche forecast — fallback'и убраны (раньше trendPercent: 5, timeframe: "2025-2027"
+  // подставлялись даже если AI вернул мусор, и пользователь видел «правдоподобный»
+  // выдуманный прогноз). Теперь нулевые/«—» значения = «недостаточно данных».
   const nfRaw = p.nicheForecast ?? {};
   const nicheForecast = {
     trend: (["growing", "stable", "declining"].includes(nfRaw.trend) ? nfRaw.trend : "stable") as "growing" | "stable" | "declining",
-    trendPercent: safeNum(nfRaw.trendPercent, 5),
-    forecast: safeStr(nfRaw.forecast, "Данные по прогнозу ниши отсутствуют."),
+    trendPercent: safeNum(nfRaw.trendPercent, 0),
+    forecast: safeStr(nfRaw.forecast, "—"),
     opportunities: Array.isArray(nfRaw.opportunities) ? nfRaw.opportunities.slice(0, 3).map((o: unknown) => String(o)) : [],
     threats: Array.isArray(nfRaw.threats) ? nfRaw.threats.slice(0, 3).map((t: unknown) => String(t)) : [],
     direction: safeStr(nfRaw.direction, "—"),
-    timeframe: safeStr(nfRaw.timeframe, "2025–2027"),
+    timeframe: safeStr(nfRaw.timeframe, "—"),
   };
 
   // AI Perception
@@ -417,10 +425,11 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     associatedKeywords: Array.isArray(apRaw.associatedKeywords)
       ? apRaw.associatedKeywords.slice(0, 5).map((k: unknown) => String(k)) : [],
     eeat: {
-      expertise: clamp(safeNum(eeatRaw.expertise, 40)),
-      authority: clamp(safeNum(eeatRaw.authority, 30)),
-      trust: clamp(safeNum(eeatRaw.trust, 40)),
-      experience: clamp(safeNum(eeatRaw.experience, 35)),
+      // Fallback на 0 (не правдоподобные 40/30/40/35). 0 = «оценка не получена».
+      expertise: clamp(safeNum(eeatRaw.expertise, 0)),
+      authority: clamp(safeNum(eeatRaw.authority, 0)),
+      trust: clamp(safeNum(eeatRaw.trust, 0)),
+      experience: clamp(safeNum(eeatRaw.experience, 0)),
     },
     contentSignals: Array.isArray(apRaw.contentSignals)
       ? apRaw.contentSignals.slice(0, 3).map((s: unknown) => String(s)) : [],
@@ -433,8 +442,11 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
       name: companyName,
       url: domain,
       score: overallScore,
-      avgNiche: clamp(safeNum(p.avgNiche, 50)),
-      top10: clamp(safeNum(p.top10, 80)),
+      // avgNiche / top10 — раньше 50/80 псевдо-числа. Теперь 0 если AI промолчал
+      // (UI рендерит как «—»). Реальные отраслевые медианы должны приходить
+      // из niche-benchmark с пометкой «оценка».
+      avgNiche: clamp(safeNum(p.avgNiche, 0)),
+      top10: clamp(safeNum(p.top10, 0)),
       categories,
       description: safeStr(p.description, ""),
     },

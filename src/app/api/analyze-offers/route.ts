@@ -67,16 +67,29 @@ export async function POST(req: Request) {
           .slice(0, 6000);
       }
     } catch {
-      // Site fetch failed, GPT will use its knowledge
+      // Site fetch failed → siteContent остаётся пустой
+    }
+
+    // КРИТИЧНО: если контент не загрузился — НЕ просим AI «использовать свои
+    // знания», это прямая инструкция выдумать офферы. Возвращаем явную ошибку,
+    // юзер видит «не удалось загрузить сайт» вместо вымышленных услуг с
+    // правдоподобными ценами.
+    if (!siteContent || siteContent.length < 100) {
+      return NextResponse.json({
+        ok: false,
+        error: "Не удалось загрузить сайт конкурента (timeout/403/404). Анализ офферов невозможен без контента — попробуйте позже или укажите другой URL.",
+        reason: "site_unavailable",
+      }, { status: 422 });
     }
 
     const userPrompt = `Компания: «${companyName}»
 URL: ${companyUrl}
 ${companyDescription ? `Описание: ${companyDescription}` : ""}
 
-${siteContent ? `Контент сайта (извлечённый текст):\n${siteContent}` : "Контент сайта не удалось загрузить, используй свои знания и URL."}
+Контент сайта (извлечённый текст):
+${siteContent}
 
-Проанализируй офферы этой компании и верни JSON.`;
+Проанализируй офферы по ФАКТИЧЕСКОМУ тексту сайта. Не выдумывай несуществующие услуги. Если какой-то блок (цены / гарантии / отзывы) не найден на сайте — верни пустой массив или «—», НЕ генерируй гипотетические значения. Верни JSON.`;
 
     const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",

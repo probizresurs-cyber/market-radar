@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -21,7 +22,9 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "user",
-          content: `Ты помогаешь с GEO (Generative Engine Optimization) аудитом бренда.
+          content: `${ANTI_HALLUCINATION_SHORT}
+
+Ты помогаешь с GEO (Generative Engine Optimization) аудитом бренда.
 
 Бренд: ${brandName}
 Ниша: ${niche}

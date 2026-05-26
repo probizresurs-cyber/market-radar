@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { AIMention, SiteReadinessItem, AIRecommendation } from "@/lib/ai-visibility-types";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,9 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "user",
-          content: `Ты GEO-эксперт (Generative Engine Optimization). Подготовь приоритизированный список рекомендаций для улучшения AI-видимости бренда.
+          content: `${ANTI_HALLUCINATION_SHORT}
+
+Ты GEO-эксперт (Generative Engine Optimization). Подготовь приоритизированный список рекомендаций для улучшения AI-видимости бренда.
 
 Данные аудита:
 - Бренд: ${brandName}
@@ -50,7 +53,7 @@ export async function POST(req: Request) {
   "title": "краткий заголовок до 60 символов",
   "description": "объяснение почему это важно (2-3 предложения)",
   "howTo": "конкретные шаги как сделать (2-4 предложения)",
-  "impactScore": число от 3 до 20 (насколько вырастет score),
+  "impactScore": число от 3 до 20 (оценочное влияние на score, КАЧЕСТВЕННАЯ оценка а не точное предсказание; не утверждай «вырастет на +14» как факт),
   "category": "schema" | "content" | "external" | "technical"
 }
 
