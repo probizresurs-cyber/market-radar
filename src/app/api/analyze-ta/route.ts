@@ -4,6 +4,13 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
+// КРИТИЧНО: gpt-4o-mini с большим system_prompt + max_tokens 16000 может
+// тратить 60-150 секунд. Без явного maxDuration Next.js резал на 60 сек,
+// endpoint умирал быстрее чем отвечал. Юзер в визарде ставил галку
+// «Анализ ЦА» и не получал результат — модуль молча падал.
+export const runtime = "nodejs";
+export const maxDuration = 180;
+
 const SYSTEM_PROMPT_B2C = `${ANTI_HALLUCINATION_SHORT}
 
 Ты — лучший в мире маркетинговый аналитик, специализирующийся на глубоком анализе целевой аудитории в B2C (конечные потребители, физические лица).
@@ -410,10 +417,11 @@ export async function POST(req: Request) {
             { role: "user", content: userPrompt },
           ],
           temperature: 0.85,
-          // 16000 — потолок gpt-4o output. На детальных B2B-портретах
-          // (3 сегмента × психографика × возражения × JTBD) 7000 не хватало,
-          // JSON обрывался на 26900-м символе → ошибка «Unterminated string».
-          max_tokens: 16000,
+          // 8000 даёт baseline на 3 детальных сегмента. Раньше было 16000
+          // но gpt-4o-mini на таком max_tokens может тратить 100-150 сек →
+          // упирался в maxDuration. 8000 → 40-60 сек, влезает в 180 maxDuration
+          // с большим запасом. Если будет обрываться JSON — поднимем до 10000.
+          max_tokens: 8000,
           response_format: { type: "json_object" },
         }),
       });
