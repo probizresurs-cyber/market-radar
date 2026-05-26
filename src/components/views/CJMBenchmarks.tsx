@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { DataBadge } from "@/components/ui/DataBadge";
 import {
   Map as MapIcon, Loader2, RefreshCw, MapPin, MessageCircle,
   AlertTriangle, Lightbulb, TrendingUp, BarChart2,
@@ -368,6 +369,11 @@ export function BenchmarksView({ c, data, isGenerating, onGenerate, myCompany, e
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>Отраслевые бенчмарки</h1>
           <p style={{ fontSize: 13, color: "var(--foreground-secondary)", margin: 0 }}>{data.niche}</p>
+          {/* Явная пометка: это AI-оценка диапазонов по нише, не точная
+             статистика. Раньше юзер мог принять цифры за реальные. */}
+          <div style={{ marginTop: 8 }}>
+            <DataBadge variant="estimate" source="оценка по нише" />
+          </div>
         </div>
         <div style={{ textAlign: "right" }}>
           <button onClick={onGenerate} disabled={isGenerating}

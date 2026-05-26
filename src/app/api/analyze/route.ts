@@ -68,24 +68,54 @@ export async function POST(request: NextRequest) {
     ]);
     const real = { ...domainData, ...companyData };
 
-    // 4. Overwrite AI-guessed fields with real data where available
+    // 4. Overwrite AI-guessed fields with real data where available.
+    // КРИТИЧНО: если реальный enricher вернул null — это значит источник
+    // НЕ ОТРАБОТАЛ (нет токена / API down / соц не найдена). В этом случае
+    // нужно СТЕРЕТЬ AI-выдумки, а не оставлять их как «факт». Юзер увидит
+    // «—» / нули вместо правдоподобной лжи. Тот же паттерн что для DaData
+    // ниже (L113-122).
     if (real.domainAge) {
       result.seo.domainAge = real.domainAge;
+    } else {
+      // AI мог выдумать «5 лет» — стираем
+      result.seo.domainAge = "—";
     }
     if (real.hh) {
       result.hiring = {
         openVacancies: real.hh.openVacancies,
         avgSalary: real.hh.avgSalary,
         salaryRange: real.hh.salaryRange,
-        topRoles: real.hh.topRoles.length > 0 ? real.hh.topRoles : result.hiring.topRoles,
+        topRoles: real.hh.topRoles.length > 0 ? real.hh.topRoles : [],
         trend: real.hh.trend,
+      };
+    } else {
+      // HH.ru не отдал или нет API-ключа → стираем AI-цифры вакансий/зарплат
+      result.hiring = {
+        openVacancies: 0,
+        avgSalary: "—",
+        salaryRange: "—",
+        topRoles: [],
+        trend: "stable",
       };
     }
     if (real.telegram) {
       result.social.telegram = real.telegram;
+    } else if (result.social.telegram) {
+      // AI выдумал подписчиков → стираем число, оставляем только сам факт ссылки
+      result.social.telegram = {
+        ...result.social.telegram,
+        subscribers: 0,
+        posts30d: 0,
+      };
     }
     if (real.vk) {
       result.social.vk = real.vk;
+    } else if (result.social.vk) {
+      result.social.vk = {
+        ...result.social.vk,
+        subscribers: 0,
+        posts30d: 0,
+      };
     }
     if (real.dadata) {
       // DaData есть → берём ТОЛЬКО её данные. AI-fallback больше не оставляем —
@@ -155,16 +185,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Yandex Maps rating (overwrite AI-guessed)
+    // Yandex Maps rating (overwrite AI-guessed). Если реальный API не отдал
+    // данных — стираем AI-цифры (AI любит выдумать «★4.2 (127 отзывов)»).
     if (real.yandexRating && real.yandexRating.rating > 0) {
       result.social.yandexRating = real.yandexRating.rating;
       result.social.yandexReviews = real.yandexRating.reviews;
+    } else {
+      result.social.yandexRating = 0;
+      result.social.yandexReviews = 0;
     }
 
-    // 2GIS rating
+    // 2GIS rating — то же
     if (real.gisRating && real.gisRating.rating > 0) {
       result.social.gisRating = real.gisRating.rating;
       result.social.gisReviews = real.gisRating.reviews;
+    } else {
+      result.social.gisRating = 0;
+      result.social.gisReviews = 0;
     }
 
     // Government contracts

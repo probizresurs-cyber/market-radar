@@ -12,6 +12,7 @@ import { CategoryCard } from "@/components/ui/CategoryCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
+import { DataBadge } from "@/components/ui/DataBadge";
 import {
   TrendingUp, AlertTriangle, Lightbulb, Tag, RefreshCw, Key,
   Search, Building2, ClipboardList, Settings, Users, Smartphone,
@@ -83,8 +84,11 @@ export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData
         </div>
       </div>
 
-      {/* Categories */}
-      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 12 }}>Оценки по категориям</div>
+      {/* Categories — все цифры от AI, нет реального API на эти score */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        Оценки по категориям
+        <DataBadge variant="ai" compact />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {company.categories.map(cat => <CategoryCard key={cat.name} cat={cat} c={c} />)}
       </div>
@@ -188,6 +192,10 @@ export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData
         )}
         {offers && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            {/* Badge о том что это AI-парсинг сайта конкурента, а не его реальный API */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <DataBadge variant="ai" source="GPT по сайту конкурента" compact />
+            </div>
             <div style={{ background: "color-mix(in oklch, var(--primary) 6%, transparent)", borderRadius: 12, padding: 16, border: `1px solid var(--primary)30` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 6, letterSpacing: "0.05em" }}>ЦЕННОСТНОЕ ПРЕДЛОЖЕНИЕ</div>
               <p style={{ fontSize: 14, color: "var(--foreground)", margin: 0, fontWeight: 600 }}>{offers.mainValueProposition}</p>

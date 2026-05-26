@@ -247,11 +247,14 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
         <RealStatsBar c={c} stats={data.realStats} />
       )}
 
-      {/* Brand Identity */}
+      {/* Brand Identity — всё, кроме реальных подписчиков соцсетей,
+         сгенерировано AI. Точечный badge на самом видном поле — архетипе. */}
       <CollapsibleSection c={c} title="Идентичность бренда" icon={<Drama size={16} />}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           <Card>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>АРХЕТИП</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 8 }}>
+              АРХЕТИП <DataBadge variant="ai" compact />
+            </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)", marginBottom: 14 }}>{data.brandIdentity.archetype}</div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6, letterSpacing: "0.05em" }}>ПОЗИЦИОНИРОВАНИЕ</div>
             <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.6, margin: 0 }}>{data.brandIdentity.positioning}</p>
@@ -290,7 +293,9 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
           </Card>
         </div>
         <Card style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em" }}>МАТРИЦА КОНТЕНТА</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 12, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 8 }}>
+            МАТРИЦА КОНТЕНТА <DataBadge variant="ai" compact />
+          </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
               {["Тип контента", "Цель", "Доля"].map(h => (
