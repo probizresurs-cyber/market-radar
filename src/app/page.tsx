@@ -718,19 +718,34 @@ function MarketRadarDashboardInner() {
     // 2) Параллельно запускаем выбранные модули с явным companyOverride.
     //    Каждый handler принимает result, не читает myCompany из закрытия,
     //    поэтому модули работают сразу после анализа.
+    //
+    // КРИТИЧНО: раньше задачи fire-and-forget'или БЕЗ видимого фидбэка —
+    // юзер ставил галки 4 модулей, ждал основной анализ, видел дашборд,
+    // открывал ЦА — там пусто, думал «модули не запустились». Теперь:
+    // - сразу info-toast «запускаем 3 модуля в фоне»
+    // - success-toast когда каждый закончил
+    // - error-toast с понятной причиной если упал
     const tasks: Promise<unknown>[] = [];
+    const moduleNames: string[] = [];
 
     if (opts.modules.includes("ta")) {
+      moduleNames.push("ЦА");
       // niche/extraContext пустые — TA-route сам возьмёт контекст из company.
-      // Тип аудитории определяем из user.businessType: BusinessType строки
-      // вида 'b2b-services'/'b2c-retail' — берём префикс.
       const bt = currentUser?.businessType ?? "";
       const audienceType: TAAudienceType = bt.startsWith("b2b") ? "b2b" : "b2c";
-      tasks.push(handleTAAnalysis("", "", audienceType, result).catch((e) => {
-        console.warn("[wizard] TA failed", e);
-      }));
+      tasks.push(
+        handleTAAnalysis("", "", audienceType, result)
+          .then(() => {
+            toast({ kind: "success", title: "Анализ ЦА готов", description: "Открыть в разделе «Аудитория»." });
+          })
+          .catch((e) => {
+            console.warn("[wizard] TA failed", e);
+            toast({ kind: "error", title: "Анализ ЦА не удался", description: e instanceof Error ? e.message : "Ошибка" });
+          })
+      );
     }
     if (opts.modules.includes("smm")) {
+      moduleNames.push("СММ");
       const links = {
         vk: opts.smm?.vk ?? "",
         telegram: opts.smm?.telegram ?? "",
@@ -739,9 +754,16 @@ function MarketRadarDashboardInner() {
         tiktok: "",
         youtube: "",
       } as SMMSocialLinks;
-      tasks.push(handleSMMAnalysis("", links, result).catch((e) => {
-        console.warn("[wizard] SMM failed", e);
-      }));
+      tasks.push(
+        handleSMMAnalysis("", links, result)
+          .then(() => {
+            toast({ kind: "success", title: "Анализ СММ готов", description: "Открыть в разделе «СММ»." });
+          })
+          .catch((e) => {
+            console.warn("[wizard] SMM failed", e);
+            toast({ kind: "error", title: "Анализ СММ не удался", description: e instanceof Error ? e.message : "Ошибка" });
+          })
+      );
     }
     if (opts.modules.includes("competitors")) {
       // Раньше: если competitorUrls пустой — модуль молча пропускался,
@@ -776,22 +798,53 @@ function MarketRadarDashboardInner() {
       }
       if (urls.length === 0) {
         console.warn("[wizard] competitors module отмечен, но конкурентов не нашлось ни в формe, ни в Keys.so/SpyWords");
+        toast({
+          kind: "info",
+          title: "Конкуренты не найдены",
+          description: "Вы отметили «Анализ конкурентов», но не указали URL и Keys.so/SpyWords не вернули кандидатов. Добавьте конкурента вручную в разделе «Конкуренты».",
+        });
       } else {
+        moduleNames.push(`Конкуренты (${urls.length})`);
         // handleAddCompetitor не зависит от myCompany — он просто добавляет
-        // новый конкурент через analyzeUrl. Однако его внутренний state-merge
-        // тоже опасен (последовательность гонок). Запускаем последовательно
+        // новый конкурент через analyzeUrl. Запускаем последовательно
         // чтобы избежать race condition на setCompetitors.
         tasks.push((async () => {
+          let ok = 0; let fail = 0;
           for (const compUrl of urls.slice(0, 3)) {
-            try { await handleAddCompetitor(compUrl); }
-            catch (e) { console.warn("[wizard] competitor failed", compUrl, e); }
+            try { await handleAddCompetitor(compUrl); ok++; }
+            catch (e) { console.warn("[wizard] competitor failed", compUrl, e); fail++; }
+          }
+          if (ok > 0) {
+            toast({
+              kind: "success",
+              title: `Конкуренты: ${ok} из ${ok + fail} добавлены`,
+              description: fail > 0
+                ? `${fail} не удалось загрузить — добавьте вручную в разделе «Конкуренты».`
+                : "Открыть в разделе «Конкуренты».",
+            });
+          } else {
+            toast({
+              kind: "error",
+              title: "Не удалось добавить конкурентов",
+              description: "Все URL отказались отвечать. Попробуйте позже или укажите другие сайты.",
+            });
           }
         })());
       }
     }
     // Reviews — отдельная вкладка, юзер запускает вручную.
 
+    // Сразу показываем info-toast чтобы юзер видел что модули реально запущены
+    if (moduleNames.length > 0) {
+      toast({
+        kind: "info",
+        title: `Запустили ${moduleNames.length} ${moduleNames.length === 1 ? "модуль" : "модуля"} в фоне`,
+        description: `${moduleNames.join(" · ")} — занимают 1-3 минуты каждый. Появятся в соответствующих разделах когда будут готовы.`,
+      });
+    }
+
     // Fire-and-forget: пускай работают в фоне, пользователь смотрит дашборд.
+    // Каждый task сам пошлёт success/error toast по завершении.
     void Promise.all(tasks);
   };
 
