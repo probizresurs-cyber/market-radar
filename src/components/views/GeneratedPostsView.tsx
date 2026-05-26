@@ -1802,11 +1802,12 @@ export function GeneratedPostsView({
 
   if (posts.length === 0) {
     return (
-      <div style={{ maxWidth: 760 }}>
+      <div style={{ maxWidth: 1180 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px", color: "var(--foreground)", letterSpacing: -0.5 }}>Создать пост</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 24px" }}>Все сгенерированные посты с картинками появятся здесь.</p>
 
-        {/* Onboarding checklist — показываем если воронка ещё не пройдена до конца */}
+        {/* Onboarding checklist — оставлен подсказкой что для полной картинки
+            нужны все анализы. Но генератор всё равно работает по myCompany. */}
         {onboardingState && (
           <OnboardingChecklist
             state={onboardingState}
@@ -1814,23 +1815,42 @@ export function GeneratedPostsView({
           />
         )}
 
-        <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
-          <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-            <Pencil size={30} strokeWidth={1.5} />
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Пока нет постов</div>
-          <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
-            Сгенерируйте первый — из «Плана контента» или из «Трендов по нише».
-          </div>
-          <div style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
-              План контента →
+        {/* Если есть хотя бы анализ компании — показываем генератор. План
+            контента не обязателен (ContentGeneratorBlock умеет работать без
+            плана: scratch-mode с брифом). */}
+        {myCompany && onGeneratePost ? (
+          <>
+            <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
+            <ContentGeneratorBlock
+              c={c}
+              plan={plan ?? null}
+              isGeneratingPost={!!isGeneratingPost}
+              generatingPostId={generatingPostId ?? null}
+              isGeneratingReel={false}
+              generatingReelId={null}
+              onGeneratePost={onGeneratePost}
+              onGenerateReel={() => {}}
+              brandBook={brandBook as BrandBook}
+              lockedMode="post"
+              myCompany={myCompany}
+              taResult={taResult}
+              smmAnalysis={smmAnalysis}
+            />
+          </>
+        ) : (
+          <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Pencil size={30} strokeWidth={1.5} />
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--foreground)", marginBottom: 8 }}>Сначала запустите анализ компании</div>
+            <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
+              Без анализа AI не знает, о чём писать. Запустите главный анализ — и сразу сможете создавать посты.
+            </div>
+            <a href="/?nav=home" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+              К анализу →
             </a>
-            <a href="/?nav=content-trends" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--background)", color: "var(--foreground)", fontWeight: 700, fontSize: 14, textDecoration: "none", border: "1.5px solid var(--border)" }}>
-              Тренды по нише →
-            </a>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -1849,13 +1869,13 @@ export function GeneratedPostsView({
           новый пост можно было загрузить рефы заранее. */}
       <ImageReferencePanel c={c} images={referenceImages} onChange={onUpdateReferenceImages} />
 
-      {/* Встроенный блок «Создать пост» (был в «План контента»). Показываем
-          только если есть план — без него идеи брать неоткуда. Если плана
-          нет, юзер увидит подсказку перейти в «План контента». */}
-      {plan && onGeneratePost ? (
+      {/* Встроенный блок «Создать пост». План контента опционален —
+          ContentGeneratorBlock в scratch-режиме генерирует посты по брифу
+          юзера + данным myCompany. */}
+      {myCompany && onGeneratePost ? (
         <ContentGeneratorBlock
           c={c}
-          plan={plan}
+          plan={plan ?? null}
           isGeneratingPost={!!isGeneratingPost}
           generatingPostId={generatingPostId ?? null}
           isGeneratingReel={false}
@@ -1876,13 +1896,13 @@ export function GeneratedPostsView({
           marginBottom: 16, fontSize: 13.5, color: "var(--foreground-secondary)",
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
         }}>
-          <span>Чтобы создавать посты, сначала сгенерируйте план контента.</span>
-          <a href="/?nav=content-plan" style={{
+          <span>Сначала запустите анализ компании — без него AI не знает контекст.</span>
+          <a href="/?nav=home" style={{
             padding: "7px 14px", borderRadius: 8,
             background: "var(--primary)", color: "#fff",
             fontSize: 13, fontWeight: 700, textDecoration: "none",
             display: "inline-flex", alignItems: "center", gap: 5,
-          }}>План контента →</a>
+          }}>К анализу →</a>
         </div>
       )}
 

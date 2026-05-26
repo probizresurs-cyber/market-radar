@@ -260,7 +260,11 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
 
 export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, brandBook, lockedMode, myCompany, taResult, smmAnalysis }: {
   c: Colors;
-  plan: ContentPlan;
+  /** План контента. Если null/undefined — блок работает в режиме «с нуля»
+   *  (юзер пишет бриф сам, идеи из плана не показываются). Это позволяет
+   *  генерировать посты сразу после основного анализа компании, не дожидаясь
+   *  пока юзер запустит «План контента» как отдельный шаг. */
+  plan?: ContentPlan | null;
   isGeneratingPost: boolean;
   generatingPostId: string | null;
   isGeneratingReel: boolean;
@@ -287,9 +291,14 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   smmAnalysis?: SMMResult | null;
 }) {
   const [mode, setMode] = useState<"post" | "reel">(lockedMode ?? "post");
-  const [scratchMode, setScratchMode] = useState(false);
+  // Если плана нет — сразу включаем scratch-mode (юзер пишет бриф вручную,
+  // выбирать идеи неоткуда).
+  const [scratchMode, setScratchMode] = useState(!plan);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedReelId, setSelectedReelId] = useState<string | null>(null);
+  // Платформа публикации — нужна и для постов (раньше определялась через idea.platform).
+  // Это позволяет создавать пост сразу с нуля под VK/TG/Insta без плана контента.
+  const [postPlatform, setPostPlatform] = useState<"instagram" | "vk" | "telegram">("instagram");
   // brief = plain-language instructions from user; prompt = AI-generated full prompt (optional advanced view)
   const [brief, setBrief] = useState("");
   const [generatedPrompt, setGeneratedPrompt] = useState("");
@@ -306,8 +315,8 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
   const [imageWithTextOverlay, setImageWithTextOverlay] = useState(false);
   const [imageOverlayText, setImageOverlayText] = useState<string>("");
 
-  const selectedPost = plan.postIdeas.find(p => p.id === selectedPostId);
-  const selectedReel = plan.reelIdeas.find(r => r.id === selectedReelId);
+  const selectedPost = plan?.postIdeas.find(p => p.id === selectedPostId);
+  const selectedReel = plan?.reelIdeas.find(r => r.id === selectedReelId);
 
   const selectPost = (idea: ContentPostIdea) => {
     setScratchMode(false);
@@ -349,9 +358,9 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
         body: JSON.stringify({
           topic: getExpandTopic(),
           type: mode,
-          companyName: plan.companyName,
-          bigIdea: plan.bigIdea,
-          pillars: plan.pillars ?? [],
+          companyName: plan?.companyName ?? myCompany?.company.name ?? "",
+          bigIdea: plan?.bigIdea ?? "",
+          pillars: plan?.pillars ?? [],
           brandBook,
         }),
       });
@@ -372,7 +381,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
     if (mode === "post") {
       const idea: ContentPostIdea = selectedPost ?? {
         id: `scratch-${Date.now()}`, pillar: "С нуля", format: "single",
-        hook: brief || "Новый пост", angle: brief, goal: "охват", cta: "", platform: "vk",
+        hook: brief || "Новый пост", angle: brief, goal: "охват", cta: "", platform: postPlatform,
       };
       // Собираем imageOpts — передаём только то что юзер реально задал.
       const hasImageOpts = imageStyle || imagePromptOverride.trim() || imageWithTextOverlay;
@@ -426,56 +435,103 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
       </div>
 
       <div style={{ padding: "18px 20px" }}>
-        {/* Idea chips */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>
-            {mode === "post" ? "ВЫБЕРИТЕ ИДЕЮ ИЗ ПЛАНА" : "ВЫБЕРИТЕ ИДЕЮ РИЛСА"}
-            <span style={{ fontWeight: 400, marginLeft: 6 }}>— или создайте с нуля</span>
+        {/* Платформа публикации — только для постов. Раньше platform жёстко
+            прописывалась "vk" в idea при scratch-режиме, теперь юзер выбирает
+            (как в каруселях и сторис). Влияет на длину текста и стиль AI. */}
+        {mode === "post" && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>
+              ПЛАТФОРМА ПУБЛИКАЦИИ
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {([
+                ["instagram", "📸 Instagram"],
+                ["vk", "🔵 ВКонтакте"],
+                ["telegram", "✈️ Telegram"],
+              ] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setPostPlatform(val)}
+                  style={{
+                    padding: "7px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    background: postPlatform === val ? accent : "var(--background)",
+                    color: postPlatform === val ? "#fff" : "var(--foreground-secondary)",
+                    border: postPlatform === val ? `1px solid ${accent}` : "1px solid var(--border)",
+                    transition: "all 0.12s",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {mode === "post"
-              ? plan.postIdeas
-                  // Для постов (single/longread) — отсекаем форматы caro/story,
-                  // у них свои отдельные табы.
-                  .filter(idea => idea.format !== "carousel" && idea.format !== "story")
-                  .map(idea => {
-                  const sel = selectedPostId === idea.id;
-                  return (
-                    <button key={idea.id} onClick={() => selectPost(idea)}
-                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
-                        background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
-                        fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
-                        maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
-                      }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2, textTransform: "uppercase" }}>{idea.format}</div>
-                      {idea.hook}
-                    </button>
-                  );
-                })
-              : plan.reelIdeas.map(idea => {
-                  const sel = selectedReelId === idea.id;
-                  return (
-                    <button key={idea.id} onClick={() => selectReel(idea)}
-                      style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
-                        background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
-                        fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
-                        maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
-                      }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2 }}>{idea.durationSec}с · {idea.pillar}</div>
-                      🪝 {idea.hook}
-                    </button>
-                  );
-                })
-            }
-            <button onClick={openScratch}
-              style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : "var(--border)"}`,
-                background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : "var(--muted-foreground)",
-                fontSize: 11, fontWeight: scratchMode ? 700 : 500, cursor: "pointer", transition: "all 0.12s",
-              }}>
-              ✍️ С нуля
-            </button>
+        )}
+
+        {/* Idea chips — показываем только если есть план контента. Без плана
+            юзер сразу пишет бриф с нуля (scratchMode выставлен по умолчанию). */}
+        {plan && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 10, letterSpacing: "0.05em" }}>
+              {mode === "post" ? "ВЫБЕРИТЕ ИДЕЮ ИЗ ПЛАНА" : "ВЫБЕРИТЕ ИДЕЮ РИЛСА"}
+              <span style={{ fontWeight: 400, marginLeft: 6 }}>— или создайте с нуля</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {mode === "post"
+                ? plan.postIdeas
+                    // Для постов (single/longread) — отсекаем форматы caro/story,
+                    // у них свои отдельные табы.
+                    .filter(idea => idea.format !== "carousel" && idea.format !== "story")
+                    .map(idea => {
+                    const sel = selectedPostId === idea.id;
+                    return (
+                      <button key={idea.id} onClick={() => selectPost(idea)}
+                        style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
+                          background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
+                          fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
+                          maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
+                        }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2, textTransform: "uppercase" }}>{idea.format}</div>
+                        {idea.hook}
+                      </button>
+                    );
+                  })
+                : plan.reelIdeas.map(idea => {
+                    const sel = selectedReelId === idea.id;
+                    return (
+                      <button key={idea.id} onClick={() => selectReel(idea)}
+                        style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px solid ${sel ? accent : "var(--border)"}`,
+                          background: sel ? accent + "18" : "var(--background)", color: sel ? accent : "var(--foreground-secondary)",
+                          fontSize: 11, fontWeight: sel ? 700 : 500, cursor: "pointer", textAlign: "left",
+                          maxWidth: 220, transition: "all 0.12s", lineHeight: 1.35,
+                        }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: sel ? accent : "var(--muted-foreground)", marginBottom: 2 }}>{idea.durationSec}с · {idea.pillar}</div>
+                        🪝 {idea.hook}
+                      </button>
+                    );
+                  })
+              }
+              <button onClick={openScratch}
+                style={{ padding: "7px 12px", borderRadius: 9, border: `1.5px dashed ${scratchMode ? accent : "var(--border)"}`,
+                  background: scratchMode ? accent + "12" : "transparent", color: scratchMode ? accent : "var(--muted-foreground)",
+                  fontSize: 11, fontWeight: scratchMode ? 700 : 500, cursor: "pointer", transition: "all 0.12s",
+                }}>
+                ✍️ С нуля
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Hint when no plan exists — show that creating a content plan unlocks
+            idea chips, but generation still works without one. */}
+        {!plan && (
+          <div style={{
+            marginBottom: 14, padding: "10px 14px", borderRadius: 10,
+            background: `${accent}08`, border: `1px dashed ${accent}30`,
+            fontSize: 11.5, color: "var(--foreground-secondary)", lineHeight: 1.55,
+          }}>
+            💡 Создаёте контент с нуля по вашему брифу. Запустите «План контента», чтобы получить готовые идеи под вашу нишу.
+          </div>
+        )}
 
         {/* Selected idea details */}
         {!scratchMode && (selectedPost || selectedReel) && (
