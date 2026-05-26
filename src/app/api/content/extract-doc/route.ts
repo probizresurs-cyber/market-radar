@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { inflateRawSync } from "node:zlib";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// Лимит base64 — 5MB декодированного = ~6.7MB закодированного. Выше —
+// DoS-вектор: 50MB файл инфлейтится до 100MB в памяти.
+const MAX_BASE64_LEN = 7_000_000;
 
 // Strip HTML/XML tags, decode basic entities, collapse whitespace
 function htmlToText(html: string): string {
@@ -109,13 +114,33 @@ function extractFromDocx(buf: Buffer): string | null {
 }
 
 export async function POST(req: Request) {
+  // Раньше эндпоинт принимал любой base64 БЕЗ auth и БЕЗ size-check —
+  // DoS-вектор через большие файлы + анонимный доступ.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
   try {
-    const body = await req.json() as {
+    const body = await req.json().catch(() => ({})) as {
       text?: string;
       fileBase64?: string;
       fileName?: string;
       mimeType?: string;
     };
+
+    // Size guard: base64 строка не должна превышать ~7 MB (≈5 MB decoded).
+    if (typeof body.fileBase64 === "string" && body.fileBase64.length > MAX_BASE64_LEN) {
+      return NextResponse.json(
+        { ok: false, error: `Файл слишком большой (${Math.round(body.fileBase64.length / 1024 / 1024)} MB > 5 MB)` },
+        { status: 413 },
+      );
+    }
+    if (typeof body.text === "string" && body.text.length > 5_000_000) {
+      return NextResponse.json(
+        { ok: false, error: "Текст слишком большой (> 5 MB)" },
+        { status: 413 },
+      );
+    }
 
     // 1) Direct paste — no processing needed
     if (typeof body.text === "string" && body.text.trim()) {

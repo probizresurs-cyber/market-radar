@@ -35,6 +35,18 @@ export async function POST(req: Request) {
     if (!body.docs?.length) {
       return NextResponse.json({ ok: false, error: "Нужен хотя бы один документ" }, { status: 400 });
     }
+    // Size cap: 8 docs × 50 KB fullText = 400 KB max. Защита от DoS через
+    // огромный body (юзер мог прислать 200 MB JSON и заDDoS-ить парсер).
+    if (body.docs.length > 8) {
+      return NextResponse.json({ ok: false, error: "Максимум 8 документов за раз" }, { status: 413 });
+    }
+    const totalSize = body.docs.reduce((s, d) => s + (d.fullText?.length ?? 0), 0);
+    if (totalSize > 400_000) {
+      return NextResponse.json(
+        { ok: false, error: `Суммарный размер документов слишком велик (${Math.round(totalSize / 1024)} KB > 400 KB)` },
+        { status: 413 },
+      );
+    }
 
     const excerpts = body.docs
       .slice(0, 8) // cap docs to avoid giant prompts

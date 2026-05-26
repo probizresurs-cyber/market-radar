@@ -725,4 +725,34 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_user ON landing_projects(user_id, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_workspace ON landing_projects(workspace_id, created_at DESC)`);
+
+  // Lead submissions from landings — кто-то заполнил форму на лендинге.
+  // Юзер настраивает TG-уведомления или email через notify_config (JSON).
+  await query(`
+    CREATE TABLE IF NOT EXISTS landing_submissions (
+      id BIGSERIAL PRIMARY KEY,
+      project_id TEXT REFERENCES landing_projects(project_id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      payload JSONB NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      referrer TEXT,
+      utm JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_landing_submissions_user ON landing_submissions(user_id, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_landing_submissions_project ON landing_submissions(project_id, created_at DESC)`);
+
+  // Конфиг уведомлений (TG chat / email / webhook URL) на уровне юзера.
+  // Один юзер может ловить заявки со всех своих лендингов в один и тот же канал.
+  await query(`
+    CREATE TABLE IF NOT EXISTS landing_notify_config (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      telegram_chat_id TEXT,
+      email TEXT,
+      webhook_url TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 }

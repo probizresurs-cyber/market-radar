@@ -63,8 +63,47 @@ export interface AgentJob {
 
 const jobs = new Map<string, AgentJob>();
 
+// Лимиты:
+// - MAX_ACTIVE_PER_USER: сколько premium-jobs может крутиться одновременно
+//   у одного юзера. Премиум-генерация стоит ₽30-200, без лимита один юзер
+//   может запустить 50 параллельно (₽1500-10000 на Claude за секунды).
+// - TTL_MS: jobs Map растёт неограниченно — на активной платформе через
+//   год будут десятки тысяч записей. Очищаем job'ы старше 24h.
+const MAX_ACTIVE_JOBS_PER_USER = 2;
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
+
 export function getJob(id: string): AgentJob | undefined {
   return jobs.get(id);
+}
+
+/** Сколько активных job'ов (queued/running) у юзера. Считаем перед стартом. */
+export function countActiveJobsForUser(userId: string): number {
+  let n = 0;
+  for (const j of jobs.values()) {
+    if (j.userId === userId && (j.status === "queued" || j.status === "running")) n++;
+  }
+  return n;
+}
+
+/** Очистка job'ов старше TTL. Запускается через setInterval ниже. */
+function evictOldJobs(): void {
+  const cutoff = Date.now() - TTL_MS;
+  for (const [id, job] of jobs.entries()) {
+    const lastActivity = job.finishedAt ?? job.startedAt;
+    if (lastActivity < cutoff) {
+      jobs.delete(id);
+    }
+  }
+}
+
+// Запускаем сборку мусора раз в час. Используем globalThis-флаг чтобы не
+// плодить интервалы при HMR-reload в dev.
+declare global {
+  // eslint-disable-next-line no-var
+  var __mrAgentRunnerEvictionInterval: NodeJS.Timeout | undefined;
+}
+if (typeof setInterval !== "undefined" && !globalThis.__mrAgentRunnerEvictionInterval) {
+  globalThis.__mrAgentRunnerEvictionInterval = setInterval(evictOldJobs, 60 * 60 * 1000);
 }
 
 function ensureRunRoot() {
@@ -96,6 +135,17 @@ function collectOutputFiles(cwd: string): string[] {
  * Start an agent run as a fire-and-forget background promise.
  * Returns the jobId immediately; poll getJob(id) to read progress.
  */
+/**
+ * Thrown when юзер пытается запустить больше MAX_ACTIVE_JOBS_PER_USER
+ * параллельных премиум-job'ов. Route'у нужно поймать и вернуть 429.
+ */
+export class TooManyActiveJobsError extends Error {
+  constructor(active: number) {
+    super(`У вас уже ${active} активных премиум-генераций. Дождитесь завершения текущих (макс. ${MAX_ACTIVE_JOBS_PER_USER}).`);
+    this.name = "TooManyActiveJobsError";
+  }
+}
+
 export function startAgentJob(opts: {
   prompt: string;
   contextFiles?: ContextFile[];
@@ -104,6 +154,15 @@ export function startAgentJob(opts: {
   maxTurns?: number;
   userId?: string;
 }): string {
+  // Защита от financial DoS: один юзер не может запустить N параллельных
+  // дорогих jobs. Без этого через прямой API-вызов можно было сжечь
+  // ₽10000+ за секунды.
+  if (opts.userId) {
+    const active = countActiveJobsForUser(opts.userId);
+    if (active >= MAX_ACTIVE_JOBS_PER_USER) {
+      throw new TooManyActiveJobsError(active);
+    }
+  }
   ensureRunRoot();
   const id = randomBytes(8).toString("hex");
   const cwd = join(RUN_ROOT, id);

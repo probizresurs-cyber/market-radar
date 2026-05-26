@@ -11,6 +11,7 @@ import {
   MessageCircle, Brain, FileText, RefreshCw, Pencil, Mic,
 } from "lucide-react";
 import { trackGoal } from "@/lib/metrika";
+import { INDUSTRY_TEMPLATES, getTemplateById, buildTemplatePromptBlock, type IndustryTemplate } from "@/lib/presentation-templates";
 
 interface PresentationSlide {
   title: string;
@@ -200,6 +201,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 
   // Multi-stage wizard
   const [stage, setStage] = useState<"style" | "generating" | "review">("style");
+  // Выбранный отраслевой шаблон. Если задан — buildTemplatePromptBlock()
+  // подмешивается в customPrompt при handleGenerate.
+  const [selectedTemplate, setSelectedTemplate] = useState<IndustryTemplate | null>(null);
   const [slides, setSlides] = useState<PresentationSlide[]>([]);
   const [presTitle, setPresTitle] = useState("");
   const [error, setError] = useState("");
@@ -302,6 +306,13 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     setError("");
     const timer = setInterval(() => setGenProgress(p => Math.min(p + 2, 88)), 400);
     try {
+      // Если выбран отраслевой шаблон — добавляем его focus + обязательные
+      // слайды к customPrompt. AI учтёт это в структуре презентации.
+      const templateBlock = selectedTemplate ? buildTemplatePromptBlock(selectedTemplate) : "";
+      const finalCustomPrompt = [customPrompt.trim(), templateBlock]
+        .filter(Boolean)
+        .join("\n\n");
+
       const res = await fetch("/api/generate-presentation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -316,7 +327,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           seo: myCompany.seo,
           nicheForecast: myCompany.nicheForecast,
           hiring: myCompany.hiring,
-          customPrompt: customPrompt.trim() || undefined,
+          customPrompt: finalCustomPrompt || undefined,
         }),
       });
       const json = await res.json();
@@ -1427,10 +1438,136 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             ))}
           </div>
 
+          {/* Industry templates — 12 готовых шаблонов с focus + mandatory slides
+             пробрасываемыми в AI-промпт. Если ничего не выбрано — стандартная
+             структура (как было). */}
+          {!styleSource && (
+            <div style={{ marginBottom: 22 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>
+                🎯 Шаблон по индустрии <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted-foreground)" }}>— необязательно, но улучшит структуру</span>
+              </h3>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 8,
+              }}>
+                {INDUSTRY_TEMPLATES.map(t => {
+                  const isSel = selectedTemplate?.id === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplate(isSel ? null : t)}
+                      title={t.description}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 9,
+                        border: `1.5px solid ${isSel ? "var(--primary)" : "var(--border)"}`,
+                        background: isSel
+                          ? "color-mix(in oklch, var(--primary) 8%, var(--card))"
+                          : "var(--card)",
+                        color: "var(--foreground)",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontSize: 12,
+                        fontWeight: isSel ? 700 : 500,
+                        textAlign: "left",
+                        transition: "border-color .12s, background .12s",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        gap: 4,
+                      }}
+                    >
+                      <div style={{ fontSize: 18 }}>{t.emoji}</div>
+                      <div style={{ lineHeight: 1.3 }}>{t.name}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTemplate && (
+                <div style={{
+                  marginTop: 10,
+                  padding: "10px 14px",
+                  borderRadius: 9,
+                  background: "color-mix(in oklch, var(--primary) 5%, transparent)",
+                  border: `1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))`,
+                  fontSize: 11.5,
+                  color: "var(--foreground-secondary)",
+                  lineHeight: 1.5,
+                }}>
+                  <b style={{ color: "var(--primary)" }}>Шаблон «{selectedTemplate.name}»:</b> {selectedTemplate.focus}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Brief-mode: ОДНИМ КЛИКОМ — без выбора стиля и без custom prompt.
+             Берём брендбук (если есть) или дефолтный «Минимализм» + AI сам
+             решает что рассказать на основе анализа компании/ЦА/СММ. Это
+             ускорение Stage 1+2 — самая частая ситуация когда юзер хочет
+             «просто презентацию» и не разбирается в нюансах. */}
+          {!styleSource && (
+            <div style={{
+              padding: "18px 20px",
+              borderRadius: 14,
+              background: "color-mix(in oklch, var(--primary) 6%, var(--card))",
+              border: `1.5px solid color-mix(in oklch, var(--primary) 30%, var(--border))`,
+              marginBottom: 22,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              flexWrap: "wrap",
+            }}>
+              <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--foreground)", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Sparkles size={16} style={{ color: "var(--primary)" }} /> Сгенерировать одним кликом
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                  Возьмём ваш брендбук{brandBook.colors.length > 0 ? "" : " (или подберём «Минимализм»)"} и AI сам составит структуру из 12 слайдов на основе данных компании, ЦА и СММ. Без вопросов.
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  // Brief-mode: брендбук → handleGenerate сразу
+                  if (brandBook.colors.length > 0) {
+                    const built = buildStyleFromBrandBook(brandBook);
+                    setSelectedStyle(built);
+                  } else {
+                    // Дефолтный «Минимализм» — он работает для любой ниши.
+                    setSelectedStyle(PRESET_STYLES[0]);
+                  }
+                  setCustomPrompt(""); // Без свободного текста
+                  // handleGenerate вызовется через useEffect когда setSelectedStyle применится.
+                  // Чтобы не делать useEffect-зависимость, дожидаемся следующего тика и зовём явно.
+                  setTimeout(() => { void handleGenerate(); }, 0);
+                }}
+                disabled={!myCompany}
+                style={{
+                  padding: "12px 24px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: !myCompany ? "var(--muted)" : "var(--primary)",
+                  color: !myCompany ? "var(--muted-foreground)" : "#fff",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  cursor: !myCompany ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  boxShadow: !myCompany ? "none" : "0 4px 14px color-mix(in oklch, var(--primary) 35%, transparent)",
+                }}
+                title={!myCompany ? "Сначала проведите анализ компании" : "Сгенерировать презентацию с дефолтными настройками"}
+              >
+                🪄 Создать за 30 секунд
+              </button>
+            </div>
+          )}
+
           {/* Step 1a: Pick source */}
           {!styleSource && (
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>Шаг 1: Выберите основу стиля</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)", marginBottom: 14 }}>
+                Или настройте стиль вручную:
+              </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 600 }}>
                 <div onClick={brandBook.colors.length > 0 ? handlePickBrandbook : undefined}
                   style={{ background: "var(--card)", borderRadius: 14, padding: 24, border: `2px solid var(--border)`, cursor: brandBook.colors.length > 0 ? "pointer" : "default",
@@ -1655,26 +1792,49 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   };
+  // КРИТИЧНО: brandbook fontHeader/fontBody — пользовательский ввод. Без
+  // валидации можно сделать CSS-инъекцию: `Arial';</style><script>...`.
+  // Whitelist: только буквы/цифры/пробелы/дефис/запятая/точка.
+  const safeFont = (f: string): string => {
+    const m = String(f || "").match(/^[a-zA-Z0-9 .,\-]+$/);
+    return m ? f : "Inter";
+  };
+  // Цвета — только #-hex или короткий #-hex.
+  const safeColor = (c: string, fallback = "#6366f1"): string => {
+    return /^#[0-9a-fA-F]{3,8}$/.test(String(c || "")) ? c : fallback;
+  };
+  // URL картинки — только http(s) или data:image/...
+  const safeImgUrl = (u: string): string => {
+    const s = String(u || "");
+    if (/^https?:\/\//i.test(s) || /^data:image\/[a-z]+;base64,/i.test(s)) return s;
+    return "";
+  };
+  const sfontH = safeFont(fontH);
+  const sfontB = safeFont(fontB);
+  const sprimary = safeColor(primary, "#6366f1");
+  const ssecondary = safeColor(secondary, "#a855f7");
+  const slogoUrl = logoUrl ? safeImgUrl(logoUrl) : "";
+
   const pg = (light: boolean) => `<div style="position:absolute;bottom:16px;right:20px;font-size:10px;font-weight:700;letter-spacing:2px;color:${light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.15)"}">${i+1} / ${total}</div>`;
-  const base = `width:960px;height:540px;position:relative;overflow:hidden;box-sizing:border-box;font-family:'${fontB}',system-ui,sans-serif;`;
+  const base = `width:960px;height:540px;position:relative;overflow:hidden;box-sizing:border-box;font-family:'${sfontB}',system-ui,sans-serif;`;
 
   // Color helpers
   const hexToRgb = (hex: string) => { const h=(hex||"#000").replace("#","").padEnd(6,"0"); return{r:parseInt(h.slice(0,2),16)||0,g:parseInt(h.slice(2,4),16)||0,b:parseInt(h.slice(4,6),16)||0}; };
   const rgba = (hex: string, a: number) => { const{r,g,b}=hexToRgb(hex); return`rgba(${r},${g},${b},${a})`; };
   const darken = (hex: string, amt: number) => { const{r,g,b}=hexToRgb(hex); return`#${[r,g,b].map(v=>Math.max(0,Math.round(v*(1-amt))).toString(16).padStart(2,"0")).join("")}`; };
-  const dp = darken(primary, 0.32);
-  const accents = [primary, secondary, "#f59e0b", "#10b981", "#e11d48", "#0ea5e9"];
+  const dp = darken(sprimary, 0.32);
+  const accents = [sprimary, ssecondary, "#f59e0b", "#10b981", "#e11d48", "#0ea5e9"];
 
   if (type === "cover" || type === "cta") {
-    return `<div class="slide" style="${base}background:linear-gradient(135deg,${dp} 0%,${primary} 58%);display:flex;align-items:center;justify-content:flex-start;">
+    return `<div class="slide" style="${base}background:linear-gradient(135deg,${dp} 0%,${sprimary} 58%);display:flex;align-items:center;justify-content:flex-start;">
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px"></div>
-      <div style="position:absolute;top:-35%;right:-8%;width:55%;padding-bottom:55%;border-radius:50%;background:${rgba(secondary,0.14)};filter:blur(60px)"></div>
-      <div style="width:7px;height:100%;background:linear-gradient(180deg,${secondary},${rgba(secondary,0.2)});flex-shrink:0"></div>
+      <div style="position:absolute;top:-35%;right:-8%;width:55%;padding-bottom:55%;border-radius:50%;background:${rgba(ssecondary,0.14)};filter:blur(60px)"></div>
+      <div style="width:7px;height:100%;background:linear-gradient(180deg,${ssecondary},${rgba(ssecondary,0.2)});flex-shrink:0"></div>
       <div style="flex:1;padding:34px 48px 28px 32px;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between;height:100%;box-sizing:border-box">
-        ${logoUrl ? `<img src="${logoUrl}" style="width:38px;height:38px;object-fit:contain;border-radius:9px;background:rgba(255,255,255,0.12);padding:4px">` : `<div style="display:flex;gap:6px"><div style="width:28px;height:3px;border-radius:2px;background:${secondary}"></div></div>`}
+        ${slogoUrl ? `<img src="${esc(slogoUrl)}" style="width:38px;height:38px;object-fit:contain;border-radius:9px;background:rgba(255,255,255,0.12);padding:4px">` : `<div style="display:flex;gap:6px"><div style="width:28px;height:3px;border-radius:2px;background:${ssecondary}"></div></div>`}
         <div>
-          ${slide.subtitle ? `<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><div style="width:24px;height:2px;background:${secondary};border-radius:2px"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.subtitle)}</span></div>` : ""}
-          <h1 style="font-size:42px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;font-family:'${fontH}',Georgia,serif;letter-spacing:-0.5px;text-shadow:0 2px 24px rgba(0,0,0,0.25);max-width:520px">${esc(slide.title)}</h1>
+          ${slide.subtitle ? `<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><div style="width:24px;height:2px;background:${ssecondary};border-radius:2px"></div><span style="font-size:11px;font-weight:700;color:${ssecondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.subtitle)}</span></div>` : ""}
+          <h1 style="font-size:42px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;font-family:'${sfontH}',Georgia,serif;letter-spacing:-0.5px;text-shadow:0 2px 24px rgba(0,0,0,0.25);max-width:520px">${esc(slide.title)}</h1>
           ${slide.content ? `<p style="font-size:13px;color:rgba(255,255,255,0.62);margin:0;line-height:1.7;max-width:430px">${esc(slide.content)}</p>` : ""}
         </div>
         <div style="font-size:10px;color:rgba(255,255,255,0.22);letter-spacing:1.5px">${new Date().getFullYear()}</div>
@@ -1692,17 +1852,17 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       const pct = nums[si].n > 0 ? (nums[si].n/maxN)*100 : 100;
       return `<div style="flex:1;border-radius:14px;background:${rgba(col,0.05)};border:1px solid ${rgba(col,0.14)};padding:18px 14px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col}"></div>
-        <div style="font-size:54px;font-weight:900;color:${col};line-height:1;font-family:'${fontH}',Georgia,serif;letter-spacing:-2px">${esc(s.value)}</div>
+        <div style="font-size:54px;font-weight:900;color:${col};line-height:1;font-family:'${sfontH}',Georgia,serif;letter-spacing:-2px">${esc(s.value)}</div>
         <div style="width:64%;height:3px;border-radius:2px;background:${rgba(col,0.15)}"><div style="height:100%;width:${pct}%;border-radius:2px;background:${col}"></div></div>
         <div style="font-size:11px;color:#64748b;text-align:center;line-height:1.4;max-width:120px">${esc(s.label)}</div>
       </div>`;
     }).join("");
     return `<div class="slide" style="${base}background:#ffffff;display:flex;flex-direction:column;">
-      <div style="height:5px;background:linear-gradient(90deg,${primary},${secondary});flex-shrink:0"></div>
-      <div style="padding:18px 36px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid ${rgba(primary,0.08)}">
-        <div style="width:3px;height:34px;border-radius:2px;background:${primary};flex-shrink:0"></div>
+      <div style="height:5px;background:linear-gradient(90deg,${sprimary},${ssecondary});flex-shrink:0"></div>
+      <div style="padding:18px 36px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid ${rgba(sprimary,0.08)}">
+        <div style="width:3px;height:34px;border-radius:2px;background:${sprimary};flex-shrink:0"></div>
         <div>
-          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${fontH}',Georgia,serif">${esc(slide.title)}</h3>
+          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${sfontH}',Georgia,serif">${esc(slide.title)}</h3>
           ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${esc(slide.subtitle)}</p>` : ""}
         </div>
       </div>
@@ -1713,40 +1873,116 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
   }
 
   if (type === "quote") {
-    return `<div class="slide" style="${base}background:linear-gradient(148deg,${dp} 0%,${darken(primary,0.14)} 100%);display:flex;align-items:center;">
+    return `<div class="slide" style="${base}background:linear-gradient(148deg,${dp} 0%,${darken(sprimary,0.14)} 100%);display:flex;align-items:center;">
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.035) 1px,transparent 1px);background-size:24px 24px"></div>
       <div style="position:absolute;top:6%;left:4%;font-size:200px;line-height:1;font-family:Georgia,serif;font-weight:900;color:rgba(255,255,255,0.05)">&ldquo;</div>
       <div style="position:relative;z-index:2;flex:1;padding:40px 68px 40px 56px;display:flex;flex-direction:column;gap:20px;justify-content:center">
-        <div style="width:44px;height:3px;background:${secondary};border-radius:2px"></div>
-        ${slide.quote ? `<p style="font-size:20px;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.68;margin:0;font-family:'${fontH}',Georgia,serif">&ldquo;${esc(slide.quote)}&rdquo;</p>` : ""}
+        <div style="width:44px;height:3px;background:${ssecondary};border-radius:2px"></div>
+        ${slide.quote ? `<p style="font-size:20px;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.68;margin:0;font-family:'${sfontH}',Georgia,serif">&ldquo;${esc(slide.quote)}&rdquo;</p>` : ""}
         ${slide.content ? `<p style="font-size:12px;color:rgba(255,255,255,0.42);margin:0;line-height:1.65">${esc(slide.content)}</p>` : ""}
-        <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:1px;background:${secondary};opacity:0.55"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.title)}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:1px;background:${ssecondary};opacity:0.55"></div><span style="font-size:11px;font-weight:700;color:${ssecondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.title)}</span></div>
       </div>
       ${pg(true)}
     </div>`;
   }
 
-  // Bullets / two-column / grid / default
+  // GRID — карточки услуг/преимуществ. Раньше падало в default-bullets ветку
+  // и slide.items терялся при PDF/PPTX экспорте.
+  if (type === "grid") {
+    const items = (slide.items || []).slice(0, 6);
+    const cols = items.length >= 4 ? 3 : Math.max(items.length, 1);
+    const gridHtml = items.map((it, ii) => {
+      const col = accents[ii % accents.length];
+      return `<div style="background:${rgba(col,0.05)};border:1px solid ${rgba(col,0.18)};border-radius:12px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;min-height:0">
+        <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${col}"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:24px;height:24px;border-radius:7px;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${ii+1}</div>
+          <h4 style="font-size:13px;font-weight:800;color:#0f172a;margin:0;font-family:'${sfontH}',Georgia,serif;line-height:1.3">${esc(it.title)}</h4>
+        </div>
+        ${it.description ? `<p style="font-size:11px;color:#475569;margin:0;line-height:1.55">${esc(it.description)}</p>` : ""}
+      </div>`;
+    }).join("");
+    return `<div class="slide" style="${base}background:#ffffff;display:flex;flex-direction:column">
+      <div style="height:5px;background:linear-gradient(90deg,${sprimary},${ssecondary});flex-shrink:0"></div>
+      <div style="padding:18px 36px 10px;display:flex;align-items:center;gap:14px">
+        <div style="width:3px;height:34px;border-radius:2px;background:${sprimary};flex-shrink:0"></div>
+        <div>
+          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${sfontH}',Georgia,serif">${esc(slide.title)}</h3>
+          ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${esc(slide.subtitle)}</p>` : ""}
+        </div>
+      </div>
+      ${slide.content ? `<p style="padding:0 36px 10px;font-size:12px;color:#475569;margin:0;line-height:1.65">${esc(slide.content)}</p>` : ""}
+      <div style="flex:1;display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;padding:8px 26px 18px">${gridHtml}</div>
+      ${pg(false)}
+    </div>`;
+  }
+
+  // TWO-COLUMN — два блока. Раньше leftContent/rightContent терялись.
+  if (type === "two-column") {
+    const left = slide.leftContent || "";
+    const right = slide.rightContent || "";
+    // Fallback: если leftContent/rightContent пустые, делим bullets пополам.
+    const bullets = (slide.bullets || []);
+    const half = Math.ceil(bullets.length / 2);
+    const leftBullets = !left && bullets.length > 0 ? bullets.slice(0, half) : [];
+    const rightBullets = !right && bullets.length > 0 ? bullets.slice(half) : [];
+
+    const renderCol = (txt: string, bs: string[], colorMix: string) => {
+      if (txt) {
+        return `<p style="font-size:13px;color:#1e293b;line-height:1.65;margin:0;white-space:pre-wrap">${esc(txt)}</p>`;
+      }
+      if (bs.length > 0) {
+        return `<div style="display:flex;flex-direction:column;gap:8px">${bs.map((b, bi) => `
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:6px;height:6px;border-radius:50%;background:${colorMix};margin-top:7px;flex-shrink:0"></div>
+            <span style="font-size:12.5px;color:#1e293b;line-height:1.55">${esc(b)}</span>
+          </div>`).join("")}</div>`;
+      }
+      return "";
+    };
+
+    return `<div class="slide" style="${base}background:#ffffff;display:flex;flex-direction:column">
+      <div style="height:5px;background:linear-gradient(90deg,${sprimary},${ssecondary});flex-shrink:0"></div>
+      <div style="padding:18px 36px 10px;display:flex;align-items:center;gap:14px">
+        <div style="width:3px;height:34px;border-radius:2px;background:${sprimary};flex-shrink:0"></div>
+        <div>
+          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${sfontH}',Georgia,serif">${esc(slide.title)}</h3>
+          ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${esc(slide.subtitle)}</p>` : ""}
+        </div>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:14px 36px 18px">
+        <div style="background:${rgba(sprimary,0.04)};border-left:3px solid ${sprimary};border-radius:8px;padding:14px 16px">
+          ${renderCol(left, leftBullets, sprimary)}
+        </div>
+        <div style="background:${rgba(ssecondary,0.04)};border-left:3px solid ${ssecondary};border-radius:8px;padding:14px 16px">
+          ${renderCol(right, rightBullets, ssecondary)}
+        </div>
+      </div>
+      ${pg(false)}
+    </div>`;
+  }
+
+  // Bullets / default
   const bulletsHtml = (slide.bullets||[]).map((b,bi) => {
     const col = accents[bi % accents.length];
-    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border-radius:10px;background:${bi%2===0 ? rgba(primary,0.042) : "transparent"}">
+    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border-radius:10px;background:${bi%2===0 ? rgba(sprimary,0.042) : "transparent"}">
       <div style="width:26px;height:26px;border-radius:9px;background:${col};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${bi+1}</div>
       <span style="font-size:13px;color:#1e293b;line-height:1.55;font-weight:500">${esc(b)}</span>
     </div>`;
   }).join("");
 
   return `<div class="slide" style="${base}background:#ffffff;display:flex;">
-    <div style="width:27%;flex-shrink:0;background:linear-gradient(175deg,${primary} 0%,${dp} 100%);display:flex;flex-direction:column;justify-content:space-between;padding:28px 22px 20px;position:relative;overflow:hidden">
+    <div style="width:27%;flex-shrink:0;background:linear-gradient(175deg,${sprimary} 0%,${dp} 100%);display:flex;flex-direction:column;justify-content:space-between;padding:28px 22px 20px;position:relative;overflow:hidden">
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:20px 20px"></div>
       <div style="position:relative;z-index:2">
-        <div style="width:26px;height:3px;background:${secondary};border-radius:2px;margin-bottom:14px"></div>
-        <h3 style="font-size:17px;font-weight:800;color:#fff;margin:0;line-height:1.3;font-family:'${fontH}',Georgia,serif">${esc(slide.title)}</h3>
+        <div style="width:26px;height:3px;background:${ssecondary};border-radius:2px;margin-bottom:14px"></div>
+        <h3 style="font-size:17px;font-weight:800;color:#fff;margin:0;line-height:1.3;font-family:'${sfontH}',Georgia,serif">${esc(slide.title)}</h3>
         ${slide.subtitle ? `<p style="font-size:10px;color:rgba(255,255,255,0.48);margin:8px 0 0;line-height:1.55">${esc(slide.subtitle)}</p>` : ""}
       </div>
-      <div style="font-size:50px;font-weight:900;color:rgba(255,255,255,0.055);line-height:1;font-family:'${fontH}',serif;position:relative;z-index:2">${String(i+1).padStart(2,"0")}</div>
+      <div style="font-size:50px;font-weight:900;color:rgba(255,255,255,0.055);line-height:1;font-family:'${sfontH}',serif;position:relative;z-index:2">${String(i+1).padStart(2,"0")}</div>
     </div>
     <div style="flex:1;padding:24px 28px 20px;display:flex;flex-direction:column">
-      <div style="height:3px;background:linear-gradient(90deg,${primary},transparent);border-radius:2px;margin-bottom:14px"></div>
+      <div style="height:3px;background:linear-gradient(90deg,${sprimary},transparent);border-radius:2px;margin-bottom:14px"></div>
       ${slide.content ? `<p style="font-size:12px;color:#475569;margin:0 0 14px;line-height:1.72">${esc(slide.content)}</p>` : ""}
       <div style="flex:1;display:flex;flex-direction:column;gap:8px">${bulletsHtml}</div>
     </div>

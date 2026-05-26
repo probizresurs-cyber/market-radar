@@ -71,7 +71,11 @@ ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""
       promptTokens: estimateTokens(systemPrompt + JSON.stringify(slides) + wish),
       completionTokens: estimateTokens(rawContent),
     });
-    return NextResponse.json({ ok: true, slides: parsed.slides ?? [] });
+    // КРИТИЧНО: клиент (PresentationView.tsx) ожидает `json.data.slides`,
+    // а раньше мы возвращали `json.slides` — wish-edit «успешно» возвращал
+    // null/undefined → setSlides(json.data.slides ?? slides) кладёт обратно
+    // старые слайды. Юзер думал «AI не понял» и тратил деньги повторно.
+    return NextResponse.json({ ok: true, data: { slides: parsed.slides ?? [] } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
     await access.log({ endpoint: "edit-presentation", model: "gpt-4o", success: false, errorMessage: msg.slice(0, 200) });

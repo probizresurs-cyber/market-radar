@@ -224,6 +224,28 @@ function MarketRadarDashboardInner() {
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspaceState | null>(null);
   const [availableWorkspaces, setAvailableWorkspaces] = useState<WorkspaceSummary[]>([]);
   const isReadOnly = !!activeWorkspace && activeWorkspace.role === "viewer";
+  // ID хранилища localStorage. Когда editor работает в чужом workspace —
+  // данные должны жить под workspace_id владельца, а не под user.id editor'а
+  // (иначе при возврате в свой workspace editor видит чужой контент в UI).
+  // Если активного workspace нет → значит работаем под собственным user.id.
+  const workspaceLsId = activeWorkspace?.workspaceId ?? currentUser?.id;
+  // КРИТИЧНО: guard для всех mutating handlers. Раньше viewer'ы могли жать
+  // «Сгенерировать» и UI запускал генерацию (тратя API-бюджет владельца
+  // workspace + модифицируя его данные). UI скрывает кнопки, но handlers
+  // оставались доступны через консоль / клавиатурные shortcuts / race-условия.
+  // Возвращаем true если действие БЫЛО заблокировано (= ранний return нужен).
+  const guardReadOnly = React.useCallback((actionLabel = "Это действие"): boolean => {
+    if (isReadOnly) {
+      toast({
+        kind: "info",
+        title: "Только просмотр",
+        description: `${actionLabel} недоступно в чужом workspace в роли «Наблюдатель». Переключитесь на свой аккаунт.`,
+      });
+      return true;
+    }
+    return false;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadOnly]);
   const features = useFeatureFlags();
   // Внутренние аккаунты (@company24.pro + admin) видят все модули независимо от флагов в БД.
   // Всем остальным пользователям модули видны только если они включены в админ-панели,
@@ -684,6 +706,7 @@ function MarketRadarDashboardInner() {
     smm?: { vk?: string; telegram?: string; instagram?: string };
     competitorUrls?: string[];
   }) => {
+    if (guardReadOnly("Запуск анализа")) return;
     // 1) Основной анализ. Получаем result ЯВНО, не из React state —
     //    state ещё не обновится к моменту вызова дочерних модулей.
     const result = await handleNewAnalysis(opts.url);
@@ -739,6 +762,7 @@ function MarketRadarDashboardInner() {
   };
 
   const handleNewAnalysis = async (url: string): Promise<AnalysisResult | null> => {
+    if (guardReadOnly("Запуск анализа")) return null;
     setIsAnalyzing(true);
     try {
       const result = await analyzeUrl(url);
@@ -987,7 +1011,7 @@ function MarketRadarDashboardInner() {
   // ----- Content Factory -----
 
   const persistContent = (plan: ContentPlan | null, posts: GeneratedPost[], reels: GeneratedReel[]) => {
-    if (!currentUser?.id) return;
+    if (!workspaceLsId) return;
     // КРИТИЧНО: data:image/...;base64,... в posts[].imageUrl (например когда
     // persistImageDataUri упал и API вернул raw base64) забивает 5MB localStorage
     // за один пост. Раньше posts/reels шли без sanitize → QuotaExceededError
@@ -997,7 +1021,10 @@ function MarketRadarDashboardInner() {
     const safeReels = sanitizeDataUrls(reels);
     const payload = JSON.stringify({ plan, posts: safePosts, reels: safeReels });
     try {
-      localStorage.setItem(`mr_content_${currentUser.id}`, payload);
+      // workspaceLsId — id владельца активного workspace, не самого юзера.
+      // Когда editor пишет в чужой workspace, его собственный localStorage
+      // не засоряется чужим контентом.
+      localStorage.setItem(`mr_content_${workspaceLsId}`, payload);
     } catch (e) {
       // Чаще всего — QuotaExceededError из-за base64-картинок в постах.
       // НЕ молчим: пользователь должен знать, что его пост может не пережить
@@ -1023,7 +1050,7 @@ function MarketRadarDashboardInner() {
   const handleUpdateAvatarSettings = (next: AvatarSettings) => {
     setAvatarSettings(next);
     if (currentUser?.id) {
-      try { localStorage.setItem(`mr_avatar_settings_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(`mr_avatar_settings_${workspaceLsId}`, JSON.stringify(next)); } catch { /* ignore */ }
       syncToServer("avatar", next);
     }
   };
@@ -1031,15 +1058,16 @@ function MarketRadarDashboardInner() {
   const handleUpdateCompanyStyle = (next: CompanyStyleState) => {
     setCompanyStyleState(next);
     if (currentUser?.id) {
-      try { localStorage.setItem(`mr_company_style_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(`mr_company_style_${workspaceLsId}`, JSON.stringify(next)); } catch { /* ignore */ }
       syncToServer("companyStyle", next);
     }
   };
 
   const handleUpdateBrandBook = (next: BrandBook) => {
+    if (guardReadOnly("Изменение брендбука")) return;
     setBrandBook(next);
     if (currentUser?.id) {
-      try { localStorage.setItem(`mr_brandbook_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(`mr_brandbook_${workspaceLsId}`, JSON.stringify(next)); } catch { /* ignore */ }
       syncToServer("brandbook", next);
     }
   };
@@ -1047,7 +1075,7 @@ function MarketRadarDashboardInner() {
   const handleSetBrandSuggestions = (v: unknown) => {
     setBrandSuggestions(v);
     if (currentUser) {
-      try { localStorage.setItem(`mr_brandsug_${currentUser.id}`, JSON.stringify(v)); } catch { /* ignore */ }
+      try { localStorage.setItem(`mr_brandsug_${workspaceLsId}`, JSON.stringify(v)); } catch { /* ignore */ }
       syncToServer("brandsug", v);
     }
   };
@@ -1070,11 +1098,12 @@ function MarketRadarDashboardInner() {
   const persistStories = (stories: GeneratedStory[]) => {
     if (!currentUser?.id) return;
     const safe = sanitizeDataUrls(stories);
-    try { localStorage.setItem(`mr_stories_${currentUser.id}`, JSON.stringify(safe)); } catch { /* ignore */ }
+    try { localStorage.setItem(`mr_stories_${workspaceLsId}`, JSON.stringify(safe)); } catch { /* ignore */ }
     syncToServer("stories", safe);
   };
 
   const handleAddStory = (story: GeneratedStory) => {
+    if (guardReadOnly("Добавление сторис")) return;
     setGeneratedStories(prev => {
       const next = [story, ...prev];
       persistStories(next);
@@ -1101,11 +1130,12 @@ function MarketRadarDashboardInner() {
   const persistCarousels = (carousels: GeneratedCarousel[]) => {
     if (!currentUser?.id) return;
     const safe = sanitizeDataUrls(carousels);
-    try { localStorage.setItem(`mr_carousels_${currentUser.id}`, JSON.stringify(safe)); } catch { /* ignore */ }
+    try { localStorage.setItem(`mr_carousels_${workspaceLsId}`, JSON.stringify(safe)); } catch { /* ignore */ }
     syncToServer("carousels", safe);
   };
 
   const handleAddCarousel = (carousel: GeneratedCarousel) => {
+    if (guardReadOnly("Добавление карусели")) return;
     setGeneratedCarousels(prev => {
       const next = [carousel, ...prev];
       persistCarousels(next);
@@ -1130,6 +1160,7 @@ function MarketRadarDashboardInner() {
   };
 
   const handleGenerateContentPlan = async (niche: string) => {
+    if (guardReadOnly("Генерация плана контента")) return;
     if (!smmAnalysis) return;
     setIsGeneratingPlan(true);
     try {
@@ -1308,6 +1339,7 @@ function MarketRadarDashboardInner() {
   // ВСЕ ПАРАЛЛЕЛЬНО. Адаптация workflow из cf.txt: один Trend Filter → 3-4
   // параллельных AI-агента. Всё попадает в свои разделы «Готовых».
   const handleCreatePackageFromTrend = React.useCallback(async (idea: TrendContentIdea) => {
+    if (guardReadOnly("Генерация пакета из тренда")) return;
     const companyName = myCompany?.company.name ?? smmAnalysis?.companyName ?? "MyCompany";
     const platform = "instagram";
 
@@ -1477,6 +1509,7 @@ function MarketRadarDashboardInner() {
       imageOverlayText?: string;
     },
   ) => {
+    if (guardReadOnly("Генерация поста")) return;
     setGeneratingPostId(idea.id);
     try {
       const res = await fetch("/api/generate-post", {
@@ -1514,6 +1547,7 @@ function MarketRadarDashboardInner() {
   };
 
   const handleGenerateReelScenario = async (idea: ContentReelIdea, customPrompt?: string) => {
+    if (guardReadOnly("Генерация рилса")) return;
     setGeneratingReelId(idea.id);
     try {
       const res = await fetch("/api/generate-reel-scenario", {
@@ -1576,6 +1610,7 @@ function MarketRadarDashboardInner() {
   };
 
   const handleGenerateReelVideo = async (reelId: string) => {
+    if (guardReadOnly("Генерация видео")) return;
     const reel = generatedReels.find(r => r.id === reelId);
     if (!reel) return;
     setGeneratingVideoFor(reelId);

@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { generateLandingMeta, injectSeoMeta, type LandingMetaInput } from "@/lib/seo-meta";
 import { fetchWithTimeout, FAST_TIMEOUT_MS } from "@/lib/fetch-timeout";
+import { checkSafeUrl } from "@/lib/url-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -39,16 +40,30 @@ export async function POST(req: Request) {
   // Опционально: если передан htmlUrl — скачаем HTML и сразу инжектим
   // мета-блок, чтобы юзер мог скачать уже готовый файл.
   let injectedHtml: string | undefined;
+  let urlWarning: string | undefined;
   if (typeof body.htmlUrl === "string" && body.htmlUrl.startsWith("http")) {
-    try {
-      const res = await fetchWithTimeout(body.htmlUrl, {}, FAST_TIMEOUT_MS);
-      if (res.ok) {
-        const html = await res.text();
-        injectedHtml = injectSeoMeta(html, metaBlock);
+    // КРИТИЧНО: SSRF guard. Раньше принимали любой htmlUrl и тащили его с
+    // сервера — можно было пробить http://localhost:3000/api/admin/...
+    // (читать чужие admin-эндпоинты через нашу прокси) или AWS metadata.
+    // Разрешаем только публичные https URL (Stitch / CDN'ы); DNS-resolve
+    // проверяет что hostname не указывает на приватный IP.
+    const guard = await checkSafeUrl(body.htmlUrl, {
+      allowedProtocols: ["https:"],
+      resolveDns: true,
+    });
+    if (!guard.ok) {
+      urlWarning = `htmlUrl отклонён по соображениям безопасности: ${guard.reason}`;
+    } else {
+      try {
+        const res = await fetchWithTimeout(body.htmlUrl, {}, FAST_TIMEOUT_MS);
+        if (res.ok) {
+          const html = await res.text();
+          injectedHtml = injectSeoMeta(html, metaBlock);
+        }
+      } catch (e) {
+        console.warn("[landing-seo-meta] fetch htmlUrl failed:", e);
+        // продолжаем — отдадим только metaBlock
       }
-    } catch (e) {
-      console.warn("[landing-seo-meta] fetch htmlUrl failed:", e);
-      // продолжаем — отдадим только metaBlock
     }
   }
 
@@ -57,6 +72,7 @@ export async function POST(req: Request) {
     data: {
       metaBlock,
       injectedHtml,
+      urlWarning,
     },
   });
 }
