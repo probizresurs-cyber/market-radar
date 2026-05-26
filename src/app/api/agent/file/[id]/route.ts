@@ -34,6 +34,12 @@ export async function GET(
   const job = getJob(id);
   if (!job) return NextResponse.json({ ok: false, error: "Job не найден" }, { status: 404 });
 
+  // IDOR fix: только владелец job или admin может скачивать его файлы
+  // (раньше любой залогиненный мог тянуть чужие .pptx через утечку jobId).
+  if (job.userId && job.userId !== session.userId && session.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "Нет доступа к файлам этого job" }, { status: 403 });
+  }
+
   const url = new URL(req.url);
   const requested = url.searchParams.get("path") || "presentation.pptx";
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateGeminiImage } from "@/lib/gemini";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,8 +11,11 @@ export const maxDuration = 60;
 // в src/lib/gemini.ts.
 
 export async function POST(req: Request) {
+  // КРИТИЧНО: раньше любой анонимный мог жечь Gemini-бюджет ($X/картинка).
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const prompt: string = body.prompt ?? "";
     const referenceImages: Array<{ data: string; mimeType: string }> =
       body.referenceImages ?? [];
@@ -27,6 +31,8 @@ export async function POST(req: Request) {
         { status: result.status ?? 500 },
       );
     }
+    // Логируем расход для admin-аналитики и списания с квоты пользователя.
+    await access.log({ endpoint: "generate-image", model: "gemini-2.5-flash-image", success: true });
     return NextResponse.json({ ok: true, data: { imageUrl: result.imageUrl } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

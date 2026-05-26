@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ELEVENLABS_API_KEY, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -15,8 +16,11 @@ export const maxDuration = 120;
 // as an asset for lip-sync video generation.
 
 export async function POST(req: Request) {
+  // ElevenLabs тарифицирует по символам — открытый endpoint = бюджетный leak.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
-    const body = (await req.json()) as {
+    const body = (await req.json().catch(() => ({}))) as {
       voiceId?: string;
       text?: string;
       modelId?: string;
@@ -88,6 +92,9 @@ export async function POST(req: Request) {
     const base64 = Buffer.from(arrayBuf).toString("base64");
     const dataUrl = `data:audio/mpeg;base64,${base64}`;
 
+    // text.length — кол-во символов, по которым ElevenLabs тарифицирует.
+    // Маппим на promptTokens, чтобы total_tokens в ai_logs работал.
+    await access.log({ endpoint: "elevenlabs-tts", model: modelId, success: true, promptTokens: text.length });
     return NextResponse.json({
       ok: true,
       data: {

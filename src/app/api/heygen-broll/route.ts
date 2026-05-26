@@ -23,6 +23,7 @@
  *   { ok, sessionId, status: "thinking"|"generating"|... }
  */
 import { NextResponse } from "next/server";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -37,6 +38,8 @@ function mapOrientation(aspectRatio: string): "landscape" | "portrait" | null {
 }
 
 export async function POST(req: Request) {
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const apiKey = process.env.HEYGEN_API_KEY;
     if (!apiKey) {
@@ -145,6 +148,7 @@ export async function POST(req: Request) {
       );
     }
 
+    await access.log({ endpoint: "heygen-broll", model: "heygen-video-agent-v3", success: true });
     return NextResponse.json({
       ok: true,
       // Совместимость со старым клиентом — он ждёт executionId, отдаём sessionId

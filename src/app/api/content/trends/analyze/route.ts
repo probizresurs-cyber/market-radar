@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,13 +31,18 @@ export interface TrendContentIdea {
 }
 
 export async function POST(req: Request) {
+  // checkAiAccess делает и auth, и rate-limit, и проверку подписки/триала,
+  // и token accounting. Раньше был только `getSessionUser` — триальные
+  // юзеры могли жечь токены без лимитов.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const items: TrendItem[] = body.items ?? [];
     const query: string = (body.query ?? "").trim();
     const companyName: string = (body.companyName ?? "").trim();
@@ -119,6 +125,13 @@ ${trendsText}
       ...idea,
     }));
 
+    await access.log({
+      endpoint: "content/trends/analyze",
+      model: "claude-sonnet-4-5",
+      promptTokens: message.usage?.input_tokens,
+      completionTokens: message.usage?.output_tokens,
+      success: true,
+    });
     return NextResponse.json({ ok: true, ideas });
   } catch (err) {
     return NextResponse.json(

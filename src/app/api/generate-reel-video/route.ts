@@ -27,13 +27,17 @@
  */
 import { NextResponse } from "next/server";
 import { friendlyAiError } from "@/lib/ai-error";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  // HeyGen video render стоит $0.2-$1 за минуту — раньше открыт для всех.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     let script: string = (body.script ?? "").toString().trim();
     const customPrompt: string = (body.prompt ?? "").toString().trim();
     const avatarId: string | undefined =
@@ -399,6 +403,7 @@ export async function POST(req: Request) {
     // Возвращаем sessionId под именем videoId (для бинарной совместимости с
     // существующим фронтом, который сохраняет heygenVideoId и поллит по нему).
     // /api/video-status дальше разрулит — это session_id v3.
+    await access.log({ endpoint: "generate-reel-video", model: "heygen-video-agent-v3", success: true });
     return NextResponse.json({
       ok: true,
       data: {

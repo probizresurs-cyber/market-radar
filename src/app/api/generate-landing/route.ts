@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
+import { checkAiAccess } from "@/lib/with-ai-security";
+import { getSessionUser } from "@/lib/auth";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
+  // Stitch (Gemini 3 Pro) платный — раньше открыт для всех.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const apiKey = process.env.GOOGLE_STITCH_API_KEY || process.env.STITCH_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "GOOGLE_STITCH_API_KEY not configured" }, { status: 500 });
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { company, brandBook, taData, smmData, landingType, styleConfig, userPrompt } = body;
 
     // ── Resolve colors/font from styleConfig ─────────────────────
@@ -134,6 +140,24 @@ export async function POST(req: Request) {
 
     await client.close();
 
+    // Записываем projectId↔userId, чтобы edit-landing мог проверить владение.
+    // Без этого был IDOR (см. P0 от аудит-агента 25.05). workspace_id = id
+    // владельца workspace (для multi-user команд).
+    const session = await getSessionUser().catch(() => null);
+    if (session?.userId) {
+      try {
+        await query(
+          `INSERT INTO landing_projects (project_id, user_id, workspace_id, landing_type)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (project_id) DO NOTHING`,
+          [projectId, session.userId, session.userId, landingType ?? "main"],
+        );
+      } catch (e) {
+        console.warn("[generate-landing] failed to persist project ownership:", e);
+      }
+    }
+
+    await access.log({ endpoint: "generate-landing", model: "stitch-gemini-3-pro", success: true });
     return NextResponse.json({
       ok: true,
       projectId,

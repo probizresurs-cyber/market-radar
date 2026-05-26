@@ -710,4 +710,19 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_workspace_invites_email ON workspace_invites(LOWER(email)) WHERE accepted_at IS NULL AND revoked_at IS NULL`);
   await query(`CREATE INDEX IF NOT EXISTS idx_workspace_invites_workspace ON workspace_invites(workspace_id, created_at DESC)`);
+
+  // Landing projects (Stitch SDK). Нужны чтобы прикрепить projectId+screenId
+  // к пользователю — иначе любой залогиненный мог редактировать чужой
+  // лендинг, зная projectId (IDOR от аудит-агента).
+  await query(`
+    CREATE TABLE IF NOT EXISTS landing_projects (
+      project_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      landing_type TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_user ON landing_projects(user_id, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_workspace ON landing_projects(workspace_id, created_at DESC)`);
 }

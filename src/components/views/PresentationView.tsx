@@ -1640,6 +1640,21 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
 // Helper: render a single slide as static HTML string for print/PDF
 export function renderSlideHtml(slide: PresentationSlide, i: number, total: number, primary: string, secondary: string, bg: string, textColor: string, fontH: string, fontB: string, logoUrl?: string): string {
   const type = slide.type;
+  // КРИТИЧНО: HTML-escape для всех пользовательских/AI-сгенерированных строк.
+  // Раньше slide.title/content/quote/items/... вставлялись напрямую — если
+  // AI вернёт `<script>` или юзер вручную напишет `<img onerror=...>` в
+  // редакторе, в PDF-экспорте (через headless Chrome) выполнится произвольный
+  // скрипт → exfiltration данных при доступе к расшаренному файлу. Не сильно
+  // громко, но XSS которая не должна быть.
+  const esc = (s: unknown): string => {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
   const pg = (light: boolean) => `<div style="position:absolute;bottom:16px;right:20px;font-size:10px;font-weight:700;letter-spacing:2px;color:${light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.15)"}">${i+1} / ${total}</div>`;
   const base = `width:960px;height:540px;position:relative;overflow:hidden;box-sizing:border-box;font-family:'${fontB}',system-ui,sans-serif;`;
 
@@ -1658,9 +1673,9 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       <div style="flex:1;padding:34px 48px 28px 32px;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between;height:100%;box-sizing:border-box">
         ${logoUrl ? `<img src="${logoUrl}" style="width:38px;height:38px;object-fit:contain;border-radius:9px;background:rgba(255,255,255,0.12);padding:4px">` : `<div style="display:flex;gap:6px"><div style="width:28px;height:3px;border-radius:2px;background:${secondary}"></div></div>`}
         <div>
-          ${slide.subtitle ? `<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><div style="width:24px;height:2px;background:${secondary};border-radius:2px"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${slide.subtitle}</span></div>` : ""}
-          <h1 style="font-size:42px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;font-family:'${fontH}',Georgia,serif;letter-spacing:-0.5px;text-shadow:0 2px 24px rgba(0,0,0,0.25);max-width:520px">${slide.title}</h1>
-          ${slide.content ? `<p style="font-size:13px;color:rgba(255,255,255,0.62);margin:0;line-height:1.7;max-width:430px">${slide.content}</p>` : ""}
+          ${slide.subtitle ? `<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><div style="width:24px;height:2px;background:${secondary};border-radius:2px"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.subtitle)}</span></div>` : ""}
+          <h1 style="font-size:42px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;font-family:'${fontH}',Georgia,serif;letter-spacing:-0.5px;text-shadow:0 2px 24px rgba(0,0,0,0.25);max-width:520px">${esc(slide.title)}</h1>
+          ${slide.content ? `<p style="font-size:13px;color:rgba(255,255,255,0.62);margin:0;line-height:1.7;max-width:430px">${esc(slide.content)}</p>` : ""}
         </div>
         <div style="font-size:10px;color:rgba(255,255,255,0.22);letter-spacing:1.5px">${new Date().getFullYear()}</div>
       </div>
@@ -1677,9 +1692,9 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       const pct = nums[si].n > 0 ? (nums[si].n/maxN)*100 : 100;
       return `<div style="flex:1;border-radius:14px;background:${rgba(col,0.05)};border:1px solid ${rgba(col,0.14)};padding:18px 14px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col}"></div>
-        <div style="font-size:54px;font-weight:900;color:${col};line-height:1;font-family:'${fontH}',Georgia,serif;letter-spacing:-2px">${s.value}</div>
+        <div style="font-size:54px;font-weight:900;color:${col};line-height:1;font-family:'${fontH}',Georgia,serif;letter-spacing:-2px">${esc(s.value)}</div>
         <div style="width:64%;height:3px;border-radius:2px;background:${rgba(col,0.15)}"><div style="height:100%;width:${pct}%;border-radius:2px;background:${col}"></div></div>
-        <div style="font-size:11px;color:#64748b;text-align:center;line-height:1.4;max-width:120px">${s.label}</div>
+        <div style="font-size:11px;color:#64748b;text-align:center;line-height:1.4;max-width:120px">${esc(s.label)}</div>
       </div>`;
     }).join("");
     return `<div class="slide" style="${base}background:#ffffff;display:flex;flex-direction:column;">
@@ -1687,12 +1702,12 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       <div style="padding:18px 36px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid ${rgba(primary,0.08)}">
         <div style="width:3px;height:34px;border-radius:2px;background:${primary};flex-shrink:0"></div>
         <div>
-          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${fontH}',Georgia,serif">${slide.title}</h3>
-          ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${slide.subtitle}</p>` : ""}
+          <h3 style="font-size:22px;font-weight:800;color:#0f172a;margin:0;font-family:'${fontH}',Georgia,serif">${esc(slide.title)}</h3>
+          ${slide.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0">${esc(slide.subtitle)}</p>` : ""}
         </div>
       </div>
       <div style="flex:1;display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;padding:14px 26px 18px">${statsHtml}</div>
-      ${slide.content ? `<div style="padding:0 26px 14px;font-size:11px;color:#94a3b8;line-height:1.6">${slide.content}</div>` : ""}
+      ${slide.content ? `<div style="padding:0 26px 14px;font-size:11px;color:#94a3b8;line-height:1.6">${esc(slide.content)}</div>` : ""}
       ${pg(false)}
     </div>`;
   }
@@ -1703,9 +1718,9 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       <div style="position:absolute;top:6%;left:4%;font-size:200px;line-height:1;font-family:Georgia,serif;font-weight:900;color:rgba(255,255,255,0.05)">&ldquo;</div>
       <div style="position:relative;z-index:2;flex:1;padding:40px 68px 40px 56px;display:flex;flex-direction:column;gap:20px;justify-content:center">
         <div style="width:44px;height:3px;background:${secondary};border-radius:2px"></div>
-        ${slide.quote ? `<p style="font-size:20px;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.68;margin:0;font-family:'${fontH}',Georgia,serif">&ldquo;${slide.quote}&rdquo;</p>` : ""}
-        ${slide.content ? `<p style="font-size:12px;color:rgba(255,255,255,0.42);margin:0;line-height:1.65">${slide.content}</p>` : ""}
-        <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:1px;background:${secondary};opacity:0.55"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${slide.title}</span></div>
+        ${slide.quote ? `<p style="font-size:20px;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.68;margin:0;font-family:'${fontH}',Georgia,serif">&ldquo;${esc(slide.quote)}&rdquo;</p>` : ""}
+        ${slide.content ? `<p style="font-size:12px;color:rgba(255,255,255,0.42);margin:0;line-height:1.65">${esc(slide.content)}</p>` : ""}
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:1px;background:${secondary};opacity:0.55"></div><span style="font-size:11px;font-weight:700;color:${secondary};letter-spacing:2.5px;text-transform:uppercase">${esc(slide.title)}</span></div>
       </div>
       ${pg(true)}
     </div>`;
@@ -1716,7 +1731,7 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
     const col = accents[bi % accents.length];
     return `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border-radius:10px;background:${bi%2===0 ? rgba(primary,0.042) : "transparent"}">
       <div style="width:26px;height:26px;border-radius:9px;background:${col};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${bi+1}</div>
-      <span style="font-size:13px;color:#1e293b;line-height:1.55;font-weight:500">${b}</span>
+      <span style="font-size:13px;color:#1e293b;line-height:1.55;font-weight:500">${esc(b)}</span>
     </div>`;
   }).join("");
 
@@ -1725,14 +1740,14 @@ export function renderSlideHtml(slide: PresentationSlide, i: number, total: numb
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:20px 20px"></div>
       <div style="position:relative;z-index:2">
         <div style="width:26px;height:3px;background:${secondary};border-radius:2px;margin-bottom:14px"></div>
-        <h3 style="font-size:17px;font-weight:800;color:#fff;margin:0;line-height:1.3;font-family:'${fontH}',Georgia,serif">${slide.title}</h3>
-        ${slide.subtitle ? `<p style="font-size:10px;color:rgba(255,255,255,0.48);margin:8px 0 0;line-height:1.55">${slide.subtitle}</p>` : ""}
+        <h3 style="font-size:17px;font-weight:800;color:#fff;margin:0;line-height:1.3;font-family:'${fontH}',Georgia,serif">${esc(slide.title)}</h3>
+        ${slide.subtitle ? `<p style="font-size:10px;color:rgba(255,255,255,0.48);margin:8px 0 0;line-height:1.55">${esc(slide.subtitle)}</p>` : ""}
       </div>
       <div style="font-size:50px;font-weight:900;color:rgba(255,255,255,0.055);line-height:1;font-family:'${fontH}',serif;position:relative;z-index:2">${String(i+1).padStart(2,"0")}</div>
     </div>
     <div style="flex:1;padding:24px 28px 20px;display:flex;flex-direction:column">
       <div style="height:3px;background:linear-gradient(90deg,${primary},transparent);border-radius:2px;margin-bottom:14px"></div>
-      ${slide.content ? `<p style="font-size:12px;color:#475569;margin:0 0 14px;line-height:1.72">${slide.content}</p>` : ""}
+      ${slide.content ? `<p style="font-size:12px;color:#475569;margin:0 0 14px;line-height:1.72">${esc(slide.content)}</p>` : ""}
       <div style="flex:1;display:flex;flex-direction:column;gap:8px">${bulletsHtml}</div>
     </div>
     ${pg(false)}

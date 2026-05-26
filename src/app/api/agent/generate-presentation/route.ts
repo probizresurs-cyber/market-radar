@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { startAgentJob, type ContextFile } from "@/lib/agent-runner";
+import { checkAiAccess } from "@/lib/with-ai-security";
 import { join } from "path";
 
 export const runtime = "nodejs";
@@ -122,6 +123,10 @@ bash ${HELPER_DIR}/render-deck.sh presentation/index.html .
 - \`slides/slide-001.png\` … \`slides/slide-NNN.png\``;
 
 export async function POST(req: Request) {
+  // Премиум-генерация — самая дорогая операция на платформе (₽30-₽200 за run
+  // Opus). Раньше шла мимо триал/подписочных лимитов и без token accounting.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
@@ -253,6 +258,16 @@ Cover → Проблема → Решение → ЦА → Конкуренты 
     contextFiles,
     model,
     maxTurns: 120,
+    userId: session.userId,
+  });
+
+  // Логируем сразу старт — реальные токены потом долетят с финальным
+  // событием. Запись нужна чтобы видеть «премиум run в процессе» в admin
+  // и чтобы выполнить триал-проверку.
+  await access.log({
+    endpoint: "agent/generate-presentation",
+    model,
+    success: true,
   });
 
   return NextResponse.json({ ok: true, jobId });

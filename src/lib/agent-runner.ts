@@ -54,6 +54,11 @@ export interface AgentJob {
   outputFiles: string[];  // relative paths inside cwd
   error?: string;
   log: string[];          // human-readable progress line(s)
+  /** ID пользователя, инициировавшего job. Нужно для проверки доступа в
+   *  /api/agent/job/[id] и /api/agent/file/[id] — иначе любой авторизованный
+   *  юзер мог скачать чужую готовую презентацию по jobId (IDOR от
+   *  аудит-агента 25.05). Опционально для legacy-job'ов, созданных до миграции. */
+  userId?: string;
 }
 
 const jobs = new Map<string, AgentJob>();
@@ -97,6 +102,7 @@ export function startAgentJob(opts: {
   model?: string;
   systemPrompt?: string;
   maxTurns?: number;
+  userId?: string;
 }): string {
   ensureRunRoot();
   const id = randomBytes(8).toString("hex");
@@ -129,6 +135,7 @@ export function startAgentJob(opts: {
     startedAt: Date.now(),
     outputFiles: [],
     log: ["Очередь..."],
+    userId: opts.userId,
   };
   jobs.set(id, job);
 

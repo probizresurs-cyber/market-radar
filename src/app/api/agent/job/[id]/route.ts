@@ -18,6 +18,15 @@ export async function GET(
   const job = getJob(id);
   if (!job) return NextResponse.json({ ok: false, error: "Job не найден" }, { status: 404 });
 
+  // IDOR: раньше любой залогиненный мог поллить чужой jobId и видеть
+  // логи генерации (содержат компанию/ЦА/СММ — конкурентная разведка)
+  // или скачивать чужую готовую PPTX. Проверяем владение явно.
+  // Admin может смотреть всё для дебага. Legacy-job без userId — допускаем
+  // (создан до миграции), но новые точно проверяются.
+  if (job.userId && job.userId !== session.userId && session.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "Нет доступа к этому job" }, { status: 403 });
+  }
+
   return NextResponse.json({
     ok: true,
     job: {

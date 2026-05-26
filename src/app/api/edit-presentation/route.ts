@@ -31,8 +31,13 @@ export async function POST(req: Request) {
 Правила:
 - Слайды с isEdited: true НЕ ТРОГАЙ — пользователь их отредактировал вручную.
 - Остальные слайды можешь менять согласно пожеланию.
-- Сохраняй структуру: title, subtitle, type, content, bullets, stats, quote, note.
-- Допустимые type: cover | bullets | stats | quote | two-column | cta
+- Сохраняй структуру: title, subtitle, type, content, bullets, stats, quote, items, leftContent, rightContent, note.
+- Допустимые type: cover | bullets | stats | quote | two-column | grid | cta
+  (СИНХРОНИЗИРОВАНО с generate-presentation — раньше grid/two-column терялись,
+   потому что в whitelist edit'а их не было, и AI заменял на bullets).
+- Для type=grid сохраняй массив items: [{title, description}].
+- Для type=two-column сохраняй leftContent + rightContent ИЛИ заполни bullets (6-8 шт).
+- Для type=stats массив stats: [{value, label}] — value строка с числом ("87%", "2400", "×3").
 - Верни JSON: {"slides":[...]}
 
 ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""}`;

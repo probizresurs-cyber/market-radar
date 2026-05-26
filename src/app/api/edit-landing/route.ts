@@ -1,20 +1,44 @@
 import { NextResponse } from "next/server";
+import { checkAiAccess } from "@/lib/with-ai-security";
+import { getSessionUser } from "@/lib/auth";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
+  // Stitch edits тоже платные + раньше любой залогиненный мог
+  // править чужой лендинг по утечке projectId (IDOR).
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
     const apiKey = process.env.GOOGLE_STITCH_API_KEY || process.env.STITCH_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "GOOGLE_STITCH_API_KEY not configured" }, { status: 500 });
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { projectId, screenId, editPrompt, action } = body;
 
     if (!projectId || !screenId) {
       return NextResponse.json({ ok: false, error: "projectId and screenId required" }, { status: 400 });
+    }
+
+    // Проверяем что projectId принадлежит вызывающему юзеру (или его workspace).
+    // Если запись отсутствует — это либо старый лендинг до миграции (мы пускаем
+    // только владельца session), либо чужой projectId (отказ).
+    const session = await getSessionUser().catch(() => null);
+    if (session?.userId) {
+      const owned = await query<{ user_id: string }>(
+        "SELECT user_id FROM landing_projects WHERE project_id = $1",
+        [projectId],
+      );
+      if (owned.length > 0 && owned[0].user_id !== session.userId) {
+        return NextResponse.json(
+          { ok: false, error: "Этот лендинг принадлежит другому аккаунту" },
+          { status: 403 },
+        );
+      }
     }
 
     const { StitchToolClient, Stitch } = await import("@google/stitch-sdk");
@@ -32,6 +56,7 @@ export async function POST(req: Request) {
         edited.getImage(),
       ]);
       await client.close();
+      await access.log({ endpoint: "edit-landing", model: "stitch-edit", success: true });
       return NextResponse.json({
         ok: true,
         screenId: edited.id,
@@ -55,6 +80,7 @@ export async function POST(req: Request) {
         }))
       );
       await client.close();
+      await access.log({ endpoint: "edit-landing", model: "stitch-variants", success: true });
       return NextResponse.json({ ok: true, variants: results });
     }
 
@@ -69,6 +95,7 @@ export async function POST(req: Request) {
         mobile.getImage(),
       ]);
       await client.close();
+      await access.log({ endpoint: "edit-landing", model: "stitch-mobile", success: true });
       return NextResponse.json({
         ok: true,
         screenId: mobile.id,

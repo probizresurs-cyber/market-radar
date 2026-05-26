@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,8 +23,11 @@ function sampleText(text: string, cap = 4500): string {
 }
 
 export async function POST(req: Request) {
+  // Прямой Claude-вызов без auth/токен-аккаунтинга → бюджет утекал.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
   try {
-    const body = await req.json() as {
+    const body = await req.json().catch(() => ({})) as {
       docs: Array<{ id: string; name: string; fullText: string }>;
       companyName?: string;
     };
@@ -80,6 +84,13 @@ ${excerpts}`;
       model: "claude-sonnet-4-5",
       max_tokens: 3000,
       messages: [{ role: "user", content: prompt }],
+    });
+    await access.log({
+      endpoint: "content/analyze-style",
+      model: "claude-sonnet-4-5",
+      promptTokens: msg.usage?.input_tokens,
+      completionTokens: msg.usage?.output_tokens,
+      success: true,
     });
 
     const text = (msg.content[0] as { type: string; text: string }).text.trim();
