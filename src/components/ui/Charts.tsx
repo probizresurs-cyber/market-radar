@@ -204,8 +204,40 @@ export function MetricRing({
   const auto = pct >= 0.7 ? "#0cce6b" : pct >= 0.4 ? "#ffa400" : "#ff4e42";
   const c = color ?? auto;
 
+  // Адаптивный текст: для длинных чисел используем сокращения (1.2M, 50K),
+  // иначе не помещается в круг.
+  const abs = Math.abs(value);
+  let displayText: string;
+  if (suffix === "%") {
+    displayText = `${Math.round(value)}${suffix}`;
+  } else if (abs >= 1_000_000) {
+    displayText = `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1).replace(".0", "")}M${suffix}`;
+  } else if (abs >= 10_000) {
+    displayText = `${Math.round(value / 1000)}K${suffix}`;
+  } else if (abs >= 1000) {
+    displayText = `${(value / 1000).toFixed(1).replace(".0", "")}K${suffix}`;
+  } else {
+    displayText = `${Math.round(value)}${suffix}`;
+  }
+
+  // Адаптивный fontSize — уменьшаем для длинных текстов
+  const baseFontSize = size < 80 ? 18 : 20;
+  const adjustedFontSize = displayText.length > 5 ? baseFontSize - 6
+    : displayText.length > 4 ? baseFontSize - 3
+    : baseFontSize;
+
+  // Tooltip с расшифровкой метрики (native HTML title attribute)
+  const RING_TOOLTIPS: Record<string, string> = {
+    "Domain Rating": "Domain Rating (DR) — оценка авторитетности домена 0-100 по ссылочному профилю. Чем выше — тем больше доверия от поисковиков.",
+    "Видимость": "Доля показов сайта по всем целевым запросам относительно максимума. 100% = сайт в топе по всем ключам.",
+  };
+  const tooltip = RING_TOOLTIPS[label];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+    <div
+      title={tooltip}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: tooltip ? "help" : "default" }}
+    >
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none"
           stroke="rgba(150,150,150,0.15)" strokeWidth={4} />
@@ -215,12 +247,12 @@ export function MetricRing({
           style={{ transition: "stroke-dasharray 0.7s ease" }} />
         <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
           style={{ transform: `rotate(90deg)`, transformOrigin: `${size / 2}px ${size / 2}px` }}
-          fill={c} fontSize={size < 80 ? 18 : 20} fontWeight={800} fontFamily="inherit">
-          {Math.round(value)}{suffix}
+          fill={c} fontSize={adjustedFontSize} fontWeight={800} fontFamily="inherit">
+          {displayText}
         </text>
       </svg>
       <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", textAlign: "center", lineHeight: 1.3 }}>
-        {label}
+        {label}{tooltip ? " ⓘ" : ""}
       </span>
     </div>
   );

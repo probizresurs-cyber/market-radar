@@ -352,13 +352,19 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
     setIsExpandingPrompt(true);
     setExpandError(null);
     try {
+      // ВАЖНО: companyName всегда берём из текущего myCompany, не из plan.
+      // Plan может быть устаревший — для другой компании. Если использовать
+      // plan.companyName — image-prompt сгенерирует контент для не той ниши
+      // (юзер видела «dentist clinic» для строительной компании).
       const res = await fetch("/api/expand-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: getExpandTopic(),
           type: mode,
-          companyName: plan?.companyName ?? myCompany?.company.name ?? "",
+          companyName: myCompany?.company.name ?? plan?.companyName ?? "",
+          companyUrl: myCompany?.company.url ?? "",
+          companyDescription: myCompany?.company.description ?? "",
           bigIdea: plan?.bigIdea ?? "",
           pillars: plan?.pillars ?? [],
           brandBook,

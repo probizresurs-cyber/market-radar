@@ -28,6 +28,8 @@ export async function POST(req: Request) {
     const topic: string = body.topic ?? "";
     const type: "post" | "reel" = body.type ?? "post";
     const companyName: string = body.companyName ?? "";
+    const companyUrl: string = body.companyUrl ?? "";
+    const companyDescription: string = body.companyDescription ?? "";
     const bigIdea: string = body.bigIdea ?? "";
     const pillars: Array<{ name: string; description: string; share: string }> = body.pillars ?? [];
     const smmContext: string = body.smmContext ?? ""; // brief SMM summary if available
@@ -44,6 +46,11 @@ export async function POST(req: Request) {
 
     const companyBlock = [
       companyName && `Компания: ${companyName}`,
+      companyUrl && `Сайт: ${companyUrl}`,
+      // Description критично — даёт нишу компании, иначе AI может
+      // сгенерировать промпт под другую сферу (юзер видела «dentist clinic»
+      // для строительной компании из-за стейл-плана).
+      companyDescription && `Чем занимается: ${companyDescription.slice(0, 500)}`,
       bigIdea && `Большая идея бренда: ${bigIdea}`,
       pillarsText && `Контент-столпы:\n${pillarsText}`,
       smmContext && `Контекст бренда: ${smmContext}`,

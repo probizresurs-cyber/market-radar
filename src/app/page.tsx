@@ -437,7 +437,19 @@ function MarketRadarDashboardInner() {
 
     const content = (get("content") ?? JSON.parse(localStorage.getItem(`mr_content_${uid}`) ?? "null")) as { plan: ContentPlan | null; posts: GeneratedPost[]; reels: GeneratedReel[] } | null;
     if (content) {
-      if (content.plan) setContentPlan(content.plan);
+      // Защита от stale plan: если plan хранился для другой компании
+      // (юзер сделал новый анализ для другого бизнеса) — НЕ загружаем
+      // его, чтобы image-prompt и expand-prompt не использовали имя
+      // старой компании. Лучше юзер сгенерирует новый план.
+      const planCompanyName = content.plan?.companyName?.trim().toLowerCase();
+      const currentCompanyName = company?.company?.name?.trim().toLowerCase();
+      if (content.plan && planCompanyName && currentCompanyName && planCompanyName !== currentCompanyName) {
+        console.warn(
+          `[content] План контента для «${content.plan.companyName}» не подходит текущей компании «${company.company.name}» — пропускаем загрузку. Юзер увидит пустой план-таб и сможет сгенерить новый.`,
+        );
+      } else if (content.plan) {
+        setContentPlan(content.plan);
+      }
       if (Array.isArray(content.posts)) setGeneratedPosts(content.posts);
       if (Array.isArray(content.reels)) setGeneratedReels(content.reels);
     }
@@ -697,8 +709,26 @@ function MarketRadarDashboardInner() {
   // Save company to localStorage and state
   const saveMyCompany = (result: AnalysisResult, userId?: string) => {
     const resultWithDate: AnalysisResult = { ...result, analyzedAt: new Date().toISOString() };
-    setMyCompany(resultWithDate);
     const uid = userId ?? currentUser?.id;
+
+    // Защита от cross-account leak: если в localStorage по этому userId
+    // уже лежит ДРУГАЯ компания (другой URL), и сейчас сохраняем — это
+    // подозрительно (возможно юзер открыл несколько табов с разными
+    // аккаунтами, и стейт перепутался). Логируем для диагностики.
+    if (uid) {
+      try {
+        const existing = JSON.parse(localStorage.getItem(`mr_company_${uid}`) ?? "null");
+        if (existing?.company?.url && existing.company.url !== result.company.url) {
+          console.warn(
+            `[saveMyCompany] перезаписываем компанию для user=${uid}: ` +
+            `было «${existing.company.name}» (${existing.company.url}) → стало «${result.company.name}» (${result.company.url}). ` +
+            "Если это не намеренно — закройте другие табы платформы и проверьте активный аккаунт.",
+          );
+        }
+      } catch { /* ignore */ }
+    }
+
+    setMyCompany(resultWithDate);
     if (uid) {
       try { localStorage.setItem(`mr_company_${uid}`, JSON.stringify(resultWithDate)); } catch { /* ignore */ }
       syncToServer("company", resultWithDate);

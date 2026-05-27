@@ -48,7 +48,10 @@ function cleanBrandName(name: string): string {
 
 /** Преобразует домен в name-fragment для поиска:
  *   "geologia.ra-grad.ru" → "ra grad"
- *   "orlink.ru" → "orlink" */
+ *   "orlink.ru" → "orlink"
+ *   "me-dent.ru" → "me dent"
+ *  Возвращает массив, чтобы пробовать с дефисом и без — некоторые бренды
+ *  индексируются Yandex Картами в исходном написании. */
 function domainToSearchName(domain?: string): string {
   if (!domain) return "";
   const cleaned = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
@@ -78,6 +81,13 @@ async function findOrgId(
   const ooo = /^(ООО|ИП|АО|ПАО|ОАО|ЗАО|ГК|НКО|ТСЖ|СНТ)\s+/i.test(name) ? "" : `ООО ${brand}`;
   const nicheStr = niche?.trim();
 
+  // Имя из домена в двух формах: "me dent" (с пробелом) и "me-dent" (с дефисом)
+  const domainOrig = domain
+    ? domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].split(".").filter(p => p && !["ru", "com", "net", "org", "info", "su", "рф"].includes(p)).sort((a, b) => b.length - a.length)[0] ?? ""
+    : "";
+  // Первые 2-3 ключевых слова ниши вместо целой строки 40 символов
+  const nicheKeywords = nicheStr ? nicheStr.split(/[\s,.;:]+/).filter(w => w.length > 3).slice(0, 3).join(" ") : "";
+
   const queries: string[] = [];
   // Самые специфичные — name + city
   if (city) queries.push(`${name} ${city}`);
@@ -85,18 +95,22 @@ async function findOrgId(
   // С юр.формой
   if (ooo && city) queries.push(`${ooo} ${city}`);
   if (ooo) queries.push(ooo);
-  // С нишей
-  if (nicheStr && city) queries.push(`${brand} ${nicheStr.slice(0, 40)} ${city}`);
-  if (nicheStr) queries.push(`${brand} ${nicheStr.slice(0, 40)}`);
+  // С нишей (короткие ключевики, не вся строка)
+  if (nicheKeywords && city) queries.push(`${brand} ${nicheKeywords} ${city}`);
+  if (nicheKeywords) queries.push(`${brand} ${nicheKeywords}`);
   // Адрес
   if (firstAddrLine && firstAddrLine !== city) queries.push(`${name} ${firstAddrLine}`);
   if (address) queries.push(`${name} ${address}`);
   // Просто имя
   queries.push(name);
   if (brand && brand !== name) queries.push(brand);
-  // Имя из домена
+  // Имя из домена — в обеих формах (с дефисом и с пробелом)
   if (domainName && city) queries.push(`${domainName} ${city}`);
   if (domainName) queries.push(domainName);
+  if (domainOrig && domainOrig !== domainName && city) queries.push(`${domainOrig} ${city}`);
+  if (domainOrig && domainOrig !== domainName) queries.push(domainOrig);
+  // Финальный fallback — «бренд официальный»
+  if (brand) queries.push(`${brand} официальный`);
 
   const unique = [...new Set(queries.filter(Boolean))];
 
@@ -104,13 +118,28 @@ async function findOrgId(
   for (const q of unique) {
     tried.push(q);
     try {
+      // results=3 даёт шанс найти точное совпадение во втором/третьем
+      // результате, если первый — однофамилица (например другая фирма
+      // с тем же словом в названии).
       const res = await fetch(
-        `https://search-maps.yandex.ru/v1/?text=${encodeURIComponent(q)}&type=biz&lang=ru_RU&apikey=${apiKey}&results=1`,
+        `https://search-maps.yandex.ru/v1/?text=${encodeURIComponent(q)}&type=biz&lang=ru_RU&apikey=${apiKey}&results=3`,
       );
       if (!res.ok) continue;
       const data = await res.json() as {
-        features?: Array<{ properties?: { CompanyMetaData?: { id?: string } } }>;
+        features?: Array<{ properties?: { CompanyMetaData?: { id?: string; name?: string; url?: string } } }>;
       };
+      // Если есть domain — ищем результат у которого URL совпадает с нашим
+      // (это самый надёжный матч). Иначе берём первый.
+      if (domain && data.features?.length) {
+        const dom = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
+        for (const f of data.features) {
+          const fUrl = (f.properties?.CompanyMetaData?.url ?? "").toLowerCase();
+          if (fUrl.includes(dom)) {
+            const id = f.properties?.CompanyMetaData?.id;
+            if (id) return { orgId: id, triedQueries: tried, foundBy: `${q} (url-match)` };
+          }
+        }
+      }
       const id = data.features?.[0]?.properties?.CompanyMetaData?.id;
       if (id) return { orgId: id, triedQueries: tried, foundBy: q };
     } catch { /* try next */ }
