@@ -2,28 +2,26 @@
 /**
  * Запись скринкаста главного дашборда MarketRadar24.
  *
+ * Версия 2: акцент на Keys.so и SpyWords. Wizard выпилен (после логина
+ * сразу дашборд). Селекторы owner-dashboard и PageSpeed подкручены.
+ *
  * Использование:
  *   1. Установить зависимости (один раз):
- *      npm install -D playwright
+ *      npm install playwright
  *      npx playwright install chromium
  *
- *   2. Задать env (или экспортнуть):
+ *   2. Задать env:
  *      export STAGING_URL=https://staging.marketradar24.ru
- *      export TEST_EMAIL=demo@marketradar24.ru
- *      export TEST_PASSWORD=<пароль>
- *      export TEST_COMPANY_URL=gk-orlink.ru
+ *      export TEST_EMAIL=admin@company24.pro
+ *      export TEST_PASSWORD=...
+ *      export TEST_COMPANY_URL=me-dent.ru
  *
  *   3. Запуск:
  *      node scripts/demo-recording/record-dashboard-demo.mjs
  *
  *   4. Результат:
- *      output/dashboard-demo-<timestamp>.webm   (video)
- *      output/dashboard-demo-<timestamp>.srt    (subtitles, synced)
- *
- *   5. (опционально) Конвертировать webm → mp4 через ffmpeg:
- *      ffmpeg -i output/dashboard-demo-*.webm -c:v libx264 -crf 18 -preset slow output/dashboard-demo.mp4
- *
- * Дальше: подложить ElevenLabs голос по таймкодам из .srt в DaVinci/CapCut.
+ *      output/dashboard-demo-<timestamp>.webm
+ *      output/dashboard-demo-<timestamp>.srt
  */
 
 import { chromium } from 'playwright';
@@ -40,12 +38,11 @@ const OUTPUT_DIR = join(__dirname, 'output');
 
 const config = {
   stagingUrl: process.env.STAGING_URL || 'https://staging.marketradar24.ru',
-  email: process.env.TEST_EMAIL || 'demo@marketradar24.ru',
+  email: process.env.TEST_EMAIL || 'admin@company24.pro',
   password: process.env.TEST_PASSWORD || '',
-  companyUrl: process.env.TEST_COMPANY_URL || 'gk-orlink.ru',
+  companyUrl: process.env.TEST_COMPANY_URL || 'me-dent.ru',
   viewport: { width: 1920, height: 1080 },
-  slowMo: 250,           // мс между действиями — имитация человеческого темпа
-  cursorPaceMs: 150,     // задержка после кликов до движения курсора
+  slowMo: 220,
 };
 
 if (!config.password) {
@@ -54,223 +51,278 @@ if (!config.password) {
 }
 
 // ============================================================
-// Storyboard scenes — каждая сцена имеет:
-//   id: имя файла (01-landing.webm) и индекс в srt
-//   duration: сколько секунд показывать (примерное, для срт)
-//   voiceover: текст озвучки (для srt-генерации)
-//   action(page): что делать на экране
+// Helpers
+// ============================================================
+
+/** Плавный scroll до якоря — для синематичных переходов между блоками */
+async function smoothScrollTo(page, y, settle = 1500) {
+  await page.evaluate((target) => window.scrollTo({ top: target, behavior: 'smooth' }), y);
+  await page.waitForTimeout(settle);
+}
+
+/** Scroll к элементу по тексту/селектору с центрированием */
+async function scrollToText(page, text, settle = 2500) {
+  try {
+    const loc = page.locator(`text=${text}`).first();
+    await loc.scrollIntoViewIfNeeded({ timeout: 5000 });
+    await page.waitForTimeout(settle);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Безопасный клик — если элемент не найден за 5 секунд, пропускаем без падения */
+async function safeClick(page, selector, fallbackTimeout = 5000) {
+  try {
+    const loc = page.locator(selector).first();
+    await loc.scrollIntoViewIfNeeded({ timeout: fallbackTimeout });
+    await loc.click({ timeout: fallbackTimeout, force: true });
+    return true;
+  } catch (err) {
+    console.log(`    · safeClick: «${selector}» не найден/недоступен (${err.message.slice(0, 50)})`);
+    return false;
+  }
+}
+
+// ============================================================
+// Сцены: focus на Keys.so + SpyWords + остальных блоках
 // ============================================================
 
 const scenes = [
   {
-    id: 'landing',
-    duration: 25,
-    voiceover: 'Привет! За следующие пять минут я покажу, как MarketRadar24 заменяет вам целый маркетинговый отдел. Всего за два-три клика вы получите дашборд с глубокой аналитикой компании, конкурентов, целевой аудитории и SEO. Поехали — начинаем с регистрации.',
+    id: '01-intro-landing',
+    duration: 18,
+    voiceover: 'Привет! За пять минут покажу, что вы получаете в главном дашборде MarketRadar24 сразу после анализа. Главный фокус — на блоках Keys.so и SpyWords, где живёт вся SEO-аналитика и видимость конкурентов.',
     async action(page) {
       await page.goto(config.stagingUrl, { waitUntil: 'networkidle', timeout: 60_000 });
       await page.waitForTimeout(3000);
-      // Плавный скролл вниз до блока "Что вы получите"
-      await page.evaluate(() => window.scrollTo({ top: 1200, behavior: 'smooth' }));
-      await page.waitForTimeout(5000);
-      await page.evaluate(() => window.scrollTo({ top: 2400, behavior: 'smooth' }));
-      await page.waitForTimeout(5000);
-      // Возврат наверх
-      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-      await page.waitForTimeout(4000);
+      await smoothScrollTo(page, 800, 4000);
+      await smoothScrollTo(page, 0, 3000);
+      await page.waitForTimeout(2000);
     },
   },
   {
-    id: 'registration',
-    duration: 30,
-    voiceover: 'Регистрация занимает буквально минуту. Нужны только email, пароль и адрес сайта вашей компании. Никаких карт, паспортных данных или долгих анкет. Сразу после регистрации платформа автоматически запускает первый анализ.',
+    id: '02-login',
+    duration: 18,
+    voiceover: 'Захожу в платформу. Тестовый аккаунт с уже готовым анализом, чтобы сразу попасть на дашборд и показать все блоки.',
     async action(page) {
-      // Клик «Попробовать» / «Войти» / «Регистрация»
-      // НА staging тестовый аккаунт — заходим через login, не register
-      const loginCandidates = ['text=Войти', 'text=Попробовать', 'text=Регистрация', 'a[href*="login"]'];
+      // Ищем кнопку логина по разным вариантам
+      const loginCandidates = ['text=Войти', 'a[href*="login"]', 'text=Личный кабинет'];
       for (const sel of loginCandidates) {
-        const el = await page.$(sel);
-        if (el) { await el.click(); break; }
+        if (await safeClick(page, sel, 3000)) break;
       }
       await page.waitForTimeout(2500);
-      await page.waitForSelector('input[type=email], input[name=email]', { timeout: 15_000 });
-      await page.fill('input[type=email], input[name=email]', config.email);
-      await page.waitForTimeout(800);
-      await page.fill('input[type=password]', config.password);
-      await page.waitForTimeout(1500);
-      // Submit
-      const submitCandidates = ['button[type=submit]', 'text=Войти', 'text=Зарегистрироваться'];
-      for (const sel of submitCandidates) {
-        const btn = await page.$(sel);
-        if (btn && await btn.isVisible()) { await btn.click(); break; }
-      }
-      await page.waitForTimeout(5000);
-    },
-  },
-  {
-    id: 'wizard',
-    duration: 25,
-    voiceover: 'На старте можно выбрать, какие модули запустить параллельно. Я возьму все: основной анализ компании, конкурентов, портрет аудитории и SMM-стратегию. Платформа собирает данные из двенадцати источников: ФНС, HH-ру, Яндекс-Карт, 2-ГИС, Keys-точка-so и других.',
-    async action(page) {
-      // На staging после логина — либо новая компания, либо dashboard готов
-      // Пытаемся открыть wizard через сайдбар
-      const wizardBtn = await page.$('text=Новый анализ').catch(() => null);
-      if (wizardBtn) {
-        await wizardBtn.click();
-        await page.waitForTimeout(3000);
-        // Заполняем URL если поле есть
-        const urlInput = await page.$('input[type=url], input[placeholder*="сайт"], input[placeholder*="URL"]');
-        if (urlInput) {
-          await urlInput.fill(config.companyUrl);
-          await page.waitForTimeout(2000);
-        }
-      } else {
-        // Если wizard не открылся — просто ждём, показывая текущий экран
-        await page.waitForTimeout(10000);
-      }
-      await page.waitForTimeout(8000);
-    },
-  },
-  {
-    id: 'dashboard-overview',
-    duration: 35,
-    voiceover: 'Вот и сам дашборд. Сверху — карточка компании с реквизитами из ФНС, ниже — ключевые метрики: возраст домена, скорость сайта на мобильных и десктопе, Core Web Vitals. Обратите внимание — мы чётко разделяем, где данные из реальных API, а где гипотезы AI. Видите эти бейджи «факт» и «AI»? Так вы всегда знаете, чему доверять.',
-    async action(page) {
-      // Нав на дашборд
-      const dashboardLink = await page.$('text=Дашборд');
-      if (dashboardLink) {
-        await dashboardLink.click();
-        await page.waitForTimeout(3000);
-      }
-      // Показ шапки → плавно к KPI
-      await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'smooth' }));
-      await page.waitForTimeout(6000);
-      await page.evaluate(() => window.scrollTo({ top: 800, behavior: 'smooth' }));
-      await page.waitForTimeout(6000);
-      // Подсветка PageSpeed Mobile/Desktop переключателя
-      const desktopTab = await page.$('text=ПК').catch(() => null);
-      if (desktopTab) {
-        await desktopTab.hover();
-        await page.waitForTimeout(2000);
-        await desktopTab.click();
-        await page.waitForTimeout(3000);
-      } else {
+      try {
+        await page.waitForSelector('input[type=email], input[name=email]', { timeout: 10_000 });
+        await page.fill('input[type=email], input[name=email]', config.email);
+        await page.waitForTimeout(800);
+        await page.fill('input[type=password]', config.password);
+        await page.waitForTimeout(1500);
+        await safeClick(page, 'button[type=submit]', 5000);
         await page.waitForTimeout(5000);
-      }
-      await page.waitForTimeout(5000);
-    },
-  },
-  {
-    id: 'finances-team',
-    duration: 30,
-    voiceover: 'Финансовый блок — это данные из Русспрофиля и ФНС: выручка, прибыль, ИНН, юридический адрес, наличие судебных дел. Соседний блок — команда и найм через HH-ру: сколько открытых вакансий сейчас, какая средняя зарплата, по каким специальностям ищут.',
-    async action(page) {
-      // Скролл к финансам
-      await page.evaluate(() => window.scrollTo({ top: 1400, behavior: 'smooth' }));
-      await page.waitForTimeout(7000);
-      await page.evaluate(() => window.scrollTo({ top: 1900, behavior: 'smooth' }));
-      await page.waitForTimeout(7000);
-      // Hover на блок Hiring
-      const hiringSection = await page.$('text=Команда').catch(() => null);
-      if (hiringSection) {
-        await hiringSection.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(5000);
-      }
-      await page.waitForTimeout(8000);
-    },
-  },
-  {
-    id: 'social-reputation',
-    duration: 30,
-    voiceover: 'Соцсети — реальные цифры подписчиков из VK и Telegram, никаких выдумок. Если данные не нашлись — стоит прочерк, не AI-фантазия. Рядом — рейтинги на Яндекс-Картах, 2-ГИС и Google: количество звёзд, число отзывов, динамика.',
-    async action(page) {
-      await page.evaluate(() => window.scrollTo({ top: 2400, behavior: 'smooth' }));
-      await page.waitForTimeout(8000);
-      await page.evaluate(() => window.scrollTo({ top: 3000, behavior: 'smooth' }));
-      await page.waitForTimeout(10000);
-      await page.evaluate(() => window.scrollTo({ top: 3600, behavior: 'smooth' }));
-      await page.waitForTimeout(8000);
-    },
-  },
-  {
-    id: 'sidebar-tour',
-    duration: 50,
-    voiceover: 'Слева в сайдбаре — все модули платформы. Конкуренты — таблица сравнения с битл-кардами для отдела продаж. Аудитория — портрет целевого клиента с болями, страхами, возражениями. SMM — стратегия по платформам и архетип бренда. Контент-завод — генератор постов, рилсов, сторис и каруселей с автокартинками. Презентации — слайды собираются автоматически. И агенты — фоновые задачи, которые работают за вас круглосуточно.',
-    async action(page) {
-      const sidebarTargets = [
-        { selector: 'text=Конкуренты', wait: 5000 },
-        { selector: 'text=Аудитория', wait: 5000 },
-        { selector: 'text=СММ', wait: 5000 },
-        { selector: 'text=Контент-завод', wait: 6000 },
-        { selector: 'text=Презентации', wait: 6000 },
-        { selector: 'text=Агенты', wait: 6000 },
-      ];
-      for (const { selector, wait } of sidebarTargets) {
-        const link = await page.$(selector).catch(() => null);
-        if (link) {
-          try {
-            await link.click({ timeout: 3000 });
-            await page.waitForTimeout(wait);
-          } catch { /* skip if not clickable */ }
-        } else {
-          await page.waitForTimeout(2000);
-        }
-      }
-      // Возврат на главный дашборд
-      const back = await page.$('text=Дашборд').catch(() => null);
-      if (back) {
-        await back.click().catch(() => {});
+      } catch (err) {
+        console.log(`    · login form skip: ${err.message.slice(0, 60)}`);
         await page.waitForTimeout(4000);
       }
     },
   },
   {
-    id: 'owner-dashboard',
-    duration: 25,
-    voiceover: 'Отдельный режим — дашборд руководителя. Минимум интерфейса, максимум сути: ключевые метрики крупно, по каждому направлению — отдельный таб со сводкой. Это можно открыть на телевизоре в переговорке или показать собственнику бизнеса.',
+    id: '03-dashboard-hero',
+    duration: 22,
+    voiceover: 'Шапка дашборда — название компании, домен, общий маркетинговый score. Это краткая сводка состояния. Ниже идут детальные блоки: возраст домена, скорость сайта, SEO-данные и реальная аналитика по поисковым системам.',
     async action(page) {
-      const ownerLink = await page.$('text=Дашборд руководителя').catch(() => null);
-      if (ownerLink) {
-        // Может открыться в новой вкладке — обработаем
-        const [popup] = await Promise.all([
-          page.context().waitForEvent('page', { timeout: 5000 }).catch(() => null),
-          ownerLink.click(),
-        ]);
-        if (popup) {
-          await popup.waitForLoadState('networkidle');
-          await popup.waitForTimeout(5000);
-          await popup.evaluate(() => window.scrollTo({ top: 600, behavior: 'smooth' }));
-          await popup.waitForTimeout(8000);
-          await popup.evaluate(() => window.scrollTo({ top: 1400, behavior: 'smooth' }));
-          await popup.waitForTimeout(8000);
-          await popup.close();
-        } else {
-          await page.waitForTimeout(15000);
-        }
-      } else {
-        await page.waitForTimeout(15000);
-      }
+      // Уже на дашборде после логина
+      await page.waitForTimeout(3000);
+      await smoothScrollTo(page, 0, 3000);
+      await page.waitForTimeout(5000);
+      await smoothScrollTo(page, 300, 3000);
+      await page.waitForTimeout(5000);
+      await smoothScrollTo(page, 600, 2500);
     },
   },
   {
-    id: 'outro',
-    duration: 15,
-    voiceover: 'Это был обзор главного дашборда. В следующих видео разберём подробно: как работает контент-завод, как настроить агентов и что показывает анализ конкурентов. До встречи в MarketRadar24!',
+    id: '04-pagespeed',
+    duration: 28,
+    voiceover: 'Блок PageSpeed Insights — реальные Core Web Vitals от Google. LCP, FCP, CLS, TBT — всё что критично для SEO и пользовательского опыта. Метрики снимаются отдельно для мобильных и десктопа, потому что Google ранжирует их по-разному.',
     async action(page) {
-      // Возврат на главный дашборд для финального кадра
-      const back = await page.$('text=Дашборд').catch(() => null);
-      if (back) {
-        await back.click().catch(() => {});
+      await scrollToText(page, 'PageSpeed', 4000);
+      await page.waitForTimeout(5000);
+      // Hover на Core Web Vitals если есть
+      await scrollToText(page, 'Core Web Vitals', 4000).catch(() => {});
+      await page.waitForTimeout(5000);
+      // Попытка переключения Mobile / ПК — без падения
+      const desktopCandidates = ['button:has-text("ПК")', 'button:has-text("Desktop")', 'text=Десктоп'];
+      for (const sel of desktopCandidates) {
+        if (await safeClick(page, sel, 3000)) {
+          await page.waitForTimeout(4000);
+          break;
+        }
       }
       await page.waitForTimeout(3000);
-      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    },
+  },
+  {
+    id: '05-keyso-overview',
+    duration: 45,
+    voiceover: 'Главный SEO-блок — Keys.so. Здесь живая статистика по позициям сайта в Яндексе и Google. Сколько ключей в топ-1, топ-3, топ-5, топ-10 и топ-50. Видимость, оценка органического трафика, страниц в выдаче. Всё это собирается напрямую из Keys.so и обновляется по запросу.',
+    async action(page) {
+      // Раскрываем секцию Keys.so если свернута
+      const keysoCandidates = ['text=Данные Key.so', 'text=Данные Keys.so', 'text=Keys.so', 'text=Key.so'];
+      for (const sel of keysoCandidates) {
+        if (await scrollToText(page, sel.replace('text=', ''), 3000)) break;
+      }
+      await page.waitForTimeout(4000);
+      // Long dwell на цифрах ТОПов
+      await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'smooth' }));
+      await page.waitForTimeout(7000);
+      await page.evaluate(() => window.scrollBy({ top: 250, behavior: 'smooth' }));
+      await page.waitForTimeout(7000);
+      // Конкуренты Keys.so
+      await scrollToText(page, 'Конкуренты', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      // Ссылочный профиль
+      await page.evaluate(() => window.scrollBy({ top: 300, behavior: 'smooth' }));
+      await page.waitForTimeout(8000);
+    },
+  },
+  {
+    id: '06-keyso-charts',
+    duration: 30,
+    voiceover: 'Графики динамики — позиции, ссылочная масса, доля рынка в нише. Видно как меняется ваша видимость в Яндексе по месяцам и как растёт или падает количество ссылающихся доменов. Эти данные нужны для оценки эффективности SEO-работ.',
+    async action(page) {
+      // Графики Keys.so — динамика
+      await scrollToText(page, 'Динамика', 3000).catch(() => {});
+      await page.waitForTimeout(6000);
+      await scrollToText(page, 'Ссылочн', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      await scrollToText(page, 'Доля рынка', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'smooth' }));
+      await page.waitForTimeout(5000);
+    },
+  },
+  {
+    id: '07-spywords',
+    duration: 45,
+    voiceover: 'Дополнительный слой — SpyWords. Это вторая база данных поверх Keys.so, которая ловит то, что первая пропускает. Здесь обзор по Яндексу и Google: ключи в топ-10, в топ-50, трафик из органики, ключи в контексте. Можно переключаться между поисковиками и видеть полную картину.',
+    async action(page) {
+      // Скролл к блоку SpyWords
+      const spywordsCandidates = ['text=Данные SpyWords', 'text=SpyWords', 'text=Spywords'];
+      for (const sel of spywordsCandidates) {
+        if (await scrollToText(page, sel.replace('text=', ''), 4000)) break;
+      }
+      await page.waitForTimeout(5000);
+      // Обзор в Яндексе
+      await scrollToText(page, 'ОБЗОР В ЯНДЕКС', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      // Hover на карточки метрик
+      await page.evaluate(() => window.scrollBy({ top: 300, behavior: 'smooth' }));
+      await page.waitForTimeout(7000);
+      // Переключение Google
+      const googleCandidates = ['button:has-text("Google")', 'text=Google'];
+      for (const sel of googleCandidates) {
+        if (await safeClick(page, sel, 3000)) {
+          await page.waitForTimeout(5000);
+          break;
+        }
+      }
+      await page.waitForTimeout(8000);
+      await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'smooth' }));
+      await page.waitForTimeout(5000);
+    },
+  },
+  {
+    id: '08-business-profile',
+    duration: 28,
+    voiceover: 'Дальше — бизнес-профиль. Реквизиты компании из ФНС через DaData, финансовые показатели из Русспрофиля: выручка, прибыль, ИНН, юридический адрес, наличие судебных дел. Никаких AI-выдумок — только данные из официальных реестров.',
+    async action(page) {
+      await scrollToText(page, 'Бизнес-профиль', 3000)
+        || await scrollToText(page, 'О компании', 3000)
+        || await scrollToText(page, 'ИНН', 3000).catch(() => {});
+      await page.waitForTimeout(7000);
+      // Финансы
+      await scrollToText(page, 'Финансы', 3000)
+        || await scrollToText(page, 'Выручка', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      // Rusprofile линк
+      await scrollToText(page, 'Rusprofile', 3000).catch(() => {});
+      await page.waitForTimeout(6000);
+    },
+  },
+  {
+    id: '09-hiring-social',
+    duration: 28,
+    voiceover: 'Команда и найм — данные с HH.ru: количество открытых вакансий, средняя зарплата, топ-роли. Помогает оценить, насколько компания живая и куда движется. Соцсети — реальные подписчики ВКонтакте и Telegram. Если данных нет — стоит прочерк, а не AI-фантазия.',
+    async action(page) {
+      // HH.ru
+      await scrollToText(page, 'Команда', 3000)
+        || await scrollToText(page, 'Найм', 3000)
+        || await scrollToText(page, 'HH.ru', 3000)
+        || await scrollToText(page, 'Вакансии', 3000).catch(() => {});
+      await page.waitForTimeout(7000);
+      // Соцсети
+      await scrollToText(page, 'Соцсети', 3000)
+        || await scrollToText(page, 'ВКонтакте', 3000)
+        || await scrollToText(page, 'Telegram', 3000).catch(() => {});
+      await page.waitForTimeout(7000);
+      await page.evaluate(() => window.scrollBy({ top: 250, behavior: 'smooth' }));
+      await page.waitForTimeout(7000);
+    },
+  },
+  {
+    id: '10-reviews-maps',
+    duration: 24,
+    voiceover: 'Репутация на картах — рейтинги в Яндекс-Картах, 2-ГИС и Google: количество звёзд, число отзывов, динамика. Эта информация критична для онлайн-репутации и локального SEO. Дальше — раздел с конкретными отзывами, но это уже отдельный модуль анализа репутации.',
+    async action(page) {
+      await scrollToText(page, 'Яндекс', 3000)
+        || await scrollToText(page, '2GIS', 3000)
+        || await scrollToText(page, 'Google', 3000)
+        || await scrollToText(page, 'Карты', 3000).catch(() => {});
+      await page.waitForTimeout(8000);
+      await page.evaluate(() => window.scrollBy({ top: 300, behavior: 'smooth' }));
+      await page.waitForTimeout(8000);
+      // Госконтракты если есть
+      await scrollToText(page, 'Госконтракты', 3000).catch(() => {});
+      await page.waitForTimeout(5000);
+    },
+  },
+  {
+    id: '11-sidebar-modules',
+    duration: 35,
+    voiceover: 'Это далеко не всё. В сайдбаре слева — все остальные модули платформы. Конкуренты с битл-картами, портрет аудитории, SMM-стратегия, контент-завод с генератором постов и рилсов, презентации, фоновые агенты. Каждый — отдельное видео. Всё это синхронизировано — данные текут между модулями.',
+    async action(page) {
+      // Возврат наверх для красивого перехода
+      await smoothScrollTo(page, 0, 2000);
+      const sidebarTargets = [
+        { selector: 'text=Конкуренты', wait: 4000 },
+        { selector: 'text=Аудитория', wait: 4000 },
+        { selector: 'text=СММ', wait: 4000 },
+        { selector: 'text=Контент-завод', wait: 5000 },
+      ];
+      for (const { selector, wait } of sidebarTargets) {
+        const clicked = await safeClick(page, selector, 4000);
+        if (clicked) await page.waitForTimeout(wait);
+        else await page.waitForTimeout(1500);
+      }
+      // Возврат на дашборд
+      await safeClick(page, 'text=Дашборд', 4000);
+      await page.waitForTimeout(3000);
+    },
+  },
+  {
+    id: '12-outro',
+    duration: 15,
+    voiceover: 'Главный дашборд — точка входа в платформу. Отсюда вы видите общее состояние и переходите в детальные модули. В следующих видео разберу контент-завод, агентов и анализ конкурентов. До встречи в MarketRadar24!',
+    async action(page) {
+      await smoothScrollTo(page, 0, 2000);
       await page.waitForTimeout(12000);
     },
   },
 ];
 
 // ============================================================
-// SRT generator — конвертирует voiceover-текст в субтитры
-// синхронные с таймингами сцен
+// SRT generator
 // ============================================================
 
 function formatSrtTime(seconds) {
@@ -304,10 +356,12 @@ async function main() {
   await mkdir(OUTPUT_DIR, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const videoName = `dashboard-demo-${timestamp}`;
+  const totalDur = scenes.reduce((a, s) => a + s.duration, 0);
 
   console.log(`▶  Запуск записи: ${videoName}`);
   console.log(`▶  Staging: ${config.stagingUrl}`);
-  console.log(`▶  Сцен: ${scenes.length}, общая длительность ~${scenes.reduce((a, s) => a + s.duration, 0)}s`);
+  console.log(`▶  Компания: ${config.companyUrl}`);
+  console.log(`▶  Сцен: ${scenes.length}, общая длительность ~${totalDur}s (${Math.floor(totalDur/60)}:${String(totalDur%60).padStart(2,'0')})`);
 
   const browser = await chromium.launch({
     headless: true,
@@ -327,7 +381,7 @@ async function main() {
 
   const page = await context.newPage();
 
-  // Hover-эффект курсора — рисуем кружок чтобы было видно куда клик
+  // Pink cursor для visibility в headless
   await page.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
       const cursor = document.createElement('div');
@@ -357,8 +411,7 @@ async function main() {
       try {
         await scene.action(page);
       } catch (err) {
-        console.error(`    ⚠  Ошибка в сцене ${scene.id}:`, err.message);
-        // Не падаем — продолжаем запись чтобы пользователь хоть что-то получил
+        console.error(`    ⚠  Ошибка в сцене ${scene.id}: ${err.message.slice(0, 100)}`);
         await page.waitForTimeout(2000);
       }
     }
@@ -369,7 +422,7 @@ async function main() {
     await browser.close();
   }
 
-  // Playwright сохраняет webm с авто-именем, нужно найти и переименовать
+  // Rename auto-generated webm
   const { readdir, rename } = await import('node:fs/promises');
   const files = await readdir(OUTPUT_DIR);
   const webm = files.find(f => f.endsWith('.webm') && !f.startsWith('dashboard-demo'));
@@ -379,13 +432,14 @@ async function main() {
     console.log(`\n✓  Видео: ${join(OUTPUT_DIR, finalName)}`);
   }
 
-  // Генерим SRT
+  // Write SRT
   const srt = generateSrt(scenes);
   const srtPath = join(OUTPUT_DIR, `${videoName}.srt`);
   await writeFile(srtPath, srt, 'utf-8');
   console.log(`✓  Субтитры: ${srtPath}`);
 
   console.log('\n────────────────────────────────────────');
+  console.log(`Общий хронометраж: ~${Math.floor(totalDur/60)}:${String(totalDur%60).padStart(2,'0')}`);
   console.log('Дальше:');
   console.log('  1. Загрузи .srt текст в ElevenLabs — получишь mp3 голоса');
   console.log('  2. (опц.) ffmpeg -i <webm> -c:v libx264 -crf 18 <mp4>');
