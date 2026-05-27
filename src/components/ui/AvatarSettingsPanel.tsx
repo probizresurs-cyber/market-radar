@@ -182,12 +182,19 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         }),
       });
       const rawText = await res.text();
-      let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
+      let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string; debug?: string };
       try { json = JSON.parse(rawText); }
       catch {
         json = { ok: false, error: `HTTP ${res.status}: ${rawText.slice(0, 150)}` };
       }
-      if (!json.ok) throw new Error(json.error ?? "Ошибка создания аватара");
+      if (!json.ok) {
+        // Показываем debug (полный ответ HeyGen) — нужно для диагностики
+        // какое именно field required не передаётся.
+        const fullErr = json.debug
+          ? `${json.error ?? "Ошибка"} | RAW: ${json.debug.slice(0, 300)}`
+          : (json.error ?? "Ошибка создания аватара");
+        throw new Error(fullErr);
+      }
 
       const newAvatar: CustomAvatar = {
         id: `custom-av-${Date.now()}`,
