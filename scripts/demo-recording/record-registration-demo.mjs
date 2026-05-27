@@ -128,26 +128,31 @@ const scenes = [
   },
   {
     id: '03-fill-registration',
-    duration: 30,
-    voiceover: 'Форма регистрации. Ввожу почту, придумываю пароль, добавляю имя и адрес своего сайта. Здесь я возьму сайт стоматологической клиники me-dent.ru — на нём и покажу анализ. Никаких подтверждений по SMS — это staging-окружение для демо.',
+    duration: 35,
+    voiceover: 'Форма регистрации. Ввожу имя — Иван Иванов, почту, придумываю пароль и добавляю адрес своего сайта. Я возьму стоматологическую клинику me-dent.ru — на ней и покажу анализ. Дальше ставлю галочку согласия на обработку персональных данных. Никаких подтверждений по SMS — это staging для демо.',
     async action(page) {
-      // Заполняем форму регистрации
-      await safeFill(page, 'input[type=email], input[name=email]', config.demoEmail);
+      // Селекторы найдены в src/components/views/RegisterView.tsx —
+      // поля без name атрибута, только по placeholder.
+      // Имя
+      await safeFill(page, 'input[placeholder="Иван Иванов"]', config.demoName);
       await page.waitForTimeout(1500);
-      await safeFill(page, 'input[type=password], input[name=password]', config.demoPassword);
+      // Email
+      await safeFill(page, 'input[type=email]', config.demoEmail);
       await page.waitForTimeout(1500);
-      // Имя (если есть поле)
-      const nameSelectors = ['input[name=name]', 'input[name=fullName]', 'input[placeholder*="Имя"]'];
-      for (const sel of nameSelectors) {
-        if (await safeFill(page, sel, config.demoName, 2000)) break;
+      // Пароль
+      await safeFill(page, 'input[type=password]', config.demoPassword);
+      await page.waitForTimeout(1500);
+      // Сайт компании (placeholder example.ru)
+      await safeFill(page, 'input[placeholder="example.ru"]', config.companyUrl);
+      await page.waitForTimeout(2500);
+      // Чекбокс согласия на обработку ПД — обязательно для submit.
+      // Сначала пробуем по тексту-метке, потом по type=checkbox.
+      const consentClicked = await safeClick(page, 'text=согласен', 3000)
+        || await safeClick(page, 'input[type=checkbox]', 3000);
+      if (!consentClicked) {
+        console.log('    · Не нашёл checkbox согласия — submit может не сработать');
       }
-      await page.waitForTimeout(1500);
-      // URL компании (если в форме есть поле)
-      const urlSelectors = ['input[name=companyUrl]', 'input[name=url]', 'input[placeholder*="сайт"]', 'input[type=url]'];
-      for (const sel of urlSelectors) {
-        if (await safeFill(page, sel, config.companyUrl, 2000)) break;
-      }
-      await page.waitForTimeout(5000);
+      await page.waitForTimeout(3000);
     },
   },
   {
