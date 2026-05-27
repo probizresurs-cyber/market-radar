@@ -69,7 +69,19 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
       });
-      const json = await res.json() as { ok: boolean; data?: { heygenAvatarId: string; previewUrl: string; name: string }; error?: string };
+      // Защита от HTML-ответа (Next.js OOM при больших файлах, Cloudflare 502,
+      // nginx 413 Payload Too Large) — иначе JSON.parse падает с
+      // криптическим «Unexpected token '<'».
+      const rawText = await res.text();
+      let json: { ok: boolean; data?: { heygenAvatarId: string; previewUrl: string; name: string }; error?: string };
+      try { json = JSON.parse(rawText); }
+      catch {
+        const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+        const friendly = res.status === 413 ? "Файл слишком большой для сервера (превышен лимит body-parser)"
+          : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, упал из-за размера файла"
+          : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
+        json = { ok: false, error: friendly };
+      }
       if (!json.ok) throw new Error(json.error ?? "Ошибка загрузки");
 
       const newAvatar: CustomAvatar = {
@@ -113,7 +125,17 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
       });
-      const json = await res.json() as { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
+      // Та же защита что и для фото — видео 100МБ ещё чаще ловит 413/502/HTML.
+      const rawText = await res.text();
+      let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
+      try { json = JSON.parse(rawText); }
+      catch {
+        const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+        const friendly = res.status === 413 ? "Видео слишком большое для сервера (попробуйте сжать до 50 МБ)"
+          : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, видео слишком тяжёлое или upstream упал"
+          : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
+        json = { ok: false, error: friendly };
+      }
       if (!json.ok) throw new Error(json.error ?? "Ошибка загрузки");
 
       const newAvatar: CustomAvatar = {
