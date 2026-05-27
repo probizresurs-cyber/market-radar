@@ -62,10 +62,15 @@ export async function POST(req: Request) {
     });
     const assetText = await assetRes.text();
     if (!assetRes.ok) {
-      const hint =
-        assetRes.status === 401 || assetRes.status === 403
-          ? " — нужен платный тариф HeyGen с включённой загрузкой видео."
-          : "";
+      // Распознаём типичные коды ошибок HeyGen для понятного фидбэка юзеру.
+      let hint = "";
+      if (assetRes.status === 401 || assetRes.status === 403) {
+        hint = " — нужен платный тариф HeyGen с включённой загрузкой видео.";
+      } else if (/400543|Content type not match|quicktime/i.test(assetText)) {
+        hint = " — HeyGen принимает только MP4. Если файл .MOV (iPhone) — пересохраните в MP4: QuickTime Player → File → Export As → 1080p (он сохранит .mov-контейнер как .mp4), или используйте CapCut → Export.";
+      } else if (/file size|too large/i.test(assetText)) {
+        hint = " — файл слишком большой, попробуйте сжать.";
+      }
       return NextResponse.json(
         { ok: false, error: `HeyGen asset upload ${assetRes.status}: ${assetText.slice(0, 300)}${hint}` },
         { status: 500 },

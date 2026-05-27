@@ -420,8 +420,17 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   <Upload size={14} /> Видео-аватар (Digital Twin)
                   <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "#22c55e", color: "#fff" }}>NEW</span>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.4 }}>
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
                   Качественный footage-аватар с lip-sync. Нужны два видео: тренировочное и согласие.
+                </div>
+                <div style={{
+                  fontSize: 10.5, color: "#22c55e", fontWeight: 700,
+                  padding: "6px 10px", marginBottom: 12, borderRadius: 6,
+                  background: "color-mix(in oklch, #22c55e 8%, transparent)",
+                  border: "1px solid color-mix(in oklch, #22c55e 30%, transparent)",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  ⚠ Только MP4. HeyGen не принимает MOV (iPhone). Конвертация: QuickTime → File → Export As → 1080p, или CapCut → Export.
                 </div>
 
                 {/* Шаг 1: training video */}
@@ -435,7 +444,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   <input
                     ref={trainingInputRef}
                     type="file"
-                    accept="video/mp4,video/quicktime,video/webm"
+                    accept="video/mp4,video/webm"
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadTrainingVideo(f); }}
                     style={{ display: "none" }}
                   />
@@ -474,7 +483,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   <input
                     ref={consentInputRef}
                     type="file"
-                    accept="video/mp4,video/quicktime,video/webm"
+                    accept="video/mp4,video/webm"
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadConsentVideo(f); }}
                     style={{ display: "none" }}
                   />
