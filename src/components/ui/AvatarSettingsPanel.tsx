@@ -40,8 +40,18 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   const [pendingVoiceName, setPendingVoiceName] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
+  // Digital Twin (video avatar) состоит из ДВУХ видео:
+  //   1. training — основное видео ≥2 мин с лицом и речью
+  //   2. consent — отдельное видео-согласие (политика HeyGen против deepfake)
+  // Юзер загружает оба → нажимает «Создать аватар» → бэк делает POST /v3/avatars.
+  const trainingInputRef = useRef<HTMLInputElement>(null);
+  const consentInputRef = useRef<HTMLInputElement>(null);
+  type UploadedAsset = { assetId: string; assetUrl?: string; fileName: string };
+  const [trainingAsset, setTrainingAsset] = useState<UploadedAsset | null>(null);
+  const [consentAsset, setConsentAsset] = useState<UploadedAsset | null>(null);
+  const [uploadingTraining, setUploadingTraining] = useState(false);
+  const [uploadingConsent, setUploadingConsent] = useState(false);
+  const [creatingTwin, setCreatingTwin] = useState(false);
   const [pendingVideoName, setPendingVideoName] = useState("");
 
   const customAvatars = settings.customAvatars ?? [];
@@ -102,55 +112,105 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     }
   };
 
-  // Avatar из видео-footage. HeyGen ловит мимику + говорящие движения
-  // и делает «look» (выше качество lip-sync чем talking-photo).
-  const handleUploadVideo = async (file: File) => {
-    setUploadingVideo(true);
+  // Универсальный загрузчик одного видео-asset'а в HeyGen — возвращает
+  // assetId. Используется для training И consent video.
+  const uploadVideoAsset = async (file: File, kind: "training" | "consent"): Promise<UploadedAsset> => {
+    if (file.size > 100 * 1024 * 1024) throw new Error("Файл больше 100 МБ");
+    if (!file.type.startsWith("video/")) throw new Error("Нужен видео-файл MP4 / MOV / WebM");
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", kind);
+    const res = await fetch("/api/heygen-upload-video", { method: "POST", body: fd });
+    const rawText = await res.text();
+    let json: { ok: boolean; data?: { assetId: string; assetUrl?: string }; error?: string };
+    try { json = JSON.parse(rawText); }
+    catch {
+      const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+      const friendly = res.status === 413 ? "Видео больше серверного лимита 150 МБ"
+        : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, видео слишком тяжёлое"
+        : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
+      json = { ok: false, error: friendly };
+    }
+    if (!json.ok || !json.data?.assetId) throw new Error(json.error ?? "Ошибка загрузки");
+    return { assetId: json.data.assetId, assetUrl: json.data.assetUrl, fileName: file.name };
+  };
+
+  const handleUploadTrainingVideo = async (file: File) => {
+    setUploadingTraining(true);
     setUploadError(null);
     try {
-      if (file.size > 100 * 1024 * 1024) throw new Error("Файл больше 100 МБ");
-      if (!file.type.startsWith("video/")) throw new Error("Нужен видео-файл MP4 / MOV / WebM");
-      const name = pendingVideoName.trim() || file.name.replace(/\.[^.]+$/, "") || "Видео-аватар";
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("name", name);
-      const res = await fetch("/api/heygen-upload-video", { method: "POST", body: fd });
-      // Та же защита что и для фото — видео 100МБ ещё чаще ловит 413/502/HTML.
+      const asset = await uploadVideoAsset(file, "training");
+      setTrainingAsset(asset);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setUploadingTraining(false);
+      if (trainingInputRef.current) trainingInputRef.current.value = "";
+    }
+  };
+
+  const handleUploadConsentVideo = async (file: File) => {
+    setUploadingConsent(true);
+    setUploadError(null);
+    try {
+      const asset = await uploadVideoAsset(file, "consent");
+      setConsentAsset(asset);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setUploadingConsent(false);
+      if (consentInputRef.current) consentInputRef.current.value = "";
+    }
+  };
+
+  // Финальный шаг — оба видео загружены, создаём Digital Twin
+  const handleCreateDigitalTwin = async () => {
+    if (!trainingAsset || !consentAsset) return;
+    setCreatingTwin(true);
+    setUploadError(null);
+    try {
+      const name = pendingVideoName.trim() || trainingAsset.fileName.replace(/\.[^.]+$/, "") || "Видео-аватар";
+      const res = await fetch("/api/heygen-create-digital-twin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trainingAssetId: trainingAsset.assetId,
+          trainingAssetUrl: trainingAsset.assetUrl,
+          consentAssetId: consentAsset.assetId,
+          consentAssetUrl: consentAsset.assetUrl,
+          name,
+        }),
+      });
       const rawText = await res.text();
       let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
       try { json = JSON.parse(rawText); }
       catch {
-        const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
-        const friendly = res.status === 413 ? "Видео больше серверного лимита 150 МБ. Попробуйте сжать через CapCut → Export → Lower quality"
-          : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, видео слишком тяжёлое или upstream упал"
-          : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
-        json = { ok: false, error: friendly };
+        json = { ok: false, error: `HTTP ${res.status}: ${rawText.slice(0, 150)}` };
       }
-      if (!json.ok) throw new Error(json.error ?? "Ошибка загрузки");
+      if (!json.ok) throw new Error(json.error ?? "Ошибка создания аватара");
 
       const newAvatar: CustomAvatar = {
         id: `custom-av-${Date.now()}`,
         name: json.data!.name,
         heygenAvatarId: json.data!.heygenAvatarId,
-        // HeyGen возвращает status "processing" — рендер аватара идёт 5-15 мин.
         status: json.data!.status === "completed" || json.data!.status === "ready" ? "ready" : "processing",
-        previewUrl: "", // видео-аватар не имеет статичного preview сразу
+        previewUrl: "",
         createdAt: new Date().toISOString(),
       };
-      const nextAvatars = [newAvatar, ...customAvatars];
       update({
-        customAvatars: nextAvatars,
+        customAvatars: [newAvatar, ...customAvatars],
         avatarId: newAvatar.heygenAvatarId!,
-        avatarType: "preset", // v3 footage avatars используются как обычные avatar_id
+        avatarType: "preset",
       });
+      setTrainingAsset(null);
+      setConsentAsset(null);
       setPendingVideoName("");
-      setUploadSuccess(`Аватар «${newAvatar.name}» загружен и готовится (5-15 минут). Можно создавать ещё или дождаться готовности.`);
-      setTimeout(() => setUploadSuccess(null), 8000);
+      setUploadSuccess(`Аватар «${newAvatar.name}» отправлен в обработку HeyGen (5-15 минут). После готовности можно записывать видео.`);
+      setTimeout(() => setUploadSuccess(null), 10000);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Ошибка");
     } finally {
-      setUploadingVideo(false);
-      if (videoInputRef.current) videoInputRef.current.value = "";
+      setCreatingTwin(false);
     }
   };
 
@@ -354,40 +414,112 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                 <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>JPG/PNG, до 10 МБ</div>
               </div>
 
-              {/* Video upload */}
+              {/* Video upload — Digital Twin (2 видео: training + consent) */}
               <div style={{ background: "var(--card)", borderRadius: 10, padding: 14, border: `1px solid var(--border)` }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Upload size={14} /> Видео
+                  <Upload size={14} /> Видео-аватар (Digital Twin)
                   <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "#22c55e", color: "#fff" }}>NEW</span>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.4 }}>
-                  Качественнее: footage-аватар с лучшим lip-sync. 30-60 сек с мимикой.
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.4 }}>
+                  Качественный footage-аватар с lip-sync. Нужны два видео: тренировочное и согласие.
                 </div>
-                <input
-                  ref={videoInputRef}
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/webm"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadVideo(f); }}
-                  style={{ display: "none" }}
-                />
+
+                {/* Шаг 1: training video */}
+                <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: trainingAsset ? "color-mix(in oklch, #22c55e 8%, var(--background))" : "var(--background)", border: `1px solid ${trainingAsset ? "#22c55e60" : "var(--border)"}` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+                    1. Тренировочное видео {trainingAsset && <span style={{ color: "#22c55e", marginLeft: 4 }}>✓</span>}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
+                    Минимум 2 минуты, 720p+, чёткое лицо говорящего. Расскажите о себе, продукте, ответьте на 3 вопроса.
+                  </div>
+                  <input
+                    ref={trainingInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadTrainingVideo(f); }}
+                    style={{ display: "none" }}
+                  />
+                  <button
+                    onClick={() => trainingInputRef.current?.click()}
+                    disabled={uploadingTraining || creatingTwin}
+                    style={{
+                      width: "100%", padding: "8px 12px", borderRadius: 7,
+                      border: "1px solid var(--border)",
+                      background: trainingAsset ? "transparent" : "var(--background)",
+                      color: trainingAsset ? "#22c55e" : "var(--foreground)",
+                      fontSize: 12, fontWeight: 600,
+                      cursor: (uploadingTraining || creatingTwin) ? "not-allowed" : "pointer",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      fontFamily: "inherit",
+                    }}>
+                    {uploadingTraining
+                      ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</>
+                      : trainingAsset
+                        ? <>📹 {trainingAsset.fileName.slice(0, 30)} — заменить</>
+                        : <><Upload size={12} /> Выбрать тренировочное видео</>}
+                  </button>
+                </div>
+
+                {/* Шаг 2: consent video */}
+                <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: consentAsset ? "color-mix(in oklch, #22c55e 8%, var(--background))" : "var(--background)", border: `1px solid ${consentAsset ? "#22c55e60" : "var(--border)"}` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+                    2. Видео-согласие {consentAsset && <span style={{ color: "#22c55e", marginLeft: 4 }}>✓</span>}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 6, lineHeight: 1.4 }}>
+                    Короткое видео 10-20 сек. Посмотрите в камеру и произнесите дословно:
+                  </div>
+                  <div style={{ padding: "6px 10px", background: "color-mix(in oklch, var(--primary) 7%, transparent)", border: "1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))", borderRadius: 6, fontSize: 11, fontStyle: "italic", color: "var(--foreground)", marginBottom: 8, lineHeight: 1.4 }}>
+                    «I, [ваше имя], consent to HeyGen using my likeness and voice to create an AI avatar.»
+                  </div>
+                  <input
+                    ref={consentInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadConsentVideo(f); }}
+                    style={{ display: "none" }}
+                  />
+                  <button
+                    onClick={() => consentInputRef.current?.click()}
+                    disabled={uploadingConsent || creatingTwin}
+                    style={{
+                      width: "100%", padding: "8px 12px", borderRadius: 7,
+                      border: "1px solid var(--border)",
+                      background: consentAsset ? "transparent" : "var(--background)",
+                      color: consentAsset ? "#22c55e" : "var(--foreground)",
+                      fontSize: 12, fontWeight: 600,
+                      cursor: (uploadingConsent || creatingTwin) ? "not-allowed" : "pointer",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      fontFamily: "inherit",
+                    }}>
+                    {uploadingConsent
+                      ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</>
+                      : consentAsset
+                        ? <>📹 {consentAsset.fileName.slice(0, 30)} — заменить</>
+                        : <><Upload size={12} /> Выбрать видео-согласие</>}
+                  </button>
+                </div>
+
+                {/* Шаг 3: создание аватара */}
                 <button
-                  onClick={() => videoInputRef.current?.click()}
-                  disabled={uploadingVideo}
+                  onClick={handleCreateDigitalTwin}
+                  disabled={!trainingAsset || !consentAsset || creatingTwin}
                   style={{
                     width: "100%", padding: "10px 14px", borderRadius: 8,
                     border: "none",
-                    background: uploadingVideo ? "var(--muted)" : "#22c55e",
-                    color: "#fff",
+                    background: (!trainingAsset || !consentAsset || creatingTwin) ? "var(--muted)" : "#22c55e",
+                    color: (!trainingAsset || !consentAsset || creatingTwin) ? "var(--muted-foreground)" : "#fff",
                     fontSize: 13, fontWeight: 700,
-                    cursor: uploadingVideo ? "not-allowed" : "pointer",
+                    cursor: (!trainingAsset || !consentAsset || creatingTwin) ? "not-allowed" : "pointer",
                     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
                     fontFamily: "inherit",
                   }}>
-                  {uploadingVideo
-                    ? <><Loader2 size={14} className="mr-spin" /> Сохраняем…</>
-                    : <><Upload size={14} /> Сохранить как видео-аватара</>}
+                  {creatingTwin
+                    ? <><Loader2 size={14} className="mr-spin" /> Создаём аватар…</>
+                    : <><Sparkles size={14} /> Создать видео-аватар</>}
                 </button>
-                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>MP4, до 100 МБ · рендер 5-15 мин</div>
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>
+                  MP4, до 100 МБ каждый · рендер аватара 5-15 мин после создания
+                </div>
               </div>
             </div>
 
