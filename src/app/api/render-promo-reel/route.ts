@@ -34,9 +34,15 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const REMOTION_PROJECT_DIR = "D:\\market-radar-video";
-const OUTPUT_DIR = "D:\\market-radar-video\\out";
-const TEMP_DIR = "D:\\tmp";
+// На локальной машине Windows можно переопределить REMOTION_PROJECT_DIR
+// в .env.local (например D:\market-radar-video чтобы не копировать
+// node_modules ~500MB на C:). На VPS используется in-repo путь.
+const REMOTION_PROJECT_DIR =
+  process.env.REMOTION_PROJECT_DIR ?? path.join(process.cwd(), "remotion");
+const OUTPUT_DIR = path.join(REMOTION_PROJECT_DIR, "out");
+// Если REMOTION_TEMP_DIR задан — Remotion bundler пишет webpack-output туда
+// (нужно когда системный %TEMP% переполнен). На Linux обычно не нужно.
+const TEMP_DIR = process.env.REMOTION_TEMP_DIR ?? "";
 
 interface RenderProps {
   hookText: string;
@@ -80,6 +86,13 @@ function runRemotion(jobId: string, props: RenderProps): Promise<void> {
     const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     const propsJson = JSON.stringify(props);
 
+    const childEnv: NodeJS.ProcessEnv = { ...process.env };
+    if (TEMP_DIR) {
+      childEnv.TEMP = TEMP_DIR;
+      childEnv.TMP = TEMP_DIR;
+      childEnv.TMPDIR = TEMP_DIR;
+    }
+
     const child = spawn(
       "npx",
       [
@@ -91,12 +104,7 @@ function runRemotion(jobId: string, props: RenderProps): Promise<void> {
       ],
       {
         cwd: REMOTION_PROJECT_DIR,
-        env: {
-          ...process.env,
-          TEMP: TEMP_DIR,
-          TMP: TEMP_DIR,
-          TMPDIR: TEMP_DIR,
-        },
+        env: childEnv,
         shell: true,
         windowsHide: true,
       },
@@ -123,7 +131,7 @@ export async function POST(req: Request) {
   const t0 = Date.now();
   try {
     await mkdir(OUTPUT_DIR, { recursive: true });
-    await mkdir(TEMP_DIR, { recursive: true });
+    if (TEMP_DIR) await mkdir(TEMP_DIR, { recursive: true });
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const parsed = parseProps(body);

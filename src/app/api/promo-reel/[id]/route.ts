@@ -12,7 +12,9 @@ import path from "path";
 
 export const runtime = "nodejs";
 
-const OUTPUT_DIR = "D:\\market-radar-video\\out";
+const REMOTION_PROJECT_DIR =
+  process.env.REMOTION_PROJECT_DIR ?? path.join(process.cwd(), "remotion");
+const OUTPUT_DIR = path.join(REMOTION_PROJECT_DIR, "out");
 
 // Защита от path traversal — jobId должен быть [a-zA-Z0-9-]
 function safeJobId(raw: string): string | null {
