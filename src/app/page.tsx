@@ -741,21 +741,29 @@ function MarketRadarDashboardInner() {
     const tasks: Promise<unknown>[] = [];
     const moduleNames: string[] = [];
 
+    // Диагностический лог: что юзер реально отметил в wizard.
+    // Если в Console этого warn'a НЕТ — значит modules не передались.
+    console.info("[wizard] modules selected:", opts.modules, "competitorUrls:", opts.competitorUrls);
+
     if (opts.modules.includes("ta")) {
       moduleNames.push("ЦА");
       // niche/extraContext пустые — TA-route сам возьмёт контекст из company.
       const bt = currentUser?.businessType ?? "";
       const audienceType: TAAudienceType = bt.startsWith("b2b") ? "b2b" : "b2c";
+      console.info("[wizard] → запускаю handleTAAnalysis", { audienceType, companyName: result.company.name });
       tasks.push(
         handleTAAnalysis("", "", audienceType, result)
           .then(() => {
+            console.info("[wizard] ✓ TA готов");
             toast({ kind: "success", title: "Анализ ЦА готов", description: "Открыть в разделе «Аудитория»." });
           })
           .catch((e) => {
-            console.warn("[wizard] TA failed", e);
+            console.error("[wizard] ✗ TA failed:", e);
             toast({ kind: "error", title: "Анализ ЦА не удался", description: e instanceof Error ? e.message : "Ошибка" });
           })
       );
+    } else {
+      console.info("[wizard] ⊘ ЦА пропускается — не отмечен в wizard");
     }
     if (opts.modules.includes("smm")) {
       moduleNames.push("СММ");
@@ -767,16 +775,20 @@ function MarketRadarDashboardInner() {
         tiktok: "",
         youtube: "",
       } as SMMSocialLinks;
+      console.info("[wizard] → запускаю handleSMMAnalysis", { links, companyName: result.company.name });
       tasks.push(
         handleSMMAnalysis("", links, result)
           .then(() => {
+            console.info("[wizard] ✓ SMM готов");
             toast({ kind: "success", title: "Анализ СММ готов", description: "Открыть в разделе «СММ»." });
           })
           .catch((e) => {
-            console.warn("[wizard] SMM failed", e);
+            console.error("[wizard] ✗ SMM failed:", e);
             toast({ kind: "error", title: "Анализ СММ не удался", description: e instanceof Error ? e.message : "Ошибка" });
           })
       );
+    } else {
+      console.info("[wizard] ⊘ СММ пропускается — не отмечен в wizard");
     }
     if (opts.modules.includes("competitors")) {
       // Раньше: если competitorUrls пустой — модуль молча пропускался,
