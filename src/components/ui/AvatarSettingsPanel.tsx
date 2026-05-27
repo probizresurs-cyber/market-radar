@@ -181,7 +181,17 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
       });
-      const json = await res.json() as { ok: boolean; data?: { elevenlabsVoiceId: string; name: string }; error?: string };
+      // Та же защита от HTML-ответа (nginx 413, Next.js 500, прокси 502).
+      const rawText = await res.text();
+      let json: { ok: boolean; data?: { elevenlabsVoiceId: string; name: string }; error?: string };
+      try { json = JSON.parse(rawText); }
+      catch {
+        const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+        const friendly = res.status === 413 ? "Аудио-сэмпл слишком большой для сервера (попробуйте сжать до 10 МБ)"
+          : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, файл слишком тяжёлый"
+          : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
+        json = { ok: false, error: friendly };
+      }
       if (!json.ok) throw new Error(json.error ?? "Ошибка клонирования");
 
       const newVoice: CustomVoice = {
