@@ -94,8 +94,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Шаг 2: создаём avatar из footage. По v3 docs:
-    //   POST /v3/avatars { type: "footage", name, source_asset_id }
+    // Шаг 2: создаём Digital Twin avatar по v3 API.
+    // v3 не принимает type:"footage" — теперь это называется "digital_twin".
+    // ВАЖНО: HeyGen для digital_twin требует ДВА видео:
+    //   1. training_footage — основное (>= 2 мин, 720p+, лицо говорящего)
+    //   2. video_consent — отдельная запись согласия (политика против deepfake)
+    // Сейчас у нас один файл → шлём только training_footage_url. Если HeyGen
+    // не примет — вернём понятную ошибку про consent video.
     const avatarRes = await fetch("https://api.heygen.com/v3/avatars", {
       method: "POST",
       headers: {
@@ -104,27 +109,37 @@ export async function POST(req: Request) {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        type: "footage",
+        type: "digital_twin",
         name,
+        // Передаём asset_id — HeyGen может принять (asset загружен в их хранилище
+        // на шаге 1) либо потребует public URL и consent video.
         source_asset_id: assetId,
+        training_footage_url: assetParsed?.data?.url,
       }),
     });
     const avatarText = await avatarRes.text();
     if (!avatarRes.ok) {
       // v3 error parsing
       let humanMsg = avatarText.slice(0, 400);
+      let errCode = "";
       try {
         const errBody: { error?: { code?: string; message?: string } } = JSON.parse(avatarText);
         if (errBody.error?.message) {
           humanMsg = errBody.error.message;
-          if (errBody.error.code) humanMsg = `${errBody.error.code}: ${humanMsg}`;
+          errCode = errBody.error.code ?? "";
+          if (errCode) humanMsg = `${errCode}: ${humanMsg}`;
         }
       } catch { /* keep raw */ }
 
-      const hint =
-        avatarRes.status === 401 || avatarRes.status === 403
-          ? " — создание аватаров из видео доступно на платных тарифах HeyGen Pro+."
-          : "";
+      // Распознаём типичные причины и даём осмысленную подсказку.
+      let hint = "";
+      if (avatarRes.status === 401 || avatarRes.status === 403) {
+        hint = " — создание Digital Twin доступно на платных тарифах HeyGen Pro+.";
+      } else if (/consent/i.test(humanMsg) || /video_consent/i.test(humanMsg)) {
+        hint = " — HeyGen требует отдельное consent-видео (запись где спикер говорит, что согласен на использование своего лица для AI-аватара). Этот flow пока не реализован — используйте загрузку фото вместо видео.";
+      } else if (/digital_twin|invalid_parameter/i.test(humanMsg)) {
+        hint = " — возможно, видео не соответствует требованиям HeyGen (нужно ≥2 мин, 720p+, чёткое лицо говорящего).";
+      }
       return NextResponse.json(
         { ok: false, error: `HeyGen ${avatarRes.status}: ${humanMsg}${hint}` },
         { status: 500 },
