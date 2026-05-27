@@ -31,12 +31,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    const form = await req.formData();
+    let form: FormData;
+    try {
+      form = await req.formData();
+    } catch (parseErr) {
+      const ct = req.headers.get("content-type") ?? "(no content-type)";
+      const hint = ct.includes("json")
+        ? "Старая версия фронтенда (Content-Type: application/json). Сделайте Ctrl+Shift+R."
+        : `Content-Type: ${ct}`;
+      return NextResponse.json({
+        ok: false,
+        error: `Не удалось распарсить тело как multipart/form-data. ${hint}`,
+        debug: parseErr instanceof Error ? parseErr.message : String(parseErr),
+      }, { status: 400 });
+    }
     const file = form.get("file");
     const name = (form.get("name") as string | null)?.trim() || "Мой видео-аватар";
 
     if (!file || typeof file === "string") {
-      return NextResponse.json({ ok: false, error: "Файл не передан" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Файл не передан (поле `file` пустое)" }, { status: 400 });
     }
     const mime = file.type;
     if (!mime.startsWith("video/")) {
