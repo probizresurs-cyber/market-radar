@@ -25,13 +25,6 @@ const nextConfig: NextConfig = {
   // Эти пакеты подгружаются runtime (только VPS); локально могут отсутствовать
   // и Turbopack-static-analysis их не должен жёстко резолвить.
   serverExternalPackages: ["@anthropic-ai/claude-agent-sdk", "nodemailer"],
-  // Next.js 16 по умолчанию режет body на 10 МБ через middleware-парсер
-  // (см. nextjs.org/docs/.../middlewareClientMaxBodySize). Без этого
-  // upload видео-аватара 22+ МБ падает «Request body exceeded 10MB».
-  // 150 МБ соответствует лимиту nginx и UI заявлению «до 100 МБ».
-  experimental: {
-    middlewareClientMaxBodySize: 150 * 1024 * 1024, // 150 MB
-  },
 };
 
 export default nextConfig;
