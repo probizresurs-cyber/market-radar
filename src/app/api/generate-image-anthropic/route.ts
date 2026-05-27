@@ -187,12 +187,30 @@ ${contextBlock}
     // нормально рисует русский текст). Quality=medium — high занимает 90-120с
     // и упирается в таймаут Cloudflare-воркера-прокси (~100s). Medium даёт
     // ~30-50с и нормальное качество для типографики.
-    const imgResult = await generateOpenAIImage({
+    let imgResult = await generateOpenAIImage({
       prompt: usedPrompt,
       format: imageFormat,
       embedText: embedText || undefined,
       quality: embedText ? "medium" : undefined,
     });
+
+    // RETRY: если упали по таймауту/сети — пробуем ещё раз с quality=low.
+    // Часто работает: gpt-image-2 на low отрабатывает за 15-25с, гарантированно
+    // укладывается в 70с таймаут. Качество хуже, но фон лучше чем пустой
+    // слайд. Делаем только ОДИН retry, чтобы не зацикливаться.
+    if (!imgResult.ok && embedText) {
+      const errMsg = imgResult.error ?? "";
+      const isTimeout = /timeout|fetch failed|ETIMEDOUT|ECONNRESET|workers\.dev|524/i.test(errMsg);
+      if (isTimeout) {
+        console.warn(`[gen-image] retry с quality=low после таймаута: ${errMsg.slice(0, 80)}`);
+        imgResult = await generateOpenAIImage({
+          prompt: usedPrompt,
+          format: imageFormat,
+          embedText: embedText || undefined,
+          quality: "low",
+        });
+      }
+    }
 
     // Если OpenAI отказал — пробуем Gemini/Pollinations как fallback.
     // Раньше fallback срабатывал только на quota/billing, но НЕ на timeout/
