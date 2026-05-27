@@ -23,31 +23,29 @@ export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { dataUrl?: string; mimeType?: string; name?: string };
-    const dataUrl = body.dataUrl?.trim();
-    const name = body.name?.trim() || "Мой видео-аватар";
-    if (!dataUrl) {
-      return NextResponse.json({ ok: false, error: "Пустое видео" }, { status: 400 });
-    }
-
+    // Перешли с JSON+base64 на multipart/form-data: видео 20+ МБ упиралось
+    // в дефолтный лимит JSON-парсера Next.js ~10 МБ (Unterminated string at
+    // position 10484777). FormData стримит binary напрямую, без лимита.
     const apiKey = process.env.HEYGEN_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-    if (!match) {
-      return NextResponse.json({ ok: false, error: "Невалидный data URL" }, { status: 400 });
-    }
-    const mime = body.mimeType || match[1];
-    const buffer = Buffer.from(match[2], "base64");
+    const form = await req.formData();
+    const file = form.get("file");
+    const name = (form.get("name") as string | null)?.trim() || "Мой видео-аватар";
 
+    if (!file || typeof file === "string") {
+      return NextResponse.json({ ok: false, error: "Файл не передан" }, { status: 400 });
+    }
+    const mime = file.type;
     if (!mime.startsWith("video/")) {
       return NextResponse.json({ ok: false, error: "Ожидается видео-файл (MP4 / MOV / WebM)" }, { status: 400 });
     }
-    if (buffer.byteLength > 100 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       return NextResponse.json({ ok: false, error: "Файл больше 100 МБ" }, { status: 400 });
     }
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     // Шаг 1: загружаем asset через v3 endpoint.
     // По docs HeyGen: POST /v3/assets — multipart upload, до 32 МБ через JSON

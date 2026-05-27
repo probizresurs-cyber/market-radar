@@ -49,26 +49,18 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
 
   const update = (patch: Partial<AvatarSettings>) => onChange({ ...settings, ...patch });
 
-  const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result ?? ""));
-    r.onerror = () => reject(new Error("Не удалось прочитать файл"));
-    r.readAsDataURL(file);
-  });
-
   const handleUploadPhoto = async (file: File) => {
     setUploadingPhoto(true);
     setUploadError(null);
     try {
       if (file.size > 10 * 1024 * 1024) throw new Error("Файл больше 10 МБ");
       if (!file.type.startsWith("image/")) throw new Error("Нужно изображение JPG / PNG");
-      const dataUrl = await readFileAsDataUrl(file);
       const name = pendingAvatarName.trim() || file.name.replace(/\.[^.]+$/, "") || "Мой аватар";
-      const res = await fetch("/api/heygen-upload-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
-      });
+      // FormData вместо JSON+base64 — обходит ~10 МБ лимит JSON-парсера Next.js.
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", name);
+      const res = await fetch("/api/heygen-upload-photo", { method: "POST", body: fd });
       // Защита от HTML-ответа (Next.js OOM при больших файлах, Cloudflare 502,
       // nginx 413 Payload Too Large) — иначе JSON.parse падает с
       // криптическим «Unexpected token '<'».
@@ -89,7 +81,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         name: json.data!.name,
         heygenAvatarId: json.data!.heygenAvatarId,
         status: "ready",
-        previewUrl: json.data!.previewUrl || dataUrl,
+        previewUrl: json.data!.previewUrl || URL.createObjectURL(file),
         createdAt: new Date().toISOString(),
       };
       const nextAvatars = [newAvatar, ...customAvatars];
@@ -118,13 +110,11 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     try {
       if (file.size > 100 * 1024 * 1024) throw new Error("Файл больше 100 МБ");
       if (!file.type.startsWith("video/")) throw new Error("Нужен видео-файл MP4 / MOV / WebM");
-      const dataUrl = await readFileAsDataUrl(file);
       const name = pendingVideoName.trim() || file.name.replace(/\.[^.]+$/, "") || "Видео-аватар";
-      const res = await fetch("/api/heygen-upload-video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
-      });
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", name);
+      const res = await fetch("/api/heygen-upload-video", { method: "POST", body: fd });
       // Та же защита что и для фото — видео 100МБ ещё чаще ловит 413/502/HTML.
       const rawText = await res.text();
       let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string };
@@ -170,17 +160,14 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     try {
       if (file.size > 15 * 1024 * 1024) throw new Error("Файл больше 15 МБ");
       if (!file.type.startsWith("audio/")) throw new Error("Нужен аудио-файл MP3 / WAV / M4A");
-      const dataUrl = await readFileAsDataUrl(file);
       const name = pendingVoiceName.trim() || file.name.replace(/\.[^.]+$/, "") || "Мой голос";
       // Клонируем через ElevenLabs (HeyGen voice-clone API отдаёт 404 HTML).
-      // Полученный elevenlabsVoiceId далее используется в /api/generate-reel-video:
-      // там ElevenLabs синтезирует MP3 → MP3 заливается в HeyGen как asset →
-      // HeyGen генерит видео с lip-sync на этом аудио.
-      const res = await fetch("/api/elevenlabs-clone-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mimeType: file.type, name }),
-      });
+      // Полученный elevenlabsVoiceId далее используется в /api/generate-reel-video.
+      // FormData вместо JSON+base64 — обходит ~10 МБ лимит JSON-парсера Next.js.
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", name);
+      const res = await fetch("/api/elevenlabs-clone-voice", { method: "POST", body: fd });
       // Та же защита от HTML-ответа (nginx 413, Next.js 500, прокси 502).
       const rawText = await res.text();
       let json: { ok: boolean; data?: { elevenlabsVoiceId: string; name: string }; error?: string };
@@ -200,7 +187,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         provider: "elevenlabs",
         elevenlabsVoiceId: json.data!.elevenlabsVoiceId,
         status: "ready",
-        previewAudioUrl: dataUrl,
+        previewAudioUrl: URL.createObjectURL(file),
         createdAt: new Date().toISOString(),
       };
       const nextVoices = [newVoice, ...customVoices];

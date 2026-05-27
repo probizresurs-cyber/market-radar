@@ -15,18 +15,8 @@ export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      dataUrl?: string;
-      mimeType?: string;
-      name?: string;
-    };
-
-    const dataUrl = body.dataUrl?.trim();
-    const name = (body.name ?? "").trim() || "Custom voice";
-
-    if (!dataUrl) {
-      return NextResponse.json({ ok: false, error: "Пустой аудио-семпл" }, { status: 400 });
-    }
+    // multipart/form-data вместо JSON+base64 — обходит лимит JSON-парсера
+    // Next.js ~10 МБ. Тот же подход что и в heygen-upload-*.
     if (!ELEVENLABS_API_KEY) {
       return NextResponse.json(
         { ok: false, error: "ELEVENLABS_API_KEY не настроен" },
@@ -34,23 +24,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-    if (!match) {
-      return NextResponse.json({ ok: false, error: "Невалидный data URL" }, { status: 400 });
-    }
-    const mime = body.mimeType || match[1];
-    const buffer = Buffer.from(match[2], "base64");
+    const form = await req.formData();
+    const file = form.get("file");
+    const name = ((form.get("name") as string | null) ?? "").trim() || "Custom voice";
 
+    if (!file || typeof file === "string") {
+      return NextResponse.json({ ok: false, error: "Аудио-файл не передан" }, { status: 400 });
+    }
+    const mime = file.type;
     if (!mime.startsWith("audio/")) {
       return NextResponse.json(
         { ok: false, error: "Ожидается аудио-файл (MP3 / WAV / M4A)" },
         { status: 400 },
       );
     }
-    const MAX = 15 * 1024 * 1024; // ElevenLabs accepts up to 10MB per sample, we keep 15 guard
-    if (buffer.byteLength > MAX) {
+    const MAX = 15 * 1024 * 1024;
+    if (file.size > MAX) {
       return NextResponse.json({ ok: false, error: "Файл больше 15 МБ" }, { status: 400 });
     }
+    const buffer = Buffer.from(await file.arrayBuffer());
     if (buffer.byteLength < 50 * 1024) {
       return NextResponse.json(
         {
@@ -62,13 +54,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Build multipart body for ElevenLabs
-    const form = new FormData();
+    // Build multipart body for ElevenLabs (отдельная переменная — `form`
+    // выше уже использован для request.formData()).
+    const outForm = new FormData();
     const ext = mime.split("/")[1] ?? "mp3";
     const blob = new Blob([new Uint8Array(buffer)], { type: mime });
-    form.append("name", name);
-    form.append("files", blob, `sample.${ext}`);
-    form.append(
+    outForm.append("name", name);
+    outForm.append("files", blob, `sample.${ext}`);
+    outForm.append(
       "description",
       "Custom voice cloned via MarketRadar content factory",
     );
@@ -79,7 +72,7 @@ export async function POST(req: Request) {
         "xi-api-key": ELEVENLABS_API_KEY,
         Accept: "application/json",
       },
-      body: form,
+      body: outForm,
     });
 
     const text = await res.text();

@@ -14,31 +14,25 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { dataUrl?: string; mimeType?: string; name?: string };
-    const dataUrl = body.dataUrl?.trim();
-    if (!dataUrl) {
-      return NextResponse.json({ ok: false, error: "Пустое изображение" }, { status: 400 });
-    }
-
+    // multipart/form-data (single field `file`) — consistent с heygen-upload-video.
     const apiKey = process.env.HEYGEN_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    // Decode data URL
-    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-    if (!match) {
-      return NextResponse.json({ ok: false, error: "Невалидный data URL" }, { status: 400 });
+    const form = await req.formData();
+    const file = form.get("file");
+    if (!file || typeof file === "string") {
+      return NextResponse.json({ ok: false, error: "Файл не передан" }, { status: 400 });
     }
-    const mime = body.mimeType || match[1];
-    const buffer = Buffer.from(match[2], "base64");
-
+    const mime = file.type;
     if (!mime.startsWith("image/")) {
       return NextResponse.json({ ok: false, error: "Ожидается изображение (JPG / PNG)" }, { status: 400 });
     }
-    if (buffer.byteLength > 10 * 1024 * 1024) {
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ ok: false, error: "Файл больше 10 МБ" }, { status: 400 });
     }
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     const res = await fetch("https://upload.heygen.com/v1/talking_photo", {
       method: "POST",
@@ -76,12 +70,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const name = (form.get("name") as string | null)?.trim() || "My avatar";
     return NextResponse.json({
       ok: true,
       data: {
         heygenAvatarId: talkingPhotoId,
         previewUrl: parsed?.data?.talking_photo_url ?? "",
-        name: body.name ?? "My avatar",
+        name,
       },
     });
   } catch (err: unknown) {
