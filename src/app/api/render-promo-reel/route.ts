@@ -27,7 +27,7 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
-import { stat, mkdir } from "fs/promises";
+import { stat, mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
 
@@ -81,47 +81,56 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
   };
 }
 
-function runRemotion(jobId: string, props: RenderProps): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
-    const propsJson = JSON.stringify(props);
+async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
+  const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
+  // Передаём props через FILE — иначе shell ломает кавычки/фигурные
+  // скобки в JSON-аргументе, и Remotion получает невалидную строку
+  // («You passed --props=... is parseable using JSON.parse»).
+  const propsFile = path.join(OUTPUT_DIR, `${jobId}.props.json`);
+  await writeFile(propsFile, JSON.stringify(props), "utf8");
 
-    const childEnv: NodeJS.ProcessEnv = { ...process.env };
-    if (TEMP_DIR) {
-      childEnv.TEMP = TEMP_DIR;
-      childEnv.TMP = TEMP_DIR;
-      childEnv.TMPDIR = TEMP_DIR;
-    }
+  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  if (TEMP_DIR) {
+    childEnv.TEMP = TEMP_DIR;
+    childEnv.TMP = TEMP_DIR;
+    childEnv.TMPDIR = TEMP_DIR;
+  }
 
-    const child = spawn(
-      "npx",
-      [
-        "remotion",
-        "render",
-        "PromoReel",
-        outputPath,
-        `--props=${propsJson}`,
-      ],
-      {
-        cwd: REMOTION_PROJECT_DIR,
-        env: childEnv,
-        shell: true,
-        windowsHide: true,
-      },
-    );
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        "npx",
+        [
+          "remotion",
+          "render",
+          "PromoReel",
+          outputPath,
+          `--props=${propsFile}`,
+        ],
+        {
+          cwd: REMOTION_PROJECT_DIR,
+          env: childEnv,
+          shell: true,
+          windowsHide: true,
+        },
+      );
 
-    let stderrBuf = "";
-    child.stderr.on("data", (d: Buffer) => {
-      stderrBuf += d.toString();
-      if (stderrBuf.length > 8000) stderrBuf = stderrBuf.slice(-8000);
+      let stderrBuf = "";
+      child.stderr.on("data", (d: Buffer) => {
+        stderrBuf += d.toString();
+        if (stderrBuf.length > 8000) stderrBuf = stderrBuf.slice(-8000);
+      });
+
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`remotion render exited with code ${code}: ${stderrBuf.slice(-2000)}`));
+      });
     });
-
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`remotion render exited with code ${code}: ${stderrBuf.slice(-2000)}`));
-    });
-  });
+  } finally {
+    // Чистим props-файл независимо от исхода
+    await unlink(propsFile).catch(() => {});
+  }
 }
 
 export async function POST(req: Request) {
