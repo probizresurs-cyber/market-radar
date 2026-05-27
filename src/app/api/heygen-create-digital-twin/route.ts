@@ -30,13 +30,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
+    const ct = req.headers.get("content-type") ?? "";
+
+    // Если фронт прислал JSON (старый закэшированный бандл) — даём
+    // осмысленную ошибку с инструкцией.
+    if (ct.includes("application/json")) {
+      return NextResponse.json({
+        ok: false,
+        error: "Старая версия страницы в браузере (Content-Type: application/json вместо multipart/form-data). Сделайте Ctrl+Shift+R на странице с аватарами, потом попробуйте ещё раз.",
+      }, { status: 400 });
+    }
+
     let inForm: FormData;
     try {
       inForm = await req.formData();
     } catch (parseErr) {
       return NextResponse.json({
         ok: false,
-        error: `Не удалось распарсить тело как multipart/form-data: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+        error: `Не удалось распарсить тело как multipart/form-data: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Content-Type: ${ct || "(не задан)"}`,
       }, { status: 400 });
     }
 
