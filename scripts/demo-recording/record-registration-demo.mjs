@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /**
- * Запись скринкаста: регистрация на лендинге → wizard → первый анализ.
+ * Короткий скринкаст (~1:45): регистрация на лендинге → wizard → запуск анализа.
  *
- * Хронометраж ~4:30. Демо-аккаунт создаётся каждый раз новый
- * (timestamp в email), чтобы не упираться в "email already exists".
- *
- * Использование:
- *   STAGING_URL=https://staging.marketradar24.ru \
- *   LANDING_URL=https://marketradar24.ru \
- *   node scripts/demo-recording/record-registration-demo.mjs
+ * 8 сцен по 8-22 сек. Правильные wizard-селекторы:
+ *   - URL: input[placeholder*="example.ru"]
+ *   - Чекбоксы модулей: text=Целевая аудитория | СММ-стратегия | Конкуренты
+ *     (кликаем по label, реальный input type=checkbox скрыт display:none)
+ *   - Переход между шагами: text=Далее
+ *   - Финальный submit: text=Запустить анализ
  */
 
 import { chromium } from 'playwright';
@@ -27,32 +26,17 @@ const ts = Date.now().toString().slice(-6);
 const config = {
   landingUrl: process.env.LANDING_URL || 'https://marketradar24.ru',
   stagingUrl: process.env.STAGING_URL || 'https://staging.marketradar24.ru',
-  // Уникальный demo-аккаунт каждый запуск
   demoEmail: process.env.DEMO_EMAIL || `demo${ts}@marketradar24.test`,
   demoPassword: process.env.DEMO_PASSWORD || 'DemoVideo2026!',
-  demoName: process.env.DEMO_NAME || 'Иван Демидов',
+  demoName: process.env.DEMO_NAME || 'Иван Иванов',
   companyUrl: process.env.TEST_COMPANY_URL || 'me-dent.ru',
   viewport: { width: 1920, height: 1080 },
-  slowMo: 220,
+  slowMo: 200,
 };
 
 // ============================================================
 // Helpers
 // ============================================================
-
-async function smoothScrollTo(page, y, settle = 1500) {
-  await page.evaluate((target) => window.scrollTo({ top: target, behavior: 'smooth' }), y);
-  await page.waitForTimeout(settle);
-}
-
-async function scrollToText(page, text, settle = 2500) {
-  try {
-    const loc = page.locator(`text=${text}`).first();
-    await loc.scrollIntoViewIfNeeded({ timeout: 5000 });
-    await page.waitForTimeout(settle);
-    return true;
-  } catch { return false; }
-}
 
 async function safeClick(page, selector, timeout = 5000) {
   try {
@@ -78,212 +62,128 @@ async function safeFill(page, selector, value, timeout = 5000) {
 }
 
 // ============================================================
-// Сцены
+// 8 коротких сцен — total ~1:45
 // ============================================================
 
 const scenes = [
   {
-    id: '01-landing-intro',
-    duration: 22,
-    voiceover: 'Привет! Покажу как за 2 минуты зарегистрироваться в MarketRadar24 и запустить первый анализ компании. Никаких длинных анкет, паспортов или карт — нужны только email, пароль и адрес сайта. Поехали.',
+    id: '01-landing',
+    duration: 10,
+    voiceover: 'MarketRadar24 — платформа для конкурентного анализа. За пару минут покажу как зарегистрироваться и запустить первый анализ.',
     async action(page) {
       await page.goto(config.landingUrl, { waitUntil: 'networkidle', timeout: 60_000 });
-      await page.waitForTimeout(3000);
-      // Показ hero-секции
-      await page.waitForTimeout(4000);
-      // Плавный скролл до блока «Что вы получите»
-      await smoothScrollTo(page, 700, 3500);
-      await smoothScrollTo(page, 1400, 3500);
-      // Возврат наверх к CTA
-      await smoothScrollTo(page, 0, 4000);
+      await page.waitForTimeout(8000);
     },
   },
   {
     id: '02-click-register',
-    duration: 14,
-    voiceover: 'Жму кнопку регистрации. Она есть и в шапке, и в hero-блоке, и в любом призывном баннере на странице — куда удобнее.',
+    duration: 8,
+    voiceover: 'Жму кнопку регистрации на лендинге.',
     async action(page) {
-      // Пробуем разные варианты CTA на лендинге
       const candidates = [
         'a[href*="register"]',
         'text=Зарегистрироваться',
         'text=Попробовать',
         'text=Начать бесплатно',
-        'text=Регистрация',
-        'text=Войти',
       ];
       let clicked = false;
       for (const sel of candidates) {
-        if (await safeClick(page, sel, 3000)) {
-          clicked = true;
-          break;
-        }
+        if (await safeClick(page, sel, 2500)) { clicked = true; break; }
       }
       if (!clicked) {
-        // Fallback — прямой переход
         await page.goto(`${config.landingUrl}/register`, { waitUntil: 'networkidle' }).catch(() => {});
       }
-      await page.waitForTimeout(6000);
+      await page.waitForTimeout(4500);
     },
   },
   {
-    id: '03-fill-registration',
-    duration: 35,
-    voiceover: 'Форма регистрации. Ввожу имя — Иван Иванов, почту, придумываю пароль и добавляю адрес своего сайта. Я возьму стоматологическую клинику me-dent.ru — на ней и покажу анализ. Дальше ставлю галочку согласия на обработку персональных данных. Никаких подтверждений по SMS — это staging для демо.',
-    async action(page) {
-      // Селекторы найдены в src/components/views/RegisterView.tsx —
-      // поля без name атрибута, только по placeholder.
-      // Имя
-      await safeFill(page, 'input[placeholder="Иван Иванов"]', config.demoName);
-      await page.waitForTimeout(1500);
-      // Email
-      await safeFill(page, 'input[type=email]', config.demoEmail);
-      await page.waitForTimeout(1500);
-      // Пароль
-      await safeFill(page, 'input[type=password]', config.demoPassword);
-      await page.waitForTimeout(1500);
-      // Сайт компании (placeholder example.ru)
-      await safeFill(page, 'input[placeholder="example.ru"]', config.companyUrl);
-      await page.waitForTimeout(2500);
-      // Чекбокс согласия на обработку ПД — обязательно для submit.
-      // Сначала пробуем по тексту-метке, потом по type=checkbox.
-      const consentClicked = await safeClick(page, 'text=согласен', 3000)
-        || await safeClick(page, 'input[type=checkbox]', 3000);
-      if (!consentClicked) {
-        console.log('    · Не нашёл checkbox согласия — submit может не сработать');
-      }
-      await page.waitForTimeout(3000);
-    },
-  },
-  {
-    id: '04-submit-registration',
-    duration: 18,
-    voiceover: 'Жму «Зарегистрироваться». Платформа создаёт аккаунт и автоматически переводит в личный кабинет. Никакой почтовой подтверждения для тестового окружения — сразу в работу.',
-    async action(page) {
-      // Submit
-      const submitCandidates = [
-        'button[type=submit]',
-        'text=Зарегистрироваться',
-        'text=Создать аккаунт',
-        'text=Начать',
-      ];
-      for (const sel of submitCandidates) {
-        if (await safeClick(page, sel, 3000)) break;
-      }
-      // Ждём редирект на платформу
-      await page.waitForTimeout(8000);
-      // Если есть какой-то wizard onboarding — ждём ещё
-      await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
-      await page.waitForTimeout(4000);
-    },
-  },
-  {
-    id: '05-wizard-intro',
+    id: '03-fill-form',
     duration: 22,
-    voiceover: 'Открывается мастер первого анализа. Это пошаговый wizard где можно выбрать что именно анализировать. Я хочу всё разом — анализ самой компании, конкурентов, целевую аудиторию и SMM-стратегию. Все четыре модуля будут собираться параллельно.',
+    voiceover: 'Заполняю форму: имя Иван Иванов, почта, пароль, сайт компании me-dent.ru. Ставлю галочку согласия — и аккаунт готов.',
     async action(page) {
-      // Скриним wizard. Возможные локации: /, /?nav=new-analysis, /onboarding
-      // Пробуем разные варианты найти wizard
-      const wizardSelectors = [
-        'text=Новый анализ',
-        'text=Запустить анализ',
-        'text=Анализ компании',
-        'text=Wizard',
-      ];
-      for (const sel of wizardSelectors) {
-        if (await scrollToText(page, sel.replace('text=', ''), 3000)) break;
-      }
-      await page.waitForTimeout(5000);
-      // Если URL не заполнен в форме регистрации — подскажем здесь
-      const urlFieldSelectors = ['input[type=url]', 'input[placeholder*="сайт"]', 'input[placeholder*="URL"]'];
-      for (const sel of urlFieldSelectors) {
-        const exists = await page.$(sel);
-        if (exists) {
-          const value = await exists.inputValue().catch(() => '');
-          if (!value) {
-            await exists.fill(config.companyUrl);
-            await page.waitForTimeout(2000);
-          }
-          break;
-        }
-      }
-      await page.waitForTimeout(8000);
+      await safeFill(page, 'input[placeholder="Иван Иванов"]', config.demoName);
+      await page.waitForTimeout(900);
+      await safeFill(page, 'input[type=email]', config.demoEmail);
+      await page.waitForTimeout(900);
+      await safeFill(page, 'input[type=password]', config.demoPassword);
+      await page.waitForTimeout(900);
+      await safeFill(page, 'input[placeholder="example.ru"]', config.companyUrl);
+      await page.waitForTimeout(1500);
+      // Чекбокс согласия — по тексту-метке
+      await safeClick(page, 'text=согласен', 2500);
+      await page.waitForTimeout(2000);
     },
   },
   {
-    id: '06-select-modules',
-    duration: 25,
-    voiceover: 'В мастере отмечаю чекбоксами все 4 модуля. Можно запустить только основной анализ — это будет быстрее. Но я возьму максимум — за 3-5 минут платформа соберёт картину по всем 12 источникам сразу: ФНС, HH.ru, карты, ВКонтакте, Telegram, Keys.so, SpyWords.',
+    id: '04-submit',
+    duration: 10,
+    voiceover: 'Создаю аккаунт. Платформа автоматически переводит в личный кабинет.',
     async action(page) {
-      // Кликаем чекбоксы модулей
-      const moduleCheckboxes = [
-        'text=Конкуренты',
-        'text=Аудитория',
-        'text=СММ',
-        'text=Целевая аудитория',
-        'text=SMM',
-      ];
-      for (const sel of moduleCheckboxes) {
-        await safeClick(page, sel, 2000);
+      const submitCandidates = ['text=Создать аккаунт', 'button[type=submit]', 'text=Зарегистрироваться'];
+      for (const sel of submitCandidates) {
+        if (await safeClick(page, sel, 2500)) break;
+      }
+      await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+      await page.waitForTimeout(6500);
+    },
+  },
+  {
+    id: '05-wizard-url',
+    duration: 14,
+    voiceover: 'Открывается мастер первого анализа. Первый шаг — ввожу сайт компании. Мы возьмём стоматологию me-dent.ru.',
+    async action(page) {
+      // Wizard может уже быть открыт, ищем поле URL (placeholder содержит example.ru)
+      const urlFilled = await safeFill(page, 'input[placeholder*="example.ru"]', config.companyUrl, 4000);
+      if (!urlFilled) {
+        // Возможно wizard ещё не открыт — открываем
+        await safeClick(page, 'text=Новый анализ', 3000);
+        await page.waitForTimeout(2000);
+        await safeFill(page, 'input[placeholder*="example.ru"]', config.companyUrl, 3000);
+      }
+      await page.waitForTimeout(2500);
+      // Жмём «Далее»
+      await safeClick(page, 'text=Далее', 3000);
+      await page.waitForTimeout(5000);
+    },
+  },
+  {
+    id: '06-wizard-modules',
+    duration: 18,
+    voiceover: 'Второй шаг — выбираю модули. Целевая аудитория, СММ-стратегия, конкуренты. Каждый — это отдельный детальный анализ. Основной анализ компании запустится в любом случае.',
+    async action(page) {
+      const moduleLabels = ['Целевая аудитория', 'СММ-стратегия', 'Конкуренты'];
+      for (const label of moduleLabels) {
+        await safeClick(page, `text=${label}`, 2500);
         await page.waitForTimeout(1500);
       }
-      await page.waitForTimeout(8000);
+      await page.waitForTimeout(4500);
+      // Идём дальше через wizard-шаги
+      await safeClick(page, 'text=Далее', 3000);
+      await page.waitForTimeout(2000);
     },
   },
   {
-    id: '07-launch-analysis',
-    duration: 25,
-    voiceover: 'Жму «Запустить анализ». Платформа стартует все четыре модуля параллельно. Появляется тост-сообщение «Запустили 3 модуля в фоне». Прогресс виден в шапке — можно пойти поработать или дождаться, обычно занимает 3-5 минут.',
+    id: '07-launch',
+    duration: 13,
+    voiceover: 'Прохожу оставшиеся шаги мастера и жму запустить. Платформа стартует все модули параллельно — через 3-5 минут дашборд готов.',
     async action(page) {
-      // Кнопка запуска
-      const launchCandidates = [
-        'text=Запустить анализ',
-        'text=Запустить',
-        'text=Начать анализ',
-        'button[type=submit]',
-      ];
-      for (const sel of launchCandidates) {
-        if (await safeClick(page, sel, 3000)) break;
+      // Пропускаем оставшиеся «Далее»-шаги (соцсети, конкуренты-URLs, summary)
+      for (let i = 0; i < 4; i++) {
+        const clicked = await safeClick(page, 'text=Далее', 2500);
+        if (!clicked) break;
+        await page.waitForTimeout(1500);
       }
-      // Ждём появление toast / progress
-      await page.waitForTimeout(8000);
-      await page.waitForTimeout(8000);
-    },
-  },
-  {
-    id: '08-progress-view',
-    duration: 28,
-    voiceover: 'Пока модули собираются, по экрану видно как наполняется дашборд. Сначала появляется шапка с реквизитами компании из ФНС. Дальше PageSpeed-метрики Core Web Vitals для мобильных и десктопа. Постепенно прорисовываются Keys.so данные — позиции в Яндексе и Google, видимость, конкуренты.',
-    async action(page) {
-      // Если есть прогресс/спиннер — ждём
-      await page.waitForTimeout(8000);
-      await smoothScrollTo(page, 400, 5000);
-      await smoothScrollTo(page, 1000, 5000);
-      await smoothScrollTo(page, 1800, 5000);
-      // Возврат наверх
-      await smoothScrollTo(page, 0, 3000);
-    },
-  },
-  {
-    id: '09-final-result',
-    duration: 22,
-    voiceover: 'Готово! Дашборд заполнен. Видно общую оценку, SEO-метрики, финансовые показатели, соцсети с реальными подписчиками, рейтинги на картах. Слева в сайдбаре — все остальные модули: конкуренты, ЦА, SMM-стратегия. Каждый — это отдельный детальный экран.',
-    async action(page) {
-      // Финальный показ полного дашборда
-      await smoothScrollTo(page, 0, 3000);
+      // Финальный submit
+      await safeClick(page, 'text=Запустить анализ', 4000);
       await page.waitForTimeout(6000);
-      await smoothScrollTo(page, 600, 4000);
-      await smoothScrollTo(page, 1200, 4000);
-      await page.waitForTimeout(5000);
     },
   },
   {
-    id: '10-outro',
-    duration: 14,
-    voiceover: 'Всё — это была регистрация и первый анализ. Дальше можно углубляться в любой модуль или сразу идти в Контент-завод. В следующих видео разберу всё подробно. До встречи в MarketRadar24!',
+    id: '08-progress',
+    duration: 10,
+    voiceover: 'Готово — анализ запущен. Можно идти пить кофе или продолжать настройку других модулей. До встречи в MarketRadar24.',
     async action(page) {
-      await smoothScrollTo(page, 0, 2000);
-      await page.waitForTimeout(11000);
+      await page.waitForTimeout(9000);
     },
   },
 ];
@@ -326,10 +226,8 @@ async function main() {
   const totalDur = scenes.reduce((a, s) => a + s.duration, 0);
 
   console.log(`▶  Запуск записи: ${videoName}`);
-  console.log(`▶  Landing: ${config.landingUrl}`);
-  console.log(`▶  Staging: ${config.stagingUrl}`);
   console.log(`▶  Demo-email: ${config.demoEmail}`);
-  console.log(`▶  Компания для анализа: ${config.companyUrl}`);
+  console.log(`▶  Компания: ${config.companyUrl}`);
   console.log(`▶  Сцен: ${scenes.length}, длительность ~${totalDur}s (${Math.floor(totalDur/60)}:${String(totalDur%60).padStart(2,'0')})`);
 
   const browser = await chromium.launch({
@@ -347,7 +245,6 @@ async function main() {
 
   const page = await context.newPage();
 
-  // Pink cursor для visibility в headless
   await page.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
       const cursor = document.createElement('div');
@@ -403,11 +300,6 @@ async function main() {
 
   console.log('\n────────────────────────────────────────');
   console.log(`Хронометраж: ~${Math.floor(totalDur/60)}:${String(totalDur%60).padStart(2,'0')}`);
-  console.log(`Demo-email: ${config.demoEmail}`);
-  console.log('Дальше:');
-  console.log('  1. Загрузи .srt текст в ElevenLabs → 10 mp3 голоса');
-  console.log('  2. (опц.) ffmpeg -i <webm> -c:v libx264 -crf 18 <mp4>');
-  console.log('  3. В DaVinci/CapCut: видео + mp3 + опц. burn-in субтитров');
   console.log('────────────────────────────────────────');
 }
 
