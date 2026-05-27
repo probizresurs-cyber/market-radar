@@ -801,24 +801,63 @@ function MarketRadarDashboardInner() {
         const sw = result.spywordsDashboard?.competitors?.yandex
           ?? result.spywordsDashboard?.competitors?.google
           ?? [];
-        const swDomains = sw
-          .slice(0, 3)
-          .map(c => c.domain)
-          .filter(d => d && !d.includes(result.company.url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]));
         // 2. Keys.so — массив имён доменов (без https). Берём первые 3
         //    исключая собственный домен.
         const ks = result.keysoDashboard?.yandex?.competitors
           ?? result.keysoDashboard?.google?.competitors
           ?? [];
+
+        // Диагностика — что реально вернули SpyWords и Keys.so
+        console.info("[wizard] competitor sources:", {
+          spywordsCompetitorsCount: sw.length,
+          spywordsSample: sw.slice(0, 3),
+          keysoCompetitorsCount: ks.length,
+          keysoSample: ks.slice(0, 3),
+        });
+
         const ownDomain = result.company.url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+        const swDomains = sw
+          .slice(0, 3)
+          .map(c => c.domain)
+          .filter(d => d && !d.includes(ownDomain));
         const ksDomains = ks
           .slice(0, 3)
           .filter(d => d && !d.includes(ownDomain));
         // Объединяем (SpyWords первый — обычно качественнее), дедуп.
         const merged = Array.from(new Set([...swDomains, ...ksDomains])).slice(0, 3);
         urls = merged.map(d => `https://${d.replace(/^https?:\/\//, "")}`);
+
+        // 3. AI-fallback: если ни SpyWords ни Keys.so не дали — спрашиваем
+        // Claude найти 3 конкурента по описанию компании + ниши.
+        if (urls.length === 0) {
+          console.info("[wizard] SpyWords/Keys.so пусто — пробуем AI-fallback через generate-competitor-insights");
+          try {
+            const aiRes = await fetch("/api/generate-competitor-insights", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                companyName: result.company.name,
+                companyUrl: result.company.url,
+                niche: result.company.description?.slice(0, 200) ?? "",
+                mode: "find-domains",
+                limit: 3,
+              }),
+            });
+            const aiJson = await aiRes.json() as { ok: boolean; domains?: string[] };
+            if (aiJson.ok && Array.isArray(aiJson.domains) && aiJson.domains.length > 0) {
+              urls = aiJson.domains
+                .filter(d => d && !d.includes(ownDomain))
+                .slice(0, 3)
+                .map(d => `https://${d.replace(/^https?:\/\//, "")}`);
+              console.info("[wizard] AI-fallback вернул конкурентов:", urls);
+            }
+          } catch (err) {
+            console.warn("[wizard] AI-fallback для конкурентов упал:", err);
+          }
+        }
+
         if (urls.length > 0) {
-          console.info("[wizard] auto-filled competitors from Keys.so/SpyWords:", urls);
+          console.info("[wizard] auto-filled competitors:", urls);
         }
       }
       if (urls.length === 0) {
