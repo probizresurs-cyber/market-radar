@@ -720,20 +720,45 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parseDashboard = (dash: any) => {
+    const parseDashboard = (dash: any, label: string) => {
       if (!dash || typeof dash !== "object") return undefined;
 
-      // Competitors from concs[]
-      const competitors = Array.isArray(dash.concs)
-        ? dash.concs.slice(0, 5).map((c: any) => String(c.name ?? "")).filter(Boolean)
+      // Keys.so иногда заворачивает ответ в { data: {...} } — раскрываем.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d: any = dash.data && typeof dash.data === "object" && !Array.isArray(dash.data)
+        ? dash.data
+        : dash;
+
+      // Helper: пробует несколько имён полей по очереди (Keys.so меняет
+      // схему, иногда `it10` иногда `top10`, иногда snake_case).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pick = (...keys: string[]): number => {
+        for (const k of keys) {
+          const v = d[k];
+          if (v !== undefined && v !== null && v !== "") {
+            const n = Number(v);
+            if (!Number.isNaN(n)) return n;
+          }
+        }
+        return 0;
+      };
+
+      // Competitors from concs[] — может называться competitors / concurents
+      const compArr = Array.isArray(d.concs) ? d.concs
+        : Array.isArray(d.competitors) ? d.competitors
+        : Array.isArray(d.concurents) ? d.concurents
         : [];
+      const competitors = compArr.slice(0, 5)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((c: any) => String(c?.name ?? c?.domain ?? c ?? "")).filter(Boolean);
 
       // Links from linksHistory — latest month entry: [backlinks, outlinks, ref_domains, out_domains, ip_links]
       let backlinks = 0, outboundLinks = 0, referringDomains = 0, outboundDomains = 0, ipLinks = 0;
-      if (dash.linksHistory && typeof dash.linksHistory === "object") {
-        const months = Object.keys(dash.linksHistory).sort().reverse();
+      const linksHistory = d.linksHistory ?? d.links_history;
+      if (linksHistory && typeof linksHistory === "object") {
+        const months = Object.keys(linksHistory).sort().reverse();
         if (months.length > 0) {
-          const latest = dash.linksHistory[months[0]];
+          const latest = linksHistory[months[0]];
           if (Array.isArray(latest) && latest.length >= 5) {
             backlinks        = Number(latest[0]) || 0;
             outboundLinks    = Number(latest[1]) || 0;
@@ -744,30 +769,36 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
         }
       }
 
-      return {
-        // Organic traffic metrics
-        traffic:         Number(dash.vis)         || 0,   // трафик с поиска в сутки
-        visibility:      Number(dash.topvis)       || 0,   // рейтинг по видимости
-        pagesInOrganic:  Number(dash.pagesinindex) || 0,   // страниц в выдаче
-        adKeys:          Number(dash.adkeyscnt)    || 0,   // запросов в контексте
+      const result = {
+        traffic:         pick("vis", "traffic", "search_traffic", "searchTraffic"),
+        visibility:      pick("topvis", "visibility", "topVisibility"),
+        pagesInOrganic:  pick("pagesinindex", "pages_in_index", "pagesInIndex", "pages"),
+        adKeys:          pick("adkeyscnt", "ad_keys", "adKeys"),
         competitors,
-        // Top positions
-        top1:  Number(dash.it1)  || 0,
-        top3:  Number(dash.it3)  || 0,
-        top5:  Number(dash.it5)  || 0,
-        top10: Number(dash.it10) || 0,
-        top50: Number(dash.it50) || 0,
-        // Domain rating
-        dr: Number(dash.dr) || 0,
-        // Links (from linksHistory)
-        backlinks,
-        outboundLinks,
-        referringDomains,
-        outboundDomains,
-        ipLinks,
-        // AI mentions (Алиса)
-        aiMentions: Number(dash.aiAnswersCnt) || 0,
+        top1:  pick("it1",  "top1",  "t1"),
+        top3:  pick("it3",  "top3",  "t3"),
+        top5:  pick("it5",  "top5",  "t5"),
+        top10: pick("it10", "top10", "t10"),
+        top50: pick("it50", "top50", "t50"),
+        dr:    pick("dr", "domain_rating", "domainRating"),
+        backlinks, outboundLinks, referringDomains, outboundDomains, ipLinks,
+        aiMentions: pick("aiAnswersCnt", "ai_answers_cnt", "aiMentions", "ai_mentions"),
       };
+
+      // Diagnostic — если ВСЕ метрики 0, логируем что прислал Keys.so
+      // чтобы понять что за схему он вернул для этого домена.
+      const allZero = result.traffic === 0 && result.pagesInOrganic === 0 &&
+        result.top10 === 0 && result.top50 === 0 && result.backlinks === 0 && result.dr === 0;
+      if (allZero) {
+        const sampleKeys = Object.keys(d).slice(0, 25);
+        console.warn(
+          `[Key.so ${label}] all metrics zero for ${domain}. ` +
+          `Got fields: [${sampleKeys.join(", ")}]. ` +
+          `Sample values: ${JSON.stringify(Object.fromEntries(sampleKeys.slice(0, 6).map(k => [k, d[k]])))}`,
+        );
+      }
+
+      return result;
     };
 
     // Keywords are directly in keys[] — each: { word, pos, ws (base freq), wsk (exact freq) }
@@ -784,11 +815,11 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
         .sort((a, b) => a.position - b.position);
     };
 
-    const yDashParsed = parseDashboard(yDash);
-    const gDashParsed = parseDashboard(gDash);
+    const yDashParsed = parseDashboard(yDash, "msk");
+    const gDashParsed = parseDashboard(gDash, "gru");
 
     if (!yDashParsed && !gDashParsed) {
-      console.warn(`[Key.so] No data for ${domain}`);
+      console.warn(`[Key.so] No data for ${domain} — оба ответа невалидные (msk + gru null/empty)`);
       return null;
     }
 
