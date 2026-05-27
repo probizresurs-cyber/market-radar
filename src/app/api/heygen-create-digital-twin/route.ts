@@ -1,28 +1,27 @@
 /**
  * POST /api/heygen-create-digital-twin
  *
- * Создаёт video-аватара (Digital Twin) в HeyGen v3 из ДВУХ ранее
- * загруженных видео-asset'ов:
- *   1. training_asset_id — основное видео (≥ 2 мин, 720p, лицо говорящего)
- *   2. consent_asset_id — отдельная запись согласия (политика HeyGen
- *      против deepfake — спикер на камеру говорит, что согласен на
- *      использование своего лица для AI-аватара)
+ * Создаёт video-аватара (Digital Twin) в HeyGen v3 через multipart-запрос.
+ * HeyGen для type="digital_twin" ожидает multipart/form-data с полем
+ * `file` (training video), а не JSON с URLs (proven by error 400543
+ * «invalid_parameter: Field required, param: file»).
  *
- * Оба asset'а должны быть загружены через /api/heygen-upload-video,
- * который возвращает assetId.
+ * Body: multipart/form-data
+ *   file              — training video (≥ 2 мин, 720p+)
+ *   consent_file      — consent video (отдельная запись согласия)
+ *   name              — имя аватара
+ *   trainingAssetId   — опц., если ассет уже загружен в HeyGen ранее
+ *   consentAssetId    — опц.
  *
- * Body (JSON): { trainingAssetId, trainingAssetUrl, consentAssetId,
- *               consentAssetUrl, name }
  * Response: { ok, data: { heygenAvatarId, status } }
  *
- * Статус аватара после создания = "processing". Готовность (5-15 мин)
- * проверяется через polling GET /v3/avatars/{id} — отдельный endpoint
- * /api/heygen-avatar-status (для будущей реализации).
+ * Статус «processing» 5-15 минут после создания. Polling статуса —
+ * через GET /v3/avatars/{id} (отдельный endpoint, ещё не реализован).
  */
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {
@@ -31,71 +30,70 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    const body = await req.json() as {
-      trainingAssetId?: string;
-      trainingAssetUrl?: string;
-      consentAssetId?: string;
-      consentAssetUrl?: string;
-      name?: string;
-    };
-
-    const trainingAssetId = body.trainingAssetId?.trim();
-    const trainingAssetUrl = body.trainingAssetUrl?.trim();
-    const consentAssetId = body.consentAssetId?.trim();
-    const consentAssetUrl = body.consentAssetUrl?.trim();
-    const name = body.name?.trim() || "Мой видео-аватар";
-
-    if (!trainingAssetId && !trainingAssetUrl) {
-      return NextResponse.json({ ok: false, error: "Тренировочное видео не загружено" }, { status: 400 });
-    }
-    if (!consentAssetId && !consentAssetUrl) {
-      return NextResponse.json({ ok: false, error: "Consent-видео не загружено" }, { status: 400 });
+    let inForm: FormData;
+    try {
+      inForm = await req.formData();
+    } catch (parseErr) {
+      return NextResponse.json({
+        ok: false,
+        error: `Не удалось распарсить тело как multipart/form-data: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+      }, { status: 400 });
     }
 
-    // POST /v3/avatars { type: "digital_twin", ... }
-    // Документация HeyGen v3 защищена авторизацией, поэтому передаём все
-    // возможные варианты полей — HeyGen возьмёт что узнает:
-    //   training_footage_url / training_video_url / training_asset_id
-    //   video_consent_url / consent_video_url / consent_asset_id
-    const requestBody: Record<string, unknown> = {
-      type: "digital_twin",
-      name,
-    };
-    if (trainingAssetUrl) {
-      requestBody.training_footage_url = trainingAssetUrl;
-      requestBody.training_video_url = trainingAssetUrl;
+    const trainingFile = inForm.get("file");
+    const consentFile = inForm.get("consent_file");
+    const name = ((inForm.get("name") as string | null) ?? "").trim() || "Мой видео-аватар";
+    const trainingAssetId = ((inForm.get("trainingAssetId") as string | null) ?? "").trim();
+    const consentAssetId = ((inForm.get("consentAssetId") as string | null) ?? "").trim();
+
+    if (!trainingFile || typeof trainingFile === "string") {
+      return NextResponse.json({ ok: false, error: "Тренировочное видео не передано" }, { status: 400 });
     }
-    if (trainingAssetId) {
-      requestBody.training_asset_id = trainingAssetId;
+    if (!consentFile || typeof consentFile === "string") {
+      return NextResponse.json({ ok: false, error: "Consent-видео не передано" }, { status: 400 });
     }
-    if (consentAssetUrl) {
-      requestBody.video_consent_url = consentAssetUrl;
-      requestBody.consent_video_url = consentAssetUrl;
-    }
-    if (consentAssetId) {
-      requestBody.consent_asset_id = consentAssetId;
-    }
+
+    // Пересылаем в HeyGen многоразовым multipart-запросом.
+    // Передаём ВСЕ возможные имена полей которые могут понадобиться —
+    // HeyGen возьмёт то что узнает.
+    const outForm = new FormData();
+    outForm.append("type", "digital_twin");
+    outForm.append("name", name);
+    // Training video — пробуем разные имена
+    outForm.append("file", trainingFile);
+    outForm.append("training_file", trainingFile);
+    outForm.append("training_footage", trainingFile);
+    // Consent video — пробуем тоже разные
+    outForm.append("consent_file", consentFile);
+    outForm.append("video_consent", consentFile);
+    outForm.append("consent_video", consentFile);
+    // Asset IDs если есть (ассеты ранее загружены)
+    if (trainingAssetId) outForm.append("training_asset_id", trainingAssetId);
+    if (consentAssetId) outForm.append("consent_asset_id", consentAssetId);
 
     const avatarRes = await fetch("https://api.heygen.com/v3/avatars", {
       method: "POST",
       headers: {
         "X-Api-Key": apiKey,
-        "Content-Type": "application/json",
         Accept: "application/json",
+        // ВАЖНО: НЕ ставить Content-Type — fetch сам поставит с boundary
       },
-      body: JSON.stringify(requestBody),
+      body: outForm,
     });
     const avatarText = await avatarRes.text();
 
     if (!avatarRes.ok) {
       let humanMsg = avatarText.slice(0, 400);
       let errCode = "";
+      let errParam = "";
       try {
-        const errBody: { error?: { code?: string; message?: string } } = JSON.parse(avatarText);
+        const errBody: { error?: { code?: string; message?: string; param?: string } } = JSON.parse(avatarText);
         if (errBody.error?.message) {
           humanMsg = errBody.error.message;
           errCode = errBody.error.code ?? "";
+          errParam = errBody.error.param ?? "";
           if (errCode) humanMsg = `${errCode}: ${humanMsg}`;
+          if (errParam) humanMsg += ` (поле: ${errParam})`;
         }
       } catch { /* keep raw */ }
 
@@ -103,9 +101,11 @@ export async function POST(req: Request) {
       if (avatarRes.status === 401 || avatarRes.status === 403) {
         hint = " — создание Digital Twin доступно на платных тарифах HeyGen Pro+.";
       } else if (/consent/i.test(humanMsg)) {
-        hint = " — HeyGen отклонил consent-видео. Спикер на нём должен чётко произнести: «I consent to HeyGen using my likeness to create an AI avatar».";
+        hint = " — HeyGen отклонил consent-видео. Спикер должен чётко произнести: «I, [name], consent to HeyGen using my likeness and voice to create an AI avatar».";
       } else if (/duration|too short|2 minutes|720/i.test(humanMsg)) {
         hint = " — тренировочное видео должно быть ≥ 2 минут, разрешение 720p+.";
+      } else if (/file|param/i.test(humanMsg) && errParam) {
+        hint = ` — HeyGen ожидает поле «${errParam}». Возможно изменился их API — пришлите этот лог разработчику.`;
       }
       return NextResponse.json(
         { ok: false, error: `HeyGen ${avatarRes.status}: ${humanMsg}${hint}`, debug: avatarText.slice(0, 500) },

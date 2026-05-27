@@ -46,7 +46,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   // Юзер загружает оба → нажимает «Создать аватар» → бэк делает POST /v3/avatars.
   const trainingInputRef = useRef<HTMLInputElement>(null);
   const consentInputRef = useRef<HTMLInputElement>(null);
-  type UploadedAsset = { assetId: string; assetUrl?: string; fileName: string };
+  // HeyGen для Digital Twin требует multipart с полем `file` напрямую.
+  // Поэтому держим File-объект тут до момента «Создать аватар».
+  type UploadedAsset = { assetId: string; assetUrl?: string; fileName: string; file: File };
   const [trainingAsset, setTrainingAsset] = useState<UploadedAsset | null>(null);
   const [consentAsset, setConsentAsset] = useState<UploadedAsset | null>(null);
   const [uploadingTraining, setUploadingTraining] = useState(false);
@@ -132,7 +134,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
       json = { ok: false, error: friendly };
     }
     if (!json.ok || !json.data?.assetId) throw new Error(json.error ?? "Ошибка загрузки");
-    return { assetId: json.data.assetId, assetUrl: json.data.assetUrl, fileName: file.name };
+    return { assetId: json.data.assetId, assetUrl: json.data.assetUrl, fileName: file.name, file };
   };
 
   const handleUploadTrainingVideo = async (file: File) => {
@@ -163,23 +165,28 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     }
   };
 
-  // Финальный шаг — оба видео загружены, создаём Digital Twin
+  // Финальный шаг — оба видео загружены, создаём Digital Twin.
+  // HeyGen ожидает multipart с полем `file` (training) + consent видео,
+  // не JSON с URL'ами. Передаём оригинальные File объекты.
   const handleCreateDigitalTwin = async () => {
     if (!trainingAsset || !consentAsset) return;
     setCreatingTwin(true);
     setUploadError(null);
     try {
       const name = pendingVideoName.trim() || trainingAsset.fileName.replace(/\.[^.]+$/, "") || "Видео-аватар";
+      const fd = new FormData();
+      fd.append("file", trainingAsset.file);
+      fd.append("consent_file", consentAsset.file);
+      fd.append("name", name);
+      // Передаём также asset_id и URL — на случай если HeyGen примет
+      // их вместо повторной загрузки бинаря.
+      fd.append("trainingAssetId", trainingAsset.assetId);
+      if (trainingAsset.assetUrl) fd.append("trainingAssetUrl", trainingAsset.assetUrl);
+      fd.append("consentAssetId", consentAsset.assetId);
+      if (consentAsset.assetUrl) fd.append("consentAssetUrl", consentAsset.assetUrl);
       const res = await fetch("/api/heygen-create-digital-twin", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          trainingAssetId: trainingAsset.assetId,
-          trainingAssetUrl: trainingAsset.assetUrl,
-          consentAssetId: consentAsset.assetId,
-          consentAssetUrl: consentAsset.assetUrl,
-          name,
-        }),
+        body: fd,
       });
       const rawText = await res.text();
       let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string; debug?: string };
