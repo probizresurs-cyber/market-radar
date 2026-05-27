@@ -145,7 +145,22 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
             embedText: embeddedText || undefined,
           }),
         });
-        const j = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+        // Защита от HTML-ответа: воркер-прокси или Next.js на ошибке
+        // может вернуть HTML-страницу — JSON.parse тогда падает с
+        // криптическим «Unexpected token '<'». Парсим текст и пытаемся
+        // достать осмысленную ошибку.
+        const rawText = await res.text();
+        let j: { ok: boolean; data?: { imageUrl: string }; error?: string };
+        try {
+          j = JSON.parse(rawText);
+        } catch {
+          // HTML или пустой ответ — извлекаем заголовок или строку статуса
+          const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+          const friendly = titleMatch?.[1]?.trim()
+            || (res.status >= 500 ? "Сервер вернул HTML-ошибку вместо JSON (вероятно, прокси или Next.js упали)"
+                : `HTTP ${res.status}: ${rawText.slice(0, 100)}`);
+          j = { ok: false, error: friendly };
+        }
         if (j.ok && j.data?.imageUrl) {
           results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!embeddedText };
           // Прогрессивно обновляем UI — каждый завершившийся слайд сразу

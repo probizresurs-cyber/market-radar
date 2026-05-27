@@ -126,7 +126,20 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
             embedText: slideText || undefined,
           }),
         });
-        const j = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+        // Защита от HTML-ответа (воркер-прокси / Next.js error page) —
+        // см. аналогичный комментарий в StoriesView. JSON.parse на HTML
+        // падает с «Unexpected token '<'», юзер видит кашу.
+        const rawText = await res.text();
+        let j: { ok: boolean; data?: { imageUrl: string }; error?: string };
+        try {
+          j = JSON.parse(rawText);
+        } catch {
+          const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
+          const friendly = titleMatch?.[1]?.trim()
+            || (res.status >= 500 ? "Сервер вернул HTML-ошибку вместо JSON (прокси/Next.js упали)"
+                : `HTTP ${res.status}: ${rawText.slice(0, 100)}`);
+          j = { ok: false, error: friendly };
+        }
         if (j.ok && j.data?.imageUrl) {
           results[i] = { imageUrl: j.data.imageUrl, hasEmbeddedText: !!slideText };
           // Прогрессивно обновляем — каждый завершившийся слайд виден сразу
