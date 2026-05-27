@@ -80,20 +80,11 @@ const scenes = [
     duration: 8,
     voiceover: 'Жму кнопку регистрации на лендинге.',
     async action(page) {
-      const candidates = [
-        'a[href*="register"]',
-        'text=Зарегистрироваться',
-        'text=Попробовать',
-        'text=Начать бесплатно',
-      ];
-      let clicked = false;
-      for (const sel of candidates) {
-        if (await safeClick(page, sel, 2500)) { clicked = true; break; }
-      }
-      if (!clicked) {
-        await page.goto(`${config.landingUrl}/register`, { waitUntil: 'networkidle' }).catch(() => {});
-      }
-      await page.waitForTimeout(4500);
+      // Сразу прямой переход на /register staging-домена — надёжнее чем
+      // искать кнопку на лендинге (text=Попробовать может вести в футер
+      // на политику и т.п.).
+      await page.goto(`${config.stagingUrl}/register`, { waitUntil: 'networkidle', timeout: 30_000 }).catch(() => {});
+      await page.waitForTimeout(5500);
     },
   },
   {
@@ -132,18 +123,16 @@ const scenes = [
     duration: 14,
     voiceover: 'Открывается мастер первого анализа. Первый шаг — ввожу сайт компании. Мы возьмём стоматологию me-dent.ru.',
     async action(page) {
-      // Wizard может уже быть открыт, ищем поле URL (placeholder содержит example.ru)
-      const urlFilled = await safeFill(page, 'input[placeholder*="example.ru"]', config.companyUrl, 4000);
-      if (!urlFilled) {
-        // Возможно wizard ещё не открыт — открываем
-        await safeClick(page, 'text=Новый анализ', 3000);
-        await page.waitForTimeout(2000);
-        await safeFill(page, 'input[placeholder*="example.ru"]', config.companyUrl, 3000);
-      }
+      // Принудительно открываем wizard через прямой URL — после регистрации
+      // юзера может выкинуть на разный экран (dashboard / onboarding).
+      await page.goto(`${config.stagingUrl}/?nav=new-analysis`, { waitUntil: 'networkidle', timeout: 30_000 }).catch(() => {});
+      await page.waitForTimeout(3500);
+      // Заполняем URL (placeholder содержит example.ru)
+      await safeFill(page, 'input[placeholder*="example.ru"]', config.companyUrl, 4000);
       await page.waitForTimeout(2500);
-      // Жмём «Далее»
-      await safeClick(page, 'text=Далее', 3000);
-      await page.waitForTimeout(5000);
+      // Жмём «Далее» — точный селектор по button с текстом
+      await safeClick(page, 'button:has-text("Далее")', 3000);
+      await page.waitForTimeout(4000);
     },
   },
   {
@@ -153,12 +142,13 @@ const scenes = [
     async action(page) {
       const moduleLabels = ['Целевая аудитория', 'СММ-стратегия', 'Конкуренты'];
       for (const label of moduleLabels) {
-        await safeClick(page, `text=${label}`, 2500);
+        // Кликаем по label (input скрыт display:none в wizard коде)
+        await safeClick(page, `label:has-text("${label}")`, 2500);
         await page.waitForTimeout(1500);
       }
       await page.waitForTimeout(4500);
-      // Идём дальше через wizard-шаги
-      await safeClick(page, 'text=Далее', 3000);
+      // Идём дальше
+      await safeClick(page, 'button:has-text("Далее")', 3000);
       await page.waitForTimeout(2000);
     },
   },
@@ -169,12 +159,12 @@ const scenes = [
     async action(page) {
       // Пропускаем оставшиеся «Далее»-шаги (соцсети, конкуренты-URLs, summary)
       for (let i = 0; i < 4; i++) {
-        const clicked = await safeClick(page, 'text=Далее', 2500);
+        const clicked = await safeClick(page, 'button:has-text("Далее")', 2500);
         if (!clicked) break;
         await page.waitForTimeout(1500);
       }
       // Финальный submit
-      await safeClick(page, 'text=Запустить анализ', 4000);
+      await safeClick(page, 'button:has-text("Запустить анализ")', 4000);
       await page.waitForTimeout(6000);
     },
   },
