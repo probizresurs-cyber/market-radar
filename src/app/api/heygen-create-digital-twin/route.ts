@@ -28,24 +28,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "HEYGEN_API_KEY не настроен" }, { status: 500 });
     }
 
-    // Принимаем multipart (фронт всё ещё шлёт FormData с file для
-    // совместимости), но из него берём только текстовые поля —
-    // сами файлы уже загружены в HeyGen на предыдущем шаге.
-    let inForm: FormData;
+    // JSON body — без файлов, только asset_id'ы (файлы уже загружены
+    // отдельно через /api/heygen-upload-video → /v1/asset).
+    let body: { trainingAssetId?: string; consentAssetId?: string; trainingAssetUrl?: string; consentAssetUrl?: string; name?: string };
     try {
-      inForm = await req.formData();
+      body = await req.json();
     } catch (parseErr) {
       return NextResponse.json({
         ok: false,
-        error: `Не удалось распарсить тело: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+        error: `Не удалось распарсить тело как JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
       }, { status: 400 });
     }
 
-    const trainingAssetId = ((inForm.get("trainingAssetId") as string | null) ?? "").trim();
-    const consentAssetId = ((inForm.get("consentAssetId") as string | null) ?? "").trim();
-    const trainingAssetUrl = ((inForm.get("trainingAssetUrl") as string | null) ?? "").trim();
-    const consentAssetUrl = ((inForm.get("consentAssetUrl") as string | null) ?? "").trim();
-    const name = ((inForm.get("name") as string | null) ?? "").trim() || "Мой видео-аватар";
+    const trainingAssetId = (body.trainingAssetId ?? "").trim();
+    const consentAssetId = (body.consentAssetId ?? "").trim();
+    const trainingAssetUrl = (body.trainingAssetUrl ?? "").trim();
+    const consentAssetUrl = (body.consentAssetUrl ?? "").trim();
+    const name = (body.name ?? "").trim() || "Мой видео-аватар";
 
     if (!trainingAssetId) {
       return NextResponse.json({ ok: false, error: "Тренировочный asset не загружен" }, { status: 400 });

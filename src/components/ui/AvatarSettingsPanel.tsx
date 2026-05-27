@@ -174,19 +174,19 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     setUploadError(null);
     try {
       const name = pendingVideoName.trim() || trainingAsset.fileName.replace(/\.[^.]+$/, "") || "Видео-аватар";
-      const fd = new FormData();
-      fd.append("file", trainingAsset.file);
-      fd.append("consent_file", consentAsset.file);
-      fd.append("name", name);
-      // Передаём также asset_id и URL — на случай если HeyGen примет
-      // их вместо повторной загрузки бинаря.
-      fd.append("trainingAssetId", trainingAsset.assetId);
-      if (trainingAsset.assetUrl) fd.append("trainingAssetUrl", trainingAsset.assetUrl);
-      fd.append("consentAssetId", consentAsset.assetId);
-      if (consentAsset.assetUrl) fd.append("consentAssetUrl", consentAsset.assetUrl);
+      // Шлём JSON с asset_id'ами — файлы уже загружены в HeyGen ранее.
+      // Multipart не работает (req.formData() в Next.js падает на больших
+      // запросах). JSON — это что HeyGen и сам ожидает на /v3/avatars.
       const res = await fetch("/api/heygen-create-digital-twin", {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          trainingAssetId: trainingAsset.assetId,
+          trainingAssetUrl: trainingAsset.assetUrl,
+          consentAssetId: consentAsset.assetId,
+          consentAssetUrl: consentAsset.assetUrl,
+        }),
       });
       const rawText = await res.text();
       let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string; debug?: string };
