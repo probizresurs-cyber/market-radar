@@ -77,7 +77,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
       try { json = JSON.parse(rawText); }
       catch {
         const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
-        const friendly = res.status === 413 ? "Файл слишком большой для сервера (превышен лимит body-parser)"
+        const friendly = res.status === 413 ? "Сервер не принимает файл такого размера. Нужно настроить лимит nginx (client_max_body_size). Пока попробуйте сжать фото до 1-2 МБ"
           : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, упал из-за размера файла"
           : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
         json = { ok: false, error: friendly };
@@ -131,7 +131,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
       try { json = JSON.parse(rawText); }
       catch {
         const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
-        const friendly = res.status === 413 ? "Видео слишком большое для сервера (попробуйте сжать до 50 МБ)"
+        const friendly = res.status === 413 ? "Сервер не принимает файл такого размера. Нужно настроить лимит nginx (client_max_body_size). Пока попробуйте сжать видео до 1-3 МБ через CapCut → Export → Lower quality"
           : res.status >= 500 ? "Сервер вернул HTML-ошибку — возможно, видео слишком тяжёлое или upstream упал"
           : titleMatch?.[1]?.trim() || `HTTP ${res.status}: ${rawText.slice(0, 100)}`;
         json = { ok: false, error: friendly };
