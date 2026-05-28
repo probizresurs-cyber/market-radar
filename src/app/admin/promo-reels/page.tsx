@@ -154,7 +154,18 @@ const DEFAULT_FORM = {
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
+  videoDurationSec: 30 as 15 | 30 | 45 | 60,
 };
+
+/**
+ * Считает: сколько секунд займёт произнесение этого текста.
+ * Дефолтный темп — 3 слова/сек (ElevenLabs eleven_multilingual_v2,
+ * стандартные voice-settings). Возвращает приближённую целую цифру.
+ */
+function estimateSpeechSec(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.round(words / 3);
+}
 
 export default function PromoReelsAdminPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -229,6 +240,7 @@ export default function PromoReelsAdminPage() {
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
+          videoDurationSec: form.videoDurationSec,
         }),
       });
       const data = (await r.json()) as PipelineResponse;
@@ -291,29 +303,83 @@ export default function PromoReelsAdminPage() {
           <div style={S.card}>
             <div style={S.cardTitle}>Параметры ролика</div>
 
-            <label style={S.label}>Хук (0-5 сек)</label>
-            <textarea
-              style={S.textarea}
-              value={form.hookText}
-              onChange={(e) => saveForm({ ...form, hookText: e.target.value })}
-              placeholder="Цепляющий вопрос или утверждение"
-            />
+            {/* Длина итогового ролика. Сцены пропорционально пересчитываются:
+                15→3/9/3, 30→5/20/5, 45→8/29/8, 60→10/40/10. */}
+            <label style={S.label}>Длина ролика</label>
+            <select
+              style={S.input}
+              value={form.videoDurationSec}
+              onChange={(e) =>
+                saveForm({ ...form, videoDurationSec: Number(e.target.value) as 15 | 30 | 45 | 60 })
+              }
+            >
+              <option value={15}>15 сек — короткий хук (TikTok / Stories)</option>
+              <option value={30}>30 сек — классика (Reels / Shorts)</option>
+              <option value={45}>45 сек — больше деталей</option>
+              <option value={60}>60 сек — полноценное промо</option>
+            </select>
 
-            <label style={S.label}>Проблема (5-25 сек)</label>
-            <textarea
-              style={S.textarea}
-              value={form.problemText}
-              onChange={(e) => saveForm({ ...form, problemText: e.target.value })}
-              placeholder="Что мучает целевую аудиторию"
-            />
+            {(() => {
+              // Расчёт хронометража сцен под выбранную длительность —
+              // зеркало calcSceneDurations() из PromoReel.tsx.
+              const total = form.videoDurationSec;
+              const hookSec = Math.max(3, Math.round(total * 0.17));
+              const ctaSec = Math.max(3, Math.round(total * 0.17));
+              const demoSec = Math.max(5, total - hookSec - ctaSec);
+              return (
+                <div style={{ ...S.hint, marginTop: -6, marginBottom: 14 }}>
+                  Хук {hookSec} сек · Демо {demoSec} сек · CTA {ctaSec} сек
+                </div>
+              );
+            })()}
 
-            <label style={S.label}>Призыв (25-30 сек)</label>
-            <textarea
-              style={S.textarea}
-              value={form.ctaText}
-              onChange={(e) => saveForm({ ...form, ctaText: e.target.value })}
-              placeholder="Что предлагает бренд"
-            />
+            {(() => {
+              const total = form.videoDurationSec;
+              const hookSec = Math.max(3, Math.round(total * 0.17));
+              const demoSec = Math.max(5, total - hookSec - Math.max(3, Math.round(total * 0.17)));
+              const ctaSec = Math.max(3, Math.round(total * 0.17));
+              return (
+                <>
+                  <label style={S.label}>Хук (0–{hookSec} сек)</label>
+                  <textarea
+                    style={S.textarea}
+                    value={form.hookText}
+                    onChange={(e) => saveForm({ ...form, hookText: e.target.value })}
+                    placeholder="Цепляющий вопрос или утверждение"
+                  />
+                  <div style={S.hint}>
+                    {form.hookText.trim().split(/\s+/).filter(Boolean).length} слов ≈{" "}
+                    {estimateSpeechSec(form.hookText)} сек речи · слот {hookSec} сек
+                  </div>
+
+                  <label style={S.label}>Проблема ({hookSec}–{hookSec + demoSec} сек)</label>
+                  <textarea
+                    style={S.textarea}
+                    value={form.problemText}
+                    onChange={(e) => saveForm({ ...form, problemText: e.target.value })}
+                    placeholder="Что мучает целевую аудиторию"
+                  />
+                  <div style={S.hint}>
+                    {form.problemText.trim().split(/\s+/).filter(Boolean).length} слов ≈{" "}
+                    {estimateSpeechSec(form.problemText)} сек речи · слот {demoSec} сек
+                  </div>
+
+                  <label style={S.label}>
+                    Призыв ({hookSec + demoSec}–{total} сек)
+                  </label>
+                  <textarea
+                    style={S.textarea}
+                    value={form.ctaText}
+                    onChange={(e) => saveForm({ ...form, ctaText: e.target.value })}
+                    placeholder="Что предлагает бренд"
+                  />
+                  <div style={S.hint}>
+                    {form.ctaText.trim().split(/\s+/).filter(Boolean).length} слов ≈{" "}
+                    {estimateSpeechSec(form.ctaText)} сек речи · слот {ctaSec} сек
+                  </div>
+                </>
+              );
+            })()}
 
             <label style={S.label}>Имя бренда</label>
             <input
@@ -375,9 +441,14 @@ export default function PromoReelsAdminPage() {
                 onChange={(e) => saveForm({ ...form, includeBroll: e.target.checked })}
               />
               <label htmlFor="incBR" style={S.checkboxLabel}>
-                B-roll картинки в углах (+3 картинки, +30 сек)
+                B-roll картинки {form.includeScreencast ? "в углах" : "full-screen фоном"} (+3 картинки, +30 сек)
               </label>
             </div>
+            {form.includeBroll && !form.includeScreencast ? (
+              <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
+                💡 Скринкаст выключен → b-roll картинки идут full-screen с Ken-burns эффектом
+              </div>
+            ) : null}
 
             <div style={S.row}>
               <input

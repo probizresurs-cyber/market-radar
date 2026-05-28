@@ -59,6 +59,7 @@ interface RenderProps {
   hookBgImageUrl: string | null;
   ctaBgImageUrl: string | null;
   brollImageUrls: string[];
+  videoDurationSec: number;
 }
 
 /**
@@ -131,6 +132,12 @@ function parseProps(
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
+    // Длительность ролика. Клампим 10..90, дефолт 30.
+    videoDurationSec: (() => {
+      const n = Number(body.videoDurationSec);
+      if (!Number.isFinite(n)) return 30;
+      return Math.max(10, Math.min(90, Math.round(n)));
+    })(),
   };
 }
 

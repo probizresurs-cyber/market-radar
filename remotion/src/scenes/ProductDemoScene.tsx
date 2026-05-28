@@ -132,34 +132,57 @@ export const ProductDemoScene: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Phone frame */}
-      <div
-        style={{
-          position: "absolute",
-          left: PHONE_X,
-          top: PHONE_Y,
-          width: PHONE_W,
-          height: PHONE_H,
-          opacity: phoneEnter,
-          transform: `scale(${0.85 + phoneEnter * 0.15})`,
-        }}
-      >
-        <PhoneFrame accentColor={accentColor}>
-          {screencastUrl ? (
-            <OffthreadVideo
-              src={screencastUrl}
-              muted
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            <DemoPlaceholder accentColor={accentColor} brandName={brandName} sec={sec} />
-          )}
-        </PhoneFrame>
-      </div>
+      {/* Главный визуал в центре сцены. Логика выбора:
+       *
+       *  1) Есть screencast → phone-frame со скринкастом внутри
+       *     (классический режим: «вот так платформа в руках»)
+       *  2) Скринкаста нет, но есть b-roll картинки → full-screen
+       *     b-roll режим с Ken-burns и кросс-fade между кадрами
+       *     (для абстрактных промо без UI)
+       *  3) Ничего нет → phone-frame с анимированным fallback-дашбордом
+       *     (минимальный demo для тестов)
+       */}
+      {!screencastUrl && brollImageUrls.length > 0 ? (
+        <BrollFullscreen
+          urls={brollImageUrls}
+          accentColor={accentColor}
+          frame={frame}
+          fps={fps}
+          totalFrames={useVideoConfig().durationInFrames}
+          opacity={phoneEnter}
+        />
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            left: PHONE_X,
+            top: PHONE_Y,
+            width: PHONE_W,
+            height: PHONE_H,
+            opacity: phoneEnter,
+            transform: `scale(${0.85 + phoneEnter * 0.15})`,
+          }}
+        >
+          <PhoneFrame accentColor={accentColor}>
+            {screencastUrl ? (
+              <OffthreadVideo
+                src={screencastUrl}
+                muted
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <DemoPlaceholder accentColor={accentColor} brandName={brandName} sec={sec} />
+            )}
+          </PhoneFrame>
+        </div>
+      )}
 
-      {/* B-roll floating-картинки. Каждая выезжает в свой отрезок,
-          в свой угол, и плавно исчезает. Без них ничего не ломается. */}
-      <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
+      {/* B-roll floating-картинки в углах — рисуем ТОЛЬКО если есть
+          screencast (т.е. phone-frame в центре). Если broll стал основным
+          визуалом (BrollFullscreen выше) — углы пустые, иначе перекрытие. */}
+      {screencastUrl ? (
+        <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
+      ) : null}
 
       {/* Floating step-карточки справа. Уменьшили font + padding чтобы
           гарантированно не перекрывать содержимое скринкаста внутри
@@ -212,6 +235,73 @@ export const ProductDemoScene: React.FC<Props> = ({
         })}
       </div>
     </AbsoluteFill>
+  );
+};
+
+/**
+ * Full-screen B-roll режим — для роликов БЕЗ скринкаста. Картинки занимают
+ * всю demo-зону (по центру с обводкой в брендовый цвет), сменяются с
+ * кросс-fade'ом, на каждой Ken-burns (медленный zoom). Длительность каждой
+ * картинки делится поровну от длительности demo-сцены.
+ */
+const BrollFullscreen: React.FC<{
+  urls: string[];
+  accentColor: string;
+  frame: number;
+  fps: number;
+  totalFrames: number;
+  opacity: number;
+}> = ({ urls, accentColor, frame, fps, totalFrames, opacity }) => {
+  if (!urls.length) return null;
+  const segmentFrames = totalFrames / urls.length;
+  const fadeFrames = Math.min(20, segmentFrames * 0.2);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: PHONE_X,
+        top: PHONE_Y,
+        width: PHONE_W,
+        height: PHONE_H,
+        opacity,
+        borderRadius: 40,
+        overflow: "hidden",
+        border: `3px solid ${accentColor}`,
+        boxShadow: `0 0 80px ${accentColor}66, 0 30px 80px rgba(0,0,0,0.5)`,
+      }}
+    >
+      {urls.map((url, i) => {
+        const start = i * segmentFrames;
+        const end = start + segmentFrames;
+        if (frame < start - fadeFrames || frame > end + fadeFrames) return null;
+        const op = interpolate(
+          frame,
+          [start - fadeFrames, start, end - fadeFrames, end],
+          [0, 1, 1, 0],
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+        );
+        // Ken-burns: каждая картинка свой стартовый scale + направление
+        const scale = interpolate(
+          frame,
+          [start, end],
+          i % 2 === 0 ? [1.05, 1.2] : [1.2, 1.05],
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+        );
+        return (
+          <AbsoluteFill key={i} style={{ opacity: op }}>
+            <Img
+              src={url}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                transform: `scale(${scale})`,
+              }}
+            />
+          </AbsoluteFill>
+        );
+      })}
+    </div>
   );
 };
 

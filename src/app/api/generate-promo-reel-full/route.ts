@@ -241,6 +241,7 @@ export async function POST(req: Request) {
         hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
         ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
         brollImageUrls: imagesData?.brollImageUrls ?? [],
+        videoDurationSec: body.videoDurationSec,
       },
       req,
       310_000, // 310 сек — render-promo-reel.maxDuration = 300

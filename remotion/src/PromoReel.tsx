@@ -24,6 +24,10 @@ export const promoReelSchema = z.object({
   // B-roll картинки (опц): плавающие декоративные изображения в
   // ProductDemoScene. Максимум 3 штуки имеют смысл.
   brollImageUrls: z.array(z.string()).optional(),
+  // Длительность всего ролика в секундах. Перебирается в Root через
+  // calculateMetadata. Сцены пропорциональны: hook ~17%, demo ~66%, CTA ~17%.
+  // Допустимо 10..90 сек. Дефолт 30.
+  videoDurationSec: z.number().optional(),
 });
 
 export type PromoReelProps = z.infer<typeof promoReelSchema>;
@@ -41,14 +45,25 @@ export const defaultPromoReelProps: PromoReelProps = {
   hookBgImageUrl: null,
   ctaBgImageUrl: null,
   brollImageUrls: [],
+  videoDurationSec: 30,
 };
 
-const HOOK_SEC = 5;
-const DEMO_SEC = 20;
-const CTA_SEC = 5;
+/**
+ * Раскладка по сценам пропорциональна общему хронометражу.
+ * Hook ~17% (всегда минимум 3 сек), CTA ~17%, остальное — demo.
+ * Для 30 сек: 5+20+5. Для 60 сек: 10+40+10. Для 15 сек: 3+9+3.
+ */
+function calcSceneDurations(totalSec: number) {
+  const hook = Math.max(3, Math.round(totalSec * 0.17));
+  const cta = Math.max(3, Math.round(totalSec * 0.17));
+  const demo = Math.max(5, totalSec - hook - cta);
+  return { hook, demo, cta };
+}
 
 export const PromoReel: React.FC<PromoReelProps> = (props) => {
   const { fps } = useVideoConfig();
+  const totalSec = props.videoDurationSec ?? 30;
+  const { hook: HOOK_SEC, demo: DEMO_SEC, cta: CTA_SEC } = calcSceneDurations(totalSec);
   const hookFrames = HOOK_SEC * fps;
   const demoFrames = DEMO_SEC * fps;
   const ctaFrames = CTA_SEC * fps;
