@@ -43,11 +43,14 @@ const STEPS = [
   { label: "Контент", icon: "📱", at: 15 },
 ];
 
-// Геометрия phone-frame (в координатах композиции 1080×1920)
-const PHONE_W = 720;
-const PHONE_H = 1280;
-const PHONE_X = (1080 - PHONE_W) / 2; // = 180
-const PHONE_Y = 280;
+// Геометрия phone-frame (в координатах композиции 1080×1920).
+// Phone сдвинули вниз чтобы заголовок не наезжал на корпус.
+// Сам корпус сделали чуть уже (680 vs 720) — освобождает 20px с каждой
+// стороны под step-badges, чтобы они не перекрывали скринкаст внутри.
+const PHONE_W = 680;
+const PHONE_H = 1240;
+const PHONE_X = (1080 - PHONE_W) / 2; // = 200
+const PHONE_Y = 360;
 const BEZEL = 16; // толщина рамки
 
 export const ProductDemoScene: React.FC<Props> = ({
@@ -92,25 +95,41 @@ export const ProductDemoScene: React.FC<Props> = ({
       {/* Particle-фон (декоративные точки) — динамика без отвлечения */}
       <ParticleField accentColor={accentColor} sec={sec} />
 
-      {/* Заголовок */}
+      {/* Заголовок — фиксированный блок высотой 240px чтобы phone-frame
+          никогда не наезжал. Длинный текст обрезается через -webkit-line-clamp
+          (макс 4 строки) — лучше отрезать чем перекрыть phone. */}
       <div
         style={{
           position: "absolute",
-          left: 60,
-          right: 60,
-          top: 100,
+          left: 50,
+          right: 50,
+          top: 80,
+          height: 240,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           opacity: titleEnter,
           transform: `translateY(${(1 - titleEnter) * -40}px)`,
-          color: "#fff",
-          fontFamily: "Inter, sans-serif",
-          fontWeight: 800,
-          fontSize: 60,
-          textAlign: "center",
-          lineHeight: 1.15,
-          textShadow: "0 4px 24px rgba(0,0,0,0.6)",
         }}
       >
-        {problemText}
+        <div
+          style={{
+            color: "#fff",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 800,
+            fontSize: 48,
+            textAlign: "center",
+            lineHeight: 1.15,
+            textShadow: "0 4px 24px rgba(0,0,0,0.6)",
+            display: "-webkit-box",
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: "vertical" as const,
+            overflow: "hidden",
+            wordBreak: "break-word" as const,
+          }}
+        >
+          {problemText}
+        </div>
       </div>
 
       {/* Phone frame */}
@@ -142,15 +161,19 @@ export const ProductDemoScene: React.FC<Props> = ({
           в свой угол, и плавно исчезает. Без них ничего не ломается. */}
       <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
 
-      {/* Floating step-карточки справа */}
+      {/* Floating step-карточки справа. Уменьшили font + padding чтобы
+          гарантированно не перекрывать содержимое скринкаста внутри
+          phone-frame. Размещены в правом 180px-канале между phone и
+          краем композиции. */}
       <div
         style={{
           position: "absolute",
-          right: 30,
-          top: PHONE_Y + 100,
+          right: 16,
+          top: PHONE_Y + 80,
           display: "flex",
           flexDirection: "column",
-          gap: 26,
+          gap: 22,
+          width: 156,
         }}
       >
         {STEPS.map((step, i) => {
@@ -167,23 +190,22 @@ export const ProductDemoScene: React.FC<Props> = ({
               style={{
                 opacity: stepEnter,
                 transform: `translateX(${(1 - stepEnter) * 80}px)`,
-                background: "rgba(13, 18, 36, 0.85)",
+                background: "rgba(13, 18, 36, 0.9)",
                 border: `2px solid ${accentColor}`,
-                borderRadius: 18,
-                padding: "16px 22px",
+                borderRadius: 14,
+                padding: "10px 12px",
                 fontFamily: "Inter, sans-serif",
                 fontWeight: 700,
-                fontSize: 30,
+                fontSize: 20,
                 color: "#fff",
                 display: "flex",
                 alignItems: "center",
-                gap: 14,
+                gap: 8,
                 backdropFilter: "blur(8px)",
-                boxShadow: `0 8px 32px ${accentColor}44`,
-                minWidth: 130,
+                boxShadow: `0 8px 32px ${accentColor}55`,
               }}
             >
-              <span style={{ fontSize: 38 }}>{step.icon}</span>
+              <span style={{ fontSize: 26 }}>{step.icon}</span>
               <span>{step.label}</span>
             </div>
           );

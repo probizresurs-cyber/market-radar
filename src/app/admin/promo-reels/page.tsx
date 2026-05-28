@@ -34,7 +34,7 @@ interface ReelHistoryItem {
 }
 
 interface StepReport {
-  name: "images" | "screencast" | "render";
+  name: "images" | "screencast" | "voiceover" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -148,6 +148,9 @@ const DEFAULT_FORM = {
   includeImages: true,
   includeScreencast: true,
   includeBroll: false,
+  includeVoiceover: false,
+  voiceId: "",
+  musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
 };
@@ -199,6 +202,7 @@ export default function PromoReelsAdminPage() {
     setProgress([
       { name: "images", status: "skipped", ms: 0 },
       { name: "screencast", status: "skipped", ms: 0 },
+      { name: "voiceover", status: "skipped", ms: 0 },
       { name: "render", status: "skipped", ms: 0 },
     ]);
     setBusy(true);
@@ -218,6 +222,9 @@ export default function PromoReelsAdminPage() {
           includeImages: form.includeImages,
           includeScreencast: form.includeScreencast,
           includeBroll: form.includeBroll,
+          includeVoiceover: form.includeVoiceover,
+          voiceId: form.voiceId || undefined,
+          musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
         }),
@@ -364,6 +371,42 @@ export default function PromoReelsAdminPage() {
               </label>
             </div>
 
+            <div style={S.row}>
+              <input
+                type="checkbox"
+                style={S.checkbox}
+                id="incVO"
+                checked={form.includeVoiceover}
+                onChange={(e) => saveForm({ ...form, includeVoiceover: e.target.checked })}
+              />
+              <label htmlFor="incVO" style={S.checkboxLabel}>
+                Озвучка через ElevenLabs (+15 сек)
+              </label>
+            </div>
+
+            {form.includeVoiceover ? (
+              <>
+                <label style={S.label}>Voice ID (опц, по умолчанию Charlotte)</label>
+                <input
+                  style={S.input}
+                  value={form.voiceId}
+                  onChange={(e) => saveForm({ ...form, voiceId: e.target.value })}
+                  placeholder="XB0fDUnXU5powFXDhCwa"
+                />
+              </>
+            ) : null}
+
+            <label style={S.label}>Фоновая музыка (URL до MP3, опц)</label>
+            <input
+              style={S.input}
+              value={form.musicUrl}
+              onChange={(e) => saveForm({ ...form, musicUrl: e.target.value })}
+              placeholder="https://... или /api/static-asset/music/track.mp3"
+            />
+            <div style={S.hint}>
+              Если voiceover есть, музыка играет на 15% громкости (фоном). Без voiceover — 50%.
+            </div>
+
             <button
               style={{ ...S.btnPrimary, ...(busy ? S.btnDisabled : {}) }}
               onClick={generate}
@@ -394,6 +437,7 @@ export default function PromoReelsAdminPage() {
                   const label =
                     step.name === "images" ? "AI-картинки" :
                     step.name === "screencast" ? "Скринкаст" :
+                    step.name === "voiceover" ? "Озвучка" :
                     step.name === "render" ? "Рендер видео" : step.name;
                   return (
                     <div key={i}>

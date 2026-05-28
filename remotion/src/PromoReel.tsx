@@ -13,6 +13,9 @@ export const promoReelSchema = z.object({
   accentColor: z.string(),
   screencastUrl: z.string().nullable(),
   voiceoverUrl: z.string().nullable(),
+  // Фоновая музыка. Тихая (volume 0.15) — чтобы не перекрывать voiceover.
+  // Если voiceover нет, музыка играет обычной громкости (0.5).
+  musicUrl: z.string().nullable().optional(),
   // AI-сгенерированные фоновые картинки. Если null — используется
   // градиент по умолчанию. Иначе картинка кладётся фоном с тёмным
   // оверлеем поверх для читаемости текста.
@@ -34,6 +37,7 @@ export const defaultPromoReelProps: PromoReelProps = {
   accentColor: "#22d3ee",
   screencastUrl: null,
   voiceoverUrl: null,
+  musicUrl: null,
   hookBgImageUrl: null,
   ctaBgImageUrl: null,
   brollImageUrls: [],
@@ -81,7 +85,14 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
         />
       </Sequence>
 
-      {props.voiceoverUrl ? <Audio src={props.voiceoverUrl} /> : null}
+      {/* Voiceover — на 1.0 громкости, главный звуковой слой. */}
+      {props.voiceoverUrl ? <Audio src={props.voiceoverUrl} volume={1} /> : null}
+      {/* Музыка — тихая (0.15) если есть voiceover, иначе 0.5.
+          В Remotion <Audio> миксуется автоматически — оба слоя играют
+          параллельно, ffmpeg склеит в финале. */}
+      {props.musicUrl ? (
+        <Audio src={props.musicUrl} volume={props.voiceoverUrl ? 0.15 : 0.5} />
+      ) : null}
     </AbsoluteFill>
   );
 };

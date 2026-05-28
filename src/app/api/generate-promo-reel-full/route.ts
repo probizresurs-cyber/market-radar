@@ -48,7 +48,7 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 
 interface StepReport {
-  name: "images" | "screencast" | "render";
+  name: "images" | "screencast" | "voiceover" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -143,8 +143,13 @@ export async function POST(req: Request) {
     const includeImages = body.includeImages !== false; // default true
     const includeScreencast = body.includeScreencast !== false; // default true
     const includeBroll = Boolean(body.includeBroll ?? false);
+    const includeVoiceover = Boolean(body.includeVoiceover ?? false);
+    const voiceId = body.voiceId ? String(body.voiceId) : null;
 
-    const voiceoverUrl = body.voiceoverUrl ? String(body.voiceoverUrl) : null;
+    // Внешние ассеты можно передать напрямую если они уже сгенерены
+    // или скачаны (например музыка из бесплатной библиотеки).
+    let voiceoverUrl = body.voiceoverUrl ? String(body.voiceoverUrl) : null;
+    const musicUrl = body.musicUrl ? String(body.musicUrl) : null;
 
     // ──────────────── Шаг 1: AI-картинки ────────────────
     let imagesData: ImagesData | null = null;
@@ -188,7 +193,34 @@ export async function POST(req: Request) {
       progress.push({ name: "screencast", status: "skipped", ms: 0 });
     }
 
-    // ──────────────── Шаг 3: финальный рендер ────────────────
+    // ──────────────── Шаг 3 (опц): voiceover через ElevenLabs ────────────────
+    // Делаем ТРЕТЬИМ — после картинок и скринкаста, чтобы остальные могли
+    // рендериться даже если voiceover упадёт (например ключ ElevenLabs
+    // протух). Голос можно догенерить отдельно и приклеить.
+    if (includeVoiceover && !voiceoverUrl) {
+      const stepT2 = Date.now();
+      const r = await callLocal<{ url: string }>(
+        "/api/generate-promo-voiceover",
+        { hookText, problemText, ctaText, voiceId },
+        req,
+        130_000,
+      );
+      const ms = Date.now() - stepT2;
+      if (r.ok && r.data) {
+        voiceoverUrl = r.data.url;
+        progress.push({ name: "voiceover", status: "ok", ms });
+      } else {
+        progress.push({ name: "voiceover", status: "failed", ms, error: r.error });
+      }
+    } else {
+      progress.push({
+        name: "voiceover",
+        status: voiceoverUrl ? "ok" : "skipped",
+        ms: 0,
+      });
+    }
+
+    // ──────────────── Шаг 4: финальный рендер ────────────────
     const stepT = Date.now();
     const renderR = await callLocal<RenderData>(
       "/api/render-promo-reel",
@@ -201,6 +233,7 @@ export async function POST(req: Request) {
         accentColor,
         screencastUrl: screencastData?.url ?? null,
         voiceoverUrl,
+        musicUrl,
         hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
         ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
         brollImageUrls: imagesData?.brollImageUrls ?? [],

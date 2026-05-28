@@ -53,6 +53,7 @@ interface RenderProps {
   accentColor: string;
   screencastUrl: string | null;
   voiceoverUrl: string | null;
+  musicUrl: string | null;
   // AI-картинки и b-roll — опциональные, если не переданы Remotion
   // покажет градиенты-фолбэки.
   hookBgImageUrl: string | null;
@@ -126,6 +127,7 @@ function parseProps(
     accentColor: String(body.accentColor ?? "#22d3ee"),
     screencastUrl: resolveMediaUrl(body.screencastUrl as string | null | undefined, assetsOrigin),
     voiceoverUrl: resolveMediaUrl(body.voiceoverUrl as string | null | undefined, assetsOrigin),
+    musicUrl: resolveMediaUrl(body.musicUrl as string | null | undefined, assetsOrigin),
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
