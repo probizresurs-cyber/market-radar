@@ -1,54 +1,68 @@
 /**
  * POST /api/generate-promo-images
  *
- * Генерирует 2-3 фоновые картинки для промо-рилса через существующий
- * Gemini-пайплайн (generate-image). Главная задача — превратить
- * base64-data-URL'ы (которые отдаёт Gemini) в обычные публичные URL'ы
- * в /public/promo-images/, чтобы:
+ * Генерирует 2-5 фоновых картинок для промо-рилса через OpenAI `gpt-image-2`
+ * (ChatGPT Images 2.0). Главная задача — превратить base64-data-URL'ы,
+ * которые отдаёт OpenAI, в обычные публичные URL'ы в /public/promo-images/,
+ * чтобы:
  *   1) не таскать многомегабайтные base64 в props.json при рендере
- *   2) Remotion-Chrome мог их прочитать через resolveMediaUrl как file://
+ *   2) Remotion-Chrome мог прочитать их через resolveMediaUrl как file://
  *
- * Промпты строятся по короткому описанию темы рилса (brandName, niche,
- * mainProblem). Можно либо дать всё руками, либо запустить с дефолтным
- * MarketRadar-промптом.
+ * Почему OpenAI, а не Gemini:
+ *   - gpt-image-2 даёт значительно лучшее качество композиции для премиум-
+ *     стилистики (cinematic, fintech, editorial)
+ *   - не выгорает free-tier как Gemini
+ *   - тот же OPENAI_API_KEY + OPENAI_BASE_URL (Cloudflare-прокси для VPS)
+ *     уже работают в проекте — никакой новой инфры
+ *
+ * Тайминги (quality=medium, format=portrait 1024×1536):
+ *   - 1 картинка: 40-60 сек
+ *   - 2 параллельно (hook+cta): ~60 сек
+ *   - 5 параллельно (+3 b-roll): ~70-90 сек (зависит от загрузки OpenAI)
+ *
+ * Все генерации параллельные — Promise.all. Если одна упала, остальные
+ * успешные всё равно возвращаются (composition умеет работать с частичным
+ * набором ассетов).
  *
  * Body:
  *   brandName     — название бренда (попадает в промпт hook'а)
  *   niche?        — ниша/индустрия (для контекста картинок)
  *   accentColor?  — hex, влияет на palette в промпте
- *   includeBroll? — true → ещё +3 b-roll картинки (по дольше, по дороже)
+ *   includeBroll? — true → ещё +3 b-roll картинки (по дольше)
+ *   quality?      — "low" | "medium" | "high"; default "medium"
  *
  * Returns:
  *   {
- *     ok: true,
- *     data: {
- *       hookBgImageUrl: "/promo-images/{jobId}-hook.png",
- *       ctaBgImageUrl:  "/promo-images/{jobId}-cta.png",
- *       brollImageUrls: [...] | undefined,
+ *     ok, data: {
  *       jobId,
- *       generatedInMs
+ *       hookBgImageUrl, ctaBgImageUrl,
+ *       brollImageUrls: [],
+ *       generatedInMs,
+ *       failures?: [{key, error}]
  *     }
  *   }
- *
- * Тяжёлый роут — каждая картинка 5-15 сек, 2-5 штук = 30-60 сек тотал.
- * maxDuration выставлен в 120.
  */
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { generateGeminiImage } from "@/lib/gemini";
+import { generateOpenAIImage } from "@/lib/openai-image";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// 180 сек — Promise.all 5 картинок quality=medium укладывается в 90с,
+// но на пике загрузки OpenAI может растянуться. С запасом.
+export const maxDuration = 180;
 
 const PROMO_IMAGES_DIR = "promo-images"; // относительно /public
 
+type ImageKey = "hook" | "cta" | "broll1" | "broll2" | "broll3";
+
 interface ImageSpec {
-  /** Ключ под которым картинка вернётся в ответе */
-  key: "hook" | "cta" | `broll${number}`;
+  key: ImageKey;
   prompt: string;
+  /** Качество per-картинка. У b-roll'а можно занизить — они мелкие декорации. */
+  quality: "low" | "medium" | "high";
 }
 
 function buildPrompts(opts: {
@@ -56,8 +70,9 @@ function buildPrompts(opts: {
   niche: string | null;
   accentColor: string;
   includeBroll: boolean;
+  baseQuality: "low" | "medium" | "high";
 }): ImageSpec[] {
-  const { brandName, niche, accentColor, includeBroll } = opts;
+  const { brandName, niche, accentColor, includeBroll, baseQuality } = opts;
   const nicheLine = niche ? `Industry context: ${niche}.` : "";
   const palette = `Color palette built around ${accentColor} as accent against deep navy / charcoal black. Cinematic, premium feel.`;
   const baseStyle =
@@ -66,26 +81,34 @@ function buildPrompts(opts: {
   const specs: ImageSpec[] = [
     {
       key: "hook",
+      quality: baseQuality,
       prompt: `${baseStyle} ${palette} ${nicheLine} Abstract concept of "overwhelmed marketer drowning in tabs and notifications": dim office lights, multiple glowing screens with chaotic data, hands on keyboard partially visible from below, sense of time pressure and exhaustion. Photorealistic with subtle bokeh. No people's faces visible.`,
     },
     {
       key: "cta",
+      quality: baseQuality,
       prompt: `${baseStyle} ${palette} ${nicheLine} Concept of "AI-powered marketing platform that saves time": serene dashboard glowing on a single sleek modern device (smartphone or tablet, screen content abstract), surrounded by softly floating data viz fragments — pie charts, bars, growth arrows — like a constellation. Triumphant, calm, premium fintech aesthetic. Brand atmosphere for ${brandName}.`,
     },
   ];
 
   if (includeBroll) {
+    // У b-roll'а понижаем quality до "low" — это маленькие декорации
+    // в углу, никто пиксели не считает. Скорость генерации ~2× выше.
+    const brollQuality: "low" = "low";
     specs.push(
       {
         key: "broll1",
+        quality: brollQuality,
         prompt: `${baseStyle} ${palette} Single dramatic close-up shot of a glowing growth-arrow / bar chart spike, abstract data visualization, electric blue and cyan tones, fast motion blur sense.`,
       },
       {
         key: "broll2",
+        quality: brollQuality,
         prompt: `${baseStyle} ${palette} Single shot: floating UI cards with charts and KPI numbers, holographic style, levitating against dark background, premium SaaS aesthetic.`,
       },
       {
         key: "broll3",
+        quality: brollQuality,
         prompt: `${baseStyle} ${palette} Single shot: stylized abstract icon of a target / bullseye made from light trails, futuristic, glowing with ${accentColor} core.`,
       },
     );
@@ -96,7 +119,7 @@ function buildPrompts(opts: {
 
 /**
  * Decode data:image/png;base64,... → Buffer, кидает Error при невалидном
- * формате.
+ * формате. OpenAI и Gemini оба возвращают data-URL'ы в этом формате.
  */
 function decodeDataUrl(dataUrl: string): { mimeType: string; buf: Buffer; ext: string } {
   const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
@@ -105,6 +128,38 @@ function decodeDataUrl(dataUrl: string): { mimeType: string; buf: Buffer; ext: s
   const buf = Buffer.from(match[2], "base64");
   const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
   return { mimeType, buf, ext };
+}
+
+interface SpecResult {
+  key: ImageKey;
+  url: string | null;
+  error: string | null;
+}
+
+/** Генерит одну картинку и пишет на диск. Не кидает наружу — возвращает
+ *  result-объект, чтобы Promise.all не убил остальные параллельные задачи. */
+async function generateOne(
+  spec: ImageSpec,
+  publicDir: string,
+  jobId: string,
+): Promise<SpecResult> {
+  try {
+    const r = await generateOpenAIImage({
+      prompt: spec.prompt,
+      format: "portrait", // 1024×1536, фигачит идеально под 9:16
+      quality: spec.quality,
+    });
+    if (!r.ok) {
+      return { key: spec.key, url: null, error: r.error };
+    }
+    const { buf, ext } = decodeDataUrl(r.imageUrl);
+    const fileName = `${jobId}-${spec.key}.${ext}`;
+    await writeFile(path.join(publicDir, fileName), buf);
+    return { key: spec.key, url: `/${PROMO_IMAGES_DIR}/${fileName}`, error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { key: spec.key, url: null, error: msg };
+  }
 }
 
 export async function POST(req: Request) {
@@ -119,37 +174,32 @@ export async function POST(req: Request) {
     const niche = body.niche ? String(body.niche).trim() : null;
     const accentColor = String(body.accentColor ?? "#22d3ee").trim();
     const includeBroll = Boolean(body.includeBroll ?? false);
+    const rawQuality = String(body.quality ?? "medium").trim();
+    const baseQuality: "low" | "medium" | "high" =
+      rawQuality === "low" || rawQuality === "high" ? rawQuality : "medium";
 
-    const specs = buildPrompts({ brandName, niche, accentColor, includeBroll });
+    const specs = buildPrompts({ brandName, niche, accentColor, includeBroll, baseQuality });
 
     const jobId = `promo-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const publicDir = path.join(process.cwd(), "public", PROMO_IMAGES_DIR);
     await mkdir(publicDir, { recursive: true });
 
-    const results: Record<string, string> = {};
-    const failures: Array<{ key: string; error: string }> = [];
+    // Параллельная генерация. Если одна упала — остальные продолжатся.
+    const results = await Promise.all(specs.map((s) => generateOne(s, publicDir, jobId)));
 
-    // Генерим последовательно, а не параллельно — Gemini-прокси через
-    // Cloudflare периодически ругается на параллельные хвосты,
-    // последовательно гарантированно проходит.
-    for (const spec of specs) {
-      const r = await generateGeminiImage({ prompt: spec.prompt, referenceImages: [] });
-      if (!r.ok) {
-        failures.push({ key: spec.key, error: r.error ?? "unknown" });
-        continue;
-      }
-      const { buf, ext } = decodeDataUrl(r.imageUrl);
-      const fileName = `${jobId}-${spec.key}.${ext}`;
-      await writeFile(path.join(publicDir, fileName), buf);
-      results[spec.key] = `/${PROMO_IMAGES_DIR}/${fileName}`;
+    const byKey: Partial<Record<ImageKey, string>> = {};
+    const failures: Array<{ key: string; error: string }> = [];
+    for (const r of results) {
+      if (r.url) byKey[r.key] = r.url;
+      else if (r.error) failures.push({ key: r.key, error: r.error });
     }
 
-    // Логируем расход — по количеству успешных картинок
-    const successCount = Object.keys(results).length;
+    const successCount = Object.keys(byKey).length;
+
     if (successCount > 0) {
       await access.log({
         endpoint: "generate-promo-images",
-        model: "gemini-2.5-flash-image",
+        model: "gpt-image-2",
         success: true,
         durationMs: Date.now() - t0,
       });
@@ -157,17 +207,17 @@ export async function POST(req: Request) {
 
     const data = {
       jobId,
-      hookBgImageUrl: results.hook ?? null,
-      ctaBgImageUrl: results.cta ?? null,
-      brollImageUrls: [results.broll1, results.broll2, results.broll3].filter(Boolean) as string[],
+      hookBgImageUrl: byKey.hook ?? null,
+      ctaBgImageUrl: byKey.cta ?? null,
+      brollImageUrls: [byKey.broll1, byKey.broll2, byKey.broll3].filter(Boolean) as string[],
       generatedInMs: Date.now() - t0,
       failures: failures.length ? failures : undefined,
     };
 
-    // Если ничего не сгенерилось — это ошибка
+    // Если ничего не сгенерилось — это полная ошибка пайплайна
     if (successCount === 0) {
       return NextResponse.json(
-        { ok: false, error: "Gemini не сгенерил ни одной картинки", failures, data },
+        { ok: false, error: "OpenAI не сгенерил ни одной картинки", failures, data },
         { status: 502 },
       );
     }
