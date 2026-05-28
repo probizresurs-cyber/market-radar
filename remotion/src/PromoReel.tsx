@@ -13,6 +13,14 @@ export const promoReelSchema = z.object({
   accentColor: z.string(),
   screencastUrl: z.string().nullable(),
   voiceoverUrl: z.string().nullable(),
+  // AI-сгенерированные фоновые картинки. Если null — используется
+  // градиент по умолчанию. Иначе картинка кладётся фоном с тёмным
+  // оверлеем поверх для читаемости текста.
+  hookBgImageUrl: z.string().nullable().optional(),
+  ctaBgImageUrl: z.string().nullable().optional(),
+  // B-roll картинки (опц): плавающие декоративные изображения в
+  // ProductDemoScene. Максимум 3 штуки имеют смысл.
+  brollImageUrls: z.array(z.string()).optional(),
 });
 
 export type PromoReelProps = z.infer<typeof promoReelSchema>;
@@ -26,6 +34,9 @@ export const defaultPromoReelProps: PromoReelProps = {
   accentColor: "#22d3ee",
   screencastUrl: null,
   voiceoverUrl: null,
+  hookBgImageUrl: null,
+  ctaBgImageUrl: null,
+  brollImageUrls: [],
 };
 
 const HOOK_SEC = 5;
@@ -44,6 +55,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
         <HookScene
           text={props.hookText}
           accentColor={props.accentColor}
+          bgImageUrl={props.hookBgImageUrl ?? null}
         />
       </Sequence>
 
@@ -53,6 +65,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           screencastUrl={props.screencastUrl}
           accentColor={props.accentColor}
           brandName={props.brandName}
+          brollImageUrls={props.brollImageUrls ?? []}
         />
       </Sequence>
 
@@ -64,6 +77,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           text={props.ctaText}
           brandName={props.brandName}
           accentColor={props.accentColor}
+          bgImageUrl={props.ctaBgImageUrl ?? null}
         />
       </Sequence>
 

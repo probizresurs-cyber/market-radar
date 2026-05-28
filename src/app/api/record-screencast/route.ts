@@ -30,8 +30,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
-  const auth = await checkAiAccess(req);
-  if (!auth.ok) return auth.response;
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
 
   const t0 = Date.now();
   try {

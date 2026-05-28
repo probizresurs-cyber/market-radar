@@ -53,6 +53,11 @@ interface RenderProps {
   accentColor: string;
   screencastUrl: string | null;
   voiceoverUrl: string | null;
+  // AI-картинки и b-roll — опциональные, если не переданы Remotion
+  // покажет градиенты-фолбэки.
+  hookBgImageUrl: string | null;
+  ctaBgImageUrl: string | null;
+  brollImageUrls: string[];
 }
 
 /**
@@ -92,6 +97,14 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
   if (problemText.length > 300) return { error: "problemText > 300 символов" };
   if (ctaText.length > 150) return { error: "ctaText > 150 символов" };
 
+  // brollImageUrls — массив, прогоняем каждый URL через resolveMediaUrl,
+  // отбрасываем null'ы (не показываем кривые ссылки).
+  const brollRaw = Array.isArray(body.brollImageUrls) ? body.brollImageUrls : [];
+  const brollImageUrls = brollRaw
+    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null))
+    .filter((u): u is string => u !== null)
+    .slice(0, 3); // максимум 3, дальше слоты заняты
+
   return {
     hookText,
     problemText,
@@ -101,6 +114,9 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
     accentColor: String(body.accentColor ?? "#22d3ee"),
     screencastUrl: resolveMediaUrl(body.screencastUrl as string | null | undefined),
     voiceoverUrl: resolveMediaUrl(body.voiceoverUrl as string | null | undefined),
+    hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined),
+    ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined),
+    brollImageUrls,
   };
 }
 

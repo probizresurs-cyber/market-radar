@@ -18,6 +18,7 @@
  */
 import {
   AbsoluteFill,
+  Img,
   OffthreadVideo,
   interpolate,
   spring,
@@ -30,6 +31,9 @@ interface Props {
   screencastUrl: string | null;
   accentColor: string;
   brandName: string;
+  /** B-roll картинки. Появляются как плавающие декорации по углам кадра
+   *  в разных отрезках центральной сцены. До 3 штук имеют смысл. */
+  brollImageUrls?: string[];
 }
 
 const STEPS = [
@@ -51,6 +55,7 @@ export const ProductDemoScene: React.FC<Props> = ({
   screencastUrl,
   accentColor,
   brandName,
+  brollImageUrls = [],
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -133,6 +138,10 @@ export const ProductDemoScene: React.FC<Props> = ({
         </PhoneFrame>
       </div>
 
+      {/* B-roll floating-картинки. Каждая выезжает в свой отрезок,
+          в свой угол, и плавно исчезает. Без них ничего не ломается. */}
+      <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
+
       {/* Floating step-карточки справа */}
       <div
         style={{
@@ -181,6 +190,76 @@ export const ProductDemoScene: React.FC<Props> = ({
         })}
       </div>
     </AbsoluteFill>
+  );
+};
+
+/**
+ * B-roll layer — до 3 декоративных картинок по углам кадра.
+ * Каждая занимает свой временной слот:
+ *   #0: 3..8 сек, верх-лево
+ *   #1: 9..14 сек, верх-право (под step'ами не залезаем)
+ *   #2: 15..20 сек, низ-лево
+ * Размер: 220×220 с небольшим тилтом и тенью. Fade-in 12 кадров,
+ * hold, fade-out 12 кадров.
+ */
+const BROLL_SLOTS: Array<{
+  startSec: number;
+  durSec: number;
+  x: number;
+  y: number;
+  rotate: number;
+}> = [
+  { startSec: 3, durSec: 5, x: 30, y: 240, rotate: -6 },
+  { startSec: 9, durSec: 5, x: 30, y: 1380, rotate: 4 },
+  { startSec: 15, durSec: 5, x: 820, y: 1420, rotate: -3 },
+];
+
+const BrollLayer: React.FC<{
+  urls: string[];
+  accentColor: string;
+  sec: number;
+  fps: number;
+  frame: number;
+}> = ({ urls, accentColor, fps, frame }) => {
+  if (!urls.length) return null;
+  return (
+    <>
+      {urls.slice(0, 3).map((url, i) => {
+        const slot = BROLL_SLOTS[i];
+        if (!slot) return null;
+        const start = slot.startSec * fps;
+        const end = (slot.startSec + slot.durSec) * fps;
+        const fadeFrames = 12;
+        const op = interpolate(
+          frame,
+          [start, start + fadeFrames, end - fadeFrames, end],
+          [0, 1, 1, 0],
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+        );
+        if (op <= 0) return null;
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: slot.x,
+              top: slot.y,
+              width: 220,
+              height: 220,
+              opacity: op,
+              transform: `rotate(${slot.rotate}deg)`,
+              borderRadius: 18,
+              overflow: "hidden",
+              border: `3px solid ${accentColor}`,
+              boxShadow: `0 16px 40px rgba(0,0,0,0.6), 0 0 24px ${accentColor}55`,
+              background: "#0a0e1a",
+            }}
+          >
+            <Img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        );
+      })}
+    </>
   );
 };
 
