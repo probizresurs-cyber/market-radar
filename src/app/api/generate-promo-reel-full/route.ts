@@ -156,20 +156,42 @@ export async function POST(req: Request) {
       return Math.max(10, Math.min(90, Math.round(n)));
     })();
 
-    // Сколько b-roll картинок сгенерировать. Считаем по правилу
-    // «1 картинка на 5 сек demo-сцены»:
-    //  - При full-broll режиме (нет screencast'а) картинки идут по
-    //    очереди full-screen, нужно ровно столько чтобы покрыть demo.
-    //  - При corner-режиме (есть screencast) у нас 3 слота-угла, всегда 3.
-    // Минимум 1, максимум 8 (limit OpenAI квоты).
+    // Сколько b-roll картинок и/или стоковых видео сгенерировать. Логика
+    // зависит от комбинации флагов:
+    //
+    // Corner-режим (есть screencast):
+    //   includeBroll=true → 3 AI-картинки по углам. Stock-видео игнорим
+    //   (в углах видео избыточно, гифки в углах = визуальный шум).
+    //
+    // Full-broll режим (нет screencast'а), сколько слотов всего:
+    //   totalSlots = ceil(demoSec / 5), min 1, max 8
+    //
+    //   Только AI-broll → brollCount = totalSlots, stockCount = 0
+    //   Только стоки    → brollCount = 0, stockCount = totalSlots
+    //   ОБА включены    → 50/50 микс. Stocks получают +1 при нечётности
+    //                     (они задают темп и закрывают сцену лучше)
     const hookSec = Math.max(3, Math.round(videoDurationSec * 0.17));
     const ctaSec = Math.max(3, Math.round(videoDurationSec * 0.17));
     const demoSec = Math.max(5, videoDurationSec - hookSec - ctaSec);
-    const brollCount = includeBroll
-      ? includeScreencast
-        ? 3 // corner-режим: всегда 3 угла
-        : Math.max(1, Math.min(8, Math.ceil(demoSec / 5))) // full-broll: каждые 5 сек
-      : 0;
+    const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+
+    let brollCount = 0;
+    let stockCount = 0;
+    if (includeScreencast) {
+      // Phone-frame режим: только corner-broll'ы, видео не нужны.
+      brollCount = includeBroll ? 3 : 0;
+    } else {
+      // Full-broll режим
+      if (useStockVideos && includeBroll) {
+        // 50/50 микс. Округление вверх для стоков.
+        stockCount = Math.ceil(totalSlots / 2);
+        brollCount = Math.floor(totalSlots / 2);
+      } else if (useStockVideos) {
+        stockCount = totalSlots;
+      } else if (includeBroll) {
+        brollCount = totalSlots;
+      }
+    }
     const voiceId = body.voiceId ? String(body.voiceId) : null;
 
     // Внешние ассеты можно передать напрямую если они уже сгенерены
@@ -199,13 +221,10 @@ export async function POST(req: Request) {
     }
 
     // ──────────────── Шаг 1.5 (опц): стоковые видео Pexels ────────────────
-    // Делаем СРАЗУ после картинок (или вместо них), потому что Pexels-видео
-    // подменяет b-roll-картинки в full-broll режиме. Считаем нужное кол-во
-    // как и для broll'а — 1 на 5 сек demo.
+    // stockCount вычислили выше — учитывает 50/50 микс если включён и broll.
     let stockVideoUrls: string[] = [];
-    if (useStockVideos) {
+    if (useStockVideos && stockCount > 0) {
       const stepT = Date.now();
-      const stockCount = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
       const r = await callLocal<{ urls: string[] }>(
         "/api/fetch-stock-videos",
         { query: stockVideoQuery, count: stockCount },

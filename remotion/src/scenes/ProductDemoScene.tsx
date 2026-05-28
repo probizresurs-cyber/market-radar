@@ -64,9 +64,18 @@ export const ProductDemoScene: React.FC<Props> = ({
   brollImageUrls = [],
   stockVideoUrls = [],
 }) => {
-  // Что показывать в full-broll режиме:
-  // стоковые видео имеют приоритет (выглядят дороже) → если нет, AI-картинки.
-  const fullscreenMedia = stockVideoUrls.length > 0 ? stockVideoUrls : brollImageUrls;
+  // Что показывать в full-broll режиме. Логика выбора:
+  //  - Есть И стоки И AI-картинки → чередуем через один (stock, image, stock, image...)
+  //    Стоки в нечётных позициях — открывают и закрывают сцену, выглядят дороже.
+  //  - Только стоки → они
+  //  - Только AI-картинки → они
+  //  - Ничего → пусто (фолбэк отрендерит phone-frame)
+  const fullscreenMedia =
+    stockVideoUrls.length > 0 && brollImageUrls.length > 0
+      ? interleaveMedia(stockVideoUrls, brollImageUrls)
+      : stockVideoUrls.length > 0
+        ? stockVideoUrls
+        : brollImageUrls;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const sec = frame / fps;
@@ -244,6 +253,23 @@ export const ProductDemoScene: React.FC<Props> = ({
     </AbsoluteFill>
   );
 };
+
+/**
+ * Чередует элементы двух массивов через один. Стоки идут первыми в каждой
+ * паре — они задают темп, AI-картинки заполняют между. Если массивы разной
+ * длины, остатки прицепляются в конец без перемешивания.
+ *
+ * interleaveMedia([s1,s2,s3], [i1,i2]) → [s1, i1, s2, i2, s3]
+ */
+function interleaveMedia<T>(stocks: T[], images: T[]): T[] {
+  const result: T[] = [];
+  const maxLen = Math.max(stocks.length, images.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < stocks.length) result.push(stocks[i]);
+    if (i < images.length) result.push(images[i]);
+  }
+  return result;
+}
 
 /**
  * Full-screen B-roll режим — для роликов БЕЗ скринкаста. Картинки/видео

@@ -458,7 +458,7 @@ export default function PromoReelsAdminPage() {
                 onChange={(e) => saveForm({ ...form, useStockVideos: e.target.checked })}
               />
               <label htmlFor="useStock" style={S.checkboxLabel}>
-                Стоковые видео из Pexels (заменяет b-roll)
+                Стоковые видео из Pexels {form.includeBroll ? "(микс 50/50 с b-roll)" : "(заменяет b-roll)"}
               </label>
             </div>
 
@@ -478,20 +478,44 @@ export default function PromoReelsAdminPage() {
               </>
             ) : null}
 
-            {form.includeBroll ? (() => {
+            {(form.includeBroll || form.useStockVideos) ? (() => {
               const total = form.videoDurationSec;
               const hookSec = Math.max(3, Math.round(total * 0.17));
               const ctaSec = Math.max(3, Math.round(total * 0.17));
               const demoSec = Math.max(5, total - hookSec - ctaSec);
-              const brollCount = form.includeScreencast
-                ? 3
-                : Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+              const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+
+              // Зеркалим логику оркестратора
+              let brollCount = 0;
+              let stockCount = 0;
+              if (form.includeScreencast) {
+                brollCount = form.includeBroll ? 3 : 0;
+              } else {
+                if (form.useStockVideos && form.includeBroll) {
+                  stockCount = Math.ceil(totalSlots / 2);
+                  brollCount = Math.floor(totalSlots / 2);
+                } else if (form.useStockVideos) {
+                  stockCount = totalSlots;
+                } else if (form.includeBroll) {
+                  brollCount = totalSlots;
+                }
+              }
+
+              const mainTotal = stockCount + brollCount;
+              if (mainTotal === 0) return null;
+
+              const mode = form.includeScreencast ? "по углам phone-frame" : "full-screen в demo";
+              const secPerSlot = form.includeScreencast ? null : Math.round(demoSec / mainTotal);
+
               return (
                 <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
-                  💡 {brollCount} картин{brollCount === 1 ? "ка" : brollCount < 5 ? "ки" : "ок"}{" "}
-                  {form.includeScreencast
-                    ? "по углам phone-frame"
-                    : `full-screen в demo (по ${Math.round(demoSec / brollCount)} сек на кадр, Ken-burns)`}
+                  💡{" "}
+                  {stockCount > 0 && brollCount > 0
+                    ? `${stockCount} стоковых видео + ${brollCount} AI-картин${brollCount === 1 ? "ка" : "ок"} ${mode}, чередуются`
+                    : stockCount > 0
+                      ? `${stockCount} стоковых видео ${mode}`
+                      : `${brollCount} AI-картин${brollCount === 1 ? "ка" : "ок"} ${mode}`}
+                  {secPerSlot ? `, по ${secPerSlot} сек на кадр` : ""}
                 </div>
               );
             })() : null}
