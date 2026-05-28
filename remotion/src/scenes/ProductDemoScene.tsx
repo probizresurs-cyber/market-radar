@@ -31,9 +31,12 @@ interface Props {
   screencastUrl: string | null;
   accentColor: string;
   brandName: string;
-  /** B-roll картинки. Появляются как плавающие декорации по углам кадра
-   *  в разных отрезках центральной сцены. До 3 штук имеют смысл. */
+  /** B-roll AI-картинки. Появляются как плавающие декорации по углам кадра
+   *  при наличии screencast'а ИЛИ full-screen визуалом если screencast'а нет. */
   brollImageUrls?: string[];
+  /** Стоковые видео (Pexels). В full-broll режиме приоритетно над brollImageUrls
+   *  — реальное cinematic движение выглядит лучше AI-картинок с Ken-burns. */
+  stockVideoUrls?: string[];
 }
 
 const STEPS = [
@@ -59,7 +62,11 @@ export const ProductDemoScene: React.FC<Props> = ({
   accentColor,
   brandName,
   brollImageUrls = [],
+  stockVideoUrls = [],
 }) => {
+  // Что показывать в full-broll режиме:
+  // стоковые видео имеют приоритет (выглядят дороже) → если нет, AI-картинки.
+  const fullscreenMedia = stockVideoUrls.length > 0 ? stockVideoUrls : brollImageUrls;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const sec = frame / fps;
@@ -142,9 +149,9 @@ export const ProductDemoScene: React.FC<Props> = ({
        *  3) Ничего нет → phone-frame с анимированным fallback-дашбордом
        *     (минимальный demo для тестов)
        */}
-      {!screencastUrl && brollImageUrls.length > 0 ? (
+      {!screencastUrl && fullscreenMedia.length > 0 ? (
         <BrollFullscreen
-          urls={brollImageUrls}
+          urls={fullscreenMedia}
           accentColor={accentColor}
           frame={frame}
           fps={fps}
@@ -239,10 +246,17 @@ export const ProductDemoScene: React.FC<Props> = ({
 };
 
 /**
- * Full-screen B-roll режим — для роликов БЕЗ скринкаста. Картинки занимают
- * всю demo-зону (по центру с обводкой в брендовый цвет), сменяются с
- * кросс-fade'ом, на каждой Ken-burns (медленный zoom). Длительность каждой
- * картинки делится поровну от длительности demo-сцены.
+ * Full-screen B-roll режим — для роликов БЕЗ скринкаста. Картинки/видео
+ * занимают ВСЁ пространство кадра 1080×1920 (а не вписаны в phone-frame!),
+ * сменяются с кросс-fade'ом. На каждой — Ken-burns с РАЗНОЙ траекторией
+ * движения (zoom-in, zoom-out, pan-left, pan-right, diagonal) — чтобы серия
+ * не смотрелась монотонно.
+ *
+ * Сверху накладывается тёмный gradient-оверлей чтобы заголовок и step-badges
+ * читались поверх любого визуала.
+ *
+ * Принимает либо картинки (Img), либо видео (OffthreadVideo) — определяется
+ * по расширению URL'а.
  */
 const BrollFullscreen: React.FC<{
   urls: string[];
@@ -251,57 +265,97 @@ const BrollFullscreen: React.FC<{
   fps: number;
   totalFrames: number;
   opacity: number;
-}> = ({ urls, accentColor, frame, fps, totalFrames, opacity }) => {
+}> = ({ urls, accentColor, frame, totalFrames, opacity }) => {
   if (!urls.length) return null;
   const segmentFrames = totalFrames / urls.length;
   const fadeFrames = Math.min(20, segmentFrames * 0.2);
+
+  // 5 разных Ken-burns траекторий. Циклятся по индексу картинки —
+  // даже на 8 картинках в серии мы не повторим одну и ту же 2 раза подряд.
+  const motionPatterns = [
+    { scaleFrom: 1.05, scaleTo: 1.25, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 }, // zoom-in center
+    { scaleFrom: 1.25, scaleTo: 1.05, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 }, // zoom-out center
+    { scaleFrom: 1.2, scaleTo: 1.2, xFrom: -40, xTo: 40, yFrom: 0, yTo: 0 }, // pan right
+    { scaleFrom: 1.2, scaleTo: 1.2, xFrom: 40, xTo: -40, yFrom: 0, yTo: 0 }, // pan left
+    { scaleFrom: 1.1, scaleTo: 1.3, xFrom: -30, xTo: 30, yFrom: -20, yTo: 20 }, // diagonal zoom
+  ];
+
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: PHONE_X,
-        top: PHONE_Y,
-        width: PHONE_W,
-        height: PHONE_H,
-        opacity,
-        borderRadius: 40,
-        overflow: "hidden",
-        border: `3px solid ${accentColor}`,
-        boxShadow: `0 0 80px ${accentColor}66, 0 30px 80px rgba(0,0,0,0.5)`,
-      }}
-    >
+    <AbsoluteFill style={{ opacity }}>
       {urls.map((url, i) => {
         const start = i * segmentFrames;
         const end = start + segmentFrames;
         if (frame < start - fadeFrames || frame > end + fadeFrames) return null;
+
         const op = interpolate(
           frame,
           [start - fadeFrames, start, end - fadeFrames, end],
           [0, 1, 1, 0],
           { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
-        // Ken-burns: каждая картинка свой стартовый scale + направление
-        const scale = interpolate(
-          frame,
-          [start, end],
-          i % 2 === 0 ? [1.05, 1.2] : [1.2, 1.05],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-        );
+
+        const motion = motionPatterns[i % motionPatterns.length];
+        const scale = interpolate(frame, [start, end], [motion.scaleFrom, motion.scaleTo], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const x = interpolate(frame, [start, end], [motion.xFrom, motion.xTo], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const y = interpolate(frame, [start, end], [motion.yFrom, motion.yTo], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+
+        const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
+
         return (
-          <AbsoluteFill key={i} style={{ opacity: op }}>
-            <Img
-              src={url}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: `scale(${scale})`,
-              }}
-            />
+          <AbsoluteFill key={i} style={{ opacity: op, overflow: "hidden" }}>
+            {isVideo ? (
+              <OffthreadVideo
+                src={url}
+                muted
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transform: `scale(${scale}) translate(${x}px, ${y}px)`,
+                }}
+              />
+            ) : (
+              <Img
+                src={url}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transform: `scale(${scale}) translate(${x}px, ${y}px)`,
+                }}
+              />
+            )}
           </AbsoluteFill>
         );
       })}
-    </div>
+
+      {/* Тёмный gradient-оверлей — чтобы текст и badges были читаемы
+          поверх любого визуала. Темнее сверху (где title) и снизу (где
+          могут быть подписи), светлее в центре где главный визуал. */}
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,14,26,0.75) 0%, rgba(10,14,26,0.3) 30%, rgba(10,14,26,0.3) 70%, rgba(10,14,26,0.75) 100%)",
+        }}
+      />
+
+      {/* Тонкая виньетка по краям для cinematic ощущения */}
+      <AbsoluteFill
+        style={{
+          background: `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)`,
+          boxShadow: `inset 0 0 200px ${accentColor}22`,
+        }}
+      />
+    </AbsoluteFill>
   );
 };
 

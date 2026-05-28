@@ -48,7 +48,7 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 
 interface StepReport {
-  name: "images" | "screencast" | "voiceover" | "render";
+  name: "images" | "screencast" | "voiceover" | "stock-videos" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -144,6 +144,10 @@ export async function POST(req: Request) {
     const includeScreencast = body.includeScreencast !== false; // default true
     const includeBroll = Boolean(body.includeBroll ?? false);
     const includeVoiceover = Boolean(body.includeVoiceover ?? false);
+    // stockVideoQuery — если задан, оркестратор скачает портретные видео
+    // из Pexels и подставит вместо b-roll'а (приоритетно). Английская фраза.
+    const stockVideoQuery = String(body.stockVideoQuery ?? "").trim();
+    const useStockVideos = Boolean(body.useStockVideos ?? false) && stockVideoQuery.length > 0;
 
     // Длительность ролика. Клампим 10..90. По умолчанию 30.
     const videoDurationSec = (() => {
@@ -192,6 +196,31 @@ export async function POST(req: Request) {
       }
     } else {
       progress.push({ name: "images", status: "skipped", ms: 0 });
+    }
+
+    // ──────────────── Шаг 1.5 (опц): стоковые видео Pexels ────────────────
+    // Делаем СРАЗУ после картинок (или вместо них), потому что Pexels-видео
+    // подменяет b-roll-картинки в full-broll режиме. Считаем нужное кол-во
+    // как и для broll'а — 1 на 5 сек demo.
+    let stockVideoUrls: string[] = [];
+    if (useStockVideos) {
+      const stepT = Date.now();
+      const stockCount = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+      const r = await callLocal<{ urls: string[] }>(
+        "/api/fetch-stock-videos",
+        { query: stockVideoQuery, count: stockCount },
+        req,
+        190_000, // 190 сек — fetch-stock-videos.maxDuration = 180
+      );
+      const ms = Date.now() - stepT;
+      if (r.ok && r.data) {
+        stockVideoUrls = r.data.urls ?? [];
+        progress.push({ name: "stock-videos", status: "ok", ms });
+      } else {
+        progress.push({ name: "stock-videos", status: "failed", ms, error: r.error });
+      }
+    } else {
+      progress.push({ name: "stock-videos", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 2: скринкаст ────────────────
@@ -263,6 +292,7 @@ export async function POST(req: Request) {
         hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
         ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
         brollImageUrls: imagesData?.brollImageUrls ?? [],
+        stockVideoUrls,
         videoDurationSec: body.videoDurationSec,
       },
       req,

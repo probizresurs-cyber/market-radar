@@ -59,6 +59,7 @@ interface RenderProps {
   hookBgImageUrl: string | null;
   ctaBgImageUrl: string | null;
   brollImageUrls: string[];
+  stockVideoUrls: string[];
   videoDurationSec: number;
 }
 
@@ -113,11 +114,20 @@ function parseProps(
 
   // brollImageUrls — массив, прогоняем каждый URL через resolveMediaUrl,
   // отбрасываем null'ы (не показываем кривые ссылки).
+  // brollImageUrls (AI-картинки) — раньше cap'или 3, но теперь в full-broll
+  // режиме может приходить до 8. Cap поднимаем до 8.
   const brollRaw = Array.isArray(body.brollImageUrls) ? body.brollImageUrls : [];
   const brollImageUrls = brollRaw
     .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
     .filter((u): u is string => u !== null)
-    .slice(0, 3); // максимум 3, дальше слоты заняты
+    .slice(0, 8);
+
+  // stockVideoUrls (Pexels). В full-broll режиме приоритетно над b-roll'ом.
+  const stockRaw = Array.isArray(body.stockVideoUrls) ? body.stockVideoUrls : [];
+  const stockVideoUrls = stockRaw
+    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
+    .filter((u): u is string => u !== null)
+    .slice(0, 8);
 
   return {
     hookText,
@@ -132,6 +142,7 @@ function parseProps(
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
+    stockVideoUrls,
     // Длительность ролика. Клампим 10..90, дефолт 30.
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);

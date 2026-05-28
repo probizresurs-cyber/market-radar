@@ -34,7 +34,7 @@ interface ReelHistoryItem {
 }
 
 interface StepReport {
-  name: "images" | "screencast" | "voiceover" | "render";
+  name: "images" | "screencast" | "voiceover" | "stock-videos" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -151,6 +151,8 @@ const DEFAULT_FORM = {
   includeVoiceover: false,
   voiceId: "",
   voiceoverScript: "",
+  useStockVideos: false,
+  stockVideoQuery: "",
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
@@ -213,6 +215,7 @@ export default function PromoReelsAdminPage() {
     setResult(null);
     setProgress([
       { name: "images", status: "skipped", ms: 0 },
+      { name: "stock-videos", status: "skipped", ms: 0 },
       { name: "screencast", status: "skipped", ms: 0 },
       { name: "voiceover", status: "skipped", ms: 0 },
       { name: "render", status: "skipped", ms: 0 },
@@ -237,6 +240,8 @@ export default function PromoReelsAdminPage() {
           includeVoiceover: form.includeVoiceover,
           voiceId: form.voiceId || undefined,
           voiceoverScript: form.voiceoverScript || undefined,
+          useStockVideos: form.useStockVideos,
+          stockVideoQuery: form.stockVideoQuery || undefined,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -444,6 +449,35 @@ export default function PromoReelsAdminPage() {
                 B-roll картинки {form.includeScreencast ? "в углах" : "full-screen фоном"} (+3 картинки, +30 сек)
               </label>
             </div>
+            <div style={S.row}>
+              <input
+                type="checkbox"
+                style={S.checkbox}
+                id="useStock"
+                checked={form.useStockVideos}
+                onChange={(e) => saveForm({ ...form, useStockVideos: e.target.checked })}
+              />
+              <label htmlFor="useStock" style={S.checkboxLabel}>
+                Стоковые видео из Pexels (заменяет b-roll)
+              </label>
+            </div>
+
+            {form.useStockVideos ? (
+              <>
+                <label style={S.label}>Поисковый запрос (английский)</label>
+                <input
+                  style={S.input}
+                  value={form.stockVideoQuery}
+                  onChange={(e) => saveForm({ ...form, stockVideoQuery: e.target.value })}
+                  placeholder="например: business analytics, marketing dashboard, data visualization"
+                />
+                <div style={S.hint}>
+                  Pexels плохо понимает русский — пиши на английском. Возьмёт portrait-видео
+                  с подходящей продолжительностью. Заменяет AI-картинки в full-broll режиме.
+                </div>
+              </>
+            ) : null}
+
             {form.includeBroll ? (() => {
               const total = form.videoDurationSec;
               const hookSec = Math.max(3, Math.round(total * 0.17));
@@ -545,6 +579,7 @@ export default function PromoReelsAdminPage() {
                     "#7c3aed";
                   const label =
                     step.name === "images" ? "AI-картинки" :
+                    step.name === "stock-videos" ? "Стоковые видео (Pexels)" :
                     step.name === "screencast" ? "Скринкаст" :
                     step.name === "voiceover" ? "Озвучка" :
                     step.name === "render" ? "Рендер видео" : step.name;

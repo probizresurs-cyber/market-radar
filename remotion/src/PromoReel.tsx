@@ -24,6 +24,10 @@ export const promoReelSchema = z.object({
   // B-roll картинки (опц): плавающие декоративные изображения в
   // ProductDemoScene. Максимум 3 штуки имеют смысл.
   brollImageUrls: z.array(z.string()).optional(),
+  // Стоковые видео из Pexels (опц). Если переданы — В full-broll режиме
+  // показываются ВМЕСТО brollImageUrls. Cinematic движение из коробки,
+  // без Ken-burns костылей. Видео автоматически обрезаются по слоту.
+  stockVideoUrls: z.array(z.string()).optional(),
   // Длительность всего ролика в секундах. Перебирается в Root через
   // calculateMetadata. Сцены пропорциональны: hook ~17%, demo ~66%, CTA ~17%.
   // Допустимо 10..90 сек. Дефолт 30.
@@ -45,6 +49,7 @@ export const defaultPromoReelProps: PromoReelProps = {
   hookBgImageUrl: null,
   ctaBgImageUrl: null,
   brollImageUrls: [],
+  stockVideoUrls: [],
   videoDurationSec: 30,
 };
 
@@ -85,6 +90,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           accentColor={props.accentColor}
           brandName={props.brandName}
           brollImageUrls={props.brollImageUrls ?? []}
+          stockVideoUrls={props.stockVideoUrls ?? []}
         />
       </Sequence>
 
