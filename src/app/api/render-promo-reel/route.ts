@@ -55,6 +55,29 @@ interface RenderProps {
   voiceoverUrl: string | null;
 }
 
+/**
+ * Превращает URL для медиа-ассета (видео/аудио) в формат, который Remotion
+ * сможет прочитать при headless-рендере:
+ *  - http(s):// — оставляем как есть, Chrome скачает
+ *  - /screencasts/xxx.mp4 или /voiceover/xxx.mp3 — относительный путь
+ *    к статике в /public; конвертим в file:// чтобы не гонять HTTP-loopback
+ *  - file:// — оставляем как есть
+ *  - всё остальное — null (на всякий случай не передаём кривое)
+ */
+function resolveMediaUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  if (s.startsWith("file://")) return s;
+  if (s.startsWith("/")) {
+    // Относительный к /public — резолвим в абсолютный file://
+    const abs = path.join(process.cwd(), "public", s.slice(1));
+    return `file://${abs.split(path.sep).join("/")}`;
+  }
+  return null;
+}
+
 function parseProps(body: Record<string, unknown>): RenderProps | { error: string } {
   const hookText = String(body.hookText ?? "").trim();
   const problemText = String(body.problemText ?? "").trim();
@@ -76,8 +99,8 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
     brandName,
     brandColor: String(body.brandColor ?? "#0a0e1a"),
     accentColor: String(body.accentColor ?? "#22d3ee"),
-    screencastUrl: body.screencastUrl ? String(body.screencastUrl) : null,
-    voiceoverUrl: body.voiceoverUrl ? String(body.voiceoverUrl) : null,
+    screencastUrl: resolveMediaUrl(body.screencastUrl as string | null | undefined),
+    voiceoverUrl: resolveMediaUrl(body.voiceoverUrl as string | null | undefined),
   };
 }
 

@@ -1,7 +1,26 @@
+/**
+ * ProductDemoScene — центральная сцена рилса (5..25 сек = 20 сек).
+ *
+ * Композиция:
+ *  - сверху: заголовок problemText (анимация: спуск+fade)
+ *  - центр: «iPhone-frame» с экраном внутри — там либо реальный скринкаст
+ *    платформы (если передан screencastUrl), либо живой fallback-дашборд
+ *  - справа от телефона: floating step-карточки, появляются по одной
+ *
+ * Phone frame собран чистыми div'ами (без SVG/PNG-ассетов):
+ *  - корпус: rounded rect 720×1280 с градиентным «металлическим» бордером
+ *  - notch: чёрная капсула наверху
+ *  - экран: внутренний rounded rect с overflow:hidden, в него вписывается
+ *    видео или дашборд через 100%/100%
+ *
+ * Аспект экрана (680×1208) = 0.563 ≈ 9:16, точно совпадает с разрешением
+ * записи Playwright (450×800), так что видео ложится 1:1 без letterbox'а.
+ */
 import {
   AbsoluteFill,
   OffthreadVideo,
   interpolate,
+  spring,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
@@ -14,11 +33,18 @@ interface Props {
 }
 
 const STEPS = [
-  { label: "1. Введи URL компании", at: 0 },
-  { label: "2. AI-дашборд за 60 секунд", at: 5 },
-  { label: "3. Стратегия + контент-план", at: 10 },
-  { label: "4. Готовые посты и рилсы", at: 15 },
+  { label: "Введи URL", icon: "🔗", at: 1 },
+  { label: "AI-анализ", icon: "⚡", at: 5 },
+  { label: "Стратегия", icon: "🎯", at: 10 },
+  { label: "Контент", icon: "📱", at: 15 },
 ];
+
+// Геометрия phone-frame (в координатах композиции 1080×1920)
+const PHONE_W = 720;
+const PHONE_H = 1280;
+const PHONE_X = (1080 - PHONE_W) / 2; // = 180
+const PHONE_Y = 280;
+const BEZEL = 16; // толщина рамки
 
 export const ProductDemoScene: React.FC<Props> = ({
   problemText,
@@ -30,15 +56,21 @@ export const ProductDemoScene: React.FC<Props> = ({
   const { fps, durationInFrames } = useVideoConfig();
   const sec = frame / fps;
 
-  const titleEnter = interpolate(frame, [0, 15], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const titleY = interpolate(frame, [0, 15], [-40, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  // Заголовок вверху — spring-вход
+  const titleEnter = spring({
+    frame,
+    fps,
+    config: { damping: 12, stiffness: 100 },
   });
 
+  // Phone-frame появляется с лёгкой задержкой и spring-анимацией
+  const phoneEnter = spring({
+    frame: frame - 8,
+    fps,
+    config: { damping: 14, stiffness: 80 },
+  });
+
+  // Выход на последних 15 кадрах
   const exitStart = durationInFrames - 15;
   const exit = interpolate(frame, [exitStart, durationInFrames], [1, 0], {
     extrapolateLeft: "clamp",
@@ -49,79 +81,222 @@ export const ProductDemoScene: React.FC<Props> = ({
     <AbsoluteFill
       style={{
         background: "linear-gradient(180deg, #0a0e1a 0%, #161b2e 100%)",
-        padding: 60,
         opacity: exit,
       }}
     >
+      {/* Particle-фон (декоративные точки) — динамика без отвлечения */}
+      <ParticleField accentColor={accentColor} sec={sec} />
+
+      {/* Заголовок */}
       <div
         style={{
+          position: "absolute",
+          left: 60,
+          right: 60,
+          top: 100,
           opacity: titleEnter,
-          transform: `translateY(${titleY}px)`,
+          transform: `translateY(${(1 - titleEnter) * -40}px)`,
           color: "#fff",
           fontFamily: "Inter, sans-serif",
           fontWeight: 800,
-          fontSize: 64,
+          fontSize: 60,
           textAlign: "center",
           lineHeight: 1.15,
-          marginTop: 40,
-          marginBottom: 50,
+          textShadow: "0 4px 24px rgba(0,0,0,0.6)",
         }}
       >
         {problemText}
       </div>
 
+      {/* Phone frame */}
       <div
         style={{
-          flex: 1,
-          borderRadius: 32,
-          overflow: "hidden",
-          background: "#000",
-          border: `4px solid ${accentColor}`,
-          boxShadow: `0 0 80px ${accentColor}66`,
-          position: "relative",
+          position: "absolute",
+          left: PHONE_X,
+          top: PHONE_Y,
+          width: PHONE_W,
+          height: PHONE_H,
+          opacity: phoneEnter,
+          transform: `scale(${0.85 + phoneEnter * 0.15})`,
         }}
       >
-        {screencastUrl ? (
-          <OffthreadVideo src={screencastUrl} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <DemoPlaceholder accentColor={accentColor} brandName={brandName} sec={sec} />
-        )}
+        <PhoneFrame accentColor={accentColor}>
+          {screencastUrl ? (
+            <OffthreadVideo
+              src={screencastUrl}
+              muted
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <DemoPlaceholder accentColor={accentColor} brandName={brandName} sec={sec} />
+          )}
+        </PhoneFrame>
       </div>
 
-      <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Floating step-карточки справа */}
+      <div
+        style={{
+          position: "absolute",
+          right: 30,
+          top: PHONE_Y + 100,
+          display: "flex",
+          flexDirection: "column",
+          gap: 26,
+        }}
+      >
         {STEPS.map((step, i) => {
           const start = step.at * fps;
-          const stepIn = interpolate(frame, [start, start + 10], [0, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
+          const stepEnter = spring({
+            frame: frame - start,
+            fps,
+            config: { damping: 12, stiffness: 90 },
           });
-          const stepX = interpolate(frame, [start, start + 12], [-60, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
+          if (frame < start) return null;
           return (
             <div
               key={i}
               style={{
-                opacity: stepIn,
-                transform: `translateX(${stepX}px)`,
+                opacity: stepEnter,
+                transform: `translateX(${(1 - stepEnter) * 80}px)`,
+                background: "rgba(13, 18, 36, 0.85)",
+                border: `2px solid ${accentColor}`,
+                borderRadius: 18,
+                padding: "16px 22px",
                 fontFamily: "Inter, sans-serif",
                 fontWeight: 700,
-                fontSize: 44,
+                fontSize: 30,
                 color: "#fff",
-                background: `${accentColor}22`,
-                borderLeft: `6px solid ${accentColor}`,
-                padding: "18px 28px",
-                borderRadius: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                backdropFilter: "blur(8px)",
+                boxShadow: `0 8px 32px ${accentColor}44`,
+                minWidth: 130,
               }}
             >
-              {step.label}
+              <span style={{ fontSize: 38 }}>{step.icon}</span>
+              <span>{step.label}</span>
             </div>
           );
         })}
       </div>
     </AbsoluteFill>
   );
+};
+
+/** Phone-frame: корпус + notch + экран. children рисуется внутри экрана. */
+const PhoneFrame: React.FC<{ accentColor: string; children: React.ReactNode }> = ({
+  accentColor,
+  children,
+}) => (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      borderRadius: 64,
+      background: "linear-gradient(135deg, #2a3045 0%, #0d1224 50%, #2a3045 100%)",
+      padding: BEZEL,
+      boxShadow: `
+        0 0 100px ${accentColor}55,
+        inset 0 0 0 2px ${accentColor}66,
+        0 30px 80px rgba(0,0,0,0.5)
+      `,
+      position: "relative",
+    }}
+  >
+    {/* Notch (камера + speaker) */}
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 200,
+        height: 30,
+        background: "#000",
+        borderRadius: 18,
+        zIndex: 10,
+        boxShadow: "inset 0 0 8px rgba(0,0,0,0.8)",
+      }}
+    />
+    {/* Side button (right) — деталь, добавляет реализма */}
+    <div
+      style={{
+        position: "absolute",
+        top: 200,
+        right: -4,
+        width: 6,
+        height: 80,
+        background: "linear-gradient(90deg, #1a1f3a, #3a4055)",
+        borderRadius: "3px 0 0 3px",
+      }}
+    />
+    {/* Side buttons (left) — volume up/down */}
+    <div
+      style={{
+        position: "absolute",
+        top: 180,
+        left: -4,
+        width: 6,
+        height: 50,
+        background: "linear-gradient(-90deg, #1a1f3a, #3a4055)",
+        borderRadius: "0 3px 3px 0",
+      }}
+    />
+    <div
+      style={{
+        position: "absolute",
+        top: 250,
+        left: -4,
+        width: 6,
+        height: 80,
+        background: "linear-gradient(-90deg, #1a1f3a, #3a4055)",
+        borderRadius: "0 3px 3px 0",
+      }}
+    />
+    {/* Screen */}
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 48,
+        overflow: "hidden",
+        background: "#000",
+        position: "relative",
+      }}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+/** Фоновые точки — еле заметная динамика без отвлечения от центра кадра. */
+const ParticleField: React.FC<{ accentColor: string; sec: number }> = ({ accentColor, sec }) => {
+  const dots = Array.from({ length: 30 }, (_, i) => {
+    const seed = (i * 137.5) % 360;
+    const x = (Math.sin(seed) * 0.5 + 0.5) * 1080;
+    const baseY = (Math.cos(seed * 1.3) * 0.5 + 0.5) * 1920;
+    const y = (baseY + sec * 30) % 1920;
+    const size = 2 + (i % 4);
+    const op = 0.15 + ((i % 5) * 0.05);
+    return (
+      <div
+        key={i}
+        style={{
+          position: "absolute",
+          left: x,
+          top: y,
+          width: size,
+          height: size,
+          background: accentColor,
+          borderRadius: "50%",
+          opacity: op,
+          filter: "blur(0.5px)",
+        }}
+      />
+    );
+  });
+  return <>{dots}</>;
 };
 
 const DemoPlaceholder: React.FC<{ accentColor: string; brandName: string; sec: number }> = ({
@@ -133,18 +308,38 @@ const DemoPlaceholder: React.FC<{ accentColor: string; brandName: string; sec: n
   const bar2 = 50 + Math.cos(sec * 0.8) * 15 + sec * 1.5;
   const bar3 = 70 + Math.sin(sec * 1.5 + 1) * 10 + sec;
   return (
-    <AbsoluteFill style={{ padding: 30, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ color: accentColor, fontFamily: "Inter, sans-serif", fontWeight: 900, fontSize: 36 }}>
-        {brandName} · DASHBOARD
+    <AbsoluteFill
+      style={{
+        background: "linear-gradient(180deg, #0a0e1a 0%, #1a1f3a 100%)",
+        padding: 28,
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+      }}
+    >
+      <div
+        style={{
+          color: accentColor,
+          fontFamily: "Inter, sans-serif",
+          fontWeight: 900,
+          fontSize: 32,
+        }}
+      >
+        {brandName}
       </div>
-      <div style={{ display: "flex", gap: 16 }}>
-        <Stat label="Конкурентов" value={`${Math.min(12, Math.floor(sec * 1.2))}`} accent={accentColor} />
+      <div style={{ color: "#9ca3af", fontFamily: "Inter, sans-serif", fontSize: 18, marginTop: -8 }}>
+        Дашборд
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <Stat label="Конкуренты" value={`${Math.min(12, Math.floor(sec * 1.2))}`} accent={accentColor} />
         <Stat label="Score" value={`${Math.min(94, Math.floor(40 + sec * 3.5))}`} accent={accentColor} />
         <Stat label="Постов" value={`${Math.min(28, Math.floor(sec * 1.8))}`} accent={accentColor} />
       </div>
-      <Bar value={Math.min(100, bar1)} label="SEO" color={accentColor} />
-      <Bar value={Math.min(100, bar2)} label="SMM" color="#a78bfa" />
-      <Bar value={Math.min(100, bar3)} label="Бренд" color="#f472b6" />
+      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 16 }}>
+        <Bar value={Math.min(100, bar1)} label="SEO" color={accentColor} />
+        <Bar value={Math.min(100, bar2)} label="SMM" color="#a78bfa" />
+        <Bar value={Math.min(100, bar3)} label="Бренд" color="#f472b6" />
+      </div>
     </AbsoluteFill>
   );
 };
@@ -153,29 +348,40 @@ const Stat: React.FC<{ label: string; value: string; accent: string }> = ({ labe
   <div
     style={{
       flex: 1,
-      background: "#0d1224",
-      borderRadius: 16,
-      padding: 20,
+      background: "rgba(13, 18, 36, 0.8)",
+      borderRadius: 14,
+      padding: 14,
       border: `2px solid ${accent}33`,
     }}
   >
-    <div style={{ color: "#9ca3af", fontFamily: "Inter, sans-serif", fontSize: 22, fontWeight: 600 }}>{label}</div>
-    <div style={{ color: "#fff", fontFamily: "Inter, sans-serif", fontSize: 56, fontWeight: 900 }}>{value}</div>
+    <div style={{ color: "#9ca3af", fontFamily: "Inter, sans-serif", fontSize: 16, fontWeight: 600 }}>
+      {label}
+    </div>
+    <div style={{ color: "#fff", fontFamily: "Inter, sans-serif", fontSize: 42, fontWeight: 900 }}>
+      {value}
+    </div>
   </div>
 );
 
 const Bar: React.FC<{ value: number; label: string; color: string }> = ({ value, label, color }) => (
   <div>
-    <div style={{ color: "#fff", fontFamily: "Inter, sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 6 }}>
+    <div
+      style={{
+        color: "#fff",
+        fontFamily: "Inter, sans-serif",
+        fontSize: 20,
+        fontWeight: 700,
+        marginBottom: 5,
+      }}
+    >
       {label} <span style={{ color }}>{Math.round(value)}%</span>
     </div>
-    <div style={{ height: 20, background: "#1f2738", borderRadius: 10, overflow: "hidden" }}>
+    <div style={{ height: 16, background: "#1f2738", borderRadius: 8, overflow: "hidden" }}>
       <div
         style={{
           width: `${value}%`,
           height: "100%",
           background: `linear-gradient(90deg, ${color}, ${color}cc)`,
-          transition: "width 0.3s",
         }}
       />
     </div>
