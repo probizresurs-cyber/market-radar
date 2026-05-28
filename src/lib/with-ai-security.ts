@@ -86,8 +86,15 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
 
   const identifier = session?.userId || `ip:${ip}`;
 
-  // Rate limit check
-  const limit = checkAiRateLimit(identifier);
+  // Admin bypass: админы не упираются в дневной AI-лимит. Иначе при
+  // отладке/разработке любой тест-пайплайн на 5-10 шагов выжирает квоту
+  // и блокирует всю работу на сутки.
+  const isAdmin = session?.role === "admin";
+
+  // Rate limit check (skip для админов)
+  const limit = isAdmin
+    ? { allowed: true as const, remaining: 999, resetAt: Date.now() + 86400000 }
+    : checkAiRateLimit(identifier);
   if (!limit.allowed) {
     const headers = rateLimitHeaders(limit);
     const minutesLeft = limit.retryAfterMs ? Math.ceil(limit.retryAfterMs / 60000) : 60;
