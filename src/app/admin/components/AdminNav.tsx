@@ -29,6 +29,7 @@ const TABS = [
   { href: "/admin/referrals", label: "Рефералки" },
   { href: "/admin/features", label: "Модули" },
   { href: "/admin/visits", label: "Посещаемость" },
+  { href: "/admin/promo-reels", label: "Промо-рилсы" },
 ];
 
 export default function AdminNav({ current }: { current: string }) {
