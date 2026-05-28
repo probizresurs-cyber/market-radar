@@ -31,16 +31,18 @@ interface Props {
   screencastUrl: string | null;
   accentColor: string;
   brandName: string;
-  /** B-roll AI-картинки. Появляются как плавающие декорации по углам кадра
-   *  при наличии screencast'а ИЛИ full-screen визуалом если screencast'а нет. */
-  brollImageUrls?: string[];
-  /** Стоковые видео (Pexels). В full-broll режиме приоритетно над brollImageUrls
-   *  — реальное cinematic движение выглядит лучше AI-картинок с Ken-burns. */
+  /** B-roll AI-картинки для углов phone-frame. Появляются как плавающие
+   *  декорации по 3 углам. Активны только когда есть screencast. */
+  brollCornerImageUrls?: string[];
+  /** B-roll AI-картинки для fullscreen-сегментов. С screencast'ом — чередуются
+   *  с phone, без screencast'а — full-broll с Ken-burns. Миксуются со
+   *  stockVideoUrls для чередования (interleave). */
+  brollFullscreenImageUrls?: string[];
+  /** Стоковые видео (Pexels) — всегда fullscreen. Cinematic движение. */
   stockVideoUrls?: string[];
-  /** Режим когда есть И screencast И broll/stocks:
-   *   "corners"   — phone-frame со screencast + brolla по углам (текущий default)
-   *   "alternate" — phone-frame и full-screen broll/stock сменяются через один
-   *                 (segments × 2: phone → broll → phone → broll → ...) */
+  /** Режим когда есть И screencast И fullscreen-источники.
+   *   Оркестратор сам определяет: "alternate" если оба → чередование,
+   *   "corners" если только углы → углы поверх phone. */
   demoMixMode?: "corners" | "alternate";
 }
 
@@ -66,25 +68,24 @@ export const ProductDemoScene: React.FC<Props> = ({
   screencastUrl,
   accentColor,
   brandName,
-  brollImageUrls = [],
+  brollCornerImageUrls = [],
+  brollFullscreenImageUrls = [],
   stockVideoUrls = [],
   demoMixMode = "corners",
 }) => {
-  // Что показывать в full-broll режиме. Логика выбора:
-  //  - Есть И стоки И AI-картинки → чередуем через один (stock, image, stock, image...)
-  //    Стоки в нечётных позициях — открывают и закрывают сцену, выглядят дороже.
-  //  - Только стоки → они
-  //  - Только AI-картинки → они
-  //  - Ничего → пусто (фолбэк отрендерит phone-frame)
+  // Fullscreen-визуал: микс broll-картинок и стоковых видео. Если оба есть —
+  // чередуем через один (stocks первыми, они задают темп). Если только что-то
+  // одно — оно. Если оба пусты — fullscreen режим неактивен.
   const fullscreenMedia =
-    stockVideoUrls.length > 0 && brollImageUrls.length > 0
-      ? interleaveMedia(stockVideoUrls, brollImageUrls)
+    stockVideoUrls.length > 0 && brollFullscreenImageUrls.length > 0
+      ? interleaveMedia(stockVideoUrls, brollFullscreenImageUrls)
       : stockVideoUrls.length > 0
         ? stockVideoUrls
-        : brollImageUrls;
+        : brollFullscreenImageUrls;
 
-  // Alternate-режим активен только когда есть И screencast И что-то в broll-наборе.
-  // Иначе либо чистый phone, либо чистый full-broll — нечего чередовать.
+  // Alternate-режим активен когда есть И screencast И fullscreen-визуал.
+  // Иначе либо чистый phone (со screencast), либо чистый full-broll, либо
+  // фолбэк-дашборд внутри phone.
   const useAlternate = demoMixMode === "alternate" && !!screencastUrl && fullscreenMedia.length > 0;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -210,11 +211,12 @@ export const ProductDemoScene: React.FC<Props> = ({
         </div>
       )}
 
-      {/* B-roll floating-картинки в углах — рисуем ТОЛЬКО в режиме
-          "corners" со screencast'ом. В режиме "alternate" broll'ы уже
-          выходят как full-screen, в углах их быть не должно. */}
-      {screencastUrl && demoMixMode === "corners" ? (
-        <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
+      {/* B-roll floating-картинки в углах — рисуем когда есть screencast
+          (т.е. phone-frame на экране). Работает И в corners-режиме (phone
+          всё время), И в alternate (phone в чётных сегментах). В углах
+          максимум 3 карточки. */}
+      {screencastUrl && brollCornerImageUrls.length > 0 ? (
+        <BrollLayer urls={brollCornerImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
       ) : null}
 
       {/* Floating step-карточки справа. Уменьшили font + padding чтобы

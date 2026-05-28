@@ -21,8 +21,16 @@ export const promoReelSchema = z.object({
   // оверлеем поверх для читаемости текста.
   hookBgImageUrl: z.string().nullable().optional(),
   ctaBgImageUrl: z.string().nullable().optional(),
-  // B-roll картинки (опц): плавающие декоративные изображения в
-  // ProductDemoScene. Максимум 3 штуки имеют смысл.
+  // B-roll AI-картинки для УГЛОВ phone-frame (3 декоративные карточки).
+  // Активны только когда есть screencast — иначе им просто негде размещаться.
+  brollCornerImageUrls: z.array(z.string()).optional(),
+  // B-roll AI-картинки для FULLSCREEN-сегментов demo. Если есть screencast +
+  // эти картинки → чередуются с phone-frame через один. Если screencast'а
+  // нет → fullscreen с Ken-burns. Миксуются с stockVideoUrls в одну
+  // последовательность для чередования.
+  brollFullscreenImageUrls: z.array(z.string()).optional(),
+  // Legacy поле — для обратной совместимости со старыми вызовами рендера.
+  // Если передано — раскладывается между corner и fullscreen как было.
   brollImageUrls: z.array(z.string()).optional(),
   // Стоковые видео из Pexels (опц). Если переданы — В full-broll режиме
   // показываются ВМЕСТО brollImageUrls. Cinematic движение из коробки,
@@ -55,6 +63,8 @@ export const defaultPromoReelProps: PromoReelProps = {
   hookBgImageUrl: null,
   ctaBgImageUrl: null,
   brollImageUrls: [],
+  brollCornerImageUrls: [],
+  brollFullscreenImageUrls: [],
   stockVideoUrls: [],
   demoMixMode: "corners",
   videoDurationSec: 30,
@@ -96,7 +106,16 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           screencastUrl={props.screencastUrl}
           accentColor={props.accentColor}
           brandName={props.brandName}
-          brollImageUrls={props.brollImageUrls ?? []}
+          brollCornerImageUrls={
+            props.brollCornerImageUrls ??
+            // Legacy fallback: если пришёл только brollImageUrls — первые 3
+            // используем как углы, остальные как fullscreen
+            (props.brollImageUrls ?? []).slice(0, 3)
+          }
+          brollFullscreenImageUrls={
+            props.brollFullscreenImageUrls ??
+            (props.brollImageUrls ?? []).slice(3)
+          }
           stockVideoUrls={props.stockVideoUrls ?? []}
           demoMixMode={props.demoMixMode ?? "corners"}
         />

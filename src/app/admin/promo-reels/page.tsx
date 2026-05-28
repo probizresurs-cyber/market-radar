@@ -147,7 +147,14 @@ const DEFAULT_FORM = {
   accentColor: "#22d3ee",
   includeImages: true,
   includeScreencast: true,
-  includeBroll: false,
+  // includeBroll → теперь разнесён на 2 раздельных чекбокса:
+  //   Corners — 3 угла-картинки поверх phone-frame (только со screencast)
+  //   Fullscreen — N картинок занимают весь кадр в demo-сцене
+  // Если активны оба + screencast — углы поверх phone-сегментов,
+  // fullscreen чередуется через один. Если активны вместе со stocks,
+  // fullscreen-слоты делятся между ними.
+  includeBrollCorners: false,
+  includeBrollFullscreen: false,
   includeVoiceover: false,
   voiceId: "",
   voiceoverScript: "",
@@ -155,10 +162,6 @@ const DEFAULT_FORM = {
   stockVideoQuery: "",
   useAnimatedBroll: false,
   animatedBrollTheme: "",
-  // demoMixMode: когда И screencast И broll/stocks активны —
-  // "corners" = b-roll по углам phone-frame (старый дефолт)
-  // "alternate" = phone и full-screen broll чередуются по сегментам
-  demoMixMode: "corners" as "corners" | "alternate",
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
@@ -243,7 +246,8 @@ export default function PromoReelsAdminPage() {
           accentColor: form.accentColor,
           includeImages: form.includeImages,
           includeScreencast: form.includeScreencast,
-          includeBroll: form.includeBroll,
+          includeBrollCorners: form.includeBrollCorners,
+          includeBrollFullscreen: form.includeBrollFullscreen,
           includeVoiceover: form.includeVoiceover,
           voiceId: form.voiceId || undefined,
           voiceoverScript: form.voiceoverScript || undefined,
@@ -251,7 +255,6 @@ export default function PromoReelsAdminPage() {
           stockVideoQuery: form.stockVideoQuery || undefined,
           useAnimatedBroll: form.useAnimatedBroll,
           animatedBrollTheme: form.animatedBrollTheme || undefined,
-          demoMixMode: form.demoMixMode,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -451,12 +454,33 @@ export default function PromoReelsAdminPage() {
               <input
                 type="checkbox"
                 style={S.checkbox}
-                id="incBR"
-                checked={form.includeBroll}
-                onChange={(e) => saveForm({ ...form, includeBroll: e.target.checked })}
+                id="incBrCorners"
+                checked={form.includeBrollCorners}
+                onChange={(e) => saveForm({ ...form, includeBrollCorners: e.target.checked })}
+                disabled={!form.includeScreencast}
               />
-              <label htmlFor="incBR" style={S.checkboxLabel}>
-                B-roll картинки {form.includeScreencast ? "в углах" : "full-screen фоном"} (+3 картинки, +30 сек)
+              <label
+                htmlFor="incBrCorners"
+                style={{
+                  ...S.checkboxLabel,
+                  opacity: form.includeScreencast ? 1 : 0.4,
+                }}
+              >
+                B-roll AI-картинки <b>в углах phone-frame</b> (+3 картинки, +30 сек){" "}
+                {!form.includeScreencast ? "— нужен скринкаст" : ""}
+              </label>
+            </div>
+
+            <div style={S.row}>
+              <input
+                type="checkbox"
+                style={S.checkbox}
+                id="incBrFull"
+                checked={form.includeBrollFullscreen}
+                onChange={(e) => saveForm({ ...form, includeBrollFullscreen: e.target.checked })}
+              />
+              <label htmlFor="incBrFull" style={S.checkboxLabel}>
+                B-roll AI-картинки <b>fullscreen в demo</b> (+N картинок, +30-60 сек)
               </label>
             </div>
             <div style={S.row}>
@@ -488,96 +512,63 @@ export default function PromoReelsAdminPage() {
               </>
             ) : null}
 
-            {/* Выбор режима demo когда И screencast И broll/stocks активны */}
-            {form.includeScreencast && (form.includeBroll || form.useStockVideos) ? (
-              <div
-                style={{
-                  background: "#131720",
-                  border: "1px solid #2d3748",
-                  borderRadius: 8,
-                  padding: 12,
-                  marginTop: 4,
-                  marginBottom: 14,
-                }}
-              >
-                <div style={{ ...S.label, marginBottom: 8 }}>Как сочетать со скринкастом</div>
-                <div style={{ ...S.row, marginBottom: 8 }}>
-                  <input
-                    type="radio"
-                    id="mixCorners"
-                    name="mixMode"
-                    style={{ ...S.checkbox, accentColor: "#7c3aed" }}
-                    checked={form.demoMixMode === "corners"}
-                    onChange={() => saveForm({ ...form, demoMixMode: "corners" })}
-                  />
-                  <label htmlFor="mixCorners" style={{ ...S.checkboxLabel, lineHeight: 1.35 }}>
-                    <b>В углах</b> — phone-frame со скринкастом всё время, b-roll плавающими карточками в углах
-                  </label>
-                </div>
-                <div style={S.row}>
-                  <input
-                    type="radio"
-                    id="mixAlternate"
-                    name="mixMode"
-                    style={{ ...S.checkbox, accentColor: "#7c3aed" }}
-                    checked={form.demoMixMode === "alternate"}
-                    onChange={() => saveForm({ ...form, demoMixMode: "alternate" })}
-                  />
-                  <label htmlFor="mixAlternate" style={{ ...S.checkboxLabel, lineHeight: 1.35 }}>
-                    <b>Чередовать</b> — phone-frame со скринкастом и full-screen b-roll сменяются по сегментам (segments × 2)
-                  </label>
-                </div>
-              </div>
-            ) : null}
-
-            {(form.includeBroll || form.useStockVideos) ? (() => {
+            {/* Подсказка о том как сочетаются выбранные источники визуала.
+                Логика: corners (углы) — только когда есть screencast. Fullscreen
+                источники (broll-fullscreen + stocks) автоматически чередуются
+                друг с другом. Если screencast тоже on — phone и fullscreen
+                сменяются через один. */}
+            {(form.includeBrollCorners || form.includeBrollFullscreen || form.useStockVideos) ? (() => {
               const total = form.videoDurationSec;
               const hookSec = Math.max(3, Math.round(total * 0.17));
               const ctaSec = Math.max(3, Math.round(total * 0.17));
               const demoSec = Math.max(5, total - hookSec - ctaSec);
               const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
 
-              // Зеркалим логику оркестратора
-              let brollCount = 0;
-              let stockCount = 0;
-              if (form.includeScreencast && form.demoMixMode === "corners") {
-                brollCount = form.includeBroll ? 3 : 0;
-              } else {
-                // alternate ИЛИ full-broll (без скринкаста)
-                if (form.useStockVideos && form.includeBroll) {
-                  stockCount = Math.ceil(totalSlots / 2);
-                  brollCount = Math.floor(totalSlots / 2);
-                } else if (form.useStockVideos) {
-                  stockCount = totalSlots;
-                } else if (form.includeBroll) {
-                  brollCount = totalSlots;
-                }
+              // Кто из fullscreen-источников активен (broll-fullscreen / stocks)
+              const fsSources: string[] = [];
+              if (form.includeBrollFullscreen) fsSources.push("AI-картинки");
+              if (form.useStockVideos) fsSources.push("стоковые видео");
+
+              // Распределение fullscreen-слотов между активными источниками
+              const fsTotal = fsSources.length === 0 ? 0 : totalSlots;
+              const baseShare = fsSources.length === 0 ? 0 : Math.floor(fsTotal / fsSources.length);
+              const remainder = fsTotal - baseShare * fsSources.length;
+
+              // Углы — только если есть screencast (overlay над phone-frame)
+              const cornersActive = form.includeBrollCorners && form.includeScreencast;
+              const cornerCount = cornersActive ? 3 : 0;
+
+              // Какой режим в итоге
+              const lines: string[] = [];
+              if (cornersActive) {
+                lines.push(`${cornerCount} AI-картинки в углах phone-frame`);
+              }
+              if (fsSources.length > 0) {
+                const shares = fsSources.map((_, i) => baseShare + (i < remainder ? 1 : 0));
+                const fsLabels = fsSources.map((s, i) => `${shares[i]} ${s}`).join(" + ");
+                const secPerSlot = form.includeScreencast
+                  ? (demoSec / (fsTotal * 2)).toFixed(1)  // alternate = 2N сегментов
+                  : (demoSec / fsTotal).toFixed(1);
+                const where = form.includeScreencast
+                  ? `чередуются с phone-frame (${fsTotal * 2} сегментов × ${secPerSlot} сек)`
+                  : `full-screen (по ${secPerSlot} сек на кадр)`;
+                lines.push(`${fsLabels} ${where}`);
               }
 
-              const mainTotal = stockCount + brollCount;
-              if (mainTotal === 0) return null;
-
-              const isCorners = form.includeScreencast && form.demoMixMode === "corners";
-              const isAlternate = form.includeScreencast && form.demoMixMode === "alternate";
-              const mode = isCorners
-                ? "по углам phone-frame"
-                : isAlternate
-                  ? `чередуются с phone-frame (${mainTotal * 2} сегментов × ${(demoSec / (mainTotal * 2)).toFixed(1)} сек)`
-                  : "full-screen в demo";
-              const secPerSlot = !form.includeScreencast ? Math.round(demoSec / mainTotal) : null;
+              if (lines.length === 0) return null;
 
               return (
-                <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
-                  💡{" "}
-                  {stockCount > 0 && brollCount > 0
-                    ? `${stockCount} стоковых видео + ${brollCount} AI-картин${brollCount === 1 ? "ка" : "ок"} ${mode}, чередуются`
-                    : stockCount > 0
-                      ? `${stockCount} стоковых видео ${mode}`
-                      : `${brollCount} AI-картин${brollCount === 1 ? "ка" : "ок"} ${mode}`}
-                  {secPerSlot ? `, по ${secPerSlot} сек на кадр` : ""}
+                <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8, lineHeight: 1.5 }}>
+                  💡 {lines.join(" · ")}
                 </div>
               );
             })() : null}
+
+            {form.includeBrollCorners && !form.includeScreencast ? (
+              <div style={{ ...S.hint, color: "#f59e0b", marginTop: -4 }}>
+                ⚠️ «В углах» нужен скринкаст в центре. Включи скринкаст или выбери fullscreen.
+              </div>
+            ) : null}
 
             <div style={S.row}>
               <input

@@ -58,7 +58,11 @@ interface RenderProps {
   // покажет градиенты-фолбэки.
   hookBgImageUrl: string | null;
   ctaBgImageUrl: string | null;
+  // Старое поле — оставляем для backward compat с прямыми вызовами.
+  // Оркестратор должен слать новые: brollCornerImageUrls + brollFullscreenImageUrls.
   brollImageUrls: string[];
+  brollCornerImageUrls: string[];
+  brollFullscreenImageUrls: string[];
   stockVideoUrls: string[];
   videoDurationSec: number;
   demoMixMode: "corners" | "alternate";
@@ -115,13 +119,31 @@ function parseProps(
 
   // brollImageUrls — массив, прогоняем каждый URL через resolveMediaUrl,
   // отбрасываем null'ы (не показываем кривые ссылки).
-  // brollImageUrls (AI-картинки) — раньше cap'или 3, но теперь в full-broll
-  // режиме может приходить до 8. Cap поднимаем до 8.
-  const brollRaw = Array.isArray(body.brollImageUrls) ? body.brollImageUrls : [];
-  const brollImageUrls = brollRaw
+  // Раздельные массивы AI-картинок: углы (max 3) и fullscreen (max 8).
+  const cornerRaw = Array.isArray(body.brollCornerImageUrls) ? body.brollCornerImageUrls : [];
+  const brollCornerImageUrls = cornerRaw
+    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
+    .filter((u): u is string => u !== null)
+    .slice(0, 3);
+
+  const fsRaw = Array.isArray(body.brollFullscreenImageUrls) ? body.brollFullscreenImageUrls : [];
+  const brollFullscreenImageUrls = fsRaw
     .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
     .filter((u): u is string => u !== null)
     .slice(0, 8);
+
+  // Legacy brollImageUrls — старые клиенты могут слать одним массивом.
+  // Если новые поля пусты, а legacy полон — раскидываем: первые 3 как углы,
+  // остальные как fullscreen.
+  const legacyBrollRaw = Array.isArray(body.brollImageUrls) ? body.brollImageUrls : [];
+  const brollImageUrls = legacyBrollRaw
+    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
+    .filter((u): u is string => u !== null)
+    .slice(0, 8);
+  if (brollImageUrls.length > 0 && brollCornerImageUrls.length === 0 && brollFullscreenImageUrls.length === 0) {
+    brollCornerImageUrls.push(...brollImageUrls.slice(0, 3));
+    brollFullscreenImageUrls.push(...brollImageUrls.slice(3));
+  }
 
   // stockVideoUrls (Pexels). В full-broll режиме приоритетно над b-roll'ом.
   const stockRaw = Array.isArray(body.stockVideoUrls) ? body.stockVideoUrls : [];
@@ -143,6 +165,8 @@ function parseProps(
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
+    brollCornerImageUrls,
+    brollFullscreenImageUrls,
     stockVideoUrls,
     // Режим демо когда есть и screencast и broll: "corners" или "alternate".
     // Дефолт "corners" — обратная совместимость.

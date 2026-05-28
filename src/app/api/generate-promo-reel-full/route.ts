@@ -142,8 +142,21 @@ export async function POST(req: Request) {
 
     const includeImages = body.includeImages !== false; // default true
     const includeScreencast = body.includeScreencast !== false; // default true
-    const includeBroll = Boolean(body.includeBroll ?? false);
     const includeVoiceover = Boolean(body.includeVoiceover ?? false);
+
+    // includeBroll был раньше одной галкой — теперь две:
+    //   includeBrollCorners   — 3 угла-картинки overlay поверх phone-frame
+    //                            (имеет смысл только со screencast)
+    //   includeBrollFullscreen — N картинок занимают весь кадр в demo
+    // Backward compat: если приходит старое поле includeBroll — мапим в
+    // включить-всё-что-работает (corners если screencast, иначе fullscreen).
+    const legacyIncludeBroll = Boolean(body.includeBroll ?? false);
+    const includeBrollCorners =
+      Boolean(body.includeBrollCorners ?? false) ||
+      (legacyIncludeBroll && includeScreencast);
+    const includeBrollFullscreen =
+      Boolean(body.includeBrollFullscreen ?? false) ||
+      (legacyIncludeBroll && !includeScreencast);
     // stockVideoQuery — если задан, оркестратор скачает портретные видео
     // из Pexels. Английская фраза. Если useStockVideos=true но query пустой —
     // явная ошибка ниже, не silent skip как раньше.
@@ -203,40 +216,46 @@ export async function POST(req: Request) {
     //    как можно равномернее. Animated > stock > images по визуальной
     //    привлекательности, поэтому при нечётности отдаём остатки в этом
     //    порядке.
-    // Режим демо когда есть И screencast И broll-источники:
-    //   "corners"   — 3 угла, broll сидит вокруг phone-frame (default)
-    //   "alternate" — phone-frame и full-screen broll чередуются по сегментам;
-    //                 нужно столько broll'ов сколько фуллскрин-сегментов,
-    //                 такая же логика что full-broll режим без скринкаста
+    // Auto-detect demoMixMode по флагам:
+    //   - есть screencast И хотя бы один fullscreen-источник
+    //     (broll-fullscreen / stocks / animated) → "alternate"
+    //     (phone и fullscreen чередуются)
+    //   - иначе "corners" (только углы поверх phone, либо чистый full-broll
+    //     без screencast'а)
+    const anyFullscreenSource = includeBrollFullscreen || useStockVideos || useAnimatedBroll;
     const demoMixMode: "corners" | "alternate" =
-      body.demoMixMode === "alternate" ? "alternate" : "corners";
+      includeScreencast && anyFullscreenSource ? "alternate" : "corners";
 
-    let brollCount = 0;
+    // Подсчёт количества картинок/видео по каждому источнику:
+    //  - cornerCount: 3 если включены углы И есть screencast, иначе 0
+    //  - fullscreen-слоты делятся равномерно между активными fullscreen-
+    //    источниками (broll-fullscreen, stocks, animated). При нечётности
+    //    больше достаётся первым: animated > stock > broll-fullscreen.
+    const cornerCount = includeBrollCorners && includeScreencast ? 3 : 0;
+
+    let fullscreenBrollCount = 0;
     let stockCount = 0;
     let animatedCount = 0;
-    if (includeScreencast && demoMixMode === "corners") {
-      brollCount = includeBroll ? 3 : 0;
-    } else {
-      // Считаем сколько источников активно
-      const sources: ("animated" | "stock" | "broll")[] = [];
-      if (useAnimatedBroll) sources.push("animated");
-      if (useStockVideos) sources.push("stock");
-      if (includeBroll) sources.push("broll");
+    const fsSources: ("animated" | "stock" | "broll")[] = [];
+    if (useAnimatedBroll) fsSources.push("animated");
+    if (useStockVideos) fsSources.push("stock");
+    if (includeBrollFullscreen) fsSources.push("broll");
 
-      if (sources.length > 0) {
-        const baseShare = Math.floor(totalSlots / sources.length);
-        const remainder = totalSlots - baseShare * sources.length;
-
-        // Назначаем по очереди в порядке приоритета (animated > stock > broll).
-        // Кто первый — получает +1 при остатках.
-        sources.forEach((s, i) => {
-          const share = baseShare + (i < remainder ? 1 : 0);
-          if (s === "animated") animatedCount = share;
-          if (s === "stock") stockCount = share;
-          if (s === "broll") brollCount = share;
-        });
-      }
+    if (fsSources.length > 0) {
+      const baseShare = Math.floor(totalSlots / fsSources.length);
+      const remainder = totalSlots - baseShare * fsSources.length;
+      fsSources.forEach((s, i) => {
+        const share = baseShare + (i < remainder ? 1 : 0);
+        if (s === "animated") animatedCount = share;
+        if (s === "stock") stockCount = share;
+        if (s === "broll") fullscreenBrollCount = share;
+      });
     }
+
+    // brollCount для generate-promo-images = corners + fullscreen-AI картинок.
+    // В возвращаемом brollImageUrls первые cornerCount идут как углы,
+    // остальные как fullscreen.
+    const brollCount = cornerCount + fullscreenBrollCount;
     const voiceId = body.voiceId ? String(body.voiceId) : null;
 
     // Внешние ассеты можно передать напрямую если они уже сгенерены
@@ -389,12 +408,15 @@ export async function POST(req: Request) {
         musicUrl,
         hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
         ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
-        brollImageUrls: imagesData?.brollImageUrls ?? [],
+        // Разделяем broll-картинки: первые cornerCount как углы, остальные
+        // как fullscreen. Зеркало логики counts выше.
+        brollCornerImageUrls: (imagesData?.brollImageUrls ?? []).slice(0, cornerCount),
+        brollFullscreenImageUrls: (imagesData?.brollImageUrls ?? []).slice(cornerCount),
         // animated-broll-видео идут в тот же массив что стоковые —
-        // ProductDemoScene всё равно по расширению определяет видео это
-        // или картинка, и при .mp4 рендерит через OffthreadVideo.
+        // ProductDemoScene по расширению определяет видео это или картинка,
+        // и при .mp4 рендерит через OffthreadVideo.
         stockVideoUrls: [...animatedBrollUrls, ...stockVideoUrls],
-        demoMixMode: body.demoMixMode,
+        demoMixMode,
         videoDurationSec: body.videoDurationSec,
       },
       req,
