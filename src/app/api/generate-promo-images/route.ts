@@ -155,7 +155,10 @@ async function generateOne(
     const { buf, ext } = decodeDataUrl(r.imageUrl);
     const fileName = `${jobId}-${spec.key}.${ext}`;
     await writeFile(path.join(publicDir, fileName), buf);
-    return { key: spec.key, url: `/${PROMO_IMAGES_DIR}/${fileName}`, error: null };
+    // Через /api/static-asset/, а не прямую /promo-images/ статику —
+    // Next 16 кеширует 404 для /public-путей которые мы дёргаем
+    // ДО создания файла (Remotion+Cloudflare видят 404, кешируют, дальше 404).
+    return { key: spec.key, url: `/api/static-asset/${PROMO_IMAGES_DIR}/${fileName}`, error: null };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { key: spec.key, url: null, error: msg };

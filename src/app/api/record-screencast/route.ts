@@ -76,7 +76,10 @@ export async function POST(req: Request) {
       data: {
         jobId,
         scenarioId,
-        url: `/screencasts/${jobId}.mp4`,
+        // Через /api/static-asset/, а не прямую /screencasts/ статику —
+        // Next 16 кеширует 404 для /public-путей которые мы дёргаем
+        // ДО создания файла, и потом продолжает отдавать тот 404.
+        url: `/api/static-asset/screencasts/${jobId}.mp4`,
         sizeBytes: result.sizeBytes,
         recordedInMs: result.durationMs,
         totalMs: Date.now() - t0,

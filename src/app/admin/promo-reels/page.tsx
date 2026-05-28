@@ -396,11 +396,33 @@ export default function PromoReelsAdminPage() {
                     step.name === "screencast" ? "Скринкаст" :
                     step.name === "render" ? "Рендер видео" : step.name;
                   return (
-                    <div key={i} style={S.step}>
-                      <div style={S.stepDot(color)} />
-                      <div style={S.stepName}>{label}</div>
-                      <div style={S.badge(color)}>{step.status}</div>
-                      <div style={S.stepTime}>{(step.ms / 1000).toFixed(1)}s</div>
+                    <div key={i}>
+                      <div style={S.step}>
+                        <div style={S.stepDot(color)} />
+                        <div style={S.stepName}>{label}</div>
+                        <div style={S.badge(color)}>{step.status}</div>
+                        <div style={S.stepTime}>{(step.ms / 1000).toFixed(1)}s</div>
+                      </div>
+                      {step.error ? (
+                        <div
+                          style={{
+                            background: "#7f1d1d22",
+                            border: "1px solid #dc262644",
+                            borderRadius: 6,
+                            padding: "10px 12px",
+                            color: "#fca5a5",
+                            fontSize: 11,
+                            margin: "6px 0 10px 22px",
+                            fontFamily: "ui-monospace, monospace",
+                            whiteSpace: "pre-wrap" as const,
+                            wordBreak: "break-word" as const,
+                            maxHeight: 200,
+                            overflowY: "auto" as const,
+                          }}
+                        >
+                          {step.error}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
