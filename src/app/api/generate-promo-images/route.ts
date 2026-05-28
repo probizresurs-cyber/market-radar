@@ -89,28 +89,35 @@ function buildPrompts(opts: {
   brandName: string;
   niche: string | null;
   accentColor: string;
+  includeHookCta: boolean;
   includeBroll: boolean;
   brollCount: number;
   baseQuality: "low" | "medium" | "high";
 }): ImageSpec[] {
-  const { brandName, niche, accentColor, includeBroll, brollCount, baseQuality } = opts;
+  const { brandName, niche, accentColor, includeHookCta, includeBroll, brollCount, baseQuality } = opts;
   const nicheLine = niche ? `Industry context: ${niche}.` : "";
   const palette = `Color palette built around ${accentColor} as accent against deep navy / charcoal black. Cinematic, premium feel.`;
   const baseStyle =
     "Vertical 9:16 composition. Dark moody background. No text or logos in the image. Editorial style. Sharp focus.";
 
-  const specs: ImageSpec[] = [
-    {
-      key: "hook",
-      quality: baseQuality,
-      prompt: `${baseStyle} ${palette} ${nicheLine} Abstract concept of "overwhelmed marketer drowning in tabs and notifications": dim office lights, multiple glowing screens with chaotic data, hands on keyboard partially visible from below, sense of time pressure and exhaustion. Photorealistic with subtle bokeh. No people's faces visible.`,
-    },
-    {
-      key: "cta",
-      quality: baseQuality,
-      prompt: `${baseStyle} ${palette} ${nicheLine} Concept of "AI-powered marketing platform that saves time": serene dashboard glowing on a single sleek modern device (smartphone or tablet, screen content abstract), surrounded by softly floating data viz fragments — pie charts, bars, growth arrows — like a constellation. Triumphant, calm, premium fintech aesthetic. Brand atmosphere for ${brandName}.`,
-    },
-  ];
+  const specs: ImageSpec[] = [];
+
+  // Hook + CTA backgrounds — генерируем ТОЛЬКО если попросили (раньше
+  // всегда добавлялось, что не позволяло сделать «только b-roll без фонов»).
+  if (includeHookCta) {
+    specs.push(
+      {
+        key: "hook",
+        quality: baseQuality,
+        prompt: `${baseStyle} ${palette} ${nicheLine} Abstract concept of "overwhelmed marketer drowning in tabs and notifications": dim office lights, multiple glowing screens with chaotic data, hands on keyboard partially visible from below, sense of time pressure and exhaustion. Photorealistic with subtle bokeh. No people's faces visible.`,
+      },
+      {
+        key: "cta",
+        quality: baseQuality,
+        prompt: `${baseStyle} ${palette} ${nicheLine} Concept of "AI-powered marketing platform that saves time": serene dashboard glowing on a single sleek modern device (smartphone or tablet, screen content abstract), surrounded by softly floating data viz fragments — pie charts, bars, growth arrows — like a constellation. Triumphant, calm, premium fintech aesthetic. Brand atmosphere for ${brandName}.`,
+      },
+    );
+  }
 
   if (includeBroll && brollCount > 0) {
     // У b-roll'а понижаем quality до "low" — мелкие визуалы в фоне/углах,
@@ -188,17 +195,41 @@ export async function POST(req: Request) {
     const brandName = String(body.brandName ?? "MarketRadar").trim();
     const niche = body.niche ? String(body.niche).trim() : null;
     const accentColor = String(body.accentColor ?? "#22d3ee").trim();
+    // includeHookCta — генерировать ли фоны для hook и CTA сцен.
+    // Default true для backward compat (старые вызовы без этого поля
+    // продолжают получать hook+cta как раньше).
+    const includeHookCta = body.includeHookCta !== false;
+
     const includeBroll = Boolean(body.includeBroll ?? false);
     // brollCount — сколько b-roll картинок сгенерить. Клампим 1-8.
     // Оркестратор обычно считает по длине demo-сцены: 1 картинка на 5 сек.
     const rawBrollCount = Number(body.brollCount ?? 3);
     const brollCount = Math.max(1, Math.min(8, Math.round(rawBrollCount)));
 
+    // Если ни hook/cta, ни broll не нужны — нечего генерить
+    if (!includeHookCta && (!includeBroll || brollCount === 0)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Нечего генерить: нужен хотя бы один из includeHookCta / includeBroll+brollCount",
+        },
+        { status: 400 },
+      );
+    }
+
     const rawQuality = String(body.quality ?? "medium").trim();
     const baseQuality: "low" | "medium" | "high" =
       rawQuality === "low" || rawQuality === "high" ? rawQuality : "medium";
 
-    const specs = buildPrompts({ brandName, niche, accentColor, includeBroll, brollCount, baseQuality });
+    const specs = buildPrompts({
+      brandName,
+      niche,
+      accentColor,
+      includeHookCta,
+      includeBroll,
+      brollCount,
+      baseQuality,
+    });
 
     const jobId = `promo-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const publicDir = path.join(process.cwd(), "public", PROMO_IMAGES_DIR);

@@ -145,9 +145,23 @@ export async function POST(req: Request) {
     const includeBroll = Boolean(body.includeBroll ?? false);
     const includeVoiceover = Boolean(body.includeVoiceover ?? false);
     // stockVideoQuery — если задан, оркестратор скачает портретные видео
-    // из Pexels и подставит вместо b-roll'а (приоритетно). Английская фраза.
+    // из Pexels. Английская фраза. Если useStockVideos=true но query пустой —
+    // явная ошибка ниже, не silent skip как раньше.
     const stockVideoQuery = String(body.stockVideoQuery ?? "").trim();
-    const useStockVideos = Boolean(body.useStockVideos ?? false) && stockVideoQuery.length > 0;
+    const useStockVideos = Boolean(body.useStockVideos ?? false);
+
+    // Валидируем заранее: чекбокс стоков включён без query = очевидный
+    // user-error, лучше сразу сказать чем тихо пропустить шаг.
+    if (useStockVideos && !stockVideoQuery) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Вы включили «Стоковые видео из Pexels», но не указали поисковый запрос. Заполните поле «Поисковый запрос (английский)» или выключите чекбокс.",
+        },
+        { status: 400 },
+      );
+    }
 
     // Длительность ролика. Клампим 10..90. По умолчанию 30.
     const videoDurationSec = (() => {
@@ -199,13 +213,23 @@ export async function POST(req: Request) {
     let voiceoverUrl = body.voiceoverUrl ? String(body.voiceoverUrl) : null;
     const musicUrl = body.musicUrl ? String(body.musicUrl) : null;
 
-    // ──────────────── Шаг 1: AI-картинки ────────────────
+    // ──────────────── Шаг 1: AI-картинки (hook+CTA фоны + b-roll) ─────────
+    // generate-promo-images теперь генерит hook+cta И/ИЛИ broll независимо —
+    // вызываем endpoint если нужно хотя бы что-то одно из них.
     let imagesData: ImagesData | null = null;
-    if (includeImages) {
+    const needAiImages = includeImages || brollCount > 0;
+    if (needAiImages) {
       const stepT = Date.now();
       const r = await callLocal<ImagesData>(
         "/api/generate-promo-images",
-        { brandName, niche, accentColor, includeBroll, brollCount },
+        {
+          brandName,
+          niche,
+          accentColor,
+          includeHookCta: includeImages, // hook+cta фоны
+          includeBroll: brollCount > 0,  // broll картинки
+          brollCount,
+        },
         req,
         130_000, // 130 сек — generate-promo-images.maxDuration = 120
       );

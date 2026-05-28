@@ -574,13 +574,33 @@ export default function PromoReelsAdminPage() {
               Если voiceover есть, музыка играет на 15% громкости (фоном). Без voiceover — 50%.
             </div>
 
-            <button
-              style={{ ...S.btnPrimary, ...(busy ? S.btnDisabled : {}) }}
-              onClick={generate}
-              disabled={busy}
-            >
-              {busy ? `Идёт сборка… ${elapsedSec}с` : "Сгенерить ролик"}
-            </button>
+            {(() => {
+              // Валидация: стоки включены без query = nope, оркестратор
+              // вернёт 400. Не даём юзеру даже жмякнуть.
+              const stocksNeedQuery = form.useStockVideos && !form.stockVideoQuery.trim();
+              const disabled = busy || stocksNeedQuery;
+              return (
+                <>
+                  <button
+                    style={{ ...S.btnPrimary, ...(disabled ? S.btnDisabled : {}) }}
+                    onClick={generate}
+                    disabled={disabled}
+                  >
+                    {busy
+                      ? `Идёт сборка… ${elapsedSec}с`
+                      : stocksNeedQuery
+                        ? "Заполни поисковый запрос Pexels →"
+                        : "Сгенерить ролик"}
+                  </button>
+                  {stocksNeedQuery ? (
+                    <div style={{ ...S.hint, color: "#f59e0b", marginTop: 8 }}>
+                      ⚠️ Чекбокс «Стоковые видео» включён, но не указан поисковый запрос.
+                      Заполни поле выше (на английском) или выключи чекбокс.
+                    </div>
+                  ) : null}
+                </>
+              );
+            })()}
 
             {error ? <div style={S.errorBox}>{error}</div> : null}
           </div>
