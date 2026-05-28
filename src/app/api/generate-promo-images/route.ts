@@ -217,10 +217,19 @@ export async function POST(req: Request) {
       failures: failures.length ? failures : undefined,
     };
 
-    // Если ничего не сгенерилось — это полная ошибка пайплайна
+    // Если ничего не сгенерилось — это полная ошибка пайплайна.
+    // ВАЖНО: включаем детальный текст первой ошибки в верхнее поле error —
+    // оркестратор показывает именно его в UI, без этого юзер видит только
+    // «OpenAI не сгенерил ни одной картинки» без причины.
     if (successCount === 0) {
+      const firstError = failures[0]?.error ?? "unknown";
       return NextResponse.json(
-        { ok: false, error: "OpenAI не сгенерил ни одной картинки", failures, data },
+        {
+          ok: false,
+          error: `OpenAI gpt-image-2 не сгенерил ни одной картинки. Первая ошибка: ${firstError.slice(0, 500)}`,
+          failures,
+          data,
+        },
         { status: 502 },
       );
     }

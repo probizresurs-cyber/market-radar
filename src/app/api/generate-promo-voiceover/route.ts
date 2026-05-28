@@ -33,7 +33,7 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { ELEVENLABS_API_KEY, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
+import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     // Дёргаем ElevenLabs напрямую (не через /api/elevenlabs-tts —
     // там лишняя сериализация в base64-JSON и обратно).
     const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
+      `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
       {
         method: "POST",
         headers: {

@@ -7,4 +7,12 @@ export const ELEVENLABS_API_KEY =
   process.env.ELEVENLABS_API_KEY ??
   "sk_82f8d1f12d3ac27d765d35d87d10a03402e1984395194653";
 
+// Base URL — нужен для российского VPS, чтобы обходить Cloudflare bot-challenge
+// на api.elevenlabs.io. Указывается на Cloudflare Worker, который проксирует
+// запросы (та же схема что для ANTHROPIC_BASE_URL и OPENAI_BASE_URL).
+// Если не задан — используется прямой URL (работает только из не-блокированных IP).
+export const ELEVENLABS_BASE_URL = (
+  process.env.ELEVENLABS_BASE_URL ?? "https://api.elevenlabs.io"
+).replace(/\/+$/, "");
+
 export const ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2";
