@@ -34,7 +34,7 @@ interface ReelHistoryItem {
 }
 
 interface StepReport {
-  name: "images" | "screencast" | "voiceover" | "stock-videos" | "render";
+  name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -153,6 +153,12 @@ const DEFAULT_FORM = {
   voiceoverScript: "",
   useStockVideos: false,
   stockVideoQuery: "",
+  useAnimatedBroll: false,
+  animatedBrollTheme: "",
+  // demoMixMode: когда И screencast И broll/stocks активны —
+  // "corners" = b-roll по углам phone-frame (старый дефолт)
+  // "alternate" = phone и full-screen broll чередуются по сегментам
+  demoMixMode: "corners" as "corners" | "alternate",
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
@@ -215,6 +221,7 @@ export default function PromoReelsAdminPage() {
     setResult(null);
     setProgress([
       { name: "images", status: "skipped", ms: 0 },
+      { name: "animated-broll", status: "skipped", ms: 0 },
       { name: "stock-videos", status: "skipped", ms: 0 },
       { name: "screencast", status: "skipped", ms: 0 },
       { name: "voiceover", status: "skipped", ms: 0 },
@@ -242,6 +249,9 @@ export default function PromoReelsAdminPage() {
           voiceoverScript: form.voiceoverScript || undefined,
           useStockVideos: form.useStockVideos,
           stockVideoQuery: form.stockVideoQuery || undefined,
+          useAnimatedBroll: form.useAnimatedBroll,
+          animatedBrollTheme: form.animatedBrollTheme || undefined,
+          demoMixMode: form.demoMixMode,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -478,6 +488,48 @@ export default function PromoReelsAdminPage() {
               </>
             ) : null}
 
+            {/* Выбор режима demo когда И screencast И broll/stocks активны */}
+            {form.includeScreencast && (form.includeBroll || form.useStockVideos) ? (
+              <div
+                style={{
+                  background: "#131720",
+                  border: "1px solid #2d3748",
+                  borderRadius: 8,
+                  padding: 12,
+                  marginTop: 4,
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ ...S.label, marginBottom: 8 }}>Как сочетать со скринкастом</div>
+                <div style={{ ...S.row, marginBottom: 8 }}>
+                  <input
+                    type="radio"
+                    id="mixCorners"
+                    name="mixMode"
+                    style={{ ...S.checkbox, accentColor: "#7c3aed" }}
+                    checked={form.demoMixMode === "corners"}
+                    onChange={() => saveForm({ ...form, demoMixMode: "corners" })}
+                  />
+                  <label htmlFor="mixCorners" style={{ ...S.checkboxLabel, lineHeight: 1.35 }}>
+                    <b>В углах</b> — phone-frame со скринкастом всё время, b-roll плавающими карточками в углах
+                  </label>
+                </div>
+                <div style={S.row}>
+                  <input
+                    type="radio"
+                    id="mixAlternate"
+                    name="mixMode"
+                    style={{ ...S.checkbox, accentColor: "#7c3aed" }}
+                    checked={form.demoMixMode === "alternate"}
+                    onChange={() => saveForm({ ...form, demoMixMode: "alternate" })}
+                  />
+                  <label htmlFor="mixAlternate" style={{ ...S.checkboxLabel, lineHeight: 1.35 }}>
+                    <b>Чередовать</b> — phone-frame со скринкастом и full-screen b-roll сменяются по сегментам (segments × 2)
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             {(form.includeBroll || form.useStockVideos) ? (() => {
               const total = form.videoDurationSec;
               const hookSec = Math.max(3, Math.round(total * 0.17));
@@ -488,9 +540,10 @@ export default function PromoReelsAdminPage() {
               // Зеркалим логику оркестратора
               let brollCount = 0;
               let stockCount = 0;
-              if (form.includeScreencast) {
+              if (form.includeScreencast && form.demoMixMode === "corners") {
                 brollCount = form.includeBroll ? 3 : 0;
               } else {
+                // alternate ИЛИ full-broll (без скринкаста)
                 if (form.useStockVideos && form.includeBroll) {
                   stockCount = Math.ceil(totalSlots / 2);
                   brollCount = Math.floor(totalSlots / 2);
@@ -504,8 +557,14 @@ export default function PromoReelsAdminPage() {
               const mainTotal = stockCount + brollCount;
               if (mainTotal === 0) return null;
 
-              const mode = form.includeScreencast ? "по углам phone-frame" : "full-screen в demo";
-              const secPerSlot = form.includeScreencast ? null : Math.round(demoSec / mainTotal);
+              const isCorners = form.includeScreencast && form.demoMixMode === "corners";
+              const isAlternate = form.includeScreencast && form.demoMixMode === "alternate";
+              const mode = isCorners
+                ? "по углам phone-frame"
+                : isAlternate
+                  ? `чередуются с phone-frame (${mainTotal * 2} сегментов × ${(demoSec / (mainTotal * 2)).toFixed(1)} сек)`
+                  : "full-screen в demo";
+              const secPerSlot = !form.includeScreencast ? Math.round(demoSec / mainTotal) : null;
 
               return (
                 <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
@@ -623,6 +682,7 @@ export default function PromoReelsAdminPage() {
                     "#7c3aed";
                   const label =
                     step.name === "images" ? "AI-картинки" :
+                    step.name === "animated-broll" ? "AI-видео b-roll (Replicate)" :
                     step.name === "stock-videos" ? "Стоковые видео (Pexels)" :
                     step.name === "screencast" ? "Скринкаст" :
                     step.name === "voiceover" ? "Озвучка" :

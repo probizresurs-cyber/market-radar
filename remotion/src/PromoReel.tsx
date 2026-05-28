@@ -28,6 +28,12 @@ export const promoReelSchema = z.object({
   // показываются ВМЕСТО brollImageUrls. Cinematic движение из коробки,
   // без Ken-burns костылей. Видео автоматически обрезаются по слоту.
   stockVideoUrls: z.array(z.string()).optional(),
+  /** Режим демо-сцены когда И screencast, И broll/stocks активны:
+   *   "corners" — фон phone-frame со скринкастом + 3 brolla в углах (default)
+   *   "alternate" — phone-frame со скринкастом ЧЕРЕДУЕТСЯ с full-screen broll/stock
+   *                 (segments × 2: phone → broll → phone → broll → ...)
+   *  Если только что-то одно — этот флаг игнорируется. */
+  demoMixMode: z.enum(["corners", "alternate"]).optional(),
   // Длительность всего ролика в секундах. Перебирается в Root через
   // calculateMetadata. Сцены пропорциональны: hook ~17%, demo ~66%, CTA ~17%.
   // Допустимо 10..90 сек. Дефолт 30.
@@ -50,6 +56,7 @@ export const defaultPromoReelProps: PromoReelProps = {
   ctaBgImageUrl: null,
   brollImageUrls: [],
   stockVideoUrls: [],
+  demoMixMode: "corners",
   videoDurationSec: 30,
 };
 
@@ -91,6 +98,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           brandName={props.brandName}
           brollImageUrls={props.brollImageUrls ?? []}
           stockVideoUrls={props.stockVideoUrls ?? []}
+          demoMixMode={props.demoMixMode ?? "corners"}
         />
       </Sequence>
 

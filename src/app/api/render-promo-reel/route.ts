@@ -61,6 +61,7 @@ interface RenderProps {
   brollImageUrls: string[];
   stockVideoUrls: string[];
   videoDurationSec: number;
+  demoMixMode: "corners" | "alternate";
 }
 
 /**
@@ -143,6 +144,9 @@ function parseProps(
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
     stockVideoUrls,
+    // Режим демо когда есть и screencast и broll: "corners" или "alternate".
+    // Дефолт "corners" — обратная совместимость.
+    demoMixMode: body.demoMixMode === "alternate" ? "alternate" : "corners",
     // Длительность ролика. Клампим 10..90, дефолт 30.
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);

@@ -37,6 +37,11 @@ interface Props {
   /** Стоковые видео (Pexels). В full-broll режиме приоритетно над brollImageUrls
    *  — реальное cinematic движение выглядит лучше AI-картинок с Ken-burns. */
   stockVideoUrls?: string[];
+  /** Режим когда есть И screencast И broll/stocks:
+   *   "corners"   — phone-frame со screencast + brolla по углам (текущий default)
+   *   "alternate" — phone-frame и full-screen broll/stock сменяются через один
+   *                 (segments × 2: phone → broll → phone → broll → ...) */
+  demoMixMode?: "corners" | "alternate";
 }
 
 const STEPS = [
@@ -63,6 +68,7 @@ export const ProductDemoScene: React.FC<Props> = ({
   brandName,
   brollImageUrls = [],
   stockVideoUrls = [],
+  demoMixMode = "corners",
 }) => {
   // Что показывать в full-broll режиме. Логика выбора:
   //  - Есть И стоки И AI-картинки → чередуем через один (stock, image, stock, image...)
@@ -76,6 +82,10 @@ export const ProductDemoScene: React.FC<Props> = ({
       : stockVideoUrls.length > 0
         ? stockVideoUrls
         : brollImageUrls;
+
+  // Alternate-режим активен только когда есть И screencast И что-то в broll-наборе.
+  // Иначе либо чистый phone, либо чистый full-broll — нечего чередовать.
+  const useAlternate = demoMixMode === "alternate" && !!screencastUrl && fullscreenMedia.length > 0;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const sec = frame / fps;
@@ -148,17 +158,24 @@ export const ProductDemoScene: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Главный визуал в центре сцены. Логика выбора:
+      {/* Главный визуал в центре сцены. Три режима:
        *
-       *  1) Есть screencast → phone-frame со скринкастом внутри
-       *     (классический режим: «вот так платформа в руках»)
-       *  2) Скринкаста нет, но есть b-roll картинки → full-screen
-       *     b-roll режим с Ken-burns и кросс-fade между кадрами
-       *     (для абстрактных промо без UI)
-       *  3) Ничего нет → phone-frame с анимированным fallback-дашбордом
-       *     (минимальный demo для тестов)
+       *  1) "alternate" (требует screencast+broll): чередуем phone-frame
+       *     со скринкастом и full-screen broll-кадры. Сегменты по 2.5 сек.
+       *  2) screencast есть → phone-frame со скринкастом (классический)
+       *  3) screencast нет, но есть broll → full-screen broll с Ken-burns
+       *  4) Ничего нет → phone-frame с анимированным fallback-дашбордом
        */}
-      {!screencastUrl && fullscreenMedia.length > 0 ? (
+      {useAlternate ? (
+        <AlternatingDemo
+          screencastUrl={screencastUrl!}
+          mediaUrls={fullscreenMedia}
+          accentColor={accentColor}
+          frame={frame}
+          totalFrames={useVideoConfig().durationInFrames}
+          opacity={phoneEnter}
+        />
+      ) : !screencastUrl && fullscreenMedia.length > 0 ? (
         <BrollFullscreen
           urls={fullscreenMedia}
           accentColor={accentColor}
@@ -193,10 +210,10 @@ export const ProductDemoScene: React.FC<Props> = ({
         </div>
       )}
 
-      {/* B-roll floating-картинки в углах — рисуем ТОЛЬКО если есть
-          screencast (т.е. phone-frame в центре). Если broll стал основным
-          визуалом (BrollFullscreen выше) — углы пустые, иначе перекрытие. */}
-      {screencastUrl ? (
+      {/* B-roll floating-картинки в углах — рисуем ТОЛЬКО в режиме
+          "corners" со screencast'ом. В режиме "alternate" broll'ы уже
+          выходят как full-screen, в углах их быть не должно. */}
+      {screencastUrl && demoMixMode === "corners" ? (
         <BrollLayer urls={brollImageUrls} accentColor={accentColor} sec={sec} fps={fps} frame={frame} />
       ) : null}
 
@@ -250,6 +267,131 @@ export const ProductDemoScene: React.FC<Props> = ({
           );
         })}
       </div>
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * Alternate-режим: чередуем сегменты «phone-frame со screencast» и
+ * «full-screen broll/stock». Demo делится на 2*N сегментов где N —
+ * число broll-кадров. Чётные сегменты (0, 2, 4) — phone, нечётные —
+ * full-screen.
+ *
+ * Например для 4 broll'ов на 20-сек demo:
+ *   0.0-2.5  : phone (screencast offset 0)
+ *   2.5-5.0  : broll #1 full-screen
+ *   5.0-7.5  : phone (screencast offset 2.5 сек)
+ *   7.5-10.0 : broll #2 full-screen
+ *   10.0-12.5: phone (screencast offset 5 сек)
+ *   12.5-15.0: broll #3 full-screen
+ *   15.0-17.5: phone (screencast offset 7.5 сек)
+ *   17.5-20.0: broll #4 full-screen
+ *
+ * Screencast в phone-сегментах продолжается с правильного offset'а
+ * чтобы юзер не видел один и тот же первый кадр платформы по 4 раза.
+ */
+const AlternatingDemo: React.FC<{
+  screencastUrl: string;
+  mediaUrls: string[];
+  accentColor: string;
+  frame: number;
+  totalFrames: number;
+  opacity: number;
+}> = ({ screencastUrl, mediaUrls, accentColor, frame, totalFrames, opacity }) => {
+  const totalSegments = mediaUrls.length * 2;
+  const segmentFrames = totalFrames / totalSegments;
+  const fadeFrames = Math.min(10, segmentFrames * 0.15);
+
+  // Какой сегмент сейчас активен
+  const segmentIndex = Math.min(Math.floor(frame / segmentFrames), totalSegments - 1);
+  const isPhoneSegment = segmentIndex % 2 === 0;
+  const segmentStart = segmentIndex * segmentFrames;
+  const segmentLocalFrame = frame - segmentStart;
+
+  // Cross-fade на границах: затемнение при переходе между сегментами
+  const segmentOpacity = interpolate(
+    segmentLocalFrame,
+    [0, fadeFrames, segmentFrames - fadeFrames, segmentFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+
+  if (isPhoneSegment) {
+    // Сколько прошло "phone-времени" до этого сегмента — для startFrom screencast'а
+    const phoneSlotIndex = segmentIndex / 2;
+    const screencastOffsetFrames = Math.floor(phoneSlotIndex * segmentFrames);
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: PHONE_X,
+          top: PHONE_Y,
+          width: PHONE_W,
+          height: PHONE_H,
+          opacity: opacity * segmentOpacity,
+          transform: `scale(${0.95 + segmentOpacity * 0.05})`,
+        }}
+      >
+        <PhoneFrame accentColor={accentColor}>
+          <OffthreadVideo
+            src={screencastUrl}
+            muted
+            startFrom={screencastOffsetFrames}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </PhoneFrame>
+      </div>
+    );
+  }
+
+  // Full-screen broll-сегмент
+  const mediaIndex = Math.floor(segmentIndex / 2);
+  const url = mediaUrls[mediaIndex];
+  const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
+  // Лёгкий zoom-эффект в сегменте — оживляет статичные картинки
+  const scale = interpolate(segmentLocalFrame, [0, segmentFrames], [1.05, 1.15], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ opacity: opacity * segmentOpacity, overflow: "hidden" }}>
+      {isVideo ? (
+        <OffthreadVideo
+          src={url}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${scale})`,
+          }}
+        />
+      ) : (
+        <Img
+          src={url}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${scale})`,
+          }}
+        />
+      )}
+      {/* Затемнение сверху/снизу для читаемости заголовка и step-badges */}
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,14,26,0.7) 0%, rgba(10,14,26,0.25) 30%, rgba(10,14,26,0.25) 70%, rgba(10,14,26,0.7) 100%)",
+        }}
+      />
+      {/* Виньетка с брендовым свечением по периметру */}
+      <AbsoluteFill
+        style={{
+          background: `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)`,
+          boxShadow: `inset 0 0 200px ${accentColor}22`,
+        }}
+      />
     </AbsoluteFill>
   );
 };

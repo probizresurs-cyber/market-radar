@@ -48,7 +48,7 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 
 interface StepReport {
-  name: "images" | "screencast" | "voiceover" | "stock-videos" | "render";
+  name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render";
   status: "ok" | "failed" | "skipped";
   ms: number;
   error?: string;
@@ -150,6 +150,13 @@ export async function POST(req: Request) {
     const stockVideoQuery = String(body.stockVideoQuery ?? "").trim();
     const useStockVideos = Boolean(body.useStockVideos ?? false);
 
+    // useAnimatedBroll — генерим AI-видео b-roll через Replicate
+    // (Minimax Hailuo и пр.). Дорого ($0.40-0.50 за клип) и медленно
+    // (1-2 мин на клип, параллелим). Тема для промптов берётся из
+    // animatedBrollTheme (англ) или fallback из niche.
+    const useAnimatedBroll = Boolean(body.useAnimatedBroll ?? false);
+    const animatedBrollTheme = String(body.animatedBrollTheme ?? niche ?? "").trim();
+
     // Валидируем заранее: чекбокс стоков включён без query = очевидный
     // user-error, лучше сразу сказать чем тихо пропустить шаг.
     if (useStockVideos && !stockVideoQuery) {
@@ -189,21 +196,45 @@ export async function POST(req: Request) {
     const demoSec = Math.max(5, videoDurationSec - hookSec - ctaSec);
     const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
 
+    // Распределение слотов между источниками визуала. Логика по приоритету:
+    //  - В corner-режиме (со screencast'ом) только AI-картинки в углах,
+    //    максимум 3. Видео и анимации в углах = визуальный шум.
+    //  - В full-broll режиме: если включены 2+ источников, делим слоты
+    //    как можно равномернее. Animated > stock > images по визуальной
+    //    привлекательности, поэтому при нечётности отдаём остатки в этом
+    //    порядке.
+    // Режим демо когда есть И screencast И broll-источники:
+    //   "corners"   — 3 угла, broll сидит вокруг phone-frame (default)
+    //   "alternate" — phone-frame и full-screen broll чередуются по сегментам;
+    //                 нужно столько broll'ов сколько фуллскрин-сегментов,
+    //                 такая же логика что full-broll режим без скринкаста
+    const demoMixMode: "corners" | "alternate" =
+      body.demoMixMode === "alternate" ? "alternate" : "corners";
+
     let brollCount = 0;
     let stockCount = 0;
-    if (includeScreencast) {
-      // Phone-frame режим: только corner-broll'ы, видео не нужны.
+    let animatedCount = 0;
+    if (includeScreencast && demoMixMode === "corners") {
       brollCount = includeBroll ? 3 : 0;
     } else {
-      // Full-broll режим
-      if (useStockVideos && includeBroll) {
-        // 50/50 микс. Округление вверх для стоков.
-        stockCount = Math.ceil(totalSlots / 2);
-        brollCount = Math.floor(totalSlots / 2);
-      } else if (useStockVideos) {
-        stockCount = totalSlots;
-      } else if (includeBroll) {
-        brollCount = totalSlots;
+      // Считаем сколько источников активно
+      const sources: ("animated" | "stock" | "broll")[] = [];
+      if (useAnimatedBroll) sources.push("animated");
+      if (useStockVideos) sources.push("stock");
+      if (includeBroll) sources.push("broll");
+
+      if (sources.length > 0) {
+        const baseShare = Math.floor(totalSlots / sources.length);
+        const remainder = totalSlots - baseShare * sources.length;
+
+        // Назначаем по очереди в порядке приоритета (animated > stock > broll).
+        // Кто первый — получает +1 при остатках.
+        sources.forEach((s, i) => {
+          const share = baseShare + (i < remainder ? 1 : 0);
+          if (s === "animated") animatedCount = share;
+          if (s === "stock") stockCount = share;
+          if (s === "broll") brollCount = share;
+        });
       }
     }
     const voiceId = body.voiceId ? String(body.voiceId) : null;
@@ -242,6 +273,30 @@ export async function POST(req: Request) {
       }
     } else {
       progress.push({ name: "images", status: "skipped", ms: 0 });
+    }
+
+    // ──────────────── Шаг 1.3 (опц): AI-видео b-roll через Replicate ─────
+    // Дорогой и медленный шаг (1-2 мин на клип, $0.40-0.50). Делаем ДО
+    // стоков и скринкаста чтобы успели параллельно с ними завершиться
+    // (Promise.all в downloadResults сам ждёт самый медленный).
+    let animatedBrollUrls: string[] = [];
+    if (useAnimatedBroll && animatedCount > 0) {
+      const stepT = Date.now();
+      const r = await callLocal<{ urls: string[] }>(
+        "/api/generate-broll-videos",
+        { query: animatedBrollTheme, count: animatedCount },
+        req,
+        310_000, // 5 мин с запасом — generate-broll-videos.maxDuration = 300
+      );
+      const ms = Date.now() - stepT;
+      if (r.ok && r.data) {
+        animatedBrollUrls = r.data.urls ?? [];
+        progress.push({ name: "animated-broll", status: "ok", ms });
+      } else {
+        progress.push({ name: "animated-broll", status: "failed", ms, error: r.error });
+      }
+    } else {
+      progress.push({ name: "animated-broll", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 1.5 (опц): стоковые видео Pexels ────────────────
@@ -335,7 +390,11 @@ export async function POST(req: Request) {
         hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
         ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
         brollImageUrls: imagesData?.brollImageUrls ?? [],
-        stockVideoUrls,
+        // animated-broll-видео идут в тот же массив что стоковые —
+        // ProductDemoScene всё равно по расширению определяет видео это
+        // или картинка, и при .mp4 рендерит через OffthreadVideo.
+        stockVideoUrls: [...animatedBrollUrls, ...stockVideoUrls],
+        demoMixMode: body.demoMixMode,
         videoDurationSec: body.videoDurationSec,
       },
       req,
