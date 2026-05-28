@@ -150,6 +150,7 @@ const DEFAULT_FORM = {
   includeBroll: false,
   includeVoiceover: false,
   voiceId: "",
+  voiceoverScript: "",
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
@@ -224,6 +225,7 @@ export default function PromoReelsAdminPage() {
           includeBroll: form.includeBroll,
           includeVoiceover: form.includeVoiceover,
           voiceId: form.voiceId || undefined,
+          voiceoverScript: form.voiceoverScript || undefined,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -399,6 +401,24 @@ export default function PromoReelsAdminPage() {
                   onChange={(e) => saveForm({ ...form, voiceId: e.target.value })}
                   placeholder="XB0fDUnXU5powFXDhCwa"
                 />
+
+                <label style={S.label}>
+                  Полный voice-скрипт (опц, ~75 слов на 30 сек)
+                </label>
+                <textarea
+                  style={{ ...S.textarea, minHeight: 120 }}
+                  value={form.voiceoverScript}
+                  onChange={(e) => saveForm({ ...form, voiceoverScript: e.target.value })}
+                  placeholder="Если пусто — голос собирается из 3 верхних блоков (~7-10 сек). Напиши тут полный текст ~70-80 слов чтобы голос звучал все 30 секунд."
+                />
+                <div style={S.hint}>
+                  ElevenLabs говорит ~3 слова/сек. 30 сек видео = ~75-90 слов. Сейчас:{" "}
+                  {form.voiceoverScript
+                    ? `${form.voiceoverScript.trim().split(/\s+/).length} слов ≈ ${Math.round(
+                        form.voiceoverScript.trim().split(/\s+/).length / 3,
+                      )} сек`
+                    : "пусто → авто-сборка из верхних блоков"}
+                </div>
               </>
             ) : null}
 

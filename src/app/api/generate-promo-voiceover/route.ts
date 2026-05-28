@@ -75,10 +75,22 @@ export async function POST(req: Request) {
     }
 
     const voiceId = String(body.voiceId ?? DEFAULT_VOICE_ID).trim();
-    const stability = typeof body.stability === "number" ? body.stability : 0.5;
-    const similarity = typeof body.similarity === "number" ? body.similarity : 0.75;
+    // Настройки голоса подобраны под промо-формат:
+    //  - stability 0.35 (вместо 0.5) — даёт живые модуляции вместо
+    //    монотонной читки. Слишком низко (<0.3) — голос «гуляет».
+    //  - style 0.55 (вместо 0) — добавляет эмоциональной окраски
+    //    (улыбка, акценты), без этого голос звучит «новостным»
+    //  - similarity 0.85 (вместо 0.75) — крепче держится за оригинальный
+    //    voice, иначе на низкой stability может «уплыть» в чужой тембр
+    // Юзер может переопределить через body.stability/.similarity/.style.
+    const stability = typeof body.stability === "number" ? body.stability : 0.35;
+    const similarity = typeof body.similarity === "number" ? body.similarity : 0.85;
+    const style = typeof body.style === "number" ? body.style : 0.55;
 
-    const script = buildScript(hookText, problemText, ctaText);
+    // Скрипт: либо явный override (юзер сам написал полный текст ~75 слов),
+    // либо автосборка из 3 кусков (короткий, ~7-10 сек озвучки)
+    const explicitScript = String(body.voiceoverScript ?? "").trim();
+    const script = explicitScript || buildScript(hookText, problemText, ctaText);
     if (script.length > 1500) {
       return NextResponse.json(
         { ok: false, error: `Скрипт слишком длинный (${script.length} символов), не уложится в 30 сек` },
@@ -103,7 +115,7 @@ export async function POST(req: Request) {
           voice_settings: {
             stability,
             similarity_boost: similarity,
-            style: 0,
+            style,
             use_speaker_boost: true,
           },
         }),

@@ -199,9 +199,13 @@ export async function POST(req: Request) {
     // протух). Голос можно догенерить отдельно и приклеить.
     if (includeVoiceover && !voiceoverUrl) {
       const stepT2 = Date.now();
+      // voiceoverScript (опц) — полный текст для озвучки. Если есть — заменяет
+      // авто-сборку из hook/problem/CTA. Нужно когда юзер хочет голос на все
+      // 30 сек (auto-build даёт ~7-10 сек из 3 коротких текстов).
+      const voiceoverScript = body.voiceoverScript ? String(body.voiceoverScript) : undefined;
       const r = await callLocal<{ url: string }>(
         "/api/generate-promo-voiceover",
-        { hookText, problemText, ctaText, voiceId },
+        { hookText, problemText, ctaText, voiceId, voiceoverScript },
         req,
         130_000,
       );
