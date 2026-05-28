@@ -47,7 +47,7 @@ interface PipelineResponse {
     jobId: string;
     sizeBytes: number;
     totalMs: number;
-    progress: StepReport[];
+    progress?: StepReport[];
     imagesData?: { hookBgImageUrl: string | null; ctaBgImageUrl: string | null; brollImageUrls: string[] };
     screencastData?: { url: string };
   };
@@ -232,7 +232,13 @@ export default function PromoReelsAdminPage() {
       const data = (await r.json()) as PipelineResponse;
       setResult(data);
 
-      if (data.progress) setProgress(data.progress);
+      // Прогресс лежит в РАЗНЫХ местах ответа:
+      //  - при ok: true → data.data.progress (внутри payload'а)
+      //  - при ok: false → data.progress (на верхнем уровне рядом с error)
+      // UI читает оба варианта чтобы шаги всегда показывались корректно.
+      const progressFromResp = data.data?.progress ?? data.progress;
+      if (progressFromResp && progressFromResp.length > 0) setProgress(progressFromResp);
+
       if (data.ok && data.data) {
         saveHistory({
           id: data.data.jobId,
