@@ -61,29 +61,41 @@ interface RenderProps {
 }
 
 /**
- * Превращает URL для медиа-ассета (видео/аудио) в формат, который Remotion
- * сможет прочитать при headless-рендере:
+ * Превращает URL для медиа-ассета (видео/аудио/картинка) в формат,
+ * который Remotion сможет прочитать при headless-рендере:
  *  - http(s):// — оставляем как есть, Chrome скачает
- *  - /screencasts/xxx.mp4 или /voiceover/xxx.mp3 — относительный путь
- *    к статике в /public; конвертим в file:// чтобы не гонять HTTP-loopback
- *  - file:// — оставляем как есть
- *  - всё остальное — null (на всякий случай не передаём кривое)
+ *  - file:// — оставляем как есть (legacy, в проде не используется)
+ *  - /screencasts/xxx.mp4, /promo-images/xxx.png и т.д. — относительный
+ *    путь к статике в /public; конвертим в loopback HTTP
+ *    (http://127.0.0.1:PORT/path), потому что:
+ *      • Remotion's download-and-map-assets-to-file падает на file:// при
+ *        concurrent доступе из множественных subprocess'ов
+ *      • Loopback HTTP к localhost быстрее чем file:// в headless Chrome
+ *        (file:// триггерит дополнительные security checks)
+ *      • Тот же Next-сервер уже отдаёт /public/ как статику — никакой
+ *        дополнительной инфры не нужно
+ *
+ * @param raw — URL или null
+ * @param assetsOrigin — `http://127.0.0.1:3003` (или с тем портом на
+ *                          котором крутится этот же Next-инстанс)
  */
-function resolveMediaUrl(raw: string | null | undefined): string | null {
+function resolveMediaUrl(raw: string | null | undefined, assetsOrigin: string): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
   if (!s) return null;
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
   if (s.startsWith("file://")) return s;
   if (s.startsWith("/")) {
-    // Относительный к /public — резолвим в абсолютный file://
-    const abs = path.join(process.cwd(), "public", s.slice(1));
-    return `file://${abs.split(path.sep).join("/")}`;
+    // Loopback HTTP — Remotion fetch'нет файл по обычной HTTP-схеме.
+    return `${assetsOrigin}${s}`;
   }
   return null;
 }
 
-function parseProps(body: Record<string, unknown>): RenderProps | { error: string } {
+function parseProps(
+  body: Record<string, unknown>,
+  assetsOrigin: string,
+): RenderProps | { error: string } {
   const hookText = String(body.hookText ?? "").trim();
   const problemText = String(body.problemText ?? "").trim();
   const ctaText = String(body.ctaText ?? "").trim();
@@ -101,7 +113,7 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
   // отбрасываем null'ы (не показываем кривые ссылки).
   const brollRaw = Array.isArray(body.brollImageUrls) ? body.brollImageUrls : [];
   const brollImageUrls = brollRaw
-    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null))
+    .map((u) => resolveMediaUrl(typeof u === "string" ? u : null, assetsOrigin))
     .filter((u): u is string => u !== null)
     .slice(0, 3); // максимум 3, дальше слоты заняты
 
@@ -112,10 +124,10 @@ function parseProps(body: Record<string, unknown>): RenderProps | { error: strin
     brandName,
     brandColor: String(body.brandColor ?? "#0a0e1a"),
     accentColor: String(body.accentColor ?? "#22d3ee"),
-    screencastUrl: resolveMediaUrl(body.screencastUrl as string | null | undefined),
-    voiceoverUrl: resolveMediaUrl(body.voiceoverUrl as string | null | undefined),
-    hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined),
-    ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined),
+    screencastUrl: resolveMediaUrl(body.screencastUrl as string | null | undefined, assetsOrigin),
+    voiceoverUrl: resolveMediaUrl(body.voiceoverUrl as string | null | undefined, assetsOrigin),
+    hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
+    ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollImageUrls,
   };
 }
@@ -182,7 +194,21 @@ export async function POST(req: Request) {
     if (TEMP_DIR) await mkdir(TEMP_DIR, { recursive: true });
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const parsed = parseProps(body);
+
+    // Определяем origin для ассетов. Возможные сценарии:
+    //  1. Клиент дёргает по HTTPS → req.url = https://staging.marketradar24.ru/...
+    //     Используем staging-домен — Remotion fetch'нет через nginx + Cloudflare.
+    //     Работает, но медленнее loopback'а.
+    //  2. Внутренний вызов через fetch на 127.0.0.1:3003 (например из
+    //     orchestrator-роута на той же машине) → port уже есть, используем его.
+    //  3. Можно явно передать assetsOrigin в body (для оркестраторов).
+    //
+    // Резюме: предпочитаем явный assetsOrigin из body, иначе строим из req.url.
+    const explicitOrigin = typeof body.assetsOrigin === "string" ? body.assetsOrigin : null;
+    const reqUrl = new URL(req.url);
+    const assetsOrigin = explicitOrigin ?? `${reqUrl.protocol}//${reqUrl.host}`;
+
+    const parsed = parseProps(body, assetsOrigin);
     if ("error" in parsed) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
