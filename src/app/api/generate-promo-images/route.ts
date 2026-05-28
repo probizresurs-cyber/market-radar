@@ -56,7 +56,7 @@ export const maxDuration = 180;
 
 const PROMO_IMAGES_DIR = "promo-images"; // относительно /public
 
-type ImageKey = "hook" | "cta" | "broll1" | "broll2" | "broll3";
+type ImageKey = "hook" | "cta" | `broll${number}`;
 
 interface ImageSpec {
   key: ImageKey;
@@ -65,14 +65,35 @@ interface ImageSpec {
   quality: "low" | "medium" | "high";
 }
 
+/**
+ * Шаблоны промптов для b-roll картинок. Каждый — отдельная визуальная
+ * тема, чтобы серия не была монотонной. Берутся по очереди до нужного
+ * количества. Если нужно >8 — циклятся.
+ */
+function brollPromptTemplates(palette: string, accentColor: string): string[] {
+  const baseStyle =
+    "Vertical 9:16 composition. Dark moody background. No text or logos in the image. Editorial style. Sharp focus.";
+  return [
+    `${baseStyle} ${palette} Single dramatic close-up shot of a glowing growth-arrow / bar chart spike, abstract data visualization, electric tones, fast motion blur sense.`,
+    `${baseStyle} ${palette} Floating UI cards with charts and KPI numbers, holographic style, levitating against dark background, premium SaaS aesthetic.`,
+    `${baseStyle} ${palette} Stylized abstract icon of a target / bullseye made from light trails, futuristic, glowing with ${accentColor} core.`,
+    `${baseStyle} ${palette} Magnifying glass over flowing data streams, particles of information, deep focus, mystery and discovery atmosphere.`,
+    `${baseStyle} ${palette} Network of interconnected glowing nodes — like a constellation map. Lines of light connect points, dark cosmic background.`,
+    `${baseStyle} ${palette} Premium fintech dashboard interface glowing in dark room, multiple charts, hands of an analyst silhouetted, cinematic depth of field.`,
+    `${baseStyle} ${palette} Abstract neural network / AI brain visualization, electric synapses firing, deep blue and ${accentColor} glow.`,
+    `${baseStyle} ${palette} Trophy / award silhouette wreathed in light particles, victory atmosphere, premium glossy materials.`,
+  ];
+}
+
 function buildPrompts(opts: {
   brandName: string;
   niche: string | null;
   accentColor: string;
   includeBroll: boolean;
+  brollCount: number;
   baseQuality: "low" | "medium" | "high";
 }): ImageSpec[] {
-  const { brandName, niche, accentColor, includeBroll, baseQuality } = opts;
+  const { brandName, niche, accentColor, includeBroll, brollCount, baseQuality } = opts;
   const nicheLine = niche ? `Industry context: ${niche}.` : "";
   const palette = `Color palette built around ${accentColor} as accent against deep navy / charcoal black. Cinematic, premium feel.`;
   const baseStyle =
@@ -91,27 +112,18 @@ function buildPrompts(opts: {
     },
   ];
 
-  if (includeBroll) {
-    // У b-roll'а понижаем quality до "low" — это маленькие декорации
-    // в углу, никто пиксели не считает. Скорость генерации ~2× выше.
+  if (includeBroll && brollCount > 0) {
+    // У b-roll'а понижаем quality до "low" — мелкие визуалы в фоне/углах,
+    // никто пиксели не считает. Скорость генерации ~2× выше.
     const brollQuality: "low" = "low";
-    specs.push(
-      {
-        key: "broll1",
+    const templates = brollPromptTemplates(palette, accentColor);
+    for (let i = 0; i < brollCount; i++) {
+      specs.push({
+        key: `broll${i + 1}` as ImageKey,
         quality: brollQuality,
-        prompt: `${baseStyle} ${palette} Single dramatic close-up shot of a glowing growth-arrow / bar chart spike, abstract data visualization, electric blue and cyan tones, fast motion blur sense.`,
-      },
-      {
-        key: "broll2",
-        quality: brollQuality,
-        prompt: `${baseStyle} ${palette} Single shot: floating UI cards with charts and KPI numbers, holographic style, levitating against dark background, premium SaaS aesthetic.`,
-      },
-      {
-        key: "broll3",
-        quality: brollQuality,
-        prompt: `${baseStyle} ${palette} Single shot: stylized abstract icon of a target / bullseye made from light trails, futuristic, glowing with ${accentColor} core.`,
-      },
-    );
+        prompt: templates[i % templates.length],
+      });
+    }
   }
 
   return specs;
@@ -177,11 +189,16 @@ export async function POST(req: Request) {
     const niche = body.niche ? String(body.niche).trim() : null;
     const accentColor = String(body.accentColor ?? "#22d3ee").trim();
     const includeBroll = Boolean(body.includeBroll ?? false);
+    // brollCount — сколько b-roll картинок сгенерить. Клампим 1-8.
+    // Оркестратор обычно считает по длине demo-сцены: 1 картинка на 5 сек.
+    const rawBrollCount = Number(body.brollCount ?? 3);
+    const brollCount = Math.max(1, Math.min(8, Math.round(rawBrollCount)));
+
     const rawQuality = String(body.quality ?? "medium").trim();
     const baseQuality: "low" | "medium" | "high" =
       rawQuality === "low" || rawQuality === "high" ? rawQuality : "medium";
 
-    const specs = buildPrompts({ brandName, niche, accentColor, includeBroll, baseQuality });
+    const specs = buildPrompts({ brandName, niche, accentColor, includeBroll, brollCount, baseQuality });
 
     const jobId = `promo-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const publicDir = path.join(process.cwd(), "public", PROMO_IMAGES_DIR);
@@ -208,11 +225,20 @@ export async function POST(req: Request) {
       });
     }
 
+    // Собираем все broll-картинки в порядке broll1, broll2, ... — независимо
+    // от того сколько штук пришло. Это обеспечивает консистентный порядок
+    // в финальном видео (broll1 первой, broll8 последней).
+    const brollImageUrls: string[] = [];
+    for (let i = 1; i <= 8; i++) {
+      const url = byKey[`broll${i}` as ImageKey];
+      if (url) brollImageUrls.push(url);
+    }
+
     const data = {
       jobId,
       hookBgImageUrl: byKey.hook ?? null,
       ctaBgImageUrl: byKey.cta ?? null,
-      brollImageUrls: [byKey.broll1, byKey.broll2, byKey.broll3].filter(Boolean) as string[],
+      brollImageUrls,
       generatedInMs: Date.now() - t0,
       failures: failures.length ? failures : undefined,
     };

@@ -144,6 +144,28 @@ export async function POST(req: Request) {
     const includeScreencast = body.includeScreencast !== false; // default true
     const includeBroll = Boolean(body.includeBroll ?? false);
     const includeVoiceover = Boolean(body.includeVoiceover ?? false);
+
+    // Длительность ролика. Клампим 10..90. По умолчанию 30.
+    const videoDurationSec = (() => {
+      const n = Number(body.videoDurationSec);
+      if (!Number.isFinite(n)) return 30;
+      return Math.max(10, Math.min(90, Math.round(n)));
+    })();
+
+    // Сколько b-roll картинок сгенерировать. Считаем по правилу
+    // «1 картинка на 5 сек demo-сцены»:
+    //  - При full-broll режиме (нет screencast'а) картинки идут по
+    //    очереди full-screen, нужно ровно столько чтобы покрыть demo.
+    //  - При corner-режиме (есть screencast) у нас 3 слота-угла, всегда 3.
+    // Минимум 1, максимум 8 (limit OpenAI квоты).
+    const hookSec = Math.max(3, Math.round(videoDurationSec * 0.17));
+    const ctaSec = Math.max(3, Math.round(videoDurationSec * 0.17));
+    const demoSec = Math.max(5, videoDurationSec - hookSec - ctaSec);
+    const brollCount = includeBroll
+      ? includeScreencast
+        ? 3 // corner-режим: всегда 3 угла
+        : Math.max(1, Math.min(8, Math.ceil(demoSec / 5))) // full-broll: каждые 5 сек
+      : 0;
     const voiceId = body.voiceId ? String(body.voiceId) : null;
 
     // Внешние ассеты можно передать напрямую если они уже сгенерены
@@ -157,7 +179,7 @@ export async function POST(req: Request) {
       const stepT = Date.now();
       const r = await callLocal<ImagesData>(
         "/api/generate-promo-images",
-        { brandName, niche, accentColor, includeBroll },
+        { brandName, niche, accentColor, includeBroll, brollCount },
         req,
         130_000, // 130 сек — generate-promo-images.maxDuration = 120
       );

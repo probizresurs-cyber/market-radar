@@ -444,11 +444,23 @@ export default function PromoReelsAdminPage() {
                 B-roll картинки {form.includeScreencast ? "в углах" : "full-screen фоном"} (+3 картинки, +30 сек)
               </label>
             </div>
-            {form.includeBroll && !form.includeScreencast ? (
-              <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
-                💡 Скринкаст выключен → b-roll картинки идут full-screen с Ken-burns эффектом
-              </div>
-            ) : null}
+            {form.includeBroll ? (() => {
+              const total = form.videoDurationSec;
+              const hookSec = Math.max(3, Math.round(total * 0.17));
+              const ctaSec = Math.max(3, Math.round(total * 0.17));
+              const demoSec = Math.max(5, total - hookSec - ctaSec);
+              const brollCount = form.includeScreencast
+                ? 3
+                : Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+              return (
+                <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
+                  💡 {brollCount} картин{brollCount === 1 ? "ка" : brollCount < 5 ? "ки" : "ок"}{" "}
+                  {form.includeScreencast
+                    ? "по углам phone-frame"
+                    : `full-screen в demo (по ${Math.round(demoSec / brollCount)} сек на кадр, Ken-burns)`}
+                </div>
+              );
+            })() : null}
 
             <div style={S.row}>
               <input
