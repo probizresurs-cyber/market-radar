@@ -3,6 +3,7 @@ import { Inter, Geist_Mono, Playfair_Display, Montserrat, Nunito, Merriweather }
 import Script from "next/script";
 import "./globals.css";
 import { DeploymentRefresher } from "@/components/DeploymentRefresher";
+import { FetchPatcher } from "@/components/FetchPatcher";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -382,6 +383,7 @@ export default function RootLayout({
           </div>
         </noscript>
         <DeploymentRefresher />
+        <FetchPatcher />
         {children}
       </body>
     </html>

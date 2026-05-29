@@ -98,12 +98,77 @@ function extractErrorFromHtml(rawText: string, status: number): string {
  *   const json = await jsonOrThrow<MyType>(res);   // NEW
  *
  * Все catch'и продолжат работать, но юзер увидит понятную причину.
+ *
+ * Для actionable советов добавлены подсказки:
+ *   413 → «Сожмите файл до X МБ»
+ *   401 → «Перезайдите в аккаунт»
+ *   429 → «Подождите минуту»
+ *   502/504/524 transient — но redirect retry лучше делать на уровне
+ *   fetch (см. fetchJsonRetry ниже).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function jsonOrThrow<T = any>(res: Response): Promise<T> {
   const r = await safeFetchJson<T>(res);
   if (!r.ok) throw new Error(r.error);
   return r.data;
+}
+
+/**
+ * fetch с автоматическим retry для transient серверных ошибок
+ * (502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout,
+ *  524 Cloudflare Timeout). Эти ошибки чаще всего временные —
+ * прокси перезагрузился, upstream таймауты — и при повторе уходят.
+ *
+ * Юзер вообще не увидит сообщения если ретрай помог: просто чуть
+ * дольше крутится спиннер.
+ *
+ * Параметры по умолчанию:
+ *   retries = 2 (всего 3 попытки)
+ *   backoffMs = 800 (вторая попытка через 800мс, третья через 1600мс)
+ *
+ * Для НЕ-transient ошибок (4xx — клиент виноват, или 200 OK)
+ * retry не выполняется — нет смысла.
+ *
+ * Использование:
+ *   const res = await fetchWithRetry("/api/foo", { method: "POST", body });
+ *   const json = await jsonOrThrow<Result>(res);
+ */
+export async function fetchWithRetry(
+  url: string,
+  init?: RequestInit,
+  options?: { retries?: number; backoffMs?: number },
+): Promise<Response> {
+  const retries = options?.retries ?? 2;
+  const backoffMs = options?.backoffMs ?? 800;
+  const TRANSIENT_STATUSES = new Set([502, 503, 504, 524]);
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (!TRANSIENT_STATUSES.has(res.status)) {
+        return res;
+      }
+      // Transient — будем ретраить
+      if (attempt < retries) {
+        const delay = backoffMs * Math.pow(2, attempt);
+        console.warn(`[fetchWithRetry] ${url} вернул ${res.status}, retry через ${delay}мс (попытка ${attempt + 1}/${retries})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      // Все попытки израсходованы — возвращаем последний ответ
+      return res;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < retries) {
+        const delay = backoffMs * Math.pow(2, attempt);
+        console.warn(`[fetchWithRetry] ${url} сеть упала, retry через ${delay}мс:`, lastError.message);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+    }
+  }
+  throw lastError ?? new Error("Сетевая ошибка");
 }
 
 /**
