@@ -8,6 +8,7 @@ import { ImagePromptEditor } from "@/components/ui/ImagePromptEditor";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
 import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink, Shuffle } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -60,7 +61,7 @@ export function TovPanel({ c, post, brandBook, onApply, onClose }: {
           brandBook,
         }),
       });
-      const json = await res.json() as { ok: boolean; data?: TovCheckResult; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; data?: TovCheckResult; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
       setResult(json.data ?? null);
     } catch (e) {
@@ -252,7 +253,7 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const json = await res.json() as { ok: boolean; metrics?: AnyMetrics; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; metrics?: AnyMetrics; error?: string }>(res);
       if (!json.ok || !json.metrics) throw new Error(json.error ?? "Не удалось получить metrics");
       setDraft(prev => ({ ...prev, ...json.metrics }));
     } catch (e) {
@@ -294,7 +295,7 @@ export function MetricsBlock({ c, kind, metrics, onChange, locked }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: base64, mimeType: file.type, contentType: kind }),
       });
-      const json = await res.json() as { ok: boolean; data?: AnyMetrics; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; data?: AnyMetrics; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Не удалось распознать");
       setDraft(prev => ({ ...prev, ...json.data, screenshotUrl: dataUrl }));
     } catch (e) {
@@ -693,7 +694,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
           count: 3,
         }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error ?? "Ошибка");
       onUpdate({ ...post, hookVariants: j.variants });
     } catch (e) {
@@ -724,7 +725,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hook: post.hook, body: post.body, hashtags: post.hashtags }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error ?? "Ошибка");
       onUpdate({ ...post, platformVariants: j.data });
       setActiveTab("instagram");
@@ -762,7 +763,7 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
         referenceImages: refs.length > 0 ? refs.map(r => ({ data: r.data, mimeType: r.mimeType })) : undefined,
       }),
     });
-    const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+    const json = await jsonOrThrow<{ ok: boolean; data?: { imageUrl: string }; error?: string }>(res);
     if (!json.ok) {
       const msg = json.error ?? "Ошибка генерации";
       setImageGenError(msg);
@@ -1649,7 +1650,7 @@ function PublishModal({ post, onClose, onPublished }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post, platforms }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (j.ok) {
         setResults(j.results);
         // Сохраняем статусы в пост

@@ -12,6 +12,7 @@ import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/S
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -61,7 +62,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName, platform, slidesCount, goal, brief, pillar, smmAnalysis, brandBook }),
       });
-      const json = await res.json() as { ok: boolean; data?: GeneratedStory; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; data?: GeneratedStory; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
       const story = json.data!;
       // Сначала добавляем серию в список — пользователь сразу видит превью с текстом.
@@ -603,7 +604,7 @@ export function StoryCard({ c, story, onDelete, onUpdate, brandBook }: {
         userPrompt,
       }),
     });
-    const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+    const json = await jsonOrThrow<{ ok: boolean; data?: { imageUrl: string }; error?: string }>(res);
     if (!json.ok) {
       const msg = json.error ?? "Ошибка генерации";
       setBgError(msg);

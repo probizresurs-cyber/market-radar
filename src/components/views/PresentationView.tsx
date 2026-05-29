@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { trackGoal } from "@/lib/metrika";
 import { INDUSTRY_TEMPLATES, getTemplateById, buildTemplatePromptBlock, type IndustryTemplate } from "@/lib/presentation-templates";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface PresentationSlide {
   title: string;
@@ -129,7 +130,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     if (!premiumJobId || !premiumJob || premiumJob.status === "succeeded" || premiumJob.status === "failed") return;
     const t = setInterval(async () => {
       const r = await fetch(`/api/agent/job/${premiumJobId}`);
-      const d = await r.json();
+      const d = await jsonOrThrow(r);
       if (d.ok) setPremiumJob(d.job);
     }, 3000);
     return () => clearInterval(t);
@@ -186,7 +187,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     premiumRefFiles.forEach(f => fd.append("references", f));
 
     const r = await fetch("/api/agent/generate-presentation", { method: "POST", body: fd });
-    const d = await r.json();
+    const d = await jsonOrThrow(r);
     if (d.ok) {
       setPremiumJobId(d.jobId);
       setPremiumJob({ status: "queued", log: [], outputFiles: [], durationSec: 0 });
@@ -236,7 +237,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           brandBook,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error || "Ошибка проверки");
       setBrandCheckResult(json.data);
     } catch (e) {
@@ -259,7 +260,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           audience: taAnalysis?.segments?.[0]?.segmentName?.slice(0, 200),
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error || "Не удалось сгенерировать заметки");
       const notes: string[] = json.data?.notes ?? [];
       setSlides(prev => prev.map((s, i) => {
@@ -402,7 +403,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           customPrompt: finalCustomPrompt || undefined,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       clearInterval(timer);
       if (!json.ok) throw new Error(json.error);
       const newTitle = json.data.title ?? "Бренд-презентация";
@@ -433,7 +434,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slides, wish: wishText, style: selectedStyle, brandBook, company: myCompany.company }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
       setSlides(json.data.slides ?? slides);
       setWishText("");
@@ -454,7 +455,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         body: JSON.stringify({ slides, style: selectedStyle, title: presTitle }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Ошибка PDF" }));
+        const err = await jsonOrThrow(res).catch(() => ({ error: "Ошибка PDF" }));
         throw new Error(err.error || "Ошибка PDF");
       }
       const blob = await res.blob();

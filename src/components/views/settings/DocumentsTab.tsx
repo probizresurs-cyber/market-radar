@@ -13,6 +13,7 @@
 
 import React, { useEffect, useState } from "react";
 import { FileText, Download, Loader2, Plus, AlertCircle, ExternalLink, CheckCircle2, Eye, X } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface InvoiceItem {
   id: string;
@@ -267,7 +268,7 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) {
         if (j.action === "open_requisites") {
           setError(j.error + " (откройте вкладку «Реквизиты»)");

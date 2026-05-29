@@ -6,6 +6,7 @@ import type { AnalysisResult } from "@/lib/types";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Search, Rocket, Swords, PenLine, Target, AlertTriangle, TrendingUp } from "lucide-react";
 import { OrderCTA } from "@/components/ui/OrderCTA";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface LiveCheckResult {
   llm: string;
@@ -34,7 +35,7 @@ export function InsightsView({ c, data, competitors }: { c: Colors; data: Analys
           url: data.company.url,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         setLiveCheckResults(json.results as LiveCheckResult[]);
       } else {

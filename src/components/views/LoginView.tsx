@@ -7,6 +7,7 @@ import { authSetCurrentUser } from "@/lib/user";
 import { trackGoal, setUserId } from "@/lib/metrika";
 import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 import { ArrowLeft, Mail, Lock, Loader2 } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function LoginView({ c, onSuccess, onRegister, onBack }: {
   c: Colors;
@@ -33,7 +34,7 @@ export function LoginView({ c, onSuccess, onRegister, onBack }: {
         body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
         credentials: "include",
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) { setError(json.error ?? "Неверный email или пароль"); return; }
       const user: UserAccount = {
         id: json.user.id,

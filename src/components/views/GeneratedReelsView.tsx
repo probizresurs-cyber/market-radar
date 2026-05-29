@@ -8,6 +8,7 @@ import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -112,7 +113,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
             if (c.status !== "pending" || !c.executionId) return c;
             try {
               const r = await fetch(`/api/heygen-broll-status?executionId=${encodeURIComponent(c.executionId)}`);
-              const j = await r.json();
+              const j = await jsonOrThrow(r);
               const s = j?.data?.status;
               if (s === "completed" && j?.data?.videoUrl) {
                 changed = true;
@@ -156,7 +157,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           companyNiche,
         }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok || !Array.isArray(j.prompts)) throw new Error(j.error ?? "Не удалось получить сцены");
 
       const fresh: BrollClip[] = j.prompts.map((p: { prompt: string; motionHint?: string; position?: string }) => ({

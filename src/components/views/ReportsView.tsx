@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 type ReportTab = "company" | "ta" | "smm" | "competitors" | "reviews";
 
@@ -21,7 +22,7 @@ export function ReportsView({ c, data, taAnalysis, smmAnalysis, competitors }: {
     setShareUrl(null);
     try {
       const res = await fetch("/api/share/create", { method: "POST" });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok && json.id) {
         const url = `${window.location.origin}/share/${json.id}`;
         setShareUrl(url);

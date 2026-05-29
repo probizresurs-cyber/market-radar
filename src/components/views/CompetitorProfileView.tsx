@@ -13,6 +13,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { RadarChart } from "@/components/ui/RadarChart";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 import {
   TrendingUp, AlertTriangle, Lightbulb, Tag, RefreshCw, Key,
   Search, Building2, ClipboardList, Settings, Users, Smartphone,
@@ -44,7 +45,7 @@ export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: company.name, companyUrl: company.url, companyDescription: company.description }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         setOffers(json.data);
         try { localStorage.setItem(offersKey, JSON.stringify(json.data)); } catch { /* ignore */ }

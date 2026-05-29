@@ -12,6 +12,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 import {
   LineChart, Loader2, Plus, RefreshCw, Trash2, X, ExternalLink, AlertCircle,
   CheckCircle2, TrendingDown, TrendingUp, Minus, Upload,
@@ -102,7 +103,7 @@ export function PriceTrackingView() {
               notify_telegram: true,
             }),
           });
-          const j = await r.json();
+          const j = await jsonOrThrow(r);
           if (!j.ok) errors.push(`${lineUrl} — ${j.error ?? "ошибка"}`);
         } catch (e) {
           errors.push(`${lineUrl} — ${e instanceof Error ? e.message : "ошибка"}`);
@@ -134,7 +135,7 @@ export function PriceTrackingView() {
     setLoading(true);
     try {
       const r = await fetch("/api/price-tracking", { cache: "no-store" });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (j.ok) setProducts(j.products);
     } finally { setLoading(false); }
   };
@@ -160,7 +161,7 @@ export function PriceTrackingView() {
           notify_telegram: true,
         }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error ?? "Ошибка");
       setProducts(prev => [j.product, ...prev]);
       setUrl(""); setCompetitorName(""); setThresholdPct(""); setCssSelector("");
@@ -174,7 +175,7 @@ export function PriceTrackingView() {
     setBusyId(id);
     try {
       const r = await fetch(`/api/price-tracking/${id}/check`, { method: "POST" });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (j.ok && j.product) {
         setProducts(prev => prev.map(p => p.id === id ? j.product : p));
       }
@@ -426,7 +427,7 @@ function ProductRow({ product, busy, onCheck, onDelete }: {
     setLoadingHistory(true);
     try {
       const r = await fetch(`/api/price-tracking/${product.id}`, { cache: "no-store" });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (j.ok && Array.isArray(j.history)) setHistory(j.history);
     } finally { setLoadingHistory(false); }
   };

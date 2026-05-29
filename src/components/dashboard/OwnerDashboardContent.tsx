@@ -21,6 +21,7 @@ import {
 import { QuickAnalyzeCard } from "./QuickAnalyzeCard";
 import { SpywordsBlock } from "../ui/SpywordsBlock";
 import { MetricRing, StackedBar } from "../ui/Charts";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Structures CJM/Benchmarks (shape повторяет /api/generate-cjm и /api/generate-benchmarks) ─
 interface CJMTouchpoint { channel: string; action: string; icon: string }
@@ -682,7 +683,7 @@ export function OwnerDashboardContent({
     setSharing(true); setShareError(null);
     try {
       const r = await fetch("/api/share/create", { method: "POST", credentials: "include" });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error || "Ошибка создания ссылки");
       const url = `${window.location.origin}/share/${j.id}`;
       setShareLink(url);

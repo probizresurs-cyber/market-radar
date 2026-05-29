@@ -3,6 +3,7 @@
 import React from "react";
 import { Zap, Target, Hourglass, Ban } from "lucide-react";
 import type { Recommendation } from "@/lib/types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 /**
  * Маленький бэдж приоритета Impact × Effort для строк рекомендаций.
@@ -121,7 +122,7 @@ export function PrioritizeButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recommendations, companyName, niche }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error || "Ошибка");
       onUpdate(j.prioritized as Recommendation[]);
     } catch (e) {

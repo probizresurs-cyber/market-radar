@@ -6,6 +6,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { BrandBook } from "@/lib/content-types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export interface ContentIdea {
   id: string;
@@ -62,7 +63,7 @@ export function AutoIdeasModal({ format, myCompany, taResult, smmResult, brandBo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format, count, myCompany, taResult, smmResult, brandBook }),
       });
-      const json = await res.json() as { ok: boolean; ideas?: ContentIdea[]; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; ideas?: ContentIdea[]; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
       setIdeas(json.ideas ?? []);
     } catch (e) {

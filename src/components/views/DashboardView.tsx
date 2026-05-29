@@ -21,6 +21,7 @@ import { KeysoSiteInsightsBlock } from "@/components/ui/KeysoSiteInsightsBlock";
 import { Building2, TrendingUp, Key, FileText, Cpu, Users as UsersIcon, LineChart, Tag, RefreshCw, Search, AlertTriangle, Activity, Clock, CalendarCheck, Zap, PieChart, ScanLine, CheckCircle, Info } from "lucide-react";
 import { EffortImpactBadge, PrioritizeButton } from "@/components/ui/EffortImpactBadge";
 import { BenchmarkBadge, useNicheBenchmark } from "@/components/ui/BenchmarkBadge";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Tech Audit Dashboard Block ───────────────────────────────────────────────
 // Shows only what's NOT already on the dashboard:
@@ -51,7 +52,7 @@ function TechAuditDashboardBlock({ url }: { url: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setReport(data.report);
       else setErr(data.error || "Ошибка аудита");
     } catch (e) { setErr(String(e)); }

@@ -14,6 +14,7 @@
 
 import React, { useState } from "react";
 import { Search, Loader2, ExternalLink, TrendingUp, AlertTriangle } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface QuickAnalysis {
   name: string;
@@ -72,7 +73,7 @@ export function QuickAnalyzeCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: normalized }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
       const data = json.data;
       const topRec =

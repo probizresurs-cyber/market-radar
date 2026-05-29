@@ -11,6 +11,7 @@ import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/S
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -52,7 +53,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName, platform, slidesCount, goal, brief, pillar, smmAnalysis, brandBook }),
       });
-      const json = await res.json() as { ok: boolean; data?: GeneratedCarousel; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; data?: GeneratedCarousel; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
       // hasEmbeddedText ставим в autoGenerateCarouselBackgrounds ТОЛЬКО
       // после успешной генерации фона со встроенным текстом. Раньше мы
@@ -595,7 +596,7 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
         embedText: embedText || undefined,
       }),
     });
-    const json = await res.json() as { ok: boolean; data?: { imageUrl: string }; error?: string };
+    const json = await jsonOrThrow<{ ok: boolean; data?: { imageUrl: string }; error?: string }>(res);
     if (!json.ok) {
       const msg = json.error ?? "Ошибка генерации";
       setBgError(msg);

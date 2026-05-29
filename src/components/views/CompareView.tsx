@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { RadarChart } from "@/components/ui/RadarChart";
 import { Scale, Search, Calendar, Zap, Briefcase, Map as MapIcon, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag, Activity, Clock } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
   const [aiInsights, setAiInsights] = useState<null | { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] }>(null);
@@ -44,7 +45,7 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ myCompany, competitors }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setAiInsights(json.data);
       else setAiError(json.error ?? "Ошибка генерации");
     } catch { setAiError("Ошибка сети"); }

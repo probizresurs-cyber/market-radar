@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 import type {
   AIVisibilityAudit,
   AIMention,
@@ -455,7 +456,7 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandName: audit.brandName, websiteUrl: audit.websiteUrl }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setDirectMentions(json.mentions);
       else setDirectError(json.error ?? "Ошибка");
     } catch {
@@ -497,7 +498,7 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain: audit.websiteUrl, base: "msk", limit: 25 }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setKeysoAi({ stats: json.stats, mentions: json.mentions, competitors: json.competitors });
       else setKeysoAiError(json.error ?? "Не удалось получить данные");
     } catch {
@@ -526,7 +527,7 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandName, niche: effectiveNiche, region }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setQueries(json.queries);
     } catch { /* ignore */ }
     finally { setQueriesLoading(false); }
@@ -571,7 +572,7 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ llm, queries, brandName, niche: effectiveNiche }),
         });
-        const json = await res.json();
+        const json = await jsonOrThrow(res);
         if (json.ok) allMentions.push(...json.mentions);
       }
 

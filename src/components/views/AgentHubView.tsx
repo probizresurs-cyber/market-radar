@@ -23,6 +23,7 @@ import {
   Send, Mail, Eye, TrendingUp, Star, TrendingDown,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // Маппинг строкового имени иконки → компонент. Используется в карточке агента
 // чтобы по AGENT_ICONS[agent.name] подобрать lucide-иконку.
@@ -429,7 +430,7 @@ export function AgentHubView({ c }: { c: Colors }) {
     setRunningName(agentName);
     try {
       const res = await fetch(`/api/agents/${encodeURIComponent(agentName)}/run`, { method: "POST" });
-      const j = await res.json();
+      const j = await jsonOrThrow(res);
       if (!j.ok) setError(j.error ?? "Ошибка запуска");
       // Перезагружаем чтобы увидеть свежий last_run + inbox
       await load();

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { PieChart, Sparkles, AlertTriangle } from "lucide-react";
 import { DonutChart, type DonutSegment } from "./Charts";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface Share {
   domain: string;
@@ -57,7 +58,7 @@ export function MarketShareBlock({ myDomain, competitorDomains }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domains: domains.slice(0, 15), base: "msk" }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         setShares(json.shares);
         setUsedAutoCompetitors(autoMode);

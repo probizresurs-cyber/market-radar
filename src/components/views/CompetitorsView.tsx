@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import { Users, Sparkles, Plus, Loader2 } from "lucide-react";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface SuggestedCompetitor {
   domain: string;
@@ -45,7 +46,7 @@ export function CompetitorsView({ c, myCompany, competitors, onSelectCompetitor,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain: myCompany.company.url, base: "msk", limit: 12 }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         // Исключить тех, кто уже добавлен и саму компанию
         const myDomain = myCompany.company.url.replace(/^www\./, "").toLowerCase();

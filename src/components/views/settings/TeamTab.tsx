@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { UserPlus, Trash2, X, AlertCircle, CheckCircle2, Copy, Mail, Shield, Eye } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface Member {
   workspaceId: string;
@@ -49,7 +50,7 @@ export function TeamTab() {
     setError(null);
     try {
       const res = await fetch("/api/workspace/members");
-      const json = await res.json() as { ok: boolean; error?: string; members?: Member[]; pendingInvites?: PendingInvite[] };
+      const json = await jsonOrThrow<{ ok: boolean; error?: string; members?: Member[]; pendingInvites?: PendingInvite[] }>(res);
       if (!json.ok) throw new Error(json.error || "Не удалось загрузить");
       setMembers(json.members ?? []);
       setPending(json.pendingInvites ?? []);
@@ -71,7 +72,7 @@ export function TeamTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
-      const json = await res.json() as { ok: boolean; error?: string; emailSent?: boolean; emailError?: string; invite?: { acceptUrl?: string } };
+      const json = await jsonOrThrow<{ ok: boolean; error?: string; emailSent?: boolean; emailError?: string; invite?: { acceptUrl?: string } }>(res);
       if (!json.ok) throw new Error(json.error || "Не удалось пригласить");
 
       setInviteEmail("");
@@ -98,7 +99,7 @@ export function TeamTab() {
     if (!confirm("Убрать участника из команды? Он потеряет доступ к дашборду.")) return;
     try {
       const res = await fetch(`/api/workspace/members?memberId=${encodeURIComponent(memberId)}`, { method: "DELETE" });
-      const json = await res.json() as { ok: boolean; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; error?: string }>(res);
       if (!json.ok) throw new Error(json.error);
       load();
     } catch (err) {
@@ -113,7 +114,7 @@ export function TeamTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId, role }),
       });
-      const json = await res.json() as { ok: boolean; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; error?: string }>(res);
       if (!json.ok) throw new Error(json.error);
       load();
     } catch (err) {
@@ -125,7 +126,7 @@ export function TeamTab() {
     if (!confirm("Отозвать приглашение?")) return;
     try {
       const res = await fetch(`/api/workspace/invite?code=${encodeURIComponent(code)}`, { method: "DELETE" });
-      const json = await res.json() as { ok: boolean; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; error?: string }>(res);
       if (!json.ok) throw new Error(json.error);
       load();
     } catch (err) {

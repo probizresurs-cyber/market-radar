@@ -11,6 +11,7 @@ import { BrandBookPanel } from "@/components/ui/BrandBookPanel";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
 import { Factory, Smartphone, Rocket } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ============================================================
 // Content Factory views
@@ -370,7 +371,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
           brandBook,
         }),
       });
-      const json = await res.json() as { ok: boolean; prompt?: string; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; prompt?: string; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
       setGeneratedPrompt(json.prompt ?? "");
       setShowAdvanced(true);

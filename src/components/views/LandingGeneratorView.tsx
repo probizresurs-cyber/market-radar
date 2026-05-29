@@ -6,6 +6,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { BrandBook, PresentationStyle } from "@/lib/content-types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface LandingResult {
   projectId: string;
@@ -86,7 +87,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: h.htmlUrl }),
           });
-          const json = await res.json();
+          const json = await jsonOrThrow(res);
           if (cancelled) return;
           setExpiryStatus(prev => ({ ...prev, [h.id]: json.alive ? "alive" : "expired" }));
         } catch {
@@ -198,7 +199,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           userPrompt: userPrompt.trim(),
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка генерации");
       setResult(data);
       saveLanding(data, landingType, stylePreset);
@@ -226,7 +227,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           action: "edit",
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка редактирования");
       setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl } : null);
       setEditPrompt("");
@@ -251,7 +252,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           action: "variants",
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка генерации вариантов");
       setVariants(data.variants || []);
     } catch (err: unknown) {
@@ -275,7 +276,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
           action: "mobile",
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка");
       // Open mobile version as a new variant
       setVariants(prev => [...prev, { screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl }]);

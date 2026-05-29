@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
 import type { BrandBook } from "@/lib/content-types";
 import { BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 const POPULAR_FONTS = [
   "Inter", "Manrope", "Montserrat", "Roboto", "Open Sans", "Lato", "Poppins",
@@ -76,7 +77,7 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
           count: 2,
         }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error ?? "Ошибка");
       setGenResults(j.logos ?? []);
     } catch (e) {

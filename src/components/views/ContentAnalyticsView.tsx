@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { GeneratedPost, GeneratedReel, GeneratedStory, GeneratedCarousel } from "@/lib/content-types";
 import { fmtNumber } from "@/components/views/GeneratedPostsView";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ============================================================
 // Content Analytics View
@@ -169,7 +170,7 @@ export function ContentAnalyticsView({ c, posts, reels, stories = [], carousels 
           companyName,
         }),
       });
-      const json = await res.json() as { ok: boolean; data?: PerformanceInsights; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; data?: PerformanceInsights; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
       setInsights(json.data ?? null);
     } catch (e) {

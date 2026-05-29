@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Sparkles, AlertTriangle, TrendingUp, CheckCircle2, RefreshCw } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 /**
  * AISummary — компактный AI-вывод поверх дашборда: «что важно прямо
@@ -111,7 +112,7 @@ export function AISummary({
         body: JSON.stringify({ dashboard, data }),
         signal: ctrl.signal,
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error || "Ошибка генерации");
       setSummary(json.summary);
       setPriority(json.priority || "medium");

@@ -25,6 +25,7 @@ import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { SwotReport, SwotItems } from "@/lib/swot";
 import type { TowsMatrix, TowsQuadrant } from "@/app/api/generate-tows/route";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface StoredReport {
   id: string;
@@ -118,7 +119,7 @@ export function SWOTView({
           companyName: report.companyName,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
       const generatedTows = json.tows as TowsMatrix;
       setTows(generatedTows);
@@ -153,7 +154,7 @@ export function SWOTView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ company, competitors, ta, smm }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
       setReport(json.data as SwotReport);
     } catch (e) {

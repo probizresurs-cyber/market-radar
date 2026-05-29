@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { AvatarSettings, CustomAvatar, CustomVoice } from "@/lib/content-types";
 import { Sparkles, Smartphone, Monitor, Loader2, RefreshCw, ClipboardList, Upload, Mic, ImagePlus, Trash2 } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   c: Colors;
@@ -312,7 +313,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     setError(null);
     try {
       const res = await fetch("/api/heygen-list");
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка HeyGen");
       setAvatars(json.data.avatars);
       setVoices(json.data.voices);

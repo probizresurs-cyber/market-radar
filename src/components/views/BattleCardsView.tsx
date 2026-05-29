@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { BattleCardsResult, BattleCard } from "@/app/api/generate-battle-cards/route";
 import { Swords, ChevronDown, ChevronRight, Printer, RefreshCw, Shield, AlertTriangle, MessageSquare, DollarSign, Zap, Target, CheckCircle, XCircle, Loader2, Users, ArrowRight, HelpCircle, Sparkles } from "lucide-react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Storage helpers ───────────────────────────────────────────────────────────
 
@@ -373,7 +374,7 @@ export function BattleCardsView({
           competitors: compPayload,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         setResult(json.data);
         saveCards(userId, json.data);

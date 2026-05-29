@@ -13,6 +13,7 @@ import type {
   SEOKeyword, SEOPlatform, SEOArticleType, SEOArticlesState,
 } from "@/lib/seo-types";
 import { SEO_PLATFORMS, SEO_ARTICLE_TYPES } from "@/lib/seo-types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -271,7 +272,7 @@ function SEOKeywordsView({
           niche: analysis?.company?.description?.slice(0, 60) || "",
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.cluster?.keywords) setKeywords(data.cluster.keywords);
       else setErr(data.error || "Ошибка генерации");
     } catch (e) { setErr(String(e)); }
@@ -422,7 +423,7 @@ function SEOArticleEditor({
           companyStyleProfile,
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.fullText) {
         const nextArt: SEOArticle = {
           ...art,
@@ -456,7 +457,7 @@ function SEOArticleEditor({
           companyStyleProfile,
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.content) {
         const newOutline = art.outline.map(s =>
           s.id === secId ? { ...s, generatedContent: data.content, status: "done" as const } : s
@@ -493,7 +494,7 @@ function SEOArticleEditor({
           articleMode: art.brief.articleMode,
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.meta) {
         const nextArt: SEOArticle = { ...art, meta: data.meta };
         setArt(nextArt);
@@ -1441,7 +1442,7 @@ function SEOKeywordExpandView({ analysis, userId, onBack }: { analysis: Analysis
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seed: seed.trim(), niche: niche.trim(), count, lang }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setResult(data.result);
       else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
@@ -1632,7 +1633,7 @@ function SEOPAAView({ analysis, userId, onBack }: { analysis: AnalysisResult | n
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword: kw, lang }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setResult(data.result);
       else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
@@ -1773,7 +1774,7 @@ function SEOTechAuditView({ analysis, onBack }: { analysis: AnalysisResult | nul
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setReport(data.report);
       else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }

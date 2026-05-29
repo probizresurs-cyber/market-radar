@@ -28,6 +28,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 type SchedulableItem =
   | { kind: "post"; item: GeneratedPost }
@@ -796,7 +797,7 @@ function DayDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post: it.item, platforms: ["telegram", "vk"] }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка");
       const tg = json.results?.telegram;
       const vk = json.results?.vk;

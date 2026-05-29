@@ -7,6 +7,7 @@ import type { UserAccount } from "@/lib/user";
 import { authSetCurrentUser } from "@/lib/user";
 import { trackGoal, setUserId } from "@/lib/metrika";
 import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 type ContactType = "phone" | "telegram";
 
@@ -74,7 +75,7 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
         }),
         credentials: "include",
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) { setError(json.error ?? "Ошибка регистрации"); return; }
       const user: UserAccount = {
         id: json.user.id,

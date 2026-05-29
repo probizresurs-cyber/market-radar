@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Sparkles, BellRing, Check } from "lucide-react";
 import type { Colors } from "@/lib/colors";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface Props {
   c: Colors;
@@ -31,7 +32,7 @@ export function ComingSoonView({ c, featureId, title, description, userEmail }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ featureId, email: email.trim() || undefined, note: note.trim() || undefined }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка");
       setStatus("ok");
     } catch (e) {

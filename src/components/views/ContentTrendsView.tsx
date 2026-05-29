@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface TrendItem {
   title: string;
@@ -292,7 +293,7 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim(), sources }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setResult(data.result);
       else setErr(data.error || "Ошибка");
     } catch (e) { setErr(String(e)); }
@@ -313,7 +314,7 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
           niche: analysis?.company?.niche ?? "",
         }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.ok) setIdeas(data.ideas);
       else setAnalyzeErr(data.error || "Ошибка анализа");
     } catch (e) { setAnalyzeErr(String(e)); }

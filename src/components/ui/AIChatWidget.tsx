@@ -17,6 +17,7 @@ import type { DashboardContext, ChatMessage } from "@/app/api/chat/route";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Context builder ──────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
           context: buildContext(myCompany, competitors, taAnalysis, smmAnalysis),
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         const assistantMsg: ChatMessage = { role: "assistant", content: json.message };
         const withReply = [...nextMsgs, assistantMsg];

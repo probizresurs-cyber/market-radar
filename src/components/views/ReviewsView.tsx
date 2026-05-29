@@ -6,6 +6,7 @@ import type { Review, ReviewAnalysis } from "@/lib/review-types";
 import { DataBadge } from "@/components/ui/DataBadge";
 import { AISummary } from "@/components/ui/AISummary";
 import { SentimentTimeline } from "@/components/ui/SentimentTimeline";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function ReviewsView({ c, companyName, domain, niche }: {
   c: Colors;
@@ -59,7 +60,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: cleanName, address: cleanAddress, limit, domain, niche }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok && json.data.reviews.length > 0) {
         fetched.push(...json.data.reviews);
         const placeName = json.data.placeName ? ` «${json.data.placeName}»` : "";
@@ -88,7 +89,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
           orgId: yandexOrgId,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok && json.data.reviews.length > 0) {
         fetched.push(...json.data.reviews);
         log.push(`Яндекс.Карты: ${json.data.reviews.length} отзывов (${json.data.rating}★)`);
@@ -112,7 +113,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
           url: gisFirmUrl || undefined,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok && json.data.reviews.length > 0) {
         fetched.push(...json.data.reviews);
         log.push(`2ГИС: ${json.data.reviews.length} отзывов`);
@@ -158,7 +159,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ screenshot: dataUrl }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
       const newReviews: Review[] = json.data.reviews;
       setReviews(prev => [...prev, ...newReviews]);
@@ -181,7 +182,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pastedText: pasteText }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
       const newReviews: Review[] = json.data.reviews;
       setReviews(prev => [...prev, ...newReviews]);
@@ -205,7 +206,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: gisUrl }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
       const newReviews: Review[] = json.data.reviews;
       setReviews(prev => [...prev, ...newReviews]);
@@ -229,7 +230,7 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName, reviews }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
       setAnalysis(json.data);
       setTab("analysis");

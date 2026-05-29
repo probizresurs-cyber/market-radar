@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { KeysoDashboardData, SeoPosition } from "@/lib/types";
 import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { StackedBar, MetricRing } from "./Charts";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export interface KeysoRefreshResult {
   keysoDashboard: { yandex?: KeysoDashboardData; google?: KeysoDashboardData };
@@ -56,7 +57,7 @@ export function KeysoDashboardBlock({ c, dash, domain, onRefresh }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         onRefresh(json as KeysoRefreshResult);
         setRefreshedAt(json.refreshedAt);

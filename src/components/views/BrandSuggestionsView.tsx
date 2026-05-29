@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { TAResult } from "@/lib/ta-types";
 import type { BrandBook } from "@/lib/content-types";
 import { DataBadge } from "@/components/ui/DataBadge";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSuggestions, brandBook, onUpdateBrandBook }: {
   c: Colors;
@@ -34,7 +35,7 @@ export function BrandSuggestionsView({ c, taData, brandSuggestions, setBrandSugg
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: taData.companyName, niche: taData.niche, segments }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setBrandSuggestions({ ...json.data, generatedAt: new Date().toISOString() });
     } catch { /* ignore */ }
     setLoading(false);

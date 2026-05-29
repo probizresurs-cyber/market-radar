@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Megaphone, ExternalLink, Sparkles, AlertTriangle, BarChart2, Target, Hash } from "lucide-react";
 import { StackedBar } from "./Charts";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface Ad {
   title?: string;
@@ -34,7 +35,7 @@ export function CompetitorAdsBlock({ domain }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, base: "msk", limit: 15 }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) setAds(json.ads);
       else setError(json.error ?? "Не удалось получить данные");
     } catch {

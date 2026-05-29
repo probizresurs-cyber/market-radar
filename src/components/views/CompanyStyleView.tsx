@@ -14,6 +14,7 @@ import {
   Wand2,
 } from "lucide-react";
 import type { Colors } from "@/lib/colors";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 import type {
   CompanyStyleDoc,
   CompanyStyleProfile,
@@ -74,7 +75,7 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
             mimeType: file.type,
           }),
         });
-        const json = await res.json() as { ok: boolean; text?: string; wordCount?: number; error?: string };
+        const json = await jsonOrThrow<{ ok: boolean; text?: string; wordCount?: number; error?: string }>(res);
         if (!json.ok || !json.text) {
           setError(json.error ?? `Не удалось обработать ${file.name}`);
           continue;
@@ -113,7 +114,7 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: pasteText }),
       });
-      const json = await res.json() as { ok: boolean; text?: string; wordCount?: number; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; text?: string; wordCount?: number; error?: string }>(res);
       if (!json.ok || !json.text) {
         setError(json.error ?? "Не удалось обработать текст");
         setBusy("idle");
@@ -155,7 +156,7 @@ export function CompanyStyleView({ c, state, onChange, companyName }: Props) {
           companyName,
         }),
       });
-      const json = await res.json() as { ok: boolean; profile?: CompanyStyleProfile; error?: string };
+      const json = await jsonOrThrow<{ ok: boolean; profile?: CompanyStyleProfile; error?: string }>(res);
       if (!json.ok || !json.profile) {
         setError(json.error ?? "Ошибка анализа стиля");
         setBusy("idle");

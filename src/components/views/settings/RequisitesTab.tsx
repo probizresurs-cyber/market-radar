@@ -15,6 +15,7 @@ import React, { useEffect, useState } from "react";
 import { Building2, FileText, Loader2, AlertCircle, CheckCircle2, Search } from "lucide-react";
 import type { ClientRequisites, ClientType } from "@/lib/requisites";
 import { CLIENT_TYPE_LABEL } from "@/lib/requisites";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 const EMPTY: ClientRequisites = {
   client_type: "individual",
@@ -89,7 +90,7 @@ export function RequisitesTab() {
     setInnLookup({ loading: true, error: null });
     try {
       const r = await fetch(`/api/dadata/party?inn=${encodeURIComponent(inn)}`);
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) {
         setInnLookup({ loading: false, error: j.error || "Не найдено" });
         return;
@@ -120,7 +121,7 @@ export function RequisitesTab() {
     setBikLookup({ loading: true, error: null });
     try {
       const r = await fetch(`/api/dadata/bank?bik=${encodeURIComponent(bik)}`);
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) {
         setBikLookup({ loading: false, error: j.error || "Банк не найден" });
         return;
@@ -145,7 +146,7 @@ export function RequisitesTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) {
         if (j.errors) setErrors(j.errors);
         return;

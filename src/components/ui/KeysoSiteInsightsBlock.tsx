@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 import {
   FileText, AlertTriangle, Layers,
   Sparkles, ExternalLink, RefreshCw, TrendingDown,
@@ -43,7 +44,7 @@ export function KeysoSiteInsightsBlock({ domain }: { domain: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, base: "msk" }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (json.ok) {
         setData({
           topPages: json.topPages ?? [],

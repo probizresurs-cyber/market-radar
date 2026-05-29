@@ -10,6 +10,7 @@ import { BUSINESS_TYPES, type BusinessType } from "@/lib/business-types";
 import { RequisitesTab } from "./settings/RequisitesTab";
 import { DocumentsTab } from "./settings/DocumentsTab";
 import { TeamTab } from "./settings/TeamTab";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface SubState {
   plan: string;
@@ -98,7 +99,7 @@ export function SettingsView({ c, user, onUpdateUser, onWhiteLabelChange }: { c:
           vkGroupId: vkGroupId.trim(),
         }),
       });
-      const j = await r.json();
+      const j = await jsonOrThrow(r);
       if (!j.ok) throw new Error(j.error ?? "Ошибка");
       setPubCfgSaved(true);
       setTimeout(() => setPubCfgSaved(false), 2200);
@@ -797,7 +798,7 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-      const data = await res.json();
+      const data = await jsonOrThrow(res);
       if (data.chatId) {
         const updated = { ...user!, tgChatId: String(data.chatId) };
         onUpdateUser(updated);
