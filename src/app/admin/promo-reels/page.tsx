@@ -512,22 +512,53 @@ export default function PromoReelsAdminPage() {
               </>
             ) : null}
 
+            <div style={S.row}>
+              <input
+                type="checkbox"
+                style={S.checkbox}
+                id="useAnim"
+                checked={form.useAnimatedBroll}
+                onChange={(e) => saveForm({ ...form, useAnimatedBroll: e.target.checked })}
+              />
+              <label htmlFor="useAnim" style={S.checkboxLabel}>
+                AI-видео b-roll (Replicate / Kling v2.1) — ~$0.50/клип, +2-3 мин
+              </label>
+            </div>
+
+            {form.useAnimatedBroll ? (
+              <>
+                <label style={S.label}>Тема для видео (английский)</label>
+                <input
+                  style={S.input}
+                  value={form.animatedBrollTheme}
+                  onChange={(e) => saveForm({ ...form, animatedBrollTheme: e.target.value })}
+                  placeholder="например: competitive intelligence analyst dark office, OR оставь пустым → возьмёт ниши"
+                />
+                <div style={S.hint}>
+                  Kling v2.1 генерит 5-сек кинематографичные клипы 9:16. Если пусто — берёт «Ниша
+                  для AI-картинок» сверху. На 30-сек ролике = 4 клипа = ~$2. Нужен
+                  REPLICATE_API_TOKEN в env (replicate.com/account/api-tokens).
+                </div>
+              </>
+            ) : null}
+
             {/* Подсказка о том как сочетаются выбранные источники визуала.
                 Логика: corners (углы) — только когда есть screencast. Fullscreen
                 источники (broll-fullscreen + stocks) автоматически чередуются
                 друг с другом. Если screencast тоже on — phone и fullscreen
                 сменяются через один. */}
-            {(form.includeBrollCorners || form.includeBrollFullscreen || form.useStockVideos) ? (() => {
+            {(form.includeBrollCorners || form.includeBrollFullscreen || form.useStockVideos || form.useAnimatedBroll) ? (() => {
               const total = form.videoDurationSec;
               const hookSec = Math.max(3, Math.round(total * 0.17));
               const ctaSec = Math.max(3, Math.round(total * 0.17));
               const demoSec = Math.max(5, total - hookSec - ctaSec);
               const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
 
-              // Кто из fullscreen-источников активен (broll-fullscreen / stocks)
+              // Кто из fullscreen-источников активен (broll / stocks / animated)
               const fsSources: string[] = [];
-              if (form.includeBrollFullscreen) fsSources.push("AI-картинки");
+              if (form.useAnimatedBroll) fsSources.push("AI-видео (Replicate)");
               if (form.useStockVideos) fsSources.push("стоковые видео");
+              if (form.includeBrollFullscreen) fsSources.push("AI-картинки");
 
               // Распределение fullscreen-слотов между активными источниками
               const fsTotal = fsSources.length === 0 ? 0 : totalSlots;
