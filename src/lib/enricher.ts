@@ -712,12 +712,50 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
       "Content-Type": "application/json",
     };
 
-    // Fetch Yandex (msk) and Google (gru) domain dashboards in parallel
-    // domain_dashboard returns all data directly: keywords, competitors, metrics, links history
-    const [yDash, gDash] = await Promise.all([
-      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=msk&domain=${encodeURIComponent(cleanDomain)}`, headers, 25000).catch(() => null),
-      fetchJson(`https://api.keys.so/report/simple/domain_dashboard?base=gru&domain=${encodeURIComponent(cleanDomain)}`, headers, 25000).catch(() => null),
+    // Fetch Yandex и Google dashboards. Для маленьких/региональных доменов
+    // (вроде cormilec.ru) Keys.so может не иметь данных в msk-базе, но иметь
+    // в ru (Россия-агрегат) или spb. Поэтому пробуем регионы по очереди и
+    // берём первый с непустыми метриками.
+    const YANDEX_FALLBACK_BASES = ["msk", "ru", "spb"] as const;
+    const GOOGLE_FALLBACK_BASES = ["gru", "goo_ru"] as const;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isMeaningful = (dash: any): boolean => {
+      if (!dash || typeof dash !== "object") return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d: any = dash.data && typeof dash.data === "object" && !Array.isArray(dash.data) ? dash.data : dash;
+      const traffic = Number(d.vis ?? d.traffic ?? 0);
+      const top10 = Number(d.it10 ?? d.top10 ?? 0);
+      const top50 = Number(d.it50 ?? d.top50 ?? 0);
+      const keysCnt = Array.isArray(d.keys) ? d.keys.length : 0;
+      return traffic > 0 || top10 > 0 || top50 > 0 || keysCnt > 0;
+    };
+
+    const fetchWithFallback = async (
+      bases: readonly string[],
+      label: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ): Promise<{ dash: any; base: string } | null> => {
+      for (const base of bases) {
+        const url = `https://api.keys.so/report/simple/domain_dashboard?base=${base}&domain=${encodeURIComponent(cleanDomain)}`;
+        const dash = await fetchJson(url, headers, 25000).catch(() => null);
+        if (isMeaningful(dash)) {
+          if (base !== bases[0]) {
+            console.info(`[Key.so ${label}] ${domain} — данные найдены в fallback-регионе "${base}" (основной "${bases[0]}" был пуст)`);
+          }
+          return { dash, base };
+        }
+      }
+      return null;
+    };
+
+    const [yResult, gResult] = await Promise.all([
+      fetchWithFallback(YANDEX_FALLBACK_BASES, "Yandex"),
+      fetchWithFallback(GOOGLE_FALLBACK_BASES, "Google"),
     ]);
+
+    const yDash = yResult?.dash ?? null;
+    const gDash = gResult?.dash ?? null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parseDashboard = (dash: any, label: string) => {
@@ -815,11 +853,11 @@ export async function getKeysoKeywords(domain: string): Promise<KeysoKeywords | 
         .sort((a, b) => a.position - b.position);
     };
 
-    const yDashParsed = parseDashboard(yDash, "msk");
-    const gDashParsed = parseDashboard(gDash, "gru");
+    const yDashParsed = parseDashboard(yDash, yResult?.base ?? "msk");
+    const gDashParsed = parseDashboard(gDash, gResult?.base ?? "gru");
 
     if (!yDashParsed && !gDashParsed) {
-      console.warn(`[Key.so] No data for ${domain} — оба ответа невалидные (msk + gru null/empty)`);
+      console.warn(`[Key.so] No data for ${domain} — Keys.so не нашёл домен ни в одном из регионов (Yandex msk/ru/spb, Google gru/goo_ru)`);
       return null;
     }
 

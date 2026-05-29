@@ -346,11 +346,22 @@ export async function fetchTopPages(
   limit = 15,
 ): Promise<KeysoTopPage[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
-  // per_page побольше, чтобы захватить несколько страниц после группировки
-  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/organic/sitepages/withkeys",
-    { domain: cleanDomain, base, page: 1, per_page: 100 },
-  );
+  // Если основной регион пуст — пробуем ru (Россия-агрегат) и spb. Это спасает
+  // региональные/нишевые домены, которых нет в msk-базе.
+  const fallbackBases: KeysoBase[] = base === "msk" ? ["msk", "ru", "spb"] : [base];
+  let data: { data?: Array<Record<string, unknown>> } | null = null;
+  for (const b of fallbackBases) {
+    data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+      "/report/simple/organic/sitepages/withkeys",
+      { domain: cleanDomain, base: b, page: 1, per_page: 100 },
+    );
+    if (data?.data && data.data.length > 0) {
+      if (b !== fallbackBases[0]) {
+        console.info(`[Keyso topPages] ${cleanDomain} — нашли в fallback-регионе "${b}"`);
+      }
+      break;
+    }
+  }
   if (!data?.data) return [];
 
   // Группируем по URL: keysCount = кол-во ключей, traffic = vis (одинаков для всей страницы)
@@ -382,10 +393,16 @@ export async function fetchLostKeywords(
   limit = 20,
 ): Promise<KeysoLostKeyword[]> {
   const cleanDomain = domain.replace(/^www\./, "").replace(/^https?:\/\//, "").split("/")[0];
-  const data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
-    "/report/simple/organic/lost_keywords",
-    { domain: cleanDomain, base, page: 1, per_page: limit },
-  );
+  // Тот же fallback-каскад регионов, что в fetchTopPages.
+  const fallbackBases: KeysoBase[] = base === "msk" ? ["msk", "ru", "spb"] : [base];
+  let data: { data?: Array<Record<string, unknown>> } | null = null;
+  for (const b of fallbackBases) {
+    data = await keysoFetch<{ data?: Array<Record<string, unknown>> }>(
+      "/report/simple/organic/lost_keywords",
+      { domain: cleanDomain, base: b, page: 1, per_page: limit },
+    );
+    if (data?.data && data.data.length > 0) break;
+  }
   if (!data?.data) return [];
   return data.data.slice(0, limit).map((k) => ({
     keyword: String(k.word ?? k.keyword ?? k.phrase ?? ""),
