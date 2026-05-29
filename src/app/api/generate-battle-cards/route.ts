@@ -146,6 +146,95 @@ ${competitors.map((c, i) => `${i + 1}. ${c.name} (${c.url}), оценка: ${c.s
 Количество карточек: ${competitors.length} (по одной на каждого конкурента).`;
 }
 
+// ─── JSON repair ──────────────────────────────────────────────────────────────
+
+/**
+ * Пытается починить обрезанный JSON ответа AI: ищет массив "cards": [ ... ]
+ * и для каждой карточки внутри проверяет — парсится ли она отдельно.
+ * Берёт только те карточки, которые валидны целиком, и закрывает
+ * родительский объект. Так юзер получит хоть N карточек из M вместо
+ * полного 500.
+ *
+ * Возвращает null, если даже первая карточка невалидна — тогда нечего
+ * показывать.
+ */
+function tryRepairTruncatedCards(raw: string): BattleCardsResult | null {
+  // Находим начало массива cards
+  const cardsKeyIdx = raw.search(/"cards"\s*:\s*\[/);
+  if (cardsKeyIdx === -1) return null;
+  const arrStart = raw.indexOf("[", cardsKeyIdx);
+  if (arrStart === -1) return null;
+
+  // Извлекаем поля до cards (executiveSummary, niche, myCompanyName)
+  const head = raw.slice(0, arrStart + 1);
+
+  // Идём по символам после [ и собираем верхнеуровневые объекты карточек
+  const cards: unknown[] = [];
+  let i = arrStart + 1;
+  while (i < raw.length) {
+    // Пропускаем пробелы и запятые между карточками
+    while (i < raw.length && /[\s,]/.test(raw[i])) i++;
+    if (i >= raw.length || raw[i] === "]") break;
+    if (raw[i] !== "{") break; // непонятный символ — стоп
+
+    // Ищем сбалансированную }-пару с учётом строк
+    const objStart = i;
+    let depth = 0;
+    let inStr = false;
+    let escaped = false;
+    let objEnd = -1;
+    for (; i < raw.length; i++) {
+      const ch = raw[i];
+      if (inStr) {
+        if (escaped) { escaped = false; continue; }
+        if (ch === "\\") { escaped = true; continue; }
+        if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) { objEnd = i; break; }
+      }
+    }
+    if (objEnd === -1) break; // обрезано на середине карточки — стоп
+    const objText = raw.slice(objStart, objEnd + 1);
+    try {
+      cards.push(JSON.parse(objText));
+    } catch {
+      break; // даже эта карточка кривая — стоп
+    }
+    i = objEnd + 1;
+  }
+
+  if (cards.length === 0) return null;
+
+  // Собираем итоговый объект: head + рестрит cards
+  const tail = `${cards.map(c => JSON.stringify(c)).join(",")}]}`;
+  const reconstructed = head + tail;
+  try {
+    return JSON.parse(reconstructed);
+  } catch {
+    // head может быть обрезан мусором перед "cards" — попробуем
+    // минималку: {myCompanyName,niche,executiveSummary,cards}
+    try {
+      const myName = raw.match(/"myCompanyName"\s*:\s*"([^"]*)"/)?.[1] ?? "";
+      const niche = raw.match(/"niche"\s*:\s*"([^"]*)"/)?.[1] ?? "";
+      const summary = raw.match(/"executiveSummary"\s*:\s*"([^"]*)"/)?.[1] ?? "";
+      return {
+        generatedAt: new Date().toISOString(),
+        myCompanyName: myName,
+        niche,
+        executiveSummary: summary,
+        cards: cards as BattleCard[],
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -190,7 +279,10 @@ export async function POST(req: Request) {
 
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      // 8192 — потолок для claude-sonnet-4-x. На 3 конкурентах с полной
+      // структурой battle card (~3000 chars × 3 + общие поля) 4096 не
+      // хватало → JSON обрезался в середине → «Expected ',' or '}'».
+      max_tokens: 8192,
       system: SYSTEM,
       messages: [{ role: "user", content: prompt }],
     });
@@ -198,11 +290,30 @@ export async function POST(req: Request) {
     const raw = (msg.content[0] as { type: string; text: string }).text.trim();
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
-    if (start === -1 || end === -1) {
+    if (start === -1) {
       return NextResponse.json({ ok: false, error: "AI вернул невалидный JSON" }, { status: 500 });
     }
 
-    const data: BattleCardsResult = JSON.parse(raw.slice(start, end + 1));
+    const jsonCandidate = end > start ? raw.slice(start, end + 1) : raw.slice(start);
+    let data: BattleCardsResult;
+    try {
+      data = JSON.parse(jsonCandidate);
+    } catch (parseErr) {
+      // Fallback: ответ обрезан или содержит синтаксис-ошибку — пробуем
+      // починить, отрезав последний неполный объект в массиве cards и
+      // закрыв скобки. Это лучше чем 500-ка: даём юзеру хотя бы те карточки,
+      // которые AI успел выдать полностью.
+      const repaired = tryRepairTruncatedCards(jsonCandidate);
+      if (!repaired) {
+        console.error("[generate-battle-cards] JSON parse failed", parseErr, "raw length:", raw.length, "stop_reason:", msg.stop_reason);
+        return NextResponse.json(
+          { ok: false, error: `AI вернул невалидный JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },
+          { status: 500 },
+        );
+      }
+      data = repaired;
+      console.warn("[generate-battle-cards] JSON был обрезан, восстановили", data.cards?.length ?? 0, "карточек из", competitors.length);
+    }
 
     // Stamp generatedAt server-side
     data.generatedAt = new Date().toISOString();
