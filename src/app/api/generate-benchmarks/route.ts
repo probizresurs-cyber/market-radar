@@ -5,7 +5,10 @@ import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 60с не хватало на streaming-генерацию с большим промптом
+// (overallBenchmark + N categoryBenchmarks + 5-7 marketMetrics +
+// 3-5 growthOpportunities + 4-5 nicheInsights → 8+ КБ JSON).
+export const maxDuration = 120;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" });
 
@@ -164,27 +167,76 @@ function extractJson(text: string): any {
   const start = stripped.indexOf("{");
   if (start === -1) throw new Error("No JSON object found in AI response");
 
-  const end = stripped.lastIndexOf("}");
-  if (end > start) {
-    try {
-      return JSON.parse(stripped.slice(start, end + 1));
-    } catch {
-      /* fall through */
+  const candidate = stripped.slice(start);
+
+  // 1. Полный парс
+  const end = candidate.lastIndexOf("}");
+  if (end > 0) {
+    try { return JSON.parse(candidate.slice(0, end + 1)); } catch { /* fall through */ }
+  }
+
+  // 2. Walk-back: ищем валидное закрытие
+  for (let i = candidate.length - 1; i > 0; i--) {
+    if (candidate[i] === "}") {
+      try { return JSON.parse(candidate.slice(0, i + 1)); } catch { /* continue */ }
     }
   }
 
-  const partial = stripped.slice(start);
-  for (let i = partial.length - 1; i > 0; i--) {
-    if (partial[i] === "}") {
-      try {
-        return JSON.parse(partial.slice(0, i + 1));
-      } catch {
-        /* continue */
+  // 3. Auto-close: проходим по символам, считаем глубину, закрываем скобки
+  // на последнем сбалансированном уровне. Если стрим оборвался посреди
+  // вложенного массива/объекта — попробуем закрыть его искусственно.
+  try {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let lastBalancedPos = 0;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{" || ch === "[") depth++;
+      if (ch === "}" || ch === "]") {
+        depth--;
+        if (depth === 0) lastBalancedPos = i;
       }
     }
-  }
+    if (lastBalancedPos > 0) {
+      try { return JSON.parse(candidate.slice(0, lastBalancedPos + 1)); } catch { /* fall through */ }
+    }
 
-  throw new Error("Failed to parse AI response as JSON");
+    // 4. Force-close: добавляем закрывающие скобки по depth-стеку
+    const stack: string[] = [];
+    inString = false;
+    escape = false;
+    let lastValueEnd = -1;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") stack.push("}");
+      else if (ch === "[") stack.push("]");
+      else if (ch === "}" || ch === "]") stack.pop();
+      // запоминаем позицию после которой можно закрывать (после ", null, цифры, ", true/false)
+      if (!inString && (ch === '"' || ch === "}" || ch === "]" || /[\dtruefalsn]/i.test(ch))) {
+        lastValueEnd = i;
+      }
+    }
+    if (lastValueEnd > 0 && stack.length > 0) {
+      // отрезаем хвост типа `, "key":` если он остался незавершённым,
+      // и докидываем закрывашки в LIFO-порядке
+      let trimmed = candidate.slice(0, lastValueEnd + 1);
+      // убираем висячую запятую если есть
+      trimmed = trimmed.replace(/,\s*$/, "");
+      const closing = stack.reverse().join("");
+      try { return JSON.parse(trimmed + closing); } catch { /* fall through */ }
+    }
+  } catch { /* fall through */ }
+
+  throw new Error(`Failed to parse AI response as JSON (preview: ${stripped.slice(0, 150)})`);
 }
 
 export async function POST(req: Request) {
@@ -227,7 +279,10 @@ export async function POST(req: Request) {
 
     const streamResponse = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      // 4096 не хватало: JSON с N категориями + 5-7 marketMetrics +
+      // 3-5 growthOpportunities + 4-5 nicheInsights занимает 6-10к токенов
+      // → стрим обрезался → «Failed to parse AI response as JSON».
+      max_tokens: 12000,
       system: SYSTEM_PROMPT,
       messages: [
         {
