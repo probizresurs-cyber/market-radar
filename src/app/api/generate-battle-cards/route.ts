@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 120;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,10 +46,9 @@ export interface BattleCardsResult {
   executiveSummary: string;    // 2-3 предложения — общая расстановка сил
 }
 
-// ─── Prompt ────────────────────────────────────────────────────────────────────
+// ─── Prompts ───────────────────────────────────────────────────────────────────
 
 const SYSTEM = `Ты — эксперт по конкурентным продажам (competitive intelligence) и battle card‑методологии.
-Твоя задача — создать практические карточки конкурентного боя (battle cards) для отдела продаж и маркетинга.
 
 Battle card — инструмент, который помогает менеджеру по продажам:
 • быстро найти слабые места конкурента
@@ -66,173 +65,94 @@ Battle card — инструмент, который помогает менед
 
 ВАЖНО: Отвечай ТОЛЬКО валидным JSON без markdown-обёрток. Начинай с { и заканчивай }.`;
 
-function buildPrompt(
+/** Промпт для отдельной карточки (одного конкурента). */
+function buildSingleCardPrompt(
   myName: string,
   myUrl: string,
   myScore: number,
   niche: string,
-  competitors: Array<{ name: string; url: string; score: number; description?: string; strengths?: string[]; weaknesses?: string[] }>
+  comp: { name: string; url: string; score: number; description?: string; strengths?: string[]; weaknesses?: string[] },
 ): string {
   return `${ANTI_HALLUCINATION_SHORT}
 
-Создай battle cards для компании "${myName}" (${myUrl}) в нише: ${niche}.
-Оценка нашей компании по платформе MarketRadar: ${myScore}/100.
+Создай ОДНУ battle card для нашей компании "${myName}" (${myUrl}) в нише: ${niche}.
+Оценка нашей компании: ${myScore}/100.
 
-Конкуренты для battle card:
-${competitors.map((c, i) => `${i + 1}. ${c.name} (${c.url}), оценка: ${c.score}/100${c.description ? `\n   Описание: ${c.description}` : ""}${c.strengths?.length ? `\n   Сильные стороны (из анализа): ${c.strengths.join("; ")}` : ""}${c.weaknesses?.length ? `\n   Слабые стороны (из анализа): ${c.weaknesses.join("; ")}` : ""}`).join("\n\n")}
+КОНКУРЕНТ:
+Название: ${comp.name}
+Сайт: ${comp.url}
+Оценка: ${comp.score}/100${comp.description ? `\nОписание: ${comp.description}` : ""}${comp.strengths?.length ? `\nИзвестные сильные стороны: ${comp.strengths.join("; ")}` : ""}${comp.weaknesses?.length ? `\nИзвестные слабые стороны: ${comp.weaknesses.join("; ")}` : ""}
 
-Верни СТРОГО валидный JSON:
+Верни СТРОГО валидный JSON одной карточки:
 {
-  "generatedAt": "ISO дата",
-  "myCompanyName": "${myName}",
-  "niche": "${niche}",
-  "executiveSummary": "2-3 предложения общей расстановки сил на рынке",
-  "cards": [
-    {
-      "competitorName": "название",
-      "competitorUrl": "url",
-      "competitorScore": число,
-      "strengths": [
-        "Конкретная сильная сторона конкурента (как они выигрывают у нас)",
-        "...",
-        "..."
-      ],
-      "weaknesses": [
-        "Конкретная слабая сторона конкурента (их боль, которую знают их клиенты)",
-        "...",
-        "..."
-      ],
-      "objections": [
-        {
-          "objection": "У вас дороже / у конкурента X дешевле",
-          "counter": "Конкретный встречный аргумент с цифрами или фактами"
-        },
-        {
-          "objection": "Второе типичное возражение",
-          "counter": "Наш ответ"
-        },
-        {
-          "objection": "Третье возражение",
-          "counter": "Наш ответ"
-        }
-      ],
-      "pricing": {
-        "competitorRange": "примерный диапазон цен конкурента",
-        "ourRange": "наш диапазон цен",
-        "positioningNote": "1 предложение о разнице в ценовом позиционировании"
-      },
-      "migrationTrigger": "Конкретный момент / ситуация, когда клиент уходит от конкурента к нам",
-      "winCondition": "Главное условие победы над этим конкурентом в сделке",
-      "talkingPoints": [
-        "Живая фраза для продажника #1",
-        "Живая фраза для продажника #2",
-        "Живая фраза для продажника #3"
-      ],
-      "riskFactors": [
-        "Ситуация, когда мы проигрываем этому конкуренту",
-        "Второй фактор риска (если есть)"
-      ],
-      "discoveryQuestions": [
-        "Квалификационный вопрос #1 — о боли клиента, чтобы понять, гонится ли он за ценой или качеством",
-        "Вопрос #2 — о текущем опыте с конкурентом (что не устраивает)",
-        "Вопрос #3 — о критериях выбора решения",
-        "Вопрос #4 — о бюджете и сроках"
-      ],
-      "cheatSheet": "Одна строка для продажника: где ловить (триггер), где избегать (red flag), главный аргумент"
-    }
-  ]
+  "competitorName": "${comp.name}",
+  "competitorUrl": "${comp.url}",
+  "competitorScore": ${comp.score},
+  "strengths": ["сильная сторона #1", "сильная сторона #2", "сильная сторона #3"],
+  "weaknesses": ["слабая сторона #1", "слабая сторона #2", "слабая сторона #3"],
+  "objections": [
+    {"objection": "У вас дороже / у конкурента X дешевле", "counter": "Конкретный встречный аргумент с цифрами"},
+    {"objection": "Второе типичное возражение", "counter": "Наш ответ"},
+    {"objection": "Третье возражение", "counter": "Наш ответ"}
+  ],
+  "pricing": {
+    "competitorRange": "диапазон цен конкурента",
+    "ourRange": "наш диапазон цен",
+    "positioningNote": "1 предложение о разнице в позиционировании"
+  },
+  "migrationTrigger": "Конкретный момент когда клиент уходит от конкурента к нам",
+  "winCondition": "Главное условие победы над этим конкурентом",
+  "talkingPoints": ["Фраза для продажника #1", "Фраза #2", "Фраза #3"],
+  "riskFactors": ["Ситуация когда мы проигрываем", "Второй риск"],
+  "discoveryQuestions": [
+    "Квалификационный вопрос #1 — о боли клиента",
+    "Вопрос #2 — о текущем опыте с конкурентом",
+    "Вопрос #3 — о критериях выбора",
+    "Вопрос #4 — о бюджете и сроках"
+  ],
+  "cheatSheet": "Одна строка: где ловить, где избегать, главный аргумент"
+}`;
 }
 
-Количество карточек: ${competitors.length} (по одной на каждого конкурента).`;
+/** Промпт для общей расстановки сил (executive summary). */
+function buildSummaryPrompt(
+  myName: string,
+  niche: string,
+  competitors: Array<{ name: string; score: number }>,
+  myScore: number,
+): string {
+  return `${ANTI_HALLUCINATION_SHORT}
+
+Сформулируй краткую расстановку сил на рынке для отдела продаж.
+
+Наша компания: ${myName} (${myScore}/100), ниша: ${niche}
+Конкуренты:
+${competitors.map(c => `- ${c.name} (${c.score}/100)`).join("\n")}
+
+Верни JSON:
+{"executiveSummary":"2-3 предложения — где мы сильны, где конкуренты сильны, главная ставка для продаж"}`;
 }
 
-// ─── JSON repair ──────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Пытается починить обрезанный JSON ответа AI: ищет массив "cards": [ ... ]
- * и для каждой карточки внутри проверяет — парсится ли она отдельно.
- * Берёт только те карточки, которые валидны целиком, и закрывает
- * родительский объект. Так юзер получит хоть N карточек из M вместо
- * полного 500.
- *
- * Возвращает null, если даже первая карточка невалидна — тогда нечего
- * показывать.
- */
-function tryRepairTruncatedCards(raw: string): BattleCardsResult | null {
-  // Находим начало массива cards
-  const cardsKeyIdx = raw.search(/"cards"\s*:\s*\[/);
-  if (cardsKeyIdx === -1) return null;
-  const arrStart = raw.indexOf("[", cardsKeyIdx);
-  if (arrStart === -1) return null;
-
-  // Извлекаем поля до cards (executiveSummary, niche, myCompanyName)
-  const head = raw.slice(0, arrStart + 1);
-
-  // Идём по символам после [ и собираем верхнеуровневые объекты карточек
-  const cards: unknown[] = [];
-  let i = arrStart + 1;
-  while (i < raw.length) {
-    // Пропускаем пробелы и запятые между карточками
-    while (i < raw.length && /[\s,]/.test(raw[i])) i++;
-    if (i >= raw.length || raw[i] === "]") break;
-    if (raw[i] !== "{") break; // непонятный символ — стоп
-
-    // Ищем сбалансированную }-пару с учётом строк
-    const objStart = i;
-    let depth = 0;
-    let inStr = false;
-    let escaped = false;
-    let objEnd = -1;
-    for (; i < raw.length; i++) {
-      const ch = raw[i];
-      if (inStr) {
-        if (escaped) { escaped = false; continue; }
-        if (ch === "\\") { escaped = true; continue; }
-        if (ch === '"') inStr = false;
-        continue;
-      }
-      if (ch === '"') { inStr = true; continue; }
-      if (ch === "{") depth++;
-      else if (ch === "}") {
-        depth--;
-        if (depth === 0) { objEnd = i; break; }
-      }
-    }
-    if (objEnd === -1) break; // обрезано на середине карточки — стоп
-    const objText = raw.slice(objStart, objEnd + 1);
-    try {
-      cards.push(JSON.parse(objText));
-    } catch {
-      break; // даже эта карточка кривая — стоп
-    }
-    i = objEnd + 1;
+/** Извлекает JSON из ответа Claude — снимает markdown, walk-back, repair. */
+function extractJson<T>(raw: string): T | null {
+  const stripped = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = stripped.indexOf("{");
+  if (start === -1) return null;
+  const candidate = stripped.slice(start);
+  // 1. Прямой парс полного среза
+  const end = candidate.lastIndexOf("}");
+  if (end > 0) {
+    try { return JSON.parse(candidate.slice(0, end + 1)) as T; } catch { /* fallthrough */ }
   }
-
-  if (cards.length === 0) return null;
-
-  // Собираем итоговый объект: head + рестрит cards
-  const tail = `${cards.map(c => JSON.stringify(c)).join(",")}]}`;
-  const reconstructed = head + tail;
-  try {
-    return JSON.parse(reconstructed);
-  } catch {
-    // head может быть обрезан мусором перед "cards" — попробуем
-    // минималку: {myCompanyName,niche,executiveSummary,cards}
-    try {
-      const myName = raw.match(/"myCompanyName"\s*:\s*"([^"]*)"/)?.[1] ?? "";
-      const niche = raw.match(/"niche"\s*:\s*"([^"]*)"/)?.[1] ?? "";
-      const summary = raw.match(/"executiveSummary"\s*:\s*"([^"]*)"/)?.[1] ?? "";
-      return {
-        generatedAt: new Date().toISOString(),
-        myCompanyName: myName,
-        niche,
-        executiveSummary: summary,
-        cards: cards as BattleCard[],
-      };
-    } catch {
-      return null;
+  // 2. Walk-back — ищем последний валидный }
+  for (let i = candidate.length - 1; i > 0; i--) {
+    if (candidate[i] === "}") {
+      try { return JSON.parse(candidate.slice(0, i + 1)) as T; } catch { /* continue */ }
     }
   }
+  return null;
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -269,62 +189,116 @@ export async function POST(req: Request) {
       ...(baseUrl ? { baseURL: baseUrl } : {}),
     });
 
-    const prompt = buildPrompt(
-      myCompany.name,
-      myCompany.url,
-      myCompany.score,
-      niche,
-      competitors,
-    );
+    // ─── Параллельная генерация: 1 запрос на executive summary + 1 на каждую карточку ─
+    // Это надёжнее чем единый монолитный JSON: каждый запрос укладывается в
+    // комфортные 4096 токенов, ошибка в одной карточке не валит остальные,
+    // 3 карточки генерируются за то же время что 1 (параллельно).
 
-    const msg = await anthropic.messages.create({
+    const summaryPromise = anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      // 8192 — потолок для claude-sonnet-4-x. На 3 конкурентах с полной
-      // структурой battle card (~3000 chars × 3 + общие поля) 4096 не
-      // хватало → JSON обрезался в середине → «Expected ',' or '}'».
-      max_tokens: 8192,
+      max_tokens: 1024,
       system: SYSTEM,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: buildSummaryPrompt(
+        myCompany.name,
+        niche,
+        competitors.map(c => ({ name: c.name, score: c.score })),
+        myCompany.score,
+      ) }],
     });
 
-    const raw = (msg.content[0] as { type: string; text: string }).text.trim();
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start === -1) {
-      return NextResponse.json({ ok: false, error: "AI вернул невалидный JSON" }, { status: 500 });
+    const cardPromises = competitors.map(comp =>
+      anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        // 4096 — потолок per-card. Структура одной карточки ~2000-2500 токенов
+        // даже на сложных нишах. Запас 1.5x обеспечивает что JSON всегда
+        // помещается целиком и не обрезается.
+        max_tokens: 4096,
+        system: SYSTEM,
+        messages: [{ role: "user", content: buildSingleCardPrompt(
+          myCompany.name,
+          myCompany.url,
+          myCompany.score,
+          niche,
+          comp,
+        ) }],
+      }),
+    );
+
+    const [summaryResult, ...cardResults] = await Promise.allSettled([
+      summaryPromise,
+      ...cardPromises,
+    ]);
+
+    // Executive summary — если упал, ставим заглушку
+    let executiveSummary = "";
+    let summaryTokensIn = 0;
+    let summaryTokensOut = 0;
+    if (summaryResult.status === "fulfilled") {
+      const msg = summaryResult.value;
+      summaryTokensIn = msg.usage.input_tokens;
+      summaryTokensOut = msg.usage.output_tokens;
+      const text = (msg.content[0] as { type: string; text: string }).text.trim();
+      const parsed = extractJson<{ executiveSummary?: string }>(text);
+      executiveSummary = parsed?.executiveSummary ?? "";
+    } else {
+      console.warn("[generate-battle-cards] executive summary не сгенерилось:", summaryResult.reason);
     }
 
-    const jsonCandidate = end > start ? raw.slice(start, end + 1) : raw.slice(start);
-    let data: BattleCardsResult;
-    try {
-      data = JSON.parse(jsonCandidate);
-    } catch (parseErr) {
-      // Fallback: ответ обрезан или содержит синтаксис-ошибку — пробуем
-      // починить, отрезав последний неполный объект в массиве cards и
-      // закрыв скобки. Это лучше чем 500-ка: даём юзеру хотя бы те карточки,
-      // которые AI успел выдать полностью.
-      const repaired = tryRepairTruncatedCards(jsonCandidate);
-      if (!repaired) {
-        console.error("[generate-battle-cards] JSON parse failed", parseErr, "raw length:", raw.length, "stop_reason:", msg.stop_reason);
-        return NextResponse.json(
-          { ok: false, error: `AI вернул невалидный JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },
-          { status: 500 },
-        );
+    // Карточки — собираем только успешные. competitors[i] ↔ cardResults[i]
+    const cards: BattleCard[] = [];
+    let totalCardTokensIn = 0;
+    let totalCardTokensOut = 0;
+    const failedCompetitors: string[] = [];
+
+    cardResults.forEach((result, idx) => {
+      const comp = competitors[idx];
+      if (result.status === "fulfilled") {
+        const msg = result.value;
+        totalCardTokensIn += msg.usage.input_tokens;
+        totalCardTokensOut += msg.usage.output_tokens;
+        const text = (msg.content[0] as { type: string; text: string }).text.trim();
+        const card = extractJson<BattleCard>(text);
+        if (card && card.competitorName) {
+          // Гарантируем, что URL/score из исходных данных
+          card.competitorUrl = card.competitorUrl || comp.url;
+          card.competitorScore = typeof card.competitorScore === "number" ? card.competitorScore : comp.score;
+          cards.push(card);
+        } else {
+          console.warn(`[generate-battle-cards] карточка для ${comp.name} не распарсилась, raw:`, text.slice(0, 200));
+          failedCompetitors.push(comp.name);
+        }
+      } else {
+        console.warn(`[generate-battle-cards] карточка для ${comp.name} не сгенерилась:`, result.reason);
+        failedCompetitors.push(comp.name);
       }
-      data = repaired;
-      console.warn("[generate-battle-cards] JSON был обрезан, восстановили", data.cards?.length ?? 0, "карточек из", competitors.length);
+    });
+
+    if (cards.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "Не удалось сгенерировать ни одной карточки. Попробуйте повторить запрос." },
+        { status: 500 },
+      );
     }
 
-    // Stamp generatedAt server-side
-    data.generatedAt = new Date().toISOString();
+    const data: BattleCardsResult = {
+      generatedAt: new Date().toISOString(),
+      myCompanyName: myCompany.name,
+      niche,
+      executiveSummary: executiveSummary || `Расстановка сил в нише «${niche}» среди ${competitors.length} конкурентов.`,
+      cards,
+    };
 
     await access.log({
       endpoint: "/api/generate-battle-cards",
       model: "claude-sonnet-4-6",
-      promptTokens: msg.usage.input_tokens,
-      completionTokens: msg.usage.output_tokens,
+      promptTokens: summaryTokensIn + totalCardTokensIn,
+      completionTokens: summaryTokensOut + totalCardTokensOut,
       durationMs: 0,
     });
+
+    if (failedCompetitors.length > 0) {
+      console.warn(`[generate-battle-cards] частичный успех: ${cards.length}/${competitors.length} карточек, упали: ${failedCompetitors.join(", ")}`);
+    }
 
     return NextResponse.json({ ok: true, data });
   } catch (err) {
