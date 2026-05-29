@@ -44,6 +44,9 @@ interface Props {
    *   Оркестратор сам определяет: "alternate" если оба → чередование,
    *   "corners" если только углы → углы поверх phone. */
   demoMixMode?: "corners" | "alternate";
+  /** Ручной порядок сегментов demo (перебивает demoMixMode).
+   *  Каждый элемент — тип сегмента. Длина массива = число сегментов. */
+  customDemoSequence?: ("screencast" | "video" | "image")[];
 }
 
 const STEPS = [
@@ -72,6 +75,7 @@ export const ProductDemoScene: React.FC<Props> = ({
   brollFullscreenImageUrls = [],
   stockVideoUrls = [],
   demoMixMode = "corners",
+  customDemoSequence,
 }) => {
   // Fullscreen-визуал: микс broll-картинок и стоковых видео. Если оба есть —
   // чередуем через один (stocks первыми, они задают темп). Если только что-то
@@ -87,6 +91,10 @@ export const ProductDemoScene: React.FC<Props> = ({
   // Иначе либо чистый phone (со screencast), либо чистый full-broll, либо
   // фолбэк-дашборд внутри phone.
   const useAlternate = demoMixMode === "alternate" && !!screencastUrl && fullscreenMedia.length > 0;
+
+  // Custom-sequence режим — если юзер задал явный порядок сегментов в форме.
+  // Полностью переопределяет demoMixMode и идёт строго по customDemoSequence.
+  const useCustomSequence = !!customDemoSequence && customDemoSequence.length > 0;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const sec = frame / fps;
@@ -167,7 +175,18 @@ export const ProductDemoScene: React.FC<Props> = ({
        *  3) screencast нет, но есть broll → full-screen broll с Ken-burns
        *  4) Ничего нет → phone-frame с анимированным fallback-дашбордом
        */}
-      {useAlternate ? (
+      {useCustomSequence ? (
+        <CustomSequenceDemo
+          sequence={customDemoSequence!}
+          screencastUrl={screencastUrl}
+          stockVideoUrls={stockVideoUrls}
+          brollFullscreenImageUrls={brollFullscreenImageUrls}
+          accentColor={accentColor}
+          frame={frame}
+          totalFrames={useVideoConfig().durationInFrames}
+          opacity={phoneEnter}
+        />
+      ) : useAlternate ? (
         <AlternatingDemo
           screencastUrl={screencastUrl!}
           mediaUrls={fullscreenMedia}
@@ -269,6 +288,143 @@ export const ProductDemoScene: React.FC<Props> = ({
           );
         })}
       </div>
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * CustomSequenceDemo — ручной порядок сегментов из формы.
+ * Каждый сегмент — один из типов: "screencast" / "video" / "image".
+ * URL-ы берутся из соответствующих пулов в порядке встречаемости в sequence:
+ *   - "video" → следующий из stockVideoUrls (включает AI-видео + Pexels)
+ *   - "image" → следующий из brollFullscreenImageUrls
+ *   - "screencast" → screencastUrl с offset (для непрерывности)
+ *
+ * Если пул кончился раньше чем sequence — fallback на следующий
+ * доступный тип в пуле. Если screencast нет, но в sequence есть —
+ * скипаем такой сегмент (затемнение).
+ */
+const CustomSequenceDemo: React.FC<{
+  sequence: ("screencast" | "video" | "image")[];
+  screencastUrl: string | null;
+  stockVideoUrls: string[];
+  brollFullscreenImageUrls: string[];
+  accentColor: string;
+  frame: number;
+  totalFrames: number;
+  opacity: number;
+}> = ({ sequence, screencastUrl, stockVideoUrls, brollFullscreenImageUrls, accentColor, frame, totalFrames, opacity }) => {
+  if (sequence.length === 0) return null;
+
+  const segmentFrames = totalFrames / sequence.length;
+  const fadeFrames = Math.min(10, segmentFrames * 0.15);
+
+  // Какой сегмент сейчас активен
+  const segmentIndex = Math.min(Math.floor(frame / segmentFrames), sequence.length - 1);
+  const currentType = sequence[segmentIndex];
+  const segmentStart = segmentIndex * segmentFrames;
+  const segmentLocalFrame = frame - segmentStart;
+
+  // Cross-fade на границах
+  const segmentOpacity = interpolate(
+    segmentLocalFrame,
+    [0, fadeFrames, segmentFrames - fadeFrames, segmentFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+
+  // Считаем сколько уже использовали каждого типа ДО этого сегмента,
+  // чтобы взять правильный URL из пула.
+  let videoUsed = 0;
+  let imageUsed = 0;
+  let screencastUsed = 0;
+  for (let i = 0; i < segmentIndex; i++) {
+    if (sequence[i] === "video") videoUsed++;
+    else if (sequence[i] === "image") imageUsed++;
+    else if (sequence[i] === "screencast") screencastUsed++;
+  }
+
+  // Phone-frame со screencast
+  if (currentType === "screencast" && screencastUrl) {
+    // Offset для screencast: пропускаем уже показанное время
+    const screencastOffsetFrames = Math.floor(screencastUsed * segmentFrames);
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: PHONE_X,
+          top: PHONE_Y,
+          width: PHONE_W,
+          height: PHONE_H,
+          opacity: opacity * segmentOpacity,
+          transform: `scale(${0.95 + segmentOpacity * 0.05})`,
+        }}
+      >
+        <PhoneFrame accentColor={accentColor}>
+          <OffthreadVideo
+            src={screencastUrl}
+            muted
+            startFrom={screencastOffsetFrames}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </PhoneFrame>
+      </div>
+    );
+  }
+
+  // Fullscreen video или image
+  let url: string | null = null;
+  if (currentType === "video") {
+    url = stockVideoUrls[videoUsed % Math.max(1, stockVideoUrls.length)] ?? null;
+  } else if (currentType === "image") {
+    url = brollFullscreenImageUrls[imageUsed % Math.max(1, brollFullscreenImageUrls.length)] ?? null;
+  }
+
+  if (!url) {
+    // Тип-в-sequence нет в пуле (юзер запросил скринкаст без скринкаста, или
+    // image без картинок) — рисуем только затемнение, чтобы кадр не был
+    // полностью чёрным, и переходим к следующему сегменту.
+    return (
+      <AbsoluteFill
+        style={{
+          opacity: opacity * segmentOpacity,
+          background: `radial-gradient(circle at 50% 50%, ${accentColor}22 0%, #0a0e1a 70%)`,
+        }}
+      />
+    );
+  }
+
+  const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
+  // Лёгкий zoom для оживления
+  const scale = interpolate(segmentLocalFrame, [0, segmentFrames], [1.05, 1.15], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ opacity: opacity * segmentOpacity, overflow: "hidden" }}>
+      {isVideo ? (
+        <OffthreadVideo
+          src={url}
+          muted
+          style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` }}
+        />
+      ) : (
+        <Img src={url} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` }} />
+      )}
+      {/* Тёмный gradient для читаемости заголовка/badges поверх */}
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,14,26,0.7) 0%, rgba(10,14,26,0.25) 30%, rgba(10,14,26,0.25) 70%, rgba(10,14,26,0.7) 100%)",
+        }}
+      />
+      <AbsoluteFill
+        style={{
+          background: `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)`,
+          boxShadow: `inset 0 0 200px ${accentColor}22`,
+        }}
+      />
     </AbsoluteFill>
   );
 };

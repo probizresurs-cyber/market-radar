@@ -66,6 +66,8 @@ interface RenderProps {
   stockVideoUrls: string[];
   videoDurationSec: number;
   demoMixMode: "corners" | "alternate";
+  /** Ручной порядок сегментов. Если задан — render идёт строго по нему. */
+  customDemoSequence?: ("screencast" | "video" | "image")[];
 }
 
 /**
@@ -171,6 +173,13 @@ function parseProps(
     // Режим демо когда есть и screencast и broll: "corners" или "alternate".
     // Дефолт "corners" — обратная совместимость.
     demoMixMode: body.demoMixMode === "alternate" ? "alternate" : "corners",
+    // Ручной порядок сегментов — если задан, переопределяет demoMixMode
+    customDemoSequence: Array.isArray(body.customDemoSequence)
+      ? (body.customDemoSequence.filter(
+          (s: unknown): s is "screencast" | "video" | "image" =>
+            s === "screencast" || s === "video" || s === "image",
+        ) as ("screencast" | "video" | "image")[])
+      : undefined,
     // Длительность ролика. Клампим 10..90, дефолт 30.
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);

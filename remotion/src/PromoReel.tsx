@@ -42,6 +42,12 @@ export const promoReelSchema = z.object({
    *                 (segments × 2: phone → broll → phone → broll → ...)
    *  Если только что-то одно — этот флаг игнорируется. */
   demoMixMode: z.enum(["corners", "alternate"]).optional(),
+  // Ручной порядок сегментов demo. Если задан — переопределяет demoMixMode
+  // и идёт строго по последовательности. Каждый элемент — тип сегмента:
+  //   "screencast" — phone-frame со screencast (offset рассчитан автоматически)
+  //   "video"      — fullscreen видео (Replicate или Pexels)
+  //   "image"      — fullscreen AI-картинка
+  customDemoSequence: z.array(z.enum(["screencast", "video", "image"])).optional(),
   // Длительность всего ролика в секундах. Перебирается в Root через
   // calculateMetadata. Сцены пропорциональны: hook ~17%, demo ~66%, CTA ~17%.
   // Допустимо 10..90 сек. Дефолт 30.
@@ -118,6 +124,7 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           }
           stockVideoUrls={props.stockVideoUrls ?? []}
           demoMixMode={props.demoMixMode ?? "corners"}
+          customDemoSequence={props.customDemoSequence}
         />
       </Sequence>
 

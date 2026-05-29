@@ -170,6 +170,17 @@ export async function POST(req: Request) {
     const useAnimatedBroll = Boolean(body.useAnimatedBroll ?? false);
     const animatedBrollTheme = String(body.animatedBrollTheme ?? niche ?? "").trim();
 
+    // customDemoSequence — ручной порядок сегментов. Если задан,
+    // переопределяет авто-распределение counts: считаем нужное кол-во
+    // каждого типа прямо из последовательности.
+    const customDemoSequence: ("screencast" | "video" | "image")[] = Array.isArray(body.customDemoSequence)
+      ? body.customDemoSequence.filter(
+          (s: unknown): s is "screencast" | "video" | "image" =>
+            s === "screencast" || s === "video" || s === "image",
+        )
+      : [];
+    const useCustomSequence = customDemoSequence.length > 0;
+
     // Валидируем заранее: чекбокс стоков включён без query = очевидный
     // user-error, лучше сразу сказать чем тихо пропустить шаг.
     if (useStockVideos && !stockVideoQuery) {
@@ -250,6 +261,36 @@ export async function POST(req: Request) {
         if (s === "stock") stockCount = share;
         if (s === "broll") fullscreenBrollCount = share;
       });
+    }
+
+    // Custom-sequence override: если юзер задал ручной порядок,
+    // пересчитываем counts строго по нему. Каждый тип в sequence требует
+    // соответствующее количество URL'ов.
+    if (useCustomSequence) {
+      const videosInSeq = customDemoSequence.filter((s) => s === "video").length;
+      const imagesInSeq = customDemoSequence.filter((s) => s === "image").length;
+      // Делим video-слоты между animated и stock пропорционально их активным
+      // источникам (если оба on — поровну, если только один — всё ему).
+      if (videosInSeq > 0) {
+        if (useAnimatedBroll && useStockVideos) {
+          animatedCount = Math.ceil(videosInSeq / 2);
+          stockCount = Math.floor(videosInSeq / 2);
+        } else if (useAnimatedBroll) {
+          animatedCount = videosInSeq;
+          stockCount = 0;
+        } else if (useStockVideos) {
+          animatedCount = 0;
+          stockCount = videosInSeq;
+        } else {
+          // В sequence есть "video" но ни один видео-источник не активен —
+          // юзер ошибся, всё равно генерим хотя бы из animated по дефолту.
+          animatedCount = videosInSeq;
+        }
+      } else {
+        animatedCount = 0;
+        stockCount = 0;
+      }
+      fullscreenBrollCount = imagesInSeq;
     }
 
     // brollCount для generate-promo-images = corners + fullscreen-AI картинок.
@@ -418,6 +459,7 @@ export async function POST(req: Request) {
         // и при .mp4 рендерит через OffthreadVideo.
         stockVideoUrls: [...animatedBrollUrls, ...stockVideoUrls],
         demoMixMode,
+        customDemoSequence: useCustomSequence ? customDemoSequence : undefined,
         videoDurationSec: body.videoDurationSec,
       },
       req,

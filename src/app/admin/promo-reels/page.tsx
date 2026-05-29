@@ -162,6 +162,12 @@ const DEFAULT_FORM = {
   stockVideoQuery: "",
   useAnimatedBroll: false,
   animatedBrollTheme: "",
+  // Ручной порядок сегментов в demo-сцене. Когда включён — юзер задаёт
+  // последовательность из элементов customDemoSequence. Когда выключен —
+  // оркестратор сам авто-распределяет/чередует источники.
+  // Элементы: "screencast" | "video" (AI-видео или сток) | "image" (AI-картинка)
+  useCustomDemoSequence: false,
+  customDemoSequence: ["video", "image", "video", "image"] as ("screencast" | "video" | "image")[],
   musicUrl: "",
   scenarioId: "marketing-tour",
   imageQuality: "medium" as "low" | "medium" | "high",
@@ -255,6 +261,7 @@ export default function PromoReelsAdminPage() {
           stockVideoQuery: form.stockVideoQuery || undefined,
           useAnimatedBroll: form.useAnimatedBroll,
           animatedBrollTheme: form.animatedBrollTheme || undefined,
+          customDemoSequence: form.useCustomDemoSequence ? form.customDemoSequence : undefined,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -602,6 +609,98 @@ export default function PromoReelsAdminPage() {
                 ⚠️ «В углах» нужен скринкаст в центре. Включи скринкаст или выбери fullscreen.
               </div>
             ) : null}
+
+            {/* Конструктор ручного порядка сегментов в demo-сцене.
+                Показывается когда у юзера активно >=2 разных источника визуала
+                (тогда есть смысл выбирать кто куда). Слотов столько же сколько
+                totalSlots по длине ролика (1 на 5 сек demo). */}
+            {(() => {
+              const total = form.videoDurationSec;
+              const hookSec = Math.max(3, Math.round(total * 0.17));
+              const ctaSec = Math.max(3, Math.round(total * 0.17));
+              const demoSec = Math.max(5, total - hookSec - ctaSec);
+              const totalSlots = Math.max(1, Math.min(8, Math.ceil(demoSec / 5)));
+              const segmentSec = demoSec / totalSlots;
+
+              // Какие типы доступны (юзер их включил)
+              const availableTypes: { value: "screencast" | "video" | "image"; label: string }[] = [];
+              if (form.includeScreencast) availableTypes.push({ value: "screencast", label: "📱 Скринкаст" });
+              if (form.useAnimatedBroll || form.useStockVideos) availableTypes.push({ value: "video", label: "🎬 AI/сток видео" });
+              if (form.includeBrollFullscreen) availableTypes.push({ value: "image", label: "🖼 AI-картинка" });
+
+              // Если меньше 2 типов — конструктор не имеет смысла, не показываем
+              if (availableTypes.length < 2) return null;
+
+              // Синхронизируем длину customDemoSequence с totalSlots
+              // (при смене длины ролика подгоняем массив)
+              const seq = form.customDemoSequence.slice(0, totalSlots);
+              while (seq.length < totalSlots) {
+                seq.push(availableTypes[seq.length % availableTypes.length].value);
+              }
+
+              return (
+                <div
+                  style={{
+                    background: "#131720",
+                    border: "1px solid #2d3748",
+                    borderRadius: 8,
+                    padding: 14,
+                    marginTop: 4,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={S.row}>
+                    <input
+                      type="checkbox"
+                      style={S.checkbox}
+                      id="useCustomSeq"
+                      checked={form.useCustomDemoSequence}
+                      onChange={(e) => saveForm({ ...form, useCustomDemoSequence: e.target.checked, customDemoSequence: seq })}
+                    />
+                    <label htmlFor="useCustomSeq" style={S.checkboxLabel}>
+                      <b>Ручной порядок сегментов в demo</b> ({totalSlots} слотов × {segmentSec.toFixed(1)} сек)
+                    </label>
+                  </div>
+
+                  {form.useCustomDemoSequence ? (
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {seq.map((type, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ fontSize: 12, color: "#64748b", minWidth: 30 }}>#{i + 1}</div>
+                          <div style={{ fontSize: 11, color: "#475569", minWidth: 78 }}>
+                            {(i * segmentSec).toFixed(1)}–{((i + 1) * segmentSec).toFixed(1)} сек
+                          </div>
+                          <select
+                            style={{ ...S.input, marginBottom: 0, flex: 1 }}
+                            value={type}
+                            onChange={(e) => {
+                              const next = [...seq];
+                              next[i] = e.target.value as "screencast" | "video" | "image";
+                              saveForm({ ...form, customDemoSequence: next });
+                            }}
+                          >
+                            {availableTypes.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                      <div style={{ ...S.hint, marginTop: 4 }}>
+                        💡 Подсчитай сколько каждого типа — это и будет сгенерировано в шаге
+                        AI-картинки / AI-видео b-roll. Скринкаст переиспользуется на всех его сегментах
+                        (с правильным offset'ом).
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ ...S.hint, marginTop: 4 }}>
+                      Без галки оркестратор сам распределит источники (alternate / interleave).
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div style={S.row}>
               <input
