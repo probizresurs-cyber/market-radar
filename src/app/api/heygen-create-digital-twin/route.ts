@@ -53,25 +53,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Consent asset не загружен" }, { status: 400 });
     }
 
-    // JSON-тело со всеми возможными именами полей которые HeyGen может ожидать.
-    // Передаём asset_id'ы под разными ключами — HeyGen возьмёт известные.
+    // HeyGen ожидает поле `file` как объект (dict), не строку.
+    // Из ошибки «Input should be a valid dictionary or object to extract
+    // fields from (param: file)» видно — формат должен быть
+    // { type: "video", url: "..." } или { asset_id: "..." }.
+    // Подставляем оба варианта во вложенные объекты.
+    const trainingFileObj: Record<string, unknown> = {
+      asset_id: trainingAssetId,
+      type: "video",
+    };
+    if (trainingAssetUrl) trainingFileObj.url = trainingAssetUrl;
+
+    const consentFileObj: Record<string, unknown> = {
+      asset_id: consentAssetId,
+      type: "video",
+    };
+    if (consentAssetUrl) consentFileObj.url = consentAssetUrl;
+
     const jsonBody: Record<string, unknown> = {
       type: "digital_twin",
       avatar_type: "digital_twin",
       name,
       avatar_name: name,
-      // Training video — пробуем все варианты имён
-      training_asset_id: trainingAssetId,
-      training_video_asset_id: trainingAssetId,
-      video_asset_id: trainingAssetId,
-      source_asset_id: trainingAssetId,
-      file: trainingAssetId,
-      // Consent video — тоже все варианты
-      consent_asset_id: consentAssetId,
-      video_consent_asset_id: consentAssetId,
-      consent_video_asset_id: consentAssetId,
+      // Главное — file как объект (HeyGen жалуется на string)
+      file: trainingFileObj,
+      training_file: trainingFileObj,
+      training_footage: trainingFileObj,
+      training_video: trainingFileObj,
+      // Consent — тоже объект
+      consent_file: consentFileObj,
+      consent_video: consentFileObj,
+      video_consent: consentFileObj,
     };
-    // URL'ы тоже на случай если HeyGen ждёт URL не asset_id
+    // URL'ы как плоские строки на случай если HeyGen ждёт их так
     if (trainingAssetUrl) {
       jsonBody.training_footage_url = trainingAssetUrl;
       jsonBody.training_video_url = trainingAssetUrl;
