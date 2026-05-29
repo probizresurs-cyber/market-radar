@@ -240,7 +240,8 @@ export default function PromoReelsAdminPage() {
     setElapsedSec(0);
 
     try {
-      const r = await fetch("/api/generate-promo-reel-full", {
+      // 1. POST на orchestrator — мгновенно возвращает {jobId}
+      const submitR = await fetch("/api/generate-promo-reel-full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -268,31 +269,82 @@ export default function PromoReelsAdminPage() {
           videoDurationSec: form.videoDurationSec,
         }),
       });
-      const data = (await r.json()) as PipelineResponse;
-      setResult(data);
+      const submitData = (await submitR.json()) as {
+        ok: boolean;
+        error?: string;
+        data?: { jobId: string; statusUrl: string };
+      };
 
-      // Прогресс лежит в РАЗНЫХ местах ответа:
-      //  - при ok: true → data.data.progress (внутри payload'а)
-      //  - при ok: false → data.progress (на верхнем уровне рядом с error)
-      // UI читает оба варианта чтобы шаги всегда показывались корректно.
-      const progressFromResp = data.data?.progress ?? data.progress;
-      if (progressFromResp && progressFromResp.length > 0) setProgress(progressFromResp);
+      if (!submitData.ok || !submitData.data) {
+        setError(submitData.error ?? "Не удалось создать задачу");
+        setBusy(false);
+        return;
+      }
 
-      if (data.ok && data.data) {
+      const jobId = submitData.data.jobId;
+
+      // 2. Polling статуса каждые 3 сек. Каждый запрос быстрый, не зависит
+      //    от Cloudflare/nginx таймаутов.
+      let pollData: {
+        status: string;
+        progress: StepReport[];
+        result: { url: string; jobId: string; sizeBytes: number; totalMs: number } | null;
+        error: string | null;
+      } | null = null;
+
+      const POLL_INTERVAL_MS = 3000;
+      const MAX_POLL_MS = 25 * 60 * 1000; // 25 мин hard limit на стороне клиента
+      const startedAt = Date.now();
+
+      while (Date.now() - startedAt < MAX_POLL_MS) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+        try {
+          const statusR = await fetch(`/api/promo-job-status/${jobId}`);
+          const statusJson = await statusR.json();
+          if (!statusJson.ok) {
+            setError(`Status poll error: ${statusJson.error ?? "unknown"}`);
+            break;
+          }
+          pollData = statusJson.data;
+          if (pollData?.progress) setProgress(pollData.progress);
+
+          if (pollData?.status === "done" || pollData?.status === "failed") break;
+        } catch (e) {
+          // Сетевой fail на одном poll — продолжаем попытки
+          console.warn("[promo] poll failed", e);
+        }
+      }
+
+      if (!pollData) {
+        setError("Polling timed out — задача может ещё идти на сервере, проверь /admin/promo-reels позже");
+      } else if (pollData.status === "done" && pollData.result) {
+        // Формируем ответ в формате PipelineResponse для setResult
+        const data: PipelineResponse = {
+          ok: true,
+          data: {
+            url: pollData.result.url,
+            jobId: pollData.result.jobId,
+            sizeBytes: pollData.result.sizeBytes,
+            totalMs: pollData.result.totalMs,
+            progress: pollData.progress,
+          },
+        };
+        setResult(data);
         saveHistory({
-          id: data.data.jobId,
+          id: pollData.result.jobId,
           createdAt: new Date().toISOString(),
-          url: data.data.url,
+          url: pollData.result.url,
           hookText: form.hookText,
           problemText: form.problemText,
           ctaText: form.ctaText,
           brandName: form.brandName,
-          sizeBytes: data.data.sizeBytes,
-          totalMs: data.data.totalMs,
-          progress: data.data.progress,
+          sizeBytes: pollData.result.sizeBytes,
+          totalMs: pollData.result.totalMs,
+          progress: pollData.progress,
         });
-      } else if (data.error) {
-        setError(data.error);
+      } else if (pollData.status === "failed") {
+        setError(pollData.error ?? "Pipeline упал без описания");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

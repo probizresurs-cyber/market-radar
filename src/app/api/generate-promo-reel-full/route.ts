@@ -43,16 +43,17 @@
  */
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { createJob, updateJob } from "@/lib/promo-jobs";
+import type { PromoStepReport } from "@/lib/promo-jobs";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+// 600 сек — нам этого хватает только пока pipeline всё ещё ВЫГЛЯДИТ как
+// синхронный (создание job-а в setImmediate). Сам pipeline в фоне может
+// крутиться сколько угодно, проксям-таймаутам безразлично.
+export const maxDuration = 60;
 
-interface StepReport {
-  name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render";
-  status: "ok" | "failed" | "skipped";
-  ms: number;
-  error?: string;
-}
+// Тип PromoStepReport импортируется из lib/promo-jobs.
+type StepReport = PromoStepReport;
 
 interface InternalCallResult<T> {
   ok: boolean;
@@ -114,25 +115,87 @@ interface RenderData {
   durationMs: number;
 }
 
+/**
+ * Async POST handler: проверяет body, создаёт job в памяти, запускает
+ * pipeline в фоне через setImmediate и мгновенно возвращает {jobId}.
+ * UI поллит /api/promo-job-status/{jobId} — никаких proxy-таймаутов.
+ */
 export async function POST(req: Request) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
 
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Базовая sync-валидация — то что 100% упадёт независимо от пайплайна.
+  const hookText = String(body.hookText ?? "").trim();
+  const problemText = String(body.problemText ?? "").trim();
+  const ctaText = String(body.ctaText ?? "").trim();
+  if (!hookText || !problemText || !ctaText) {
+    return NextResponse.json(
+      { ok: false, error: "hookText/problemText/ctaText обязательны" },
+      { status: 400 },
+    );
+  }
+
+  const useStockVideos = Boolean(body.useStockVideos ?? false);
+  const stockVideoQuery = String(body.stockVideoQuery ?? "").trim();
+  if (useStockVideos && !stockVideoQuery) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Вы включили «Стоковые видео из Pexels», но не указали поисковый запрос. Заполните поле «Поисковый запрос (английский)» или выключите чекбокс.",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Создаём async job и запускаем pipeline в фоне.
+  const job = createJob(access.userId ?? null);
+  setImmediate(() => {
+    runPipeline(job.id, body, req).catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      updateJob(job.id, { status: "failed", error: `Pipeline crash: ${msg}` });
+    });
+  });
+
+  // Мгновенно возвращаем jobId. Клиент поллит /promo-job-status/{jobId}.
+  return NextResponse.json({
+    ok: true,
+    data: {
+      jobId: job.id,
+      statusUrl: `/api/promo-job-status/${job.id}`,
+    },
+  });
+}
+
+/**
+ * Фоновый pipeline. Запускается через setImmediate после возврата HTTP-ответа.
+ * Обновляет статус job-а через updateJob() на каждом шаге чтобы UI видел
+ * прогресс при poll'ах.
+ */
+async function runPipeline(jobId: string, body: Record<string, unknown>, req: Request) {
   const t0 = Date.now();
   const progress: StepReport[] = [];
 
-  try {
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  // Helper: push step И сразу синхронить с job-store, чтобы UI видел.
+  function pushStep(step: StepReport) {
+    progress.push(step);
+    updateJob(jobId, { progress: [...progress] });
+  }
 
+  updateJob(jobId, { status: "running" });
+
+  try {
+    // Поля уже валидированы в POST handler — здесь только парсинг.
     const hookText = String(body.hookText ?? "").trim();
     const problemText = String(body.problemText ?? "").trim();
     const ctaText = String(body.ctaText ?? "").trim();
-    if (!hookText || !problemText || !ctaText) {
-      return NextResponse.json(
-        { ok: false, error: "hookText/problemText/ctaText обязательны" },
-        { status: 400 },
-      );
-    }
 
     const brandName = String(body.brandName ?? "MarketRadar").trim();
     const niche = body.niche ? String(body.niche).trim() : null;
@@ -157,9 +220,7 @@ export async function POST(req: Request) {
     const includeBrollFullscreen =
       Boolean(body.includeBrollFullscreen ?? false) ||
       (legacyIncludeBroll && !includeScreencast);
-    // stockVideoQuery — если задан, оркестратор скачает портретные видео
-    // из Pexels. Английская фраза. Если useStockVideos=true но query пустой —
-    // явная ошибка ниже, не silent skip как раньше.
+    // stockVideoQuery + useStockVideos уже валидированы в POST handler.
     const stockVideoQuery = String(body.stockVideoQuery ?? "").trim();
     const useStockVideos = Boolean(body.useStockVideos ?? false);
 
@@ -182,17 +243,7 @@ export async function POST(req: Request) {
     const useCustomSequence = customDemoSequence.length > 0;
 
     // Валидируем заранее: чекбокс стоков включён без query = очевидный
-    // user-error, лучше сразу сказать чем тихо пропустить шаг.
-    if (useStockVideos && !stockVideoQuery) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Вы включили «Стоковые видео из Pexels», но не указали поисковый запрос. Заполните поле «Поисковый запрос (английский)» или выключите чекбокс.",
-        },
-        { status: 400 },
-      );
-    }
+    // user-error — валидация уже сработала в POST handler, до сюда не доходит.
 
     // Длительность ролика. Клампим 10..90. По умолчанию 30.
     const videoDurationSec = (() => {
@@ -327,12 +378,12 @@ export async function POST(req: Request) {
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         imagesData = r.data;
-        progress.push({ name: "images", status: "ok", ms });
+        pushStep({ name: "images", status: "ok", ms });
       } else {
-        progress.push({ name: "images", status: "failed", ms, error: r.error });
+        pushStep({ name: "images", status: "failed", ms, error: r.error });
       }
     } else {
-      progress.push({ name: "images", status: "skipped", ms: 0 });
+      pushStep({ name: "images", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 1.3 (опц): AI-видео b-roll через Replicate ─────
@@ -352,12 +403,12 @@ export async function POST(req: Request) {
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         animatedBrollUrls = r.data.urls ?? [];
-        progress.push({ name: "animated-broll", status: "ok", ms });
+        pushStep({ name: "animated-broll", status: "ok", ms });
       } else {
-        progress.push({ name: "animated-broll", status: "failed", ms, error: r.error });
+        pushStep({ name: "animated-broll", status: "failed", ms, error: r.error });
       }
     } else {
-      progress.push({ name: "animated-broll", status: "skipped", ms: 0 });
+      pushStep({ name: "animated-broll", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 1.5 (опц): стоковые видео Pexels ────────────────
@@ -374,12 +425,12 @@ export async function POST(req: Request) {
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         stockVideoUrls = r.data.urls ?? [];
-        progress.push({ name: "stock-videos", status: "ok", ms });
+        pushStep({ name: "stock-videos", status: "ok", ms });
       } else {
-        progress.push({ name: "stock-videos", status: "failed", ms, error: r.error });
+        pushStep({ name: "stock-videos", status: "failed", ms, error: r.error });
       }
     } else {
-      progress.push({ name: "stock-videos", status: "skipped", ms: 0 });
+      pushStep({ name: "stock-videos", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 2: скринкаст ────────────────
@@ -395,12 +446,12 @@ export async function POST(req: Request) {
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         screencastData = r.data;
-        progress.push({ name: "screencast", status: "ok", ms });
+        pushStep({ name: "screencast", status: "ok", ms });
       } else {
-        progress.push({ name: "screencast", status: "failed", ms, error: r.error });
+        pushStep({ name: "screencast", status: "failed", ms, error: r.error });
       }
     } else {
-      progress.push({ name: "screencast", status: "skipped", ms: 0 });
+      pushStep({ name: "screencast", status: "skipped", ms: 0 });
     }
 
     // ──────────────── Шаг 3 (опц): voiceover через ElevenLabs ────────────────
@@ -422,12 +473,12 @@ export async function POST(req: Request) {
       const ms = Date.now() - stepT2;
       if (r.ok && r.data) {
         voiceoverUrl = r.data.url;
-        progress.push({ name: "voiceover", status: "ok", ms });
+        pushStep({ name: "voiceover", status: "ok", ms });
       } else {
-        progress.push({ name: "voiceover", status: "failed", ms, error: r.error });
+        pushStep({ name: "voiceover", status: "failed", ms, error: r.error });
       }
     } else {
-      progress.push({
+      pushStep({
         name: "voiceover",
         status: voiceoverUrl ? "ok" : "skipped",
         ms: 0,
@@ -468,41 +519,28 @@ export async function POST(req: Request) {
     const renderMs = Date.now() - stepT;
 
     if (!renderR.ok || !renderR.data) {
-      progress.push({ name: "render", status: "failed", ms: renderMs, error: renderR.error });
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Финальный рендер упал: ${renderR.error ?? "unknown"}`,
-          progress,
-          totalMs: Date.now() - t0,
-        },
-        { status: 500 },
-      );
+      pushStep({ name: "render", status: "failed", ms: renderMs, error: renderR.error });
+      updateJob(jobId, {
+        status: "failed",
+        error: `Финальный рендер упал: ${renderR.error ?? "unknown"}`,
+      });
+      return;
     }
-    progress.push({ name: "render", status: "ok", ms: renderMs });
+    pushStep({ name: "render", status: "ok", ms: renderMs });
 
-    return NextResponse.json({
-      ok: true,
-      data: {
+    // Success — фиксируем результат в job-store. UI поллит /status и
+    // увидит status:"done" + result.url.
+    updateJob(jobId, {
+      status: "done",
+      result: {
         url: renderR.data.url,
         jobId: renderR.data.jobId,
         sizeBytes: renderR.data.sizeBytes,
-        progress,
-        assets: {
-          hookBgImageUrl: imagesData?.hookBgImageUrl ?? null,
-          ctaBgImageUrl: imagesData?.ctaBgImageUrl ?? null,
-          brollImageUrls: imagesData?.brollImageUrls ?? [],
-          screencastUrl: screencastData?.url ?? null,
-          voiceoverUrl,
-        },
         totalMs: Date.now() - t0,
       },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { ok: false, error: msg, progress, totalMs: Date.now() - t0 },
-      { status: 500 },
-    );
+    updateJob(jobId, { status: "failed", error: msg });
   }
 }
