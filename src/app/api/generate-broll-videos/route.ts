@@ -29,10 +29,11 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { generateVideo, downloadGeneratedVideo } from "@/lib/replicate-video";
 
 export const runtime = "nodejs";
-// 5 минут — каждое видео ~1-2 мин, 4 параллельно ~= 2 мин, +запас.
-// Если нужно больше 4 — Replicate всё равно очередит на их стороне,
-// тайм-аут не превысим.
-export const maxDuration = 300;
+// 10 минут — Replicate на бесплатных/Starter планах часто очередит
+// параллельные запросы (1-2 одновременно макс). При 4 параллельных
+// клипах: первый ~1-2 мин, второй +2 мин, третий +2 мин, четвёртый +2 мин
+// = до 8 мин на самый последний. +запас 2 мин.
+export const maxDuration = 600;
 
 const BROLL_VIDEOS_DIR = "broll-videos";
 
@@ -85,7 +86,9 @@ export async function POST(req: Request) {
 
     const results = await Promise.all(
       prompts.map(async (prompt, i) => {
-        const gen = await generateVideo({ prompt, model, timeoutMs: 270_000 });
+        // 8 мин на клип — Replicate очередит параллельные запросы
+        // на низких тарифах, последние ждут предыдущих.
+        const gen = await generateVideo({ prompt, model, timeoutMs: 480_000 });
         if (!gen.ok) {
           return { index: i, url: null, error: gen.error };
         }
@@ -110,6 +113,15 @@ export async function POST(req: Request) {
     const successful = results.filter((r) => r.url !== null);
     const failures = results.filter((r) => r.url === null);
 
+    // Если хоть один упал — добавляем предупреждение в ответе, чтобы UI
+    // показал юзеру что НЕ всё сгенерилось (раньше тихо проглатывали).
+    const partialFailWarning =
+      failures.length > 0 && successful.length > 0
+        ? `Replicate сгенерил ${successful.length}/${prompts.length}. Не успели: ${failures
+            .map((f) => `#${f.index + 1} (${f.error?.slice(0, 80) ?? "unknown"})`)
+            .join("; ")}`
+        : null;
+
     if (successful.length === 0) {
       return NextResponse.json(
         {
@@ -132,6 +144,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      // Включаем warning при partial success — UI/оркестратор может
+      // показать сообщение про неудавшиеся клипы.
+      warning: partialFailWarning,
       data: {
         jobId,
         urls: successful.map((s) => s.url as string),

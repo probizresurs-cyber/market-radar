@@ -305,7 +305,8 @@ export async function POST(req: Request) {
         "/api/generate-broll-videos",
         { query: animatedBrollTheme, count: animatedCount },
         req,
-        310_000, // 5 мин с запасом — generate-broll-videos.maxDuration = 300
+        620_000, // 10+ мин — generate-broll-videos.maxDuration = 600,
+                 // +запас 20 сек на HTTP round-trip
       );
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
