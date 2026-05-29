@@ -521,7 +521,7 @@ export default function PromoReelsAdminPage() {
                 onChange={(e) => saveForm({ ...form, useAnimatedBroll: e.target.checked })}
               />
               <label htmlFor="useAnim" style={S.checkboxLabel}>
-                AI-видео b-roll (Replicate / Kling v2.1) — ~$0.50/клип, +2-3 мин
+                AI-видео b-roll (Replicate / Seedance Pro) — ~$0.40/клип, +1-2 мин
               </label>
             </div>
 
@@ -535,9 +535,11 @@ export default function PromoReelsAdminPage() {
                   placeholder="например: competitive intelligence analyst dark office, OR оставь пустым → возьмёт ниши"
                 />
                 <div style={S.hint}>
-                  Kling v2.1 генерит 5-сек кинематографичные клипы 9:16. Если пусто — берёт «Ниша
-                  для AI-картинок» сверху. На 30-сек ролике = 4 клипа = ~$2. Нужен
-                  REPLICATE_API_TOKEN в env (replicate.com/account/api-tokens).
+                  Seedance Pro генерит 5-сек 1080p клипы нативно в 9:16 (text-to-video).
+                  Если пусто — берёт «Ниша для AI-картинок» сверху. На 30-сек ролике = 4 клипа =
+                  ~$1.6. Нужен REPLICATE_API_TOKEN в env (replicate.com/account/api-tokens).
+                  <br />
+                  💡 Сменить модель: <code>REPLICATE_VIDEO_MODEL=minimax/hailuo-02</code> в .env.local
                 </div>
               </>
             ) : null}

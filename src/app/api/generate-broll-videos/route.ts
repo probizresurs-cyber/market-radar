@@ -125,7 +125,7 @@ export async function POST(req: Request) {
 
     await access.log({
       endpoint: "generate-broll-videos",
-      model: model ?? "kwaivgi/kling-v2.1",
+      model: model ?? "bytedance/seedance-1-pro",
       success: true,
       durationMs: Date.now() - t0,
     });

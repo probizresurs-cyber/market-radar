@@ -23,34 +23,75 @@
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN ?? process.env.REPLICATE_API_KEY ?? "";
 const REPLICATE_BASE = "https://api.replicate.com/v1";
 
-// Дефолтная модель — Kling v2.1. Лучшее качество для вертикальных
-// промо-роликов (нативный 9:16, premium cinematic feel, отличный
-// рендеринг людей). $0.28-0.50 за 5-сек клип, ~2-3 мин на генерацию.
-// Альтернативы: runwayml/runway-gen-3-turbo (дешевле/быстрее),
-// bytedance/seedance-1-pro (нативно для short-form вертикали),
-// minimax/hailuo-02 (но без явного 9:16 параметра, рискованно).
-// Можно переопределить через env REPLICATE_VIDEO_MODEL.
-const DEFAULT_MODEL = process.env.REPLICATE_VIDEO_MODEL ?? "kwaivgi/kling-v2.1";
+/**
+ * Конфигурация моделей. Ключ — имя модели на Replicate (owner/name).
+ * Для каждой описан тип (text-to-video / image-to-video) и дефолтный
+ * input. Мы используем ТОЛЬКО text-to-video — для b-roll юзер задаёт
+ * только тему, без стартовой картинки.
+ *
+ * Важно: Kling v2.1 (kwaivgi/kling-v2.1) — IMAGE-TO-VIDEO, требует
+ * start_image. Если хочешь Kling, надо сначала генерить картинку
+ * через gpt-image-2 и подавать как start_image — двойной API-вызов
+ * (отложено).
+ */
+const MODEL_CONFIGS: Record<string, { type: "t2v" | "i2v"; input: Record<string, unknown> }> = {
+  // ⭐ Default — Seedance Pro (ByteDance). Text-to-video, нативно 9:16,
+  // отличное качество для short-form вертикали. ~$0.40 за 5-сек клип.
+  "bytedance/seedance-1-pro": {
+    type: "t2v",
+    input: {
+      aspect_ratio: "9:16",
+      duration: 5,
+      resolution: "1080p",
+      fps: 24,
+      camera_fixed: false,
+    },
+  },
+  // Альтернатива №1 — Minimax Hailuo-02. Text-to-video, портретные кадры
+  // через prompt. ~$0.50 за 6-сек клип. Иногда даёт 16:9, надо явно
+  // упоминать vertical в промпте.
+  "minimax/hailuo-02": {
+    type: "t2v",
+    input: {
+      prompt_optimizer: true,
+      duration: 6,
+    },
+  },
+  // Альтернатива №2 — Minimax video-01 (старый, но проверенный).
+  "minimax/video-01": {
+    type: "t2v",
+    input: {
+      prompt_optimizer: true,
+    },
+  },
+  // ⚠️ Kling v2.1 — IMAGE-TO-VIDEO. Не использовать как default.
+  // Оставляю в конфиге для будущего пайплайна «генерим картинку → Kling».
+  "kwaivgi/kling-v2.1": {
+    type: "i2v",
+    input: {
+      aspect_ratio: "9:16",
+      duration: 5,
+      negative_prompt: "blurry, low quality, distorted, watermark, text",
+      // start_image НУЖНО передавать через opts.modelInput
+    },
+  },
+};
 
-// Дефолтные входные параметры для текущей модели. Kling v2.1 принимает
-// aspect_ratio + duration; для других моделей этот блок будет частично
-// игнорироваться (Replicate просто пропускает лишние поля для большинства
-// моделей). Переопределяется через REPLICATE_VIDEO_INPUT JSON-строкой.
-const DEFAULT_MODEL_INPUT: Record<string, unknown> = (() => {
+const DEFAULT_MODEL = process.env.REPLICATE_VIDEO_MODEL ?? "bytedance/seedance-1-pro";
+
+function getModelInput(model: string): Record<string, unknown> {
+  // ENV override имеет приоритет (если задан REPLICATE_VIDEO_INPUT)
   const fromEnv = process.env.REPLICATE_VIDEO_INPUT;
   if (fromEnv) {
     try {
       return JSON.parse(fromEnv);
     } catch {
-      // ignore, fallback to defaults
+      // ignore, упадём в default
     }
   }
-  return {
-    aspect_ratio: "9:16",
-    duration: 5, // сек
-    negative_prompt: "blurry, low quality, distorted, watermark, text",
-  };
-})();
+  // Иначе берём из реестра моделей
+  return MODEL_CONFIGS[model]?.input ?? { aspect_ratio: "9:16", duration: 5 };
+}
 
 interface CreatePredictionResponse {
   id: string;
@@ -125,9 +166,10 @@ export async function generateVideo(opts: {
       body: JSON.stringify({
         input: {
           prompt: opts.prompt,
-          // Дефолтные параметры (9:16, 5 сек и т.д.) можно переопределить
-          // через opts.modelInput — последний выигрывает.
-          ...DEFAULT_MODEL_INPUT,
+          // Параметры модели берутся из MODEL_CONFIGS по имени модели,
+          // переопределяются env-переменной REPLICATE_VIDEO_INPUT,
+          // а финально — per-call через opts.modelInput.
+          ...getModelInput(model),
           ...(opts.modelInput ?? {}),
         },
       }),
