@@ -16,6 +16,7 @@ import { resolveActiveWorkspace, saveActiveWorkspaceId, type ActiveWorkspaceStat
 import type { WorkspaceSummary } from "@/lib/workspace";
 import { SOURCES_FREE } from "@/lib/data/sources";
 import { trackGoal } from "@/lib/metrika";
+import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 // ─── Extracted view components ────────────────────────────────────────────────
 import { LandingPageView } from "@/components/views/LandingPageView";
@@ -700,7 +701,7 @@ function MarketRadarDashboardInner() {
         ? "Сервер не успел проанализировать сайт (timeout). Попробуйте ещё раз — иногда внешние API медленно отвечают."
         : `Ошибка сервера (${res.status})`);
     }
-    const json = await res.json();
+    const json = await jsonOrThrow(res);
     if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
     trackGoal("analyze_complete", { score: json.data?.company?.score });
     return json.data;
@@ -1042,7 +1043,7 @@ function MarketRadarDashboardInner() {
           audienceType,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка анализа ЦА");
       const newAnalysis = json.data as TAResult;
 
@@ -1085,7 +1086,7 @@ function MarketRadarDashboardInner() {
           companyData: { description: myCompany.company.description?.slice(0, 500), url: myCompany.company.url },
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации CJM");
       setCjmData(json.data);
       setCjmError(null);
@@ -1118,7 +1119,7 @@ function MarketRadarDashboardInner() {
           competitors: competitors.map(c2 => ({ name: c2.company.name, score: c2.company.score, categories: c2.company.categories })),
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации бенчмарков");
       setBenchmarksData(json.data);
       setBenchmarksError(null);
@@ -1150,7 +1151,7 @@ function MarketRadarDashboardInner() {
           websiteContext: company?.company.description ?? "",
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка анализа СММ");
       setSmmAnalysis(json.data);
       if (currentUser?.id) {
@@ -1328,7 +1329,7 @@ function MarketRadarDashboardInner() {
           smmAnalysis,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации плана");
       setContentPlan(json.data);
       persistContent(json.data, generatedPosts, generatedReels);
@@ -1376,7 +1377,7 @@ function MarketRadarDashboardInner() {
             userPrompt: idea.prompt, // пробрасываем оригинальный промпт идеи
           }),
         });
-        const json = await res.json();
+        const json = await jsonOrThrow(res);
         if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
 
         setGeneratedPosts(prev => {
@@ -1410,7 +1411,7 @@ function MarketRadarDashboardInner() {
             brandBook,
           }),
         });
-        const json = await res.json();
+        const json = await jsonOrThrow(res);
         if (!json.ok) throw new Error(json.error ?? "Ошибка генерации сторис");
         const story = json.data as GeneratedStory;
 
@@ -1687,7 +1688,7 @@ function MarketRadarDashboardInner() {
           referenceImages: referenceImages.map(r => ({ data: r.data, mimeType: r.mimeType })),
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации поста");
       setGeneratedPosts(prev => {
         const next = prependPostDedup(prev, json.data as GeneratedPost);
@@ -1718,7 +1719,7 @@ function MarketRadarDashboardInner() {
           userPrompt: customPrompt,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации сценария");
       setGeneratedReels(prev => {
         const next = [json.data as GeneratedReel, ...prev];
@@ -1808,7 +1809,7 @@ function MarketRadarDashboardInner() {
           voiceEmotion: avatarSettings.voiceEmotion,
         }),
       });
-      const json = await res.json();
+      const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка HeyGen");
       const videoId: string = json.data.videoId;
       setGeneratedReels(prev => {
@@ -1847,7 +1848,7 @@ function MarketRadarDashboardInner() {
       for (const reel of generating) {
         try {
           const res = await fetch(`/api/video-status?videoId=${encodeURIComponent(reel.heygenVideoId!)}`);
-          const json = await res.json();
+          const json = await jsonOrThrow(res);
           if (!json.ok) continue;
           const status: string = json.data.status;
           if (status === "completed" && json.data.videoUrl) {

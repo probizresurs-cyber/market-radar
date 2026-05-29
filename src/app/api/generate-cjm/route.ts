@@ -6,7 +6,10 @@ import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 60с не хватало — на streaming-режиме с max_tokens 24000 Claude иногда
+// генерирует ~80–90 секунд → nginx/Cloudflare 504 → HTML вместо JSON →
+// фронт показывал «Unexpected token '<'». Подняли до 120с.
+export const maxDuration = 120;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
