@@ -178,7 +178,9 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
   }, [company?.name, company?.url]);
 
   const isRealKeywords = data.seo?.keywordsSource === "keyso";
-  const allPositions = data.seo?.positions ?? [];
+  // Фильтруем мусорные строки (AI выдумывал ключи с position=0/volume=0 — фикс 29.05).
+  // Старые анализы в localStorage могут содержать такие строки.
+  const allPositions = (data.seo?.positions ?? []).filter(p => p.keyword && p.position > 0 && p.volume > 0);
   const yandexPositions = allPositions;
   const googlePositions = data.seo?.googlePositions && data.seo.googlePositions.length > 0
     ? data.seo.googlePositions

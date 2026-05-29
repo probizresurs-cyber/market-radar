@@ -146,18 +146,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     "pageCount": 0,
     "domainAge": "string (например: 5 лет)",
     "estimatedTraffic": "string (например: 2 000–8 000 визитов/мес)",
-    "positions": [
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 },
-      { "keyword": "string", "position": 0, "volume": 0 }
-    ],
+    "positions": [],
     "issues": ["string", "string", "string"]
   },
   "techStack": {
@@ -211,7 +200,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 Важно:
 - ровно 5 рекомендаций (2 high, 2 medium, 1 low)
 - ровно 7 инсайтов: 1 niche, 2 action, 1 battle, 1 copy, 1 seo, 1 offer
-- ровно 50 позиций в seo.positions (реалистичные ключевые слова для ниши компании, разные позиции от 1 до 100)
+- seo.positions ВСЕГДА пустой массив []. Реальные позиции по ключевым словам подтягиваются на сервере из Keys.so/SpyWords. Любые сгенерированные тобой позиции/объёмы будут перезаписаны или отфильтрованы как «нулевые». НЕ заполняй positions.
 - ровно 3 copyImprovements (H1/title, meta description, и ещё один элемент страницы)
 - ровно 4 keywordGaps — реальные незанятые запросы в нише
 - ровно 4 contentIdeas и 4 seoActions
@@ -341,11 +330,20 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     domainAge: safeStr(seoRaw.domainAge, "—"),
     estimatedTraffic: safeStr(seoRaw.estimatedTraffic, "—"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    positions: Array.isArray(seoRaw.positions) ? seoRaw.positions.slice(0, 50).map((pos: any) => ({
-      keyword: safeStr(pos.keyword, "—"),
-      position: safeNum(pos.position, 50),
-      volume: safeNum(pos.volume, 0),
-    })) : [],
+    positions: Array.isArray(seoRaw.positions)
+      ? seoRaw.positions
+          .slice(0, 50)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((pos: any) => ({
+            keyword: safeStr(pos.keyword, ""),
+            position: safeNum(pos.position, 0),
+            volume: safeNum(pos.volume, 0),
+          }))
+          // Жёсткий анти-выдумки фильтр: убираем строки с position=0 или volume=0
+          // (это признак того что AI всё-таки заполнил массив, нарушив инструкцию).
+          // Реальные позиции/объёмы подтянет Keys.so отдельно через site-insights.
+          .filter((p: { keyword: string; position: number; volume: number }) => p.keyword && p.position > 0 && p.volume > 0)
+      : [],
     issues: Array.isArray(seoRaw.issues) ? seoRaw.issues.slice(0, 5).map((i: unknown) => String(i)) : [],
   };
 

@@ -257,35 +257,44 @@ export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData
       </div>
 
       {/* ── Ключевые слова ── */}
-      {(data.seo?.positions ?? []).length > 0 && (
-        <CollapsibleSection c={c} title="Ключевые слова и позиции" icon={<Key size={16} />}>
-          <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 16 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr style={{ background: "var(--background)" }}>
-                {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid var(--border)`, color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {data.seo.positions.map((pos, i) => (
-                  <tr key={i} style={{ borderBottom: i < data.seo.positions.length - 1 ? `1px solid var(--muted)` : "none" }}>
-                    <td style={{ padding: "10px 16px", color: "var(--foreground)", fontWeight: 500 }}>{pos.keyword}</td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? "var(--success)" : pos.position <= 30 ? "var(--warning)" : "var(--foreground-secondary)" }}>#{pos.position}</span>
-                    </td>
-                    <td style={{ padding: "10px 16px", color: "var(--foreground-secondary)" }}>{pos.volume.toLocaleString("ru")}</td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <div style={{ width: 90, height: 6, borderRadius: 3, background: "var(--muted)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? "var(--success)" : pos.position <= 30 ? "var(--warning)" : "var(--destructive)", borderRadius: 3 }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CollapsibleSection>
-      )}
+      {/* Фильтруем строки где AI не имел реальных данных (position=0 или volume=0).
+          После багфикса 29.05 AI больше не должен заполнять positions — но в
+          localStorage могли остаться старые анализы с мусором. */}
+      {(() => {
+        const realPositions = (data.seo?.positions ?? []).filter(
+          (p) => p.keyword && p.position > 0 && p.volume > 0,
+        );
+        if (realPositions.length === 0) return null;
+        return (
+          <CollapsibleSection c={c} title="Ключевые слова и позиции" icon={<Key size={16} />}>
+            <div style={{ background: "var(--card)", borderRadius: 16, border: `1px solid var(--border)`, overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ background: "var(--background)" }}>
+                  {["Ключевое слово", "Позиция", "Объём/мес", "Рейтинг"].map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "10px 16px", borderBottom: `2px solid var(--border)`, color: "var(--muted-foreground)", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em" }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {realPositions.map((pos, i) => (
+                    <tr key={i} style={{ borderBottom: i < realPositions.length - 1 ? `1px solid var(--muted)` : "none" }}>
+                      <td style={{ padding: "10px 16px", color: "var(--foreground)", fontWeight: 500 }}>{pos.keyword}</td>
+                      <td style={{ padding: "10px 16px" }}>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: pos.position <= 10 ? "var(--success)" : pos.position <= 30 ? "var(--warning)" : "var(--foreground-secondary)" }}>#{pos.position}</span>
+                      </td>
+                      <td style={{ padding: "10px 16px", color: "var(--foreground-secondary)" }}>{pos.volume.toLocaleString("ru")}</td>
+                      <td style={{ padding: "10px 16px" }}>
+                        <div style={{ width: 90, height: 6, borderRadius: 3, background: "var(--muted)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.max(4, Math.round((1 - (pos.position - 1) / 99) * 100))}%`, background: pos.position <= 10 ? "var(--success)" : pos.position <= 30 ? "var(--warning)" : "var(--destructive)", borderRadius: 3 }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CollapsibleSection>
+        );
+      })()}
 
       {/* ── SEO-детали + Бизнес-профиль ── */}
       <CollapsibleSection c={c} title="SEO-детали и бизнес-профиль" icon={<Search size={16} />}>
