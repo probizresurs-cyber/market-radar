@@ -20,6 +20,7 @@ import {
   AbsoluteFill,
   Img,
   OffthreadVideo,
+  Sequence,
   interpolate,
   spring,
   useCurrentFrame,
@@ -310,44 +311,99 @@ const CustomSequenceDemo: React.FC<{
   stockVideoUrls: string[];
   brollFullscreenImageUrls: string[];
   accentColor: string;
-  frame: number;
+  frame: number;          // unused (хранилось для совместимости со старым API)
   totalFrames: number;
   opacity: number;
-}> = ({ sequence, screencastUrl, stockVideoUrls, brollFullscreenImageUrls, accentColor, frame, totalFrames, opacity }) => {
+}> = ({ sequence, screencastUrl, stockVideoUrls, brollFullscreenImageUrls, accentColor, totalFrames, opacity }) => {
   if (sequence.length === 0) return null;
 
   const segmentFrames = totalFrames / sequence.length;
+
+  // Pre-pass: считаем сколько до текущего слота использовано каждого типа.
+  // Нужно чтобы для каждого слота знать индекс в соответствующем пуле URL.
+  let videoUsedRunning = 0;
+  let imageUsedRunning = 0;
+  let screencastUsedRunning = 0;
+  const slotMeta = sequence.map((type) => {
+    const meta = {
+      videoIdx: videoUsedRunning,
+      imageIdx: imageUsedRunning,
+      screencastSlot: screencastUsedRunning,
+    };
+    if (type === "video") videoUsedRunning++;
+    else if (type === "image") imageUsedRunning++;
+    else if (type === "screencast") screencastUsedRunning++;
+    return meta;
+  });
+
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      {sequence.map((type, i) => {
+        const segmentStart = i * segmentFrames;
+        // Wrap каждый слот в <Sequence> — даёт ему ЛОКАЛЬНОЕ время:
+        // frame 0 внутри = демо-frame segmentStart. Тогда OffthreadVideo
+        // воспроизводит источник с правильного начала, а не «застывает на
+        // последнем кадре потому что композиционный frame > длительность видео».
+        return (
+          <Sequence key={i} from={segmentStart} durationInFrames={Math.ceil(segmentFrames)}>
+            <CustomSegmentContent
+              type={type}
+              screencastUrl={screencastUrl}
+              stockVideoUrls={stockVideoUrls}
+              brollFullscreenImageUrls={brollFullscreenImageUrls}
+              accentColor={accentColor}
+              segmentFrames={segmentFrames}
+              videoIdx={slotMeta[i].videoIdx}
+              imageIdx={slotMeta[i].imageIdx}
+              screencastSlot={slotMeta[i].screencastSlot}
+            />
+          </Sequence>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * Контент одного сегмента в custom-sequence. Уже находится внутри своей
+ * <Sequence>, поэтому useCurrentFrame() возвращает локальный frame
+ * (0 = начало сегмента). OffthreadVideo играет с начала своего источника.
+ */
+const CustomSegmentContent: React.FC<{
+  type: "screencast" | "video" | "image";
+  screencastUrl: string | null;
+  stockVideoUrls: string[];
+  brollFullscreenImageUrls: string[];
+  accentColor: string;
+  segmentFrames: number;
+  videoIdx: number;
+  imageIdx: number;
+  screencastSlot: number;
+}> = ({
+  type,
+  screencastUrl,
+  stockVideoUrls,
+  brollFullscreenImageUrls,
+  accentColor,
+  segmentFrames,
+  videoIdx,
+  imageIdx,
+  screencastSlot,
+}) => {
+  const frame = useCurrentFrame();
   const fadeFrames = Math.min(10, segmentFrames * 0.15);
-
-  // Какой сегмент сейчас активен
-  const segmentIndex = Math.min(Math.floor(frame / segmentFrames), sequence.length - 1);
-  const currentType = sequence[segmentIndex];
-  const segmentStart = segmentIndex * segmentFrames;
-  const segmentLocalFrame = frame - segmentStart;
-
-  // Cross-fade на границах
   const segmentOpacity = interpolate(
-    segmentLocalFrame,
+    frame,
     [0, fadeFrames, segmentFrames - fadeFrames, segmentFrames],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
-  // Считаем сколько уже использовали каждого типа ДО этого сегмента,
-  // чтобы взять правильный URL из пула.
-  let videoUsed = 0;
-  let imageUsed = 0;
-  let screencastUsed = 0;
-  for (let i = 0; i < segmentIndex; i++) {
-    if (sequence[i] === "video") videoUsed++;
-    else if (sequence[i] === "image") imageUsed++;
-    else if (sequence[i] === "screencast") screencastUsed++;
-  }
-
   // Phone-frame со screencast
-  if (currentType === "screencast" && screencastUrl) {
-    // Offset для screencast: пропускаем уже показанное время
-    const screencastOffsetFrames = Math.floor(screencastUsed * segmentFrames);
+  if (type === "screencast" && screencastUrl) {
+    // Screencast — один длинный файл, который мы порционно показываем.
+    // Каждый phone-сегмент продолжает с правильного offset (не с начала).
+    const screencastOffsetFrames = Math.floor(screencastSlot * segmentFrames);
     return (
       <div
         style={{
@@ -356,7 +412,7 @@ const CustomSequenceDemo: React.FC<{
           top: PHONE_Y,
           width: PHONE_W,
           height: PHONE_H,
-          opacity: opacity * segmentOpacity,
+          opacity: segmentOpacity,
           transform: `scale(${0.95 + segmentOpacity * 0.05})`,
         }}
       >
@@ -374,20 +430,19 @@ const CustomSequenceDemo: React.FC<{
 
   // Fullscreen video или image
   let url: string | null = null;
-  if (currentType === "video") {
-    url = stockVideoUrls[videoUsed % Math.max(1, stockVideoUrls.length)] ?? null;
-  } else if (currentType === "image") {
-    url = brollFullscreenImageUrls[imageUsed % Math.max(1, brollFullscreenImageUrls.length)] ?? null;
+  if (type === "video") {
+    url = stockVideoUrls[videoIdx % Math.max(1, stockVideoUrls.length)] ?? null;
+  } else if (type === "image") {
+    url = brollFullscreenImageUrls[imageIdx % Math.max(1, brollFullscreenImageUrls.length)] ?? null;
   }
 
   if (!url) {
-    // Тип-в-sequence нет в пуле (юзер запросил скринкаст без скринкаста, или
-    // image без картинок) — рисуем только затемнение, чтобы кадр не был
-    // полностью чёрным, и переходим к следующему сегменту.
+    // Тип-в-sequence нет в пуле (запросили screencast без screencast'а,
+    // или video без видео) — мягкий gradient-фолбэк вместо чёрного.
     return (
       <AbsoluteFill
         style={{
-          opacity: opacity * segmentOpacity,
+          opacity: segmentOpacity,
           background: `radial-gradient(circle at 50% 50%, ${accentColor}22 0%, #0a0e1a 70%)`,
         }}
       />
@@ -395,14 +450,15 @@ const CustomSequenceDemo: React.FC<{
   }
 
   const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
-  // Лёгкий zoom для оживления
-  const scale = interpolate(segmentLocalFrame, [0, segmentFrames], [1.05, 1.15], {
+  // Лёгкий zoom-эффект внутри сегмента — оживляет статичные картинки
+  // и добавляет движения коротким видеоклипам.
+  const scale = interpolate(frame, [0, segmentFrames], [1.05, 1.15], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   return (
-    <AbsoluteFill style={{ opacity: opacity * segmentOpacity, overflow: "hidden" }}>
+    <AbsoluteFill style={{ opacity: segmentOpacity, overflow: "hidden" }}>
       {isVideo ? (
         <OffthreadVideo
           src={url}
@@ -452,30 +508,57 @@ const AlternatingDemo: React.FC<{
   screencastUrl: string;
   mediaUrls: string[];
   accentColor: string;
-  frame: number;
+  frame: number;          // unused (Sequence-обёртки сами знают frame)
   totalFrames: number;
   opacity: number;
-}> = ({ screencastUrl, mediaUrls, accentColor, frame, totalFrames, opacity }) => {
+}> = ({ screencastUrl, mediaUrls, accentColor, totalFrames, opacity }) => {
   const totalSegments = mediaUrls.length * 2;
   const segmentFrames = totalFrames / totalSegments;
+
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      {Array.from({ length: totalSegments }).map((_, i) => {
+        const isPhoneSegment = i % 2 === 0;
+        const segmentStart = i * segmentFrames;
+        return (
+          <Sequence key={i} from={segmentStart} durationInFrames={Math.ceil(segmentFrames)}>
+            <AlternatingSegment
+              isPhoneSegment={isPhoneSegment}
+              segmentIndex={i}
+              screencastUrl={screencastUrl}
+              mediaUrls={mediaUrls}
+              accentColor={accentColor}
+              segmentFrames={segmentFrames}
+            />
+          </Sequence>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * Контент одного сегмента alternate-режима. Внутри своей Sequence,
+ * useCurrentFrame даёт локальный frame от начала сегмента.
+ */
+const AlternatingSegment: React.FC<{
+  isPhoneSegment: boolean;
+  segmentIndex: number;
+  screencastUrl: string;
+  mediaUrls: string[];
+  accentColor: string;
+  segmentFrames: number;
+}> = ({ isPhoneSegment, segmentIndex, screencastUrl, mediaUrls, accentColor, segmentFrames }) => {
+  const frame = useCurrentFrame();
   const fadeFrames = Math.min(10, segmentFrames * 0.15);
-
-  // Какой сегмент сейчас активен
-  const segmentIndex = Math.min(Math.floor(frame / segmentFrames), totalSegments - 1);
-  const isPhoneSegment = segmentIndex % 2 === 0;
-  const segmentStart = segmentIndex * segmentFrames;
-  const segmentLocalFrame = frame - segmentStart;
-
-  // Cross-fade на границах: затемнение при переходе между сегментами
   const segmentOpacity = interpolate(
-    segmentLocalFrame,
+    frame,
     [0, fadeFrames, segmentFrames - fadeFrames, segmentFrames],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
   if (isPhoneSegment) {
-    // Сколько прошло "phone-времени" до этого сегмента — для startFrom screencast'а
     const phoneSlotIndex = segmentIndex / 2;
     const screencastOffsetFrames = Math.floor(phoneSlotIndex * segmentFrames);
     return (
@@ -486,7 +569,7 @@ const AlternatingDemo: React.FC<{
           top: PHONE_Y,
           width: PHONE_W,
           height: PHONE_H,
-          opacity: opacity * segmentOpacity,
+          opacity: segmentOpacity,
           transform: `scale(${0.95 + segmentOpacity * 0.05})`,
         }}
       >
@@ -502,48 +585,32 @@ const AlternatingDemo: React.FC<{
     );
   }
 
-  // Full-screen broll-сегмент
   const mediaIndex = Math.floor(segmentIndex / 2);
   const url = mediaUrls[mediaIndex];
+  if (!url) return null;
   const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
-  // Лёгкий zoom-эффект в сегменте — оживляет статичные картинки
-  const scale = interpolate(segmentLocalFrame, [0, segmentFrames], [1.05, 1.15], {
+  const scale = interpolate(frame, [0, segmentFrames], [1.05, 1.15], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   return (
-    <AbsoluteFill style={{ opacity: opacity * segmentOpacity, overflow: "hidden" }}>
+    <AbsoluteFill style={{ opacity: segmentOpacity, overflow: "hidden" }}>
       {isVideo ? (
         <OffthreadVideo
           src={url}
           muted
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: `scale(${scale})`,
-          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` }}
         />
       ) : (
-        <Img
-          src={url}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: `scale(${scale})`,
-          }}
-        />
+        <Img src={url} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` }} />
       )}
-      {/* Затемнение сверху/снизу для читаемости заголовка и step-badges */}
       <AbsoluteFill
         style={{
           background:
             "linear-gradient(180deg, rgba(10,14,26,0.7) 0%, rgba(10,14,26,0.25) 30%, rgba(10,14,26,0.25) 70%, rgba(10,14,26,0.7) 100%)",
         }}
       />
-      {/* Виньетка с брендовым свечением по периметру */}
       <AbsoluteFill
         style={{
           background: `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)`,
@@ -587,94 +654,104 @@ function interleaveMedia<T>(stocks: T[], images: T[]): T[] {
 const BrollFullscreen: React.FC<{
   urls: string[];
   accentColor: string;
-  frame: number;
-  fps: number;
+  frame: number;     // unused
+  fps: number;       // unused
   totalFrames: number;
   opacity: number;
-}> = ({ urls, accentColor, frame, totalFrames, opacity }) => {
+}> = ({ urls, accentColor, totalFrames, opacity }) => {
   if (!urls.length) return null;
   const segmentFrames = totalFrames / urls.length;
-  const fadeFrames = Math.min(20, segmentFrames * 0.2);
-
-  // 5 разных Ken-burns траекторий. Циклятся по индексу картинки —
-  // даже на 8 картинках в серии мы не повторим одну и ту же 2 раза подряд.
-  const motionPatterns = [
-    { scaleFrom: 1.05, scaleTo: 1.25, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 }, // zoom-in center
-    { scaleFrom: 1.25, scaleTo: 1.05, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 }, // zoom-out center
-    { scaleFrom: 1.2, scaleTo: 1.2, xFrom: -40, xTo: 40, yFrom: 0, yTo: 0 }, // pan right
-    { scaleFrom: 1.2, scaleTo: 1.2, xFrom: 40, xTo: -40, yFrom: 0, yTo: 0 }, // pan left
-    { scaleFrom: 1.1, scaleTo: 1.3, xFrom: -30, xTo: 30, yFrom: -20, yTo: 20 }, // diagonal zoom
-  ];
 
   return (
     <AbsoluteFill style={{ opacity }}>
       {urls.map((url, i) => {
         const start = i * segmentFrames;
-        const end = start + segmentFrames;
-        if (frame < start - fadeFrames || frame > end + fadeFrames) return null;
-
-        const op = interpolate(
-          frame,
-          [start - fadeFrames, start, end - fadeFrames, end],
-          [0, 1, 1, 0],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-        );
-
-        const motion = motionPatterns[i % motionPatterns.length];
-        const scale = interpolate(frame, [start, end], [motion.scaleFrom, motion.scaleTo], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const x = interpolate(frame, [start, end], [motion.xFrom, motion.xTo], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const y = interpolate(frame, [start, end], [motion.yFrom, motion.yTo], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-
-        const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
-
         return (
-          <AbsoluteFill key={i} style={{ opacity: op, overflow: "hidden" }}>
-            {isVideo ? (
-              <OffthreadVideo
-                src={url}
-                muted
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  transform: `scale(${scale}) translate(${x}px, ${y}px)`,
-                }}
-              />
-            ) : (
-              <Img
-                src={url}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  transform: `scale(${scale}) translate(${x}px, ${y}px)`,
-                }}
-              />
-            )}
-          </AbsoluteFill>
+          <Sequence key={i} from={start} durationInFrames={Math.ceil(segmentFrames)}>
+            <BrollFullscreenSegment
+              url={url}
+              motionIndex={i}
+              segmentFrames={segmentFrames}
+              accentColor={accentColor}
+            />
+          </Sequence>
         );
       })}
+    </AbsoluteFill>
+  );
+};
 
-      {/* Тёмный gradient-оверлей — чтобы текст и badges были читаемы
-          поверх любого визуала. Темнее сверху (где title) и снизу (где
-          могут быть подписи), светлее в центре где главный визуал. */}
+const BROLL_MOTION_PATTERNS = [
+  { scaleFrom: 1.05, scaleTo: 1.25, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 },        // zoom-in center
+  { scaleFrom: 1.25, scaleTo: 1.05, xFrom: 0, xTo: 0, yFrom: 0, yTo: 0 },        // zoom-out center
+  { scaleFrom: 1.2, scaleTo: 1.2, xFrom: -40, xTo: 40, yFrom: 0, yTo: 0 },       // pan right
+  { scaleFrom: 1.2, scaleTo: 1.2, xFrom: 40, xTo: -40, yFrom: 0, yTo: 0 },       // pan left
+  { scaleFrom: 1.1, scaleTo: 1.3, xFrom: -30, xTo: 30, yFrom: -20, yTo: 20 },    // diagonal zoom
+];
+
+const BrollFullscreenSegment: React.FC<{
+  url: string;
+  motionIndex: number;
+  segmentFrames: number;
+  accentColor: string;
+}> = ({ url, motionIndex, segmentFrames, accentColor }) => {
+  const frame = useCurrentFrame();
+  const fadeFrames = Math.min(20, segmentFrames * 0.2);
+
+  const op = interpolate(
+    frame,
+    [0, fadeFrames, segmentFrames - fadeFrames, segmentFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+
+  const motion = BROLL_MOTION_PATTERNS[motionIndex % BROLL_MOTION_PATTERNS.length];
+  const scale = interpolate(frame, [0, segmentFrames], [motion.scaleFrom, motion.scaleTo], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const x = interpolate(frame, [0, segmentFrames], [motion.xFrom, motion.xTo], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const y = interpolate(frame, [0, segmentFrames], [motion.yFrom, motion.yTo], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
+
+  return (
+    <AbsoluteFill style={{ opacity: op, overflow: "hidden" }}>
+      {isVideo ? (
+        <OffthreadVideo
+          src={url}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${scale}) translate(${x}px, ${y}px)`,
+          }}
+        />
+      ) : (
+        <Img
+          src={url}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${scale}) translate(${x}px, ${y}px)`,
+          }}
+        />
+      )}
+      {/* Gradient + vignette внутри каждого сегмента — overlay поверх своего визуала */}
       <AbsoluteFill
         style={{
           background:
             "linear-gradient(180deg, rgba(10,14,26,0.75) 0%, rgba(10,14,26,0.3) 30%, rgba(10,14,26,0.3) 70%, rgba(10,14,26,0.75) 100%)",
         }}
       />
-
-      {/* Тонкая виньетка по краям для cinematic ощущения */}
       <AbsoluteFill
         style={{
           background: `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)`,
