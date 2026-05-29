@@ -37,20 +37,29 @@ export const maxDuration = 300;
 const BROLL_VIDEOS_DIR = "broll-videos";
 
 /**
- * Шаблоны промптов для AI-видео b-roll'а. Каждый — отдельная визуальная
- * сцена с движением. Берутся по индексу до нужного count.
+ * Шаблоны промптов для AI-видео b-roll'а под Kling v2.1.
+ * Промпты соответствуют best-practice для Kling:
+ *   1. Композиция/план: "Cinematic vertical shot of..."
+ *   2. Сцена + субъект: "person at laptop in dark office"
+ *   3. Движение камеры: "slow dolly in", "tilt up", "tracking shot"
+ *   4. Освещение/настроение: "dark moody lighting, premium feel"
+ *   5. Style: "9:16 vertical, cinematic, photorealistic"
+ *
+ * Без 9:16 в самом промпте — это управляется параметром aspect_ratio.
+ * Берутся по индексу до нужного count, при count > 8 циклятся.
  */
 function brollVideoPrompts(theme: string): string[] {
-  const themeLine = theme ? ` ${theme}.` : "";
+  const themeLine = theme ? ` Theme context: ${theme}.` : "";
+  const style = "Cinematic vertical 9:16 shot, photorealistic, dark moody lighting, premium fintech feel.";
   return [
-    `Professional marketing analyst at sleek modern workstation, multiple glowing monitors showing data dashboards, hands typing focused, cinematic camera slow push-in, dark moody office lighting.${themeLine}`,
-    `Close-up of person holding smartphone with glowing analytics dashboard, screen reflects on face, dark background, slow camera dolly, premium fintech aesthetic.${themeLine}`,
-    `Dramatic shot of growth arrow chart rising on huge LED screen, data particles flowing upward, futuristic boardroom, slow camera tilt up, cinematic.${themeLine}`,
-    `Top-down shot of clean modern desk with laptop showing dashboard, hands typing, coffee, notebook, slow rotation camera, premium SaaS atmosphere.${themeLine}`,
-    `Macro close-up of fingers tapping smartphone screen with notifications appearing one by one, dark moody lighting, shallow depth of field.${themeLine}`,
-    `Wide shot of business meeting room, professionals analyzing data on big screen, gestures of insight and discovery, cinematic slow camera move.${themeLine}`,
-    `Abstract data visualization floating in dark space, particles forming charts and graphs, holographic style, slow camera orbit, futuristic tech aesthetic.${themeLine}`,
-    `Person walking through modern office at sunset, golden hour light, holding smartphone, looking confident, cinematic tracking shot.${themeLine}`,
+    `${style} Professional marketing analyst at sleek modern workstation, multiple glowing monitors with data dashboards, hands typing focused, slow camera dolly-in.${themeLine}`,
+    `${style} Close-up of person holding smartphone with glowing analytics dashboard, screen light reflects on face, shallow depth of field, slow camera push-in.${themeLine}`,
+    `${style} Dramatic shot of growth arrow chart rising on huge LED screen, data particles flowing upward, slow camera tilt-up.${themeLine}`,
+    `${style} Overhead shot of clean modern desk with laptop showing dashboard, hands typing, coffee, notebook, slow rotation camera.${themeLine}`,
+    `${style} Macro close-up of fingers tapping smartphone screen with notifications appearing one by one, dark background, slow camera dolly.${themeLine}`,
+    `${style} Wide shot of business meeting room, professionals analyzing data on big screen, gestures of insight and discovery, slow tracking shot.${themeLine}`,
+    `${style} Abstract data visualization floating in dark space, particles forming charts and graphs, holographic style, slow camera orbit.${themeLine}`,
+    `${style} Person walking through modern office at sunset, golden hour light, holding smartphone confidently, cinematic tracking shot.${themeLine}`,
   ];
 }
 
@@ -116,7 +125,7 @@ export async function POST(req: Request) {
 
     await access.log({
       endpoint: "generate-broll-videos",
-      model: model ?? "minimax/hailuo-02",
+      model: model ?? "kwaivgi/kling-v2.1",
       success: true,
       durationMs: Date.now() - t0,
     });

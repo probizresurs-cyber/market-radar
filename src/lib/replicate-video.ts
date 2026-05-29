@@ -23,9 +23,34 @@
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN ?? process.env.REPLICATE_API_KEY ?? "";
 const REPLICATE_BASE = "https://api.replicate.com/v1";
 
-// Дефолтная модель — Minimax Hailuo-02. Хорошее качество, особенно людей.
-// 6-секундные клипы 1080p. Можно переопределить через REPLICATE_VIDEO_MODEL.
-const DEFAULT_MODEL = process.env.REPLICATE_VIDEO_MODEL ?? "minimax/hailuo-02";
+// Дефолтная модель — Kling v2.1. Лучшее качество для вертикальных
+// промо-роликов (нативный 9:16, premium cinematic feel, отличный
+// рендеринг людей). $0.28-0.50 за 5-сек клип, ~2-3 мин на генерацию.
+// Альтернативы: runwayml/runway-gen-3-turbo (дешевле/быстрее),
+// bytedance/seedance-1-pro (нативно для short-form вертикали),
+// minimax/hailuo-02 (но без явного 9:16 параметра, рискованно).
+// Можно переопределить через env REPLICATE_VIDEO_MODEL.
+const DEFAULT_MODEL = process.env.REPLICATE_VIDEO_MODEL ?? "kwaivgi/kling-v2.1";
+
+// Дефолтные входные параметры для текущей модели. Kling v2.1 принимает
+// aspect_ratio + duration; для других моделей этот блок будет частично
+// игнорироваться (Replicate просто пропускает лишние поля для большинства
+// моделей). Переопределяется через REPLICATE_VIDEO_INPUT JSON-строкой.
+const DEFAULT_MODEL_INPUT: Record<string, unknown> = (() => {
+  const fromEnv = process.env.REPLICATE_VIDEO_INPUT;
+  if (fromEnv) {
+    try {
+      return JSON.parse(fromEnv);
+    } catch {
+      // ignore, fallback to defaults
+    }
+  }
+  return {
+    aspect_ratio: "9:16",
+    duration: 5, // сек
+    negative_prompt: "blurry, low quality, distorted, watermark, text",
+  };
+})();
 
 interface CreatePredictionResponse {
   id: string;
@@ -100,6 +125,9 @@ export async function generateVideo(opts: {
       body: JSON.stringify({
         input: {
           prompt: opts.prompt,
+          // Дефолтные параметры (9:16, 5 сек и т.д.) можно переопределить
+          // через opts.modelInput — последний выигрывает.
+          ...DEFAULT_MODEL_INPUT,
           ...(opts.modelInput ?? {}),
         },
       }),
