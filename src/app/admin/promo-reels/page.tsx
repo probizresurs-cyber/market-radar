@@ -671,8 +671,20 @@ export default function PromoReelsAdminPage() {
                     step.status === "failed" ? "#dc2626" :
                     step.status === "skipped" ? "#475569" :
                     "#7c3aed";
+                  // Label для images шага — динамически показываем что в нём
+                  // запросили (hook/CTA фон, b-roll, или оба). Иначе юзер
+                  // не понимает где конкретно отработал/упал b-roll.
+                  const imagesLabel = (() => {
+                    const parts: string[] = [];
+                    if (form.includeImages) parts.push("hook+CTA фон");
+                    if (form.includeBrollCorners && form.includeScreencast) parts.push("3 углов");
+                    if (form.includeBrollFullscreen) parts.push("fullscreen b-roll");
+                    return parts.length > 0
+                      ? `AI-картинки (${parts.join(" + ")})`
+                      : "AI-картинки";
+                  })();
                   const label =
-                    step.name === "images" ? "AI-картинки" :
+                    step.name === "images" ? imagesLabel :
                     step.name === "animated-broll" ? "AI-видео b-roll (Replicate)" :
                     step.name === "stock-videos" ? "Стоковые видео (Pexels)" :
                     step.name === "screencast" ? "Скринкаст" :
