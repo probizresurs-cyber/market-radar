@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import type { LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -129,6 +130,10 @@ async function simulateHonest(llm: LLMName, query: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const { brandName, websiteUrl } = await req.json() as {
       brandName: string;

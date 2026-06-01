@@ -22,6 +22,7 @@ import { NextResponse } from "next/server";
 import type { AIMention, LLMName } from "@/lib/ai-visibility-types";
 import { GEMINI_API_KEY, generateGeminiText } from "@/lib/gemini";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -190,6 +191,10 @@ async function callGemini(query: string): Promise<string> {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth (AI/external API квоты).
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const { llm, queries, brandName, niche } = await req.json() as {
       llm: LLMName;

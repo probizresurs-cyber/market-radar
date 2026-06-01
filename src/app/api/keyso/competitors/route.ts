@@ -10,6 +10,7 @@
  */
 import { NextResponse } from "next/server";
 import { fetchOrganicCompetitors, fetchContextCompetitors, type KeysoBase } from "@/lib/keyso-client";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,6 +35,11 @@ function normalizeDomain(d: string): string {
 }
 
 export async function POST(req: Request) {
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { domain, base = "msk", limit = 15 } = await req.json() as {
       domain: string;

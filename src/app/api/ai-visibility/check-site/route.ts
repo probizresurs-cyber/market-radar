@@ -20,6 +20,7 @@
  */
 import { NextResponse } from "next/server";
 import type { SiteReadinessItem, AIReadinessReport } from "@/lib/ai-visibility-types";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 
@@ -224,6 +225,10 @@ function generateFAQSchema(opts: { brandName: string }): string {
 }
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const body = await req.json();
     const websiteUrl: string = body.websiteUrl;

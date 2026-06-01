@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import type { Review } from "@/lib/review-types";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -186,6 +187,12 @@ async function fetchWidget(orgId: string, limit: number): Promise<ParsedReview[]
 }
 
 export async function POST(req: Request) {
+  // Yandex Maps API квота — закрываем auth'ом.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const companyName: string = (body.companyName ?? "").toString().trim();

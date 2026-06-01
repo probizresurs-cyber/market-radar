@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import type { AIMention, SiteReadinessItem, AIRecommendation } from "@/lib/ai-visibility-types";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,10 @@ const client = new Anthropic({
 });
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const {
       brandName,

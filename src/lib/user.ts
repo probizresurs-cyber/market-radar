@@ -141,12 +141,16 @@ export function authSetCurrentUser(user: UserAccount | null): void {
 
 // ─── Telegram notification helper ──────────────────────────────────────────────
 
-export async function sendTgNotification(chatId: string, text: string) {
+// chatId-параметр оставлен для обратной совместимости со старыми вызовами,
+// но больше НЕ отправляется — сервер сам подтянет chatId сессионного юзера
+// из БД. Открытый relay был дырой безопасности (см. фикс telegram/notify).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function sendTgNotification(_chatId: string, text: string) {
   try {
     await fetch("/api/telegram/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId, text }),
+      body: JSON.stringify({ text }),
     });
   } catch { /* silent fail */ }
 }

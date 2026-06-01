@@ -11,11 +11,17 @@
  */
 import { NextResponse } from "next/server";
 import { getKeysoKeywords } from "@/lib/enricher";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { domain } = await req.json() as { domain: string };
 

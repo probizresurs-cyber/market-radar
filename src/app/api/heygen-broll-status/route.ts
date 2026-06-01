@@ -13,11 +13,19 @@
  * со старым клиентом, который ждёт executionId).
  */
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function GET(req: Request) {
+  // Polling-эндпоинт. Auth обязателен — иначе аноним может polling'овать
+  // session_id'ы юзеров и узнавать статус их генераций.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("executionId") ?? searchParams.get("sessionId");

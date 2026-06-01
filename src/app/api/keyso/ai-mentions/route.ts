@@ -6,11 +6,18 @@
  */
 import { NextResponse } from "next/server";
 import { fetchAiAnswers, fetchAiCompetitors, type KeysoBase } from "@/lib/keyso-client";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+  // Раньше открыт — Keys.so платная квота.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { domain, base = "msk", limit = 25 } = await req.json() as {
       domain: string;

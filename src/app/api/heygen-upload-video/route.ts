@@ -11,11 +11,18 @@
  * Response: { ok, data: { assetId, assetUrl, size, mimeType } }
  */
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth (HeyGen — платная квота).
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const apiKey = process.env.HEYGEN_API_KEY;
     if (!apiKey) {

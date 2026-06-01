@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -62,6 +63,12 @@ async function findPlace(query: string, apiKey: string): Promise<PlaceResult | n
 }
 
 export async function POST(req: Request) {
+  // Google Places ~$17/1000 lookup — закрываем auth'ом от ботов.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";

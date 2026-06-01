@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,6 +14,12 @@ export const maxDuration = 120;
 // requires a paid HeyGen plan — graceful 402 response if not enabled.
 
 export async function POST(req: Request) {
+  // Раньше открыт — Voice Clone требует paid HeyGen plan (~$24/voice).
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json() as { dataUrl?: string; mimeType?: string; name?: string };
     const dataUrl = body.dataUrl?.trim();

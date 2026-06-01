@@ -161,6 +161,17 @@ function extractUrl(text: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  // Anti-spoof: Telegram передаёт secret_token в этом header при правильно
+  // настроенном webhook. Без проверки атакующий мог подделать update с
+  // кодом MR-XXXXXX и перехватить уведомления жертвы.
+  const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (expectedSecret) {
+    const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
+    if (receivedSecret !== expectedSecret) {
+      return NextResponse.json({ ok: false, error: "invalid secret" }, { status: 401 });
+    }
+  }
+
   try {
     const update = await req.json();
     const msg = update?.message;

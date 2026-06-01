@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -118,6 +119,12 @@ async function searchFirmByName(name: string, address?: string, domain?: string,
 }
 
 export async function POST(req: Request) {
+  // 2GIS API квота — закрываем auth'ом.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const url: string = body.url ?? "";

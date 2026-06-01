@@ -6,11 +6,17 @@
  */
 import { NextResponse } from "next/server";
 import { fetchMarketShare, type KeysoBase } from "@/lib/keyso-client";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { domains, base = "msk" } = await req.json() as {
       domains: string[];

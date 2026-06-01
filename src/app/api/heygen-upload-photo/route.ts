@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,6 +14,12 @@ export const maxDuration = 60;
 // base64 data, and forward binary to HeyGen.
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth (HeyGen — платная квота).
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     // multipart/form-data (single field `file`) — consistent с heygen-upload-video.
     const apiKey = process.env.HEYGEN_API_KEY;

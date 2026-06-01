@@ -47,8 +47,19 @@ interface ProductRow {
 
 export async function GET(req: Request) {
   // ─── Auth ──────────────────────────────────────────────────────
+  // Reverse-default: в проде CRON_SECRET обязателен. Если случайно слетит
+  // из .env — endpoint вернёт 503, а не откроется наружу (как было раньше).
+  // Тот же фикс что в cron/run-agents — симметричное поведение.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { ok: false, error: "CRON_SECRET не настроен — cron endpoint заблокирован" },
+        { status: 503 },
+      );
+    }
+    // dev — пропускаем без auth
+  } else {
     const url = new URL(req.url);
     const headerToken = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     const queryToken = url.searchParams.get("secret");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -10,6 +11,12 @@ type AvatarItem = { avatar_id?: string; avatar_name?: string; gender?: string; p
 type VoiceItem = { voice_id?: string; name?: string; language?: string; gender?: string; preview_audio?: string };
 
 export async function GET() {
+  // Раньше открыт — теперь требуем auth (HeyGen — платная квота).
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const apiKey = process.env.HEYGEN_API_KEY;
     if (!apiKey) {

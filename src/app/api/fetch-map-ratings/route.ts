@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -87,6 +88,12 @@ async function fetch2GISRating(name: string, apiKey?: string): Promise<MapRating
 }
 
 export async function POST(req: Request) {
+  // 3 платных API (Google/Yandex/2GIS) — auth обязателен.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";

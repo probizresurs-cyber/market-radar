@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
@@ -26,13 +27,34 @@ async function tgCall(method: string, body: Record<string, unknown>) {
 }
 
 export async function GET(req: NextRequest) {
-  const host = req.headers.get("host") ?? "";
-  const webhookUrl = `https://${host}/api/telegram/webhook`;
+  // Раньше открыт — атакующий мог через X-Forwarded-Host подменить
+  // webhook URL и перехватывать все входящие сообщения нашему боту.
+  // Теперь admin-only И URL берётся из env, а не из header.
+  const session = await getSessionUser();
+  if (!session || session.role !== "admin") {
+    return NextResponse.json({ error: "Доступ запрещён (admin only)" }, { status: 403 });
+  }
+
+  // URL из env, не из req.headers.host (защита от подмены X-Forwarded-Host)
+  const publicHost = process.env.PUBLIC_HOST ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const webhookUrl = publicHost
+    ? `${publicHost.replace(/\/$/, "")}/api/telegram/webhook`
+    : `https://${req.headers.get("host") ?? ""}/api/telegram/webhook`;
+
+  // secret_token будет проверяться webhook'ом для отбрасывания подделок
+  const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!secretToken) {
+    return NextResponse.json(
+      { error: "TELEGRAM_WEBHOOK_SECRET не настроен в .env (нужен для anti-spoof)" },
+      { status: 500 },
+    );
+  }
 
   // Set webhook
   const webhook = await tgCall("setWebhook", {
     url: webhookUrl,
     allowed_updates: ["message"],
+    secret_token: secretToken,
   });
 
   // Register command menu (ru + default scope)

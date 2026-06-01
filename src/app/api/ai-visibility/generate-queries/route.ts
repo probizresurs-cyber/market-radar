@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -10,6 +11,10 @@ const client = new Anthropic({
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  // Раньше endpoint был открыт — бот мог жечь токены Anthropic без лимита.
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const { brandName, niche, region = "Россия" } = await req.json();
     if (!brandName || !niche) {
@@ -47,6 +52,13 @@ export async function POST(req: Request) {
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) throw new Error("No JSON array in response");
     const queries: string[] = JSON.parse(match[0]);
+
+    await access.log({
+      endpoint: "/api/ai-visibility/generate-queries",
+      model: "claude-sonnet-4-5",
+      promptTokens: msg.usage.input_tokens,
+      completionTokens: msg.usage.output_tokens,
+    });
 
     return NextResponse.json({ ok: true, queries: queries.slice(0, 8) });
   } catch (err) {
