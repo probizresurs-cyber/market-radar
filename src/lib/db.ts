@@ -726,6 +726,24 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_user ON landing_projects(user_id, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_landing_projects_workspace ON landing_projects(workspace_id, created_at DESC)`);
 
+  // Расшаренные лендинги — публичная ссылка marketradar24.ru/l/<slug>.
+  // HTML с Stitch-CDN копируется в БД сразу, потому что Stitch URLs живут
+  // 1-7 дней, и шара должна работать вечно. Slug рандомный, 8 байт = 16
+  // hex chars. Юзер делится ссылкой с клиентом, потом может удалить.
+  await query(`
+    CREATE TABLE IF NOT EXISTS shared_landings (
+      slug TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      project_id TEXT REFERENCES landing_projects(project_id) ON DELETE SET NULL,
+      title TEXT,
+      html_content TEXT NOT NULL,
+      view_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_shared_landings_user ON shared_landings(user_id, created_at DESC)`);
+
   // Lead submissions from landings — кто-то заполнил форму на лендинге.
   // Юзер настраивает TG-уведомления или email через notify_config (JSON).
   await query(`

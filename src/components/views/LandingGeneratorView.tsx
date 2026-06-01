@@ -71,6 +71,12 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
   // не понимает почему. Заполняется через /api/check-url-alive.
   const [expiryStatus, setExpiryStatus] = useState<Record<string, "alive" | "expired" | "unknown">>({});
 
+  // Состояние для шары и скачивания
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
   // Когда юзер открыл «История» — пробежать по карточкам, проверить
   // htmlUrl HEAD-запросом. Делаем последовательно с задержкой, чтобы не
   // DDOS-ить Stitch CDN.
@@ -288,6 +294,68 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
   };
 
   const primary = brandBook.colors?.[0] || "var(--primary)";
+
+  /** Создать публичную ссылку на marketradar24.ru/l/<slug>. */
+  const handleShare = async () => {
+    if (!result?.htmlUrl) return;
+    setIsSharing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/landing-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          htmlUrl: result.htmlUrl,
+          projectId: result.projectId,
+          title: `Лендинг ${landingType}`,
+        }),
+      });
+      const json = await jsonOrThrow(res);
+      if (!json.ok) {
+        setError(json.error ?? "Не удалось создать ссылку");
+        return;
+      }
+      const fullUrl = `${window.location.origin}${json.data.url}`;
+      setShareUrl(fullUrl);
+      try {
+        await navigator.clipboard.writeText(fullUrl);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 3000);
+      } catch { /* clipboard может быть недоступен */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  /** Скачать HTML как файл (через серверный proxy для cross-origin). */
+  const handleDownload = async () => {
+    if (!result?.htmlUrl) return;
+    setIsDownloading(true);
+    try {
+      const url = `/api/landing-export-html?htmlUrl=${encodeURIComponent(result.htmlUrl)}&filename=${encodeURIComponent(`landing-${landingType}`)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error ?? `Ошибка скачивания (HTTP ${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `landing-${landingType}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
@@ -532,11 +600,21 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                 textDecoration: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
               🌐 Открыть лендинг
             </a>
-            <a href={result.htmlUrl} download="landing.html"
-              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)",
-                textDecoration: "none", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-              ⬇ Скачать HTML
-            </a>
+            <button onClick={handleDownload} disabled={isDownloading}
+              title="Скачать HTML-файл лендинга на компьютер"
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`,
+                background: isDownloading ? "var(--muted)" : "var(--card)", color: "var(--foreground)",
+                fontWeight: 600, fontSize: 12, cursor: isDownloading ? "wait" : "pointer" }}>
+              {isDownloading ? "Скачивание..." : "⬇ Скачать HTML"}
+            </button>
+            <button onClick={handleShare} disabled={isSharing}
+              title="Получить публичную ссылку на marketradar24.ru/l/... для отправки клиенту"
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`,
+                background: isSharing ? "var(--muted)" : (shareCopied ? "var(--success)" : "var(--card)"),
+                color: shareCopied ? "#fff" : "var(--foreground)",
+                fontWeight: 600, fontSize: 12, cursor: isSharing ? "wait" : "pointer" }}>
+              {isSharing ? "Создание..." : shareCopied ? "✓ Скопировано!" : "🔗 Публичная ссылка"}
+            </button>
             <button onClick={handleVariants} disabled={isEditing}
               style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)",
                 color: "var(--foreground)", cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
@@ -547,12 +625,41 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                 color: "var(--foreground)", cursor: isEditing ? "wait" : "pointer", fontWeight: 600, fontSize: 12 }}>
               📱 Мобильная версия
             </button>
-            <button onClick={() => { setResult(null); setVariants([]); setProgress(0); }}
+            <button onClick={() => { setResult(null); setVariants([]); setProgress(0); setShareUrl(null); }}
               style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)",
                 color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               🔄 Заново
             </button>
           </div>
+
+          {/* Показать сгенерённую публичную ссылку с кнопкой копирования */}
+          {shareUrl && (
+            <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10,
+              background: "color-mix(in oklch, var(--primary) 6%, var(--background))",
+              border: `1px solid color-mix(in oklch, var(--primary) 25%, transparent)`,
+              display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", letterSpacing: "0.04em" }}>🔗 ВАША ССЫЛКА</span>
+              <input value={shareUrl} readOnly
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                style={{ flex: 1, minWidth: 280, padding: "6px 10px", borderRadius: 6,
+                  border: `1px solid var(--border)`, background: "var(--card)",
+                  color: "var(--foreground)", fontSize: 13, fontFamily: "monospace" }} />
+              <button onClick={async () => {
+                try { await navigator.clipboard.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
+                catch { /* ignore */ }
+              }} style={{ padding: "6px 12px", borderRadius: 6, border: "none",
+                background: shareCopied ? "var(--success)" : "var(--primary)", color: "#fff",
+                fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                {shareCopied ? "✓" : "Копировать"}
+              </button>
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+                style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid var(--border)`,
+                  background: "var(--card)", color: "var(--foreground)", textDecoration: "none",
+                  fontWeight: 600, fontSize: 12 }}>
+                Открыть →
+              </a>
+            </div>
+          )}
 
           {/* Edit prompt */}
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
