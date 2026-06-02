@@ -1456,6 +1456,11 @@ function MarketRadarDashboardInner() {
                 platform: story.platform,
                 brandColors: brandBook?.colors ?? [],
                 brandStyle: brandBook?.visualStyle ?? "",
+                // Контекст компании — без этого AI промахивается на омонимах
+                // (например, рисует стоматологию для строительной компании).
+                companyName: myCompany?.company.name ?? "",
+                companyNiche: myCompany?.company.description ?? "",
+                companyDescription: myCompany?.company.description ?? "",
               }),
             });
             const j = await r.json() as { ok: boolean; data?: { imageUrl: string } };
@@ -1736,7 +1741,8 @@ function MarketRadarDashboardInner() {
   const handleUpdatePost = (updated: GeneratedPost) => {
     setGeneratedPosts(prev => {
       const next = prev.map(p => p.id === updated.id ? updated : p);
-      persistContent(contentPlan, next, generatedReels);
+      // Используем Ref'ы чтобы не захватывать stale contentPlan/generatedReels
+      persistContent(contentPlanRef.current, next, generatedReelsRef.current);
       return next;
     });
   };
@@ -1752,7 +1758,7 @@ function MarketRadarDashboardInner() {
   const handleDeletePost = (postId: string) => {
     setGeneratedPosts(prev => {
       const next = prev.filter(p => p.id !== postId);
-      persistContent(contentPlan, next, generatedReels);
+      persistContent(contentPlanRef.current, next, generatedReelsRef.current);
       return next;
     });
   };
@@ -2287,6 +2293,12 @@ function MarketRadarDashboardInner() {
             myCompany={myCompany}
             taResult={taAnalysis}
             smmAnalysis={smmAnalysis}
+            // Контекст компании для генерации картинок (без него AI промахивается)
+            companyContext={{
+              name: myCompany?.company.name,
+              niche: myCompany?.company.description,
+              description: myCompany?.company.description,
+            }}
           />
         )}
         {activeNav === "content-reels" && featureOn("content-factory") && featureOn("content-reels") && (

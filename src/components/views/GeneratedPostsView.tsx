@@ -625,12 +625,15 @@ function PostReferencesUploader({ refs, onChange }: {
   );
 }
 
-export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpanded = false, onRowClick, onRowDelete }: {
+export function PostCard({ c, post, onUpdate, onDelete, brandBook, companyContext, alwaysExpanded = false, onRowClick, onRowDelete }: {
   c: Colors;
   post: GeneratedPost;
   onUpdate: (updated: GeneratedPost) => void;
   onDelete: (id: string) => void;
   brandBook?: BrandBook;
+  /** Контекст компании для генерации картинок (без него AI промахивается
+   *  на омонимах — например, рисует стоматологию для строительной компании). */
+  companyContext?: { name?: string; niche?: string; description?: string };
   /** Когда true — игнорируем collapsed state и сразу рендерим полную карточку.
    *  Нужно когда PostCard используется внутри модалки PostDetailModal. */
   alwaysExpanded?: boolean;
@@ -758,6 +761,10 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
         platform: imagePlatform,
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",
+        // Контекст компании — фикс «стоматология в посте для стройки».
+        companyName: companyContext?.name ?? "",
+        companyNiche: companyContext?.niche ?? "",
+        companyDescription: companyContext?.description ?? "",
         userPrompt,
         embedText: embedText || undefined,
         referenceImages: refs.length > 0 ? refs.map(r => ({ data: r.data, mimeType: r.mimeType })) : undefined,
@@ -1290,6 +1297,9 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
                   platform: imagePlatform,
                   brandColors: brandBook?.colors ?? [],
                   brandStyle: brandBook?.visualStyle ?? "",
+                  companyName: companyContext?.name ?? "",
+                  companyNiche: companyContext?.niche ?? "",
+                  companyDescription: companyContext?.description ?? "",
                 }}
                 generateLabel={post.imageUrl ? "Перерисовать" : "Сгенерировать фото"}
                 onFormatChange={setImageFormat}
@@ -1352,11 +1362,13 @@ export function PostCard({ c, post, onUpdate, onDelete, brandBook, alwaysExpande
 // та же PostCard в alwaysExpanded режиме + sticky-шапка с кнопкой скачать
 // картинку и удалить пост.
 export function PostDetailModal({
-  c, post, brandBook, onClose, onUpdate, onDelete,
+  c, post, brandBook, companyContext, onClose, onUpdate, onDelete,
 }: {
   c: Colors;
   post: GeneratedPost;
   brandBook?: BrandBook;
+  /** Контекст компании для генерации картинок. */
+  companyContext?: { name?: string; niche?: string; description?: string };
   onClose: () => void;
   onUpdate: (updated: GeneratedPost) => void;
   onDelete: (id: string) => void;
@@ -1522,6 +1534,7 @@ export function PostDetailModal({
             onUpdate={onUpdate}
             onDelete={onDelete}
             brandBook={brandBook}
+            companyContext={companyContext}
             alwaysExpanded
           />
         </div>
@@ -1746,7 +1759,7 @@ export function GeneratedPostsView({
   plan, isGeneratingPost, generatingPostId, onGeneratePost,
   // Контекст для AutoIdeasModal (генерация идей из ниши/ЦА/СММ) —
   // одинаково с StoriesView/GeneratedCarouselsView.
-  myCompany, taResult, smmAnalysis,
+  myCompany, taResult, smmAnalysis, companyContext,
 }: {
   c: Colors;
   posts: GeneratedPost[];
@@ -1770,6 +1783,8 @@ export function GeneratedPostsView({
   myCompany?: import("@/lib/types").AnalysisResult | null;
   taResult?: import("@/lib/ta-types").TAResult | null;
   smmAnalysis?: import("@/lib/smm-types").SMMResult | null;
+  /** Контекст компании для генерации картинок (без него AI промахивается на омонимах). */
+  companyContext?: { name?: string; niche?: string; description?: string };
 }) {
   // Фильтр по платформе + поиск по тексту: критично когда постов 20+
   const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "vk" | "telegram" | "linkedin">("all");
@@ -2042,6 +2057,7 @@ export function GeneratedPostsView({
                 onUpdate={onUpdatePost}
                 onDelete={onDeletePost}
                 brandBook={brandBook}
+                companyContext={companyContext}
                 onRowClick={() => setOpenPostId(post.id)}
               />
             ))}
@@ -2055,6 +2071,7 @@ export function GeneratedPostsView({
           c={c}
           post={openPost}
           brandBook={brandBook}
+          companyContext={companyContext}
           onClose={() => setOpenPostId(null)}
           onUpdate={onUpdatePost}
           onDelete={onDeletePost}

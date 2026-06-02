@@ -31,6 +31,10 @@ export async function POST(req: Request) {
     const platform: string = body.platform ?? "instagram";
     const brandColors: string[] = body.brandColors ?? [];
     const brandStyle: string = (body.brandStyle ?? "").trim();
+    // Контекст компании — без этого на омонимах AI уезжает в чужую нишу.
+    const companyName: string = (body.companyName ?? "").trim();
+    const companyNiche: string = (body.companyNiche ?? body.niche ?? "").trim();
+    const companyDescription: string = (body.companyDescription ?? "").trim().slice(0, 300);
 
     if (!postText && !hook) {
       return NextResponse.json(
@@ -44,6 +48,9 @@ export async function POST(req: Request) {
     const imageFormat = platformImageFormat(platform, format);
 
     const contextBlock = [
+      companyName && `Компания: ${companyName}`,
+      companyNiche && `Ниша: ${companyNiche}`,
+      companyDescription && `Описание: ${companyDescription}`,
       `Формат контента: ${format} для ${platform}`,
       hook && `Заголовок: «${hook}»`,
       postText && `Текст: ${postText.slice(0, 400)}`,

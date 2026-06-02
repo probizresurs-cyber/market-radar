@@ -58,6 +58,13 @@ export async function POST(req: Request) {
     const platform: string = body.platform ?? "instagram";
     const brandColors: string[] = body.brandColors ?? [];
     const brandStyle: string = (body.brandStyle ?? "").trim();
+    // Контекст компании — критически важно для правильного визуала.
+    // Без этого на омонимах («Менделеев», «Кристалл», «Восход») AI уезжал
+    // в самую частую ассоциацию (например, стоматология для имени, которое
+    // на самом деле — стройка).
+    const companyName: string = (body.companyName ?? "").trim();
+    const companyNiche: string = (body.companyNiche ?? body.niche ?? "").trim();
+    const companyDescription: string = (body.companyDescription ?? "").trim().slice(0, 300);
     // userPrompt: если передан — пропускаем шаг 1 (Claude) и рисуем именно его.
     const userPrompt: string = (body.userPrompt ?? "").trim();
     // embedText: если задан — попросим gpt-image-2 нарисовать ЭТОТ текст
@@ -95,6 +102,11 @@ export async function POST(req: Request) {
     } else {
       // — Step 1: Claude Haiku generates a rich visual prompt —
       const contextBlock = [
+        // Компания идёт ПЕРВОЙ — Claude должен в первую очередь понять
+        // ЧТО за бизнес, и только потом разбирать конкретный пост.
+        companyName && `Компания: ${companyName}`,
+        companyNiche && `Ниша: ${companyNiche}`,
+        companyDescription && `Описание: ${companyDescription}`,
         `Формат контента: ${format} для ${platform}`,
         hook && `Заголовок: «${hook}»`,
         postText && `Текст: ${postText.slice(0, 400)}`,

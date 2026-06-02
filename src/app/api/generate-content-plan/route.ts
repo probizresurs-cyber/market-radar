@@ -155,7 +155,9 @@ export async function POST(req: Request) {
             { role: "user", content: buildPrompt(companyName, niche, smm) },
           ],
           temperature: 0.9,
-          max_tokens: 7000,
+          // 7000 обрезало JSON при большом числе идей (30 дней × поля).
+          // GPT-4o-mini потолок 16384 — берём запас 10000.
+          max_tokens: 10000,
           response_format: { type: "json_object" },
         }),
       });

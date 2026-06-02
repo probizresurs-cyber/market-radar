@@ -38,6 +38,12 @@ export function detectImageAspect(input: {
     return "portrait";
   }
 
+  // Карусели — Instagram-карусель это 1:1 square, не vertical.
+  // Раньше CarouselsView передавал format="сторис" → portrait 9:16 → обрезание в feed.
+  if (/карусель|carousel/.test(format)) {
+    return "square";
+  }
+
   // YouTube long-form / LinkedIn / Twitter preview cards / Facebook share preview
   if (/linkedin|youtube|twitter|x-twitter|^x$|facebook/.test(platform) && format !== "сторис") {
     return "landscape";

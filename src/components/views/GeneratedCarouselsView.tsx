@@ -120,7 +120,7 @@ export function GeneratedCarouselsView({ c, carousels, plan, smmAnalysis, myComp
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             postText: prompt,
-            format: "сторис",
+            format: "карусель",
             platform: carousel.platform,
             brandColors: brandBook?.colors ?? [],
             brandStyle: brandBook?.visualStyle ?? "",
@@ -551,9 +551,9 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
       slide.visualNote && `Mood: ${slide.visualNote}.`,
     ].filter(Boolean).join(" "),
     hook: slide.headlineText,
-    // "сторис" → Claude напишет промпт сразу под vertical 9:16, чтобы превью
-    // не выглядело как растянутый square.
-    format: "сторис",
+    // "карусель" → image-aspect.ts вернёт square 1:1 (Instagram carousel формат).
+    // Раньше передавали "сторис" что давало portrait 9:16 → обрезание в feed.
+    format: "карусель",
     platform: carousel.platform,
     brandColors: brandBook?.colors ?? [],
     brandStyle: brandBook?.visualStyle ?? "",
@@ -584,9 +584,8 @@ function CarouselCard({ c, carousel, onDelete, onUpdate, brandBook }: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         postText: "carousel slide", // пустышка, реальный промпт идёт в userPrompt
-        // Используем "сторис" чтобы DALL-E рендерил вертикальный 9:16 кадр —
-        // карусели у нас показываются в сторис-формате, картинки должны совпадать.
-        format: "сторис",
+        // "карусель" → square 1:1 (правильный формат для Instagram feed carousel).
+        format: "карусель",
         platform: carousel.platform,
         brandColors: brandBook?.colors ?? [],
         brandStyle: brandBook?.visualStyle ?? "",

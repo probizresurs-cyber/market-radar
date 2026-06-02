@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { getCommissionRate } from "@/lib/partner-types";
 import type { PartnerType } from "@/lib/partner-types";
 
 export const runtime = "nodejs";
 
 function genReferralCode(): string {
-  // 6-char alphanumeric code
+  // 6-char alphanumeric code, crypto-random (Math.random() предсказуем)
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
   let code = "";
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) {
+    code += chars[randomBytes(1)[0] % chars.length];
+  }
   return code;
 }
 

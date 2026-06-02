@@ -108,8 +108,22 @@ correctedHook и correctedBody — всегда готовый к публика
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
     const rawContent = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(rawContent) as TovCheckResult;
+    let parsed: TovCheckResult;
+    try {
+      parsed = JSON.parse(rawContent) as TovCheckResult;
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось разобрать ответ AI как JSON: ${rawContent.slice(0, 100)}` },
+        { status: 500 },
+      );
+    }
+
+    // Гарантируем обязательные поля — AI иногда возвращает {} или обрезанный JSON.
     parsed.checkedAt = new Date().toISOString();
+    if (typeof parsed.score !== "number") parsed.score = 50;
+    if (!parsed.verdict) parsed.verdict = "neutral";
+    if (!Array.isArray(parsed.issues)) parsed.issues = [];
+    // matchPercentage не в типе — пропускаем
 
     await access.log({
       endpoint: "check-tov",
