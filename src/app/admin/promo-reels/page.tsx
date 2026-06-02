@@ -158,6 +158,12 @@ const DEFAULT_FORM = {
   includeVoiceover: false,
   voiceId: "",
   voiceoverScript: "",
+  // ElevenLabs тонкие настройки
+  elevenModel: "eleven_multilingual_v2" as string,
+  elevenStability: 0.35,
+  elevenSimilarity: 0.85,
+  elevenStyle: 0.55,
+  elevenSpeakerBoost: true,
   useStockVideos: false,
   stockVideoQuery: "",
   useAnimatedBroll: false,
@@ -258,6 +264,11 @@ export default function PromoReelsAdminPage() {
           includeVoiceover: form.includeVoiceover,
           voiceId: form.voiceId || undefined,
           voiceoverScript: form.voiceoverScript || undefined,
+          elevenModel: form.elevenModel,
+          stability: form.elevenStability,
+          similarity: form.elevenSimilarity,
+          style: form.elevenStyle,
+          speakerBoost: form.elevenSpeakerBoost,
           useStockVideos: form.useStockVideos,
           stockVideoQuery: form.stockVideoQuery || undefined,
           useAnimatedBroll: form.useAnimatedBroll,
@@ -768,33 +779,118 @@ export default function PromoReelsAdminPage() {
             </div>
 
             {form.includeVoiceover ? (
-              <>
-                <label style={S.label}>Voice ID (опц, по умолчанию Charlotte)</label>
+              <div style={{ marginTop: 8, padding: 16, background: "#131720", borderRadius: 10, border: "1px solid #2d3748" }}>
+
+                {/* ── Голос ── */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", marginBottom: 12 }}>ГОЛОС</div>
+
+                <label style={S.label}>Voice ID</label>
                 <input
                   style={S.input}
                   value={form.voiceId}
                   onChange={(e) => saveForm({ ...form, voiceId: e.target.value })}
-                  placeholder="XB0fDUnXU5powFXDhCwa"
+                  placeholder="XB0fDUnXU5powFXDhCwa  (Charlotte — по умолчанию)"
                 />
+                <div style={{ ...S.hint, marginBottom: 14 }}>
+                  Найти ID: elevenlabs.io → Voice Library → нажми на голос → скопируй ID из URL или карточки.
+                  Популярные: <b>Charlotte</b> XB0fDUnXU5powFXDhCwa · <b>Rachel</b> 21m00Tcm4TlvDq8ikWAM · <b>Bella</b> EXAVITQu4vr4xnSDxMaL
+                </div>
 
-                <label style={S.label}>
-                  Полный voice-скрипт (опц, ~75 слов на 30 сек)
-                </label>
+                {/* ── Модель ── */}
+                <label style={S.label}>Модель</label>
+                <select
+                  style={{ ...S.input, cursor: "pointer" }}
+                  value={form.elevenModel}
+                  onChange={(e) => saveForm({ ...form, elevenModel: e.target.value })}
+                >
+                  <option value="eleven_multilingual_v2">eleven_multilingual_v2 — основная, поддерживает русский</option>
+                  <option value="eleven_turbo_v2_5">eleven_turbo_v2_5 — быстрее (latency), чуть хуже качество</option>
+                  <option value="eleven_turbo_v2">eleven_turbo_v2 — turbo v2 (legacy)</option>
+                  <option value="eleven_monolingual_v1">eleven_monolingual_v1 — только английский, высокое качество</option>
+                  <option value="eleven_multilingual_v1">eleven_multilingual_v1 — v1 мультиязычная (legacy)</option>
+                </select>
+                <div style={{ ...S.hint, marginBottom: 16 }}>
+                  Для русского языка — только <b>multilingual</b> модели. Turbo быстрее но качество чуть ниже.
+                </div>
+
+                {/* ── Слайдеры ── */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", marginBottom: 12 }}>НАСТРОЙКИ ГОЛОСА</div>
+
+                {/* Stability */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={{ ...S.label, marginBottom: 0 }}>Стабильность (Stability)</label>
+                    <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 700 }}>{form.elevenStability.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range" min={0} max={1} step={0.05}
+                    value={form.elevenStability}
+                    onChange={(e) => saveForm({ ...form, elevenStability: parseFloat(e.target.value) })}
+                    style={{ width: "100%", accentColor: "#7c3aed" }}
+                  />
+                  <div style={S.hint}>0 = максимальные интонации (нестабильно), 1 = монотон. Оптимально для промо: 0.30–0.45</div>
+                </div>
+
+                {/* Similarity */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={{ ...S.label, marginBottom: 0 }}>Схожесть с оригиналом (Similarity Boost)</label>
+                    <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 700 }}>{form.elevenSimilarity.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range" min={0} max={1} step={0.05}
+                    value={form.elevenSimilarity}
+                    onChange={(e) => saveForm({ ...form, elevenSimilarity: parseFloat(e.target.value) })}
+                    style={{ width: "100%", accentColor: "#7c3aed" }}
+                  />
+                  <div style={S.hint}>Чем выше — тем ближе к оригинальному голосу. При низкой stability держи &ge;0.80 чтобы голос не «уплыл».</div>
+                </div>
+
+                {/* Style exaggeration */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={{ ...S.label, marginBottom: 0 }}>Выразительность (Style Exaggeration)</label>
+                    <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 700 }}>{form.elevenStyle.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range" min={0} max={1} step={0.05}
+                    value={form.elevenStyle}
+                    onChange={(e) => saveForm({ ...form, elevenStyle: parseFloat(e.target.value) })}
+                    style={{ width: "100%", accentColor: "#7c3aed" }}
+                  />
+                  <div style={S.hint}>0 = нейтрально, 1 = максимальная эмоциональная окраска. Для промо: 0.40–0.65. Только v2+ модели.</div>
+                </div>
+
+                {/* Speaker boost */}
+                <div style={{ ...S.row, marginBottom: 16 }}>
+                  <input
+                    type="checkbox"
+                    style={S.checkbox}
+                    id="speakerBoost"
+                    checked={form.elevenSpeakerBoost}
+                    onChange={(e) => saveForm({ ...form, elevenSpeakerBoost: e.target.checked })}
+                  />
+                  <label htmlFor="speakerBoost" style={S.checkboxLabel}>
+                    Speaker Boost — усиливает характеристики голоса (рекомендуется)
+                  </label>
+                </div>
+
+                {/* ── Скрипт ── */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", marginBottom: 12 }}>СКРИПТ</div>
+                <label style={S.label}>Полный voice-скрипт (~75 слов на 30 сек)</label>
                 <textarea
                   style={{ ...S.textarea, minHeight: 120 }}
                   value={form.voiceoverScript}
                   onChange={(e) => saveForm({ ...form, voiceoverScript: e.target.value })}
-                  placeholder="Если пусто — голос собирается из 3 верхних блоков (~7-10 сек). Напиши тут полный текст ~70-80 слов чтобы голос звучал все 30 секунд."
+                  placeholder="Если пусто — голос собирается из 3 блоков выше (~7-10 сек). Напиши тут полный текст ~70-80 слов чтобы голос звучал все 30 секунд."
                 />
                 <div style={S.hint}>
-                  ElevenLabs говорит ~3 слова/сек. 30 сек видео = ~75-90 слов. Сейчас:{" "}
+                  ElevenLabs ~3 слова/сек. 30 сек = ~75-90 слов. Сейчас:{" "}
                   {form.voiceoverScript
-                    ? `${form.voiceoverScript.trim().split(/\s+/).length} слов ≈ ${Math.round(
-                        form.voiceoverScript.trim().split(/\s+/).length / 3,
-                      )} сек`
-                    : "пусто → авто-сборка из верхних блоков"}
+                    ? `${form.voiceoverScript.trim().split(/\s+/).length} слов ≈ ${Math.round(form.voiceoverScript.trim().split(/\s+/).length / 3)} сек`
+                    : "пусто → авто-сборка из верхних блоков (~7-10 сек)"}
                 </div>
-              </>
+              </div>
             ) : null}
 
             <label style={S.label}>Фоновая музыка (URL до MP3, опц)</label>

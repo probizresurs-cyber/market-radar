@@ -86,6 +86,8 @@ export async function POST(req: Request) {
     const stability = typeof body.stability === "number" ? body.stability : 0.35;
     const similarity = typeof body.similarity === "number" ? body.similarity : 0.85;
     const style = typeof body.style === "number" ? body.style : 0.55;
+    const speakerBoost = body.speakerBoost !== false; // default true
+    const modelId = String(body.elevenModel ?? ELEVENLABS_DEFAULT_MODEL).trim();
 
     // Скрипт: либо явный override (юзер сам написал полный текст ~75 слов),
     // либо автосборка из 3 кусков (короткий, ~7-10 сек озвучки)
@@ -111,12 +113,12 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           text: script,
-          model_id: ELEVENLABS_DEFAULT_MODEL,
+          model_id: modelId,
           voice_settings: {
             stability,
             similarity_boost: similarity,
             style,
-            use_speaker_boost: true,
+            use_speaker_boost: speakerBoost,
           },
         }),
       },

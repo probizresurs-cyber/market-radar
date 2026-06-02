@@ -464,9 +464,16 @@ async function runPipeline(jobId: string, body: Record<string, unknown>, req: Re
       // авто-сборку из hook/problem/CTA. Нужно когда юзер хочет голос на все
       // 30 сек (auto-build даёт ~7-10 сек из 3 коротких текстов).
       const voiceoverScript = body.voiceoverScript ? String(body.voiceoverScript) : undefined;
+      // Пробрасываем ElevenLabs тонкие настройки из UI
+      const elevenModel = body.elevenModel ? String(body.elevenModel) : undefined;
+      const stability = typeof body.stability === "number" ? body.stability : undefined;
+      const similarity = typeof body.similarity === "number" ? body.similarity : undefined;
+      const style = typeof body.style === "number" ? body.style : undefined;
+      const speakerBoost = typeof body.speakerBoost === "boolean" ? body.speakerBoost : undefined;
       const r = await callLocal<{ url: string }>(
         "/api/generate-promo-voiceover",
-        { hookText, problemText, ctaText, voiceId, voiceoverScript },
+        { hookText, problemText, ctaText, voiceId, voiceoverScript,
+          elevenModel, stability, similarity, style, speakerBoost },
         req,
         130_000,
       );
