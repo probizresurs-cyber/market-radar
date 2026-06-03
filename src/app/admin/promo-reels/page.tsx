@@ -16,7 +16,7 @@
  */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AdminNav from "../components/AdminNav";
 
 interface ReelHistoryItem {
@@ -188,6 +188,177 @@ const DEFAULT_FORM = {
 function estimateSpeechSec(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   return Math.round(words / 3);
+}
+
+// ─── ElevenLabs voice picker ──────────────────────────────────────────────────
+
+interface ElevenVoice {
+  voice_id: string;
+  name: string;
+  category?: string;
+  description?: string;
+  preview_url?: string;
+  labels?: Record<string, string>;
+}
+
+function VoicePicker({ selectedId, onChange }: {
+  selectedId: string;
+  onChange: (id: string, name: string) => void;
+}) {
+  const [voices, setVoices] = useState<ElevenVoice[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showShared, setShowShared] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const load = async (type: "my" | "shared") => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/elevenlabs-voices?type=${type}&search=${encodeURIComponent(search)}`);
+      const json = await res.json();
+      if (json.ok) setVoices(json.voices ?? []);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  };
+
+  const handleOpen = () => {
+    if (!loaded) load("my");
+  };
+
+  const playPreview = (url: string, voiceId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (playingId === voiceId) { setPlayingId(null); return; }
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    setPlayingId(voiceId);
+    audio.play().catch(() => {});
+    audio.onended = () => setPlayingId(null);
+  };
+
+  const filtered = voices.filter(v =>
+    !search || v.name.toLowerCase().includes(search.toLowerCase()) ||
+    (v.labels?.language ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedVoice = voices.find(v => v.voice_id === selectedId);
+  const displayName = selectedVoice?.name ?? (selectedId ? `ID: ${selectedId.slice(0, 12)}…` : "Charlotte (по умолчанию)");
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={S.label}>Голос</label>
+      <div style={{ position: "relative" }}>
+        {/* Trigger */}
+        <button
+          type="button"
+          onClick={handleOpen}
+          style={{ ...S.input, textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px" }}
+        >
+          <span style={{ fontSize: 13, color: selectedId ? "#e2e8f0" : "#64748b" }}>{displayName}</span>
+          <span style={{ fontSize: 10, color: "#64748b" }}>▼</span>
+        </button>
+
+        {/* Dropdown */}
+        {loaded && (
+          <div style={{
+            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+            background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: 8,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)", maxHeight: 380, overflow: "hidden",
+            display: "flex", flexDirection: "column",
+          }}>
+            {/* Search + tabs */}
+            <div style={{ padding: "8px 10px", borderBottom: "1px solid #2d3748", flexShrink: 0 }}>
+              <input
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Поиск по имени или языку…"
+                style={{ ...S.input, marginBottom: 6, padding: "6px 10px", fontSize: 12 }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button"
+                  onClick={() => { setShowShared(false); if (!loaded || showShared) load("my"); }}
+                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "none", cursor: "pointer",
+                    background: !showShared ? "#7c3aed" : "#2d3748", color: "#e2e8f0", fontWeight: 600 }}>
+                  Мои голоса
+                </button>
+                <button type="button"
+                  onClick={() => { setShowShared(true); load("shared"); }}
+                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "none", cursor: "pointer",
+                    background: showShared ? "#7c3aed" : "#2d3748", color: "#e2e8f0", fontWeight: 600 }}>
+                  Библиотека ElevenLabs
+                </button>
+                <button type="button"
+                  onClick={() => { setLoaded(false); setVoices([]); onChange("", ""); }}
+                  style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "none", cursor: "pointer",
+                    background: "#2d3748", color: "#94a3b8", marginLeft: "auto" }}>
+                  ✕ Закрыть
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {loading && <div style={{ padding: 16, textAlign: "center", color: "#64748b", fontSize: 13 }}>Загружаем…</div>}
+              {!loading && filtered.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "#64748b", fontSize: 13 }}>Голоса не найдены</div>}
+              {!loading && filtered.map(v => {
+                const isSelected = v.voice_id === selectedId;
+                const lang = v.labels?.language ?? v.labels?.accent ?? "";
+                const gender = v.labels?.gender ?? "";
+                const useCase = v.labels?.use_case ?? v.category ?? "";
+                return (
+                  <div
+                    key={v.voice_id}
+                    onClick={() => { onChange(v.voice_id, v.name); setLoaded(false); setVoices([]); setSearch(""); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                      cursor: "pointer", borderBottom: "1px solid #131720",
+                      background: isSelected ? "#7c3aed20" : "transparent",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = isSelected ? "#7c3aed30" : "#ffffff08")}
+                    onMouseLeave={e => (e.currentTarget.style.background = isSelected ? "#7c3aed20" : "transparent")}
+                  >
+                    {/* Play preview */}
+                    {v.preview_url ? (
+                      <button type="button"
+                        onClick={e => playPreview(v.preview_url!, v.voice_id, e)}
+                        style={{ width: 28, height: 28, borderRadius: "50%", border: "none", flexShrink: 0,
+                          background: playingId === v.voice_id ? "#7c3aed" : "#2d3748",
+                          color: "#e2e8f0", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {playingId === v.voice_id ? "■" : "▶"}
+                      </button>
+                    ) : <div style={{ width: 28 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: "#e2e8f0",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {v.name} {isSelected && "✓"}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#64748b", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {lang && <span>{lang}</span>}
+                        {gender && <span>· {gender}</span>}
+                        {useCase && <span>· {useCase}</span>}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#475569", flexShrink: 0 }}>{v.voice_id.slice(0, 8)}…</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      {selectedId && (
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+          Voice ID: <code style={{ background: "#131720", padding: "1px 4px", borderRadius: 3 }}>{selectedId}</code>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PromoReelsAdminPage() {
@@ -784,17 +955,11 @@ export default function PromoReelsAdminPage() {
                 {/* ── Голос ── */}
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", marginBottom: 12 }}>ГОЛОС</div>
 
-                <label style={S.label}>Voice ID</label>
-                <input
-                  style={S.input}
-                  value={form.voiceId}
-                  onChange={(e) => saveForm({ ...form, voiceId: e.target.value })}
-                  placeholder="XB0fDUnXU5powFXDhCwa  (Charlotte — по умолчанию)"
+                {/* Picker — заменяет голое поле Voice ID */}
+                <VoicePicker
+                  selectedId={form.voiceId}
+                  onChange={(id) => saveForm({ ...form, voiceId: id })}
                 />
-                <div style={{ ...S.hint, marginBottom: 14 }}>
-                  Найти ID: elevenlabs.io → Voice Library → нажми на голос → скопируй ID из URL или карточки.
-                  Популярные: <b>Charlotte</b> XB0fDUnXU5powFXDhCwa · <b>Rachel</b> 21m00Tcm4TlvDq8ikWAM · <b>Bella</b> EXAVITQu4vr4xnSDxMaL
-                </div>
 
                 {/* ── Модель ── */}
                 <label style={S.label}>Модель</label>
