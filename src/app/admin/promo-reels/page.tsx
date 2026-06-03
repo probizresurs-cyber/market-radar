@@ -370,6 +370,12 @@ export default function PromoReelsAdminPage() {
   const [history, setHistory] = useState<ReelHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Превью голоса
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
+  const [voicePreviewBusy, setVoicePreviewBusy] = useState(false);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const [voicePreviewScript, setVoicePreviewScript] = useState<string>(""); // итоговый скрипт из превью
+
   // Восстанавливаем форму и историю из localStorage
   useEffect(() => {
     try {
@@ -400,6 +406,45 @@ export default function PromoReelsAdminPage() {
     const next = [item, ...history].slice(0, 20); // храним 20 последних
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  }
+
+  // Генерация превью голоса: озвучивает скрипт и показывает плеер + итоговый текст.
+  async function generateVoicePreview() {
+    setVoicePreviewBusy(true);
+    setVoicePreviewError(null);
+    setVoicePreviewUrl(null);
+    setVoicePreviewScript("");
+    try {
+      const res = await fetch("/api/generate-promo-voiceover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hookText: form.hookText,
+          problemText: form.problemText,
+          ctaText: form.ctaText,
+          voiceId: form.voiceId || undefined,
+          voiceoverScript: form.voiceoverScript || undefined,
+          elevenModel: form.elevenModel,
+          stability: form.elevenStability,
+          similarity: form.elevenSimilarity,
+          style: form.elevenStyle,
+          speakerBoost: form.elevenSpeakerBoost,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setVoicePreviewError(json.error ?? "Ошибка генерации превью");
+        return;
+      }
+      setVoicePreviewUrl(json.data.url);
+      // Показываем итоговый скрипт (либо кастомный, либо авто-склеенный)
+      const autoScript = [form.hookText, form.problemText, form.ctaText].filter(Boolean).join(".. ");
+      setVoicePreviewScript(form.voiceoverScript || autoScript);
+    } catch (e) {
+      setVoicePreviewError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setVoicePreviewBusy(false);
+    }
   }
 
   async function generate() {
@@ -1055,6 +1100,66 @@ export default function PromoReelsAdminPage() {
                     ? `${form.voiceoverScript.trim().split(/\s+/).length} слов ≈ ${Math.round(form.voiceoverScript.trim().split(/\s+/).length / 3)} сек`
                     : "пусто → авто-сборка из верхних блоков (~7-10 сек)"}
                 </div>
+
+                {/* ── Превью голоса ── */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", margin: "18px 0 10px" }}>ПРЕВЬЮ</div>
+                <button
+                  type="button"
+                  onClick={generateVoicePreview}
+                  disabled={voicePreviewBusy}
+                  style={{
+                    padding: "10px 20px", borderRadius: 8, border: "none",
+                    background: voicePreviewBusy ? "#2d3748" : "linear-gradient(135deg, #7c3aed, #4f46e5)",
+                    color: voicePreviewBusy ? "#64748b" : "#fff",
+                    fontWeight: 700, fontSize: 13, cursor: voicePreviewBusy ? "wait" : "pointer",
+                    display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+                  }}
+                >
+                  {voicePreviewBusy ? (
+                    <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>⟳</span> Генерирую…</>
+                  ) : "🎙 Сгенерировать превью голоса"}
+                </button>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+                {voicePreviewError && (
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "#ef444420", color: "#f87171", fontSize: 13, marginBottom: 10 }}>
+                    ⚠ {voicePreviewError}
+                  </div>
+                )}
+
+                {voicePreviewUrl && (
+                  <div style={{ background: "#131720", borderRadius: 10, border: "1px solid #2d3748", padding: 16, marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>
+                      ✓ Превью готово — слушай и при необходимости правь скрипт ниже
+                    </div>
+
+                    {/* Аудиоплеер */}
+                    <audio
+                      key={voicePreviewUrl}
+                      controls
+                      style={{ width: "100%", borderRadius: 6, marginBottom: 12 }}
+                    >
+                      <source src={voicePreviewUrl} type="audio/mpeg" />
+                    </audio>
+
+                    {/* Редактируемый итоговый скрипт */}
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.07em", marginBottom: 6 }}>
+                      ТЕКСТ ОЗВУЧКИ (можешь отредактировать → нажать «Превью» снова)
+                    </div>
+                    <textarea
+                      style={{ ...S.textarea, minHeight: 100, borderColor: "#4f46e5" }}
+                      value={voicePreviewScript}
+                      onChange={(e) => {
+                        setVoicePreviewScript(e.target.value);
+                        // Синхронизируем с основным полем скрипта
+                        saveForm({ ...form, voiceoverScript: e.target.value });
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      {voicePreviewScript.trim().split(/\s+/).filter(Boolean).length} слов ≈ {Math.round(voicePreviewScript.trim().split(/\s+/).filter(Boolean).length / 3)} сек. Изменения автоматически сохраняются в поле «Скрипт» выше.
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 
