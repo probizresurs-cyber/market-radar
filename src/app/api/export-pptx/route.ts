@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -51,6 +52,12 @@ interface BrandBook {
 }
 
 export async function POST(req: Request) {
+  // Auth: без него анонимный пользователь гоняет pptxgenjs без лимита.
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const slides: Slide[] = body.slides ?? [];

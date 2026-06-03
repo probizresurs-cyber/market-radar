@@ -437,7 +437,15 @@ export async function POST(req: Request) {
       clearTimeout(timeout);
     }
 
-    const parsed = JSON.parse(raw) as Omit<TAResult, "generatedAt" | "companyName" | "companyUrl">;
+    let parsed: Omit<TAResult, "generatedAt" | "companyName" | "companyUrl">;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить анализ ЦА: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { status: 500 },
+      );
+    }
 
     const result: TAResult = {
       generatedAt: new Date().toISOString(),

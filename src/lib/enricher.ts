@@ -556,7 +556,7 @@ export async function getRusprofileData(companyName: string): Promise<Rusprofile
     // Try to extract court cases count
     let courtCases: number | undefined;
     const courtMatch = html.match(/(?:Арбитраж|дел[ао])[^<]*?(\d+)/i);
-    if (courtMatch) courtCases = parseInt(courtMatch[1], 10);
+    if (courtMatch) { const n = parseInt(courtMatch[1], 10); if (!isNaN(n)) courtCases = n; }
 
     return { revenue, courtCases, profileUrl };
   } catch {
@@ -645,7 +645,8 @@ export async function getGovContracts(companyName: string, inn?: string): Promis
 
     // Parse total count
     const totalMatch = html.match(/Найдено.*?(\d[\d\s]*)/i);
-    const totalContracts = totalMatch ? parseInt(totalMatch[1].replace(/\s/g, ""), 10) : 0;
+    const totalRaw = totalMatch ? parseInt(totalMatch[1].replace(/\s/g, ""), 10) : NaN;
+    const totalContracts = !isNaN(totalRaw) ? totalRaw : 0;
     if (totalContracts === 0) return null;
 
     // Parse contract rows

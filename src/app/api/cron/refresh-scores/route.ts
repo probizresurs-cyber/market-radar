@@ -36,6 +36,8 @@ interface UserRow {
   updated_at: string;
 }
 
+declare global { var __cronRefreshScoresRunning: boolean | undefined; }
+
 export async function GET(req: Request) {
   return handler(req);
 }
@@ -53,6 +55,12 @@ async function handler(req: Request) {
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+
+  // Mutex против двойного запуска
+  if (globalThis.__cronRefreshScoresRunning) {
+    return NextResponse.json({ ok: false, error: "Предыдущий refresh-scores ещё не завершён", skipped: true }, { status: 409 });
+  }
+  globalThis.__cronRefreshScoresRunning = true;
 
   await initDb();
 
@@ -113,6 +121,8 @@ async function handler(req: Request) {
       });
     }
   }
+
+  globalThis.__cronRefreshScoresRunning = false;
 
   return NextResponse.json({
     ok: true,

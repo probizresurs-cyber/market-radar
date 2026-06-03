@@ -8,6 +8,7 @@
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
+import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -25,6 +26,10 @@ function detectMention(response: string, brandName: string): boolean {
 }
 
 export async function POST(req: Request) {
+  // Раньше открыт — теперь требуем auth (Anthropic + OpenAI квоты).
+  const access = await checkAiAccess(req);
+  if (!access.allowed) return access.response;
+
   try {
     const { companyName, niche, url } = await req.json() as {
       companyName: string;

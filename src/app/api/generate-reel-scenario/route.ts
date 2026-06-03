@@ -128,7 +128,7 @@ export async function POST(req: Request) {
               : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook) },
         ],
         temperature: 0.9,
-        max_tokens: 3000,
+        max_tokens: 4096,
         response_format: { type: "json_object" },
       }),
     });
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "generate-reel-scenario", model: "claude-sonnet-4-6" });
+    await access.log({ endpoint: "generate-reel-scenario", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

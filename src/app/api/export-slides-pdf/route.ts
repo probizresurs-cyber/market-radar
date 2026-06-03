@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+/** XSS escape — вставляем в HTML только после этой функции. */
+function esc(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Stat  { value: string; label: string }
@@ -65,9 +76,9 @@ function slideHtml(slide: Slide): string {
       return `
         <section class="slide cover">
           <div class="cover-inner">
-            <div class="cover-badge">${slide.subtitle || ""}</div>
-            <h1>${slide.title}</h1>
-            ${slide.content ? `<p class="cover-sub">${slide.content}</p>` : ""}
+            <div class="cover-badge">${esc(slide.subtitle)}</div>
+            <h1>${esc(slide.title)}</h1>
+            ${slide.content ? `<p class="cover-sub">${esc(slide.content)}</p>` : ""}
           </div>
         </section>`;
 
@@ -75,12 +86,12 @@ function slideHtml(slide: Slide): string {
       return `
         <section class="slide bullets-slide">
           <div class="slide-header">
-            <h2>${slide.title}</h2>
-            ${slide.subtitle ? `<p class="subtitle">${slide.subtitle}</p>` : ""}
+            <h2>${esc(slide.title)}</h2>
+            ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
           </div>
           <div class="slide-body">
-            ${slide.content ? `<p class="lead">${slide.content}</p>` : ""}
-            ${bullets.length ? `<ul>${bullets.map(b=>`<li>${b}</li>`).join("")}</ul>` : ""}
+            ${slide.content ? `<p class="lead">${esc(slide.content)}</p>` : ""}
+            ${bullets.length ? `<ul>${bullets.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>` : ""}
           </div>
         </section>`;
 
@@ -88,20 +99,20 @@ function slideHtml(slide: Slide): string {
       return `
         <section class="slide stats-slide">
           <div class="slide-header">
-            <h2>${slide.title}</h2>
-            ${slide.subtitle ? `<p class="subtitle">${slide.subtitle}</p>` : ""}
+            <h2>${esc(slide.title)}</h2>
+            ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
           </div>
           <div class="slide-body stats-body">
             ${(slide.stats?.length ?? 0) > 0
               ? `<div class="stats-grid">
                    ${(slide.stats ?? []).map(s => `
                      <div class="stat-card">
-                       <div class="stat-value">${s.value}</div>
-                       <div class="stat-label">${s.label}</div>
+                       <div class="stat-value">${esc(s.value)}</div>
+                       <div class="stat-label">${esc(s.label)}</div>
                      </div>`).join("")}
                  </div>
                  ${mermaidChart(slide.stats ?? [])}`
-              : slide.content ? `<p>${slide.content}</p>` : ""}
+              : slide.content ? `<p>${esc(slide.content)}</p>` : ""}
           </div>
         </section>`;
 
@@ -110,9 +121,9 @@ function slideHtml(slide: Slide): string {
         <section class="slide quote-slide">
           <div class="quote-inner">
             <div class="quote-mark">&ldquo;</div>
-            <blockquote>${slide.quote || slide.content || ""}</blockquote>
-            ${slide.subtitle ? `<cite>— ${slide.subtitle}</cite>` : ""}
-            <p class="quote-title">${slide.title}</p>
+            <blockquote>${esc(slide.quote || slide.content)}</blockquote>
+            ${slide.subtitle ? `<cite>— ${esc(slide.subtitle)}</cite>` : ""}
+            <p class="quote-title">${esc(slide.title)}</p>
           </div>
         </section>`;
 
@@ -120,16 +131,16 @@ function slideHtml(slide: Slide): string {
       return `
         <section class="slide two-col-slide">
           <div class="slide-header">
-            <h2>${slide.title}</h2>
-            ${slide.subtitle ? `<p class="subtitle">${slide.subtitle}</p>` : ""}
+            <h2>${esc(slide.title)}</h2>
+            ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
           </div>
           <div class="two-col-body">
             <div class="col-left">
-              <p>${slide.leftContent || slide.content || ""}</p>
+              <p>${esc(slide.leftContent || slide.content)}</p>
             </div>
             <div class="col-right">
-              <p>${slide.rightContent || ""}</p>
-              ${bullets.length ? `<ul>${bullets.map(b=>`<li>${b}</li>`).join("")}</ul>` : ""}
+              <p>${esc(slide.rightContent)}</p>
+              ${bullets.length ? `<ul>${bullets.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>` : ""}
             </div>
           </div>
         </section>`;
@@ -138,11 +149,11 @@ function slideHtml(slide: Slide): string {
       return `
         <section class="slide cta-slide">
           <div class="cta-inner">
-            <h2>${slide.title}</h2>
-            ${slide.subtitle ? `<p class="cta-sub">${slide.subtitle}</p>` : ""}
-            ${slide.content ? `<p class="cta-body">${slide.content}</p>` : ""}
+            <h2>${esc(slide.title)}</h2>
+            ${slide.subtitle ? `<p class="cta-sub">${esc(slide.subtitle)}</p>` : ""}
+            ${slide.content ? `<p class="cta-body">${esc(slide.content)}</p>` : ""}
             ${bullets.length
-              ? `<div class="cta-bullets">${bullets.map(b=>`<div class="cta-bullet">${b}</div>`).join("")}</div>`
+              ? `<div class="cta-bullets">${bullets.map(b=>`<div class="cta-bullet">${esc(b)}</div>`).join("")}</div>`
               : ""}
           </div>
         </section>`;
@@ -150,8 +161,8 @@ function slideHtml(slide: Slide): string {
     default:
       return `
         <section class="slide bullets-slide">
-          <div class="slide-header"><h2>${slide.title}</h2></div>
-          <div class="slide-body"><p>${slide.content || ""}</p></div>
+          <div class="slide-header"><h2>${esc(slide.title)}</h2></div>
+          <div class="slide-body"><p>${esc(slide.content)}</p></div>
         </section>`;
   }
 }
@@ -168,7 +179,7 @@ function buildHtml(slides: Slide[], style?: Style, title?: string): string {
 <html>
 <head>
 <meta charset="utf-8">
-<title>${title || "Presentation"}</title>
+<title>${esc(title || "Presentation")}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="${fontLink}" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -452,7 +463,7 @@ cite {
 <body>
 ${slides.map(s => slideHtml(s)).join("\n")}
 <script>
-  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'strict' });
 </script>
 </body>
 </html>`;
@@ -460,6 +471,12 @@ ${slides.map(s => slideHtml(s)).join("\n")}
 
 // ─── Route handler ─────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
+  // Auth: без него любой анонимный пользователь запускает Puppeteer (DoS).
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  }
+
   try {
     const { slides, style, title } = await req.json() as {
       slides: Slide[];

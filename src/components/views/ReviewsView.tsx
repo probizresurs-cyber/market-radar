@@ -61,13 +61,13 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         body: JSON.stringify({ companyName: cleanName, address: cleanAddress, limit, domain, niche }),
       });
       const json = await jsonOrThrow(res);
-      if (json.ok && json.data.reviews.length > 0) {
-        fetched.push(...json.data.reviews);
-        const placeName = json.data.placeName ? ` «${json.data.placeName}»` : "";
-        const note = json.data.reviewCount > json.data.reviews.length
+      if (json.ok && json.data?.reviews?.length > 0) {
+        fetched.push(...(json.data?.reviews ?? []));
+        const placeName = json.data?.placeName ? ` «${json.data?.placeName}»` : "";
+        const note = json.data?.reviewCount > json.data?.reviews?.length
           ? ` из ${json.data.reviewCount} на платформе (Google API отдаёт максимум 5)`
           : "";
-        log.push(`Google Maps${placeName}: ${json.data.reviews.length} отзывов (${json.data.rating}★)${note}`);
+        log.push(`Google Maps${placeName}: ${json.data?.reviews?.length} отзывов (${json.data?.rating}★)${note}`);
       } else if (json.ok && json.data.reviewCount > 0) {
         log.push(`Google Maps: найдено (${json.data.reviewCount} отзывов на платформе, но тексты недоступны)`);
       } else {
@@ -90,9 +90,9 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         }),
       });
       const json = await jsonOrThrow(res);
-      if (json.ok && json.data.reviews.length > 0) {
-        fetched.push(...json.data.reviews);
-        log.push(`Яндекс.Карты: ${json.data.reviews.length} отзывов (${json.data.rating}★)`);
+      if (json.ok && json.data?.reviews?.length > 0) {
+        fetched.push(...(json.data?.reviews ?? []));
+        log.push(`Яндекс.Карты: ${json.data?.reviews?.length} отзывов (${json.data?.rating}★)`);
       } else if (json.ok && json.data.note) {
         log.push(`Яндекс.Карты: ${json.data.note}`);
       } else {
@@ -114,9 +114,9 @@ export function ReviewsView({ c, companyName, domain, niche }: {
         }),
       });
       const json = await jsonOrThrow(res);
-      if (json.ok && json.data.reviews.length > 0) {
-        fetched.push(...json.data.reviews);
-        log.push(`2ГИС: ${json.data.reviews.length} отзывов`);
+      if (json.ok && json.data?.reviews?.length > 0) {
+        fetched.push(...(json.data?.reviews ?? []));
+        log.push(`2ГИС: ${json.data?.reviews?.length} отзывов`);
       } else {
         log.push("2ГИС: не найдено");
       }

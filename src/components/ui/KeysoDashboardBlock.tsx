@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { Colors } from "@/lib/colors";
 import type { KeysoDashboardData, SeoPosition } from "@/lib/types";
 import { BarChart2, FileText, Eye, Target, Link2, TrendingUp, Star, Globe, Monitor, Radio, Swords, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
@@ -46,6 +46,10 @@ export function KeysoDashboardBlock({ c, dash, domain, onRefresh }: {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (resetTimerRef.current) clearTimeout(resetTimerRef.current); }, []);
 
   const handleRefresh = async () => {
     if (!domain || !onRefresh) return;
@@ -61,8 +65,12 @@ export function KeysoDashboardBlock({ c, dash, domain, onRefresh }: {
       if (json.ok) {
         onRefresh(json as KeysoRefreshResult);
         setRefreshedAt(json.refreshedAt);
-        // Reset success indicator after 4 seconds
-        setTimeout(() => setRefreshedAt(prev => prev === json.refreshedAt ? null : prev), 4000);
+        // Сохраняем timer в ref — очищается при размонтировании через useEffect выше.
+        if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = setTimeout(
+          () => setRefreshedAt(prev => prev === json.refreshedAt ? null : prev),
+          4000,
+        );
       } else {
         setRefreshError(json.error ?? "Ошибка обновления");
       }

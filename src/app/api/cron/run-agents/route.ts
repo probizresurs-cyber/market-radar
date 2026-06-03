@@ -21,6 +21,12 @@ export const maxDuration = 600; // 10 минут на полный прогон
 
 const MAX_PARALLEL = 10;
 
+// Mutex против двойного запуска: если предыдущий cron ещё крутится,
+// новый вызов возвращает 409 вместо запуска параллельного прогона.
+// Используем globalThis чтобы флаг жил между запросами (Next.js
+// переиспользует модуль в рамках одного воркера).
+declare global { var __cronRunAgentsRunning: boolean | undefined; }
+
 async function runAll() {
   const due = await findDueAgents();
   if (due.length === 0) {
@@ -81,16 +87,36 @@ function authorized(req: Request): boolean {
   return bearerToken === secret || querySecret === secret || headerSecret === secret;
 }
 
+async function runAllWithMutex() {
+  if (globalThis.__cronRunAgentsRunning) {
+    return { ok: false, error: "Предыдущий cron-прогон ещё не завершён", skipped: true };
+  }
+  globalThis.__cronRunAgentsRunning = true;
+  try {
+    return await runAll();
+  } finally {
+    globalThis.__cronRunAgentsRunning = false;
+  }
+}
+
 export async function GET(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(await runAll());
+  const result = await runAllWithMutex();
+  if (result && "skipped" in result && result.skipped) {
+    return NextResponse.json(result, { status: 409 });
+  }
+  return NextResponse.json(result);
 }
 
 export async function POST(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(await runAll());
+  const result = await runAllWithMutex();
+  if (result && "skipped" in result && result.skipped) {
+    return NextResponse.json(result, { status: 409 });
+  }
+  return NextResponse.json(result);
 }

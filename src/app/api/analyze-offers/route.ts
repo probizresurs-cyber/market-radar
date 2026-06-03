@@ -48,10 +48,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
     }
 
+    // SSRF-защита: разрешаем только публичные веб-URL.
+    // Блокируем localhost, link-local (169.254.x), RFC 1918 (10.x, 172.16.x, 192.168.x).
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = companyUrl.startsWith("http") ? companyUrl : `https://${companyUrl}`;
+      const parsed = new URL(normalizedUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return NextResponse.json({ ok: false, error: "Недопустимый протокол URL" }, { status: 400 });
+      }
+      const h = parsed.hostname.toLowerCase();
+      if (
+        h === "localhost" || h === "127.0.0.1" || h === "::1" ||
+        /^169\.254\./.test(h) ||
+        /^10\./.test(h) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+        /^192\.168\./.test(h)
+      ) {
+        return NextResponse.json({ ok: false, error: "URL указывает на внутреннюю сеть" }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ ok: false, error: "Невалидный URL компании" }, { status: 400 });
+    }
+
     // First, try to fetch the website to give GPT real data
     let siteContent = "";
     try {
-      const siteRes = await fetch(companyUrl.startsWith("http") ? companyUrl : `https://${companyUrl}`, {
+      const siteRes = await fetch(normalizedUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; MarketRadar/1.0)" },
         signal: AbortSignal.timeout(10000),
       });

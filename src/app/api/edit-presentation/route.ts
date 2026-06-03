@@ -13,10 +13,18 @@ export async function POST(req: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ ok: false, error: "No API key" }, { status: 500 });
 
-    const { slides, wish, style, brandBook, company } = body;
-    if (!slides || !wish) {
+    const { slides, wish: wishRaw, style, brandBook, company } = body;
+    if (!slides || !wishRaw) {
       return NextResponse.json({ ok: false, error: "slides and wish are required" }, { status: 400 });
     }
+
+    // Sanitize wish — защита от prompt injection (как в generate-presentation).
+    const wish = String(wishRaw).slice(0, 1000)
+      .replace(/\b(ignore|disregard|forget)\s+(previous|prior|all|above)\s+(instructions?|messages?|prompt)/gi, "[удалено]")
+      .replace(/\b(игнорируй|забудь|отмени)\s+(инструкции|правила|систем)/gi, "[удалено]")
+      .replace(/system\s*[:|│]/gi, "[удалено]")
+      .replace(/<\s*\/?\s*(system|user|assistant)\s*>/gi, "[удалено]")
+      .trim();
 
     const contextParts: string[] = [];
     if (company?.name) contextParts.push(`Компания: ${company.name}`);

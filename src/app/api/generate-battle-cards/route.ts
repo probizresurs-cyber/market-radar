@@ -175,6 +175,9 @@ export async function POST(req: Request) {
     if (competitors.length === 0) {
       return NextResponse.json({ ok: false, error: "Список конкурентов пуст" }, { status: 400 });
     }
+    // Защита от DoS: N конкурентов = N параллельных Anthropic-вызовов.
+    // Ограничиваем до 10 — при 50 можно сжечь rate-limit за один запрос.
+    const limitedCompetitors = competitors.slice(0, 10);
 
     const niche = myCompany.niche ?? "не указана";
 
@@ -201,12 +204,12 @@ export async function POST(req: Request) {
       messages: [{ role: "user", content: buildSummaryPrompt(
         myCompany.name,
         niche,
-        competitors.map(c => ({ name: c.name, score: c.score })),
+        limitedCompetitors.map(c => ({ name: c.name, score: c.score })),
         myCompany.score,
       ) }],
     });
 
-    const cardPromises = competitors.map(comp =>
+    const cardPromises = limitedCompetitors.map(comp =>
       anthropic.messages.create({
         model: "claude-sonnet-4-6",
         // 4096 — потолок per-card. Структура одной карточки ~2000-2500 токенов
@@ -251,7 +254,7 @@ export async function POST(req: Request) {
     const failedCompetitors: string[] = [];
 
     cardResults.forEach((result, idx) => {
-      const comp = competitors[idx];
+      const comp = limitedCompetitors[idx];
       if (result.status === "fulfilled") {
         const msg = result.value;
         totalCardTokensIn += msg.usage.input_tokens;
@@ -284,7 +287,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
       myCompanyName: myCompany.name,
       niche,
-      executiveSummary: executiveSummary || `Расстановка сил в нише «${niche}» среди ${competitors.length} конкурентов.`,
+      executiveSummary: executiveSummary || `Расстановка сил в нише «${niche}» среди ${limitedCompetitors.length} конкурентов.`,
       cards,
     };
 
@@ -297,7 +300,7 @@ export async function POST(req: Request) {
     });
 
     if (failedCompetitors.length > 0) {
-      console.warn(`[generate-battle-cards] частичный успех: ${cards.length}/${competitors.length} карточек, упали: ${failedCompetitors.join(", ")}`);
+      console.warn(`[generate-battle-cards] частичный успех: ${cards.length}/${limitedCompetitors.length} карточек, упали: ${failedCompetitors.join(", ")}`);
     }
 
     return NextResponse.json({ ok: true, data });

@@ -107,7 +107,7 @@ export async function POST(req: Request) {
           { role: "user", content: userMessage },
         ],
         temperature: 0.85,
-        max_tokens: 3000,
+        max_tokens: 4500,
         response_format: { type: "json_object" },
       }),
     });
@@ -118,11 +118,16 @@ export async function POST(req: Request) {
     }
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      title: string;
-      hashtags: string[];
-      slides: GeneratedStory["slides"];
-    };
+    const rawContent = data.choices[0]?.message?.content ?? "{}";
+    let parsed: { title: string; hashtags: string[]; slides: GeneratedStory["slides"] };
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },
+        { status: 500 },
+      );
+    }
 
     const result: GeneratedStory = {
       id: `story-${Date.now()}`,

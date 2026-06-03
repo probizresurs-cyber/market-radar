@@ -176,7 +176,15 @@ export async function POST(req: Request) {
       clearTimeout(timeout);
     }
 
-    const parsed = JSON.parse(raw) as Omit<ContentPlan, "generatedAt" | "companyName">;
+    let parsed: Omit<ContentPlan, "generatedAt" | "companyName">;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить план контента: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { status: 500 },
+      );
+    }
 
     const result: ContentPlan = {
       generatedAt: new Date().toISOString(),
@@ -184,7 +192,7 @@ export async function POST(req: Request) {
       ...parsed,
     };
 
-    await access.log({ endpoint: "generate-content-plan", model: "claude-sonnet-4-6" });
+    await access.log({ endpoint: "generate-content-plan", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

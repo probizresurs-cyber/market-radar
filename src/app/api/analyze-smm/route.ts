@@ -232,7 +232,15 @@ export async function POST(req: Request) {
       clearTimeout(timeout);
     }
 
-    const parsed = JSON.parse(raw) as Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl" | "realStats" >;
+    let parsed: Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl" | "realStats">;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить СММ-анализ: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { status: 500 },
+      );
+    }
 
     const result: SMMResult = {
       generatedAt: new Date().toISOString(),
@@ -246,7 +254,7 @@ export async function POST(req: Request) {
       },
     };
 
-    await access.log({ endpoint: "analyze-smm", model: "claude-sonnet-4-6" });
+    await access.log({ endpoint: "analyze-smm", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const { message, status } = friendlyAiError(err);

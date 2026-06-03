@@ -204,6 +204,7 @@ async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
     childEnv.TMPDIR = TEMP_DIR;
   }
 
+  let spawnedChild: ReturnType<typeof spawn> | null = null;
   try {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
@@ -222,6 +223,7 @@ async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
           windowsHide: true,
         },
       );
+      spawnedChild = child;
 
       let stderrBuf = "";
       child.stderr.on("data", (d: Buffer) => {
@@ -231,10 +233,23 @@ async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
 
       child.on("error", reject);
       child.on("close", (code) => {
+        spawnedChild = null; // процесс завершился сам
         if (code === 0) resolve();
-        else reject(new Error(`remotion render exited with code ${code}: ${stderrBuf.slice(-2000)}`));
+        else reject(new Error(`remotion render exited with code ${code}. stderr: ${stderrBuf.slice(-500)}`));
       });
     });
+  } catch (err) {
+    // При любой ошибке (таймаут, reject) — убиваем дочерний процесс чтобы
+    // не оставалось зомби-Remotion на VPS. kill('SIGTERM') + SIGKILL через 2с.
+    if (spawnedChild) {
+      try {
+        (spawnedChild as ReturnType<typeof spawn>).kill("SIGTERM");
+        setTimeout(() => {
+          try { (spawnedChild as ReturnType<typeof spawn>)?.kill("SIGKILL"); } catch { /* ignore */ }
+        }, 2000);
+      } catch { /* ignore */ }
+    }
+    throw err;
   } finally {
     // Чистим props-файл независимо от исхода
     await unlink(propsFile).catch(() => {});

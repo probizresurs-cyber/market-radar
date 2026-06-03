@@ -131,12 +131,16 @@ export async function POST(req: Request) {
     }
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      title?: string;
-      caption?: string;
-      hashtags?: string[];
-      slides?: GeneratedCarousel["slides"];
-    };
+    const rawContent = data.choices[0]?.message?.content ?? "{}";
+    let parsed: { title?: string; caption?: string; hashtags?: string[]; slides?: GeneratedCarousel["slides"] };
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },
+        { status: 500 },
+      );
+    }
 
     // КРИТИЧНО: GPT часто возвращает на 1-2 слайда больше чем просили
     // (особенно при slidesCount=3 — добавляет от себя четвёртый «бонусный»).

@@ -306,11 +306,16 @@ export async function POST(req: Request) {
     }
 
     const textData = await textRes.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(textData.choices[0]?.message?.content ?? "{}") as {
-      hook: string; body: string; hashtags: string[];
-      imagePrompt: string;
-      imageSuggestionRu?: string;
-    };
+    const rawContent = textData.choices[0]?.message?.content ?? "{}";
+    let parsed: { hook: string; body: string; hashtags: string[]; imagePrompt: string; imageSuggestionRu?: string };
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (parseErr) {
+      return NextResponse.json(
+        { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${rawContent.slice(0, 100)}` },
+        { status: 500 },
+      );
+    }
 
     // 2) Generate image via OpenAI DALL-E — opt-in, не фейлим пост, если картинка не вышла.
     // Раньше использовали Gemini, но free-tier выгорает за 10-20 картинок в день.
