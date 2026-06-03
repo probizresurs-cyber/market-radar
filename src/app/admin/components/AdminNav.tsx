@@ -30,6 +30,7 @@ const TABS = [
   { href: "/admin/features", label: "Модули" },
   { href: "/admin/visits", label: "Посещаемость" },
   { href: "/admin/promo-reels", label: "Промо-рилсы" },
+  { href: "/admin/call-agent", label: "Call-Agent" },
 ];
 
 export default function AdminNav({ current }: { current: string }) {
