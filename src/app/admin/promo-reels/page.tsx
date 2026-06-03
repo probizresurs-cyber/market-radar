@@ -168,6 +168,9 @@ const DEFAULT_FORM = {
   stockVideoQuery: "",
   useAnimatedBroll: false,
   animatedBrollTheme: "",
+  // Субтитры (caption-слой внизу кадра). Текст автоматически берётся
+  // из voiceoverScript если он задан, иначе склейка hookText+problemText+ctaText.
+  captionsEnabled: false,
   // Ручной порядок сегментов в demo-сцене. Когда включён — юзер задаёт
   // последовательность из элементов customDemoSequence. Когда выключен —
   // оркестратор сам авто-распределяет/чередует источники.
@@ -490,6 +493,7 @@ export default function PromoReelsAdminPage() {
           useAnimatedBroll: form.useAnimatedBroll,
           animatedBrollTheme: form.animatedBrollTheme || undefined,
           customDemoSequence: form.useCustomDemoSequence ? form.customDemoSequence : undefined,
+          captionsEnabled: form.captionsEnabled,
           musicUrl: form.musicUrl || undefined,
           scenarioId: form.scenarioId,
           imageQuality: form.imageQuality,
@@ -980,6 +984,25 @@ export default function PromoReelsAdminPage() {
                 </div>
               );
             })()}
+
+            <div style={S.row}>
+              <input
+                type="checkbox"
+                style={S.checkbox}
+                id="useCaptions"
+                checked={form.captionsEnabled}
+                onChange={(e) => saveForm({ ...form, captionsEnabled: e.target.checked })}
+              />
+              <label htmlFor="useCaptions" style={S.checkboxLabel}>
+                Субтитры внизу кадра (TikTok-style, +0 сек)
+              </label>
+            </div>
+            {form.captionsEnabled ? (
+              <div style={{ ...S.hint, color: "#22d3ee", marginTop: -8 }}>
+                💡 Текст автоматически из voiceoverScript (если задан) или из хука+проблемы+CTA.
+                3-4 слова на кадр, синхронизированы с темпом речи ~3 слова/сек.
+              </div>
+            ) : null}
 
             <div style={S.row}>
               <input

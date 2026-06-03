@@ -68,6 +68,11 @@ interface RenderProps {
   demoMixMode: "corners" | "alternate";
   /** Ручной порядок сегментов. Если задан — render идёт строго по нему. */
   customDemoSequence?: ("screencast" | "video" | "image")[];
+  /** Показывать ли субтитры внизу кадра. */
+  captionsEnabled: boolean;
+  /** Текст субтитров. Если null — собирается из hook+problem+CTA или
+   *  voiceoverScript fallback'ом в самой композиции. */
+  captionsScript: string | null;
 }
 
 /**
@@ -180,6 +185,8 @@ function parseProps(
             s === "screencast" || s === "video" || s === "image",
         ) as ("screencast" | "video" | "image")[])
       : undefined,
+    captionsEnabled: Boolean(body.captionsEnabled ?? false),
+    captionsScript: body.captionsScript ? String(body.captionsScript) : null,
     // Длительность ролика. Клампим 10..90, дефолт 30.
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);

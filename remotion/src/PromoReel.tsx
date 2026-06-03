@@ -3,6 +3,7 @@ import { z } from "zod";
 import { HookScene } from "./scenes/HookScene";
 import { ProductDemoScene } from "./scenes/ProductDemoScene";
 import { CTAScene } from "./scenes/CTAScene";
+import { CaptionsLayer } from "./CaptionsLayer";
 
 export const promoReelSchema = z.object({
   hookText: z.string(),
@@ -52,6 +53,15 @@ export const promoReelSchema = z.object({
   // calculateMetadata. Сцены пропорциональны: hook ~17%, demo ~66%, CTA ~17%.
   // Допустимо 10..90 сек. Дефолт 30.
   videoDurationSec: z.number().optional(),
+  /** Показывать ли субтитры (caption-слой внизу кадра) на основе
+   *  voiceoverScript. Если скрипт не задан — субтитры собираются из
+   *  hookText/problemText/ctaText соответствующих сцен. */
+  captionsEnabled: z.boolean().optional(),
+  /** Текст субтитров. Если не задан, fallback на voiceoverScript ИЛИ
+   *  собирается из hookText/problemText/ctaText по сценам.
+   *  Передаём явно потому что хочется ИНОГДА показывать НЕ ТО ЖЕ что
+   *  voice произносит (например voice длиннее, captions — короче). */
+  captionsScript: z.string().optional(),
 });
 
 export type PromoReelProps = z.infer<typeof promoReelSchema>;
@@ -74,6 +84,7 @@ export const defaultPromoReelProps: PromoReelProps = {
   stockVideoUrls: [],
   demoMixMode: "corners",
   videoDurationSec: 30,
+  captionsEnabled: false,
 };
 
 /**
@@ -139,6 +150,19 @@ export const PromoReel: React.FC<PromoReelProps> = (props) => {
           bgImageUrl={props.ctaBgImageUrl ?? null}
         />
       </Sequence>
+
+      {/* Captions-слой поверх всех сцен — субтитры. Включается чекбоксом
+          captionsEnabled. Текст берётся из captionsScript, иначе voiceoverScript,
+          иначе склейка hook+problem+CTA. */}
+      {props.captionsEnabled ? (
+        <CaptionsLayer
+          script={
+            props.captionsScript ??
+            // Fallback на склейку 3 блоков с паузами для естественного ритма
+            `${props.hookText}. ${props.problemText}. ${props.ctaText}`
+          }
+        />
+      ) : null}
 
       {/* Voiceover — на 1.0 громкости, главный звуковой слой. */}
       {props.voiceoverUrl ? <Audio src={props.voiceoverUrl} volume={1} /> : null}

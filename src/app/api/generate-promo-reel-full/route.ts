@@ -519,6 +519,10 @@ async function runPipeline(jobId: string, body: Record<string, unknown>, req: Re
         demoMixMode,
         customDemoSequence: useCustomSequence ? customDemoSequence : undefined,
         videoDurationSec: body.videoDurationSec,
+        captionsEnabled: Boolean(body.captionsEnabled ?? false),
+        // Если юзер не задал captionsScript явно — используем voiceoverScript
+        // (он же будет говориться голосом, синхронность из коробки).
+        captionsScript: body.captionsScript ?? body.voiceoverScript ?? undefined,
       },
       req,
       310_000, // 310 сек — render-promo-reel.maxDuration = 300
