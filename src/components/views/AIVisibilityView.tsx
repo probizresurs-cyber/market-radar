@@ -851,8 +851,8 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
                 <Sparkles size={16} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
                 <p style={{ fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.65, margin: 0 }}>
                   Запросы идут <b>без подсказок о вашем бренде</b> — только так можно честно измерить
-                  реальную AI-видимость. ChatGPT и Claude вызываются напрямую через API.
-                  Там, где реальный API недоступен, Claude симулирует ответ — ячейка помечается «симуляция».
+                  реальную AI-видимость. Все ответы — из настоящих API нейросетей.
+                  Если у нейросети нет подключённого ключа, она не показывается (никаких симуляций).
                 </p>
               </div>
             </Card>
@@ -1174,10 +1174,9 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
                           </span>
                           <span style={{
                             fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
-                            background: m.isReal ? "#22c55e15" : "#f59e0b15",
-                            color: m.isReal ? "#22c55e" : "#f59e0b",
+                            background: "#22c55e15", color: "#22c55e",
                           }}>
-                            {m.isReal ? "API" : "симуляция"}
+                            API
                           </span>
                         </div>
                       )}
@@ -1734,23 +1733,13 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
                     Тональность: {modalMention.sentiment === "positive" ? "позитивная" : modalMention.sentiment === "negative" ? "негативная" : "нейтральная"}
                   </span>
                 )}
-                {modalMention.isSimulated ? (
-                  <span style={{
-                    padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
-                    background: "#f59e0b20", color: "#f59e0b",
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}>
-                    ⚠️ Симуляция — реальный API недоступен
-                  </span>
-                ) : (
-                  <span style={{
-                    padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
-                    background: "#22c55e15", color: "#22c55e",
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}>
-                    ✓ Реальный ответ API
-                  </span>
-                )}
+                <span style={{
+                  padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                  background: "#22c55e15", color: "#22c55e",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}>
+                  ✓ Реальный ответ API
+                </span>
               </div>
             </div>
           </div>

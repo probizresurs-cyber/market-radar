@@ -37,8 +37,25 @@ function parseResponse(response: string, brandName: string): {
   const lower = response.toLowerCase();
   const brandLower = brandName.toLowerCase();
 
-  // Проверяем наличие бренда
-  const mentioned = lower.includes(brandLower);
+  // Проверяем наличие бренда.
+  // ВАЖНО: мало просто найти название — модель может сказать «я не знаю ГК ОРЛИНК»,
+  // тогда mentioned=true будет ложным. Проверяем что название не встречается ТОЛЬКО
+  // в контексте отказа/незнания.
+  const nameInText = lower.includes(brandLower);
+  const denialPhrases = [
+    "не знаю", "не знакомо", "не располагаю", "нет информации", "нет данных",
+    "не нашёл", "не нашел", "не могу найти", "нет в базе", "не встречалось",
+    "не имею информации", "у меня нет информации", "у меня нет данных",
+    "no information", "i don't know", "i have no information", "not familiar",
+    "cannot find", "not in my knowledge", "don't have information",
+    "не могу подтвердить", "недостаточно данных", "нет достоверных данных",
+  ];
+  // Если модель упомянула бренд И ответ содержит фразы-отказы — это НЕ упоминание
+  const hasDenial = denialPhrases.some(p => lower.includes(p));
+  // Считаем "знает" только если: бренд упомянут И нет явных отказных фраз,
+  // ИЛИ бренд упомянут несколько раз (значит реально рассказывает о нём).
+  const brandOccurrences = (lower.match(new RegExp(brandLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length;
+  const mentioned = nameInText && (!hasDenial || brandOccurrences >= 3);
 
   // Позиция в нумерованном списке
   let position: number | null = null;
@@ -78,30 +95,7 @@ function parseResponse(response: string, brandName: string): {
   return { mentioned, position, sentiment, competitors };
 }
 
-// ── Симуляция через Claude (честная — без биас-подсказок) ─────────────────────
-// ВАЖНО: это НЕ настоящий ответ Яндекс Нейро / GPT / Gemini / Perplexity.
-// Это Claude Haiku, которому мы говорим «представь что ты — X». Используется
-// только если соответствующий API-ключ ($YANDEX_CLOUD_TOKEN / $PERPLEXITY_API_KEY
-// и т.д.) не настроен. Результат ДОЛЖЕН быть помечен `isSimulated: true` в
-// возвращаемом ответе, чтобы UI рендерил badge «симуляция через Claude».
-async function simulateViaClaudeHonest(llm: LLMName, query: string, niche: string): Promise<string> {
-  const personas: Record<LLMName, string> = {
-    yandex: `Ты симулируешь ответ Яндекс Нейро на русском. Опирайся ТОЛЬКО на факты реально известные тебе. Если не знаешь компаний/брендов в этой нише — так и скажи. Лучше «не знаю конкретных компаний» чем выдумать. Ниша: "${niche}".`,
-    claude: `Ты — Claude от Anthropic. Отвечай честно и взвешенно на русском. НЕ выдумывай несуществующие компании. Если не знаешь ответа — скажи прямо.`,
-    chatgpt: `You are simulating ChatGPT. Answer in Russian. ONLY mention companies you actually know about — if you don't know real companies in this niche, say so. Don't invent. Niche: ${niche}.`,
-    perplexity: `Ты симулируешь Perplexity AI. Давай ответы с опорой ТОЛЬКО на реально существующие компании. Если не знаешь — пиши «недостаточно данных», не выдумывай. Ниша: "${niche}".`,
-    gemini: `Ты симулируешь Google Gemini. Отвечай по-русски. Упоминай ТОЛЬКО компании которые ты ДЕЙСТВИТЕЛЬНО знаешь. Не выдумывай — лучше короткий ответ, чем подробный с фейками. Ниша: "${niche}".`,
-  };
-
-  const { text } = await safeAnthropicCreate({
-    model: "claude-haiku-4-5",
-    max_tokens: 450,
-    // Нет system-prompt с подсказкой «упоминай бренд»
-    system: personas[llm],
-    messages: [{ role: "user", content: query }],
-  });
-  return text;
-}
+// Симуляция удалена полностью — все ответы только из реальных API.
 
 // ── Реальный ChatGPT ──────────────────────────────────────────────────────────
 async function callChatGPT(query: string): Promise<string> {
@@ -209,53 +203,33 @@ export async function POST(req: Request) {
 
     const mentions: AIMention[] = [];
 
-    // ChatGPT и Claude — только реальный API, никакой симуляции.
-    // Yandex, Perplexity, Gemini — симулируем, если ключа нет.
-    const realApiOnly = llm === "chatgpt" || llm === "claude";
-
+    // Все модели — только реальные API. Симуляция удалена полностью.
+    // Если ключ не настроен — возвращаем unavailable: true.
     for (const query of queries) {
       let response = "";
-      let isSimulated = false;
+      const isSimulated = false; // симуляции больше нет
       let unavailable = false;
 
       try {
         if (llm === "chatgpt") {
-          if (!process.env.OPENAI_API_KEY) {
-            unavailable = true;
-          } else {
-            response = await callChatGPT(query);
-            if (!response) unavailable = true;
-          }
+          if (!process.env.OPENAI_API_KEY) { unavailable = true; }
+          else { response = await callChatGPT(query); if (!response) unavailable = true; }
         } else if (llm === "claude") {
-          // Claude всегда доступен — у нас есть ключ Anthropic
           response = await callClaudeDirect(query);
           if (!response) unavailable = true;
         } else if (llm === "perplexity") {
-          response = await callPerplexity(query);
+          if (!process.env.PERPLEXITY_API_KEY) { unavailable = true; }
+          else { response = await callPerplexity(query); if (!response) unavailable = true; }
         } else if (llm === "yandex") {
-          response = await callYandexGPT(query);
+          if (!process.env.YANDEX_GPT_IAM_TOKEN || !process.env.YANDEX_GPT_FOLDER_ID) { unavailable = true; }
+          else { response = await callYandexGPT(query); if (!response) unavailable = true; }
         } else if (llm === "gemini") {
-          response = await callGemini(query);
-        }
-
-        // Для chatgpt/claude — если нет ответа, не симулируем
-        if (!response && !unavailable && !realApiOnly) {
-          response = await simulateViaClaudeHonest(llm, query, niche);
-          isSimulated = true;
+          if (!GEMINI_API_KEY) { unavailable = true; }
+          else { response = await callGemini(query); if (!response) unavailable = true; }
         }
       } catch (err) {
-        if (realApiOnly) {
-          unavailable = true;
-          response = `Ошибка вызова API: ${err instanceof Error ? err.message : "unknown"}`;
-        } else {
-          try {
-            response = await simulateViaClaudeHonest(llm, query, niche);
-            isSimulated = true;
-          } catch {
-            response = "Не удалось получить ответ.";
-            isSimulated = true;
-          }
-        }
+        unavailable = true;
+        console.error(`[check-llm] ${llm} error:`, err instanceof Error ? err.message : err);
       }
 
       const parsed = unavailable ? { mentioned: false, position: null, sentiment: null, competitors: [] } : parseResponse(response, brandName);

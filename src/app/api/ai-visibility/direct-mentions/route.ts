@@ -31,10 +31,33 @@ function detectMention(text: string, brand: string): boolean {
   if (!text || !brand) return false;
   const t = text.toLowerCase();
   const b = brand.toLowerCase();
-  if (t.includes(b)) return true;
-  // Если бренд многословный — считаем упомянутым только если все значимые слова (≥5 букв) есть
-  const words = b.split(/\s+/).filter(w => w.length >= 5);
-  return words.length > 0 && words.every(w => t.includes(w));
+
+  // Сначала проверяем наличие бренда в тексте
+  const nameOccurrences = (t.match(new RegExp(b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length;
+  if (nameOccurrences === 0) {
+    // Попробуем по значимым словам
+    const words = b.split(/\s+/).filter(w => w.length >= 5);
+    if (words.length === 0 || !words.every(w => t.includes(w))) return false;
+  }
+
+  // Бренд упомянут — но проверяем: не в контексте ли отказа/незнания?
+  // Если модель говорит "я не знаю X" — это НЕ упоминание для наших целей.
+  const denialPhrases = [
+    "не знаю", "не знакомо", "не располагаю", "нет информации", "нет данных",
+    "не нашёл", "не нашел", "не могу найти", "нет в базе", "не встречалось",
+    "не имею информации", "у меня нет информации", "у меня нет данных",
+    "no information", "i don't know", "i have no information", "not familiar",
+    "cannot find", "не могу подтвердить", "недостаточно данных",
+    "нет достоверных данных", "не могу предоставить информацию",
+    "не располагаю достоверной", "недостаточно известна",
+  ];
+  const hasDenial = denialPhrases.some(p => t.includes(p));
+
+  // Если отказ + бренд упомянут только 1-2 раза — скорее всего «я не знаю X»
+  // Если упомянут 3+ раз — модель реально рассказывает о компании
+  if (hasDenial && nameOccurrences < 3) return false;
+
+  return true;
 }
 
 // ── Реальные вызовы ───────────────────────────────────────────────────────────
@@ -111,24 +134,6 @@ async function callPerplexity(query: string): Promise<string> {
   return json.choices?.[0]?.message?.content ?? "";
 }
 
-// Симуляция через Claude — для Yandex/Perplexity, если у них нет ключа
-async function simulateHonest(llm: LLMName, query: string): Promise<string> {
-  const personas: Record<LLMName, string> = {
-    yandex:     `Ты — Яндекс Нейро, поисковый ассистент. Если не знаешь — так и скажи. Не выдумывай факты.`,
-    claude:     `Ты — Claude. Отвечай честно.`,
-    chatgpt:    `Ты — ChatGPT. Отвечай честно, не выдумывай факты.`,
-    perplexity: `Ты — Perplexity AI с опорой на источники из интернета. Если не находишь информации — так и пиши.`,
-    gemini:     `Ты — Google Gemini. Отвечай честно. Если не знаешь компанию — так и скажи.`,
-  };
-  const { text } = await safeAnthropicCreate({
-    model: "claude-haiku-4-5",
-    max_tokens: 500,
-    system: personas[llm],
-    messages: [{ role: "user", content: query }],
-  });
-  return text;
-}
-
 export async function POST(req: Request) {
   // Раньше открыт — теперь требуем auth.
   const access = await checkAiAccess(req);
@@ -146,68 +151,42 @@ export async function POST(req: Request) {
 
     const query = `Расскажи мне о компании "${brandName}"${websiteUrl ? ` (сайт: ${websiteUrl})` : ""}. Что ты о ней знаешь? Если не знаешь — так и напиши, не придумывай.`;
 
-    // Perplexity исключён — Yandex Neuro/Алиса покрываются Keys.so отдельным блоком.
-    const llms: LLMName[] = ["yandex", "claude", "chatgpt", "gemini"];
-    const realApiOnly = (l: LLMName) => l === "chatgpt" || l === "claude";
+    // Только модели с реальными API-ключами. Симуляция удалена полностью.
+    // Yandex/Perplexity показываем ТОЛЬКО если ключи реально настроены —
+    // иначе вообще не включаем в список (не показываем фейк-колонки).
+    const llms: LLMName[] = ["claude", "chatgpt", "gemini"];
+    if (process.env.YANDEX_GPT_IAM_TOKEN && process.env.YANDEX_GPT_FOLDER_ID) llms.push("yandex");
+    if (process.env.PERPLEXITY_API_KEY) llms.push("perplexity");
 
-    // Параллельно опрашиваем все 4
+    // Параллельно опрашиваем — только реальные вызовы, без симуляции.
     const tasks = llms.map<Promise<DirectMention>>(async (llm) => {
       let response = "";
       let isReal = false;
-      let isSimulated = false;
       let unavailable = false;
 
       try {
         if (llm === "chatgpt") {
-          if (!process.env.OPENAI_API_KEY) {
-            unavailable = true;
-          } else {
-            response = await callChatGPT(query);
-            isReal = !!response;
-            if (!response) unavailable = true;
-          }
+          if (!process.env.OPENAI_API_KEY) { unavailable = true; }
+          else { response = await callChatGPT(query); isReal = !!response; if (!response) unavailable = true; }
         } else if (llm === "claude") {
           response = await callClaudeDirect(query);
           isReal = !!response;
           if (!response) unavailable = true;
         } else if (llm === "gemini") {
-          response = await callGemini(query);
-          if (response) {
-            isReal = true;
-          } else {
-            response = await simulateHonest(llm, query);
-            isSimulated = true;
-          }
+          if (!GEMINI_API_KEY) { unavailable = true; }
+          else { response = await callGemini(query); isReal = !!response; if (!response) unavailable = true; }
         } else if (llm === "yandex") {
           response = await callYandexGPT(query);
-          if (response) {
-            isReal = true;
-          } else {
-            response = await simulateHonest(llm, query);
-            isSimulated = true;
-          }
+          isReal = !!response;
+          if (!response) unavailable = true;
         } else if (llm === "perplexity") {
           response = await callPerplexity(query);
-          if (response) {
-            isReal = true;
-          } else {
-            response = await simulateHonest(llm, query);
-            isSimulated = true;
-          }
+          isReal = !!response;
+          if (!response) unavailable = true;
         }
       } catch (err) {
-        if (realApiOnly(llm)) {
-          unavailable = true;
-          response = `Ошибка API: ${err instanceof Error ? err.message : "unknown"}`;
-        } else {
-          try {
-            response = await simulateHonest(llm, query);
-            isSimulated = true;
-          } catch {
-            response = "Не удалось получить ответ.";
-            isSimulated = true;
-          }
-        }
+        unavailable = true;
+        console.error(`[direct-mentions] ${llm} error:`, err instanceof Error ? err.message : err);
       }
 
       return {
@@ -216,7 +195,7 @@ export async function POST(req: Request) {
         response: unavailable ? "" : response,
         mentioned: unavailable ? false : detectMention(response, brandName),
         isReal,
-        isSimulated,
+        isSimulated: false, // симуляций больше нет
         unavailable,
       };
     });
