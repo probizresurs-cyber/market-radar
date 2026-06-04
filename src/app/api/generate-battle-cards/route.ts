@@ -3,6 +3,7 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { withRateLimitRetry } from "@/lib/anthropic-safe";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -212,7 +213,7 @@ export async function POST(req: Request) {
     // комфортные 4096 токенов, ошибка в одной карточке не валит остальные,
     // 3 карточки генерируются за то же время что 1 (параллельно).
 
-    const summaryPromise = anthropic.messages.create({
+    const summaryPromise = withRateLimitRetry(() => anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: SYSTEM,
@@ -222,10 +223,10 @@ export async function POST(req: Request) {
         limitedCompetitors.map(c => ({ name: c.name, score: c.score })),
         myCompany.score,
       ) }],
-    });
+    }));
 
     const cardPromises = limitedCompetitors.map(comp =>
-      anthropic.messages.create({
+      withRateLimitRetry(() => anthropic.messages.create({
         model: "claude-sonnet-4-6",
         // 4096 — потолок per-card. Структура одной карточки ~2000-2500 токенов
         // даже на сложных нишах. Запас 1.5x обеспечивает что JSON всегда
@@ -239,7 +240,7 @@ export async function POST(req: Request) {
           niche,
           comp,
         ) }],
-      }),
+      })),
     );
 
     const [summaryResult, ...cardResults] = await Promise.allSettled([

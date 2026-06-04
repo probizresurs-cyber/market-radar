@@ -19,6 +19,7 @@ import type { AnalysisResult } from "./types";
 import type { TAResult } from "./ta-types";
 import type { SMMResult } from "./smm-types";
 import { ANTI_HALLUCINATION_SHORT } from "./ai-rules";
+import { withRateLimitRetry } from "./anthropic-safe";
 
 export interface SwotItems {
   strengths: string[];
@@ -187,11 +188,11 @@ ${ctxToText(ctx)}
 
 В каждом массиве 4-8 коротких фраз (по 6-12 слов). Без воды, без рассуждений.`;
 
-  const message = await client.messages.create({
+  const message = await withRateLimitRetry(() => client.messages.create({
     model: "claude-haiku-4-5",
     max_tokens: 1500,
     messages: [{ role: "user", content: userMessage }],
-  });
+  }));
   const raw = jsonText(message.content);
   const parsed = extractJson<SwotItems>(raw);
   return parsed ?? { strengths: [], weaknesses: [], opportunities: [], threats: [] };
@@ -272,11 +273,11 @@ ${SECTION_TONE[category]}
 - Параграфы по 3-5 предложений, без bullet-listов внутри
 - Тон: уверенный, аналитический, без воды`;
 
-  const message = await client.messages.create({
+  const message = await withRateLimitRetry(() => client.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 4000,
     messages: [{ role: "user", content: userMessage }],
-  });
+  }));
   const raw = jsonText(message.content);
   const parsed = extractJson<{
     intro: string;
@@ -319,11 +320,11 @@ ${ctxToText(ctx)}
 
 Верни ТОЛЬКО текст параграфов, разделённых пустой строкой. Без заголовков и markdown.`;
 
-  const message = await client.messages.create({
+  const message = await withRateLimitRetry(() => client.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 1500,
     messages: [{ role: "user", content: userMessage }],
-  });
+  }));
   return jsonText(message.content);
 }
 
@@ -354,11 +355,11 @@ export async function writeConclusion(
 
 Верни ТОЛЬКО текст. Без заголовков, без markdown.`;
 
-  const message = await client.messages.create({
+  const message = await withRateLimitRetry(() => client.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 1500,
     messages: [{ role: "user", content: userMessage }],
-  });
+  }));
   return jsonText(message.content);
 }
 

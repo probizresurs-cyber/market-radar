@@ -156,6 +156,45 @@ export async function safeAnthropicCreate(opts: SafeCreateOpts): Promise<SafeCre
   };
 }
 
+/**
+ * Универсальный retry на 429 (rate_limit_error) с экспоненциальным backoff.
+ * Anthropic возвращает 429 «Type 2b rate limited» когда слишком много
+ * параллельных запросов. Оборачиваем любой Anthropic-вызов:
+ *
+ *   const msg = await withRateLimitRetry(() => client.messages.create({...}));
+ *
+ * retries=4 → паузы 1.5s, 3s, 6s, 12s. Если после всех попыток всё ещё 429 —
+ * пробрасываем последнюю ошибку (вызывающий покажет «попробуйте позже»).
+ */
+export async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  opts?: { retries?: number; baseDelayMs?: number },
+): Promise<T> {
+  const retries = opts?.retries ?? 4;
+  const baseDelay = opts?.baseDelayMs ?? 1500;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // Ретраим только rate-limit / 429 / overloaded
+      const is429 = /\b429\b|rate.?limit|rate_limit_error|overloaded|too many requests/i.test(msg);
+      if (!is429 || attempt === retries) throw err;
+      // Jitter ±40% — чтобы N параллельных запросов не ретраились синхронно
+      // (иначе снова все вместе упрутся в лимит). randomBytes вместо Math.random
+      // здесь не нужен — это тайминг, не безопасность.
+      const base = baseDelay * Math.pow(2, attempt);
+      const jitter = base * (0.6 + Math.random() * 0.8);
+      const delay = Math.round(jitter);
+      console.warn(`[anthropic] 429 rate-limit, retry ${attempt + 1}/${retries} через ${delay}мс`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 /** Детект характерной HTML-ошибки от прокси (для UI-парсера). */
 export function isProxyHtmlError(message: string | null | undefined): boolean {
   if (!message) return false;
