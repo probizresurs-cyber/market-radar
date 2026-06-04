@@ -342,7 +342,9 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
           // Жёсткий анти-выдумки фильтр: убираем строки с position=0 или volume=0
           // (это признак того что AI всё-таки заполнил массив, нарушив инструкцию).
           // Реальные позиции/объёмы подтянет Keys.so отдельно через site-insights.
-          .filter((p: { keyword: string; position: number; volume: number }) => p.keyword && p.position > 0 && p.volume > 0)
+          // position=0 — признак AI-выдумки. volume=0 НЕ фильтруем:
+          // Keys.so для нишевых сайтов реально возвращает позиции без частотности.
+          .filter((p: { keyword: string; position: number; volume: number }) => p.keyword && p.position > 0)
       : [],
     issues: Array.isArray(seoRaw.issues) ? seoRaw.issues.slice(0, 5).map((i: unknown) => String(i)) : [],
   };

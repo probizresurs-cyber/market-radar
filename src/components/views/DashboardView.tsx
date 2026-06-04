@@ -178,9 +178,11 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
   }, [company?.name, company?.url]);
 
   const isRealKeywords = data.seo?.keywordsSource === "keyso";
-  // Фильтруем мусорные строки (AI выдумывал ключи с position=0/volume=0 — фикс 29.05).
-  // Старые анализы в localStorage могут содержать такие строки.
-  const allPositions = (data.seo?.positions ?? []).filter(p => p.keyword && p.position > 0 && p.volume > 0);
+  // Фильтруем AI-мусор (position=0 был признаком выдуманных данных).
+  // volume=0 НЕ фильтруем — Keys.so для нишевых/региональных сайтов часто
+  // возвращает реальные позиции с volume=0 (нет данных по частотности, но
+  // позиция настоящая). Убирали volume>0 и теряли реальные ключи gk-orlink.ru и т.п.
+  const allPositions = (data.seo?.positions ?? []).filter(p => p.keyword && p.position > 0);
   const yandexPositions = allPositions;
   const googlePositions = data.seo?.googlePositions && data.seo.googlePositions.length > 0
     ? data.seo.googlePositions

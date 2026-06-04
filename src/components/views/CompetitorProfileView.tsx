@@ -257,12 +257,13 @@ export function CompetitorProfileView({ c, data, myCompany, onBack, onUpdateData
       </div>
 
       {/* ── Ключевые слова ── */}
-      {/* Фильтруем строки где AI не имел реальных данных (position=0 или volume=0).
-          После багфикса 29.05 AI больше не должен заполнять positions — но в
-          localStorage могли остаться старые анализы с мусором. */}
+      {/* Фильтруем AI-мусор по position=0 — это признак выдуманных данных.
+          volume=0 НЕ фильтруем: Keys.so для нишевых/региональных сайтов часто
+          возвращает реальные позиции без данных по частотности (volume=0).
+          Убирали volume>0 — и теряли реальные ключи (gk-orlink.ru, локальные сайты). */}
       {(() => {
         const realPositions = (data.seo?.positions ?? []).filter(
-          (p) => p.keyword && p.position > 0 && p.volume > 0,
+          (p) => p.keyword && p.position > 0,
         );
         if (realPositions.length === 0) return null;
         return (
