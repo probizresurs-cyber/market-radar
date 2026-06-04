@@ -135,8 +135,23 @@ ${competitors.map(c => `- ${c.name} (${c.score}/100)`).join("\n")}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Достаёт текст из ответа Claude — ищет ПЕРВЫЙ text-блок, а не content[0].
+ *  content[0] может быть thinking/tool_use блоком — тогда .text undefined. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractText(msg: any): string {
+  const content = msg?.content;
+  if (!Array.isArray(content)) return "";
+  for (const block of content) {
+    if (block?.type === "text" && typeof block.text === "string") {
+      return block.text.trim();
+    }
+  }
+  return "";
+}
+
 /** Извлекает JSON из ответа Claude — снимает markdown, walk-back, repair. */
-function extractJson<T>(raw: string): T | null {
+function extractJson<T>(raw: string | null | undefined): T | null {
+  if (!raw || typeof raw !== "string") return null;
   const stripped = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = stripped.indexOf("{");
   if (start === -1) return null;
@@ -240,8 +255,7 @@ export async function POST(req: Request) {
       const msg = summaryResult.value;
       summaryTokensIn = msg.usage.input_tokens;
       summaryTokensOut = msg.usage.output_tokens;
-      const text = (msg.content[0] as { type: string; text: string }).text.trim();
-      const parsed = extractJson<{ executiveSummary?: string }>(text);
+      const parsed = extractJson<{ executiveSummary?: string }>(extractText(msg));
       executiveSummary = parsed?.executiveSummary ?? "";
     } else {
       console.warn("[generate-battle-cards] executive summary не сгенерилось:", summaryResult.reason);
@@ -252,6 +266,8 @@ export async function POST(req: Request) {
     let totalCardTokensIn = 0;
     let totalCardTokensOut = 0;
     const failedCompetitors: string[] = [];
+    // Собираем первую реальную причину провала чтобы показать юзеру (не общее «попробуйте снова»)
+    let firstFailReason = "";
 
     cardResults.forEach((result, idx) => {
       const comp = limitedCompetitors[idx];
@@ -259,7 +275,7 @@ export async function POST(req: Request) {
         const msg = result.value;
         totalCardTokensIn += msg.usage.input_tokens;
         totalCardTokensOut += msg.usage.output_tokens;
-        const text = (msg.content[0] as { type: string; text: string }).text.trim();
+        const text = extractText(msg);
         const card = extractJson<BattleCard>(text);
         if (card && card.competitorName) {
           // Гарантируем, что URL/score из исходных данных
@@ -267,18 +283,27 @@ export async function POST(req: Request) {
           card.competitorScore = typeof card.competitorScore === "number" ? card.competitorScore : comp.score;
           cards.push(card);
         } else {
-          console.warn(`[generate-battle-cards] карточка для ${comp.name} не распарсилась, raw:`, text.slice(0, 200));
+          console.warn(`[generate-battle-cards] карточка для ${comp.name} не распарсилась. stop_reason: ${msg.stop_reason}, raw:`, text.slice(0, 300));
+          if (!firstFailReason) {
+            firstFailReason = text
+              ? `AI вернул нераспознаваемый JSON (stop_reason: ${msg.stop_reason})`
+              : `AI вернул пустой ответ (stop_reason: ${msg.stop_reason})`;
+          }
           failedCompetitors.push(comp.name);
         }
       } else {
-        console.warn(`[generate-battle-cards] карточка для ${comp.name} не сгенерилась:`, result.reason);
+        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        console.warn(`[generate-battle-cards] карточка для ${comp.name} не сгенерилась:`, reason);
+        if (!firstFailReason) firstFailReason = reason;
         failedCompetitors.push(comp.name);
       }
     });
 
     if (cards.length === 0) {
+      // Показываем реальную причину — обычно это лимит/ошибка Anthropic API.
+      const detail = firstFailReason ? ` Причина: ${firstFailReason}` : "";
       return NextResponse.json(
-        { ok: false, error: "Не удалось сгенерировать ни одной карточки. Попробуйте повторить запрос." },
+        { ok: false, error: `Не удалось сгенерировать ни одной карточки.${detail} Попробуйте повторить запрос.` },
         { status: 500 },
       );
     }

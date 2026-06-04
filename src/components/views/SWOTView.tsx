@@ -144,6 +144,25 @@ export function SWOTView({
 
   const canGenerate = !!company && !generating;
 
+  // Загрузить прошлый отчёт обратно в интерактивный вид (не только PDF).
+  const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
+  const handleLoadReport = async (id: string) => {
+    setLoadingReportId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/swot/${id}`, { cache: "no-store" });
+      const json = await jsonOrThrow(res);
+      if (!json.ok) throw new Error(json.error ?? "Не удалось загрузить отчёт");
+      setReport(json.data as SwotReport);
+      // Скроллим вверх к загруженному отчёту
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки отчёта");
+    } finally {
+      setLoadingReportId(null);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!company) return;
     setGenerating(true);
@@ -597,8 +616,15 @@ export function SWOTView({
                   {" "}<span style={{ color: "var(--muted-foreground)" }}>· {new Date(h.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "short", year: "2-digit" })}</span>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => handleLoadReport(h.id)}
+                    disabled={loadingReportId === h.id}
+                    style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--primary)", background: "transparent", color: "var(--primary)", fontSize: 12, fontWeight: 700, cursor: loadingReportId === h.id ? "wait" : "pointer" }}
+                  >
+                    {loadingReportId === h.id ? "Загрузка…" : "Открыть в интерфейсе"}
+                  </button>
                   <a href={`/api/swot/${h.id}/pdf?view=1`} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", color: "var(--foreground-secondary)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                    Открыть
+                    HTML
                   </a>
                   <a href={`/api/swot/${h.id}/pdf`} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, background: "var(--primary)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
                     PDF
