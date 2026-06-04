@@ -72,7 +72,11 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: "content-style", icon: "BookOpen", label: "Стиль компании", count: null },
       {
-        id: "seo-articles", icon: "FileText", label: "SEO-статьи", count: null,
+        // SEO + GEO объединены в один таб. Внутри — переключатель режима
+        // (SEO ⇄ GEO): SEO = классическая поисковая оптимизация под Яндекс/
+        // Google, GEO = оптимизация под LLM-поисковики (Алиса с ИИ-ответами,
+        // ChatGPT Search, Perplexity). Библиотека фильтрует по выбранному режиму.
+        id: "seo-articles", icon: "FileText", label: "Статьи (SEO + GEO)", count: null,
         children: [
           { id: "seo-new",        icon: "Plus",       label: "Новая статья",       count: null },
           { id: "seo-library",    icon: "Library",    label: "Библиотека статей",  count: null },
@@ -80,16 +84,6 @@ export const NAV_SECTIONS: NavSection[] = [
           { id: "seo-expand",     icon: "Network",    label: "Расширить семантику",count: null },
           { id: "seo-paa",        icon: "HelpCircle", label: "Что спрашивают",     count: null },
           // Тех-аудит страницы убран отсюда — он есть на основном дашборде
-        ],
-      },
-      {
-        // GEO-статьи — оптимизация под LLM-поисковики (Алиса с ИИ-ответами,
-        // ChatGPT Search, Perplexity, Bing Chat). Шарят инфраструктуру с SEO,
-        // но используют отдельные промпты и фильтр библиотеки.
-        id: "geo-articles", icon: "Sparkles", label: "GEO-статьи", count: null,
-        children: [
-          { id: "geo-new",     icon: "Plus",    label: "Новая GEO-статья",     count: null },
-          { id: "geo-library", icon: "Library", label: "Библиотека GEO-статей", count: null },
         ],
       },
       {

@@ -1926,7 +1926,7 @@ export function SEOArticlesView({
   onUpdateCompanyStyle,
   onOpenStyleTab,
   activeSubNav,
-  mode = "seo",
+  mode: initialMode = "seo",
 }: {
   c: Colors;
   userId: string;
@@ -1938,13 +1938,27 @@ export function SEOArticlesView({
   onUpdateCompanyStyle: (next: CompanyStyleState) => void;
   onOpenStyleTab: () => void;
   activeSubNav: string;
-  /** "seo" (default) или "geo". В geo-режиме библиотека и wizard фильтруют
-   *  статьи по `brief.articleMode === "geo"`, плюс API получает articleMode. */
+  /** Начальный режим. Дальше юзер переключает SEO⇄GEO прямо внутри таба. */
   mode?: "seo" | "geo";
 }) {
   void c; // CSS variables handle theming now
 
   const storageKey = `mr_seo_${userId}`;
+
+  // mode теперь внутренний стейт — переключается тумблером SEO⇄GEO в шапке.
+  // Запоминаем выбор в localStorage чтобы при возврате остаться в том же режиме.
+  const modeKey = `mr_seo_mode_${userId}`;
+  const [mode, setMode] = useState<"seo" | "geo">(initialMode);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(modeKey);
+      if (saved === "seo" || saved === "geo") setMode(saved);
+    } catch { /* */ }
+  }, [modeKey]);
+  const switchMode = (next: "seo" | "geo") => {
+    setMode(next);
+    try { localStorage.setItem(modeKey, next); } catch { /* */ }
+  };
 
   const [state, setState] = useState<SEOArticlesState>({ articles: [], keywordClusters: [] });
   const [currentArticle, setCurrentArticle] = useState<SEOArticle | null>(null);
@@ -2006,6 +2020,41 @@ export function SEOArticlesView({
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      {/* Переключатель SEO ⇄ GEO. Показываем на библиотеке и новой статье
+          (не в редакторе — там режим уже зафиксирован у статьи). */}
+      {(subView === "library" || subView === "new") && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+          <div style={{ display: "inline-flex", padding: 3, borderRadius: 12, background: "var(--muted)", gap: 3 }}>
+            {([
+              { id: "seo" as const, label: "SEO", hint: "Яндекс / Google" },
+              { id: "geo" as const, label: "GEO", hint: "Алиса / ChatGPT / Perplexity" },
+            ]).map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => switchMode(opt.id)}
+                title={opt.hint}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  padding: "7px 20px", borderRadius: 9, border: "none", cursor: "pointer",
+                  background: mode === opt.id ? "var(--primary)" : "transparent",
+                  color: mode === opt.id ? "var(--primary-foreground)" : "var(--foreground-secondary)",
+                  fontWeight: 700, fontSize: 14, transition: "all 0.15s",
+                  boxShadow: mode === opt.id ? "var(--shadow)" : "none",
+                }}
+              >
+                {opt.label}
+                <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.75, marginTop: 1 }}>{opt.hint}</span>
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            {mode === "geo"
+              ? "Оптимизация под ответы нейросетей (GEO)"
+              : "Классическая поисковая оптимизация (SEO)"}
+          </span>
+        </div>
+      )}
+
       {/* Company style status — appears on new article + editor screens */}
       {(subView === "new" || subView === "editor") && (
         <CompanyStylePanel
