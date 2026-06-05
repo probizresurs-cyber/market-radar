@@ -103,9 +103,10 @@ export default function CAPaymentsPage() {
     setErr(null);
     try {
       const [pRes, tRes] = await Promise.all([
-        fetch("/api/admin/call-agent/payments", { cache: "no-store" }),
-        fetch("/api/admin/call-agent/tenants", { cache: "no-store" }),
+        fetch("/api/admin/call-agent/payments", { cache: "no-store", credentials: "include" }),
+        fetch("/api/admin/call-agent/tenants", { cache: "no-store", credentials: "include" }),
       ]);
+      if (pRes.status === 401) { window.location.href = "/admin/login"; return; }
       const pData = await pRes.json().catch(() => ({}));
       const tData = await tRes.json().catch(() => ({}));
 

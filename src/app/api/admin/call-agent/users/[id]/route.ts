@@ -31,8 +31,15 @@ export async function GET(
     );
   }
 
+  // Forward tenant_id if provided by the caller (scopes the lookup to a specific tenant)
+  const tenantIdParam = _req.nextUrl.searchParams.get("tenant_id");
+  const caUrl = new URL(`${base}/api/admin/users/${id}`);
+  if (tenantIdParam) {
+    caUrl.searchParams.set("tenant_id", tenantIdParam);
+  }
+
   try {
-    const r = await fetch(`${base}/api/admin/users/${id}`, {
+    const r = await fetch(caUrl.toString(), {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });

@@ -63,7 +63,8 @@ export default function CAPartnersPage() {
     setLoading(true);
     setErr(null);
     try {
-      const r = await fetch("/api/admin/call-agent/partners", { cache: "no-store" });
+      const r = await fetch("/api/admin/call-agent/partners", { cache: "no-store", credentials: "include" });
+      if (r.status === 401) { window.location.href = "/admin/login"; return; }
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
         setErr(d.error || `HTTP ${r.status}`);
