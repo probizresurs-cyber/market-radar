@@ -580,6 +580,11 @@ function MarketRadarDashboardInner() {
   // Читаем напрямую из user_data владельца через /api/data?workspaceId=
   // (НЕ из localStorage member'а — там его собственные данные).
   const loadForeignWorkspaceData = React.useCallback(async (workspaceId: string, memberUid: string): Promise<boolean> => {
+    // Чужая workspace профилей не имеет — сбрасываем суффикс профиля, иначе
+    // syncToServer писал бы данные владельца под ключом "...::p_<id>" от нашего
+    // прошлого профиля (data-leak в чужую команду). Также чистим UI-стейт.
+    setActiveProfileSuffixForSync("");
+    setActiveProfileId(DEFAULT_PROFILE_ID);
     let data: Record<string, unknown> = {};
     try {
       data = (await loadAllFromServer(workspaceId)) ?? {};
@@ -2511,12 +2516,12 @@ function MarketRadarDashboardInner() {
         )}
         {activeNav === "brand-presentation" && (
           featureOn("brand-presentation")
-            ? <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />
+            ? <PresentationView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={workspaceLsId ?? currentUser?.id ?? ""} />
             : <ComingSoonView c={c} featureId="brand-presentation" title={features.labels["brand-presentation"] ?? "Презентации"} description={features.descriptions["brand-presentation"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "landing-generator" && (
           featureOn("landing-generator")
-            ? <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={currentUser?.id ?? ""} />
+            ? <LandingGeneratorView c={c} myCompany={myCompany} taAnalysis={taAnalysis} smmAnalysis={smmAnalysis} brandBook={brandBook} userId={workspaceLsId ?? currentUser?.id ?? ""} />
             : <ComingSoonView c={c} featureId="landing-generator" title={features.labels["landing-generator"] ?? "Лендинги"} description={features.descriptions["landing-generator"]} userEmail={currentUser?.email} />
         )}
       </main>
