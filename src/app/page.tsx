@@ -11,12 +11,17 @@ import type { Review, ReviewAnalysis } from "@/lib/review-types";
 
 // ─── Shared modules (extracted from this file) ─────────────────────────────────
 import { COLORS, type Theme, type Colors } from "@/lib/colors";
-import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification, setActiveWorkspaceForSync } from "@/lib/user";
+import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification, setActiveWorkspaceForSync, setActiveProfileSuffixForSync } from "@/lib/user";
 import { resolveActiveWorkspace, saveActiveWorkspaceId, type ActiveWorkspaceState } from "@/lib/workspace-client";
 import type { WorkspaceSummary } from "@/lib/workspace";
 import { SOURCES_FREE } from "@/lib/data/sources";
 import { trackGoal } from "@/lib/metrika";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import {
+  DEFAULT_PROFILE_ID, type Profile,
+  getProfiles, getActiveProfileId, setActiveProfileId as persistActiveProfile,
+  profileLsSuffix, profileServerSuffix, createProfile, deleteProfile, maxProfilesForPlan,
+} from "@/lib/profiles";
 
 // ─── Extracted view components ────────────────────────────────────────────────
 import { LandingPageView } from "@/components/views/LandingPageView";
@@ -229,7 +234,25 @@ function MarketRadarDashboardInner() {
   // данные должны жить под workspace_id владельца, а не под user.id editor'а
   // (иначе при возврате в свой workspace editor видит чужой контент в UI).
   // Если активного workspace нет → значит работаем под собственным user.id.
-  const workspaceLsId = activeWorkspace?.workspaceId ?? currentUser?.id;
+  // ─── Profile state ─────────────────────────────────────────────────────
+  // Профиль — независимое пространство данных внутри юзера (компания + личный
+  // бренд и т.п.). default → ключи без суффикса (как было). Активный профиль
+  // даёт суффикс, который приклеивается к baseId всех ключей данных.
+  const [activeProfileId, setActiveProfileId] = useState<string>(DEFAULT_PROFILE_ID);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const profileSuffix = profileLsSuffix(activeProfileId);
+  // Модалка создания профиля
+  const [showCreateProfile, setShowCreateProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileKind, setNewProfileKind] = useState<"company" | "personal">("personal");
+  const [createProfileError, setCreateProfileError] = useState<string | null>(null);
+  const [accountPlan, setAccountPlan] = useState<string>("trial");
+
+  // baseId = workspace-владелец или сам юзер. profileSuffix приклеивается ниже.
+  const baseLsId = activeWorkspace?.workspaceId ?? currentUser?.id;
+  // workspaceLsId теперь С УЧЁТОМ профиля: все ключи данных скоупятся и по
+  // workspace, и по профилю. Для default-профиля суффикс пустой → как было.
+  const workspaceLsId = baseLsId ? baseLsId + profileSuffix : baseLsId;
   // КРИТИЧНО: guard для всех mutating handlers. Раньше viewer'ы могли жать
   // «Сгенерировать» и UI запускал генерацию (тратя API-бюджет владельца
   // workspace + модифицируя его данные). UI скрывает кнопки, но handlers
@@ -342,6 +365,10 @@ function MarketRadarDashboardInner() {
   useEffect(() => { contentPlanRef.current = contentPlan; }, [contentPlan]);
   useEffect(() => { generatedPostsRef.current = generatedPosts; }, [generatedPosts]);
   useEffect(() => { generatedReelsRef.current = generatedReels; }, [generatedReels]);
+  // Профиль-суффикс в ref — чтобы async-хендлеры писали ключи в активный
+  // профиль без stale-closure. dataUid() = currentUser.id + suffix активного профиля.
+  const profileSuffixRef = useRef(profileSuffix);
+  useEffect(() => { profileSuffixRef.current = profileSuffix; }, [profileSuffix]);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
@@ -488,10 +515,18 @@ function MarketRadarDashboardInner() {
   // Load server data and apply it — called after login and on init.
   // Also performs a one-time migration: if a key exists in localStorage but
   // NOT on the server, push it up so other devices can see it.
-  const loadAndApplyUserData = React.useCallback(async (uid: string): Promise<boolean> => {
+  const loadAndApplyUserData = React.useCallback(async (uid: string, profileId: string = DEFAULT_PROFILE_ID): Promise<boolean> => {
+    // Профиль-скоупинг: эффективный id = uid + lsSuffix. Все localStorage-ключи
+    // и applyUserData получают его. Серверная загрузка фильтруется по serverSuffix.
+    const lsSuffix = profileLsSuffix(profileId);
+    const serverSuffix = profileServerSuffix(profileId);
+    const effectiveUid = uid + lsSuffix;
+    // Сообщаем sync-слою активный профиль, чтобы syncToServer писал под нужным ключом.
+    setActiveProfileSuffixForSync(serverSuffix);
+
     let serverData: Record<string, unknown> = {};
     try {
-      serverData = (await loadAllFromServer()) ?? {};
+      serverData = (await loadAllFromServer(undefined, serverSuffix)) ?? {};
     } catch { /* keep empty */ }
 
     // Migration map: localStorage key prefix (without userId) → server key
@@ -518,7 +553,8 @@ function MarketRadarDashboardInner() {
     const pushed: Record<string, unknown> = {};
     for (const [prefix, srvKey] of migrations) {
       if (serverData[srvKey] != null) continue; // server already has it
-      const candidates = [`${prefix}${uid}`];
+      // Ключ скоупится по профилю через effectiveUid (для default суффикс пуст).
+      const candidates = [`${prefix}${effectiveUid}`];
       for (const lsKey of candidates) {
         try {
           const raw = localStorage.getItem(lsKey);
@@ -529,8 +565,6 @@ function MarketRadarDashboardInner() {
           pushed[srvKey] = parsed;
           console.log(`[migrate] pushing "${srvKey}" from localStorage key "${lsKey}"`);
           syncToServer(srvKey, parsed);
-          // also store under the new uid so next reload picks it up instantly
-          try { localStorage.setItem(`${prefix}${uid}`, raw); } catch { /* ignore */ }
           break; // stop after first non-empty candidate
         } catch { /* try next candidate */ }
       }
@@ -538,7 +572,7 @@ function MarketRadarDashboardInner() {
 
     const mergedData = { ...pushed, ...serverData };
     const hasCompany = mergedData.company != null;
-    applyUserData(mergedData, uid);
+    applyUserData(mergedData, effectiveUid);
     return hasCompany;
   }, [applyUserData]);
 
@@ -581,12 +615,106 @@ function MarketRadarDashboardInner() {
 
     setStatus("loading");
     if (isOwn) {
-      await loadAndApplyUserData(currentUser.id);
+      // Возвращаясь в свою workspace — восстанавливаем активный профиль.
+      const pid = getActiveProfileId(currentUser.id);
+      setProfiles(getProfiles(currentUser.id));
+      setActiveProfileId(pid);
+      await loadAndApplyUserData(currentUser.id, pid);
     } else {
       await loadForeignWorkspaceData(workspaceId, currentUser.id);
     }
     setStatus("done");
   }, [currentUser, activeWorkspace, availableWorkspaces, loadAndApplyUserData, loadForeignWorkspaceData]);
+
+  // Переключатель профиля внутри своего аккаунта: сбрасывает состояние всех
+  // модулей и перезагружает данные выбранного профиля. Профили доступны
+  // только в собственной workspace (в чужой команде — данные владельца).
+  const handleSwitchProfile = React.useCallback(async (profileId: string) => {
+    if (!currentUser) return;
+    if (profileId === activeProfileId) return;
+    if (activeWorkspace && !activeWorkspace.isOwnWorkspace) return;
+
+    persistActiveProfile(currentUser.id, profileId);
+    setActiveProfileId(profileId);
+
+    // Полный сброс состояния модулей — чтобы данные одного профиля не
+    // «протекли» в другой до завершения загрузки.
+    setMyCompany(null);
+    setTaAnalysis(null);
+    setSmmAnalysis(null);
+    setCjmData(null);
+    setBenchmarksData(null);
+    setContentPlan(null);
+    setGeneratedPosts([]);
+    setGeneratedReels([]);
+    setGeneratedStories([]);
+    setGeneratedCarousels([]);
+    setCompetitors([]);
+    setAnalysisHistory([]);
+
+    setStatus("loading");
+    await loadAndApplyUserData(currentUser.id, profileId);
+    setStatus("done");
+  }, [currentUser, activeProfileId, activeWorkspace, loadAndApplyUserData]);
+
+  // Открыть модалку создания профиля. Заодно подтягиваем актуальный план
+  // (для корректного лимита профилей trial/платный).
+  const handleOpenCreateProfile = React.useCallback(() => {
+    setNewProfileName("");
+    setNewProfileKind("personal");
+    setCreateProfileError(null);
+    setShowCreateProfile(true);
+    fetch("/api/subscription", { cache: "no-store", credentials: "include" })
+      .then(r => r.json())
+      .then(j => { if (j?.plan) setAccountPlan(String(j.plan)); })
+      .catch(() => { /* fallback trial */ });
+  }, []);
+
+  // 8-hex случайный id через crypto (не Math.random — стабильнее по коллизиям).
+  const genProfileId = React.useCallback((): string => {
+    try {
+      const buf = new Uint8Array(4);
+      crypto.getRandomValues(buf);
+      return Array.from(buf).map(b => b.toString(16).padStart(2, "0")).join("");
+    } catch {
+      // Fallback на крайний случай (старый браузер без crypto)
+      return "p" + Date.now().toString(16).slice(-7);
+    }
+  }, []);
+
+  const handleConfirmCreateProfile = React.useCallback(() => {
+    if (!currentUser) return;
+    const created = createProfile(currentUser.id, newProfileName, newProfileKind, accountPlan, genProfileId);
+    if (!created) {
+      const limit = maxProfilesForPlan(accountPlan);
+      setCreateProfileError(
+        `Достигнут лимит профилей для вашего тарифа (${limit}). ` +
+        (accountPlan === "trial" || accountPlan === "free"
+          ? "Перейдите на платный тариф, чтобы добавить больше."
+          : "Удалите неиспользуемый профиль, чтобы создать новый."),
+      );
+      return;
+    }
+    setProfiles(getProfiles(currentUser.id));
+    setShowCreateProfile(false);
+    // Сразу переключаемся на свежесозданный профиль (пустые данные).
+    void handleSwitchProfile(created.id);
+  }, [currentUser, newProfileName, newProfileKind, accountPlan, genProfileId, handleSwitchProfile]);
+
+  const handleDeleteProfile = React.useCallback((profileId: string) => {
+    if (!currentUser) return;
+    if (profileId === DEFAULT_PROFILE_ID) return;
+    const prof = profiles.find(p => p.id === profileId);
+    const label = prof ? prof.name : "профиль";
+    if (typeof window !== "undefined" &&
+        !window.confirm(`Удалить профиль «${label}» и все его данные (анализы, контент, история)? Это необратимо.`)) {
+      return;
+    }
+    const wasActive = activeProfileId === profileId;
+    deleteProfile(currentUser.id, profileId);
+    setProfiles(getProfiles(currentUser.id));
+    if (wasActive) void handleSwitchProfile(DEFAULT_PROFILE_ID);
+  }, [currentUser, profiles, activeProfileId, handleSwitchProfile]);
 
   // Check for existing session + restore saved data on mount
   useEffect(() => {
@@ -658,10 +786,19 @@ function MarketRadarDashboardInner() {
         console.warn("[workspace] resolve failed, falling back to own:", err);
       }
 
+      // Загружаем профили юзера и активный профиль (только для своей workspace).
+      let initialProfileId = DEFAULT_PROFILE_ID;
+      if (!ws || ws.isOwnWorkspace) {
+        const userProfiles = getProfiles(user.id);
+        setProfiles(userProfiles);
+        initialProfileId = getActiveProfileId(user.id);
+        setActiveProfileId(initialProfileId);
+      }
+
       // Если мы в чужой workspace — грузим из её user_data, не из localStorage.
       const hasCompany = ws && !ws.isOwnWorkspace
         ? await loadForeignWorkspaceData(ws.workspaceId, user.id)
-        : await loadAndApplyUserData(user.id);
+        : await loadAndApplyUserData(user.id, initialProfileId);
 
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
 
@@ -710,7 +847,8 @@ function MarketRadarDashboardInner() {
   // Save company to localStorage and state
   const saveMyCompany = (result: AnalysisResult, userId?: string) => {
     const resultWithDate: AnalysisResult = { ...result, analyzedAt: new Date().toISOString() };
-    const uid = userId ?? currentUser?.id;
+    // uid скоупится по активному профилю (default → суффикс пуст).
+    const uid = (userId ?? currentUser?.id ?? "") + profileSuffixRef.current;
 
     // Защита от cross-account leak: если в localStorage по этому userId
     // уже лежит ДРУГАЯ компания (другой URL), и сейчас сохраняем — это
@@ -928,7 +1066,7 @@ function MarketRadarDashboardInner() {
         setAnalysisHistory(prev => {
           const next = [historyEntry, ...prev].slice(0, 20); // keep last 20
           if (currentUser?.id) {
-            try { localStorage.setItem(`mr_analysis_history_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+            try { localStorage.setItem(`mr_analysis_history_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(next)); } catch { /* ignore */ }
             syncToServer("history", next);
           }
           return next;
@@ -937,7 +1075,7 @@ function MarketRadarDashboardInner() {
       saveMyCompany(result);
       setCompetitors([]);
       if (currentUser?.id) {
-        try { localStorage.removeItem(`mr_competitors_${currentUser.id}`); } catch { /* ignore */ }
+        try { localStorage.removeItem(`mr_competitors_${currentUser.id}${profileSuffixRef.current}`); } catch { /* ignore */ }
       }
       setSelectedCompetitor(null);
       setActiveNav("dashboard");
@@ -961,7 +1099,7 @@ function MarketRadarDashboardInner() {
     setAnalysisHistory(prev => {
       const next = prev.filter((_, i) => i !== idx);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_analysis_history_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_analysis_history_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(next)); } catch { /* ignore */ }
         syncToServer("history", next);
       }
       return next;
@@ -973,7 +1111,7 @@ function MarketRadarDashboardInner() {
     setCompetitors(prev => {
       const next = prev.filter((_, i) => i !== idx);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_competitors_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(next)); } catch { /* ignore */ }
         syncToServer("competitors", next);
       }
       return next;
@@ -984,7 +1122,7 @@ function MarketRadarDashboardInner() {
   const handleUpdateMyCompany = (next: AnalysisResult) => {
     setMyCompany(next);
     if (currentUser?.id) {
-      try { localStorage.setItem(`mr_company_${currentUser.id}`, JSON.stringify(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(`mr_company_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(next)); } catch { /* ignore */ }
       syncToServer("company", next);
     }
   };
@@ -994,7 +1132,7 @@ function MarketRadarDashboardInner() {
     setCompetitors(prev => {
       const updated = prev.map((c, i) => i === idx ? next : c);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_competitors_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(updated)); } catch { /* ignore */ }
         syncToServer("competitors", updated);
       }
       return updated;
@@ -1010,7 +1148,7 @@ function MarketRadarDashboardInner() {
       setCompetitors(prev => {
         const updated = [...prev, resultWithDate];
         if (currentUser?.id) {
-          try { localStorage.setItem(`mr_competitors_${currentUser.id}`, JSON.stringify(updated)); } catch { /* ignore */ }
+          try { localStorage.setItem(`mr_competitors_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(updated)); } catch { /* ignore */ }
           syncToServer("competitors", updated);
         }
         return updated;
@@ -1058,7 +1196,7 @@ function MarketRadarDashboardInner() {
       }
 
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_ta_${currentUser.id}_${audienceType}`, JSON.stringify(newAnalysis)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_ta_${currentUser.id}${profileSuffixRef.current}_${audienceType}`, JSON.stringify(newAnalysis)); } catch { /* ignore */ }
         syncToServer("ta", newAnalysis);
       }
       // Когда запущено из мастера (companyOverride передан) — НЕ переключаем
@@ -1091,7 +1229,7 @@ function MarketRadarDashboardInner() {
       setCjmData(json.data);
       setCjmError(null);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_cjm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_cjm_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(json.data)); } catch { /* ignore */ }
         syncToServer("cjm", json.data);
       }
     } catch (e: unknown) {
@@ -1124,7 +1262,7 @@ function MarketRadarDashboardInner() {
       setBenchmarksData(json.data);
       setBenchmarksError(null);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_benchmarks_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_benchmarks_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(json.data)); } catch { /* ignore */ }
         syncToServer("benchmarks", json.data);
       }
     } catch (e: unknown) {
@@ -1155,7 +1293,7 @@ function MarketRadarDashboardInner() {
       if (!json.ok) throw new Error(json.error ?? "Ошибка анализа СММ");
       setSmmAnalysis(json.data);
       if (currentUser?.id) {
-        try { localStorage.setItem(`mr_smm_${currentUser.id}`, JSON.stringify(json.data)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_smm_${currentUser.id}${profileSuffixRef.current}`, JSON.stringify(json.data)); } catch { /* ignore */ }
         syncToServer("smm", json.data);
       }
       if (!companyOverride) setActiveNav("smm-dashboard");
@@ -1901,7 +2039,7 @@ function MarketRadarDashboardInner() {
         setCompetitors([...compResults]);
       }
       if (compResults.length > 0 && updatedUser.id) {
-        try { localStorage.setItem(`mr_competitors_${updatedUser.id}`, JSON.stringify(compResults)); } catch { /* ignore */ }
+        try { localStorage.setItem(`mr_competitors_${updatedUser.id}${profileSuffixRef.current}`, JSON.stringify(compResults)); } catch { /* ignore */ }
         syncToServer("competitors", compResults);
       }
       setActiveNav("dashboard");
@@ -2049,7 +2187,11 @@ function MarketRadarDashboardInner() {
       } catch { /* ignore */ }
 
       setCurrentUser(user);
-      await loadAndApplyUserData(user.id);
+      const userProfiles = getProfiles(user.id);
+      setProfiles(userProfiles);
+      const pid = getActiveProfileId(user.id);
+      setActiveProfileId(pid);
+      await loadAndApplyUserData(user.id, pid);
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;
   }
@@ -2061,6 +2203,18 @@ function MarketRadarDashboardInner() {
   if (status === "loading") {
     return <LoadingView c={c} url={currentUrl} />;
   }
+
+  // Профили показываем только в своей workspace (в чужой команде — данные
+  // владельца, профили там не применимы).
+  const isOwnWs = !activeWorkspace || activeWorkspace.isOwnWorkspace;
+  const profileSidebarProps = isOwnWs ? {
+    profiles: profiles.map(p => ({ id: p.id, name: p.name, kind: p.kind })),
+    activeProfileId,
+    onSwitchProfile: handleSwitchProfile,
+    onCreateProfile: handleOpenCreateProfile,
+    onDeleteProfile: handleDeleteProfile,
+    canDeleteActiveProfile: activeProfileId !== DEFAULT_PROFILE_ID,
+  } : {};
 
   // Mobile chrome: top bar + drawer + bottom nav
   const mobileNav = (
@@ -2116,7 +2270,7 @@ function MarketRadarDashboardInner() {
           companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
           workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
           activeWorkspaceId={activeWorkspace?.workspaceId}
-          onSwitchWorkspace={handleSwitchWorkspace} />
+          onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
       </div>
 
       <MobileBottomNav activeNav={activeNav}
@@ -2135,7 +2289,7 @@ function MarketRadarDashboardInner() {
           <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
             workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
             activeWorkspaceId={activeWorkspace?.workspaceId}
-            onSwitchWorkspace={handleSwitchWorkspace} />
+            onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
           <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
             <CompetitorProfileView
               c={c}
@@ -2162,7 +2316,7 @@ function MarketRadarDashboardInner() {
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} hideBranding={whiteLabel?.enabled && whiteLabel.hideBranding}
         workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
         activeWorkspaceId={activeWorkspace?.workspaceId}
-        onSwitchWorkspace={handleSwitchWorkspace} />
+        onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <TrialBanner userId={currentUser?.id} />
         <PaywallGuard />
@@ -2367,6 +2521,82 @@ function MarketRadarDashboardInner() {
         )}
       </main>
       </div>
+      {/* Модалка создания нового профиля */}
+      {showCreateProfile && (
+        <div
+          onClick={() => setShowCreateProfile(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 440, background: "var(--background)", color: "var(--foreground)", borderRadius: 16, border: "1px solid var(--border)", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Новый профиль</div>
+            <div style={{ fontSize: 13, color: "var(--foreground-secondary)", marginBottom: 18 }}>
+              Отдельное пространство данных: свой анализ компании, конкуренты, ЦА, СММ, контент и брендбук. Токены — общие на аккаунт.
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {([
+                { k: "company", label: "🏢 Компания" },
+                { k: "personal", label: "👤 Личный бренд" },
+              ] as const).map(opt => (
+                <button
+                  key={opt.k}
+                  onClick={() => setNewProfileKind(opt.k)}
+                  style={{
+                    flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                    fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                    border: newProfileKind === opt.k ? "2px solid var(--primary)" : "1px solid var(--border)",
+                    background: newProfileKind === opt.k ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "transparent",
+                    color: newProfileKind === opt.k ? "var(--primary)" : "var(--foreground)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground-secondary)", display: "block", marginBottom: 6 }}>
+              Название профиля
+            </label>
+            <input
+              autoFocus
+              value={newProfileName}
+              onChange={e => { setNewProfileName(e.target.value); setCreateProfileError(null); }}
+              onKeyDown={e => { if (e.key === "Enter") handleConfirmCreateProfile(); }}
+              placeholder={newProfileKind === "personal" ? "Напр. Личный бренд руководителя" : "Напр. ГК Орлинк"}
+              maxLength={60}
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 10, fontSize: 14,
+                border: "1px solid var(--border)", background: "var(--background-secondary, var(--background))",
+                color: "var(--foreground)", outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+              }}
+            />
+
+            {createProfileError && (
+              <div style={{ marginTop: 12, fontSize: 13, color: "var(--warning, #D97706)", lineHeight: 1.4 }}>
+                {createProfileError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 22 }}>
+              <button
+                onClick={() => setShowCreateProfile(false)}
+                style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--foreground)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleConfirmCreateProfile}
+                style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Создать профиль
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* AI Chat Widget — floating, always visible when logged in */}
       <AIChatWidget
         myCompany={myCompany}

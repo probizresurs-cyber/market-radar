@@ -7,7 +7,7 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
-  Pin, Clock, Bot, Sparkles,
+  Pin, Clock, Bot, Sparkles, Trash2,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -82,6 +82,8 @@ export function SidebarComponent({
   c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl,
   user, onLogout, hideBranding,
   workspaces, activeWorkspaceId, onSwitchWorkspace,
+  profiles, activeProfileId, onSwitchProfile, onCreateProfile, onDeleteProfile,
+  canDeleteActiveProfile,
 }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
@@ -93,6 +95,14 @@ export function SidebarComponent({
   /** Активный workspace. По умолчанию = user.id. */
   activeWorkspaceId?: string;
   onSwitchWorkspace?: (workspaceId: string) => void;
+  /** Профили под одним аккаунтом (компания + личный бренд и т.п.). */
+  profiles?: Array<{ id: string; name: string; kind: "company" | "personal" }>;
+  activeProfileId?: string;
+  onSwitchProfile?: (profileId: string) => void;
+  onCreateProfile?: () => void;
+  onDeleteProfile?: (profileId: string) => void;
+  /** true если активный профиль можно удалить (не default). */
+  canDeleteActiveProfile?: boolean;
 }) {
   // Auto-expand groups that contain the active item
   const getDefaultExpanded = () => {
@@ -267,6 +277,57 @@ export function SidebarComponent({
           )}
         </div>
       </div>
+
+      {/* Profile switcher — профили под одним аккаунтом (компания / личный
+          бренд). Показываем только в своей workspace (parent передаёт profiles
+          лишь тогда). Дропдаун + кнопка «＋» создать + «корзина» удалить. */}
+      {profiles && profiles.length > 0 && onSwitchProfile && (
+        <div style={{ padding: "10px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.07em", marginBottom: 6, textTransform: "uppercase" }}>
+            Профиль
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <select
+              value={activeProfileId ?? "default"}
+              onChange={e => {
+                const v = e.target.value;
+                if (v === "__create__") { onCreateProfile?.(); return; }
+                onSwitchProfile(v);
+              }}
+              style={{
+                flex: 1, minWidth: 0,
+                padding: "8px 10px", borderRadius: 8,
+                border: "1px solid var(--sidebar-border)",
+                background: "var(--sidebar-hover)",
+                color: "var(--sidebar-fg)",
+                fontSize: 13, fontFamily: "inherit", cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              {profiles.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.kind === "personal" ? "👤 " : "🏢 "}{p.name}
+                </option>
+              ))}
+              {onCreateProfile && <option value="__create__">＋ Создать профиль…</option>}
+            </select>
+            {canDeleteActiveProfile && onDeleteProfile && activeProfileId && (
+              <button
+                onClick={() => onDeleteProfile(activeProfileId)}
+                title="Удалить профиль"
+                style={{
+                  flexShrink: 0, width: 32, height: 34, borderRadius: 8,
+                  border: "1px solid var(--sidebar-border)", background: "transparent",
+                  color: "#F87171", cursor: "pointer", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Nav */}
       <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
