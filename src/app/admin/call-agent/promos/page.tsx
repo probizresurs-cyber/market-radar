@@ -137,7 +137,7 @@ export default function CAPromosPage() {
       <div style={S.toolbar}>
         <button style={S.btn(true)} onClick={() => setShowForm(v => !v)}>
           {showForm ? <X size={14} /> : <Plus size={14} />}
-          {showForm ? "Отмена" : "+ Создать промокод"}
+          {showForm ? "Отмена" : "Создать промокод"}
         </button>
         <button style={S.btn()} onClick={load} disabled={loading}>
           <RefreshCcw size={13} /> {loading ? "Загрузка..." : "Обновить"}

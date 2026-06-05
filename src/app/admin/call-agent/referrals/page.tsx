@@ -132,7 +132,7 @@ export default function CARefPage() {
       <div style={S.toolbar}>
         <button style={S.btn(true)} onClick={() => setShowForm(v => !v)}>
           {showForm ? <X size={14} /> : <Plus size={14} />}
-          {showForm ? "Отмена" : "+ Создать реф-ссылку"}
+          {showForm ? "Отмена" : "Создать реф-ссылку"}
         </button>
         <button style={S.btn()} onClick={load} disabled={loading}>
           <RefreshCcw size={13} /> {loading ? "Загрузка..." : "Обновить"}
