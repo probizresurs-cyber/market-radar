@@ -133,7 +133,9 @@ export default function CAUsersPage() {
               <tbody>
                 {users.map((u, i) => (
                   <tr key={u.id} style={{ background: i % 2 === 0 ? "#131720" : "#0f1117" }}>
-                    <td style={{ ...S.td, fontWeight: 600, color: "#e2e8f0" }}>{u.login}</td>
+                    <td style={{ ...S.td, fontWeight: 600, color: "#e2e8f0" }}>
+                      <a href={'/admin/call-agent/users/' + u.id} style={{ color: '#0ea5e9', textDecoration: 'none', fontWeight: 600 }}>{u.login}</a>
+                    </td>
                     <td style={{ ...S.td, color: "#94a3b8" }}>{u.name || "—"}</td>
                     <td style={{ ...S.td, color: "#94a3b8" }}>{u.email || "—"}</td>
                     <td style={S.td}><span style={S.badge(roleColor(u.role))}>{u.role}</span></td>
