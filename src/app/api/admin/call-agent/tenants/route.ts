@@ -23,7 +23,7 @@ export async function GET() {
 
   const base = (process.env.CA_BASE_URL || "http://127.0.0.1:3030").replace(/\/+$/, "");
   const token = process.env.CA_ADMIN_TOKEN;
-  if (!token) {
+  if (!token || token.length < 16) {
     return NextResponse.json(
       { ok: false, error: "CA_ADMIN_TOKEN is not configured on MarketRadar server" },
       { status: 500 }

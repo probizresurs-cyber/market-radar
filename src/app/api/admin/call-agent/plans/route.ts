@@ -29,6 +29,10 @@ function caToken() {
   return process.env.CA_ADMIN_TOKEN || "";
 }
 
+function isTokenValid(token: string): boolean {
+  return token.length >= 16;
+}
+
 function tokenError() {
   return NextResponse.json(
     { ok: false, error: "CA_ADMIN_TOKEN is not configured on MarketRadar server" },
@@ -41,7 +45,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const token = caToken();
-  if (!token) return tokenError();
+  if (!token || !isTokenValid(token)) return tokenError();
 
   try {
     const r = await fetch(`${caBase()}/api/admin/plans`, {
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const token = caToken();
-  if (!token) return tokenError();
+  if (!token || !isTokenValid(token)) return tokenError();
 
   try {
     const body = await req.json();
@@ -83,7 +87,7 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const token = caToken();
-  if (!token) return tokenError();
+  if (!token || !isTokenValid(token)) return tokenError();
 
   try {
     const body = await req.json();

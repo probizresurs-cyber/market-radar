@@ -26,7 +26,7 @@ export async function GET() {
   const guard = await ensureAdmin();
   if (guard) return guard;
   const { base, token } = caEnv();
-  if (!token) return NextResponse.json({ ok: false, error: "CA_ADMIN_TOKEN not configured" }, { status: 500 });
+  if (!token || token.length < 16) return NextResponse.json({ ok: false, error: "CA_ADMIN_TOKEN not configured" }, { status: 500 });
 
   try {
     const r = await fetch(`${base}/api/admin/refs`, {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const guard = await ensureAdmin();
   if (guard) return guard;
   const { base, token } = caEnv();
-  if (!token) return NextResponse.json({ ok: false, error: "CA_ADMIN_TOKEN not configured" }, { status: 500 });
+  if (!token || token.length < 16) return NextResponse.json({ ok: false, error: "CA_ADMIN_TOKEN not configured" }, { status: 500 });
 
   const body = await req.text();
   try {

@@ -33,7 +33,7 @@ export async function GET() {
 
   const base = await getBase();
   const token = await getToken();
-  if (!token) {
+  if (!token || token.length < 16) {
     return NextResponse.json(
       { ok: false, error: "CA_ADMIN_TOKEN is not configured on MarketRadar server" },
       { status: 500 }
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
   const base = await getBase();
   const token = await getToken();
-  if (!token) {
+  if (!token || token.length < 16) {
     return NextResponse.json(
       { ok: false, error: "CA_ADMIN_TOKEN is not configured on MarketRadar server" },
       { status: 500 }
