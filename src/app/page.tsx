@@ -659,8 +659,18 @@ function MarketRadarDashboardInner() {
     setAnalysisHistory([]);
 
     setStatus("loading");
-    await loadAndApplyUserData(currentUser.id, profileId);
+    const hasData = await loadAndApplyUserData(currentUser.id, profileId);
     setStatus("done");
+    // Личный бренд без анализа → сразу на wizard, не на пустой дашборд.
+    // Читаем из localStorage (не из profiles state) чтобы увидеть только что
+    // созданный профиль, который ещё не попал в React state.
+    try {
+      const freshProfiles = getProfiles(currentUser.id);
+      const newProfile = freshProfiles.find(p => p.id === profileId);
+      if (!hasData && newProfile?.kind === "personal") {
+        setActiveNav("new-analysis");
+      }
+    } catch { /* ignore */ }
   }, [currentUser, activeProfileId, activeWorkspace, loadAndApplyUserData]);
 
   // Открыть модалку создания профиля. Заодно подтягиваем актуальный план
@@ -907,11 +917,12 @@ function MarketRadarDashboardInner() {
     if (guardReadOnly("Запуск анализа")) return;
 
     // ── Личный бренд: готовим extra-данные ───────────────────────────────────
+    // ap нужен и для parentCompanyContext, и ниже для fallback URL
+    const ap = profiles.find(p => p.id === activeProfileId);
     let personalBrandExtra: { name: string; position: string; parentCompanyContext?: string } | undefined;
     if (opts.personalBrand) {
       let parentCompanyContext: string | undefined;
       // Подтягиваем данные родительской компании из localStorage
-      const ap = profiles.find(p => p.id === activeProfileId);
       if (ap?.parentProfileId && currentUser) {
         const parentSuffix = profileLsSuffix(ap.parentProfileId);
         try {
@@ -935,7 +946,18 @@ function MarketRadarDashboardInner() {
 
     // 1) Основной анализ. Получаем result ЯВНО, не из React state —
     //    state ещё не обновится к моменту вызова дочерних модулей.
-    const analysisUrl = opts.personalBrand?.personalUrl || opts.url;
+    // Для личного бренда: если личного сайта нет — берём сайт родительской компании
+    // как дополнительный контекст для скрапинга (Claude увидит нишу и домен).
+    let analysisUrl = opts.personalBrand?.personalUrl || opts.url;
+    if (opts.personalBrand && !analysisUrl && ap?.parentProfileId && currentUser) {
+      try {
+        const raw = localStorage.getItem(`mr_company_${currentUser.id}${profileLsSuffix(ap.parentProfileId)}`);
+        if (raw) {
+          const parentData = JSON.parse(raw) as AnalysisResult;
+          analysisUrl = parentData.company.url || "";
+        }
+      } catch { /* игнорируем */ }
+    }
     const result = await handleNewAnalysis(analysisUrl, personalBrandExtra);
     if (!result) {
       console.warn("[wizard] основной анализ не удался, пропускаем доп.модули");
@@ -1213,6 +1235,9 @@ function MarketRadarDashboardInner() {
     // Когда вызывается из мастера сразу после handleNewAnalysis — React-state
     // ещё не успел обновиться, поэтому принимаем companyOverride явно.
     const company = companyOverride ?? myCompany;
+    const isPersonal = profiles.find(p => p.id === activeProfileId)?.kind === "personal";
+    // Для личного бренда: description = позиционирование эксперта, используем как niche
+    const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
     setIsTAAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-ta", {
@@ -1221,9 +1246,10 @@ function MarketRadarDashboardInner() {
         body: JSON.stringify({
           companyName: company?.company.name ?? "",
           companyUrl: company?.company.url ?? "",
-          niche,
+          niche: effectiveNiche,
           extraContext,
           audienceType,
+          ...(isPersonal ? { profileKind: "personal" } : {}),
         }),
       });
       const json = await jsonOrThrow(res);
@@ -1321,6 +1347,9 @@ function MarketRadarDashboardInner() {
     // Принимаем companyOverride чтобы работало сразу после handleNewAnalysis
     // (React state ещё не обновился в момент вызова из мастера).
     const company = companyOverride ?? myCompany;
+    const isPersonal = profiles.find(p => p.id === activeProfileId)?.kind === "personal";
+    // Для личного бренда: description = позиционирование, используем как niche
+    const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
     setIsSMMAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-smm", {
@@ -1329,9 +1358,10 @@ function MarketRadarDashboardInner() {
         body: JSON.stringify({
           companyName: company?.company.name ?? "",
           companyUrl: company?.company.url ?? "",
-          niche,
+          niche: effectiveNiche,
           socialLinks: links,
           websiteContext: company?.company.description ?? "",
+          ...(isPersonal ? { profileKind: "personal" } : {}),
         }),
       });
       const json = await jsonOrThrow(res);
@@ -2401,7 +2431,35 @@ function MarketRadarDashboardInner() {
             />
           );
         })()}
-        {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
+        {activeNav === "dashboard" && (() => {
+          const dashAp = profiles.find(p => p.id === activeProfileId);
+          if (myCompany) return <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} />;
+          if (dashAp?.kind === "personal") {
+            const parentName = dashAp.parentProfileId
+              ? (profiles.find(p => p.id === dashAp.parentProfileId)?.name ?? "")
+              : "";
+            return (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 320, gap: 16, padding: "40px 24px", textAlign: "center" }}>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "color-mix(in oklch, var(--primary) 12%, transparent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <User size={28} color="var(--primary)" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--fg)", marginBottom: 6 }}>Запустите анализ личного бренда</div>
+                  <div style={{ fontSize: 14, color: "var(--muted)", maxWidth: 380, lineHeight: 1.5 }}>
+                    {parentName ? `Анализ будет выполнен с учётом данных компании «${parentName}» как контекста.` : "Укажите имя, должность и получите стратегию личного бренда, ЦА и план контента."}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveNav("new-analysis")}
+                  style={{ padding: "10px 24px", borderRadius: 10, background: "var(--primary)", color: "#fff", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600 }}
+                >
+                  Начать анализ
+                </button>
+              </div>
+            );
+          }
+          return <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />;
+        })()}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
         {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}

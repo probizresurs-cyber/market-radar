@@ -8,6 +8,21 @@ import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+const SYSTEM_PROMPT_PERSONAL = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ведущий стратег по развитию личного бренда в социальных сетях. Ты помогаешь экспертам, консультантам, предпринимателям и руководителям строить сильный персональный бренд и монетизировать свою экспертизу через контент.
+
+Ты глубоко понимаешь:
+- чем личный бренд отличается от корпоративного: интимность, личный опыт, история, мнение
+- как позиционировать эксперта: его уникальный взгляд, «авторский» стиль, точки зрения
+- как создавать контент от первого лица: личные истории, кейсы, выводы из практики
+- психологию подписчика личного бренда: что заставляет доверять, что заставляет купить
+- как через соцсети строить воронку к консультациям, курсам, выступлениям
+
+Ты даёшь конкретные рекомендации под конкретную экспертизу. Никакой воды.
+
+ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток. Твой ответ должен начинаться с { и заканчиваться }.`;
+
 const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 
 Ты — ведущий ментор по личному и корпоративному брендингу в социальных сетях. Ты помогаешь компаниям и экспертам строить мощные, узнаваемые, прибыльные бренды в соцсетях.
@@ -36,6 +51,133 @@ type RealSocialData = {
   vk: SMMRealStats["vk"] | null;
   telegram: SMMRealStats["telegram"] | null;
 };
+
+function buildPromptPersonal(
+  personName: string,
+  niche: string,
+  socialLinks: SMMSocialLinks,
+  websiteContext: string,
+  realData: RealSocialData,
+): string {
+  const providedPlatforms = Object.entries(socialLinks)
+    .filter(([, v]) => v && v.trim())
+    .map(([k, v]) => `- ${PLATFORM_LABELS[k] ?? k}: ${v}`)
+    .join("\n");
+
+  const platformList = Object.keys(socialLinks)
+    .filter(k => socialLinks[k as keyof SMMSocialLinks]?.trim())
+    .map(k => `"${k}"`)
+    .join(", ");
+
+  const realLines: string[] = [];
+  if (realData.vk) {
+    realLines.push(`ВКонтакте — реальные данные:`);
+    realLines.push(`  • Подписчиков: ${realData.vk.subscribers.toLocaleString("ru-RU")}`);
+    if (realData.vk.posts30d > 0) realLines.push(`  • Постов за 30 дней: ${realData.vk.posts30d}`);
+  }
+  if (realData.telegram) {
+    realLines.push(`Telegram — реальные данные:`);
+    realLines.push(`  • Подписчиков: ${realData.telegram.subscribers.toLocaleString("ru-RU")}`);
+    if (realData.telegram.posts30d > 0) realLines.push(`  • Постов: ${realData.telegram.posts30d}`);
+  }
+  const realBlock = realLines.length > 0
+    ? `\nРеальная статистика аккаунтов (получена автоматически):\n${realLines.join("\n")}\n`
+    : "";
+
+  return `Разработай персональную SMM-стратегию для личного бренда эксперта.
+
+Эксперт: ${personName || "—"}
+Экспертиза / ниша: ${niche || "—"}
+
+Аккаунты в соцсетях:
+${providedPlatforms || "(пока не указаны — дай рекомендации с нуля)"}
+${realBlock}
+${websiteContext ? `Дополнительный контекст:\n${websiteContext}\n` : ""}
+ВАЖНО: Это ЛИЧНЫЙ БРЕНД, не компания. Всё позиционирование должно строиться вокруг ЧЕЛОВЕКА:
+- Голос от первого лица, личные истории и кейсы
+- Экспертное мнение, авторский взгляд, острые тезисы
+- Доверие строится через личность, а не через корпоративный образ
+- Монетизация: консультации, менторство, курсы, выступления, партнёрства
+
+Твоя задача:
+1. Определить архетип и позиционирование личного бренда
+2. Разработать контент-стратегию от первого лица (истории, экспертиза, за кадром)
+3. Для КАЖДОЙ указанной соцсети — конкретную стратегию с примерами постов от первого лица
+4. Дать quick wins и план на 30 дней
+5. Указать ошибки личных брендов в этой нише
+
+Верни результат СТРОГО в JSON формате:
+{
+  "brandIdentity": {
+    "archetype": "архетип личного бренда (Мудрец / Герой / Бунтарь / Творец / ...)",
+    "positioning": "позиционирование эксперта в 1-2 предложениях от третьего лица",
+    "uniqueValue": "в чём уникальность этого эксперта — его опыт, подход, точка зрения",
+    "toneOfVoice": ["характеристика голоса 1", "характеристика 2", "характеристика 3", "характеристика 4"],
+    "visualStyle": "описание визуального стиля личного бренда (цвета, эстетика, настроение)",
+    "brandKeywords": ["слово 1", "слово 2", "слово 3", "слово 4", "слово 5"]
+  },
+  "contentStrategy": {
+    "bigIdea": "большая идея личного бренда — вокруг чего строится всё",
+    "contentMission": "зачем этот эксперт ведёт соцсети — какую ценность даёт подписчикам",
+    "audienceProblems": ["боль аудитории 1", "боль 2", "боль 3", "боль 4"],
+    "storytellingAngles": ["история/угол 1 от первого лица", "угол 2", "угол 3", "угол 4", "угол 5"],
+    "contentMatrix": [
+      {"type": "Экспертный", "goal": "формирование авторитета", "share": "35%"},
+      {"type": "Личный/закулисный", "goal": "доверие и близость", "share": "25%"},
+      {"type": "Образовательный", "goal": "польза и виральность", "share": "20%"},
+      {"type": "Продающий", "goal": "конверсия в клиентов", "share": "20%"}
+    ]
+  },
+  "platformStrategies": [
+    {
+      "platform": "vk | instagram | telegram | facebook | tiktok | youtube",
+      "platformLabel": "ВКонтакте | Instagram | ...",
+      "url": "ссылка из ввода",
+      "audienceFit": "почему ЦА эксперта активна именно здесь",
+      "contentFormat": "форматы которые работают для личного бренда на этой платформе",
+      "postingFrequency": "рекомендуемая частота",
+      "toneOfVoice": "тон личного бренда именно для этой платформы",
+      "contentPillars": ["столп 1", "столп 2", "столп 3", "столп 4", "столп 5"],
+      "examplePosts": [
+        "пример поста от первого лица — готов к публикации сегодня",
+        "пример поста 2",
+        "пример поста 3"
+      ],
+      "hashtagStrategy": "стратегия хэштегов для личного бренда",
+      "growthTactics": ["тактика роста 1", "тактика 2", "тактика 3", "тактика 4"],
+      "metricsToTrack": ["KPI 1", "KPI 2", "KPI 3"],
+      "warnings": ["чего НЕ делать эксперту на этой платформе 1", "ошибка 2"]
+    }
+  ],
+  "quickWins": [
+    "конкретное действие на день 1",
+    "действие на день 2",
+    "действие на день 3",
+    "действие на день 4",
+    "действие на день 5"
+  ],
+  "thirtyDayPlan": [
+    "Неделя 1: фокус и задачи",
+    "Неделя 2: фокус и задачи",
+    "Неделя 3: фокус и задачи",
+    "Неделя 4: фокус и задачи"
+  ],
+  "redFlags": [
+    "типичная ошибка личного бренда в этой нише 1",
+    "ошибка 2",
+    "ошибка 3"
+  ],
+  "inspirationAccounts": [
+    "аккаунт эксперта 1 (платформа) — почему стоит изучить",
+    "аккаунт 2",
+    "аккаунт 3",
+    "аккаунт 4"
+  ]
+}
+
+Заполни все поля максимально конкретно. Примеры постов — от первого лица, готовые к публикации.
+Платформ в platformStrategies: ${platformList || "дай общие рекомендации по 2-3 ключевым для этой ниши"}.`;
+}
 
 function buildPrompt(
   companyName: string,
@@ -172,11 +314,19 @@ export async function POST(req: Request) {
     const niche: string = body.niche ?? "";
     const websiteContext: string = body.websiteContext ?? "";
     const socialLinks: SMMSocialLinks = body.socialLinks ?? {};
+    const isPersonal: boolean = body.profileKind === "personal";
 
     const hasAny = Object.values(socialLinks).some(v => typeof v === "string" && v.trim());
-    if (!hasAny && !niche.trim()) {
+    // Для личного бренда socseti необязательны — достаточно ниши/описания
+    if (!isPersonal && !hasAny && !niche.trim()) {
       return NextResponse.json(
         { ok: false, error: "Укажите хотя бы одну ссылку на соцсеть или опишите нишу" },
+        { status: 400 },
+      );
+    }
+    if (isPersonal && !companyName.trim() && !niche.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "Имя и экспертиза обязательны для анализа личного бренда" },
         { status: 400 },
       );
     }
@@ -209,8 +359,13 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext, realData) },
+            { role: "system", content: isPersonal ? SYSTEM_PROMPT_PERSONAL : SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: isPersonal
+                ? buildPromptPersonal(companyName, niche || websiteContext, socialLinks, websiteContext, realData)
+                : buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext, realData),
+            },
           ],
           temperature: 0.85,
           max_tokens: 7000,
@@ -254,7 +409,7 @@ export async function POST(req: Request) {
       },
     };
 
-    await access.log({ endpoint: "analyze-smm", model: "gpt-4o-mini" });
+    await access.log({ endpoint: isPersonal ? "analyze-smm-personal" : "analyze-smm", model: "gpt-4o-mini" });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const { message, status } = friendlyAiError(err);
