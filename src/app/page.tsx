@@ -239,6 +239,13 @@ function MarketRadarDashboardInner() {
   // бренд и т.п.). default → ключи без суффикса (как было). Активный профиль
   // даёт суффикс, который приклеивается к baseId всех ключей данных.
   const [activeProfileId, setActiveProfileId] = useState<string>(DEFAULT_PROFILE_ID);
+  // Тип активного профиля — отдельное состояние, а НЕ derived из profiles.find()
+  // на каждом рендере. Деривация была хрупкой: при создании/переключении профиля
+  // profiles state и activeProfileId обновлялись в разных тиках, и lookup
+  // возвращал undefined → kind по умолчанию "company" → визард показывал шаг
+  // URL вместо личного бренда. Теперь kind задаётся явно и синхронно везде, где
+  // меняется активный профиль (создание, переключение, init, workspace).
+  const [activeProfileKind, setActiveProfileKind] = useState<"company" | "personal">("company");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const profileSuffix = profileLsSuffix(activeProfileId);
   // Модалка создания профиля
@@ -376,15 +383,10 @@ function MarketRadarDashboardInner() {
   // handleSwitchProfile, т.к. profiles state может ещё не обновиться
   // в момент первого рендера после создания профиля.
   useEffect(() => {
-    if (!currentUser) return;
-    // Читаем актуальный список из localStorage (не из stale React state)
-    const freshProfiles = getProfiles(currentUser.id);
-    const ap = freshProfiles.find(p => p.id === activeProfileId);
-    if (ap?.kind === "personal" && !myCompany && activeNav === "dashboard" && !isAnalyzing) {
+    if (activeProfileKind === "personal" && !myCompany && activeNav === "dashboard" && !isAnalyzing) {
       setActiveNav("new-analysis");
     }
-  }, [activeProfileId, myCompany, currentUser]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProfileKind, myCompany, activeNav, isAnalyzing]);
 
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
@@ -602,6 +604,7 @@ function MarketRadarDashboardInner() {
     // прошлого профиля (data-leak в чужую команду). Также чистим UI-стейт.
     setActiveProfileSuffixForSync("");
     setActiveProfileId(DEFAULT_PROFILE_ID);
+    setActiveProfileKind("company");
     let data: Record<string, unknown> = {};
     try {
       data = (await loadAllFromServer(workspaceId)) ?? {};
@@ -639,8 +642,10 @@ function MarketRadarDashboardInner() {
     if (isOwn) {
       // Возвращаясь в свою workspace — восстанавливаем активный профиль.
       const pid = getActiveProfileId(currentUser.id);
-      setProfiles(getProfiles(currentUser.id));
+      const wsProfiles = getProfiles(currentUser.id);
+      setProfiles(wsProfiles);
       setActiveProfileId(pid);
+      setActiveProfileKind(wsProfiles.find(p => p.id === pid)?.kind ?? "company");
       await loadAndApplyUserData(currentUser.id, pid);
     } else {
       await loadForeignWorkspaceData(workspaceId, currentUser.id);
@@ -658,6 +663,14 @@ function MarketRadarDashboardInner() {
 
     persistActiveProfile(currentUser.id, profileId);
     setActiveProfileId(profileId);
+    // Тип профиля — синхронно из localStorage (профиль уже сохранён к этому
+    // моменту, и при создании, и при переключении). Это то, что читает визард.
+    const switchProfiles = getProfiles(currentUser.id);
+    const switchKind = switchProfiles.find(p => p.id === profileId)?.kind ?? "company";
+    setActiveProfileKind(switchKind);
+    // Личный бренд → сразу визард (синхронно, до async-загрузки данных).
+    // Иначе на миг (или дольше, при стейле) виден пустой дашборд / форма URL.
+    if (switchKind === "personal") setActiveNav("new-analysis");
 
     // Полный сброс состояния модулей — чтобы данные одного профиля не
     // «протекли» в другой до завершения загрузки.
@@ -677,16 +690,16 @@ function MarketRadarDashboardInner() {
     setStatus("loading");
     const hasData = await loadAndApplyUserData(currentUser.id, profileId);
     setStatus("done");
-    // Личный бренд без анализа → сразу на wizard, не на пустой дашборд.
-    // Читаем из localStorage (не из profiles state) чтобы увидеть только что
-    // созданный профиль, который ещё не попал в React state.
-    try {
-      const freshProfiles = getProfiles(currentUser.id);
-      const newProfile = freshProfiles.find(p => p.id === profileId);
-      if (!hasData && newProfile?.kind === "personal") {
-        setActiveNav("new-analysis");
-      }
-    } catch { /* ignore */ }
+    // Коррекция после загрузки данных:
+    //  • личный бренд С данными → дашборд (синхронный new-analysis был
+    //    оптимистичным для пустого профиля, теперь возвращаем дашборд);
+    //  • компания → всегда дашборд.
+    if (switchKind === "personal") {
+      if (hasData) setActiveNav("dashboard");
+      // (без данных оставляем визард, уже выставленный синхронно выше)
+    } else {
+      setActiveNav("dashboard");
+    }
   }, [currentUser, activeProfileId, activeWorkspace, loadAndApplyUserData]);
 
   // Открыть модалку создания профиля. Заодно подтягиваем актуальный план
@@ -731,12 +744,11 @@ function MarketRadarDashboardInner() {
     }
     setProfiles(getProfiles(currentUser.id));
     setShowCreateProfile(false);
-    // Личный бренд → визард сразу (синхронно, до async handleSwitchProfile).
-    // handleSwitchProfile асинхронный, его setActiveNav может не сработать из-за
-    // race с другими state-обновлениями. Этот вызов попадает в тот же React-батч.
-    if (created.kind === "personal") {
-      setActiveNav("new-analysis");
-    }
+    // Тип и nav задаём синхронно из created.kind — самого надёжного источника
+    // (не зависит от getProfiles-таймингов). handleSwitchProfile продублирует
+    // это, но здесь оно гарантированно в том же React-батче, что и setProfiles.
+    setActiveProfileKind(created.kind);
+    if (created.kind === "personal") setActiveNav("new-analysis");
     // Сразу переключаемся на свежесозданный профиль (пустые данные).
     void handleSwitchProfile(created.id);
   }, [currentUser, newProfileName, newProfileKind, newProfileParentId, accountPlan, genProfileId, handleSwitchProfile]);
@@ -833,6 +845,7 @@ function MarketRadarDashboardInner() {
         setProfiles(userProfiles);
         initialProfileId = getActiveProfileId(user.id);
         setActiveProfileId(initialProfileId);
+        setActiveProfileKind(userProfiles.find(p => p.id === initialProfileId)?.kind ?? "company");
       }
 
       // Если мы в чужой workspace — грузим из её user_data, не из localStorage.
@@ -939,8 +952,11 @@ function MarketRadarDashboardInner() {
     if (guardReadOnly("Запуск анализа")) return;
 
     // ── Личный бренд: готовим extra-данные ───────────────────────────────────
-    // ap нужен и для parentCompanyContext, и ниже для fallback URL
-    const ap = profiles.find(p => p.id === activeProfileId);
+    // ap нужен и для parentCompanyContext, и ниже для fallback URL.
+    // Читаем из localStorage с fallback на profiles state — на случай если
+    // React state ещё не обновился (свежесозданный профиль).
+    const ap = (currentUser ? getProfiles(currentUser.id).find(p => p.id === activeProfileId) : undefined)
+      ?? profiles.find(p => p.id === activeProfileId);
     let personalBrandExtra: { name: string; position: string; parentCompanyContext?: string } | undefined;
     if (opts.personalBrand) {
       let parentCompanyContext: string | undefined;
@@ -1257,7 +1273,7 @@ function MarketRadarDashboardInner() {
     // Когда вызывается из мастера сразу после handleNewAnalysis — React-state
     // ещё не успел обновиться, поэтому принимаем companyOverride явно.
     const company = companyOverride ?? myCompany;
-    const isPersonal = profiles.find(p => p.id === activeProfileId)?.kind === "personal";
+    const isPersonal = activeProfileKind === "personal";
     // Для личного бренда: description = позиционирование эксперта, используем как niche
     const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
     setIsTAAnalyzing(true);
@@ -1369,7 +1385,7 @@ function MarketRadarDashboardInner() {
     // Принимаем companyOverride чтобы работало сразу после handleNewAnalysis
     // (React state ещё не обновился в момент вызова из мастера).
     const company = companyOverride ?? myCompany;
-    const isPersonal = profiles.find(p => p.id === activeProfileId)?.kind === "personal";
+    const isPersonal = activeProfileKind === "personal";
     // Для личного бренда: description = позиционирование, используем как niche
     const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
     setIsSMMAnalyzing(true);
@@ -2288,6 +2304,7 @@ function MarketRadarDashboardInner() {
       setProfiles(userProfiles);
       const pid = getActiveProfileId(user.id);
       setActiveProfileId(pid);
+      setActiveProfileKind(userProfiles.find(p => p.id === pid)?.kind ?? "company");
       await loadAndApplyUserData(user.id, pid);
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
     }} onRegister={() => setAppScreen("register")} onBack={() => setAppScreen("landing")} />;
@@ -2438,10 +2455,12 @@ function MarketRadarDashboardInner() {
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "agents" && <AgentHubView c={c} />}
         {activeNav === "new-analysis" && (() => {
-          // Читаем из localStorage — надёжнее чем из profiles state когда профиль
-          // только что создан и React state ещё мог не обновиться.
+          // Тип профиля — из авторитетного activeProfileKind (не из хрупкого
+          // lookup по profiles, который мог дать undefined при свежем профиле).
+          // profiles нужен ТОЛЬКО для имени родительской компании.
           const freshProfiles = currentUser ? getProfiles(currentUser.id) : profiles;
           const ap = freshProfiles.find(p => p.id === activeProfileId) ?? profiles.find(p => p.id === activeProfileId);
+          const isPersonalProfile = activeProfileKind === "personal";
           const parentProfileName = ap?.parentProfileId
             ? (freshProfiles.find(p => p.id === ap.parentProfileId)?.name ?? profiles.find(p => p.id === ap.parentProfileId)?.name)
             : undefined;
@@ -2450,8 +2469,8 @@ function MarketRadarDashboardInner() {
               c={c}
               onSubmit={handleNewAnalysisWithOptions}
               isAnalyzing={isAnalyzing}
-              initialUrl={ap?.kind !== "personal" ? (currentUser?.companyUrl ?? currentUrl ?? undefined) : undefined}
-              profileKind={ap?.kind ?? "company"}
+              initialUrl={!isPersonalProfile ? (currentUser?.companyUrl ?? currentUrl ?? undefined) : undefined}
+              profileKind={activeProfileKind}
               parentProfileName={parentProfileName}
             />
           );
@@ -2460,8 +2479,8 @@ function MarketRadarDashboardInner() {
           const freshProfiles2 = currentUser ? getProfiles(currentUser.id) : profiles;
           const dashAp = freshProfiles2.find(p => p.id === activeProfileId) ?? profiles.find(p => p.id === activeProfileId);
           if (myCompany) return <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} />;
-          if (dashAp?.kind === "personal") {
-            const parentName = dashAp.parentProfileId
+          if (activeProfileKind === "personal") {
+            const parentName = dashAp?.parentProfileId
               ? (profiles.find(p => p.id === dashAp.parentProfileId)?.name ?? "")
               : "";
             return (
