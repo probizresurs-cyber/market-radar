@@ -1193,6 +1193,13 @@ function MarketRadarDashboardInner() {
       return result;
     } catch (err) {
       console.error("[handleNewAnalysis]", err);
+      // Раньше ошибка глоталась молча (только console) — пользователь видел
+      // лишь остановку спиннера и думал «ничего не происходит». Показываем.
+      toast({
+        kind: "error",
+        title: personalBrand ? "Анализ личного бренда не удался" : "Анализ не удался",
+        description: err instanceof Error ? err.message : "Неизвестная ошибка. Проверьте консоль.",
+      });
       return null;
     } finally {
       setIsAnalyzing(false);
