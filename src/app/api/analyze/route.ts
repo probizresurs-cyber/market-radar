@@ -42,6 +42,14 @@ export async function POST(request: NextRequest) {
     if (!personName?.trim()) {
       return NextResponse.json({ ok: false, error: "Имя обязательно для анализа личного бренда" }, { status: 400 });
     }
+    // Без ключа SDK молча ретраит ~15с и падает с непонятной ошибкой —
+    // даём быструю явную ошибку (как в обычной ветке анализа ниже).
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { ok: false, error: "ANTHROPIC_API_KEY is not configured on the server" },
+        { status: 500 },
+      );
+    }
     try {
       // Личный сайт — опционально, парсим с try/catch
       let scrapedSite;
