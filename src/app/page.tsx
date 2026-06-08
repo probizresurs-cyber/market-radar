@@ -370,6 +370,22 @@ function MarketRadarDashboardInner() {
   // профиль без stale-closure. dataUid() = currentUser.id + suffix активного профиля.
   const profileSuffixRef = useRef(profileSuffix);
   useEffect(() => { profileSuffixRef.current = profileSuffix; }, [profileSuffix]);
+
+  // Если текущий профиль — личный бренд И нет анализа И мы на дашборде →
+  // автоматически переходим на wizard. useEffect надёжнее чем проверка в
+  // handleSwitchProfile, т.к. profiles state может ещё не обновиться
+  // в момент первого рендера после создания профиля.
+  useEffect(() => {
+    if (!currentUser) return;
+    // Читаем актуальный список из localStorage (не из stale React state)
+    const freshProfiles = getProfiles(currentUser.id);
+    const ap = freshProfiles.find(p => p.id === activeProfileId);
+    if (ap?.kind === "personal" && !myCompany && activeNav === "dashboard" && !isAnalyzing) {
+      setActiveNav("new-analysis");
+    }
+  }, [activeProfileId, myCompany, currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
@@ -2416,9 +2432,12 @@ function MarketRadarDashboardInner() {
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "agents" && <AgentHubView c={c} />}
         {activeNav === "new-analysis" && (() => {
-          const ap = profiles.find(p => p.id === activeProfileId);
+          // Читаем из localStorage — надёжнее чем из profiles state когда профиль
+          // только что создан и React state ещё мог не обновиться.
+          const freshProfiles = currentUser ? getProfiles(currentUser.id) : profiles;
+          const ap = freshProfiles.find(p => p.id === activeProfileId) ?? profiles.find(p => p.id === activeProfileId);
           const parentProfileName = ap?.parentProfileId
-            ? profiles.find(p => p.id === ap.parentProfileId)?.name
+            ? (freshProfiles.find(p => p.id === ap.parentProfileId)?.name ?? profiles.find(p => p.id === ap.parentProfileId)?.name)
             : undefined;
           return (
             <NewAnalysisWizard
@@ -2432,7 +2451,8 @@ function MarketRadarDashboardInner() {
           );
         })()}
         {activeNav === "dashboard" && (() => {
-          const dashAp = profiles.find(p => p.id === activeProfileId);
+          const freshProfiles2 = currentUser ? getProfiles(currentUser.id) : profiles;
+          const dashAp = freshProfiles2.find(p => p.id === activeProfileId) ?? profiles.find(p => p.id === activeProfileId);
           if (myCompany) return <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} />;
           if (dashAp?.kind === "personal") {
             const parentName = dashAp.parentProfileId
