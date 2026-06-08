@@ -25,6 +25,9 @@ export interface Profile {
   name: string;        // «Основной», «Личный бренд», ...
   kind: "company" | "personal"; // компания или личный бренд (влияет на иконку/подсказки)
   createdAt: string;
+  /** Для personal-профилей — ID родительского company-профиля.
+   *  AI использует данные компании как контекст при анализе личного бренда. */
+  parentProfileId?: string;
 }
 
 /** Лимит профилей по плану. Trial — основной + 2 доп. = 3. Платные — 10. */
@@ -101,6 +104,8 @@ export function createProfile(
   kind: Profile["kind"],
   plan: string | null | undefined,
   genId: () => string,
+  /** Для personal-профиля: ID company-профиля, чьи данные использовать как контекст */
+  parentProfileId?: string,
 ): Profile | null {
   const profiles = getProfiles(uid);
   if (profiles.length >= maxProfilesForPlan(plan)) return null;
@@ -109,6 +114,7 @@ export function createProfile(
     name: name.trim().slice(0, 60) || (kind === "personal" ? "Личный бренд" : "Новая компания"),
     kind,
     createdAt: new Date().toISOString(),
+    ...(parentProfileId && kind === "personal" ? { parentProfileId } : {}),
   };
   saveProfiles(uid, [...profiles, profile]);
   return profile;

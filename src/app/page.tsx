@@ -246,6 +246,7 @@ function MarketRadarDashboardInner() {
   const [newProfileName, setNewProfileName] = useState("");
   const [newProfileKind, setNewProfileKind] = useState<"company" | "personal">("personal");
   const [createProfileError, setCreateProfileError] = useState<string | null>(null);
+  const [newProfileParentId, setNewProfileParentId] = useState<string>("");
   const [accountPlan, setAccountPlan] = useState<string>("trial");
 
   // baseId = workspace-владелец или сам юзер. profileSuffix приклеивается ниже.
@@ -667,6 +668,7 @@ function MarketRadarDashboardInner() {
   const handleOpenCreateProfile = React.useCallback(() => {
     setNewProfileName("");
     setNewProfileKind("personal");
+    setNewProfileParentId("");
     setCreateProfileError(null);
     setShowCreateProfile(true);
     fetch("/api/subscription", { cache: "no-store", credentials: "include" })
@@ -689,7 +691,8 @@ function MarketRadarDashboardInner() {
 
   const handleConfirmCreateProfile = React.useCallback(() => {
     if (!currentUser) return;
-    const created = createProfile(currentUser.id, newProfileName, newProfileKind, accountPlan, genProfileId);
+    const parentId = newProfileKind === "personal" && newProfileParentId ? newProfileParentId : undefined;
+    const created = createProfile(currentUser.id, newProfileName, newProfileKind, accountPlan, genProfileId, parentId);
     if (!created) {
       const limit = maxProfilesForPlan(accountPlan);
       setCreateProfileError(
@@ -704,7 +707,7 @@ function MarketRadarDashboardInner() {
     setShowCreateProfile(false);
     // Сразу переключаемся на свежесозданный профиль (пустые данные).
     void handleSwitchProfile(created.id);
-  }, [currentUser, newProfileName, newProfileKind, accountPlan, genProfileId, handleSwitchProfile]);
+  }, [currentUser, newProfileName, newProfileKind, newProfileParentId, accountPlan, genProfileId, handleSwitchProfile]);
 
   const handleDeleteProfile = React.useCallback((profileId: string) => {
     if (!currentUser) return;
@@ -826,12 +829,19 @@ function MarketRadarDashboardInner() {
     initApp();
   }, [loadAndApplyUserData]);
 
-  const analyzeUrl = async (url: string): Promise<AnalysisResult> => {
-    trackGoal("analyze_start", { url });
+  const analyzeUrl = async (url: string, personalBrand?: { name: string; position: string; parentCompanyContext?: string }): Promise<AnalysisResult> => {
+    trackGoal("analyze_start", { url: personalBrand ? `personal:${personalBrand.name}` : url });
+    const body: Record<string, unknown> = { url, businessType: currentUser?.businessType };
+    if (personalBrand) {
+      body.profileKind = "personal";
+      body.personName = personalBrand.name;
+      body.position = personalBrand.position;
+      if (personalBrand.parentCompanyContext) body.parentCompanyContext = personalBrand.parentCompanyContext;
+    }
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, businessType: currentUser?.businessType }),
+      body: JSON.stringify(body),
     });
     // Защита от HTML-ответов nginx (502/504 при таймауте) — не падаем на JSON.parse,
     // а отдаём понятную ошибку «сервер не успел ответить».
@@ -892,11 +902,41 @@ function MarketRadarDashboardInner() {
     modules: Array<"ta" | "smm" | "competitors" | "reviews">;
     smm?: { vk?: string; telegram?: string; instagram?: string };
     competitorUrls?: string[];
+    personalBrand?: { name: string; position: string; personalUrl?: string };
   }) => {
     if (guardReadOnly("Запуск анализа")) return;
+
+    // ── Личный бренд: готовим extra-данные ───────────────────────────────────
+    let personalBrandExtra: { name: string; position: string; parentCompanyContext?: string } | undefined;
+    if (opts.personalBrand) {
+      let parentCompanyContext: string | undefined;
+      // Подтягиваем данные родительской компании из localStorage
+      const ap = profiles.find(p => p.id === activeProfileId);
+      if (ap?.parentProfileId && currentUser) {
+        const parentSuffix = profileLsSuffix(ap.parentProfileId);
+        try {
+          const raw = localStorage.getItem(`mr_company_${currentUser.id}${parentSuffix}`);
+          if (raw) {
+            const parentData = JSON.parse(raw) as AnalysisResult;
+            parentCompanyContext = [
+              `Компания: ${parentData.company.name}`,
+              parentData.company.description ? `Описание: ${parentData.company.description.slice(0, 300)}` : "",
+              parentData.nicheForecast?.forecast ? `Рынок: ${parentData.nicheForecast.forecast.slice(0, 200)}` : "",
+            ].filter(Boolean).join("\n");
+          }
+        } catch { /* игнорируем */ }
+      }
+      personalBrandExtra = {
+        name: opts.personalBrand.name,
+        position: opts.personalBrand.position,
+        parentCompanyContext,
+      };
+    }
+
     // 1) Основной анализ. Получаем result ЯВНО, не из React state —
     //    state ещё не обновится к моменту вызова дочерних модулей.
-    const result = await handleNewAnalysis(opts.url);
+    const analysisUrl = opts.personalBrand?.personalUrl || opts.url;
+    const result = await handleNewAnalysis(analysisUrl, personalBrandExtra);
     if (!result) {
       console.warn("[wizard] основной анализ не удался, пропускаем доп.модули");
       return;
@@ -1060,11 +1100,11 @@ function MarketRadarDashboardInner() {
     void Promise.all(tasks);
   };
 
-  const handleNewAnalysis = async (url: string): Promise<AnalysisResult | null> => {
+  const handleNewAnalysis = async (url: string, personalBrand?: { name: string; position: string; parentCompanyContext?: string }): Promise<AnalysisResult | null> => {
     if (guardReadOnly("Запуск анализа")) return null;
     setIsAnalyzing(true);
     try {
-      const result = await analyzeUrl(url);
+      const result = await analyzeUrl(url, personalBrand);
       // Save current analysis to history before replacing
       if (myCompany) {
         const historyEntry = { ...myCompany, analyzedAt: new Date().toISOString() };
@@ -2345,7 +2385,22 @@ function MarketRadarDashboardInner() {
         {/* Глобальные оверлеи — пакетная генерация */}
         {packageProgress && <PackageProgressModal progress={packageProgress} />}
         {activeNav === "agents" && <AgentHubView c={c} />}
-        {activeNav === "new-analysis" && <NewAnalysisWizard c={c} onSubmit={handleNewAnalysisWithOptions} isAnalyzing={isAnalyzing} initialUrl={currentUser?.companyUrl ?? currentUrl ?? undefined} />}
+        {activeNav === "new-analysis" && (() => {
+          const ap = profiles.find(p => p.id === activeProfileId);
+          const parentProfileName = ap?.parentProfileId
+            ? profiles.find(p => p.id === ap.parentProfileId)?.name
+            : undefined;
+          return (
+            <NewAnalysisWizard
+              c={c}
+              onSubmit={handleNewAnalysisWithOptions}
+              isAnalyzing={isAnalyzing}
+              initialUrl={ap?.kind !== "personal" ? (currentUser?.companyUrl ?? currentUrl ?? undefined) : undefined}
+              profileKind={ap?.kind ?? "company"}
+              parentProfileName={parentProfileName}
+            />
+          );
+        })()}
         {activeNav === "dashboard" && (myCompany ? <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} /> : <NewAnalysisView c={c} onAnalyze={handleNewAnalysis} isAnalyzing={isAnalyzing} />)}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
@@ -2578,6 +2633,32 @@ function MarketRadarDashboardInner() {
                 color: "var(--foreground)", outline: "none", fontFamily: "inherit", boxSizing: "border-box",
               }}
             />
+
+            {/* Родительский профиль компании (только для personal) */}
+            {newProfileKind === "personal" && profiles.filter(p => p.kind === "company").length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground-secondary)", display: "block", marginBottom: 6 }}>
+                  Привязать к компании <span style={{ fontWeight: 400, color: "var(--muted-foreground)" }}>(необязательно)</span>
+                </label>
+                <select
+                  value={newProfileParentId}
+                  onChange={e => setNewProfileParentId(e.target.value)}
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: 10, fontSize: 13,
+                    border: "1px solid var(--border)", background: "var(--background-secondary, var(--background))",
+                    color: "var(--foreground)", fontFamily: "inherit",
+                  }}
+                >
+                  <option value="">Без привязки</option>
+                  {profiles.filter(p => p.kind === "company").map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 5, lineHeight: 1.4 }}>
+                  AI будет использовать данные компании как контекст при анализе личного бренда
+                </div>
+              </div>
+            )}
 
             {createProfileError && (
               <div style={{ marginTop: 12, fontSize: 13, color: "var(--warning, #D97706)", lineHeight: 1.4 }}>

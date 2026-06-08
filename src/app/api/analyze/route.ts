@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeWebsite } from "@/lib/scraper";
-import { analyzeWithClaude } from "@/lib/analyzer";
+import { analyzeWithClaude, analyzePersonalBrand } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
@@ -20,13 +20,55 @@ export async function POST(request: NextRequest) {
 
   let url: string;
   let businessType: BusinessType | undefined;
+  let profileKind: string | undefined;
+  let personName: string | undefined;
+  let personPosition: string | undefined;
+  let parentCompanyContext: string | undefined;
 
   try {
     const body = await request.json();
     url = (body.url ?? "").toString().trim();
     businessType = body.businessType as BusinessType | undefined;
+    profileKind = body.profileKind as string | undefined;
+    personName = body.personName as string | undefined;
+    personPosition = body.position as string | undefined;
+    parentCompanyContext = body.parentCompanyContext as string | undefined;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request body" }, { status: 400 });
+  }
+
+  // ── Личный бренд: отдельный путь анализа ──────────────────────────────────
+  if (profileKind === "personal") {
+    if (!personName?.trim()) {
+      return NextResponse.json({ ok: false, error: "Имя обязательно для анализа личного бренда" }, { status: 400 });
+    }
+    try {
+      // Личный сайт — опционально, парсим с try/catch
+      let scrapedSite;
+      if (url) {
+        try {
+          const normalizedUrl = url.startsWith("http") ? url : "https://" + url;
+          scrapedSite = await scrapeWebsite(normalizedUrl);
+        } catch { /* личный сайт не доступен — анализируем без него */ }
+      }
+
+      const rawResult = await analyzePersonalBrand({
+        name: personName.trim(),
+        position: (personPosition ?? "").trim(),
+        scrapedSite,
+        parentCompanyContext,
+      });
+      const { _usage, ...result } = rawResult;
+      const promptTokens = _usage?.inputTokens ?? 0;
+      const completionTokens = _usage?.outputTokens ?? 0;
+
+      await access.log({ endpoint: "analyze-personal-brand", model: "claude-sonnet-4-6", promptTokens, completionTokens });
+      return NextResponse.json({ ok: true, data: result });
+    } catch (err) {
+      console.error("[analyze/personal-brand] error:", err);
+      const { message: friendly, status } = friendlyAiError(err);
+      return NextResponse.json({ ok: false, error: friendly }, { status });
+    }
   }
 
   if (!url) {
