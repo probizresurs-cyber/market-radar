@@ -75,6 +75,134 @@ function NavIcon({ name, size = 15, active }: { name: string; size?: number; act
 
 
 // ============================================================
+// Profile Switcher — кастомный dropdown без нативного <select>
+// ============================================================
+
+function ProfileSwitcher({
+  profiles, activeProfileId, onSwitch, onCreate, onDelete, canDelete,
+}: {
+  profiles: Array<{ id: string; name: string; kind: string }>;
+  activeProfileId: string;
+  onSwitch: (id: string) => void;
+  onCreate?: () => void;
+  onDelete?: (id: string) => void;
+  canDelete?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const active = profiles.find(p => p.id === activeProfileId) ?? profiles[0];
+  const ActiveIcon = active?.kind === "personal" ? User : Building2;
+
+  return (
+    <div ref={ref} style={{ padding: "8px 10px", borderBottom: "1px solid var(--sidebar-border)", position: "relative" }}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", padding: "7px 10px", borderRadius: 8, cursor: "pointer",
+          border: "1px solid var(--sidebar-border)",
+          background: open ? "var(--sidebar-hover)" : "transparent",
+          color: "var(--sidebar-fg)", fontFamily: "inherit",
+          display: "flex", alignItems: "center", gap: 7, outline: "none",
+          transition: "background 0.15s",
+        }}
+      >
+        <ActiveIcon size={13} style={{ flexShrink: 0, color: "var(--sidebar-muted)", opacity: 0.8 }} />
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {active?.name ?? "Основной"}
+        </span>
+        <ChevronRight
+          size={13}
+          style={{ flexShrink: 0, color: "var(--sidebar-muted)", transition: "transform 0.18s", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% - 2px)", left: 10, right: 10, zIndex: 120,
+          background: "var(--sidebar-bg)",
+          border: "1px solid var(--sidebar-border)",
+          borderRadius: 10,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.18)",
+          padding: "4px",
+          overflow: "hidden",
+        }}>
+          {profiles.map(p => {
+            const isActive = p.id === activeProfileId;
+            const Icon = p.kind === "personal" ? User : Building2;
+            return (
+              <div
+                key={p.id}
+                onClick={() => { onSwitch(p.id); setOpen(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+                  background: isActive ? "color-mix(in oklch, var(--primary) 12%, transparent)" : "transparent",
+                  color: isActive ? "var(--primary)" : "var(--sidebar-fg)",
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--sidebar-hover)"; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+              >
+                <Icon size={13} style={{ flexShrink: 0, opacity: 0.75 }} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </span>
+                {isActive && canDelete && onDelete && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onDelete(p.id); setOpen(false); }}
+                    title="Удалить профиль"
+                    style={{
+                      flexShrink: 0, width: 22, height: 22, borderRadius: 5,
+                      border: "none", background: "transparent", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "#F87171", opacity: 0.7,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+                  >
+                    <Trash2 size={12} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {onCreate && (
+            <>
+              <div style={{ height: 1, background: "var(--sidebar-border)", margin: "4px 2px" }} />
+              <div
+                onClick={() => { onCreate(); setOpen(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+                  color: "var(--sidebar-muted)", transition: "background 0.12s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--sidebar-hover)"; (e.currentTarget as HTMLDivElement).style.color = "var(--sidebar-fg)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; (e.currentTarget as HTMLDivElement).style.color = "var(--sidebar-muted)"; }}
+              >
+                <Plus size={13} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13 }}>Создать профиль</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Sidebar Component
 // ============================================================
 
@@ -278,53 +406,16 @@ export function SidebarComponent({
         </div>
       </div>
 
-      {/* Profile switcher — профили под одним аккаунтом (компания / личный
-          бренд). Показываем только в своей workspace (parent передаёт profiles
-          лишь тогда). Дропдаун + кнопка «＋» создать + «корзина» удалить. */}
+      {/* Profile switcher — кастомный dropdown (не нативный select) */}
       {profiles && profiles.length > 0 && onSwitchProfile && (
-        <div style={{ padding: "10px 12px", borderBottom: `1px solid var(--sidebar-border)` }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--sidebar-muted)", letterSpacing: "0.07em", marginBottom: 6, textTransform: "uppercase" }}>
-            Профиль
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <select
-              value={activeProfileId ?? "default"}
-              onChange={e => {
-                const v = e.target.value;
-                if (v === "__create__") { onCreateProfile?.(); return; }
-                onSwitchProfile(v);
-              }}
-              style={{
-                flex: 1, minWidth: 0,
-                padding: "8px 10px", borderRadius: 8,
-                border: "1px solid var(--sidebar-border)",
-                background: "var(--sidebar-hover)",
-                color: "var(--sidebar-fg)",
-                fontSize: 13, fontFamily: "inherit", cursor: "pointer",
-                outline: "none",
-              }}
-            >
-              {profiles.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-              {onCreateProfile && <option value="__create__">+ Создать профиль…</option>}
-            </select>
-            {canDeleteActiveProfile && onDeleteProfile && activeProfileId && (
-              <button
-                onClick={() => onDeleteProfile(activeProfileId)}
-                title="Удалить профиль"
-                style={{
-                  flexShrink: 0, width: 32, height: 34, borderRadius: 8,
-                  border: "1px solid var(--sidebar-border)", background: "transparent",
-                  color: "#F87171", cursor: "pointer", display: "flex",
-                  alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <Trash2 size={14} strokeWidth={1.75} />
-              </button>
-            )}
-          </div>
-        </div>
+        <ProfileSwitcher
+          profiles={profiles}
+          activeProfileId={activeProfileId ?? "default"}
+          onSwitch={onSwitchProfile}
+          onCreate={onCreateProfile}
+          onDelete={onDeleteProfile}
+          canDelete={canDeleteActiveProfile}
+        />
       )}
 
       {/* Nav */}
