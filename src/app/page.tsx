@@ -731,6 +731,12 @@ function MarketRadarDashboardInner() {
     }
     setProfiles(getProfiles(currentUser.id));
     setShowCreateProfile(false);
+    // Личный бренд → визард сразу (синхронно, до async handleSwitchProfile).
+    // handleSwitchProfile асинхронный, его setActiveNav может не сработать из-за
+    // race с другими state-обновлениями. Этот вызов попадает в тот же React-батч.
+    if (created.kind === "personal") {
+      setActiveNav("new-analysis");
+    }
     // Сразу переключаемся на свежесозданный профиль (пустые данные).
     void handleSwitchProfile(created.id);
   }, [currentUser, newProfileName, newProfileKind, newProfileParentId, accountPlan, genProfileId, handleSwitchProfile]);
