@@ -17,7 +17,7 @@
 
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
-import { Search, Users, Share2, Swords, Star, ChevronRight, ChevronLeft, Loader2, Check } from "lucide-react";
+import { Search, Users, Share2, Swords, Star, ChevronRight, ChevronLeft, Loader2, Check, Building2 } from "lucide-react";
 
 export type ModuleKey = "ta" | "smm" | "competitors" | "reviews";
 
@@ -300,9 +300,11 @@ export function NewAnalysisWizard({
                 background: "color-mix(in oklch, var(--primary) 8%, transparent)",
                 border: "1px solid color-mix(in oklch, var(--primary) 25%, var(--border))",
                 borderRadius: 10, fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.5,
+                display: "flex", alignItems: "flex-start", gap: 4,
               }}>
-                🏢 <b style={{ color: "var(--foreground)" }}>Контекст компании</b> из профиля «{parentProfileName}» будет автоматически использован —
-                AI учтёт нишу, конкурентов и ЦА, чтобы личный бренд дополнял корпоративный.
+                <Building2 size={14} style={{ flexShrink: 0, marginRight: 4 }} />
+                <span><b style={{ color: "var(--foreground)" }}>Контекст компании</b> из профиля «{parentProfileName}» будет автоматически использован —
+                AI учтёт нишу, конкурентов и ЦА, чтобы личный бренд дополнял корпоративный.</span>
               </div>
             )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X, Moon, Sun, Coffee } from "lucide-react";
+import { LayoutDashboard, Users, Sword, BookOpen, BarChart2, Settings, Menu, ChevronRight, X, Moon, Sun, Coffee, Building2, User } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult, TASegment, TAAudienceType } from "@/lib/ta-types";
 import type { SMMResult, SMMSocialLinks, SMMRealStats } from "@/lib/smm-types";
@@ -2598,8 +2598,8 @@ function MarketRadarDashboardInner() {
 
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               {([
-                { k: "company", label: "🏢 Компания" },
-                { k: "personal", label: "👤 Личный бренд" },
+                { k: "company", label: "Компания", icon: <Building2 size={14} /> },
+                { k: "personal", label: "Личный бренд", icon: <User size={14} /> },
               ] as const).map(opt => (
                 <button
                   key={opt.k}
@@ -2607,12 +2607,13 @@ function MarketRadarDashboardInner() {
                   style={{
                     flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
                     fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
                     border: newProfileKind === opt.k ? "2px solid var(--primary)" : "1px solid var(--border)",
                     background: newProfileKind === opt.k ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "transparent",
                     color: newProfileKind === opt.k ? "var(--primary)" : "var(--foreground)",
                   }}
                 >
-                  {opt.label}
+                  {opt.icon} {opt.label}
                 </button>
               ))}
             </div>

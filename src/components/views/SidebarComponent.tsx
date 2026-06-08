@@ -7,7 +7,7 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
-  Pin, Clock, Bot, Sparkles, Trash2,
+  Pin, Clock, Bot, Sparkles, Trash2, User,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -305,11 +305,9 @@ export function SidebarComponent({
               }}
             >
               {profiles.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.kind === "personal" ? "👤 " : "🏢 "}{p.name}
-                </option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-              {onCreateProfile && <option value="__create__">＋ Создать профиль…</option>}
+              {onCreateProfile && <option value="__create__">+ Создать профиль…</option>}
             </select>
             {canDeleteActiveProfile && onDeleteProfile && activeProfileId && (
               <button
