@@ -27,11 +27,26 @@ export interface FriendlyAiError {
 const CF_FORBIDDEN_RE = /\b403\b.*(?:forbidden|request not allowed)/i;
 const ANTHROPIC_AUTH_RE = /(?:401|authentication|invalid.*api.?key)/i;
 const RATE_LIMIT_RE = /\b429\b|rate.?limit/i;
+// Anthropic возвращает 400 invalid_request_error с этим текстом, когда на
+// аккаунте кончились деньги. Без явной ветки это показывалось как
+// бесполезное «Ошибка AI-сервиса: 400».
+const BILLING_RE = /credit balance is too low|plans\s*&\s*billing|purchase credits/i;
 const NETWORK_RE = /(?:ENOTFOUND|ECONNREFUSED|fetch failed|network error|abort)/i;
 const HTML_RE = /<(?:html|!doctype)/i;
 
 export function friendlyAiError(err: unknown): FriendlyAiError {
   const raw = err instanceof Error ? err.message : String(err);
+
+  // Закончились средства на аккаунте Anthropic (400 invalid_request_error).
+  // Проверяем ПЕРВЫМ — текст содержит «400», который иначе уйдёт в дефолт.
+  if (BILLING_RE.test(raw)) {
+    return {
+      message:
+        "Закончились средства на AI-сервисе (Anthropic). Пополните баланс в Plans & Billing — " +
+        "после этого анализы заработают сразу, без изменений в коде.",
+      status: 402,
+    };
+  }
 
   // Cloudflare Worker блокирует — самый частый случай для VPS в РФ
   if (CF_FORBIDDEN_RE.test(raw)) {
