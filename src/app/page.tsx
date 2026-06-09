@@ -2485,7 +2485,7 @@ function MarketRadarDashboardInner() {
         {activeNav === "dashboard" && (() => {
           const freshProfiles2 = currentUser ? getProfiles(currentUser.id) : profiles;
           const dashAp = freshProfiles2.find(p => p.id === activeProfileId) ?? profiles.find(p => p.id === activeProfileId);
-          if (myCompany) return <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} />;
+          if (myCompany) return <DashboardView c={c} data={myCompany} competitors={competitors} onUpdateData={handleUpdateMyCompany} isPersonal={activeProfileKind === "personal"} />;
           if (activeProfileKind === "personal") {
             const parentName = dashAp?.parentProfileId
               ? (profiles.find(p => p.id === dashAp.parentProfileId)?.name ?? "")
