@@ -1459,6 +1459,35 @@ function MarketRadarDashboardInner() {
     // картинка нужна для отображения в чужих браузерах. Если 413 — warn
     // прилетит из syncToServer.
     syncToServer("content", { plan, posts, reels });
+
+    // Зеркалим запланированные посты на сервер, чтобы auto-publisher мог
+    // публиковать их по крону без открытого браузера. Шлём только посты с
+    // выставленным scheduledFor; «replace pending set» на стороне сервера
+    // отменит те, что юзер распланировал. Только своя workspace.
+    if (currentUser?.id && (!activeWorkspace || activeWorkspace.isOwnWorkspace)) {
+      const scheduled = posts
+        .filter(p => p.scheduledFor)
+        .map(p => {
+          // Платформы: из platformVariants, иначе из post.platform (tg/vk).
+          const platforms: string[] = [];
+          if (p.platformVariants?.telegram) platforms.push("telegram");
+          if (p.platformVariants?.vk) platforms.push("vk");
+          if (platforms.length === 0 && p.platform) {
+            const pl = p.platform.toLowerCase();
+            if (pl.includes("telegram") || pl === "tg") platforms.push("telegram");
+            if (pl.includes("vk") || pl.includes("вконтакте")) platforms.push("vk");
+          }
+          return { id: p.id, scheduledFor: p.scheduledFor as string, platforms, payload: p };
+        });
+      // fire-and-forget: не блокируем UI, ошибки не критичны (повторится при
+      // следующем сохранении).
+      fetch("/api/scheduled-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ profileSuffix: profileSuffixRef.current, posts: scheduled }),
+      }).catch(() => { /* несрочно */ });
+    }
   };
 
   const handleUpdateAvatarSettings = (next: AvatarSettings) => {
