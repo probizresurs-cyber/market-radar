@@ -329,6 +329,22 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
       help: "Если общий mention rate упал на ≥N% относительно прошлой недели — TG-алерт + inbox. По умолчанию 10.",
     },
   ],
+  "report-digest": [
+    {
+      key: "periodDays",
+      label: "Период сводки (дней)",
+      type: "number",
+      min: 1,
+      max: 31,
+      help: "За сколько дней собирать активность агентов в письмо. По умолчанию 7 (раз в неделю).",
+    },
+    {
+      key: "sendIfEmpty",
+      label: "Слать даже если нет новостей",
+      type: "boolean",
+      help: "По умолчанию пустые дайджесты не отправляются. Включите, если хотите письмо каждый период в любом случае.",
+    },
+  ],
   "email-drip-sender": [
     {
       key: "fromAccount",
