@@ -15,7 +15,8 @@ export default async function AdminParser() {
         <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>Парсер HH</div>
         <a href="/parser" target="_blank" rel="noreferrer" style={{ marginLeft: "auto", color: "#22c55e", fontSize: 13, textDecoration: "none" }}>Открыть в новой вкладке ↗</a>
       </div>
-      <iframe src="/parser" style={{ flex: 1, width: "100%", border: "none", minHeight: "calc(100vh - 53px)" }} />
+      {/* SSO-роут выписывает cookie парсера и редиректит в /parser — без второго логина */}
+      <iframe src="/admin/parser/sso" style={{ flex: 1, width: "100%", border: "none", minHeight: "calc(100vh - 53px)" }} />
     </div>
   );
 }
