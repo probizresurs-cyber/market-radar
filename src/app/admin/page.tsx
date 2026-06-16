@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
-import { Zap, Phone, LogOut } from "lucide-react";
+import { Zap, Phone, Radar, Target, LogOut } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +143,30 @@ export default async function AdminRoot() {
             AI-анализ звонков · тенанты, звонки, тарифы, реф-ссылки, партнёры
           </div>
           <div style={S.cardArrow("#0ea5e9")}>Открыть →</div>
+        </Link>
+
+        {/* Парсер HH */}
+        <Link href="/admin/parser" style={S.card("#22c55e")}>
+          <div style={S.cardIcon("#22c55e")}>
+            <Radar size={22} />
+          </div>
+          <div style={S.cardTitle}>Парсер</div>
+          <div style={S.cardDesc}>
+            Парсинг hh.ru · дашборд, запуск задач, расписания, таблицы лидов
+          </div>
+          <div style={S.cardArrow("#22c55e")}>Открыть →</div>
+        </Link>
+
+        {/* Лидген */}
+        <Link href="/admin/leadgen" style={S.card("#f59e0b")}>
+          <div style={S.cardIcon("#f59e0b")}>
+            <Target size={22} />
+          </div>
+          <div style={S.cardTitle}>Лидген</div>
+          <div style={S.cardDesc}>
+            Лидогенерация · аккаунты, маршрутизация баз по аккаунтам, источники
+          </div>
+          <div style={S.cardArrow("#f59e0b")}>Открыть →</div>
         </Link>
       </div>
 
