@@ -25,19 +25,42 @@ export default function AdminLeadgenRouting() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({}); // `${companyId}::${task}` → bool
   const [reassign, setReassign] = useState<Record<number, boolean>>({}); // companyId → перенести существующие
+  const [stats, setStats] = useState<Record<number, { total: number; hot: number; warm: number; cold: number }>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
+  const [nl, setNl] = useState(""); const [np, setNp] = useState(""); const [nn, setNn] = useState(""); // новый аккаунт
 
   const load = useCallback(async () => {
     setErr("");
     const r = await fetch("/api/admin/leadgen/routes", { cache: "no-store" }).then((x) => x.json()).catch(() => null);
     if (!r || r.error) { setErr(r?.error || "Не удалось загрузить (проверь LEADGEN_ADMIN_TOKEN и что лидген развёрнут)"); return; }
-    setAccounts(r.accounts || []); setTasks(r.tasks || []); setRoutes(r.routes || []);
+    setAccounts(r.accounts || []); setTasks(r.tasks || []); setRoutes(r.routes || []); setStats(r.stats || {});
     const init: Record<string, boolean> = {};
     for (const rt of (r.routes || []) as Route[]) init[`${rt.companyId}::${rt.task}`] = true;
     setChecked(init);
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  async function createAccount() {
+    if (!nl.trim() || np.length < 4) { setErr("Логин и пароль (≥4) обязательны"); return; }
+    setBusy(-1); setErr(""); setMsg("");
+    const r = await fetch("/api/admin/leadgen/accounts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login: nl.trim(), password: np, name: nn.trim() }),
+    }).then((x) => x.json()).catch(() => null);
+    setBusy(null);
+    if (!r || r.error) { setErr(r?.error || "Не удалось создать"); return; }
+    setMsg(`Аккаунт «${r.account?.name || nl}» создан (тенант ${r.account?.companyId})`);
+    setNl(""); setNp(""); setNn(""); await load();
+  }
+  async function delAccount(acc: Account) {
+    if (!confirm(`Удалить доступ аккаунта «${acc.name || acc.login}»? Лиды останутся, вход пропадёт.`)) return;
+    setBusy(acc.companyId);
+    const r = await fetch(`/api/admin/leadgen/accounts?companyId=${acc.companyId}`, { method: "DELETE" }).then((x) => x.json()).catch(() => null);
+    setBusy(null);
+    if (r?.error) { setErr(r.error); return; }
+    await load();
+  }
 
   // отметить базу за аккаунтом → снять её у остальных (одна база = один аккаунт)
   function toggle(companyId: number, task: string) {
@@ -95,6 +118,17 @@ export default function AdminLeadgenRouting() {
           <div style={C.accHead}>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>{acc.name || acc.login}</span>
             <span style={{ fontSize: 12, color: "#64748b" }}>логин {acc.login} · тенант {acc.companyId} · {acc.role}</span>
+            {stats[acc.companyId] && (
+              <span style={{ fontSize: 12, color: "#94a3b8", marginLeft: 4 }}>
+                · лидов <b style={{ color: "#e2e8f0" }}>{stats[acc.companyId].total}</b>
+                {" · "}<span style={{ color: "#f87171" }}>hot {stats[acc.companyId].hot}</span>
+                {" · "}<span style={{ color: "#fbbf24" }}>warm {stats[acc.companyId].warm}</span>
+                {" · "}<span style={{ color: "#64748b" }}>cold {stats[acc.companyId].cold}</span>
+              </span>
+            )}
+            {acc.companyId !== 1 && (
+              <button onClick={() => delAccount(acc)} style={{ ...C.btnGhost, marginLeft: "auto", color: "#f87171", borderColor: "#7f1d1d" }}>Удалить аккаунт</button>
+            )}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
             {tasks.length === 0 ? <span style={{ color: "#64748b", fontSize: 13 }}>Нет напарсенных баз.</span> : tasks.map((t) => {
@@ -119,6 +153,21 @@ export default function AdminLeadgenRouting() {
           </div>
         </div>
       ))}
+
+      {/* Создание аккаунта */}
+      <div style={{ ...C.panel, borderStyle: "dashed" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", marginBottom: 12 }}>Новый аккаунт</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          <input value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Название (напр. Орлинк)"
+            style={{ background: "#0f1117", border: "1px solid #2d3748", borderRadius: 8, padding: "8px 12px", color: "#e2e8f0", fontSize: 13 }} />
+          <input value={nl} onChange={(e) => setNl(e.target.value)} placeholder="логин"
+            style={{ background: "#0f1117", border: "1px solid #2d3748", borderRadius: 8, padding: "8px 12px", color: "#e2e8f0", fontSize: 13 }} />
+          <input value={np} onChange={(e) => setNp(e.target.value)} type="text" placeholder="пароль (≥4)"
+            style={{ background: "#0f1117", border: "1px solid #2d3748", borderRadius: 8, padding: "8px 12px", color: "#e2e8f0", fontSize: 13 }} />
+          <button style={C.btn} disabled={busy === -1} onClick={createAccount}>{busy === -1 ? "Создаю…" : "Создать аккаунт"}</button>
+        </div>
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8 }}>Новый аккаунт = свой изолированный тенант (свои лиды). Логин/пароль выдаёшь клиенту; вход на /leadgen/login.</div>
+      </div>
     </div>
   );
 }
