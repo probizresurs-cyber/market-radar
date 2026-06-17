@@ -7,53 +7,13 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
-  Pin, Clock, Bot, Sparkles, Trash2, User, Radar,
+  Pin, Clock, Bot, Sparkles, Trash2, User,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
 import type { UserAccount } from "@/lib/user";
 import type { NavItem, NavSection } from "@/lib/nav";
 import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
-import { productsForUser, type ProductScope } from "@/lib/products";
-
-// Иконки продуктов для переключателя.
-const PRODUCT_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
-  Radar, FileText, Factory, Globe,
-};
-
-// Переключатель продуктов (Аналитика / SEO+GEO / Контент-завод / Лендинги).
-// Показывает только продукты, доступные юзеру (по фичефлагу). Навигация — по маршрутам.
-function ProductSwitcher({ currentScope, featureOn }: { currentScope: ProductScope; featureOn: (id: string) => boolean }) {
-  const router = useRouter();
-  const products = productsForUser(featureOn);
-  if (products.length <= 1) return null;
-  return (
-    <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--sidebar-border)", display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--sidebar-muted)", padding: "2px 6px 4px" }}>ПРОДУКТ</div>
-      {products.map(p => {
-        const Icon = PRODUCT_ICONS[p.icon] ?? Radar;
-        const active = p.id === currentScope;
-        return (
-          <button
-            key={p.id}
-            onClick={() => { if (!active) router.push(p.route); }}
-            style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8,
-              border: "none", cursor: active ? "default" : "pointer", textAlign: "left", width: "100%",
-              background: active ? "color-mix(in oklch, var(--primary) 16%, transparent)" : "transparent",
-              color: active ? "var(--primary)" : "var(--sidebar-fg)",
-              fontSize: 13, fontWeight: active ? 700 : 500, fontFamily: "inherit",
-            }}
-          >
-            <Icon size={16} />
-            <span>{p.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ── Pinned / Recently used (sidebar) ─────────────────────────────────
 // Хранится в localStorage per-userId. Pinned — explicit user choice (max 6),
@@ -252,14 +212,10 @@ export function SidebarComponent({
   workspaces, activeWorkspaceId, onSwitchWorkspace,
   profiles, activeProfileId, onSwitchProfile, onCreateProfile, onDeleteProfile,
   canDeleteActiveProfile,
-  currentScope, featureOn,
 }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
   navSections: NavSection[]; companyUrl: string;
-  /** Текущий продукт (scope) и проверка фичефлагов — для переключателя продуктов. */
-  currentScope?: ProductScope;
-  featureOn?: (id: string) => boolean;
   user?: UserAccount | null; onLogout?: () => void;
   hideBranding?: boolean;
   /** Список workspace'ов к которым у юзера есть доступ. Если 1 (=своя) — switcher скрыт. */
@@ -449,9 +405,6 @@ export function SidebarComponent({
           )}
         </div>
       </div>
-
-      {/* Переключатель продуктов */}
-      {currentScope && featureOn && <ProductSwitcher currentScope={currentScope} featureOn={featureOn} />}
 
       {/* Profile switcher — кастомный dropdown (не нативный select) */}
       {profiles && profiles.length > 0 && onSwitchProfile && (

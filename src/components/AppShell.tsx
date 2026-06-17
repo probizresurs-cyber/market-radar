@@ -226,6 +226,10 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     } catch { /* ignore */ }
   }, []);
   const [appScreen, setAppScreen] = useState<"landing" | "register" | "login" | "onboarding" | "app">("landing");
+  // Завершилась ли проверка сессии (/api/auth/me). Нужно, чтобы на продуктовых
+  // маршрутах увести неавторизованного на свой /login, но не «моргать» редиректом
+  // у залогиненного, пока сессия ещё проверяется.
+  const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   // ─── Workspace state ───────────────────────────────────────────────────
@@ -330,6 +334,16 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNav, scope]);
+
+  // Неавторизованный на продуктовом маршруте → на свой /login (вход по аккаунту
+  // MarketRadar). На core (/) оставляем публичный лендинг с кнопкой входа.
+  useEffect(() => {
+    if (authChecked && !currentUser && scope !== "core") {
+      router.replace(`${PRODUCT_BY_SCOPE[scope].route}/login`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authChecked, currentUser, scope]);
+
   const handleNavClick = React.useCallback((id: string) => {
     if (id === "owner-dashboard") {
       if (typeof window !== "undefined") window.open("/owner-dashboard", "_blank");
@@ -846,7 +860,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         }
       }
 
-      if (!user) return; // not logged in — LandingPage will show
+      setAuthChecked(true);
+      if (!user) return; // not logged in — LandingPage (или редирект на /login продукта) покажется
 
       setCurrentUser(user);
       setWhiteLabel(loadWhiteLabel(user.id));
@@ -2448,7 +2463,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
           workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
           activeWorkspaceId={activeWorkspace?.workspaceId}
-          onSwitchWorkspace={handleSwitchWorkspace} currentScope={scope} featureOn={featureOn} {...profileSidebarProps} />
+          onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
       </div>
 
       <MobileBottomNav activeNav={activeNav}
@@ -2467,7 +2482,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={(id) => { if (id === "owner-dashboard") { handleNavClick(id); return; } setSelectedCompetitor(null); setActiveNav(id); }} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout}
             workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
             activeWorkspaceId={activeWorkspace?.workspaceId}
-            onSwitchWorkspace={handleSwitchWorkspace} currentScope={scope} featureOn={featureOn} {...profileSidebarProps} />
+            onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
           <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
             <CompetitorProfileView
               c={c}
@@ -2494,7 +2509,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       <SidebarComponent c={c} theme={theme} setTheme={setTheme} activeNav={activeNav} setActiveNav={handleNavClick} navSections={navSections} companyUrl={myCompany?.company.url ?? ""} user={currentUser} onLogout={handleLogout} hideBranding={whiteLabel?.enabled && whiteLabel.hideBranding}
         workspaces={availableWorkspaces.map(w => ({ workspaceId: w.workspaceId, role: w.role, displayName: w.ownerCompanyName || w.ownerName || w.ownerEmail || "Моя команда" }))}
         activeWorkspaceId={activeWorkspace?.workspaceId}
-        onSwitchWorkspace={handleSwitchWorkspace} currentScope={scope} featureOn={featureOn} {...profileSidebarProps} />
+        onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <TrialBanner userId={currentUser?.id} />
         <PaywallGuard />
