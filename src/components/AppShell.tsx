@@ -324,14 +324,20 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Guard: если активный таб не из текущего продукта (внутренний CTA повёл в
-  // чужой продукт, напр. «открыть готовые посты» из аналитики) — переходим на
-  // маршрут нужного продукта, неся таб через ?nav.
+  // Guard для scope:
+  //  • если активный таб из ДРУГОГО продукта (внутренний CTA «открыть посты» из
+  //    аналитики) — уводим на маршрут того продукта, неся таб через ?nav;
+  //  • если на продуктовом маршруте код принудительно поставил core-таб
+  //    (loadAndApplyUserData ставит "dashboard"/"new-analysis" после загрузки
+  //    данных) — НЕ уводим на /, а возвращаем дефолтный таб продукта.
   useEffect(() => {
     const targetScope = scopeForNav(activeNav);
-    if (targetScope !== scope) {
-      router.push(`${PRODUCT_BY_SCOPE[targetScope].route}?nav=${activeNav}`);
+    if (targetScope === scope) return;
+    if (scope !== "core" && targetScope === "core") {
+      setActiveNav(defaultNavForScope(scope));
+      return;
     }
+    router.push(`${PRODUCT_BY_SCOPE[targetScope].route}?nav=${activeNav}`);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNav, scope]);
 
