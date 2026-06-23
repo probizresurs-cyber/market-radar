@@ -14,7 +14,10 @@ import { PRODUCT_BY_SCOPE, type ProductScope } from "@/lib/products";
 // видна только тем, кто ещё не авторизован.
 export function ProductLogin({ scope }: { scope: ProductScope }) {
   const router = useRouter();
-  const route = PRODUCT_BY_SCOPE[scope]?.route ?? "/";
+  // Общий вход (/login, scope=core) ведёт на лаунчер продуктов; вход на
+  // конкретный продукт (/seo-geo/login и т.п.) — сразу в этот продукт.
+  const target = scope === "core" ? "/apps" : (PRODUCT_BY_SCOPE[scope]?.route ?? "/");
+  const route = target;
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {

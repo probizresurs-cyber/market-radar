@@ -7,7 +7,7 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
-  Pin, Clock, Bot, Sparkles, Trash2, User,
+  Pin, Clock, Bot, Sparkles, Trash2, User, LayoutGrid,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -405,6 +405,16 @@ export function SidebarComponent({
           )}
         </div>
       </div>
+
+      {/* Ссылка на лаунчер продуктов (общий аккаунт, отдельная страница /apps) */}
+      <a href="/apps" style={{
+        display: "flex", alignItems: "center", gap: 8, margin: "10px 12px 0",
+        padding: "9px 12px", borderRadius: 9, textDecoration: "none",
+        border: "1px solid var(--sidebar-border)", color: "var(--sidebar-muted)",
+        fontSize: 13, fontWeight: 600,
+      }}>
+        <LayoutGrid size={15} /> Все продукты
+      </a>
 
       {/* Profile switcher — кастомный dropdown (не нативный select) */}
       {profiles && profiles.length > 0 && onSwitchProfile && (
