@@ -178,6 +178,33 @@ export async function initDb() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_pct INTEGER NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_expires_at TIMESTAMPTZ`);
 
+  // ─── Раздельные подписки по продуктам (Этап 2) ───────────────────────
+  // Экосистема разнесена на продукты (core / seo-geo / content-factory /
+  // land-pres). У каждого — своя подписка, свой пул токенов, свои тарифы и
+  // реф-ссылки. Доступ к продукту = активная строка в product_subscriptions.
+  // product NULL на pricing_items/referral_links = «общий» (любой продукт).
+  await query(`ALTER TABLE pricing_items ADD COLUMN IF NOT EXISTS product TEXT`);
+  await query(`ALTER TABLE referral_links ADD COLUMN IF NOT EXISTS product TEXT`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS product_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      product TEXT NOT NULL,                    -- core | seo-geo | content-factory | land-pres
+      plan TEXT NOT NULL DEFAULT 'trial',
+      status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','trialing','expired','canceled')),
+      tokens_used INTEGER NOT NULL DEFAULT 0,
+      tokens_limit INTEGER,                     -- NULL = дефолт тарифа
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, product)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_product_subs_user ON product_subscriptions(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_product_subs_product ON product_subscriptions(product, status)`);
+
   // ─── GDPR / ФЗ-152: consent to processing of personal data ──────────────────
   // https://company24.pro/politicahr2026 — captured at registration time.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ`);
