@@ -18,6 +18,7 @@ import { checkAiRateLimit, rateLimitHeaders } from "./rate-limit";
 import { query } from "./db";
 import { randomUUID } from "crypto";
 import { getSubscription, recordTokenUsage } from "./subscription";
+import { endpointProduct } from "./product-access";
 
 /**
  * Грубая оценка количества токенов по тексту (~4 символа на токен для mixed RU/EN).
@@ -168,6 +169,13 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
       // Also increment user's subscription usage (only for successful calls)
       if (session?.userId && totalTokens > 0 && opts.success !== false) {
         await recordTokenUsage(session.userId, totalTokens);
+        // Этап 2: разносим расход по продукту (для статистики продуктовых
+        // панелей). No-op, если у юзера нет подписки на этот продукт.
+        await query(
+          `UPDATE product_subscriptions SET tokens_used = tokens_used + $1, updated_at = NOW()
+             WHERE user_id = $2 AND product = $3`,
+          [totalTokens, session.userId, endpointProduct(opts.endpoint)],
+        ).catch(() => { /* best-effort */ });
       }
     } catch {
       // Never crash the main flow
