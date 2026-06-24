@@ -43,3 +43,4 @@ next-env.d.ts
 # Claude Code worktrees (per-agent isolation dirs)
 .claude/worktrees/
 pitch-build/
+pitch-deck/node_modules/
