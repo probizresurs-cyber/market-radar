@@ -18,6 +18,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { hrefForNav } from "@/lib/products";
 
 // ─── Context builder ──────────────────────────────────────────────────────────
 
@@ -463,7 +464,7 @@ export function AIChatWidget({ myCompany, competitors, taAnalysis, smmAnalysis, 
                   dismissBubble();
                   // Navigate to next action
                   if (workflow.nextNav && typeof window !== "undefined") {
-                    window.location.href = `/?nav=${workflow.nextNav}`;
+                    window.location.href = hrefForNav(workflow.nextNav);
                   }
                 }}
                 style={{

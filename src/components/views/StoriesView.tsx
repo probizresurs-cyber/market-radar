@@ -13,6 +13,7 @@ import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { hrefForNav } from "@/lib/products";
 
 export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult, companyName, brandBook, onAdd, onDelete, onUpdate, onboardingState }: {
   c: Colors;
@@ -517,7 +518,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
           {onboardingState && (
             <OnboardingChecklist
               state={onboardingState}
-              onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+              onNavigate={(nav) => { window.location.href = hrefForNav(nav); }}
             />
           )}
           <div style={{ background: "var(--card)", borderRadius: 20, border: "1px solid var(--border)", padding: "44px 28px", textAlign: "center", boxShadow: "var(--shadow)" }}>

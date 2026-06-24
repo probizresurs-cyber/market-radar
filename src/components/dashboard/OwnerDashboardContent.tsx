@@ -13,6 +13,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { ContentPlan, BrandBook } from "@/lib/content-types";
+import { hrefForNav } from "@/lib/products";
 import {
   classifyMarketShare,
   classifyCompetitorCounter,
@@ -860,7 +861,7 @@ export function OwnerDashboardContent({
             return (
               <div style={{ margin: "14px 0 8px", display: "flex", justifyContent: "flex-end" }}>
                 <a
-                  href={`/?nav=${target.nav}`}
+                  href={hrefForNav(target.nav)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -918,7 +919,7 @@ export function OwnerDashboardContent({
                       {modules.map(m => (
                         <a
                           key={m.key}
-                          href={mode === "private" ? `/?nav=${m.nav}` : undefined}
+                          href={mode === "private" ? hrefForNav(m.nav) : undefined}
                           style={{
                             padding: "10px 12px", borderRadius: 9,
                             background: m.ready ? `${p.green}10` : p.bgSecondary,
@@ -2234,7 +2235,7 @@ function ReputationTab({ p, data, competitors }: {
 
       {/* CTA — открыть полный модуль */}
       <a
-        href="/?nav=reviews-analysis"
+        href={hrefForNav("reviews-analysis")}
         style={{
           display: "block",
           padding: "20px 24px",

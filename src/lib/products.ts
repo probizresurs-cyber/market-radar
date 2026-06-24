@@ -105,6 +105,19 @@ export function defaultNavForScope(scope: ProductScope): string {
   return PRODUCT_BY_SCOPE[scope]?.defaultNav ?? "new-analysis";
 }
 
+/**
+ * Прямой URL на нав-итем в его продукте — для сквозных ссылок между
+ * продуктами (из анализа → контент/лендинг/презентация/SEO и обратно).
+ * Сразу ведёт на нужный маршрут, без «прыжка» через core с редиректом.
+ * Пустой navId → корень продукта.
+ */
+export function hrefForNav(navId: string): string {
+  const route = PRODUCT_BY_SCOPE[scopeForNav(navId)].route;
+  if (!navId) return route;
+  // route="/" → "/?nav=X"; "/content-factory" → "/content-factory?nav=X"
+  return `${route}?nav=${navId}`;
+}
+
 /** Входит ли нав-итем в указанный продукт. */
 export function navInScope(navId: string, scope: ProductScope): boolean {
   return scopeForNav(navId) === scope;
