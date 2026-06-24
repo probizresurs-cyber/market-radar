@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { Zap, User, Inbox } from "lucide-react";
+import { ProductBlocks } from "./ProductBlocks";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +95,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   if (!user) notFound();
 
   const dataRows = await query<DataRow>("SELECT key, value FROM user_data WHERE user_id = $1 ORDER BY key", [id]);
+  const subRows = await query<{ product: string }>(
+    "SELECT product FROM product_subscriptions WHERE user_id = $1 AND status IN ('active','trialing') AND (expires_at IS NULL OR expires_at > NOW())",
+    [id],
+  );
+  const activeProducts = subRows.map(r => r.product);
 
   return (
     <div style={S.page}>
@@ -121,6 +127,12 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           </div>
           {/* Role toggle form */}
           <RoleForm userId={user.id} currentRole={user.role} />
+        </div>
+
+        {/* Продукты / блоки — подключение доступа и подписки пользователю */}
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9", margin: "0 0 12px" }}>Продукты и подписки</h2>
+          <ProductBlocks email={user.email} active={activeProducts} />
         </div>
 
         {/* Data blocks */}

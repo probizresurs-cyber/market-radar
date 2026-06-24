@@ -51,6 +51,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ product: strin
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "revoke") {
+      const email = String(body.email ?? "").toLowerCase().trim();
+      if (!email) return NextResponse.json({ ok: false, error: "Укажите email" }, { status: 400 });
+      await query(
+        `UPDATE product_subscriptions SET status='canceled', updated_at=NOW()
+           WHERE product=$1 AND user_id=(SELECT id FROM users WHERE LOWER(email)=$2)`,
+        [product, email],
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "grant-all") {
       // Сидинг: выдать триал-подписку на продукт всем юзерам без неё.
       await query(

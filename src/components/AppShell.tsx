@@ -230,6 +230,9 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   // маршрутах увести неавторизованного на свой /login, но не «моргать» редиректом
   // у залогиненного, пока сессия ещё проверяется.
   const [authChecked, setAuthChecked] = useState(false);
+  // Доступ к текущему продукту (Этап 2 enforcement). null = ещё проверяем /
+  // core (всегда доступ). false = нет подписки и продукт в режиме «по подписке».
+  const [productAccess, setProductAccess] = useState<boolean | null>(scope === "core" ? true : null);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   // ─── Workspace state ───────────────────────────────────────────────────
@@ -349,6 +352,20 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, currentUser, scope]);
+
+  // Проверка доступа к продукту (enforcement). Только для не-core и залогиненного.
+  useEffect(() => {
+    if (scope === "core" || !currentUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/me/products", { credentials: "include" });
+        const j = await r.json();
+        if (!cancelled) setProductAccess(j.ok ? Boolean(j.access?.[scope]) : true);
+      } catch { if (!cancelled) setProductAccess(true); } // при сбое не блокируем
+    })();
+    return () => { cancelled = true; };
+  }, [scope, currentUser]);
 
   const handleNavClick = React.useCallback((id: string) => {
     if (id === "owner-dashboard") {
@@ -2396,6 +2413,23 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   }
   if (appScreen === "onboarding" && currentUser) {
     return <OnboardingView c={c} user={currentUser} onComplete={handleOnboardingComplete} />;
+  }
+
+  // Enforcement: продукт в режиме «по подписке», а у юзера её нет.
+  if (scope !== "core" && currentUser && productAccess === false) {
+    const prod = PRODUCT_BY_SCOPE[scope];
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "var(--background)", color: "var(--foreground)", padding: "40px 24px", textAlign: "center", fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>«{prod.label}» — по подписке</div>
+        <div style={{ fontSize: 15, color: "var(--muted-foreground)", maxWidth: 460, lineHeight: 1.6 }}>
+          Этот инструмент доступен по отдельной подписке. Оформите доступ — или вернитесь к другим продуктам.
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+          <a href="/pricing" style={{ padding: "11px 22px", borderRadius: 10, background: "var(--primary)", color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>Оформить подписку</a>
+          <a href="/apps" style={{ padding: "11px 22px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--foreground)", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>Все продукты</a>
+        </div>
+      </div>
+    );
   }
 
   // App: loading state (initial analysis)

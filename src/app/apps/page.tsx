@@ -30,6 +30,7 @@ const ACCENT: Record<ProductScope, string> = {
 export default function AppsLauncher() {
   const router = useRouter();
   const [state, setState] = useState<"checking" | "ready">("checking");
+  const [access, setAccess] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +39,16 @@ export default function AppsLauncher() {
         const r = await fetch("/api/auth/me", { credentials: "include" });
         const j = await r.json();
         if (cancelled) return;
-        if (j.ok && j.user) { setState("ready"); return; }
+        if (j.ok && j.user) {
+          setState("ready");
+          // подтянем права на продукты (для бейджа «по подписке»)
+          try {
+            const pr = await fetch("/api/me/products", { credentials: "include" });
+            const pj = await pr.json();
+            if (!cancelled && pj.ok) setAccess(pj.access ?? {});
+          } catch { /* ignore */ }
+          return;
+        }
       } catch { /* ignore */ }
       if (!cancelled) router.replace("/login"); // не авторизован — на вход
     })();
@@ -59,12 +69,16 @@ export default function AppsLauncher() {
         {PRODUCTS.map((p) => {
           const Icon = ICONS[p.icon] ?? Radar;
           const accent = ACCENT[p.id];
+          const locked = access[p.id] === false;
           return (
             <button key={p.id} onClick={() => router.push(p.route)} style={S.card(accent)}>
-              <div style={S.iconWrap(accent)}><Icon size={24} color={accent} /></div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                <div style={S.iconWrap(accent)}><Icon size={24} color={accent} /></div>
+                {locked && <span style={{ fontSize: 11, fontWeight: 700, color: "#F5A623", border: "1px solid #F5A62355", borderRadius: 20, padding: "3px 10px" }}>по подписке</span>}
+              </div>
               <div style={S.cardTitle}>{p.label}</div>
               <div style={S.cardDesc}>{DESC[p.id]}</div>
-              <div style={S.arrow(accent)}>Открыть →</div>
+              <div style={S.arrow(accent)}>{locked ? "Оформить →" : "Открыть →"}</div>
             </button>
           );
         })}
