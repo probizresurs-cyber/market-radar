@@ -2426,7 +2426,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
           <a href="/pricing" style={{ padding: "11px 22px", borderRadius: 10, background: "var(--primary)", color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>Оформить подписку</a>
-          <a href="/apps" style={{ padding: "11px 22px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--foreground)", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>Все продукты</a>
+          <a href="/main" style={{ padding: "11px 22px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--foreground)", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>Все продукты</a>
         </div>
       </div>
     );

@@ -406,8 +406,8 @@ export function SidebarComponent({
         </div>
       </div>
 
-      {/* Ссылка на лаунчер продуктов (общий аккаунт, отдельная страница /apps) */}
-      <a href="/apps" style={{
+      {/* Ссылка на хаб продуктов (общий аккаунт, точка входа /main) */}
+      <a href="/main" style={{
         display: "flex", alignItems: "center", gap: 8, margin: "10px 12px 0",
         padding: "9px 12px", borderRadius: 9, textDecoration: "none",
         border: "1px solid var(--sidebar-border)", color: "var(--sidebar-muted)",
