@@ -69,7 +69,7 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
   // Кеш статуса htmlUrl/imageUrl каждого истории-лендинга. Stitch даёт URL
   // на 1-7 дней, потом 404 — без индикатора юзер видит «битое» превью и
   // не понимает почему. Заполняется через /api/check-url-alive.
-  const [expiryStatus, setExpiryStatus] = useState<Record<string, "alive" | "expired" | "unknown">>({});
+  const [expiryStatus, setExpiryStatus] = useState<Record<string, "alive" | "expired" | "unknown" | "nohtml">>({});
 
   // Состояние для шары и скачивания
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -87,6 +87,12 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
       for (const h of landingHistory) {
         if (cancelled) return;
         if (expiryStatus[h.id]) continue;
+        // Лендинг без HTML (Stitch отдал только превью) — не проверяем URL,
+        // помечаем отдельным статусом, чтобы не показывать ложный «срок истёк».
+        if (!h.htmlUrl) {
+          setExpiryStatus(prev => ({ ...prev, [h.id]: "nohtml" }));
+          continue;
+        }
         try {
           const res = await fetch("/api/check-url-alive", {
             method: "POST",
@@ -406,8 +412,9 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                       </div>
                       <img src={h.imageUrl} alt={h.title} style={{ width: "100%", display: "block", maxHeight: 180, objectFit: "cover" }}
                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                      {/* Expiry badge — Stitch URL живёт 1-7 дней, потом 404. */}
-                      {expiryStatus[h.id] === "expired" && (
+                      {/* Бейдж состояния: «срок истёк» (Stitch URL живёт 1-7 дней)
+                          или «только превью» (Stitch не отдал HTML — план/квота). */}
+                      {(expiryStatus[h.id] === "expired" || expiryStatus[h.id] === "nohtml") && (
                         <div style={{
                           position: "absolute", top: 36, right: 8,
                           background: "color-mix(in oklch, var(--destructive) 85%, #000)",
@@ -415,8 +422,10 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                           padding: "3px 8px", borderRadius: 5,
                           letterSpacing: "0.04em", textTransform: "uppercase",
                           boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                        }} title="Stitch URL истёк (1-7 дней). Регенерируйте лендинг — он автоматически сохранится с новыми ссылками.">
-                          Срок истёк
+                        }} title={expiryStatus[h.id] === "nohtml"
+                          ? "Stitch отдал только превью-картинку без HTML — вероятно, на аккаунте Stitch закончился план или квота. Проверьте аккаунт Stitch и регенерируйте."
+                          : "Stitch URL истёк (1-7 дней). Регенерируйте лендинг — он сохранится с новыми ссылками."}>
+                          {expiryStatus[h.id] === "nohtml" ? "Только превью" : "Срок истёк"}
                         </div>
                       )}
                     </div>
