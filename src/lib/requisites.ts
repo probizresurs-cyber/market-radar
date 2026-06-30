@@ -72,7 +72,7 @@ export function getVendorRequisites(): VendorRequisites {
     signature_url: env.VENDOR_SIGNATURE_URL,
     stamp_url: env.VENDOR_STAMP_URL,
     contact_phone: env.VENDOR_CONTACT_PHONE,
-    contact_email: env.VENDOR_CONTACT_EMAIL ?? "support@marketradar24.ru",
+    contact_email: env.VENDOR_CONTACT_EMAIL ?? "hello@marketradar24.ru",
   };
 }
 

@@ -21,7 +21,7 @@ const link: React.CSSProperties = { color: "var(--primary)" };
 
 export default function PrivacyPage() {
   const v = getVendorRequisites();
-  const email = v.contact_email ?? "support@marketradar24.ru";
+  const email = v.contact_email ?? "hello@marketradar24.ru";
   const today = new Date().toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
 
   return (
