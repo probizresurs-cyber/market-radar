@@ -16,7 +16,6 @@ import {
   type DashboardData,
 } from "@/components/dashboard/OwnerDashboardContent";
 import { OwnerDashboardTv } from "@/components/dashboard/OwnerDashboardTv";
-import { OwnerDashboardTv } from "@/components/dashboard/OwnerDashboardTv";
 
 interface ContentStore {
   plan: ContentPlan | null;
@@ -27,7 +26,6 @@ interface ContentStore {
 export default function OwnerDashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [isTv, setIsTv] = useState(false);
   // ТВ-режим (?tv=1): отдельная полноэкранная слайдер-версия для показа на телевизоре.
   const [isTv, setIsTv] = useState(false);
   const [data, setData] = useState<DashboardData>({
