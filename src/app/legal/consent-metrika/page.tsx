@@ -14,7 +14,7 @@ const link: React.CSSProperties = { color: "var(--primary)" };
 
 export default function ConsentMetrikaPage() {
   const v = getVendorRequisites();
-  const email = v.contact_email ?? "support@company24.pro";
+  const email = v.contact_email ?? "support@marketradar24.ru";
   return (
     <main style={wrap}>
       <h1 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 18px", textAlign: "center" }}>Согласие на обработку данных сервисом Яндекс.Метрика</h1>

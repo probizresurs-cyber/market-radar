@@ -147,7 +147,7 @@ export default function OfferPage() {
       <p>
         6.2. После начала оказания услуг возврат средств производится pro-rata за
         неиспользованную часть оплаченного периода, на основании письменного заявления
-        Заказчика, направленного на e-mail <a href="mailto:{v.contact_email ?? 'support@company24.pro'}" style={{ color: "var(--primary)" }}>{v.contact_email ?? "support@company24.pro"}</a>.
+        Заказчика, направленного на e-mail <a href={`mailto:${v.contact_email ?? "support@marketradar24.ru"}`} style={{ color: "var(--primary)" }}>{v.contact_email ?? "support@marketradar24.ru"}</a>.
       </p>
       <p>
         6.3. Услуги по разовым тарифам (экспресс-отчёт и т.п.), оказанные в полном объёме,
