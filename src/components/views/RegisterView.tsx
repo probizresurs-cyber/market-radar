@@ -254,9 +254,18 @@ export function RegisterView({ c, onSuccess, onLogin, onBack }: {
               style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer", flexShrink: 0 }}
             />
             <span>
-              Я согласен(а) на обработку персональных данных в соответствии с{" "}
+              Я даю{" "}
               <a
-                href="https://company24.pro/politicahr2026"
+                href="/legal/consent-pd"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--primary)", textDecoration: "underline" }}
+              >
+                согласие на обработку персональных данных
+              </a>{" "}
+              в соответствии с{" "}
+              <a
+                href="/legal/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "var(--primary)", textDecoration: "underline" }}
