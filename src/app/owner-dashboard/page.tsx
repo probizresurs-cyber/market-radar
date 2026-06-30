@@ -15,6 +15,8 @@ import {
   OwnerDashboardContent,
   type DashboardData,
 } from "@/components/dashboard/OwnerDashboardContent";
+import { OwnerDashboardTv } from "@/components/dashboard/OwnerDashboardTv";
+import { OwnerDashboardTv } from "@/components/dashboard/OwnerDashboardTv";
 
 interface ContentStore {
   plan: ContentPlan | null;
@@ -25,6 +27,9 @@ interface ContentStore {
 export default function OwnerDashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isTv, setIsTv] = useState(false);
+  // ТВ-режим (?tv=1): отдельная полноэкранная слайдер-версия для показа на телевизоре.
+  const [isTv, setIsTv] = useState(false);
   const [data, setData] = useState<DashboardData>({
     company: null,
     competitors: [],
@@ -35,6 +40,13 @@ export default function OwnerDashboardPage() {
     cjm: null,
     benchmarks: null,
   });
+
+  useEffect(() => {
+    try {
+      const tv = new URLSearchParams(window.location.search).get("tv");
+      setIsTv(tv === "1" || tv === "");
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -89,6 +101,12 @@ export default function OwnerDashboardPage() {
     })();
   }, []);
 
+  // ТВ-режим: /owner-dashboard?tv=1 → полноэкранное табло (читаем после маунта, SSR-safe).
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("tv");
+    setIsTv(v === "1" || v === "");
+  }, []);
+
   if (!authChecked) {
     return <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui", color: "#8A8C9E" }}>Проверка доступа…</div>;
   }
@@ -105,6 +123,10 @@ export default function OwnerDashboardPage() {
         </div>
       </div>
     );
+  }
+
+  if (isTv) {
+    return <OwnerDashboardTv data={data} exitHref="/owner-dashboard" />;
   }
 
   return <OwnerDashboardContent data={data} mode="private" />;

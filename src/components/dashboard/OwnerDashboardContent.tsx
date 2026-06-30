@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare, Banknote, Users as UsersIcon, Briefcase, Scale, FileText as FileTextIcon, Calendar } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare, Banknote, Users as UsersIcon, Briefcase, Scale, FileText as FileTextIcon, Calendar, Tv } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -767,6 +767,15 @@ export function OwnerDashboardContent({
                     cursor: sharing ? "wait" : "pointer" }}>
                   {sharing ? "Создаём…" : <><Link2 size={14} strokeWidth={2} style={{ marginRight: 6 }} />Поделиться ссылкой</>}
                 </button>
+              )}
+              {mode === "private" && (
+                <a href="/owner-dashboard?tv=1" target="_blank" rel="noopener noreferrer"
+                  title="Полноэкранное табло для показа на ТВ (листается как презентация)"
+                  style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: p.textSecondary,
+                    border: `1px solid ${p.borderTertiary}`, borderRadius: 8, textDecoration: "none", background: p.bgCard,
+                    display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Tv size={14} strokeWidth={2} /> ТВ-режим
+                </a>
               )}
               <button onClick={() => window.print()}
                 style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: "#fff", background: p.primary,
