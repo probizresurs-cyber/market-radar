@@ -19,7 +19,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
-  ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
+  ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon, ChevronDown,
 } from "lucide-react";
 
 interface Props {
@@ -87,11 +87,18 @@ const verdictOf = (s: number) =>
   : s >= 40 ? "Средний уровень — конкуренты вас обходят"
   : "Сайт недобирает: критичные проблемы мешают привлекать клиентов";
 
+/** Пояснение по баллу категории — общий текст для карточки-аккордеона и находок. */
+const categoryVerdict = (score: number) =>
+  score < 45 ? "Показатель значительно ниже нормы. Это напрямую тормозит привлечение клиентов из этого канала."
+  : score < 65 ? "Средний уровень: конкуренты с более сильным показателем забирают часть вашей аудитории."
+  : "Хороший результат, поддерживаем на текущем уровне.";
+
 export function KpProposal({ company, competitors, contactEmail = "hello@marketradar24.ru" }: Props) {
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
+  const [expandedCat, setExpandedCat] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // ─── Находки из реальных данных ──
@@ -243,13 +250,13 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
             </div>
           </div>
 
-          {/* Radar-чарт + категории анализа */}
+          {/* Radar-чарт + категории анализа (карточки — аккордеон с пояснением) */}
           {categories.length > 0 && (
-            <div className="kp-radar-wrap" style={{ display: "grid", gridTemplateColumns: categories.length >= 3 ? "minmax(240px,340px) 1fr" : "1fr", gap: 28, marginTop: 40, alignItems: "center" }}>
+            <div className="kp-radar-wrap" style={{ display: "grid", gridTemplateColumns: categories.length >= 3 ? "minmax(240px,320px) 1fr" : "1fr", gap: 28, marginTop: 40, alignItems: "start" }}>
               {categories.length >= 3 && (
                 <Reveal delay={80}>
                   {(v) => (
-                    <div className="ds-card" style={{ padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div className="ds-card" style={{ padding: "18px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
                         <RadarIcon size={13} /> Профиль по категориям
                       </div>
@@ -258,26 +265,46 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
                   )}
                 </Reveal>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
-                {categories.map((cat, i) => (
-                  <Reveal key={i} delay={i * 60}>
-                    {(v) => (
-                      <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
-                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{cat.name}</div>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                          <span style={{ fontSize: 26, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
-                            <CountUp target={cat.score} active={v} />
-                          </span>
-                          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
-                          {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, alignContent: "start" }}>
+                {categories.map((cat, i) => {
+                  const isOpen = expandedCat === i;
+                  const toggle = () => setExpandedCat((o) => (o === i ? null : i));
+                  return (
+                    <Reveal key={i} delay={i * 60}>
+                      {(v) => (
+                        <div
+                          className="ds-card ds-card-interactive"
+                          style={{ padding: "14px 16px", cursor: "pointer" }}
+                          role="button" tabIndex={0} aria-expanded={isOpen}
+                          onClick={toggle}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{cat.name}</span>
+                            <ChevronDown size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, transition: "transform 0.25s var(--ease)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+                            <span style={{ fontSize: 26, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
+                              <CountUp target={cat.score} active={v} />
+                            </span>
+                            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
+                            {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
+                          </div>
+                          <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
+                            <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
+                          </div>
+                          <div aria-hidden={!isOpen} style={{
+                            maxHeight: isOpen ? 140 : 0, opacity: isOpen ? 1 : 0, overflow: "hidden",
+                            marginTop: isOpen ? 10 : 0, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)",
+                            transition: "max-height 0.3s var(--ease), opacity 0.25s var(--ease), margin-top 0.3s var(--ease)",
+                          }}>
+                            {categoryVerdict(cat.score)}
+                          </div>
                         </div>
-                        <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
-                          <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
-                        </div>
-                      </div>
-                    )}
-                  </Reveal>
-                ))}
+                      )}
+                    </Reveal>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -898,9 +925,9 @@ function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[])
 
   // Категории с низким баллом
   (my.company.categories ?? []).forEach((cat) => {
-    if (cat.score < 45) out.push({ severity: "critical", category: cat.name, title: `${cat.name}: ${cat.score}/100 — слабое место`, detail: `Показатель значительно ниже нормы. Это напрямую тормозит привлечение клиентов из этого канала.` });
-    else if (cat.score < 65) out.push({ severity: "warning", category: cat.name, title: `${cat.name}: ${cat.score}/100 — есть куда расти`, detail: `Средний уровень: конкуренты с более сильным показателем забирают часть вашей аудитории.` });
-    else out.push({ severity: "ok", category: cat.name, title: `${cat.name}: ${cat.score}/100 — в порядке`, detail: `Хороший результат, поддерживаем на текущем уровне.` });
+    const severity: Severity = cat.score < 45 ? "critical" : cat.score < 65 ? "warning" : "ok";
+    const label = severity === "critical" ? "слабое место" : severity === "warning" ? "есть куда расти" : "в порядке";
+    out.push({ severity, category: cat.name, title: `${cat.name}: ${cat.score}/100 — ${label}`, detail: categoryVerdict(cat.score) });
   });
 
   // SEO-проблемы
