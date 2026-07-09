@@ -6,6 +6,8 @@ export interface NavItem {
   label: string;
   count: number | null;
   children?: NavItem[];
+  /** Если задан — клик открывает эту ссылку в новой вкладке вместо переключения внутренней вьюхи. */
+  externalHref?: string;
 }
 
 export interface NavSection {
@@ -21,6 +23,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: "owner-dashboard", icon: "Gauge", label: "Дашборд руководителя", count: null },
       { id: "agents", icon: "Bot", label: "Агенты", count: null },
+      { id: "kp-proposal", icon: "Sparkles", label: "КП по анализу сайта", count: null, externalHref: "/kp" },
     ],
   },
   {

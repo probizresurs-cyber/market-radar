@@ -318,7 +318,10 @@ export function SidebarComponent({
     return (
       <div key={`${depth}-${item.id}`} className="ds-side-row">
         <div
-          onClick={() => isGroup ? toggleGroup(item.id) : setActiveNav(item.id)}
+          onClick={() => {
+            if (item.externalHref) { window.open(item.externalHref, "_blank", "noopener,noreferrer"); return; }
+            isGroup ? toggleGroup(item.id) : setActiveNav(item.id);
+          }}
           style={{
             display: "flex", alignItems: "center", gap: 11,
             padding: depth > 0 ? "9px 10px 9px 30px" : "10px 12px",
