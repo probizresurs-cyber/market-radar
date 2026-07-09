@@ -245,17 +245,27 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
       key: "requireApproval",
       label: "Требовать подтверждение перед публикацией",
       type: "boolean",
-      help: "Если включено — посты сначала идут в Inbox для одобрения. Безопаснее для бренд-чувствительных аккаунтов.",
+      help: "Если включено — посты сначала идут в Inbox для одобрения. Выключите для полностью автономного постинга по расписанию.",
     },
     {
       key: "publishTelegram",
       label: "Публиковать в Telegram",
       type: "boolean",
+      help: "Канал по умолчанию для постов без явного выбора платформы. Нужен подключённый telegram_channel_id.",
     },
     {
       key: "publishVk",
       label: "Публиковать в VK",
       type: "boolean",
+      help: "Сообщество по умолчанию. Нужен подключённый vk_group_id + VK-токен на сервере.",
+    },
+    {
+      key: "maxPerRun",
+      label: "Максимум постов за один запуск",
+      type: "number",
+      min: 1,
+      max: 50,
+      help: "Защита от флуда: за один прогон агента публикуется не больше N запланированных постов. По умолчанию 25.",
     },
   ],
   "seo-position-tracker": [
@@ -317,6 +327,22 @@ const AGENT_PARAM_SCHEMAS: Record<string, ParamField[]> = {
       min: 3,
       max: 50,
       help: "Если общий mention rate упал на ≥N% относительно прошлой недели — TG-алерт + inbox. По умолчанию 10.",
+    },
+  ],
+  "report-digest": [
+    {
+      key: "periodDays",
+      label: "Период сводки (дней)",
+      type: "number",
+      min: 1,
+      max: 31,
+      help: "За сколько дней собирать активность агентов в письмо. По умолчанию 7 (раз в неделю).",
+    },
+    {
+      key: "sendIfEmpty",
+      label: "Слать даже если нет новостей",
+      type: "boolean",
+      help: "По умолчанию пустые дайджесты не отправляются. Включите, если хотите письмо каждый период в любом случае.",
     },
   ],
   "email-drip-sender": [

@@ -55,13 +55,13 @@ export interface VendorRequisites {
 export function getVendorRequisites(): VendorRequisites {
   const env = process.env;
   return {
-    legal_name: env.VENDOR_LEGAL_NAME ?? "{{VENDOR_LEGAL_NAME}}",
-    short_name: env.VENDOR_SHORT_NAME ?? env.VENDOR_LEGAL_NAME ?? "{{VENDOR_SHORT_NAME}}",
-    director_name: env.VENDOR_DIRECTOR_NAME ?? "{{VENDOR_DIRECTOR_NAME}}",
+    legal_name: env.VENDOR_LEGAL_NAME ?? "ИП Штумпф Юрий Геннадьевич",
+    short_name: env.VENDOR_SHORT_NAME ?? env.VENDOR_LEGAL_NAME ?? "ИП Штумпф Ю. Г.",
+    director_name: env.VENDOR_DIRECTOR_NAME ?? "Штумпф Юрий Геннадьевич",
     director_position: env.VENDOR_DIRECTOR_POSITION ?? "Индивидуальный предприниматель",
-    inn: env.VENDOR_INN ?? "{{VENDOR_INN}}",
-    ogrn: env.VENDOR_OGRN ?? "{{VENDOR_OGRN}}",
-    legal_address: env.VENDOR_LEGAL_ADDRESS ?? "{{VENDOR_LEGAL_ADDRESS}}",
+    inn: env.VENDOR_INN ?? "550615955642",
+    ogrn: env.VENDOR_OGRN ?? "317774600595262",
+    legal_address: env.VENDOR_LEGAL_ADDRESS ?? "г. Москва, Шелепихинская наб., 34 к2, оф. 704, 123290",
     bank_name: env.VENDOR_BANK_NAME ?? "{{VENDOR_BANK_NAME}}",
     bank_bik: env.VENDOR_BANK_BIK ?? "{{VENDOR_BANK_BIK}}",
     bank_account: env.VENDOR_BANK_ACCOUNT ?? "{{VENDOR_BANK_ACCOUNT}}",
@@ -72,7 +72,7 @@ export function getVendorRequisites(): VendorRequisites {
     signature_url: env.VENDOR_SIGNATURE_URL,
     stamp_url: env.VENDOR_STAMP_URL,
     contact_phone: env.VENDOR_CONTACT_PHONE,
-    contact_email: env.VENDOR_CONTACT_EMAIL,
+    contact_email: env.VENDOR_CONTACT_EMAIL ?? "hello@marketradar24.ru",
   };
 }
 

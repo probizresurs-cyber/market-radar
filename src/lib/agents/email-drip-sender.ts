@@ -287,6 +287,39 @@ registerAgent({
     }
 
     const user = users[0];
+
+    // ── Настройки из конфига агента ──────────────────────────────────────
+    const VALID_ACC = ["noreply", "hello", "billing"] as const;
+    const fromOverride =
+      typeof ctx.params.fromAccount === "string" && (VALID_ACC as readonly string[]).includes(ctx.params.fromAccount)
+        ? (ctx.params.fromAccount as "noreply" | "hello" | "billing")
+        : null;
+    const bccAdmin =
+      typeof ctx.params.bccAdmin === "string" && ctx.params.bccAdmin.includes("@")
+        ? ctx.params.bccAdmin.trim()
+        : undefined;
+    const skipDays =
+      typeof ctx.params.skipDays === "number" && ctx.params.skipDays > 0 ? ctx.params.skipDays : 3;
+    // audienceFilter: домен (например «@yandex.ru») — шлём только подходящим.
+    let audienceFilter =
+      typeof ctx.params.audienceFilter === "string" ? ctx.params.audienceFilter.trim().toLowerCase() : "";
+    if (audienceFilter && !audienceFilter.startsWith("@")) audienceFilter = "@" + audienceFilter;
+
+    if (audienceFilter && !user.email.toLowerCase().endsWith(audienceFilter)) {
+      return { summary: `Email юзера не подходит под фильтр аудитории (${audienceFilter}).`, skipped: true };
+    }
+
+    // skipDays-троттлинг: не шлём, если этому адресу уже уходил drip в
+    // последние N дней (защита от частых писем поверх дедупа по trigger_key).
+    const recent = await query<{ last: string }>(
+      `SELECT MAX(sent_at)::text AS last FROM drip_sent WHERE user_id = $1`,
+      [user.id],
+    );
+    const lastSentDays = daysSince(recent[0]?.last);
+    if (!isNaN(lastSentDays) && lastSentDays < skipDays) {
+      return { summary: `Письмо этому адресу уходило ${lastSentDays} дн. назад (<${skipDays}) — пропускаем.`, skipped: true };
+    }
+
     const triggers = detectTriggersForUser(user);
 
     if (triggers.length === 0) {
@@ -311,7 +344,9 @@ registerAgent({
           to: user.email,
           subject: trig.subject,
           html,
-          from: trig.fromAccount ?? "noreply",
+          // Приоритет: явный override из настроек агента > предпочтение триггера > noreply.
+          from: fromOverride ?? trig.fromAccount ?? "noreply",
+          ...(bccAdmin ? { bcc: bccAdmin } : {}),
         });
         if (result.ok && !result.skipped) {
           await markSent(user.id, trig.key, result.messageId);

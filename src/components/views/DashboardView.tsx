@@ -141,7 +141,7 @@ function TechAuditDashboardBlock({ url }: { url: string }) {
   );
 }
 
-export function DashboardView({ c, data, competitors, onUpdateData }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void }) {
+export function DashboardView({ c, data, competitors, onUpdateData, isPersonal = false }: { c: Colors; data: AnalysisResult; competitors: AnalysisResult[]; onUpdateData?: (next: AnalysisResult) => void; isPersonal?: boolean }) {
   const { company, recommendations } = data;
   const [kwSearch, setKwSearch] = useState("");
   const [kwEngine, setKwEngine] = useState<"yandex" | "google">("yandex");
@@ -150,8 +150,11 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
   const [myOffers, setMyOffers] = useState<any>(null);
   const [myOffersLoading, setMyOffersLoading] = useState(false);
 
-  // Load own offers from cache or API
+  // Load own offers from cache or API.
+  // Для личного бренда не грузим — это услуги компании (родительского сайта),
+  // а не личное позиционирование персоны; блок ниже тоже скрыт.
   useEffect(() => {
+    if (isPersonal) return;
     if (!company?.name) return;
     const offersKey = `mr_offers_${company.url || company.name}`;
     try {
@@ -433,7 +436,8 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
         </div>
       </CollapsibleSection>
 
-      {/* ── Анализ офферов (своей компании) ── */}
+      {/* ── Анализ офферов (своей компании) — скрыт для личного бренда (это услуги компании, не персоны) ── */}
+      {!isPersonal && (
       <CollapsibleSection c={c} title="Анализ офферов" icon={<Tag size={16} strokeWidth={1.75} />}
         extra={myOffers && !myOffersLoading ? (<>
           <button onClick={() => {
@@ -516,6 +520,7 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
           </div>
         )}
       </CollapsibleSection>
+      )}
 
       {/* ── PageSpeed Insights ── */}
       {data.seo?.lighthouseScores && (
@@ -569,18 +574,21 @@ export function DashboardView({ c, data, competitors, onUpdateData }: { c: Color
         )}
       </CollapsibleSection>
 
-      {/* Market share — only if we have at least 1 competitor */}
-      <CollapsibleSection c={c} title="Доли рынка" icon={<PieChart size={16} strokeWidth={1.75} />} defaultOpen={false}>
-        <MarketShareBlock
-          myDomain={data.company.url}
-          competitorDomains={competitors.map(c => c.company.url).filter(Boolean)}
-        />
-      </CollapsibleSection>
+      {/* Доли рынка и Я.Директ — метрики компании, для личного бренда не показываем */}
+      {!isPersonal && (
+        <CollapsibleSection c={c} title="Доли рынка" icon={<PieChart size={16} strokeWidth={1.75} />} defaultOpen={false}>
+          <MarketShareBlock
+            myDomain={data.company.url}
+            competitorDomains={competitors.map(c => c.company.url).filter(Boolean)}
+          />
+        </CollapsibleSection>
+      )}
 
-      {/* Yandex Direct — own ads audit */}
-      <CollapsibleSection c={c} title="Реклама в Я.Директ" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
-        <CompetitorAdsBlock domain={data.company.url} />
-      </CollapsibleSection>
+      {!isPersonal && (
+        <CollapsibleSection c={c} title="Реклама в Я.Директ" icon={<TrendingUp size={16} strokeWidth={1.75} />} defaultOpen={false}>
+          <CompetitorAdsBlock domain={data.company.url} />
+        </CollapsibleSection>
+      )}
 
       {/* Расширенные SEO-детали из Keys.so — топ страницы, потерянные ключи, бэклинки, темы */}
       <CollapsibleSection c={c} title="SEO детали (Keys.so)" icon={<FileText size={16} strokeWidth={1.75} />} defaultOpen={false}>

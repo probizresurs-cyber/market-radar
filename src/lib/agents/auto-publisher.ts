@@ -58,10 +58,45 @@ registerAgent({
   category: "content",
 
   async run(ctx: AgentContext): Promise<AgentRunResult> {
-    // Список due-постов передаётся фронтом через params (см. JSdoc файла).
-    const duePosts = Array.isArray(ctx.params.duePosts)
+    // Источник due-постов:
+    //  1) params.duePosts — фронт может явно прислать батч (ручной запуск/legacy);
+    //  2) иначе читаем серверную таблицу scheduled_posts (status pending,
+    //     scheduled_for ≤ now) — так агент работает АВТОНОМНО по крону, без
+    //     открытого браузера. id строк запоминаем, чтобы пометить статус после.
+    let duePosts: GeneratedPost[] = Array.isArray(ctx.params.duePosts)
       ? (ctx.params.duePosts as GeneratedPost[])
       : [];
+    // Маппинг postId → id строки scheduled_posts (только для server-source).
+    const dbRowByPostId = new Map<string, string>();
+    let fromDb = false;
+
+    // Лимит постов за один прогон (защита от флуда). Настраивается в UI.
+    const maxPerRun =
+      typeof ctx.params.maxPerRun === "number" && ctx.params.maxPerRun >= 1 && ctx.params.maxPerRun <= 50
+        ? Math.floor(ctx.params.maxPerRun)
+        : 25;
+
+    if (duePosts.length === 0) {
+      const dueRows = await query<{ id: string; payload: GeneratedPost; platforms: string[] }>(
+        `SELECT id, payload, platforms FROM scheduled_posts
+          WHERE user_id = $1 AND status = 'pending' AND scheduled_for <= NOW()
+          ORDER BY scheduled_for ASC LIMIT $2`,
+        [ctx.userId, maxPerRun],
+      );
+      if (dueRows.length > 0) {
+        fromDb = true;
+        duePosts = dueRows.map(r => {
+          const post = r.payload;
+          dbRowByPostId.set(post.id, r.id);
+          // Платформы из строки переопределяют дефолт, если заданы.
+          if (Array.isArray(r.platforms) && r.platforms.length > 0) {
+            (post as GeneratedPost & { _platforms?: string[] })._platforms = r.platforms;
+          }
+          return post;
+        });
+      }
+    }
+
     const wantTelegram = ctx.params.publishTelegram !== false;
     const wantVk = ctx.params.publishVk !== false;
     // По умолчанию требуем approval для безопасности (юзер вручную apply
@@ -104,6 +139,12 @@ registerAgent({
             }),
           ],
         );
+        // Server-source: помечаем 'queued', чтобы следующий cron не создал
+        // дубль inbox-карточки. Публикация произойдёт при approve в Inbox.
+        const rowId = dbRowByPostId.get(post.id);
+        if (rowId) {
+          await query(`UPDATE scheduled_posts SET status = 'queued', updated_at = NOW() WHERE id = $1`, [rowId]);
+        }
       }
       return {
         summary:
@@ -137,7 +178,13 @@ registerAgent({
         scheduledFor: post.scheduledFor,
       };
 
-      if (wantTelegram) {
+      // Платформы конкретного поста (из scheduled_posts) переопределяют
+      // глобальные тоглы агента, если заданы.
+      const perPost = (post as GeneratedPost & { _platforms?: string[] })._platforms;
+      const postWantTg = perPost ? perPost.includes("telegram") : wantTelegram;
+      const postWantVk = perPost ? perPost.includes("vk") : wantVk;
+
+      if (postWantTg) {
         if (!tgTarget) {
           r.telegram = { ok: false, error: "Telegram канал не подключён" };
         } else {
@@ -151,7 +198,7 @@ registerAgent({
         }
       }
 
-      if (wantVk) {
+      if (postWantVk) {
         if (!vkGroup && !process.env.VK_GROUP_ID) {
           r.vk = { ok: false, error: "VK сообщество не подключено" };
         } else {
@@ -163,6 +210,19 @@ registerAgent({
           });
           r.vk = { ok: vk.ok, messageUrl: vk.messageUrl, error: vk.error };
         }
+      }
+
+      // Server-source: фиксируем итог в scheduled_posts.
+      const rowId = dbRowByPostId.get(post.id);
+      if (rowId) {
+        const anyOk = Boolean(r.telegram?.ok || r.vk?.ok);
+        const errText = [r.telegram?.error, r.vk?.error].filter(Boolean).join("; ") || null;
+        await query(
+          `UPDATE scheduled_posts
+              SET status = $1, last_error = $2, published_at = CASE WHEN $1 = 'published' THEN NOW() ELSE published_at END, updated_at = NOW()
+            WHERE id = $3`,
+          [anyOk ? "published" : "failed", anyOk ? null : errText, rowId],
+        );
       }
 
       results.push(r);

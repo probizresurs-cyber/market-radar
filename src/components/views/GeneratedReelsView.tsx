@@ -9,6 +9,7 @@ import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { OnboardingChecklist, type OnboardingState } from "@/components/ui/OnboardingChecklist";
 import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { hrefForNav } from "@/lib/products";
 
 export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -857,7 +858,7 @@ export function GeneratedReelsView({
         {onboardingState && (
           <OnboardingChecklist
             state={onboardingState}
-            onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+            onNavigate={(nav) => { window.location.href = hrefForNav(nav); }}
           />
         )}
 
@@ -868,7 +869,7 @@ export function GeneratedReelsView({
           <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
             Перейдите в «План контента» и нажмите «Создать сценарий рилса» на любой идее.
           </div>
-          <a href="/?nav=content-plan" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+          <a href={hrefForNav("content-plan")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
             План контента →
           </a>
         </div>
@@ -1011,7 +1012,7 @@ export function GeneratedReelsView({
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
         }}>
           <span>Чтобы создавать видео, сначала сгенерируйте план контента.</span>
-          <a href="/?nav=content-plan" style={{
+          <a href={hrefForNav("content-plan")} style={{
             padding: "7px 14px", borderRadius: 8,
             background: "var(--primary)", color: "#fff",
             fontSize: 13, fontWeight: 700, textDecoration: "none",

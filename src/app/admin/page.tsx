@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
-import { Zap, Phone, Radar, Target, LogOut } from "lucide-react";
+import { Zap, Phone, Radar, Target, LogOut, FileText, Factory, Globe } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +167,28 @@ export default async function AdminRoot() {
             Лидогенерация · аккаунты, маршрутизация баз по аккаунтам, источники
           </div>
           <div style={S.cardArrow("#f59e0b")}>Открыть →</div>
+        </Link>
+
+        {/* Продукты экосистемы MarketRadar (раздельные подписки/тарифы/рефералы) */}
+        <Link href="/admin/products/seo-geo" style={S.card("#22d3ee")}>
+          <div style={S.cardIcon("#22d3ee")}><FileText size={22} /></div>
+          <div style={S.cardTitle}>SEO + GEO</div>
+          <div style={S.cardDesc}>Подписчики, тарифы, реф-ссылки и статистика продукта SEO+GEO</div>
+          <div style={S.cardArrow("#22d3ee")}>Открыть →</div>
+        </Link>
+
+        <Link href="/admin/products/content-factory" style={S.card("#ec4899")}>
+          <div style={S.cardIcon("#ec4899")}><Factory size={22} /></div>
+          <div style={S.cardTitle}>Контент-завод</div>
+          <div style={S.cardDesc}>Подписчики, тарифы, реф-ссылки и статистика контент-завода</div>
+          <div style={S.cardArrow("#ec4899")}>Открыть →</div>
+        </Link>
+
+        <Link href="/admin/products/land-pres" style={S.card("#7c5cfc")}>
+          <div style={S.cardIcon("#7c5cfc")}><Globe size={22} /></div>
+          <div style={S.cardTitle}>Лендинги и презентации</div>
+          <div style={S.cardDesc}>Подписчики, тарифы, реф-ссылки и статистика продукта</div>
+          <div style={S.cardArrow("#7c5cfc")}>Открыть →</div>
         </Link>
       </div>
 

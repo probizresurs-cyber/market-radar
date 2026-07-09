@@ -178,6 +178,33 @@ export async function initDb() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_pct INTEGER NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_expires_at TIMESTAMPTZ`);
 
+  // ─── Раздельные подписки по продуктам (Этап 2) ───────────────────────
+  // Экосистема разнесена на продукты (core / seo-geo / content-factory /
+  // land-pres). У каждого — своя подписка, свой пул токенов, свои тарифы и
+  // реф-ссылки. Доступ к продукту = активная строка в product_subscriptions.
+  // product NULL на pricing_items/referral_links = «общий» (любой продукт).
+  await query(`ALTER TABLE pricing_items ADD COLUMN IF NOT EXISTS product TEXT`);
+  await query(`ALTER TABLE referral_links ADD COLUMN IF NOT EXISTS product TEXT`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS product_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      product TEXT NOT NULL,                    -- core | seo-geo | content-factory | land-pres
+      plan TEXT NOT NULL DEFAULT 'trial',
+      status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','trialing','expired','canceled')),
+      tokens_used INTEGER NOT NULL DEFAULT 0,
+      tokens_limit INTEGER,                     -- NULL = дефолт тарифа
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, product)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_product_subs_user ON product_subscriptions(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_product_subs_product ON product_subscriptions(product, status)`);
+
   // ─── GDPR / ФЗ-152: consent to processing of personal data ──────────────────
   // https://company24.pro/politicahr2026 — captured at registration time.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ`);
@@ -553,6 +580,30 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_user_started ON agent_runs(user_id, started_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_runs_pending_approval ON agent_runs(user_id, needs_approval, approved_at) WHERE needs_approval = true AND approved_at IS NULL`);
+
+  // Серверное зеркало запланированных постов. Раньше посты жили только в
+  // localStorage браузера → auto-publisher по крону их не видел (мог постить
+  // только когда у юзера открыт таб). Теперь фронт синхронизирует посты с
+  // scheduledFor сюда, а cron-агент auto-publisher читает due-посты (status
+  // pending, scheduled_for ≤ now) и публикует автономно.
+  await query(`
+    CREATE TABLE IF NOT EXISTS scheduled_posts (
+      id TEXT PRIMARY KEY,                  -- = post.id с фронта (стабильный, для upsert)
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      profile_suffix TEXT NOT NULL DEFAULT '', -- мульти-профиль: '' для основного, иначе __p_<id>
+      scheduled_for TIMESTAMPTZ NOT NULL,
+      platforms TEXT[] NOT NULL DEFAULT '{}', -- ['telegram','vk']
+      payload JSONB NOT NULL,                 -- весь GeneratedPost (hook/body/hashtags/imageUrl/variants)
+      status TEXT NOT NULL DEFAULT 'pending'  -- pending | queued (ждёт approval) | published | failed | canceled
+        CHECK (status IN ('pending','queued','published','failed','canceled')),
+      last_error TEXT,
+      published_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_due ON scheduled_posts(status, scheduled_for) WHERE status = 'pending'`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id, profile_suffix)`);
 
   // ─── Лиды (база сайтов для холодного аутрича) ──────────────────────────────
   // Из админки админ грузит CSV с 100-10000 доменами, на каждый домен

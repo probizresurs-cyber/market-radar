@@ -5,6 +5,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { ContentPlan, ContentPostIdea, ContentReelIdea, BrandBook, AvatarSettings, ReferenceImage } from "@/lib/content-types";
+import { hrefForNav } from "@/lib/products";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
 import { BrandBookPanel } from "@/components/ui/BrandBookPanel";
@@ -84,7 +85,7 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
         <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 12, padding: "14px 16px", marginBottom: 20, fontSize: 13, color: "var(--destructive)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <span>⚠️ СММ-анализ не найден. Контент-завод работает на его основе.</span>
           <a
-            href="/?nav=smm-new"
+            href={hrefForNav("smm-new")}
             style={{
               padding: "7px 16px", borderRadius: 8, background: "var(--destructive)",
               color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",

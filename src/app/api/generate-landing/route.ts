@@ -143,6 +143,18 @@ export async function POST(req: Request) {
 
     await client.close();
 
+    // Stitch иногда отдаёт превью-картинку (getImage), но пустой HTML
+    // (getHtml) — без ошибки. Признак, что на аккаунте Stitch закончился
+    // план/квота на экспорт HTML. Не сохраняем «битый» лендинг из одной
+    // картинки, а возвращаем понятную причину.
+    if (!htmlUrl || !htmlUrl.trim()) {
+      await access.log({ endpoint: "generate-landing", model: "stitch-gemini-3-pro", success: false });
+      return NextResponse.json({
+        ok: false,
+        error: "Stitch вернул только превью без HTML-страницы — вероятно, на аккаунте Stitch закончился план или квота на экспорт HTML. Проверьте аккаунт и ключ GOOGLE_STITCH_API_KEY.",
+      }, { status: 502 });
+    }
+
     // Записываем projectId↔userId, чтобы edit-landing мог проверить владение.
     // Без этого был IDOR (см. P0 от аудит-агента 25.05). workspace_id = id
     // владельца workspace (для multi-user команд).

@@ -9,6 +9,7 @@ import { OnboardingChecklist, type OnboardingState } from "@/components/ui/Onboa
 import { ContentGeneratorBlock } from "@/components/views/ContentPlanView";
 import { Palette, Search, Loader2, X, Check, ChevronUp, ChevronDown, Sparkles, BarChart2, Eye, Heart, MessageSquare, TrendingUp, Bookmark, Timer, Film, MousePointer, Target, DollarSign, Banknote, Play, Save, Trash2, Copy, Pencil, Image, Bot, Camera, Wand2, Send, ExternalLink, Shuffle } from "lucide-react";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { hrefForNav } from "@/lib/products";
 
 type AnyMetrics = PostMetrics & ReelMetrics;
 
@@ -1827,7 +1828,7 @@ export function GeneratedPostsView({
         {onboardingState && (
           <OnboardingChecklist
             state={onboardingState}
-            onNavigate={(nav) => { window.location.href = `/?nav=${nav}`; }}
+            onNavigate={(nav) => { window.location.href = hrefForNav(nav); }}
           />
         )}
 
@@ -1862,7 +1863,7 @@ export function GeneratedPostsView({
             <div style={{ fontSize: 14, color: "var(--foreground-secondary)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 22px" }}>
               Без анализа AI не знает, о чём писать. Запустите главный анализ — и сразу сможете создавать посты.
             </div>
-            <a href="/?nav=new-analysis" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
+            <a href={hrefForNav("new-analysis")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 11, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)" }}>
               К анализу →
             </a>
           </div>
@@ -1913,7 +1914,7 @@ export function GeneratedPostsView({
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap",
         }}>
           <span>Сначала запустите анализ компании — без него AI не знает контекст.</span>
-          <a href="/?nav=new-analysis" style={{
+          <a href={hrefForNav("new-analysis")} style={{
             padding: "7px 14px", borderRadius: 8,
             background: "var(--primary)", color: "#fff",
             fontSize: 13, fontWeight: 700, textDecoration: "none",

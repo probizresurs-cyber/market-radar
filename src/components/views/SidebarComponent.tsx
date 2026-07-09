@@ -7,7 +7,7 @@ import {
   Map, Share2, Palette, Star, FileText, Plus, Library, Key, Factory, ClipboardList, FileEdit, Film,
   Smartphone, Wallet, Globe, Presentation, Link2, Moon, Sun, Coffee, LogOut, Layers, Eye,
   Network, HelpCircle, ScanLine, Grid3x3, DollarSign, LineChart,
-  Pin, Clock, Bot, Sparkles,
+  Pin, Clock, Bot, Sparkles, Trash2, User, LayoutGrid,
 } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import type { Colors, Theme } from "@/lib/colors";
@@ -75,6 +75,134 @@ function NavIcon({ name, size = 15, active }: { name: string; size?: number; act
 
 
 // ============================================================
+// Profile Switcher — кастомный dropdown без нативного <select>
+// ============================================================
+
+function ProfileSwitcher({
+  profiles, activeProfileId, onSwitch, onCreate, onDelete, canDelete,
+}: {
+  profiles: Array<{ id: string; name: string; kind: string }>;
+  activeProfileId: string;
+  onSwitch: (id: string) => void;
+  onCreate?: () => void;
+  onDelete?: (id: string) => void;
+  canDelete?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const active = profiles.find(p => p.id === activeProfileId) ?? profiles[0];
+  const ActiveIcon = active?.kind === "personal" ? User : Building2;
+
+  return (
+    <div ref={ref} style={{ padding: "8px 10px", borderBottom: "1px solid var(--sidebar-border)", position: "relative" }}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", padding: "7px 10px", borderRadius: 8, cursor: "pointer",
+          border: "1px solid var(--sidebar-border)",
+          background: open ? "var(--sidebar-hover)" : "transparent",
+          color: "var(--sidebar-fg)", fontFamily: "inherit",
+          display: "flex", alignItems: "center", gap: 7, outline: "none",
+          transition: "background 0.15s",
+        }}
+      >
+        <ActiveIcon size={13} style={{ flexShrink: 0, color: "var(--sidebar-muted)", opacity: 0.8 }} />
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 500, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {active?.name ?? "Основной"}
+        </span>
+        <ChevronRight
+          size={13}
+          style={{ flexShrink: 0, color: "var(--sidebar-muted)", transition: "transform 0.18s", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% - 2px)", left: 10, right: 10, zIndex: 120,
+          background: "var(--sidebar-bg)",
+          border: "1px solid var(--sidebar-border)",
+          borderRadius: 10,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.18)",
+          padding: "4px",
+          overflow: "hidden",
+        }}>
+          {profiles.map(p => {
+            const isActive = p.id === activeProfileId;
+            const Icon = p.kind === "personal" ? User : Building2;
+            return (
+              <div
+                key={p.id}
+                onClick={() => { onSwitch(p.id); setOpen(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+                  background: isActive ? "color-mix(in oklch, var(--primary) 12%, transparent)" : "transparent",
+                  color: isActive ? "var(--primary)" : "var(--sidebar-fg)",
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--sidebar-hover)"; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+              >
+                <Icon size={13} style={{ flexShrink: 0, opacity: 0.75 }} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </span>
+                {isActive && canDelete && onDelete && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onDelete(p.id); setOpen(false); }}
+                    title="Удалить профиль"
+                    style={{
+                      flexShrink: 0, width: 22, height: 22, borderRadius: 5,
+                      border: "none", background: "transparent", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "#F87171", opacity: 0.7,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+                  >
+                    <Trash2 size={12} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {onCreate && (
+            <>
+              <div style={{ height: 1, background: "var(--sidebar-border)", margin: "4px 2px" }} />
+              <div
+                onClick={() => { onCreate(); setOpen(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+                  color: "var(--sidebar-muted)", transition: "background 0.12s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--sidebar-hover)"; (e.currentTarget as HTMLDivElement).style.color = "var(--sidebar-fg)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; (e.currentTarget as HTMLDivElement).style.color = "var(--sidebar-muted)"; }}
+              >
+                <Plus size={13} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13 }}>Создать профиль</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Sidebar Component
 // ============================================================
 
@@ -82,6 +210,8 @@ export function SidebarComponent({
   c, theme, setTheme, activeNav, setActiveNav, navSections, companyUrl,
   user, onLogout, hideBranding,
   workspaces, activeWorkspaceId, onSwitchWorkspace,
+  profiles, activeProfileId, onSwitchProfile, onCreateProfile, onDeleteProfile,
+  canDeleteActiveProfile,
 }: {
   c: Colors; theme: Theme; setTheme: (t: Theme) => void;
   activeNav: string; setActiveNav: (id: string) => void;
@@ -93,6 +223,14 @@ export function SidebarComponent({
   /** Активный workspace. По умолчанию = user.id. */
   activeWorkspaceId?: string;
   onSwitchWorkspace?: (workspaceId: string) => void;
+  /** Профили под одним аккаунтом (компания + личный бренд и т.п.). */
+  profiles?: Array<{ id: string; name: string; kind: "company" | "personal" }>;
+  activeProfileId?: string;
+  onSwitchProfile?: (profileId: string) => void;
+  onCreateProfile?: () => void;
+  onDeleteProfile?: (profileId: string) => void;
+  /** true если активный профиль можно удалить (не default). */
+  canDeleteActiveProfile?: boolean;
 }) {
   // Auto-expand groups that contain the active item
   const getDefaultExpanded = () => {
@@ -180,7 +318,10 @@ export function SidebarComponent({
     return (
       <div key={`${depth}-${item.id}`} className="ds-side-row">
         <div
-          onClick={() => isGroup ? toggleGroup(item.id) : setActiveNav(item.id)}
+          onClick={() => {
+            if (item.externalHref) { window.open(item.externalHref, "_blank", "noopener,noreferrer"); return; }
+            isGroup ? toggleGroup(item.id) : setActiveNav(item.id);
+          }}
           style={{
             display: "flex", alignItems: "center", gap: 11,
             padding: depth > 0 ? "9px 10px 9px 30px" : "10px 12px",
@@ -267,6 +408,28 @@ export function SidebarComponent({
           )}
         </div>
       </div>
+
+      {/* Ссылка на хаб продуктов (общий аккаунт, точка входа /main) */}
+      <a href="/main" style={{
+        display: "flex", alignItems: "center", gap: 8, margin: "10px 12px 0",
+        padding: "9px 12px", borderRadius: 9, textDecoration: "none",
+        border: "1px solid var(--sidebar-border)", color: "var(--sidebar-muted)",
+        fontSize: 13, fontWeight: 600,
+      }}>
+        <LayoutGrid size={15} /> Все продукты
+      </a>
+
+      {/* Profile switcher — кастомный dropdown (не нативный select) */}
+      {profiles && profiles.length > 0 && onSwitchProfile && (
+        <ProfileSwitcher
+          profiles={profiles}
+          activeProfileId={activeProfileId ?? "default"}
+          onSwitch={onSwitchProfile}
+          onCreate={onCreateProfile}
+          onDelete={onDeleteProfile}
+          canDelete={canDeleteActiveProfile}
+        />
+      )}
 
       {/* Nav */}
       <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>

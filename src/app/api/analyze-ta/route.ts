@@ -21,6 +21,20 @@ const SYSTEM_PROMPT_B2C = `${ANTI_HALLUCINATION_SHORT}
 
 ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток и пояснительного текста. Твой ответ должен начинаться с { и заканчиваться }.`;
 
+const SYSTEM_PROMPT_PERSONAL = `${ANTI_HALLUCINATION_SHORT}
+
+Ты — ведущий аналитик по личным брендам и экспертному позиционированию. Ты специализируешься на анализе аудитории экспертов: консультантов, предпринимателей, спикеров, специалистов и руководителей, которые строят личный бренд.
+
+Ты глубоко понимаешь психографику аудитории личного бренда:
+- люди подписываются на эксперта из-за его личного опыта, историй, уникального взгляда
+- они хотят учиться у практика, а не у корпоративного бренда
+- мотивация — доверие к конкретному человеку, а не к компании
+- они покупают доступ к знаниям, времени или мышлению эксперта (консультации, менторство, курсы, выступления)
+
+Ты видишь разницу между «подписчиком» и «клиентом» личного бренда. Ты знаешь, как выглядят «золотые» сегменты для эксперта — те, кто готов купить прямо сейчас.
+
+ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток и пояснительного текста. Твой ответ должен начинаться с { и заканчиваться }.`;
+
 const SYSTEM_PROMPT_B2B = `${ANTI_HALLUCINATION_SHORT}
 
 Ты — топовый B2B-маркетолог и account-based эксперт, специализирующийся на глубоком анализе юридических лиц как целевой аудитории.
@@ -50,6 +64,87 @@ const SYSTEM_PROMPT_B2B = `${ANTI_HALLUCINATION_SHORT}
 Анализируй НИШУ компании буквально. Если ниша — «промышленное освещение для девелоперов и застройщиков», то клиенты — это девелоперы/застройщики/генподрядчики/проектные институты, а ЛПР внутри них — главинж/архитектор/закупщик. НЕ «семейные пары, делающие ремонт».
 
 ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток и пояснительного текста. Твой ответ должен начинаться с { и заканчиваться }.`;
+
+function buildPromptPersonal(personName: string, niche: string, extraContext: string): string {
+  return `Проведи анализ целевой аудитории для личного бренда эксперта.
+
+Эксперт / личный бренд: ${personName || "—"}
+Экспертиза / ниша: ${niche || "—"}
+${extraContext ? `Дополнительный контекст: ${extraContext}` : ""}
+
+ВАЖНО: Это ЛИЧНЫЙ БРЕНД эксперта, не компания. Аудитория — это люди, которые:
+- следят за этим человеком как за специалистом и практиком
+- читают его контент, учатся у него, вдохновляются его историей
+- покупают его консультации, менторство, курсы или приходят на его выступления
+- хотят решить конкретную задачу с помощью его экспертизы
+
+Создай 3 сегмента аудитории личного бренда (один "золотой" — готов купить/нанять прямо сейчас, два дополнительных).
+
+Верни результат строго в JSON формате по следующей схеме:
+{
+  "niche": "краткое описание экспертизы",
+  "summary": "2-3 предложения об аудитории эксперта в целом",
+  "segments": [
+    {
+      "id": 1,
+      "segmentName": "название сегмента аудитории",
+      "isGolden": true,
+      "goldenReason": "почему этот сегмент приоритетный для личного бренда",
+      "demographics": {
+        "personaName": "имя персоны, возраст",
+        "age": "возрастной диапазон",
+        "genderRatio": "соотношение полов",
+        "income": "доход или должность",
+        "lifestyle": "чем занимается, какой образ жизни (2-3 предложения)"
+      },
+      "psychographics": {
+        "values": ["ценность 1", "ценность 2", "ценность 3"],
+        "lifestyle": "мотивация следить за экспертами в этой теме",
+        "mediaConsumption": ["где ищет экспертизу", "платформа 2", "источник 3"],
+        "buyingBehavior": "как принимает решение о покупке у эксперта"
+      },
+      "pains": [
+        "конкретная боль или задача, которую этот сегмент хочет решить",
+        "боль 2",
+        "боль 3",
+        "боль 4"
+      ],
+      "desires": [
+        "что хочет получить от работы с экспертом",
+        "желание 2",
+        "желание 3"
+      ],
+      "fears": [
+        "чего боится, почему не покупает сразу",
+        "страх 2",
+        "страх 3"
+      ],
+      "objections": [
+        "типичное возражение перед покупкой консультации/курса",
+        "возражение 2",
+        "возражение 3"
+      ],
+      "motivators": [
+        "что подтолкнёт к покупке/найму прямо сейчас",
+        "триггер 2",
+        "триггер 3"
+      ],
+      "jtbd": "Jobs-to-be-done: какую задачу 'нанимает' эксперта решить",
+      "customerQuote": "типичная цитата от лица этого сегмента",
+      "contentFormats": ["какой формат контента потребляет", "формат 2"],
+      "channels": ["где найти этот сегмент", "канал 2"],
+      "ltv": "примерный LTV клиента для эксперта"
+    }
+  ],
+  "commonPatterns": {
+    "sharedPains": ["общая боль всех сегментов 1", "общая боль 2"],
+    "sharedDesires": ["общее желание 1", "желание 2"],
+    "keyInsight": "главный инсайт об аудитории эксперта в целом",
+    "contentRecommendation": "что публиковать чтобы привлекать эту аудиторию",
+    "offerRecommendation": "какой формат работы с аудиторией будет наиболее востребован"
+  }
+}`;
+}
 
 function buildPromptB2C(companyName: string, companyUrl: string, niche: string, extraContext: string): string {
   return `Проведи глубокий анализ целевой аудитории для следующего бизнеса:
@@ -380,9 +475,11 @@ export async function POST(req: Request) {
   const access = await checkAiAccess(req);
   if (!access.allowed) return access.response;
   try {
-    const { companyName, companyUrl, niche, extraContext, audienceType: audienceTypeRaw } = await req.json();
+    const { companyName, companyUrl, niche, extraContext, audienceType: audienceTypeRaw, profileKind } = await req.json();
 
-    if (!niche?.trim()) {
+    const isPersonal = profileKind === "personal";
+
+    if (!isPersonal && !niche?.trim()) {
       return NextResponse.json({ ok: false, error: "Укажите нишу / описание продукта" }, { status: 400 });
     }
 
@@ -396,10 +493,18 @@ export async function POST(req: Request) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 120_000);
 
-    const systemPrompt = audienceType === "b2b" ? SYSTEM_PROMPT_B2B : SYSTEM_PROMPT_B2C;
-    const userPrompt = audienceType === "b2b"
-      ? buildPromptB2B(companyName ?? "", companyUrl ?? "", niche, extraContext ?? "")
-      : buildPromptB2C(companyName ?? "", companyUrl ?? "", niche, extraContext ?? "");
+    let systemPrompt: string;
+    let userPrompt: string;
+    if (isPersonal) {
+      systemPrompt = SYSTEM_PROMPT_PERSONAL;
+      userPrompt = buildPromptPersonal(companyName ?? "", niche ?? extraContext ?? "", extraContext ?? "");
+    } else if (audienceType === "b2b") {
+      systemPrompt = SYSTEM_PROMPT_B2B;
+      userPrompt = buildPromptB2B(companyName ?? "", companyUrl ?? "", niche, extraContext ?? "");
+    } else {
+      systemPrompt = SYSTEM_PROMPT_B2C;
+      userPrompt = buildPromptB2C(companyName ?? "", companyUrl ?? "", niche, extraContext ?? "");
+    }
 
     let raw: string;
     try {
@@ -455,7 +560,7 @@ export async function POST(req: Request) {
       audienceType,
     };
 
-    await access.log({ endpoint: "analyze-ta", model: `gpt-4o-${audienceType}` });
+    await access.log({ endpoint: isPersonal ? "analyze-ta-personal" : "analyze-ta", model: `gpt-4o-${isPersonal ? "personal" : audienceType}` });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const { message, status } = friendlyAiError(err);

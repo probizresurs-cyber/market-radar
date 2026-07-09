@@ -23,6 +23,7 @@ import type { Colors } from "@/lib/colors";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
+import { hrefForNav } from "@/lib/products";
 import type { SwotReport, SwotItems } from "@/lib/swot";
 import type { TowsMatrix, TowsQuadrant } from "@/app/api/generate-tows/route";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
@@ -230,7 +231,7 @@ export function SWOTView({
               <div style={{ fontSize: 15, color: "var(--muted-foreground)", lineHeight: 1.55, maxWidth: 480, margin: "0 auto 22px" }}>
                 SWOT собирается на основе данных «Моей компании», конкурентов, ЦА и СММ. Сначала запустите хотя бы анализ компании.
               </div>
-              <a href="/?nav=new-analysis" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+              <a href={hrefForNav("new-analysis")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 12, background: "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
                 Запустить анализ →
               </a>
             </div>

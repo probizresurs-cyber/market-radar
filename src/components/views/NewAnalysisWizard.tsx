@@ -17,7 +17,7 @@
 
 import React, { useState } from "react";
 import type { Colors } from "@/lib/colors";
-import { Search, Users, Share2, Swords, Star, ChevronRight, ChevronLeft, Loader2, Check } from "lucide-react";
+import { Search, Users, Share2, Swords, Star, ChevronRight, ChevronLeft, Loader2, Check, Building2 } from "lucide-react";
 
 export type ModuleKey = "ta" | "smm" | "competitors" | "reviews";
 
@@ -30,6 +30,12 @@ export interface AnalysisOptions {
     instagram?: string;
   };
   competitorUrls?: string[];
+  /** Присутствует только для личного бренда (profileKind === "personal") */
+  personalBrand?: {
+    name: string;
+    position: string;
+    personalUrl?: string;
+  };
 }
 
 const MODULES: Array<{
@@ -79,17 +85,28 @@ export function NewAnalysisWizard({
   onSubmit,
   isAnalyzing,
   initialUrl,
+  profileKind = "company",
+  parentProfileName,
 }: {
   c: Colors;
   onSubmit: (options: AnalysisOptions) => Promise<void>;
   isAnalyzing: boolean;
   /** Если задан — поле URL предзаполняется, и визард стартует со шага 2 (модули). */
   initialUrl?: string;
+  /** Тип активного профиля — меняет форму шага 1. */
+  profileKind?: "company" | "personal";
+  /** Имя привязанного бизнес-профиля (только для personal). */
+  parentProfileName?: string;
 }) {
+  const isPersonal = profileKind === "personal";
   void c;
-  const [step, setStep] = useState(initialUrl ? 2 : 1);
+  const [step, setStep] = useState(initialUrl && !isPersonal ? 2 : 1);
   const [url, setUrl] = useState(initialUrl ?? "");
-  const [modules, setModules] = useState<Set<ModuleKey>>(new Set(["ta", "smm", "competitors"]));
+  // Личный бренд — поля персоны
+  const [personName, setPersonName] = useState("");
+  const [personPosition, setPersonPosition] = useState("");
+  const [personalUrl, setPersonalUrl] = useState("");
+  const [modules, setModules] = useState<Set<ModuleKey>>(new Set(isPersonal ? ["ta", "smm"] : ["ta", "smm", "competitors"]));
   const [smmLinks, setSmmLinks] = useState<{ vk: string; telegram: string; instagram: string }>({
     vk: "", telegram: "", instagram: "",
   });
@@ -97,6 +114,7 @@ export function NewAnalysisWizard({
   const [error, setError] = useState<string | null>(null);
 
   const isUrlValid = /^https?:\/\/[^\s]+$/i.test(url.trim()) || /^[a-z0-9-]+(\.[a-z]{2,})+/i.test(url.trim());
+  const isPersonNameValid = personName.trim().length >= 2;
   const hasSmm = modules.has("smm");
   const hasCompetitors = modules.has("competitors");
 
@@ -123,11 +141,17 @@ export function NewAnalysisWizard({
   const handleNext = () => {
     setError(null);
     if (step === 1) {
-      if (!isUrlValid) {
-        setError("Введите корректный URL сайта");
-        return;
+      if (isPersonal) {
+        if (!isPersonNameValid) {
+          setError("Введите имя (минимум 2 символа)");
+          return;
+        }
+      } else {
+        if (!isUrlValid) {
+          setError("Введите корректный URL сайта");
+          return;
+        }
       }
-      // Сразу пропускаем к шагу 2 (выбор модулей)
       setStep(2);
       return;
     }
@@ -171,9 +195,16 @@ export function NewAnalysisWizard({
     setError(null);
     try {
       const payload: AnalysisOptions = {
-        url: normalizeUrl(url),
+        url: isPersonal ? normalizeUrl(personalUrl) : normalizeUrl(url),
         modules: Array.from(modules),
       };
+      if (isPersonal) {
+        payload.personalBrand = {
+          name: personName.trim(),
+          position: personPosition.trim(),
+          ...(personalUrl.trim() ? { personalUrl: normalizeUrl(personalUrl.trim()) } : {}),
+        };
+      }
       if (hasSmm) {
         const cleaned: AnalysisOptions["smm"] = {};
         if (smmLinks.vk.trim()) cleaned.vk = smmLinks.vk.trim();
@@ -202,10 +233,12 @@ export function NewAnalysisWizard({
   return (
     <div style={{ maxWidth: 760 }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", color: "var(--foreground)", letterSpacing: -0.5 }}>
-        Новый анализ
+        {isPersonal ? "Анализ личного бренда" : "Новый анализ"}
       </h1>
       <p style={{ fontSize: 14, color: "var(--muted-foreground)", margin: "0 0 24px", lineHeight: 1.5 }}>
-        Один запуск — несколько отчётов сразу. Выберите какие модули нужны: получите дашборд по каждому + общий отчёт руководителя.
+        {isPersonal
+          ? "Создадим стратегию личного позиционирования, контент-план и AI-оценку вашей экспертности."
+          : "Один запуск — несколько отчётов сразу. Выберите какие модули нужны: получите дашборд по каждому + общий отчёт руководителя."}
       </p>
 
       {/* Progress */}
@@ -223,8 +256,8 @@ export function NewAnalysisWizard({
       </div>
 
       <div style={{ background: "var(--card)", borderRadius: 16, border: "1px solid var(--border)", padding: 24, boxShadow: "var(--shadow)" }}>
-        {/* STEP 1: URL */}
-        {step === 1 && (
+        {/* STEP 1 */}
+        {step === 1 && !isPersonal && (
           <>
             <h2 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 800, color: "var(--foreground)" }}>
               Какой сайт анализируем?
@@ -247,6 +280,92 @@ export function NewAnalysisWizard({
                 fontSize: 15, outline: "none", fontFamily: "inherit", boxSizing: "border-box",
               }}
             />
+          </>
+        )}
+
+        {/* STEP 1: Личный бренд */}
+        {step === 1 && isPersonal && (
+          <>
+            <h2 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 800, color: "var(--foreground)" }}>
+              Расскажите о себе
+            </h2>
+            <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--muted-foreground)" }}>
+              AI сформирует стратегию личного бренда, контент-план и позиционирование специально под вас.
+            </p>
+
+            {/* Баннер с родительской компанией */}
+            {parentProfileName && (
+              <div style={{
+                marginBottom: 18, padding: "10px 14px",
+                background: "color-mix(in oklch, var(--primary) 8%, transparent)",
+                border: "1px solid color-mix(in oklch, var(--primary) 25%, var(--border))",
+                borderRadius: 10, fontSize: 13, color: "var(--foreground-secondary)", lineHeight: 1.5,
+                display: "flex", alignItems: "flex-start", gap: 4,
+              }}>
+                <Building2 size={14} style={{ flexShrink: 0, marginRight: 4 }} />
+                <span><b style={{ color: "var(--foreground)" }}>Контекст компании</b> из профиля «{parentProfileName}» будет автоматически использован —
+                AI учтёт нишу, конкурентов и ЦА, чтобы личный бренд дополнял корпоративный.</span>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
+                  ИМЯ И ФАМИЛИЯ *
+                </label>
+                <input
+                  type="text"
+                  value={personName}
+                  onChange={e => setPersonName(e.target.value)}
+                  placeholder="Иван Иванов"
+                  disabled={isAnalyzing}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === "Enter" && isPersonNameValid) handleNext(); }}
+                  style={{
+                    width: "100%", padding: "11px 14px", borderRadius: 10,
+                    border: `1.5px solid ${error && !isPersonNameValid ? "var(--destructive)" : "var(--border)"}`,
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
+                  ДОЛЖНОСТЬ / ЭКСПЕРТИЗА
+                </label>
+                <input
+                  type="text"
+                  value={personPosition}
+                  onChange={e => setPersonPosition(e.target.value)}
+                  placeholder="Генеральный директор · эксперт по строительству"
+                  disabled={isAnalyzing}
+                  style={{
+                    width: "100%", padding: "11px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)",
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
+                  ЛИЧНЫЙ САЙТ / БЛОГ <span style={{ fontWeight: 400, color: "var(--muted-foreground)" }}>(необязательно)</span>
+                </label>
+                <input
+                  type="text"
+                  value={personalUrl}
+                  onChange={e => setPersonalUrl(e.target.value)}
+                  placeholder="myblog.ru или t.me/myname"
+                  disabled={isAnalyzing}
+                  style={{
+                    width: "100%", padding: "11px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)",
+                    background: "var(--background)", color: "var(--foreground)",
+                    fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
           </>
         )}
 
@@ -489,13 +608,13 @@ export function NewAnalysisWizard({
             {step < totalSteps ? (
               <button
                 onClick={handleNext}
-                disabled={isAnalyzing || (step === 1 && !isUrlValid)}
+                disabled={isAnalyzing || (step === 1 && (isPersonal ? !isPersonNameValid : !isUrlValid))}
                 style={{
                   padding: "11px 20px", borderRadius: 10, border: "none",
                   background: "var(--primary)", color: "#fff",
                   fontSize: 14, fontWeight: 700, cursor: "pointer",
                   display: "inline-flex", alignItems: "center", gap: 6,
-                  opacity: (step === 1 && !isUrlValid) ? 0.5 : 1,
+                  opacity: (step === 1 && (isPersonal ? !isPersonNameValid : !isUrlValid)) ? 0.5 : 1,
                   fontFamily: "inherit",
                 }}
               >

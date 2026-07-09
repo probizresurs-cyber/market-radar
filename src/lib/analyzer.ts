@@ -63,6 +63,309 @@ function safeNum(v: unknown, fallback = 0): number {
   return isFinite(n) ? n : fallback;
 }
 
+// ─── Personal Brand Analysis ──────────────────────────────────────────────────
+
+export async function analyzePersonalBrand(data: {
+  name: string;
+  position: string;
+  scrapedSite?: ScrapedData;
+  parentCompanyContext?: string;
+}): Promise<AnalysisResult & { _usage?: { inputTokens: number; outputTokens: number } }> {
+  const siteInfo = data.scrapedSite
+    ? `=== ЛИЧНЫЙ САЙТ: ${data.scrapedSite.url} ===
+HTTPS: ${data.scrapedSite.isHttps ? "да" : "нет"}
+Title: ${data.scrapedSite.title || "(нет)"}
+Meta description: ${data.scrapedSite.metaDescription || "(нет)"}
+H1: ${data.scrapedSite.h1.join(" | ") || "(нет)"}
+H2 (первые 6): ${data.scrapedSite.h2.slice(0, 6).join(" | ") || "(нет)"}
+Соцсети: ${Object.keys(data.scrapedSite.socialLinks).join(", ") || "нет"}
+Текст (фрагмент): ${data.scrapedSite.rawTextSample || "(пусто)"}`
+    : "(личный сайт не предоставлен)";
+
+  const companyCtx = data.parentCompanyContext
+    ? `=== КОНТЕКСТ КОМПАНИИ (использовать как фон, не как предмет анализа) ===\n${data.parentCompanyContext}`
+    : "";
+
+  const prompt = `${ANTI_HALLUCINATION_SHORT}
+
+Ты эксперт по персональному брендингу и digital-маркетингу для российского рынка.
+Проанализируй личный бренд человека по предоставленным данным и верни ТОЛЬКО валидный JSON без markdown и пояснений.
+Если данных не хватает — не выдумывай, ставь null или «—».
+
+=== ДАННЫЕ ПЕРСОНЫ ===
+Имя: ${data.name}
+Должность / экспертиза: ${data.position}
+
+${companyCtx}
+
+${siteInfo}
+
+=== ИНСТРУКЦИИ ДЛЯ ЛИЧНОГО БРЕНДА ===
+🔴 ГЛАВНОЕ ПРАВИЛО: предмет анализа — ЧЕЛОВЕК (личный бренд персоны), а НЕ компания.
+Если выше дан сайт компании — это ТОЛЬКО ФОН/контекст ниши. Категорически НЕЛЬЗЯ
+описывать услуги компании, цены, продукты, акции, «имплантация под ключ» и т.п.
+Любой блок — про ЛИЧНОСТЬ: её экспертизу, позиционирование, голос, аудиторию.
+
+- НЕ выдумывай цифры подписчиков, охваты, доходы, количество клиентов.
+- Для business (employees, revenue, founded, legalForm) — ВСЕГДА «—» (неприменимо к персоне).
+- Для hiring — нули и «—» (неприменимо).
+- Для seo.positions — пустой массив (неприменимо).
+- Для social.yandexRating / gisRating / yandexReviews / gisReviews — нули.
+- Scores интерпретируй СТРОГО для личного бренда персоны (НЕ для компании):
+  * seo = УЗНАВАЕМОСТЬ: находят ли персону по имени онлайн, размер цифрового следа
+  * social = СОЦСЕТИ: личная активность, регулярность постинга, вовлечённость аудитории
+  * content = КОНТЕНТ: качество и системность личного экспертного контента
+  * hrBrand = ЭКСПЕРТНОСТЬ (E-E-A-T): экспертный вес, авторитет и признание в нише
+  * technology = ДОВЕРИЕ/РЕПУТАЦИЯ: репутация, отзывы и упоминания о персоне, надёжность
+- insights: 1 niche (позиционирование в нише), 2 action (что делать для роста), 1 battle (vs конкуренты-эксперты), 1 copy (личный голос/тон), 1 seo (онлайн-видимость персоны), 1 offer (личный оффер/УТП).
+- practicalAdvice.offerAnalysis → ЛИЧНОЕ УТП и позиционирование ПЕРСОНЫ: за что ценят ИМЕННО
+  этого человека как эксперта (его метод, точка зрения, опыт, экспертная роль). КАТЕГОРИЧЕСКИ
+  НЕ услуги компании и не продукты — только личное позиционирование специалиста.
+- practicalAdvice.contentIdeas → 4 идеи контента конкретно для личного бренда (от первого лица эксперта).
+- practicalAdvice.copyImprovements → улучшения личного bio, описания в соцсетях, персональный оффер.
+- aiPerception.persona → каким видят ЭТОГО ЧЕЛОВЕКА AI-системы.
+- aiPerception.sampleAnswer → симуляция ответа ChatGPT на вопрос «Кто такой(ая) ${data.name}?».
+${data.parentCompanyContext ? "- Учитывай контекст компании: личный бренд должен дополнять корпоративный, а не дублировать его." : ""}
+
+=== ТРЕБУЕМЫЙ JSON (СТРОГО такая же структура как для компании) ===
+{
+  "companyName": "${data.name}",
+  "description": "string (2-3 предложения о личном позиционировании и экспертизе)",
+  "scores": { "seo": 0-100, "social": 0-100, "content": 0-100, "hrBrand": 0-100, "technology": 0-100 },
+  "avgNiche": 0-100,
+  "top10": 0-100,
+  "recommendations": [
+    { "priority": "high|medium|low", "text": "string", "effect": "string", "category": "string" }
+  ],
+  "insights": [
+    { "type": "niche|action|battle|copy|seo|offer", "title": "string", "text": "string" }
+  ],
+  "practicalAdvice": {
+    "copyImprovements": [
+      { "element": "string (напр: Bio ВКонтакте, Описание Telegram, Личный оффер)", "current": "string", "suggested": "string", "reason": "string" }
+    ],
+    "keywordGaps": [],
+    "offerAnalysis": {
+      "currentOffer": "string (текущее позиционирование/УТП персоны)",
+      "weaknesses": ["string", "string"],
+      "differentiators": ["string", "string", "string"],
+      "suggestedOffer": "string (готовый личный оффер, 1-2 предложения)"
+    },
+    "contentIdeas": ["string", "string", "string", "string"],
+    "seoActions": ["string", "string", "string", "string"]
+  },
+  "seo": {
+    "title": "string (как персона представлена онлайн)",
+    "metaDescription": "string",
+    "keywords": ["string"],
+    "pageCount": 0,
+    "domainAge": "—",
+    "estimatedTraffic": "—",
+    "positions": [],
+    "issues": ["string"]
+  },
+  "techStack": { "cms": "—", "analytics": [], "chat": "—", "hosting": "—", "other": [] },
+  "social": {
+    "vk": null,
+    "telegram": null,
+    "yandexRating": 0,
+    "yandexReviews": 0,
+    "gisRating": 0,
+    "gisReviews": 0
+  },
+  "hiring": { "openVacancies": 0, "avgSalary": "—", "topRoles": [], "trend": "stable", "salaryRange": "—" },
+  "business": { "employees": "—", "revenue": "—", "founded": "—", "legalForm": "—" },
+  "nicheForecast": {
+    "trend": "growing|stable|declining",
+    "trendPercent": 0,
+    "forecast": "string (прогноз для ниши экспертности персоны)",
+    "opportunities": ["string", "string", "string"],
+    "threats": ["string", "string", "string"],
+    "direction": "string",
+    "timeframe": "string"
+  },
+  "aiPerception": {
+    "knowledgePresence": "strong|moderate|weak|minimal",
+    "persona": "string",
+    "sampleAnswer": "string",
+    "associatedKeywords": ["string", "string", "string", "string", "string"],
+    "eeat": { "expertise": 0-100, "authority": 0-100, "trust": 0-100, "experience": 0-100 },
+    "contentSignals": ["string", "string", "string"],
+    "improvementTips": ["string", "string", "string", "string"]
+  }
+}
+
+Важно:
+- ровно 5 рекомендаций (2 high, 2 medium, 1 low)
+- ровно 7 инсайтов: 1 niche, 2 action, 1 battle, 1 copy, 1 seo, 1 offer
+- ровно 3 copyImprovements
+- seoActions: 4 конкретных шага для роста онлайн-видимости персоны
+- ровно 4 contentIdeas
+- ровно 5 associatedKeywords в aiPerception`;
+
+  const streamResponse = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 10000,
+    messages: [{ role: "user", content: prompt }],
+    stream: true,
+  });
+
+  let responseText = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for await (const event of streamResponse) {
+    if (event.type === "message_start") {
+      inputTokens = event.message.usage?.input_tokens ?? 0;
+    } else if (event.type === "message_delta") {
+      outputTokens = event.usage?.output_tokens ?? 0;
+    } else if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      responseText += event.delta.text;
+    }
+  }
+  if (!responseText) throw new Error("Empty response from AI model");
+  const p = extractJson(responseText);
+
+  // ── Parsing — identical to analyzeWithClaude ──────────────────────────────
+  const scores = {
+    seo: clamp(safeNum(p.scores?.seo, 0)),
+    social: clamp(safeNum(p.scores?.social, 0)),
+    content: clamp(safeNum(p.scores?.content, 0)),
+    hrBrand: clamp(safeNum(p.scores?.hrBrand, 0)),
+    technology: clamp(safeNum(p.scores?.technology, 0)),
+  };
+  // Веса осей для личного бренда: экспертность весит наравне с узнаваемостью —
+  // для персоны авторитет в нише важнее «техничности».
+  const overallScore = clamp(
+    scores.seo * 0.25 + scores.social * 0.2 + scores.content * 0.2 + scores.hrBrand * 0.2 + scores.technology * 0.15
+  );
+  // Оси переименованы под личный бренд (ключи scores те же — маппинг семантический):
+  //   seo→Узнаваемость, hrBrand→Экспертность, technology→Доверие/Репутация.
+  const categories: CategoryScore[] = [
+    { name: "Узнаваемость", weight: 25, score: scores.seo, icon: "🔍", delta: 0 },
+    { name: "Соцсети", weight: 20, score: scores.social, icon: "📱", delta: 0 },
+    { name: "Контент", weight: 20, score: scores.content, icon: "✏️", delta: 0 },
+    { name: "Экспертность", weight: 20, score: scores.hrBrand, icon: "🎓", delta: 0 },
+    { name: "Доверие", weight: 15, score: scores.technology, icon: "🤝", delta: 0 },
+  ];
+
+  // URL для хранения — домен личного сайта или транслитерация имени
+  const personalDomain = data.scrapedSite
+    ? new URL(data.scrapedSite.url).hostname.replace(/^www\./, "")
+    : data.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+  const recommendations: Recommendation[] = (Array.isArray(p.recommendations) ? p.recommendations : []).slice(0, 5).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (r: any) => ({
+      priority: (["high", "medium", "low"].includes(r.priority) ? r.priority : "medium") as "high" | "medium" | "low",
+      text: safeStr(r.text),
+      effect: safeStr(r.effect),
+      category: safeStr(r.category),
+    })
+  );
+
+  const VALID_INSIGHT_TYPES = ["niche", "action", "battle", "copy", "seo", "offer"];
+  const insights: Insight[] = (Array.isArray(p.insights) ? p.insights : []).slice(0, 7).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ins: any) => ({
+      type: (VALID_INSIGHT_TYPES.includes(ins.type) ? ins.type : "action") as Insight["type"],
+      title: safeStr(ins.title),
+      text: safeStr(ins.text),
+    })
+  );
+
+  const paRaw = p.practicalAdvice ?? {};
+  const copyImprovements: CopyImprovement[] = (Array.isArray(paRaw.copyImprovements) ? paRaw.copyImprovements : []).slice(0, 3).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ci: any) => ({
+      element: safeStr(ci.element, "Элемент"),
+      current: safeStr(ci.current, "—"),
+      suggested: safeStr(ci.suggested, "—"),
+      reason: safeStr(ci.reason, "—"),
+    })
+  );
+  const keywordGaps: KeywordGap[] = [];
+  const ofRaw = paRaw.offerAnalysis ?? {};
+  const offerAnalysis = {
+    currentOffer: safeStr(ofRaw.currentOffer, "—"),
+    weaknesses: Array.isArray(ofRaw.weaknesses) ? ofRaw.weaknesses.slice(0, 3).map((w: unknown) => String(w)) : [],
+    differentiators: Array.isArray(ofRaw.differentiators) ? ofRaw.differentiators.slice(0, 4).map((d: unknown) => String(d)) : [],
+    suggestedOffer: safeStr(ofRaw.suggestedOffer, "—"),
+  };
+  const practicalAdvice: PracticalAdvice = {
+    copyImprovements,
+    keywordGaps,
+    offerAnalysis,
+    contentIdeas: Array.isArray(paRaw.contentIdeas) ? paRaw.contentIdeas.slice(0, 4).map((i: unknown) => String(i)) : [],
+    seoActions: Array.isArray(paRaw.seoActions) ? paRaw.seoActions.slice(0, 4).map((i: unknown) => String(i)) : [],
+  };
+
+  const seoRaw = p.seo ?? {};
+  const seo = {
+    title: safeStr(seoRaw.title, data.name),
+    metaDescription: safeStr(seoRaw.metaDescription, ""),
+    keywords: Array.isArray(seoRaw.keywords) ? seoRaw.keywords.slice(0, 10).map((k: unknown) => String(k)) : [],
+    pageCount: 0,
+    domainAge: "—",
+    estimatedTraffic: "—",
+    positions: [],
+    issues: Array.isArray(seoRaw.issues) ? seoRaw.issues.slice(0, 5).map((i: unknown) => String(i)) : [],
+  };
+
+  const nfRaw = p.nicheForecast ?? {};
+  const nicheForecast = {
+    trend: (["growing", "stable", "declining"].includes(nfRaw.trend) ? nfRaw.trend : "stable") as "growing" | "stable" | "declining",
+    trendPercent: safeNum(nfRaw.trendPercent, 0),
+    forecast: safeStr(nfRaw.forecast, "—"),
+    opportunities: Array.isArray(nfRaw.opportunities) ? nfRaw.opportunities.slice(0, 3).map((o: unknown) => String(o)) : [],
+    threats: Array.isArray(nfRaw.threats) ? nfRaw.threats.slice(0, 3).map((t: unknown) => String(t)) : [],
+    direction: safeStr(nfRaw.direction, "—"),
+    timeframe: safeStr(nfRaw.timeframe, "—"),
+  };
+
+  const apRaw = p.aiPerception ?? {};
+  const eeatRaw = apRaw.eeat ?? {};
+  const aiPerception: AiPerception = {
+    knowledgePresence: (["strong", "moderate", "weak", "minimal"].includes(apRaw.knowledgePresence)
+      ? apRaw.knowledgePresence : "weak") as AiPerception["knowledgePresence"],
+    persona: safeStr(apRaw.persona, "—"),
+    sampleAnswer: safeStr(apRaw.sampleAnswer, "—"),
+    associatedKeywords: Array.isArray(apRaw.associatedKeywords) ? apRaw.associatedKeywords.slice(0, 5).map((k: unknown) => String(k)) : [],
+    eeat: {
+      expertise: clamp(safeNum(eeatRaw.expertise, 0)),
+      authority: clamp(safeNum(eeatRaw.authority, 0)),
+      trust: clamp(safeNum(eeatRaw.trust, 0)),
+      experience: clamp(safeNum(eeatRaw.experience, 0)),
+    },
+    contentSignals: Array.isArray(apRaw.contentSignals) ? apRaw.contentSignals.slice(0, 3).map((s: unknown) => String(s)) : [],
+    improvementTips: Array.isArray(apRaw.improvementTips) ? apRaw.improvementTips.slice(0, 4).map((t: unknown) => String(t)) : [],
+  };
+
+  return {
+    company: {
+      name: safeStr(p.companyName, data.name),
+      url: personalDomain,
+      score: overallScore,
+      avgNiche: clamp(safeNum(p.avgNiche, 0)),
+      top10: clamp(safeNum(p.top10, 0)),
+      categories,
+      description: safeStr(p.description, ""),
+    },
+    recommendations,
+    insights,
+    practicalAdvice,
+    seo,
+    techStack: { cms: "—", analytics: [], chat: "—", hosting: "—", other: [] },
+    social: { vk: null, telegram: null, yandexRating: 0, yandexReviews: 0, gisRating: 0, gisReviews: 0 },
+    hiring: { openVacancies: 0, avgSalary: "—", topRoles: [], trend: "stable", salaryRange: "—" },
+    business: { employees: "—", revenue: "—", founded: "—", legalForm: "—" },
+    nicheForecast,
+    aiPerception,
+    _usage: { inputTokens, outputTokens },
+  };
+}
+
+// ─── Company Analysis ─────────────────────────────────────────────────────────
+
 export async function analyzeWithClaude(data: ScrapedData, businessType?: BusinessType): Promise<AnalysisResult & { _usage?: { inputTokens: number; outputTokens: number } }> {
   const socialList = Object.keys(data.socialLinks);
   const altCoverage = data.imageCount > 0 ? Math.round((data.imagesWithAlt / data.imageCount) * 100) : 0;

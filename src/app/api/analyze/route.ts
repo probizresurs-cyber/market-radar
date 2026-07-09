@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeWebsite } from "@/lib/scraper";
-import { analyzeWithClaude } from "@/lib/analyzer";
+import { analyzeWithClaude, analyzePersonalBrand } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
@@ -20,13 +20,121 @@ export async function POST(request: NextRequest) {
 
   let url: string;
   let businessType: BusinessType | undefined;
+  let profileKind: string | undefined;
+  let personName: string | undefined;
+  let personPosition: string | undefined;
+  let parentCompanyContext: string | undefined;
 
   try {
     const body = await request.json();
     url = (body.url ?? "").toString().trim();
     businessType = body.businessType as BusinessType | undefined;
+    profileKind = body.profileKind as string | undefined;
+    personName = body.personName as string | undefined;
+    personPosition = body.position as string | undefined;
+    parentCompanyContext = body.parentCompanyContext as string | undefined;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request body" }, { status: 400 });
+  }
+
+  // ── Личный бренд: отдельный путь анализа ──────────────────────────────────
+  if (profileKind === "personal") {
+    if (!personName?.trim()) {
+      return NextResponse.json({ ok: false, error: "Имя обязательно для анализа личного бренда" }, { status: 400 });
+    }
+    // Без ключа SDK молча ретраит ~15с и падает с непонятной ошибкой —
+    // даём быструю явную ошибку (как в обычной ветке анализа ниже).
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { ok: false, error: "ANTHROPIC_API_KEY is not configured on the server" },
+        { status: 500 },
+      );
+    }
+    try {
+      // Личный сайт — опционально, парсим с try/catch.
+      // `url` сюда приходит либо с личного сайта, либо (если он не указан) с
+      // домена родительской компании — фронт подставляет его как fallback.
+      // По этому домену тянем Keys.so / SpyWords / PageSpeed, чтобы у личного
+      // бренда были SEO-блоки (с основы, раз своего сайта нет).
+      let scrapedSite;
+      let domainDataPromise: ReturnType<typeof enrichDomainData> | null = null;
+      if (url) {
+        const normalizedUrl = url.startsWith("http") ? url : "https://" + url;
+        const cleanDomain = normalizedUrl.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+        // Стартуем обогащение параллельно с AI и скрапингом — не зависит от них.
+        domainDataPromise = enrichDomainData(cleanDomain, {});
+        try {
+          scrapedSite = await scrapeWebsite(normalizedUrl);
+        } catch { /* личный сайт не доступен — анализируем без него */ }
+      }
+
+      const rawResult = await analyzePersonalBrand({
+        name: personName.trim(),
+        position: (personPosition ?? "").trim(),
+        scrapedSite,
+        parentCompanyContext,
+      });
+      const { _usage, ...result } = rawResult;
+      const promptTokens = _usage?.inputTokens ?? 0;
+      const completionTokens = _usage?.outputTokens ?? 0;
+
+      // Мержим реальные SEO-данные по домену (личному или родительской компании).
+      if (domainDataPromise) {
+        const real = await domainDataPromise.catch(() => null);
+        if (real) {
+          // SpyWords — слой SEO/PPC-аналитики.
+          if (real.spywords) {
+            result.spywordsDashboard = {
+              overview:       real.spywords.overview,
+              competitors:    real.spywords.competitors,
+              advCompetitors: real.spywords.advCompetitors,
+              ads:            real.spywords.ads,
+              topPages:       real.spywords.topPages,
+              smartKeywords:  real.spywords.smartKeywords,
+              organic:        real.spywords.organic,
+            };
+          }
+          // Keys.so — реальные позиции (Yandex + Google) и дашборд.
+          if (real.keyso) {
+            if (real.keyso.yandex.length > 0) {
+              result.seo.positions = real.keyso.yandex;
+              result.seo.keywordsSource = "keyso";
+            }
+            if (real.keyso.google.length > 0) {
+              result.seo.googlePositions = real.keyso.google;
+            }
+            if (real.keyso.dashboard) {
+              result.keysoDashboard = real.keyso.dashboard;
+              if (real.keyso.dashboard.yandex && real.keyso.dashboard.yandex.traffic > 0) {
+                result.seo.estimatedTraffic = `~${real.keyso.dashboard.yandex.traffic.toLocaleString("ru-RU")} визитов/мес (согласно Key.so)`;
+              }
+            }
+          }
+          // PageSpeed Lighthouse — техническое присутствие домена.
+          if (real.pageSpeed) {
+            result.seo.lighthouseScores = {
+              ...real.pageSpeed,
+              ...(real.pageSpeedDesktop ? { desktop: real.pageSpeedDesktop } : {}),
+            };
+          } else if (real.pageSpeedDesktop) {
+            result.seo.lighthouseScores = { ...real.pageSpeedDesktop, desktop: real.pageSpeedDesktop };
+          }
+          // Возраст домена / архив (если доступно).
+          if (real.domainAge) result.seo.domainAge = real.domainAge;
+          if (real.wayback) {
+            result.seo.firstArchiveDate = real.wayback.firstArchiveDate;
+            result.seo.archiveAgeYears = real.wayback.archiveAgeYears;
+          }
+        }
+      }
+
+      await access.log({ endpoint: "analyze-personal-brand", model: "claude-sonnet-4-6", promptTokens, completionTokens });
+      return NextResponse.json({ ok: true, data: result });
+    } catch (err) {
+      console.error("[analyze/personal-brand] error:", err);
+      const { message: friendly, status } = friendlyAiError(err);
+      return NextResponse.json({ ok: false, error: friendly }, { status });
+    }
   }
 
   if (!url) {

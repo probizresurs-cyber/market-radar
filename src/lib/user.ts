@@ -86,9 +86,21 @@ export function getActiveWorkspaceForSync(): string | null {
   return _activeWorkspaceIdForSync;
 }
 
+// ─── Profile sync ───────────────────────────────────────────────────────────
+// Серверный суффикс активного профиля. Default → "" (ключ "company" как был),
+// доп. профиль → "::p_<id>" (ключ "company::p_abc"). Так данные разных профилей
+// лежат в одной таблице user_data без миграции схемы.
+let _activeProfileSuffixForSync = "";
+
+export function setActiveProfileSuffixForSync(suffix: string): void {
+  _activeProfileSuffixForSync = suffix ?? "";
+}
+
 export async function syncToServer(key: string, value: unknown): Promise<void> {
   try {
-    const body: Record<string, unknown> = { key, value };
+    // Прибавляем суффикс профиля к ключу (default → без изменений).
+    const scopedKey = key + _activeProfileSuffixForSync;
+    const body: Record<string, unknown> = { key: scopedKey, value };
     if (_activeWorkspaceIdForSync) body.workspaceId = _activeWorkspaceIdForSync;
 
     const res = await fetch("/api/data", {
@@ -98,14 +110,23 @@ export async function syncToServer(key: string, value: unknown): Promise<void> {
       credentials: "include",
     });
     if (!res.ok) {
-      console.warn(`[sync] POST /api/data "${key}" failed:`, res.status, await res.text().catch(() => ""));
+      console.warn(`[sync] POST /api/data "${scopedKey}" failed:`, res.status, await res.text().catch(() => ""));
     }
   } catch (e) {
     console.warn(`[sync] POST /api/data "${key}" error:`, e);
   }
 }
 
-export async function loadAllFromServer(workspaceId?: string | null): Promise<Record<string, unknown> | null> {
+/**
+ * Загружает данные с сервера. Если задан profileSuffix — возвращает ТОЛЬКО
+ * ключи этого профиля, со снятым суффиксом (чтобы page.tsx работал как раньше).
+ * Для default-профиля (suffix="") отдаём ключи БЕЗ "::p_" — т.е. только
+ * основной профиль, не подмешивая чужие.
+ */
+export async function loadAllFromServer(
+  workspaceId?: string | null,
+  profileSuffix = "",
+): Promise<Record<string, unknown> | null> {
   try {
     const url = workspaceId
       ? `/api/data?workspaceId=${encodeURIComponent(workspaceId)}`
@@ -113,8 +134,22 @@ export async function loadAllFromServer(workspaceId?: string | null): Promise<Re
     const res = await fetch(url, { credentials: "include" });
     const json = await res.json();
     if (json.ok) {
-      console.log("[sync] loaded from server:", Object.keys(json.data ?? {}));
-      return json.data;
+      const all = (json.data ?? {}) as Record<string, unknown>;
+      // Фильтруем по профилю
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(all)) {
+        if (profileSuffix) {
+          // Доп. профиль: берём только "key::p_<id>", снимаем суффикс
+          if (k.endsWith(profileSuffix)) {
+            result[k.slice(0, -profileSuffix.length)] = v;
+          }
+        } else {
+          // Default: берём ключи БЕЗ "::p_" суффикса
+          if (!/::p_[a-z0-9]+$/i.test(k)) result[k] = v;
+        }
+      }
+      console.log(`[sync] loaded from server (profile suffix "${profileSuffix}"):`, Object.keys(result));
+      return result;
     }
     console.warn("[sync] GET /api/data returned not-ok:", json);
   } catch (e) {

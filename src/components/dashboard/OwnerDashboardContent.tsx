@@ -8,11 +8,12 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare, Banknote, Users as UsersIcon, Briefcase, Scale, FileText as FileTextIcon, Calendar } from "lucide-react";
+import { BarChart2, Building2, Target, Brain, Map, TrendingUp, Smartphone, Factory, Sun, Moon, Link2, ExternalLink, Zap, Search, Globe, Eye, ListTodo, Star, AlertTriangle, ArrowRight, MessageSquare, Banknote, Users as UsersIcon, Briefcase, Scale, FileText as FileTextIcon, Calendar, Tv } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { TAResult } from "@/lib/ta-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { ContentPlan, BrandBook } from "@/lib/content-types";
+import { hrefForNav } from "@/lib/products";
 import {
   classifyMarketShare,
   classifyCompetitorCounter,
@@ -767,6 +768,15 @@ export function OwnerDashboardContent({
                   {sharing ? "Создаём…" : <><Link2 size={14} strokeWidth={2} style={{ marginRight: 6 }} />Поделиться ссылкой</>}
                 </button>
               )}
+              {mode === "private" && (
+                <a href="/owner-dashboard?tv=1" target="_blank" rel="noopener noreferrer"
+                  title="Полноэкранное табло для показа на ТВ (листается как презентация)"
+                  style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: p.textSecondary,
+                    border: `1px solid ${p.borderTertiary}`, borderRadius: 8, textDecoration: "none", background: p.bgCard,
+                    display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Tv size={14} strokeWidth={2} /> ТВ-режим
+                </a>
+              )}
               <button onClick={() => window.print()}
                 style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: "#fff", background: p.primary,
                   border: "none", borderRadius: 8, cursor: "pointer" }}>
@@ -860,7 +870,7 @@ export function OwnerDashboardContent({
             return (
               <div style={{ margin: "14px 0 8px", display: "flex", justifyContent: "flex-end" }}>
                 <a
-                  href={`/?nav=${target.nav}`}
+                  href={hrefForNav(target.nav)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -918,7 +928,7 @@ export function OwnerDashboardContent({
                       {modules.map(m => (
                         <a
                           key={m.key}
-                          href={mode === "private" ? `/?nav=${m.nav}` : undefined}
+                          href={mode === "private" ? hrefForNav(m.nav) : undefined}
                           style={{
                             padding: "10px 12px", borderRadius: 9,
                             background: m.ready ? `${p.green}10` : p.bgSecondary,
@@ -2234,7 +2244,7 @@ function ReputationTab({ p, data, competitors }: {
 
       {/* CTA — открыть полный модуль */}
       <a
-        href="/?nav=reviews-analysis"
+        href={hrefForNav("reviews-analysis")}
         style={{
           display: "block",
           padding: "20px 24px",
