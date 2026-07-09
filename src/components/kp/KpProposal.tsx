@@ -19,7 +19,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
-  ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon, ChevronDown,
+  ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
 } from "lucide-react";
 
 interface Props {
@@ -98,7 +98,6 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
   const [progress, setProgress] = useState(0);
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
-  const [expandedCat, setExpandedCat] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // ─── Находки из реальных данных ──
@@ -250,61 +249,46 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
             </div>
           </div>
 
-          {/* Radar-чарт + категории анализа (карточки — аккордеон с пояснением) */}
+          {/* Radar-чарт + категории анализа: одна колонка со списком, пояснение видно сразу (без клика) */}
           {categories.length > 0 && (
-            <div className="kp-radar-wrap" style={{ display: "grid", gridTemplateColumns: categories.length >= 3 ? "minmax(240px,320px) 1fr" : "1fr", gap: 28, marginTop: 40, alignItems: "start" }}>
+            <div className="kp-radar-wrap" style={{ display: "flex", gap: 28, marginTop: 40, alignItems: "stretch" }}>
               {categories.length >= 3 && (
-                <Reveal delay={80}>
-                  {(v) => (
-                    <div className="ds-card" style={{ padding: "18px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
-                        <RadarIcon size={13} /> Профиль по категориям
+                <div className="kp-radar-col" style={{ flex: "0 0 300px", maxWidth: 320, minWidth: 240, display: "flex", flexDirection: "column" }}>
+                  <Reveal delay={80}>
+                    {(v) => (
+                      <div className="ds-card" style={{ padding: "18px 16px", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, boxSizing: "border-box" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
+                          <RadarIcon size={13} /> Профиль по категориям
+                        </div>
+                        <RadarChart categories={categories.map((cat) => ({ name: cat.name, score: cat.score }))} active={v} />
                       </div>
-                      <RadarChart categories={categories.map((cat) => ({ name: cat.name, score: cat.score }))} active={v} />
-                    </div>
-                  )}
-                </Reveal>
+                    )}
+                  </Reveal>
+                </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, alignContent: "start" }}>
-                {categories.map((cat, i) => {
-                  const isOpen = expandedCat === i;
-                  const toggle = () => setExpandedCat((o) => (o === i ? null : i));
-                  return (
-                    <Reveal key={i} delay={i * 60}>
-                      {(v) => (
-                        <div
-                          className="ds-card ds-card-interactive"
-                          style={{ padding: "14px 16px", cursor: "pointer" }}
-                          role="button" tabIndex={0} aria-expanded={isOpen}
-                          onClick={toggle}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{cat.name}</span>
-                            <ChevronDown size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, transition: "transform 0.25s var(--ease)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
-                            <span style={{ fontSize: 26, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
-                              <CountUp target={cat.score} active={v} />
-                            </span>
-                            <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
-                            {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
-                          </div>
-                          <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
+              <div style={{ flex: "1 1 auto", minWidth: 0, display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                {categories.map((cat, i) => (
+                  <Reveal key={i} delay={i * 60}>
+                    {(v) => (
+                      <div className="ds-card" style={{ padding: "14px 18px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, minWidth: 100 }}>{cat.name}</span>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                            <CountUp target={cat.score} active={v} />
+                          </span>
+                          <span style={{ fontSize: 12, color: "var(--muted-foreground)", flexShrink: 0 }}>/100</span>
+                          {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
+                          <div style={{ flex: 1, height: 5, borderRadius: 999, background: "var(--muted)", overflow: "hidden", minWidth: 40 }}>
                             <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
                           </div>
-                          <div aria-hidden={!isOpen} style={{
-                            maxHeight: isOpen ? 140 : 0, opacity: isOpen ? 1 : 0, overflow: "hidden",
-                            marginTop: isOpen ? 10 : 0, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)",
-                            transition: "max-height 0.3s var(--ease), opacity 0.25s var(--ease), margin-top 0.3s var(--ease)",
-                          }}>
-                            {categoryVerdict(cat.score)}
-                          </div>
                         </div>
-                      )}
-                    </Reveal>
-                  );
-                })}
+                        <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)", marginTop: 8 }}>
+                          {categoryVerdict(cat.score)}
+                        </div>
+                      </div>
+                    )}
+                  </Reveal>
+                ))}
               </div>
             </div>
           )}
@@ -894,7 +878,8 @@ function ResponsiveCss() {
 
     @media (max-width: 760px) {
       .kp-hero-grid { grid-template-columns: 1fr !important; }
-      .kp-radar-wrap { grid-template-columns: 1fr !important; }
+      .kp-radar-wrap { flex-direction: column !important; }
+      .kp-radar-col { flex-basis: auto !important; max-width: none !important; }
     }
     @media (prefers-reduced-motion: reduce) {
       .kp-blob, .kp-cta-panel, .kp-pulse-dot { animation: none !important; }
