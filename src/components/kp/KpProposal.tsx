@@ -20,6 +20,7 @@ import type { AnalysisResult, Recommendation } from "@/lib/types";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
+  Link2,
 } from "lucide-react";
 
 interface Props {
@@ -27,6 +28,17 @@ interface Props {
   competitors: AnalysisResult[];
   /** Контактный e-mail для CTA. */
   contactEmail?: string;
+  /**
+   * Обработчик кнопки «Поделиться ссылкой» — создаёт публичную read-only
+   * копию этого КП (без авторизации получателя), как на /owner-dashboard.
+   * Не передаётся на самой публичной странице (/share/[id]) — там кнопки нет.
+   */
+  onShare?: () => void;
+  sharing?: boolean;
+  shareLink?: string | null;
+  shareCopied?: boolean;
+  shareError?: string | null;
+  onCopyShareLink?: () => void;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -94,7 +106,10 @@ const categoryVerdict = (score: number) =>
   : score < 65 ? "Средний уровень: конкуренты с более сильным показателем забирают часть вашей аудитории."
   : "Хороший результат, поддерживаем на текущем уровне.";
 
-export function KpProposal({ company, competitors, contactEmail = "hello@marketradar24.ru" }: Props) {
+export function KpProposal({
+  company, competitors, contactEmail = "hello@marketradar24.ru",
+  onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
+}: Props) {
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
@@ -192,6 +207,49 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
 
       {/* Прогресс-бар */}
       <div style={{ position: "fixed", top: 0, left: 0, height: 3, width: `${progress}%`, background: "var(--primary)", zIndex: 60, transition: "width 0.1s linear", boxShadow: "0 0 8px color-mix(in srgb, var(--primary) 70%, transparent)" }} />
+
+      {/* Панель шеринга — видна только владельцу (onShare передан из /kp), не на публичной странице */}
+      {onShare && (
+        <div style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>
+              Эта страница видна только вам. Чтобы отправить КП клиенту без доступа к платформе — создайте публичную ссылку.
+            </div>
+            <button
+              onClick={onShare}
+              disabled={sharing}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8,
+                border: "1px solid var(--primary)", background: "var(--background)", color: "var(--primary)",
+                fontSize: 13, fontWeight: 600, cursor: sharing ? "wait" : "pointer", flexShrink: 0,
+              }}
+            >
+              <Link2 size={14} /> {sharing ? "Создаём…" : "Поделиться ссылкой"}
+            </button>
+          </div>
+          {shareLink && (
+            <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 12px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 2 }}>
+                  Публичная ссылка {shareCopied && <span style={{ color: "var(--success)" }}>· скопировано ✓</span>}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", wordBreak: "break-all" }}>{shareLink}</div>
+              </div>
+              <button
+                onClick={onCopyShareLink}
+                style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#fff", background: "var(--primary)", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}
+              >
+                Копировать
+              </button>
+            </div>
+          )}
+          {shareError && (
+            <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 12px", fontSize: 12.5, color: "var(--destructive)" }}>
+              {shareError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Липкая навигация */}
       <nav style={{
