@@ -7,10 +7,36 @@ import { RadarChart } from "@/components/ui/RadarChart";
 import { Scale, Search, Calendar, Zap, Briefcase, Map as MapIcon, MapPin, Swords, TrendingUp, AlertTriangle, Key, Bot, Loader2, Sparkles, RefreshCw, Brain, Target, Lightbulb, CheckCircle, XCircle, Tag, Activity, Clock } from "lucide-react";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
-export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[] }) {
-  const [aiInsights, setAiInsights] = useState<null | { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] }>(null);
+export type CompetitorInsights = { positioning: string; keyInsight: string; battleCards: Array<{ competitorName: string; youWin: string[]; theyWin: string[]; mainThreat: string; mainOpportunity: string; verdict: string; verdictColor: string }>; strategicRecs: string[]; marketGaps: string[]; seoGaps: string[] };
+
+export function competitorInsightsStorageKey(userId: string) {
+  return `mr_competitor_insights_${userId}`;
+}
+
+export function CompareView({ c, myCompany, competitors, userId, autoGenerating }: { c: Colors; myCompany: AnalysisResult | null; competitors: AnalysisResult[]; userId?: string; /** true, пока AppShell фоном авто-считает AI-инсайты сразу после добавления конкурента (см. runCompetitorInsightsInBackground в AppShell.tsx). */ autoGenerating?: boolean }) {
+  const [aiInsights, setAiInsights] = useState<CompetitorInsights | null>(() => {
+    if (typeof window === "undefined" || !userId) return null;
+    try {
+      const raw = localStorage.getItem(competitorInsightsStorageKey(userId));
+      return raw ? JSON.parse(raw) as CompetitorInsights : null;
+    } catch { return null; }
+  });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // Когда AppShell фоном авто-считает AI-инсайты сразу после добавления
+  // конкурента — при переходе autoGenerating true → false перечитываем
+  // localStorage, чтобы результат появился без ручного клика.
+  const prevAutoGeneratingRef = React.useRef(autoGenerating);
+  React.useEffect(() => {
+    if (prevAutoGeneratingRef.current && !autoGenerating && userId) {
+      try {
+        const raw = localStorage.getItem(competitorInsightsStorageKey(userId));
+        if (raw) setAiInsights(JSON.parse(raw) as CompetitorInsights);
+      } catch { /* ignore */ }
+    }
+    prevAutoGeneratingRef.current = autoGenerating;
+  }, [autoGenerating, userId]);
 
   if (!myCompany) return (
     <div style={{ maxWidth: 700 }}>
@@ -46,7 +72,10 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
         body: JSON.stringify({ myCompany, competitors }),
       });
       const json = await jsonOrThrow(res);
-      if (json.ok) setAiInsights(json.data);
+      if (json.ok) {
+        setAiInsights(json.data);
+        if (userId) { try { localStorage.setItem(competitorInsightsStorageKey(userId), JSON.stringify(json.data)); } catch { /* ignore */ } }
+      }
       else setAiError(json.error ?? "Ошибка генерации");
     } catch { setAiError("Ошибка сети"); }
     setAiLoading(false);
@@ -390,7 +419,12 @@ export function CompareView({ c, myCompany, competitors }: { c: Colors; myCompan
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}><span style={{display:"inline-flex",alignItems:"center",gap:6}}><Bot size={14}/>AI Конкурентная разведка</span></div>
-              {!aiInsights && (
+              {!aiInsights && autoGenerating && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted-foreground)" }}>
+                  <RefreshCw size={13} className="mr-spin" style={{ color: "var(--primary)" }} /> Считается в фоне…
+                </span>
+              )}
+              {!aiInsights && !autoGenerating && (
                 <button
                   onClick={handleGenerateInsights}
                   disabled={aiLoading}
