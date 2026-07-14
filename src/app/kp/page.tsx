@@ -5,10 +5,17 @@
  * Публичная ссылка: marketradar24.ru/kp. Тонкий враппер: грузит анализ текущего
  * пользователя (сервер → localStorage fallback) и отдаёт в KpProposal.
  * Если данных нет — KpProposal показывает заглушку со ссылкой на платформу.
+ *
+ * Учитывает активный ПРОФИЛЬ (см. lib/profiles.ts) — если переключиться на
+ * отдельный профиль (например, завести профиль под нового клиента и
+ * проанализировать его сайт там), /kp покажет анализ ИМЕННО этого профиля,
+ * не трогая данные «Основного». Так можно готовить КП для прочих компаний,
+ * не мешая текущему анализу.
  */
 import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import { KpProposal } from "@/components/kp/KpProposal";
+import { getActiveProfileId, profileLsSuffix, profileServerSuffix } from "@/lib/profiles";
 
 export default function KpPage() {
   const [company, setCompany] = useState<AnalysisResult | null>(null);
@@ -24,14 +31,20 @@ export default function KpPage() {
         if (j.ok && j.user) uid = j.user.id;
       } catch { /* ignore */ }
 
+      // Активный профиль (см. lib/profiles.ts) — тот же, что выбран в сайдбаре AppShell.
+      const activeProfileId = uid ? getActiveProfileId(uid) : "default";
+      const serverSuffix = profileServerSuffix(activeProfileId);
+      const companyKey = `company${serverSuffix}`;
+      const competitorsKey = `competitors${serverSuffix}`;
+
       // 1) Сервер
       let ok = false;
       try {
         const res = await fetch("/api/data", { credentials: "include" });
         const json = await res.json();
-        if (json.ok && json.data?.company) {
-          setCompany(json.data.company as AnalysisResult);
-          setCompetitors(Array.isArray(json.data.competitors) ? (json.data.competitors as AnalysisResult[]) : []);
+        if (json.ok && json.data?.[companyKey]) {
+          setCompany(json.data[companyKey] as AnalysisResult);
+          setCompetitors(Array.isArray(json.data[competitorsKey]) ? (json.data[competitorsKey] as AnalysisResult[]) : []);
           ok = true;
         }
       } catch { /* ignore */ }
@@ -39,9 +52,10 @@ export default function KpPage() {
       // 2) localStorage fallback
       if (!ok && uid) {
         try {
-          const raw = localStorage.getItem(`mr_company_${uid}`);
+          const lsSuffix = profileLsSuffix(activeProfileId);
+          const raw = localStorage.getItem(`mr_company_${uid}${lsSuffix}`);
           if (raw) setCompany(JSON.parse(raw) as AnalysisResult);
-          const rawC = localStorage.getItem(`mr_competitors_${uid}`);
+          const rawC = localStorage.getItem(`mr_competitors_${uid}${lsSuffix}`);
           if (rawC) setCompetitors(JSON.parse(rawC) as AnalysisResult[]);
         } catch { /* ignore */ }
       }

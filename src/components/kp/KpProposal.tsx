@@ -51,6 +51,7 @@ const PACKAGES = [
   {
     name: "Контекстная реклама",
     accent: "var(--warning)",
+    note: "Указана стоимость ведения (наша работа: настройка, оптимизация, отчётность). Рекламный бюджет — расходы на клики в Яндекс.Директ — оплачивается отдельно, напрямую в рекламный кабинет, и в эту цену не входит.",
     tiers: [
       { tier: "Старт", price: "35 000 ₽/мес", items: ["Настройка Яндекс.Директ", "1 кампания на поиск", "Базовая аналитика целей"] },
       { tier: "Оптимум", price: "45 000 ₽/мес", items: ["Всё из «Старт»", "Поиск + РСЯ", "A/B объявлений", "Управление ставками"], featured: true },
@@ -498,10 +499,15 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
               <Reveal key={pkg.name} delay={pi * 90}>
                 {() => (
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: pkg.note ? 6 : 14 }}>
                       <div style={{ width: 6, height: 22, borderRadius: 3, background: pkg.accent }} />
                       <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{pkg.name}</h3>
                     </div>
+                    {pkg.note && (
+                      <p style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.45, margin: "0 0 14px", maxWidth: 640 }}>
+                        {pkg.note}
+                      </p>
+                    )}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 14 }}>
                       {pkg.tiers.map((t) => (
                         <div key={t.tier} className="ds-card ds-card-interactive" style={{ padding: "20px", border: t.featured ? `2px solid ${pkg.accent}` : "1px solid var(--border)", position: "relative", ...(t.featured ? { boxShadow: `0 0 0 4px color-mix(in srgb, ${pkg.accent} 12%, transparent)` } : {}) }}>
