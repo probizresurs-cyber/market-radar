@@ -140,6 +140,15 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
   // ─── Видимость (Keys.so) ──
   const vis = company?.keysoDashboard?.yandex ?? company?.keysoDashboard?.google;
 
+  // ─── «Почему это важно» — мостик диагноз → необходимость действия, только реальные числа ──
+  const aheadCount = useMemo(
+    () => (company ? competitors.filter((cm) => cm.company.score > company.company.score).length : 0),
+    [company, competitors],
+  );
+  const nicheGap = company ? Math.round(company.company.avgNiche - company.company.score) : 0;
+  const opportunityCount = company?.nicheForecast?.opportunities?.length ?? 0;
+  const showWhyPanel = !!company && (sevCounts.critical > 0 || opportunityCount > 0);
+
   // ─── скролл-спай + прогресс ──
   useEffect(() => {
     const onScroll = () => {
@@ -291,6 +300,45 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
             </div>
           )}
         </Section>
+
+        {/* ─── ПОЧЕМУ ЭТО ВАЖНО (мостик диагноз → необходимость действия) ─── */}
+        {showWhyPanel && (
+          <Reveal>
+            {() => (
+              <div className="ds-card kp-why-panel" style={{ borderLeft: "4px solid var(--primary)", padding: "22px 26px", marginTop: 32, display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+                {nicheGap > 0
+                  ? <TrendingDown size={22} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
+                  : <TrendingUp size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", marginBottom: 8 }}>
+                    Почему это важно
+                  </div>
+                  <p style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.4, margin: "0 0 8px" }}>
+                    {nicheGap > 3
+                      ? `Вы отстаёте от среднего уровня по нише на ${nicheGap} ${ruPlural(nicheGap, "балл", "балла", "баллов")}`
+                      : nicheGap < -3
+                      ? `Вы опережаете средний уровень по нише на ${-nicheGap} ${ruPlural(-nicheGap, "балл", "балла", "баллов")}`
+                      : `Вы на уровне среднего по нише`}
+                    {aheadCount > 0 && ` — ${aheadCount} ${ruPlural(aheadCount, "конкурент опережает", "конкурента опережают", "конкурентов опережают")} вас по общему баллу`}
+                  </p>
+                  <p style={{ fontSize: 14.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
+                    Это напрямую влияет на то, сколько клиентов доходит до вас, а не до конкурентов.
+                    {sevCounts.critical > 0 && ` Мы нашли ${sevCounts.critical} ${ruPlural(sevCounts.critical, "критичную проблему", "критичные проблемы", "критичных проблем")}`}
+                    {sevCounts.critical > 0 && opportunityCount > 0 && " и "}
+                    {opportunityCount > 0 && `${sevCounts.critical > 0 ? "" : "Нашли "}${opportunityCount} ${ruPlural(opportunityCount, "точку роста", "точки роста", "точек роста")}`}
+                    {" "}— ниже показываем план, с чего начать и что это даёт.
+                  </p>
+                  <button onClick={() => scrollTo("plan")} style={{
+                    marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none",
+                    color: "var(--primary)", fontWeight: 700, fontSize: 14, cursor: "pointer", padding: 0,
+                  }}>
+                    Смотреть план работ <ArrowRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </Reveal>
+        )}
 
         {/* ─── НАХОДКИ ─── */}
         {findings.length > 0 && (
@@ -890,6 +938,14 @@ function ResponsiveCss() {
 function fmtNum(n: number): string {
   if (n >= 1000) return n.toLocaleString("ru-RU");
   return String(n);
+}
+
+/** Русское склонение по числительному: 1 / 2-4 / 5+ (с учётом 11-14 → «много»). */
+function ruPlural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
 }
 
 function bucketOf(r: Recommendation): "quick-win" | "big-bet" | "fill-in" {
