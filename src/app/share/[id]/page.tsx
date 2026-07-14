@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * Публичная страница дашборда по ссылке /share/[id].
- * Не требует авторизации. Читает snapshot из /api/share/[id] и рендерит
- * тот же OwnerDashboardContent что и приватный /owner-dashboard, но в mode="public".
+ * Публичная страница по ссылке /share/[id]. Не требует авторизации.
+ * Читает snapshot из /api/share/[id] и рендерит по snapshot._meta.kind:
+ *   - "dashboard" (по умолчанию, старые ссылки без kind) — OwnerDashboardContent,
+ *     тот же что и приватный /owner-dashboard, но в mode="public".
+ *   - "kp" — KpProposal (публичная копия /kp для отправки клиенту).
  */
 
 import { use, useEffect, useState } from "react";
@@ -15,6 +17,7 @@ import {
   OwnerDashboardContent,
   type DashboardData,
 } from "@/components/dashboard/OwnerDashboardContent";
+import { KpProposal } from "@/components/kp/KpProposal";
 
 interface ContentStore {
   plan: ContentPlan | null;
@@ -29,6 +32,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
     error?: string;
     data?: DashboardData;
     createdAt?: string;
+    kind?: "dashboard" | "kp";
   }>({ status: "loading" });
 
   useEffect(() => {
@@ -41,9 +45,11 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
           return;
         }
         const snap = (json.snapshot ?? {}) as Record<string, unknown>;
+        const meta = snap._meta as { kind?: "dashboard" | "kp" } | undefined;
         setState({
           status: "ok",
           createdAt: json.createdAt,
+          kind: meta?.kind === "kp" ? "kp" : "dashboard",
           data: {
             company: (snap.company as AnalysisResult) ?? null,
             competitors: Array.isArray(snap.competitors) ? (snap.competitors as AnalysisResult[]) : [],
@@ -87,6 +93,10 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
         </div>
       </div>
     );
+  }
+
+  if (state.kind === "kp") {
+    return <KpProposal company={state.data.company} competitors={state.data.competitors} />;
   }
 
   return <OwnerDashboardContent data={state.data} mode="public" createdAt={state.createdAt} />;
