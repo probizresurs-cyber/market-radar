@@ -273,29 +273,34 @@ export function KpProposal({ company, competitors, contactEmail = "hello@marketr
                   )}
                 </Reveal>
               )}
-              <div className="kp-cat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, alignContent: "start" }}>
-                {categories.map((cat, i) => (
-                  <Reveal key={i} delay={i * 60}>
-                    {(v) => (
-                      <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
-                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{cat.name}</div>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                          <span style={{ fontSize: 24, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
-                            <CountUp target={cat.score} active={v} />
-                          </span>
-                          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
-                          {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
-                        </div>
-                        <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
-                          <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
-                        </div>
-                        <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)", marginTop: 8 }}>
-                          {categoryVerdict(cat.score)}
-                        </div>
-                      </div>
-                    )}
-                  </Reveal>
-                ))}
+              <div className="kp-cat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
+                {categories.map((cat, i) => {
+                  const isDanglingLast = categories.length % 2 === 1 && i === categories.length - 1;
+                  return (
+                    <div key={i} style={{ gridColumn: isDanglingLast ? "1 / -1" : undefined, height: "100%" }}>
+                      <Reveal delay={i * 60}>
+                        {(v) => (
+                          <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{cat.name}</div>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                              <span style={{ fontSize: 24, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
+                                <CountUp target={cat.score} active={v} />
+                              </span>
+                              <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
+                              {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
+                            </div>
+                            <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
+                              <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
+                            </div>
+                            <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)", marginTop: 8 }}>
+                              {categoryVerdict(cat.score)}
+                            </div>
+                          </div>
+                        )}
+                      </Reveal>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
