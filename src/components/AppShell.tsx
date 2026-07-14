@@ -45,8 +45,12 @@ import { PreviousAnalysesView } from "@/components/views/PreviousAnalysesView";
 import { DashboardView } from "@/components/views/DashboardView";
 import { CompetitorsView } from "@/components/views/CompetitorsView";
 import { CompetitorProfileView } from "@/components/views/CompetitorProfileView";
-import { CompareView } from "@/components/views/CompareView";
+import { CompareView, competitorInsightsStorageKey, type CompetitorInsights } from "@/components/views/CompareView";
 import { BattleCardsView } from "@/components/views/BattleCardsView";
+import type { BattleCardsResult } from "@/app/api/generate-battle-cards/route";
+import type { SwotReport } from "@/lib/swot";
+import type { AIVisibilityAudit, AIMention, SiteReadinessItem, AIReadinessReport, AIRecommendation } from "@/lib/ai-visibility-types";
+import { guessNiche, calcTotalScore, extractTopCompetitors } from "@/lib/ai-visibility-helpers";
 import { InsightsView } from "@/components/views/InsightsView";
 import { AIChatWidget } from "@/components/ui/AIChatWidget";
 import { AIVisibilityView } from "@/components/views/AIVisibilityView";
@@ -420,6 +424,14 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   const [benchmarksData, setBenchmarksData] = useState<any | null>(null);
   const [isBenchmarksGenerating, setIsBenchmarksGenerating] = useState(false);
   const [benchmarksError, setBenchmarksError] = useState<string | null>(null);
+  // ── Авто-цепочка модулей (тихо в фоне, без тостов) ─────────────────────────
+  // После основного анализа компании — SWOT + AI-видимость.
+  // После добавления конкурента — Battle Cards + AI-инсайты сравнения.
+  // ЦА уже запускает CJM/Бенчмарки через isCJMGenerating/isBenchmarksGenerating выше.
+  const [autoSwotGenerating, setAutoSwotGenerating] = useState(false);
+  const [autoAiVisibilityGenerating, setAutoAiVisibilityGenerating] = useState(false);
+  const [autoBattleCardsGenerating, setAutoBattleCardsGenerating] = useState(false);
+  const [autoCompetitorInsightsGenerating, setAutoCompetitorInsightsGenerating] = useState(false);
   const [whiteLabel, setWhiteLabel] = useState<WhiteLabelConfig | null>(null);
   const [smmAnalysis, setSmmAnalysis] = useState<SMMResult | null>(null);
   const [isSMMAnalyzing, setIsSMMAnalyzing] = useState(false);
@@ -1224,6 +1236,167 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     void Promise.all(tasks);
   };
 
+  // ── Авто-цепочка модулей (тихо в фоне, без тостов, см. запрос пользователя) ─
+  // SWOT — сразу после основного анализа компании. Реплицирует логику
+  // handleGenerate из SWOTView, пишет в тот же localStorage-ключ, поэтому
+  // при открытии вкладки «SWOT» результат уже готов (или видно "считается").
+  const runSwotInBackground = async (company: AnalysisResult, comps: AnalysisResult[], ta: TAResult | null, smm: SMMResult | null) => {
+    if (!currentUser?.id) return;
+    setAutoSwotGenerating(true);
+    try {
+      const res = await fetch("/api/generate-swot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company, competitors: comps, ta, smm }),
+      });
+      const json = await jsonOrThrow(res);
+      if (json.ok) {
+        try { localStorage.setItem(`mr_swot_${currentUser.id}`, JSON.stringify(json.data as SwotReport)); } catch { /* ignore */ }
+      } else {
+        console.warn("[auto-chain] SWOT не удался:", json.error);
+      }
+    } catch (e) {
+      console.warn("[auto-chain] SWOT не удался:", e);
+    } finally {
+      setAutoSwotGenerating(false);
+    }
+  };
+
+  // AI-видимость — полный аудит (генерация запросов + опрос 4 LLM + анализ сайта
+  // + рекомендации), реплицирует runAudit из AIVisibilityView. Это десятки
+  // реальных вызовов к Claude/ChatGPT/Gemini — пользователь подтвердил
+  // автозапуск полностью, несмотря на объём.
+  const runAiVisibilityInBackground = async (company: AnalysisResult) => {
+    if (!currentUser?.id) return;
+    const brandName = company.company.name;
+    const websiteUrl = company.company.url;
+    const niche = guessNiche(company.company.description, company.company.name);
+    if (!brandName || !websiteUrl || !niche) {
+      console.warn("[auto-chain] AI-видимость пропущена — не удалось автоматически определить нишу");
+      return;
+    }
+    const region = "Россия";
+    setAutoAiVisibilityGenerating(true);
+    try {
+      const qRes = await fetch("/api/ai-visibility/generate-queries", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandName, niche, region }),
+      });
+      const qJson = await jsonOrThrow(qRes);
+      const queries: string[] = qJson.ok ? qJson.queries : [];
+      if (!queries.length) throw new Error("Не удалось сгенерировать запросы");
+
+      const llms: Array<"yandex" | "claude" | "chatgpt" | "gemini"> = ["yandex", "claude", "chatgpt", "gemini"];
+      const allMentions: AIMention[] = [];
+      for (const llm of llms) {
+        const res = await fetch("/api/ai-visibility/check-llm", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ llm, queries, brandName, niche }),
+        });
+        const json = await jsonOrThrow(res);
+        if (json.ok) allMentions.push(...json.mentions);
+      }
+
+      let siteItems: SiteReadinessItem[] = [];
+      let readinessReport: AIReadinessReport | undefined;
+      try {
+        const sr = await fetch("/api/ai-visibility/check-site", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ websiteUrl, brandName, description: company.company.description || niche }),
+        });
+        const sj = await sr.json();
+        if (sj.ok) { siteItems = sj.items; readinessReport = sj.report; }
+      } catch { /* ignore */ }
+
+      const { total, byLlm } = calcTotalScore(allMentions);
+      const topCompetitors = extractTopCompetitors(allMentions);
+
+      let recommendations: AIRecommendation[] = [];
+      try {
+        const rr = await fetch("/api/ai-visibility/generate-recommendations", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandName, niche, mentions: allMentions, siteReadiness: siteItems, totalScore: total }),
+        });
+        const rj = await rr.json();
+        if (rj.ok) recommendations = rj.recommendations;
+      } catch { /* ignore */ }
+
+      const completed: AIVisibilityAudit = {
+        id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: "done", completedAt: new Date().toISOString(),
+        brandName, websiteUrl, niche, region, queries,
+        totalScore: total, scoresByLlm: byLlm, mentions: allMentions,
+        siteReadiness: siteItems, readinessReport, recommendations, topCompetitors,
+      };
+      try {
+        const key = `mr_ai_visibility_audits_${currentUser.id}`;
+        const saved: AIVisibilityAudit[] = JSON.parse(localStorage.getItem(key) ?? "[]");
+        saved.unshift(completed);
+        localStorage.setItem(key, JSON.stringify(saved.slice(0, 10)));
+      } catch { /* ignore */ }
+    } catch (e) {
+      console.warn("[auto-chain] AI-видимость не удалась:", e);
+    } finally {
+      setAutoAiVisibilityGenerating(false);
+    }
+  };
+
+  // Battle Cards — сразу после добавления конкурента. Реплицирует generate
+  // из BattleCardsView, пишет в тот же localStorage-ключ.
+  const runBattleCardsInBackground = async (company: AnalysisResult, comps: AnalysisResult[]) => {
+    if (!currentUser?.id || comps.length === 0) return;
+    setAutoBattleCardsGenerating(true);
+    try {
+      const compPayload = comps.map(comp => ({
+        name: comp.company.name,
+        url: comp.company.url,
+        score: comp.company.score,
+        description: comp.company.description ?? "",
+        strengths: comp.recommendations?.filter(r => r.priority === "low").slice(0, 3).map(r => r.text) ?? [],
+        weaknesses: comp.recommendations?.filter(r => r.priority === "high").slice(0, 3).map(r => r.text) ?? [],
+      }));
+      const res = await fetch("/api/generate-battle-cards", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          myCompany: { name: company.company.name, url: company.company.url, score: company.company.score, niche: company.company.description ?? "" },
+          competitors: compPayload,
+        }),
+      });
+      const json = await jsonOrThrow(res);
+      if (json.ok) {
+        try { localStorage.setItem(`mr_battle_cards_${currentUser.id}`, JSON.stringify(json.data as BattleCardsResult)); } catch { /* ignore */ }
+      } else {
+        console.warn("[auto-chain] Battle Cards не удались:", json.error);
+      }
+    } catch (e) {
+      console.warn("[auto-chain] Battle Cards не удались:", e);
+    } finally {
+      setAutoBattleCardsGenerating(false);
+    }
+  };
+
+  // Сравнение (AI-инсайты) — сразу после добавления конкурента. Реплицирует
+  // handleGenerateInsights из CompareView.
+  const runCompetitorInsightsInBackground = async (company: AnalysisResult, comps: AnalysisResult[]) => {
+    if (!currentUser?.id || comps.length === 0) return;
+    setAutoCompetitorInsightsGenerating(true);
+    try {
+      const res = await fetch("/api/generate-competitor-insights", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ myCompany: company, competitors: comps }),
+      });
+      const json = await jsonOrThrow(res);
+      if (json.ok) {
+        try { localStorage.setItem(competitorInsightsStorageKey(currentUser.id), JSON.stringify(json.data as CompetitorInsights)); } catch { /* ignore */ }
+      } else {
+        console.warn("[auto-chain] AI-инсайты сравнения не удались:", json.error);
+      }
+    } catch (e) {
+      console.warn("[auto-chain] AI-инсайты сравнения не удались:", e);
+    } finally {
+      setAutoCompetitorInsightsGenerating(false);
+    }
+  };
+
   const handleNewAnalysis = async (url: string, personalBrand?: { name: string; position: string; parentCompanyContext?: string }): Promise<AnalysisResult | null> => {
     if (guardReadOnly("Запуск анализа")) return null;
     setIsAnalyzing(true);
@@ -1248,6 +1421,14 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       }
       setSelectedCompetitor(null);
       setActiveNav("dashboard");
+
+      // Авто-цепочка: SWOT + AI-видимость считаются в фоне сразу после
+      // основного анализа, без блокировки и без тостов (см. запрос
+      // пользователя — "тихо в фоне"). Конкуренты только что очищены —
+      // передаём пустой массив, SWOT учтёт их когда появятся.
+      void runSwotInBackground(result, [], taAnalysis, smmAnalysis);
+      void runAiVisibilityInBackground(result);
+
       if (currentUser?.tgChatId && currentUser.tgNotifyAnalysis !== false) {
         await sendTgNotification(
           currentUser.tgChatId,
@@ -1329,6 +1510,17 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         }
         return updated;
       });
+
+      // Авто-цепочка: Battle Cards + AI-инсайты сравнения считаются в фоне
+      // сразу после добавления конкурента, тихо, без тостов. handleAddCompetitor
+      // вызывается последовательно (см. wizard), поэтому [...competitors, new]
+      // из closure безопасен.
+      if (myCompany) {
+        const updatedCompetitors = [...competitors, resultWithDate];
+        void runBattleCardsInBackground(myCompany, updatedCompetitors);
+        void runCompetitorInsightsInBackground(myCompany, updatedCompetitors);
+      }
+
       if (currentUser?.tgChatId && currentUser.tgNotifyCompetitors !== false) {
         await sendTgNotification(
           currentUser.tgChatId,
@@ -1379,6 +1571,15 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         try { localStorage.setItem(`mr_ta_${currentUser.id}${profileSuffixRef.current}_${audienceType}`, JSON.stringify(newAnalysis)); } catch { /* ignore */ }
         syncToServer("ta", newAnalysis);
       }
+
+      // Авто-цепочка: CJM + Отраслевые бенчмарки считаются в фоне сразу после
+      // анализа ЦА, тихо, без тостов. companyOverride/newAnalysis передаём
+      // явно — тот же приём что и выше, React-state ещё не обновился.
+      if (company) {
+        void handleGenerateCJM(company, newAnalysis);
+        void handleGenerateBenchmarks(company);
+      }
+
       // Когда запущено из мастера (companyOverride передан) — НЕ переключаем
       // вкладку, оставляем юзера на dashboard. Иначе модули в фоне будут
       // перетаскивать его с экрана на экран.
@@ -1388,20 +1589,23 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     }
   };
 
-  const handleGenerateCJM = async () => {
-    if (!myCompany) return;
+  // companyOverride/taOverride — как в handleTAAnalysis: React-state ещё не
+  // успел обновиться, когда вызывается сразу после анализа ЦА в той же цепочке.
+  const handleGenerateCJM = async (companyOverride?: AnalysisResult, taOverride?: TAResult | null) => {
+    const company = companyOverride ?? myCompany;
+    if (!company) return;
     setIsCJMGenerating(true);
     setCjmError(null);
     try {
-      const niche = (myCompany.company.description ?? myCompany.company.name ?? "").slice(0, 500);
+      const niche = (company.company.description ?? company.company.name ?? "").slice(0, 500);
       const res = await fetch("/api/generate-cjm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: myCompany.company.name,
-          niche: niche || myCompany.company.name,
-          taData: taAnalysis,
-          companyData: { description: myCompany.company.description?.slice(0, 500), url: myCompany.company.url },
+          companyName: company.company.name,
+          niche: niche || company.company.name,
+          taData: taOverride !== undefined ? taOverride : taAnalysis,
+          companyData: { description: company.company.description?.slice(0, 500), url: company.company.url },
         }),
       });
       const json = await jsonOrThrow(res);
@@ -1419,22 +1623,26 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     }
   };
 
-  const handleGenerateBenchmarks = async () => {
-    if (!myCompany) return;
+  // companyOverride/competitorsOverride — как в handleGenerateCJM: нужны
+  // когда вызывается сразу после анализа ЦА в той же цепочке.
+  const handleGenerateBenchmarks = async (companyOverride?: AnalysisResult, competitorsOverride?: AnalysisResult[]) => {
+    const company = companyOverride ?? myCompany;
+    if (!company) return;
     setIsBenchmarksGenerating(true);
     setBenchmarksError(null);
     try {
-      const niche = (myCompany.company.description ?? myCompany.company.name ?? "").slice(0, 500);
+      const niche = (company.company.description ?? company.company.name ?? "").slice(0, 500);
+      const comps = competitorsOverride ?? competitors;
       const res = await fetch("/api/generate-benchmarks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: myCompany.company.name,
-          niche: niche || myCompany.company.name,
-          companyScore: myCompany.company.score,
-          categories: myCompany.company.categories,
-          seoData: myCompany.seo,
-          competitors: competitors.map(c2 => ({ name: c2.company.name, score: c2.company.score, categories: c2.company.categories })),
+          companyName: company.company.name,
+          niche: niche || company.company.name,
+          companyScore: company.company.score,
+          categories: company.company.categories,
+          seoData: company.seo,
+          competitors: comps.map(c2 => ({ name: c2.company.name, score: c2.company.score, categories: c2.company.categories })),
         }),
       });
       const json = await jsonOrThrow(res);
@@ -2626,11 +2834,11 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         })()}
         {activeNav === "prev-analyses" && <PreviousAnalysesView c={c} history={analysisHistory} currentAnalysis={myCompany} onDeleteHistory={handleDeleteHistory} />}
         {activeNav === "competitors" && <CompetitorsView c={c} myCompany={myCompany} competitors={competitors} onSelectCompetitor={(i) => { setSelectedCompetitor(i); }} onAddCompetitor={handleAddCompetitor} onDeleteCompetitor={handleDeleteCompetitor} isAnalyzing={isAnalyzing} />}
-        {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} />}
-        {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} />}
+        {activeNav === "compare" && <CompareView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id} autoGenerating={autoCompetitorInsightsGenerating} />}
+        {activeNav === "battle-cards" && <BattleCardsView c={c} myCompany={myCompany} competitors={competitors} userId={currentUser?.id ?? ""} autoGenerating={autoBattleCardsGenerating} />}
         {activeNav === "insights" && myCompany && <InsightsView c={c} data={myCompany} competitors={competitors} />}
-        {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} userId={currentUser?.id} />}
-        {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} userId={currentUser?.id} />}
+        {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} userId={currentUser?.id} autoGenerating={autoAiVisibilityGenerating} />}
+        {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} userId={currentUser?.id} autoGenerating={autoSwotGenerating} />}
         {activeNav === "price-tracking" && <PriceTrackingView />}
         {activeNav === "content-style" && (
           <CompanyStyleView

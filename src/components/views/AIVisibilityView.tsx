@@ -18,6 +18,7 @@ import type {
   AIRecommendation,
   AIReadinessReport,
 } from "@/lib/ai-visibility-types";
+import { guessNiche, calcTotalScore, extractTopCompetitors } from "@/lib/ai-visibility-helpers";
 
 interface Props {
   c: Colors;
@@ -26,6 +27,10 @@ interface Props {
    *  Без него старые ключи `mr_ai_visibility_audits` (без uid) утекали
    *  между аккаунтами при смене пользователя. */
   userId?: string;
+  /** true, пока AppShell фоном авто-считает аудит сразу после основного анализа
+   *  компании (см. runAiVisibilityInBackground в AppShell.tsx). Показываем
+   *  «считается» вместо формы и перечитываем localStorage, когда фон закончит. */
+  autoGenerating?: boolean;
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -45,31 +50,8 @@ const NICHES = [
   "Другое",
 ];
 
-// Ключевые слова → лейбл из NICHES. Используются для авто-определения ниши
-// по описанию компании, чтобы пользователю не приходилось выбирать вручную.
-const NICHE_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
-  { label: "Медицина / Клиники",            keywords: ["стоматолог", "клиник", "медицин", "врач", "терапевт", "хирург", "имплант", "ортодонт"] },
-  { label: "Маркетинговое агентство",       keywords: ["маркетинг", "агентств", "smm", "реклам", "брендинг", "pr-агентство"] },
-  { label: "IT / SaaS / Разработка ПО",     keywords: ["saas", " it ", "it-", "разработк", "программирован", "софт", "приложен", "стартап"] },
-  { label: "Юридические услуги",            keywords: ["юрист", "юридическ", "адвокат", "правов"] },
-  { label: "Образование / Онлайн-курсы",    keywords: ["образован", "обучен", "курс", "школа", "репетитор", "edu", "edtech"] },
-  { label: "Финансы / Бухгалтерия",         keywords: ["финанс", "бухгалтер", "аудит", "налог", "1c", "1с"] },
-  { label: "Строительство / Ремонт",        keywords: ["строительств", "ремонт", "отделк", "монтаж", "стройка"] },
-  { label: "Ресторан / Общепит",            keywords: ["ресторан", "кафе", "бар", "общепит", "кухн", "пиццер", "доставка еды"] },
-  { label: "Интернет-магазин / E-commerce", keywords: ["интернет-магазин", "магазин", "ecommerce", "e-commerce", "маркетплейс", "ozon", "wildberries"] },
-  { label: "Недвижимость",                  keywords: ["недвижим", "квартир", "новостро", "риелтор", "агентство недвижимости"] },
-  { label: "Красота / Wellness",            keywords: ["красот", "салон", "spa", "wellness", "парикмахер", "косметол", "массаж"] },
-  { label: "Логистика / Доставка",          keywords: ["логистик", "доставк", "перевозк", "транспортн", "склад"] },
-];
-
-function guessNiche(...sources: Array<string | undefined>): string {
-  const haystack = sources.filter(Boolean).join(" ").toLowerCase();
-  if (!haystack) return "";
-  for (const { label, keywords } of NICHE_KEYWORDS) {
-    if (keywords.some(k => haystack.includes(k))) return label;
-  }
-  return "";
-}
+// Ниша угадывается общей функцией guessNiche из lib/ai-visibility-helpers
+// (та же логика используется фоновым авто-запуском в AppShell).
 
 const LLM_META: Record<LLMName, { label: string; color: string; bg: string; realApi: boolean }> = {
   yandex:     { label: "YandexGPT",  color: "#ef4444", bg: "#ef444415", realApi: false },
@@ -78,54 +60,6 @@ const LLM_META: Record<LLMName, { label: string; color: string; bg: string; real
   perplexity: { label: "Perplexity", color: "#8b5cf6", bg: "#8b5cf615", realApi: false },
   gemini:     { label: "Gemini",     color: "#4285f4", bg: "#4285f415", realApi: false },
 };
-
-// Веса: российский YandexGPT важен для РФ-рынка; Claude и ChatGPT — глобальные.
-// Perplexity исключён из аудита (Keys.so для Яндекс Нейро/Алисы покрывает русский AI-сегмент).
-const LLM_WEIGHTS: Record<LLMName, number> = {
-  yandex:     0.32,
-  claude:     0.27,
-  chatgpt:    0.27,
-  perplexity: 0,     // не используется — оставлено для совместимости старых отчётов
-  gemini:     0.14,
-};
-
-function calcScoreForLLM(mentions: AIMention[], llm: LLMName): number {
-  const llmMentions = mentions.filter(m => m.llm === llm && !m.unavailable);
-  if (!llmMentions.length) return -1; // -1 = нет данных (ключ не настроен)
-  const mentioned = llmMentions.filter(m => m.mentioned);
-  const mentionRate = mentioned.length / llmMentions.length;
-  const avgPos = mentioned.length
-    ? mentioned.reduce((s, m) => s + (m.position ?? 5), 0) / mentioned.length : 0;
-  const posScore = avgPos > 0 ? Math.max(0, 1 - (avgPos - 1) / 10) : 0;
-  const sentimentScore = mentioned.length
-    ? mentioned.filter(m => m.sentiment === "positive").length / mentioned.length : 0;
-  return Math.round(mentionRate * 70 + posScore * 20 + sentimentScore * 10);
-}
-
-function calcTotalScore(mentions: AIMention[]): { total: number; byLlm: Record<LLMName, number> } {
-  // Perplexity исключён из аудита (Yandex Neuro/Alice покрываются Keys.so отдельным блоком).
-  const llms: LLMName[] = ["yandex", "claude", "chatgpt", "gemini"];
-  const byLlm = {} as Record<LLMName, number>;
-  let weightedSum = 0;
-  let totalWeight = 0;
-  for (const llm of llms) {
-    const score = calcScoreForLLM(mentions, llm);
-    byLlm[llm] = score;
-    if (score >= 0) { // только если данные есть
-      weightedSum += score * LLM_WEIGHTS[llm];
-      totalWeight += LLM_WEIGHTS[llm];
-    }
-  }
-  return { total: totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0, byLlm };
-}
-
-function extractTopCompetitors(mentions: AIMention[]): Array<{ name: string; count: number }> {
-  const counts: Record<string, number> = {};
-  for (const m of mentions)
-    for (const c of m.competitorsMentioned)
-      counts[c] = (counts[c] ?? 0) + 1;
-  return Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 8).map(([name, count]) => ({ name, count }));
-}
 
 function scoreColor(score: number): string {
   if (score >= 70) return "#22c55e";
@@ -397,7 +331,7 @@ function ReadinessReportBlock({ report }: { report: AIReadinessReport }) {
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
-export function AIVisibilityView({ c, myCompany, userId }: Props) {
+export function AIVisibilityView({ c, myCompany, userId, autoGenerating }: Props) {
   // Ключ кэша — обязательно скоупится по userId, иначе при смене аккаунта
   // юзер видит чужие аудиты. Если userId не передан (старая интеграция) —
   // используем "anon" чтобы не светить чужие данные.
@@ -415,6 +349,25 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
   );
   const [audit, setAudit] = useState<AIVisibilityAudit | null>(lastAudit);
   const [savedAudits, setSavedAudits] = useState<AIVisibilityAudit[]>(() => loadSavedAudits());
+
+  // Когда AppShell фоном авто-считает аудит сразу после основного анализа
+  // (см. runAiVisibilityInBackground) — при переходе autoGenerating true → false
+  // перечитываем localStorage, чтобы результат появился без ручной генерации
+  // и без необходимости уходить с вкладки и возвращаться.
+  const prevAutoGeneratingRef = React.useRef(autoGenerating);
+  React.useEffect(() => {
+    if (prevAutoGeneratingRef.current && !autoGenerating) {
+      const fresh = loadSavedAudits();
+      const freshLast = fresh[0] ?? null;
+      if (freshLast && freshLast.id !== audit?.id) {
+        setAudit(freshLast);
+        setSavedAudits(fresh);
+        if (freshLast.status === "done") setView("report");
+      }
+    }
+    prevAutoGeneratingRef.current = autoGenerating;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGenerating]);
 
   // Form
   const [brandName, setBrandName] = useState(myCompany?.company.name ?? "");
@@ -660,6 +613,18 @@ export function AIVisibilityView({ c, myCompany, userId }: Props) {
             </button>
           )}
         </div>
+
+        {autoGenerating && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12,
+            background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--primary) 30%, transparent)",
+            marginBottom: 20, fontSize: 13, color: "var(--foreground)",
+          }}>
+            <RefreshCw size={15} className="mr-spin" style={{ color: "var(--primary)" }} />
+            AI-аудит видимости считается в фоне после анализа компании — появится здесь автоматически, обычно занимает пару минут.
+          </div>
+        )}
 
         {/* Two-column layout */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>

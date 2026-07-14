@@ -330,15 +330,31 @@ export function BattleCardsView({
   myCompany,
   competitors,
   userId,
+  autoGenerating,
 }: {
   c: Colors;
   myCompany: AnalysisResult | null;
   competitors: AnalysisResult[];
   userId: string;
+  /** true, пока AppShell фоном авто-считает battle cards сразу после добавления
+   *  конкурента (см. runBattleCardsInBackground в AppShell.tsx). */
+  autoGenerating?: boolean;
 }) {
   const [result, setResult] = useState<BattleCardsResult | null>(() => loadCards(userId));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Когда AppShell фоном авто-считает battle cards сразу после добавления
+  // конкурента — при переходе autoGenerating true → false перечитываем
+  // localStorage, чтобы карточки появились без ручного клика.
+  const prevAutoGeneratingRef = React.useRef(autoGenerating);
+  React.useEffect(() => {
+    if (prevAutoGeneratingRef.current && !autoGenerating) {
+      const fresh = loadCards(userId);
+      if (fresh) setResult(fresh);
+    }
+    prevAutoGeneratingRef.current = autoGenerating;
+  }, [autoGenerating, userId]);
 
   const generate = useCallback(async () => {
     if (!myCompany || competitors.length === 0) return;
@@ -425,7 +441,12 @@ export function BattleCardsView({
               )}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {!result && autoGenerating && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted-foreground)" }}>
+                <RefreshCw size={13} className="mr-spin" style={{ color: "var(--primary)" }} /> Считается в фоне…
+              </span>
+            )}
             {result && (
               <button
                 onClick={handlePrint}
@@ -436,8 +457,8 @@ export function BattleCardsView({
             )}
             <button
               onClick={generate}
-              disabled={loading || competitors.length === 0}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 10, border: "none", background: result ? "var(--primary)" : "linear-gradient(135deg,#ef4444,#f97316)", color: "#fff", cursor: loading || competitors.length === 0 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: loading ? 0.7 : 1 }}
+              disabled={loading || competitors.length === 0 || autoGenerating}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 10, border: "none", background: result ? "var(--primary)" : "linear-gradient(135deg,#ef4444,#f97316)", color: "#fff", cursor: loading || competitors.length === 0 || autoGenerating ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: loading || autoGenerating ? 0.7 : 1 }}
             >
               {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={15} />}
               {result ? "Обновить" : "Создать"}

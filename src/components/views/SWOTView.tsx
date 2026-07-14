@@ -35,7 +35,7 @@ interface StoredReport {
 }
 
 export function SWOTView({
-  c: _c, company, competitors, ta, smm, userId,
+  c: _c, company, competitors, ta, smm, userId, autoGenerating,
 }: {
   c: Colors;
   company: AnalysisResult | null;
@@ -43,6 +43,9 @@ export function SWOTView({
   ta: TAResult | null;
   smm: SMMResult | null;
   userId?: string;
+  /** true, пока AppShell фоном авто-считает SWOT сразу после анализа компании
+   *  (см. runSwotInBackground в AppShell.tsx). */
+  autoGenerating?: boolean;
 }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +146,21 @@ export function SWOTView({
       .catch(() => {});
   }, [report]);
 
-  const canGenerate = !!company && !generating;
+  // Когда AppShell фоном авто-считает SWOT сразу после анализа компании —
+  // при переходе autoGenerating true → false перечитываем localStorage,
+  // чтобы отчёт появился без ручного клика на «Сгенерировать».
+  const prevAutoGeneratingRef = React.useRef(autoGenerating);
+  useEffect(() => {
+    if (prevAutoGeneratingRef.current && !autoGenerating) {
+      try {
+        const raw = localStorage.getItem(swotStateKey);
+        if (raw) setReport(JSON.parse(raw) as SwotReport);
+      } catch { /* ignore */ }
+    }
+    prevAutoGeneratingRef.current = autoGenerating;
+  }, [autoGenerating, swotStateKey]);
+
+  const canGenerate = !!company && !generating && !autoGenerating;
 
   // Загрузить прошлый отчёт обратно в интерактивный вид (не только PDF).
   const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
@@ -250,6 +267,12 @@ export function SWOTView({
                 </div>
               </div>
               <div>
+                {autoGenerating && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13, color: "var(--muted-foreground)" }}>
+                    <RefreshCw size={14} className="mr-spin" style={{ color: "var(--primary)" }} />
+                    Считается в фоне после анализа компании…
+                  </div>
+                )}
                 <button
                   onClick={handleGenerate}
                   disabled={!canGenerate}
