@@ -22,7 +22,7 @@ import { trackKpEvent } from "@/lib/kp-track";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
-  Link2, Lock, Eye, Bot, Sun, Moon,
+  Link2, Lock, Eye, Bot, Sun, Moon, FileText, Sparkles, ShieldCheck, Clock,
 } from "lucide-react";
 
 interface Props {
@@ -43,6 +43,13 @@ interface Props {
   shareCopied?: boolean;
   shareError?: string | null;
   onCopyShareLink?: () => void;
+  /**
+   * Показывает блок «Пилотные условия» + примеры формата SEO+GEO статей —
+   * содержание конкретной договорённости с одним проспектом (не общее
+   * предложение MarketRadar), поэтому включается точечно через проп, а не
+   * глобально для всех /kp. См. src/app/kp-sozdavaya/page.tsx.
+   */
+  pilotOffer?: boolean;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -76,16 +83,50 @@ const PACKAGES = [
   },
 ];
 
-// Живая проверка позиций через headless-браузер временно отключена — на
-// проде Яндекс блокирует капчей 100% запросов с IP сервера (проверено
-// 15.07.2026, см. историю чата). Инфраструктура (таблица position_checks,
-// /admin/position-checker, /api/check-positions, /api/kp-position-check)
-// остаётся нетронутой — просто не дёргаем её отсюда и не показываем раздел,
-// пока не решим: смягчить (прокси/паузы/Google) или подключить платный
-// SERP-трекер. Чтобы включить обратно — просто верни true.
-const POSITION_CHECK_ENABLED = false;
+// ─── Контент пилотного предложения (проп pilotOffer) — специфично для
+// одного конкретного клиента (переговоры о барельефах), не общий питч
+// MarketRadar. Примеры статей — иллюстрация формата, а НЕ готовые/реальные
+// публикации; прогноз на месяц — ориентировочные направления работы, а не
+// гарантированные метрики (это план, гарантия описана отдельно ниже). ────
+const SEO_PREVIEW_ARTICLES = [
+  {
+    title: "Барельеф на стену в интерьере: 7 идей для гостиной и спальни",
+    excerpt: "Где барельеф уместен, а где перегружает пространство, сколько стоит индивидуальный заказ и как выбрать мастера.",
+  },
+  {
+    title: "Барельеф своими руками или на заказ: сравниваем цену, качество и сроки",
+    excerpt: "Честное сравнение — что реально получится сделать самому, а где нужен профессиональный литейщик.",
+  },
+  {
+    title: "Уход за гипсовым барельефом: как не повредить рельеф при уборке",
+    excerpt: "Практическая инструкция — то, что люди ищут уже после покупки, и что закрепляет доверие к бренду.",
+  },
+];
 
-const SECTIONS = [
+const SEO_MONTH1_FORECAST = [
+  "Первая неделя — глубокий анализ ниши и полная стратегия SEO+GEO, семантика собрана, контент-план на месяц готов",
+  "≈20–25 статей опубликовано на сайте и на внешних площадках (при темпе 1 статья в день)",
+  "Большая часть статей проиндексирована в Яндексе и Google к концу месяца",
+  "Первые ответы AI-ассистентов (YandexGPT, ChatGPT, Perplexity) на профильные запросы начинают упоминать бренд",
+  "Еженедельный отчёт с цифрами: позиции, трафик, упоминания в AI-ответах",
+  "Цель — не подписчики и охваты, а целевые обращения от людей, которые ищут барельефы",
+];
+
+const PILOT_STEPS = [
+  "Бесплатно: экспресс-разбор ниши на созвоне (20 минут) — где вы в поиске сейчас, что отвечают нейросети про барельефы, что делают конкуренты в соцсетях, + план действий",
+  "Если план откликается — стартуем, оплата помесячно",
+  "Первая неделя — глубокий анализ и полная стратегия",
+  "Дальше — раз в неделю отчёт с цифрами",
+];
+
+// Живая проверка позиций снова включена (15.07.2026) — раньше здесь был
+// headless-браузер по yandex.ru, который на проде блокировался капчей в
+// 100% случаев. Заменено на официальный Yandex Search API (без браузера,
+// без капчи) — см. src/lib/yandex-search-api.ts. Google по-прежнему через
+// Playwright (официального API нет), это не менялось.
+const POSITION_CHECK_ENABLED = true;
+
+const BASE_SECTIONS = [
   { id: "overview", label: "Обзор" },
   { id: "findings", label: "Находки" },
   { id: "tech", label: "Тех-аудит" },
@@ -94,9 +135,11 @@ const SECTIONS = [
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста" },
   { id: "plan", label: "План" },
+  { id: "seo-preview", label: "Формат работ" },
+  { id: "pilot", label: "Пилотные условия" },
   { id: "pricing", label: "Тарифы" },
   { id: "cta", label: "Заявка" },
-].filter((s) => s.id !== "positions" || POSITION_CHECK_ENABLED);
+];
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const scoreColor = (s: number) => (s >= 70 ? "var(--success)" : s >= 45 ? "var(--warning)" : "var(--destructive)");
@@ -120,7 +163,14 @@ export function KpProposal({
   company, competitors, contactEmail = "hello@marketradar24.ru",
   aiVisibility = null,
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
+  pilotOffer = false,
 }: Props) {
+  const SECTIONS = useMemo(
+    () => BASE_SECTIONS.filter(
+      (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED) && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
+    ),
+    [pilotOffer],
+  );
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   // Тарифы скрыты за кнопкой «Получить анализ» — раньше цены висели открыто
@@ -723,6 +773,105 @@ export function KpProposal({
                   )}
                 </Reveal>
               ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="seo-preview" title="Как это будет выглядеть" subtitle="Формат SEO+GEO статей — иллюстрация, не готовые публикации — и ориентир по результату первого месяца">
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+              Пример формата статей
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 32 }}>
+              {SEO_PREVIEW_ARTICLES.map((a, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <FileText size={18} style={{ color: "var(--primary)", marginBottom: 10 }} />
+                      <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
+                      <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+              Ориентир на первый месяц — СЕО+ГЕО
+            </div>
+            <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 32 }}>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
+                {SEO_MONTH1_FORECAST.map((it, j) => (
+                  <li key={j} style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.45 }}>
+                    <CheckCircle2 size={17} style={{ color: "var(--success)", flexShrink: 0, marginTop: 1 }} /> {it}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+              Контент-завод для соцсетей
+            </div>
+            <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <Rocket size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>
+                Сделаем то же по соцсетям: разберём нишу и аудиторию, найдём форматы, которые сейчас заходят в декоре/интерьере, и соберём контент-план со сценариями на неделю вперёд — что и как снимать, простыми кадрами на телефон. Примеры готовых роликов покажем уже в процессе работы, после старта.
+              </p>
+            </div>
+          </Section>
+        )}
+
+        {/* ─── ПИЛОТНЫЕ УСЛОВИЯ (только для pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot" title="Пилотные условия — первый поток" subtitle="Специальные условия для первых 10 компаний — старт потока 21 июля 2026">
+            <div className="ds-card" style={{ borderLeft: "4px solid var(--primary)", padding: "22px 26px", marginBottom: 24, display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <Sparkles size={22} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ fontSize: 15, lineHeight: 1.55, margin: "0 0 14px" }}>
+                  Сейчас запускаем первый поток — 10 компаний на пилотных условиях, их результаты станут первыми публичными кейсами MarketRadar. Условия ниже — специально для первого потока, ниже стандартных.
+                </p>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
+                  {PILOT_STEPS.map((it, j) => (
+                    <li key={j} style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.5 }}>
+                      <CheckCircle2 size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} /> {it}
+                    </li>
+                  ))}
+                </ul>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14 }}>
+                  <ShieldCheck size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+                    <b>Гарантия:</b> если за месяц не выпускаем заявленный объём работ — возвращаем оплату этого месяца.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 24 }}>
+              <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>СММ (соцсети)</div>
+                <div style={{ fontSize: 22, fontWeight: 850, marginBottom: 10 }}>от 50 000 ₽/мес</div>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Контент снимаете вы (простыми кадрами на телефон), монтаж и контент-план на неделю вперёд — наши</li>
+                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Ежедневный контент; доп. аккаунт на контент-ферме — +15% от стоимости</li>
+                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Аккаунты от разных лиц (например, собственник / дизайнер / мастер) — каждый доп. аккаунт +70% (+35 000 ₽)</li>
+                </ul>
+              </div>
+              <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>СЕО + ГЕО</div>
+                <div style={{ fontSize: 22, fontWeight: 850, marginBottom: 10 }}>от 35 000 ₽/мес</div>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>1 статья в день, публикация на сайте и на внешних площадках</li>
+                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Перед публикацией — редакторская вычитка</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+              <Clock size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+                <b>Старт потока — 21 июля 2026, максимум 10 компаний.</b> Взамен на пилотные условия — один пункт: результат оформляем как публичный кейс.
+              </div>
             </div>
           </Section>
         )}
