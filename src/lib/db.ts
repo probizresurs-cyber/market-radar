@@ -378,6 +378,23 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_partner_applications_status ON partner_applications(status)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_partner_applications_email ON partner_applications(email)`);
 
+  // ─── Заявки на полноценный анализ со страницы /kp, /kp-sozdavaya и других
+  // публичных «интерактивных анализов» (кнопка «Хотите полноценный анализ
+  // за 2 990 ₽?») — публичная форма без учётной записи, попадает в /admin/analysis-requests.
+  await query(`
+    CREATE TABLE IF NOT EXISTS analysis_requests (
+      id TEXT PRIMARY KEY,
+      company_name TEXT NOT NULL,
+      website TEXT NOT NULL,
+      contact TEXT NOT NULL,
+      source_path TEXT,
+      status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','converted','rejected')),
+      admin_notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_analysis_requests_status ON analysis_requests(status)`);
+
   // ─── Добавляем client_price_amount к partners (если ещё нет) ─────────────────
   await query(`
     ALTER TABLE partners ADD COLUMN IF NOT EXISTS client_price_amount INTEGER

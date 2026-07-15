@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * /kp-sozdavaya — отдельная страница КП под конкретного проспекта (sozdavay.art /
+ * /kp-sozdavaya — отдельная страница анализа под конкретного проспекта (sozdavay.art /
  * sozdavay-barelief.ru), не зависящая от того, какой «Профиль» сейчас активен
  * в основном приложении. В отличие от /kp (который всегда показывает АКТИВНЫЙ
  * профиль), эта страница ищет профиль по имени "Sozdavaya" и показывает его —
  * так можно спокойно работать над основным анализом на /kp, пока здесь лежит
- * отдельный КП под этого проспекта.
+ * отдельный анализ под этого проспекта.
  *
  * Данные появятся здесь только после того, как в аккаунте создан профиль
  * с именем "Sozdavaya" и в нём проведён реальный анализ сайта — никаких
@@ -14,6 +14,7 @@
  */
 import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import type { AIVisibilityAudit } from "@/lib/ai-visibility-types";
 import { KpProposal } from "@/components/kp/KpProposal";
 import { getProfiles, profileLsSuffix, profileServerSuffix } from "@/lib/profiles";
 
@@ -22,6 +23,7 @@ const PROFILE_NAME_MATCH = /sozdav/i;
 export default function KpSozdavayaPage() {
   const [company, setCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
+  const [aiVisibility, setAiVisibility] = useState<AIVisibilityAudit | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [profileFound, setProfileFound] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -106,23 +108,34 @@ export default function KpSozdavayaPage() {
           if (rawC) setCompetitors(JSON.parse(rawC) as AnalysisResult[]);
         } catch { /* ignore */ }
       }
+
+      // AI-видимость: аудиты не скоупятся по профилю (см. AIVisibilityView) —
+      // берём последний завершённый по userId, как есть.
+      try {
+        const rawAudits = localStorage.getItem(`mr_ai_visibility_audits_${uid}`);
+        if (rawAudits) {
+          const audits = JSON.parse(rawAudits) as AIVisibilityAudit[];
+          const done = audits.find((a) => a.status === "done");
+          if (done) setAiVisibility(done);
+        }
+      } catch { /* ignore */ }
       setLoaded(true);
     })();
   }, []);
 
   if (!loaded) {
-    return <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui", color: "var(--muted-foreground)" }}>Готовим коммерческое предложение…</div>;
+    return <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui", color: "var(--muted-foreground)" }}>Готовим интерактивный анализ…</div>;
   }
 
   if (!profileFound || !company) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", color: "var(--foreground)", padding: 40, textAlign: "center", fontFamily: "system-ui" }}>
         <div style={{ maxWidth: 480 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>КП для Sozdavaya пока не готов</div>
+          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Анализ для Sozdavaya пока не готов</div>
           <div style={{ fontSize: 15, color: "var(--muted-foreground)", marginBottom: 24, lineHeight: 1.5 }}>
             {!profileFound
-              ? <>Создайте профиль с именем «Sozdavaya» (переключатель профилей в сайдбаре → «Добавить профиль») и проведите в нём анализ сайта sozdavay.art — после этого здесь появится КП.</>
-              : <>Профиль «Sozdavaya» создан, но анализ сайта в нём ещё не запускался. Запустите «Новый анализ» внутри этого профиля — КП соберётся автоматически.</>}
+              ? <>Создайте профиль с именем «Sozdavaya» (переключатель профилей в сайдбаре → «Добавить профиль») и проведите в нём анализ сайта sozdavay.art — после этого здесь появится анализ.</>
+              : <>Профиль «Sozdavaya» создан, но анализ сайта в нём ещё не запускался. Запустите «Новый анализ» внутри этого профиля — интерактивный анализ соберётся автоматически.</>}
           </div>
           <a href="/" className="ds-btn ds-btn-primary" style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center" }}>На платформу →</a>
         </div>
@@ -132,7 +145,7 @@ export default function KpSozdavayaPage() {
 
   return (
     <KpProposal
-      company={company} competitors={competitors}
+      company={company} competitors={competitors} aiVisibility={aiVisibility}
       onShare={handleShare} sharing={sharing} shareLink={shareLink}
       shareCopied={shareCopied} shareError={shareError} onCopyShareLink={handleCopyShareLink}
     />
