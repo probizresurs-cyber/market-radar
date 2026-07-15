@@ -82,6 +82,7 @@ const SECTIONS = [
   { id: "tech", label: "Тех-аудит" },
   { id: "competitors", label: "Конкуренты" },
   { id: "ai-visibility", label: "AI-видимость" },
+  { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста" },
   { id: "plan", label: "План" },
   { id: "pricing", label: "Тарифы" },
@@ -138,6 +139,26 @@ export function KpProposal({
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // ─── Позиции в поиске — реальная живая проверка (см. /admin/position-checker,
+  // /api/check-positions), не выдумка AI. Раздел показывается только если для
+  // этого домена реально проводилась проверка — иначе просто не рендерится. ──
+  const [positionCheck, setPositionCheck] = useState<{
+    engine: "yandex" | "google"; checkedAt: string;
+    results: Array<{ keyword: string; position: number | null; status: "done" | "not_found" | "failed" }>;
+  } | null>(null);
+  useEffect(() => {
+    const domain = company?.company.url;
+    if (!domain) return;
+    fetch(`/api/position-checks?domain=${encodeURIComponent(domain)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok && Array.isArray(json.results) && json.results.length > 0) {
+          setPositionCheck({ engine: json.engine, checkedAt: json.checkedAt, results: json.results });
+        }
+      })
+      .catch(() => { /* тихо — раздел просто не появится */ });
+  }, [company?.company.url]);
 
   // ─── Находки из реальных данных ──
   const findings = useMemo<Finding[]>(() => buildFindings(company, competitors), [company, competitors]);
@@ -590,6 +611,36 @@ export function KpProposal({
                 ))}
               </div>
             )}
+          </Section>
+        )}
+
+        {/* ─── ПОЗИЦИИ В ПОИСКЕ ─── */}
+        {positionCheck && positionCheck.results.length > 0 && (
+          <Section
+            id="positions"
+            title="Позиции в поиске"
+            subtitle={`Живая проверка в ${positionCheck.engine === "yandex" ? "Яндексе" : "Google"} по ключевым запросам — реальная выдача, не оценка AI · ${new Date(positionCheck.checkedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}`}
+          >
+            <div style={{ display: "grid", gap: 10 }}>
+              {positionCheck.results.map((r, i) => (
+                <Reveal key={i} delay={Math.min(i, 8) * 50}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 14.5 }}>{r.keyword}</span>
+                      {r.status === "done" && r.position != null ? (
+                        <span style={{ fontWeight: 800, fontSize: 18, color: r.position <= 3 ? "var(--success)" : r.position <= 10 ? "var(--warning)" : "var(--destructive)", fontVariantNumeric: "tabular-nums" }}>
+                          #{r.position}
+                        </span>
+                      ) : r.status === "not_found" ? (
+                        <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>вне топ-30</span>
+                      ) : (
+                        <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>не удалось проверить</span>
+                      )}
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
           </Section>
         )}
 
