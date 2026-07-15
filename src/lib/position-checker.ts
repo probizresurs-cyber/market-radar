@@ -1,22 +1,28 @@
 /**
- * Live SERP position checker (Yandex / Google).
+ * Live SERP position checker (Google — Playwright; Yandex — см. ниже).
  *
  * ПОЧЕМУ ТАК: позиция сайта в выдаче — это факт реального мира, который
- * меняется каждый день и не может быть "угадан" LLM. Единственный честный
- * способ без платного API (Топвизор/DataForSEO/XMLriver — ни один не
- * подключён в этом проекте, ключей нет) — реально открыть браузер,
- * загрузить страницу поисковика и распарсить органическую выдачу.
+ * меняется каждый день и не может быть "угадан" LLM.
  *
- * ЭТО ХРУПКО. Yandex и Google меняют разметку выдачи без предупреждения,
- * показывают капчу датацентровым IP, персонализируют результаты. Поэтому:
+ * Yandex: раньше здесь тоже был Playwright-скрейпинг yandex.ru, но на проде
+ * он блокировался SmartCaptcha в 100% случаев (проверено 15.07.2026).
+ * Заменено на официальный Yandex Search API — см. lib/yandex-search-api.ts
+ * (checkKeywordPositionViaYandexApi), вызывается напрямую из роутов
+ * /api/check-positions и /api/kp-position-check в обход этого файла.
+ * resolveYandexRegion() ниже переиспользуется этим модулем.
+ *
+ * Google: официального API нет, поэтому здесь по-прежнему живой браузер —
+ * загружаем страницу выдачи и парсим органику. ЭТО ХРУПКО. Google меняет
+ * разметку без предупреждения, показывает капчу датацентровым IP,
+ * персонализирует результаты. Поэтому:
  *   - если распознать выдачу/капчу не удалось — статус "failed", позиция
  *     null. НИКОГДА не подставляем произвольное число.
  *   - если сайт не найден в проверенных страницах — статус "not_found",
  *     это НЕ ошибка, а результат ("сайта нет в топ-N").
  *   - селекторы ниже — best-effort на разметку конца 2025/начала 2026.
- *     Если Yandex/Google обновят вёрстку, парсинг сломается молча в
- *     сторону "failed" (не в сторону выдумывания позиции) — это осознанный
- *     компромисс в пользу честности, а не полноты.
+ *     Если Google обновит вёрстку, парсинг сломается молча в сторону
+ *     "failed" (не в сторону выдумывания позиции) — осознанный компромисс
+ *     в пользу честности, а не полноты.
  *
  * Запускается через Playwright Chromium (уже используется в проекте для
  * screencast-recorder.ts — тот же launch-паттерн: headless, no-sandbox
@@ -85,7 +91,7 @@ const YANDEX_REGION_ALIASES: Record<string, string> = {
   "россия": "225", russia: "225",
 };
 
-function resolveYandexRegion(region?: string): string {
+export function resolveYandexRegion(region?: string): string {
   if (!region) return "213";
   const t = region.trim().toLowerCase();
   if (/^\d+$/.test(t)) return t;
@@ -141,17 +147,6 @@ async function humanDelayBetweenPages(): Promise<void> {
 
 // ─── Blocking / CAPTCHA detection ───────────────────────────────────────────
 
-async function isYandexBlocked(page: Page): Promise<boolean> {
-  const url = page.url();
-  if (/showcaptcha|checkcaptcha|smartcaptcha/i.test(url)) return true;
-  const text = await page
-    .evaluate(() => document.body?.innerText?.slice(0, 3000) ?? "")
-    .catch(() => "");
-  return /подтвердите,?\s*что\s*(вы\s*)?не\s*робот|похожи на автоматические|smartcaptcha|неавтоматические запросы/i.test(
-    text
-  );
-}
-
 async function isGoogleBlocked(page: Page): Promise<boolean> {
   const url = page.url();
   if (/\/sorry\//i.test(url)) return true;
@@ -182,42 +177,6 @@ async function dismissGoogleConsent(page: Page): Promise<void> {
 
 interface RawResult {
   href: string;
-}
-
-async function fetchYandexPage(
-  page: Page,
-  keyword: string,
-  region: string,
-  pageIndex: number
-): Promise<RawResult[]> {
-  const url = `https://yandex.ru/search/?text=${encodeURIComponent(keyword)}&lr=${encodeURIComponent(
-    region
-  )}&p=${pageIndex}`;
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
-  await page.waitForTimeout(jitterMs(500, 1200));
-
-  if (await isYandexBlocked(page)) {
-    throw new Error("BLOCKED_YANDEX");
-  }
-
-  return page.evaluate(() => {
-    const items = Array.from(document.querySelectorAll("li.serp-item, div.serp-item"));
-    const out: { href: string }[] = [];
-    for (const item of items) {
-      // Пропускаем явно помеченную рекламу (маркировка Yandex меняется,
-      // ловим самые частые варианты класса/aria-label).
-      const isAd =
-        item.querySelector('[class*="Label_type_adv"], [class*="AdvLabel"], [aria-label*="Реклама" i]') !==
-          null || /^реклама/i.test((item.querySelector('[class*="label"]')?.textContent ?? "").trim());
-      if (isAd) continue;
-      const link = item.querySelector('a.Link[href^="http"], a.OrganicTitle-Link, a[href^="http"]') as
-        | HTMLAnchorElement
-        | null;
-      if (!link || !link.href) continue;
-      out.push({ href: link.href });
-    }
-    return out;
-  });
 }
 
 async function fetchGooglePage(
@@ -258,21 +217,20 @@ async function fetchGooglePage(
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
+// Только Google — Yandex теперь проверяется через официальный API
+// (checkKeywordPositionViaYandexApi в lib/yandex-search-api.ts), без браузера.
 export async function checkKeywordPosition(
   page: Page,
-  opts: { domain: string; keyword: string; engine: SearchEngine; region?: string }
+  opts: { domain: string; keyword: string; engine: "google"; region?: string }
 ): Promise<PositionCheckResult> {
-  const { domain, keyword, engine } = opts;
+  const { domain, keyword } = opts;
   let position = 0; // счётчик органических позиций, растёт по мере листания страниц
 
   try {
     for (let pageIndex = 0; pageIndex < MAX_PAGES_PER_KEYWORD; pageIndex++) {
       if (pageIndex > 0) await humanDelayBetweenPages();
 
-      const results =
-        engine === "yandex"
-          ? await fetchYandexPage(page, keyword, resolveYandexRegion(opts.region), pageIndex)
-          : await fetchGooglePage(page, keyword, resolveGoogleCountry(opts.region), pageIndex);
+      const results = await fetchGooglePage(page, keyword, resolveGoogleCountry(opts.region), pageIndex);
 
       if (results.length === 0) {
         // Пустая страница выдачи — либо реально конец результатов, либо
@@ -299,7 +257,7 @@ export async function checkKeywordPosition(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const humanMsg =
-      msg === "BLOCKED_YANDEX" || msg === "BLOCKED_GOOGLE"
+      msg === "BLOCKED_GOOGLE"
         ? "Поисковик показал капчу / заблокировал запрос — проверка не удалась"
         : `Не удалось проверить: ${msg.slice(0, 200)}`;
     return { keyword, position: null, status: "failed", errorMessage: humanMsg };
