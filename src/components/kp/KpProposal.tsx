@@ -76,6 +76,15 @@ const PACKAGES = [
   },
 ];
 
+// Живая проверка позиций через headless-браузер временно отключена — на
+// проде Яндекс блокирует капчей 100% запросов с IP сервера (проверено
+// 15.07.2026, см. историю чата). Инфраструктура (таблица position_checks,
+// /admin/position-checker, /api/check-positions, /api/kp-position-check)
+// остаётся нетронутой — просто не дёргаем её отсюда и не показываем раздел,
+// пока не решим: смягчить (прокси/паузы/Google) или подключить платный
+// SERP-трекер. Чтобы включить обратно — просто верни true.
+const POSITION_CHECK_ENABLED = false;
+
 const SECTIONS = [
   { id: "overview", label: "Обзор" },
   { id: "findings", label: "Находки" },
@@ -87,7 +96,7 @@ const SECTIONS = [
   { id: "plan", label: "План" },
   { id: "pricing", label: "Тарифы" },
   { id: "cta", label: "Заявка" },
-] as const;
+].filter((s) => s.id !== "positions" || POSITION_CHECK_ENABLED);
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const scoreColor = (s: number) => (s >= 70 ? "var(--success)" : s >= 45 ? "var(--warning)" : "var(--destructive)");
@@ -148,6 +157,7 @@ export function KpProposal({
     results: Array<{ keyword: string; position: number | null; status: "done" | "not_found" | "failed" }>;
   } | null>(null);
   useEffect(() => {
+    if (!POSITION_CHECK_ENABLED) return;
     const domain = company?.company.url;
     if (!domain) return;
     fetch(`/api/position-checks?domain=${encodeURIComponent(domain)}`)
@@ -164,9 +174,12 @@ export function KpProposal({
         // 24ч по домену на сервере (не даёт задублировать проверку при
         // перезагрузках страницы), это не access control. Ключевые слова
         // берём из уже реально извлечённого SEO-анализа сайта
-        // (company.seo.keywords) — ничего не выдумываем; если их нет,
-        // просто не запускаем проверку.
+        // (company.seo.keywords, обычно из Keys.so). Если их нет — это
+        // частый случай, когда Keys.so у пользователя не подключён —
+        // подстраховка: проверяем хотя бы позицию по названию бренда,
+        // это тоже реальный, а не выдуманный запрос.
         const keywords = (company?.seo?.keywords ?? []).filter(Boolean).slice(0, 10);
+        if (keywords.length === 0 && company?.company.name) keywords.push(company.company.name);
         if (keywords.length === 0) return;
         fetch("/api/kp-position-check", {
           method: "POST",
@@ -632,7 +645,7 @@ export function KpProposal({
         )}
 
         {/* ─── ПОЗИЦИИ В ПОИСКЕ ─── */}
-        {positionCheck && positionCheck.results.length > 0 && (
+        {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
           <Section
             id="positions"
             title="Позиции в поиске"
