@@ -11,6 +11,11 @@
  * Данные появятся здесь только после того, как в аккаунте создан профиль
  * с именем "Sozdavaya" и в нём проведён реальный анализ сайта — никаких
  * заглушек/выдуманных цифр до этого момента.
+ *
+ * pilotOffer=true — эта страница также показывает блоки «Формат работ»
+ * (примеры SEO+GEO статей + прогноз на месяц) и «Пилотные условия» —
+ * специфика именно этой договорённости (первый поток, 21.07.2026), не
+ * общий питч MarketRadar, поэтому не включено на /kp.
  */
 import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
@@ -148,6 +153,7 @@ export default function KpSozdavayaPage() {
       company={company} competitors={competitors} aiVisibility={aiVisibility}
       onShare={handleShare} sharing={sharing} shareLink={shareLink}
       shareCopied={shareCopied} shareError={shareError} onCopyShareLink={handleCopyShareLink}
+      pilotOffer
     />
   );
 }

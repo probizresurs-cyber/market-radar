@@ -39,6 +39,7 @@ import {
   type PositionCheckResult,
   type SearchEngine,
 } from "@/lib/position-checker";
+import { checkKeywordPositionViaYandexApi } from "@/lib/yandex-search-api";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -116,6 +117,44 @@ export async function POST(req: Request) {
   const batchId = randomUUID();
   const results: PositionCheckResult[] = [];
 
+  const writeResult = (result: PositionCheckResult) => {
+    results.push(result);
+    // Пишем сразу, а не в конце батча — если процесс упадёт/обрежется по
+    // таймауту на 15-м keyword из 20, первые 14 результатов не потеряются.
+    return query(
+      `INSERT INTO position_checks
+         (id, batch_id, domain, keyword, engine, region, position, status, error_message, requested_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        randomUUID(),
+        batchId,
+        domain,
+        result.keyword,
+        engine,
+        region ?? null,
+        result.position,
+        result.status,
+        result.errorMessage ?? null,
+        session.userId,
+      ]
+    ).catch(() => {
+      // Не роняем весь батч из-за сбоя записи в БД — результат всё равно
+      // вернётся клиенту в ответе.
+    });
+  };
+
+  if (engine === "yandex") {
+    // Yandex — через официальный Yandex Search API (см. lib/yandex-search-api.ts),
+    // без headless-браузера: скрейпинг выдачи yandex.ru блокируется капчей
+    // в 100% случаев с прод-IP, а официальный API-вызов капче не подлежит.
+    for (const keyword of keywords) {
+      const result = await checkKeywordPositionViaYandexApi({ domain, keyword, region });
+      await writeResult(result);
+    }
+    return NextResponse.json({ ok: true, batchId, domain, engine, region: region ?? null, results });
+  }
+
+  // Google — официального API нет, по-прежнему живой Playwright-скрейпинг.
   let browser;
   try {
     browser = await launchCheckerBrowser();
@@ -135,30 +174,7 @@ export async function POST(req: Request) {
       if (i > 0) await humanDelayBetweenKeywords();
 
       const result = await checkKeywordPosition(page, { domain, keyword, engine, region });
-      results.push(result);
-
-      // Пишем сразу, а не в конце батча — если процесс упадёт/обрежется по
-      // таймауту на 15-м keyword из 20, первые 14 результатов не потеряются.
-      await query(
-        `INSERT INTO position_checks
-           (id, batch_id, domain, keyword, engine, region, position, status, error_message, requested_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
-          randomUUID(),
-          batchId,
-          domain,
-          keyword,
-          engine,
-          region ?? null,
-          result.position,
-          result.status,
-          result.errorMessage ?? null,
-          session.userId,
-        ]
-      ).catch(() => {
-        // Не роняем весь батч из-за сбоя записи в БД — результат всё равно
-        // вернётся клиенту в ответе.
-      });
+      await writeResult(result);
     }
   } finally {
     await browser.close().catch(() => {});

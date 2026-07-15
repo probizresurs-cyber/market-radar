@@ -33,6 +33,7 @@ import {
   type PositionCheckResult,
   type SearchEngine,
 } from "@/lib/position-checker";
+import { checkKeywordPositionViaYandexApi } from "@/lib/yandex-search-api";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -106,6 +107,37 @@ export async function POST(req: Request) {
   const batchId = randomUUID();
   const results: PositionCheckResult[] = [];
 
+  const writeResult = (result: PositionCheckResult) => {
+    results.push(result);
+    return query(
+      `INSERT INTO position_checks
+         (id, batch_id, domain, keyword, engine, region, position, status, error_message, requested_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL)`,
+      [
+        randomUUID(),
+        batchId,
+        domain,
+        result.keyword,
+        engine,
+        region ?? null,
+        result.position,
+        result.status,
+        result.errorMessage ?? null,
+      ]
+    ).catch(() => { /* не роняем батч из-за сбоя записи одной строки */ });
+  };
+
+  if (engine === "yandex") {
+    // Yandex — через официальный Yandex Search API (см. lib/yandex-search-api.ts),
+    // без headless-браузера: см. пояснение в /api/check-positions.
+    for (const keyword of keywords) {
+      const result = await checkKeywordPositionViaYandexApi({ domain, keyword, region });
+      await writeResult(result);
+    }
+    return NextResponse.json({ ok: true, batchId, domain, engine, region: region ?? null, results });
+  }
+
+  // Google — официального API нет, по-прежнему живой Playwright-скрейпинг.
   let browser;
   try {
     browser = await launchCheckerBrowser();
@@ -125,24 +157,7 @@ export async function POST(req: Request) {
       if (i > 0) await humanDelayBetweenKeywords();
 
       const result = await checkKeywordPosition(page, { domain, keyword, engine, region });
-      results.push(result);
-
-      await query(
-        `INSERT INTO position_checks
-           (id, batch_id, domain, keyword, engine, region, position, status, error_message, requested_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL)`,
-        [
-          randomUUID(),
-          batchId,
-          domain,
-          keyword,
-          engine,
-          region ?? null,
-          result.position,
-          result.status,
-          result.errorMessage ?? null,
-        ]
-      ).catch(() => { /* не роняем батч из-за сбоя записи одной строки */ });
+      await writeResult(result);
     }
   } finally {
     await browser.close().catch(() => {});
