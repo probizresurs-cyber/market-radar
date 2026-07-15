@@ -394,6 +394,28 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_analysis_requests_status ON analysis_requests(status)`);
+  // intent: "full" — платный полный анализ за 2 990 ₽, "contact" — общая заявка
+  // («Оставить заявку» в CTA-панели). ADD COLUMN — таблица могла уже существовать.
+  await query(`ALTER TABLE analysis_requests ADD COLUMN IF NOT EXISTS intent TEXT NOT NULL DEFAULT 'full'`);
+
+  // ─── События вовлечённости на публичных страницах интерактивного анализа
+  // (/kp, /kp-sozdavaya, /share/[id]) — просмотр, до какого раздела долистали,
+  // на какие кнопки нажали. Публичный fire-and-forget POST без авторизации,
+  // видно в /admin/kp-analytics.
+  await query(`
+    CREATE TABLE IF NOT EXISTS kp_events (
+      id TEXT PRIMARY KEY,
+      path TEXT NOT NULL,
+      share_id TEXT,
+      session_id TEXT NOT NULL,
+      event_type TEXT NOT NULL CHECK (event_type IN ('view','section','click')),
+      label TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_events_path ON kp_events(path)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_events_session ON kp_events(session_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_events_created_at ON kp_events(created_at)`);
 
   // ─── Добавляем client_price_amount к partners (если ещё нет) ─────────────────
   await query(`
@@ -896,4 +918,29 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_jobs_user ON agent_jobs(user_id, started_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_agent_jobs_status ON agent_jobs(status) WHERE status IN ('queued', 'running')`);
+
+  // ─── Position checker (проверка позиций сайта в Yandex/Google) ────────────
+  // Живая проверка через Playwright (см. src/lib/position-checker.ts) —
+  // НЕ через LLM и НЕ через платный SERP-API (ключей нет). batch_id
+  // группирует все keyword-строки одного запуска /api/check-positions,
+  // чтобы в админке можно было посмотреть историю прогонов целиком, а не
+  // построчно. position = NULL при status != 'done' — никогда не пишем
+  // угаданную позицию, только реально увиденную в выдаче.
+  await query(`
+    CREATE TABLE IF NOT EXISTS position_checks (
+      id TEXT PRIMARY KEY,
+      batch_id TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      keyword TEXT NOT NULL,
+      engine TEXT NOT NULL CHECK (engine IN ('yandex','google')),
+      region TEXT,
+      position INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('done','not_found','failed')),
+      error_message TEXT,
+      requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_position_checks_batch ON position_checks(batch_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_position_checks_domain ON position_checks(domain, checked_at DESC)`);
 }

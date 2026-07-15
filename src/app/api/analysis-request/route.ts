@@ -13,10 +13,11 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     await initDb();
-    let body: { company_name?: string; website?: string; contact?: string; source_path?: string } = {};
+    let body: { company_name?: string; website?: string; contact?: string; source_path?: string; intent?: string } = {};
     try { body = await req.json(); } catch { /* пустое тело — провалимся на валидации ниже */ }
 
     const { company_name, website, contact, source_path } = body;
+    const intent = body.intent === "contact" ? "contact" : "full";
 
     if (!company_name?.trim() || !website?.trim() || !contact?.trim()) {
       return NextResponse.json({ ok: false, error: "Заполните название компании, сайт и контакт" }, { status: 400 });
@@ -25,9 +26,9 @@ export async function POST(req: Request) {
     const id = randomBytes(8).toString("hex");
 
     await query(
-      `INSERT INTO analysis_requests (id, company_name, website, contact, source_path)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [id, company_name.trim().slice(0, 200), website.trim().slice(0, 300), contact.trim().slice(0, 300), source_path?.trim().slice(0, 200) || null]
+      `INSERT INTO analysis_requests (id, company_name, website, contact, source_path, intent)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, company_name.trim().slice(0, 200), website.trim().slice(0, 300), contact.trim().slice(0, 300), source_path?.trim().slice(0, 200) || null, intent]
     );
 
     return NextResponse.json({ ok: true, id });

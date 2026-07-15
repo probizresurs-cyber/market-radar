@@ -9,10 +9,16 @@ interface RequestRow {
   website: string;
   contact: string;
   source_path: string | null;
+  intent: "full" | "contact";
   status: "new" | "contacted" | "converted" | "rejected";
   admin_notes: string | null;
   created_at: string;
 }
+
+const INTENT_LABEL: Record<RequestRow["intent"], string> = {
+  full: "Полный анализ · 2 990 ₽",
+  contact: "Заявка",
+};
 
 const S = {
   page: { minHeight: "100vh", background: "#0f1117", color: "#e2e8f0" } as React.CSSProperties,
@@ -38,6 +44,7 @@ const TABS = [
   { href: "/admin/leads", label: "Лиды" },
   { href: "/admin/partners", label: "Партнёры" },
   { href: "/admin/analysis-requests", label: "Заявки с анализа" },
+  { href: "/admin/kp-analytics", label: "Аналитика анализа" },
   { href: "/admin/pricing", label: "Тарифы" },
   { href: "/admin/payments", label: "Платежи" },
   { href: "/admin/promo", label: "Промокоды" },
@@ -113,8 +120,8 @@ export default function AnalysisRequestsAdmin() {
       </nav>
 
       <main style={S.main}>
-        <div style={S.h1}>Заявки на полноценный анализ</div>
-        <div style={S.sub}>Форма «Хотите полноценный анализ за 2 990 ₽?» на публичных страницах интерактивного анализа (/kp и т.д.).</div>
+        <div style={S.h1}>Заявки с интерактивного анализа</div>
+        <div style={S.sub}>Обе формы с публичных страниц анализа (/kp и т.д.): «Оставить заявку» (общий контакт) и «Заказать за 2 990 ₽» (полный анализ).</div>
 
         <div style={S.filters}>
           {STATUS_TABS.map((t) => (
@@ -133,6 +140,7 @@ export default function AnalysisRequestsAdmin() {
                 <thead>
                   <tr>
                     <th style={S.th}>Дата</th>
+                    <th style={S.th}>Тип</th>
                     <th style={S.th}>Компания</th>
                     <th style={S.th}>Сайт</th>
                     <th style={S.th}>Контакт</th>
@@ -145,6 +153,7 @@ export default function AnalysisRequestsAdmin() {
                   {rows.map((r) => (
                     <tr key={r.id}>
                       <td style={{ ...S.td, whiteSpace: "nowrap", color: "#94a3b8" }}>{fmtTime(r.created_at)}</td>
+                      <td style={{ ...S.td, fontSize: 11, color: r.intent === "full" ? "#22d3ee" : "#94a3b8", fontWeight: 600, whiteSpace: "nowrap" }}>{INTENT_LABEL[r.intent]}</td>
                       <td style={{ ...S.td, fontWeight: 600 }}>{r.company_name}</td>
                       <td style={{ ...S.td, fontSize: 12, color: "#94a3b8", maxWidth: 200, wordBreak: "break-all" }}>{r.website}</td>
                       <td style={{ ...S.td, fontSize: 12 }}>{r.contact}</td>

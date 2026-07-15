@@ -11,6 +11,7 @@ import { CheckCircle2, Send } from "lucide-react";
 
 function AnalysisRequestForm() {
   const params = useSearchParams();
+  const intent = params.get("intent") === "contact" ? "contact" : "full";
   const [companyName, setCompanyName] = useState(params.get("company") ?? "");
   const [website, setWebsite] = useState(params.get("site") ?? "");
   const [contact, setContact] = useState("");
@@ -33,6 +34,7 @@ function AnalysisRequestForm() {
           website: website.trim(),
           contact: contact.trim(),
           source_path: params.get("ref") ?? undefined,
+          intent,
         }),
       });
       const json = await res.json();
@@ -50,7 +52,7 @@ function AnalysisRequestForm() {
         <CheckCircle2 size={44} style={{ color: "var(--success)", marginBottom: 16 }} />
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 10px" }}>Заявка отправлена</h1>
         <p style={{ fontSize: 15, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-          Свяжемся с вами в ближайшее время и подготовим полноценный анализ.
+          {intent === "full" ? "Свяжемся с вами в ближайшее время и подготовим полноценный анализ." : "Свяжемся с вами в ближайшее время."}
         </p>
       </div>
     );
@@ -58,10 +60,21 @@ function AnalysisRequestForm() {
 
   return (
     <form onSubmit={submit}>
-      <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>Полноценный анализ — 2 990 ₽</h1>
-      <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px", lineHeight: 1.5 }}>
-        Оставьте контакты — подготовим детальный разбор сайта, ниши и конкурентов и свяжемся с вами.
-      </p>
+      {intent === "full" ? (
+        <>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>Полноценный анализ — 2 990 ₽</h1>
+          <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px", lineHeight: 1.5 }}>
+            Оставьте контакты — подготовим детальный разбор сайта, ниши и конкурентов и свяжемся с вами.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 8px" }}>Оставить заявку</h1>
+          <p style={{ fontSize: 15, color: "var(--muted-foreground)", margin: "0 0 28px", lineHeight: 1.5 }}>
+            Расскажите о компании — разберём находки по вашему сайту, подберём пакет под задачи и свяжемся с вами.
+          </p>
+        </>
+      )}
 
       <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Название компании</label>
       <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="ООО «Ромашка»"
