@@ -92,15 +92,42 @@ const SEO_PREVIEW_ARTICLES = [
   {
     title: "Барельеф на стену в интерьере: 7 идей для гостиной и спальни",
     excerpt: "Где барельеф уместен, а где перегружает пространство, сколько стоит индивидуальный заказ и как выбрать мастера.",
+    body: "Барельеф — рельефное изображение, выступающее над плоскостью стены, — уместен там, где нужен акцент без перегрузки цветом: над изголовьем кровати, за диваном, в нише прихожей. Разберём 7 сценариев по комнатам, с фото-референсами и подсказкой по масштабу рисунка под площадь стены.\n\nСколько стоит: индивидуальный эскиз + монтаж под ключ — от [диапазон уточняется под нишу], серийный рельеф из каталога — дешевле и быстрее. Как выбрать мастера: смотрите портфолио в объёме (не только фото анфас), спрашивайте про материал (гипс/артбетон) и гарантию на растрескивание.",
+    geoNotes: [
+      "Заголовок и первый абзац сразу называют, ЧТО такое барельеф и для чего он нужен — это ровно тот прямой ответ, который нейросеть цитирует, когда пользователь спрашивает «как оформить стену барельефом»",
+      "7 конкретных сценариев по комнатам — длинный хвост запросов («барельеф в спальне», «барельеф в прихожей») закрывается одной статьёй",
+    ],
   },
   {
     title: "Барельеф своими руками или на заказ: сравниваем цену, качество и сроки",
     excerpt: "Честное сравнение — что реально получится сделать самому, а где нужен профессиональный литейщик.",
+    body: "DIY-барельеф из шпаклёвки реален для простых форм (геометрия, растения) — но требует навыка работы со шпателем и 3-5 дней на слои и шлифовку. Профессиональный литейщик даёт точный рельеф, детализацию (лица, текстуры) и предсказуемый срок службы без трещин.\n\nСравнение по трём осям — цена, качество, сроки — сведено в таблицу, чтобы читатель за 30 секунд понял, какой вариант ему подходит, без давления «закажите у нас» в лоб.",
+    geoNotes: [
+      "Формат сравнения (таблица «сам vs заказ») — то, что нейросети чаще всего вытаскивают целиком при ответе на сравнительные запросы («барельеф своими руками или на заказ»)",
+      "Честность про DIY-вариант (а не только продажа услуги) повышает доверие к источнику — и у читателя, и как сигнал качества контента для ранжирования",
+    ],
   },
   {
     title: "Уход за гипсовым барельефом: как не повредить рельеф при уборке",
     excerpt: "Практическая инструкция — то, что люди ищут уже после покупки, и что закрепляет доверие к бренду.",
+    body: "Гипсовый рельеф боится избытка влаги и абразивных губок — рабочий способ: сухая щётка с мягким ворсом для пыли в углублениях, слегка влажная замша для общей поверхности, никаких спреев с спиртом на окрашенных участках.\n\nЭта статья не продаёт — она закрепляет доверие у тех, кто уже купил, и попадает в поиск от совершенно новой аудитории («как ухаживать за барельефом»), которая пока не покупатель, но видит бренд как экспертный источник.",
+    geoNotes: [
+      "Прямая пошаговая инструкция в первых предложениях — именно такой формат нейросети чаще всего используют для ответа на вопрос «как ухаживать за X»",
+      "Статья не о продаже — привлекает людей на более раннем этапе, до решения о покупке, и это тоже часть воронки, которую GEO усиливает",
+    ],
   },
+];
+
+// Общие механики, почему именно такой формат статей работает и на
+// классическое SEO, и особенно на GEO (видимость в ответах нейросетей) —
+// показываются один раз под примерами, а не дублируются в каждой карточке.
+const SEO_GEO_MECHANICS = [
+  "Прямой ответ на вопрос в первых 2-3 предложениях — так формируются цитируемые фрагменты и для featured snippet в поиске, и для ответов нейросетей (GEO)",
+  "Заголовки в формате вопроса (H2) — совпадают с тем, как люди реально формулируют запросы к ChatGPT/YandexGPT/Perplexity",
+  "Ключевая фраза в H1, подзаголовках и первом абзаце — классический SEO-сигнал релевантности для поисковика",
+  "Структурированные списки и сравнения — их проще распарсить и поисковому роботу, и нейросети при генерации ответа",
+  "Внутренние ссылки между статьями по теме — усиливают тематический авторитет (topical authority) сайта, важный и для SEO, и для GEO",
+  "FAQ-блок в конце статьи — попадает в rich snippets Google/Яндекс и в готовые вопрос-ответ пары, которые нейросети переиспользуют напрямую",
 ];
 
 const SEO_MONTH1_FORECAST = [
@@ -197,6 +224,7 @@ export function KpProposal({
   };
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
+  const [expandedArticle, setExpandedArticle] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // ─── Позиции в поиске — реальная живая проверка (см. /admin/position-checker,
@@ -213,12 +241,20 @@ export function KpProposal({
     fetch(`/api/position-checks?domain=${encodeURIComponent(domain)}`)
       .then((r) => r.json())
       .then((json) => {
-        if (json.ok && Array.isArray(json.results) && json.results.length > 0) {
+        const hasResults = json.ok && Array.isArray(json.results) && json.results.length > 0;
+        // Показываем то, что есть — но если ВЕСЬ батч "failed" (например,
+        // старый прогон ещё через Playwright/капчу до перехода на Yandex
+        // Search API), это не полезные данные. Показываем как есть, но
+        // ниже всё равно пробуем перезапустить проверку — сервер сам не
+        // применит cooldown к полностью-failed батчу (см. /api/kp-position-check).
+        const allFailed = hasResults && json.results.every((r: { status: string }) => r.status === "failed");
+        if (hasResults) {
           setPositionCheck({ engine: json.engine, checkedAt: json.checkedAt, results: json.results });
-          return;
+          if (!allFailed) return;
         }
-        // Данных ещё нет — тихо запускаем живую проверку в фоне (займёт
-        // 1.5-2 мин, результат появится при следующем визите на страницу).
+        // Данных ещё нет (или прошлая попытка целиком провалилась) — тихо
+        // запускаем живую проверку в фоне (займёт 1.5-2 мин у Google;
+        // Yandex — секунды, т.к. это официальный API, а не браузер).
         // /api/kp-position-check публичный (без авторизации) — работает для
         // любого КП, кто бы его ни открыл. Единственная защита — cooldown
         // 24ч по домену на сервере (не даёт задублировать проверку при
@@ -781,20 +817,60 @@ export function KpProposal({
         {pilotOffer && (
           <Section id="seo-preview" title="Как это будет выглядеть" subtitle="Формат SEO+GEO статей — иллюстрация, не готовые публикации — и ориентир по результату первого месяца">
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-              Пример формата статей
+              Пример формата статей — нажмите, чтобы прочитать
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 32 }}>
-              {SEO_PREVIEW_ARTICLES.map((a, i) => (
-                <Reveal key={i} delay={i * 70}>
-                  {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                      <FileText size={18} style={{ color: "var(--primary)", marginBottom: 10 }} />
-                      <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
-                      <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
-                    </div>
-                  )}
-                </Reveal>
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 16, alignItems: "start" }}>
+              {SEO_PREVIEW_ARTICLES.map((a, i) => {
+                const isOpen = expandedArticle === i;
+                return (
+                  <Reveal key={i} delay={i * 70}>
+                    {() => (
+                      <div
+                        className="ds-card ds-card-interactive"
+                        onClick={() => setExpandedArticle(isOpen ? null : i)}
+                        style={{ padding: "18px 20px", cursor: "pointer", border: isOpen ? "2px solid var(--primary)" : undefined }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <FileText size={18} style={{ color: "var(--primary)", marginBottom: 10, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{isOpen ? "Свернуть ↑" : "Читать →"}</span>
+                        </div>
+                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
+                        <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
+                        {isOpen && (
+                          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                            {a.body.split("\n\n").map((para, pi) => (
+                              <p key={pi} style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--foreground)", margin: pi === 0 ? "0 0 10px" : "0 0 10px" }}>{para}</p>
+                            ))}
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "14px 0 8px" }}>
+                              Почему это работает на SEO и ГЕО
+                            </div>
+                            <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                              {a.geoNotes.map((note, ni) => (
+                                <li key={ni} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                                  <Sparkles size={13} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} /> {note}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Reveal>
+                );
+              })}
+            </div>
+
+            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 32, borderLeft: "4px solid var(--success)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+                Почему такой формат в целом поднимает SEO и особенно ГЕО
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
+                {SEO_GEO_MECHANICS.map((m, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
+                    <CheckCircle2 size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {m}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>

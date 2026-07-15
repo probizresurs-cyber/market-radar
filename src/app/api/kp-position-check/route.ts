@@ -96,12 +96,23 @@ export async function POST(req: Request) {
   // Cooldown по домену — не по пользователю (запрос анонимный): не даём
   // одному и тому же домену запускать параллельные/повторные живые проверки
   // из-за перезагрузок страницы. Это не авторизация, просто анти-дребезг.
-  const last = await query<{ checked_at: string }>(
-    `SELECT checked_at FROM position_checks WHERE domain = $1 ORDER BY checked_at DESC LIMIT 1`,
+  // ВАЖНО: если последний батч ЦЕЛИКОМ failed (капча/сбой) — не считаем его
+  // "недавней проверкой" и не блокируем повтор. Иначе один сбойный прогон
+  // (например, ещё через Playwright до перехода на Yandex Search API)
+  // намертво занимал бы cooldown на 24ч, хотя реальных данных не дал.
+  const lastBatch = await query<{ batch_id: string; checked_at: string }>(
+    `SELECT batch_id, checked_at FROM position_checks WHERE domain = $1 ORDER BY checked_at DESC LIMIT 1`,
     [domain]
   );
-  if (last[0] && Date.now() - new Date(last[0].checked_at).getTime() < COOLDOWN_MS) {
-    return NextResponse.json({ ok: true, skipped: true, reason: "Проверка для этого домена уже проводилась недавно" });
+  if (lastBatch[0] && Date.now() - new Date(lastBatch[0].checked_at).getTime() < COOLDOWN_MS) {
+    const lastRows = await query<{ status: string }>(
+      `SELECT status FROM position_checks WHERE batch_id = $1`,
+      [lastBatch[0].batch_id]
+    );
+    const hadUsableResult = lastRows.some((r) => r.status !== "failed");
+    if (hadUsableResult) {
+      return NextResponse.json({ ok: true, skipped: true, reason: "Проверка для этого домена уже проводилась недавно" });
+    }
   }
 
   const batchId = randomUUID();
