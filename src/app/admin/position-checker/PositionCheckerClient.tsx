@@ -156,7 +156,7 @@ export default function PositionCheckerClient() {
           .map((k) => k.trim())
           .filter(Boolean)
       )
-    ).slice(0, 20);
+    ).slice(0, 10);
 
     if (!domain.trim()) {
       setError("Укажите домен");
@@ -198,9 +198,10 @@ export default function PositionCheckerClient() {
         <div style={S.h1}>Проверка позиций в поиске</div>
         <div style={S.sub}>
           Живая проверка через headless-браузер (реальный запрос в Yandex/Google) — не оценка от AI.
-          Проверка идёт последовательно по ключевым словам с паузами, чтобы снизить риск капчи; на 15-20
-          слов может уйти 2-4 минуты. Если поисковик показал капчу или заблокировал запрос — строка будет
-          помечена «не удалось проверить», позиция не выдумывается.
+          Проверка идёт последовательно по ключевым словам с паузами, чтобы снизить риск капчи; на 10
+          слов может уйти 1.5-2 минуты. Если поисковик показал капчу или заблокировал запрос — строка будет
+          помечена «не удалось проверить», позиция не выдумывается. Осторожный первый запуск: не больше
+          3 проверок в день.
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -234,14 +235,14 @@ export default function PositionCheckerClient() {
               </div>
             </div>
 
-            <label style={S.label}>Ключевые слова (по одному на строку, максимум 20)</label>
+            <label style={S.label}>Ключевые слова (по одному на строку, максимум 10)</label>
             <textarea
               style={S.textarea}
               placeholder={KEYWORD_PLACEHOLDER}
               value={keywordsRaw}
               onChange={(e) => setKeywordsRaw(e.target.value)}
             />
-            <div style={S.hint}>{keywordCount} / 20 ключевых слов</div>
+            <div style={S.hint}>{keywordCount} / 10 ключевых слов</div>
 
             {error && <div style={{ ...S.error, marginTop: 16 }}>{error}</div>}
 

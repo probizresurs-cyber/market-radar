@@ -43,7 +43,11 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const MAX_KEYWORDS = 20;
+// Осторожный первый прод-запуск: 10 вместо 20 — держит худший случай
+// (10 × до 3 страниц × пауза 3-8с) в районе ~1.5-2 минут вместо 4, снижает
+// и риск упереться в таймаут nginx, и заметность паттерна для антибота.
+// Можно поднять после недели без жалоб на капчу/таймауты.
+const MAX_KEYWORDS = 10;
 const ENGINES: SearchEngine[] = ["yandex", "google"];
 
 function badRequest(error: string) {
@@ -61,18 +65,19 @@ export async function POST(req: Request) {
 
   // Отдельный rate-limit поверх обычного AI-лимита: это не AI-вызов, но
   // каждый запрос — это реальный headless Chrome процесс на сервере,
-  // который может занимать минуты. 5 батчей/день на админа — разумный
-  // потолок для теста/пилота, до появления реальных данных по нагрузке.
+  // который может занимать минуты. 3 батча/день на админа — намеренно
+  // консервативный потолок для первого прод-запуска (осторожный rollout),
+  // до появления реальных данных по нагрузке и частоте капчи/таймаутов.
   const limit = checkRateLimit(session.userId, {
     keyPrefix: "poscheck",
-    maxRequests: 5,
+    maxRequests: 3,
     windowMs: 24 * 60 * 60 * 1000,
   });
   if (!limit.allowed) {
     const headers = rateLimitHeaders(limit);
     const minutesLeft = limit.retryAfterMs ? Math.ceil(limit.retryAfterMs / 60000) : 60;
     return NextResponse.json(
-      { ok: false, error: `Лимит проверок позиций исчерпан (5/день). Попробуйте через ${minutesLeft} мин.` },
+      { ok: false, error: `Лимит проверок позиций исчерпан (3/день). Попробуйте через ${minutesLeft} мин.` },
       { status: 429, headers }
     );
   }
