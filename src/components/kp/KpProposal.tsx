@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * KpProposal — интерактивное коммерческое предложение по анализу сайта.
+ * KpProposal — интерактивный анализ сайта для потенциального клиента.
  *
  * Публичная логика вдохновлена длинными «КП-аудитами» агентств (диагноз →
  * находки → конкуренты → точки роста → план → тарифы → CTA), но переосмыслена
@@ -17,10 +17,11 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
+import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
-  Link2,
+  Link2, Lock, Eye, Bot,
 } from "lucide-react";
 
 interface Props {
@@ -28,9 +29,11 @@ interface Props {
   competitors: AnalysisResult[];
   /** Контактный e-mail для CTA. */
   contactEmail?: string;
+  /** Последний завершённый аудит AI-видимости (status="done") — если есть, показываем блок. */
+  aiVisibility?: AIVisibilityAudit | null;
   /**
    * Обработчик кнопки «Поделиться ссылкой» — создаёт публичную read-only
-   * копию этого КП (без авторизации получателя), как на /owner-dashboard.
+   * копию этого анализа (без авторизации получателя), как на /owner-dashboard.
    * Не передаётся на самой публичной странице (/share/[id]) — там кнопки нет.
    */
   onShare?: () => void;
@@ -52,31 +55,22 @@ interface Finding {
 // ─── Тарифные пакеты MarketRadar (предложение — правится здесь) ─────────────
 const PACKAGES = [
   {
-    name: "SEO-продвижение",
+    name: "SEO + GEO-продвижение",
     accent: "var(--primary)",
+    note: "GEO (Generative Engine Optimization) — оптимизация видимости бренда в ответах AI-ассистентов (ChatGPT, Яндекс Нейро, Алиса), а не только в классической поисковой выдаче. Сейчас туда идёт заметная часть решений о покупке — сайт должен быть виден и там.",
     tiers: [
-      { tier: "Старт", price: "30 000 ₽/мес", items: ["Технический аудит + правки", "Семантика по 1 кластеру", "Оптимизация 5 страниц"] },
-      { tier: "Оптимум", price: "65 000 ₽/мес", items: ["Всё из «Старт»", "3 кластера запросов", "Контент-план + линкбилдинг", "Ежемесячный отчёт"], featured: true },
-      { tier: "Максимум", price: "100 000 ₽/мес", items: ["Всё из «Оптимум»", "Все кластеры ниши", "Приоритетная выдача задач"] },
+      { tier: "Старт", price: "35 000 ₽/мес", items: ["Технический аудит + правки", "Семантика по 1 кластеру", "Оптимизация 5 страниц"] },
+      { tier: "Оптимум", price: "65 000 ₽/мес", items: ["Всё из «Старт»", "3 кластера запросов", "GEO-оптимизация (llms.txt, Schema.org, FAQ)", "Ежемесячный отчёт"], featured: true },
+      { tier: "Энтерпрайз", price: "По договорённости", items: ["Всё из «Оптимум»", "Все кластеры ниши", "GEO под все ключевые AI-ассистенты", "Приоритетная выдача задач"] },
     ],
   },
   {
-    name: "Контекстная реклама",
-    accent: "var(--warning)",
-    note: "Указана стоимость ведения (наша работа: настройка, оптимизация, отчётность). Рекламный бюджет — расходы на клики в Яндекс.Директ — оплачивается отдельно, напрямую в рекламный кабинет, и в эту цену не входит.",
-    tiers: [
-      { tier: "Старт", price: "35 000 ₽/мес", items: ["Настройка Яндекс.Директ", "1 кампания на поиск", "Базовая аналитика целей"] },
-      { tier: "Оптимум", price: "45 000 ₽/мес", items: ["Всё из «Старт»", "Поиск + РСЯ", "A/B объявлений", "Управление ставками"], featured: true },
-      { tier: "Максимум", price: "55 000 ₽/мес", items: ["Всё из «Оптимум»", "Ретаргетинг + look-alike", "Сквозная аналитика"] },
-    ],
-  },
-  {
-    name: "Контент-маркетинг",
+    name: "Контент-маркетинг + СММ",
     accent: "var(--success)",
     tiers: [
-      { tier: "Старт", price: "25 000 ₽/мес", items: ["4 поста в соцсети", "1 экспертная статья", "Контент-план на месяц"] },
-      { tier: "Оптимум", price: "45 000 ₽/мес", items: ["Всё из «Старт»", "8 постов + сторис", "2 статьи + рассылка"], featured: true },
-      { tier: "Максимум", price: "75 000 ₽/мес", items: ["Всё из «Оптимум»", "Видео/Reels", "Полный SMM-цикл"] },
+      { tier: "Старт", price: "45 000 ₽/мес", items: ["8 постов в соцсети", "Контент-план на месяц", "Ведение СММ"] },
+      { tier: "Оптимум", price: "85 000 ₽/мес", items: ["Всё из «Старт»", "8 рилсов", "СММ-стратегия и аналитика"], featured: true },
+      { tier: "Максимум", price: "125 000 ₽/мес", items: ["Всё из «Оптимум»", "Персональный контент-план по рилсам и постам", "Приоритетное производство"] },
     ],
   },
 ];
@@ -86,6 +80,7 @@ const SECTIONS = [
   { id: "findings", label: "Находки" },
   { id: "tech", label: "Тех-аудит" },
   { id: "competitors", label: "Конкуренты" },
+  { id: "ai-visibility", label: "AI-видимость" },
   { id: "growth", label: "Точки роста" },
   { id: "plan", label: "План" },
   { id: "pricing", label: "Тарифы" },
@@ -106,12 +101,21 @@ const categoryVerdict = (score: number) =>
   : score < 65 ? "Средний уровень: конкуренты с более сильным показателем забирают часть вашей аудитории."
   : "Хороший результат, поддерживаем на текущем уровне.";
 
+const LLM_LABELS: Record<LLMName, string> = {
+  yandex: "YandexGPT", claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", perplexity: "Perplexity",
+};
+
 export function KpProposal({
   company, competitors, contactEmail = "hello@marketradar24.ru",
+  aiVisibility = null,
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
 }: Props) {
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
+  // Тарифы скрыты за кнопкой «Получить анализ» — раньше цены висели открыто
+  // сразу под планом работ; теперь их раскрывает осознанное действие.
+  // revealPricing определена ниже, после scrollTo (см. дальше по компоненту).
+  const [pricingRevealed, setPricingRevealed] = useState(false);
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -187,6 +191,7 @@ export function KpProposal({
     const el = document.getElementById(`kp-${id}`);
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 76, behavior: "smooth" });
   };
+  const revealPricing = () => { setPricingRevealed(true); scrollTo("pricing"); };
 
   // ─── скользящий индикатор активной вкладки в навигации ──
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -213,7 +218,7 @@ export function KpProposal({
         <div style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
           <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>
-              Эта страница видна только вам. Чтобы отправить КП клиенту без доступа к платформе — создайте публичную ссылку.
+              Эта страница видна только вам. Чтобы отправить анализ клиенту без доступа к платформе — создайте публичную ссылку.
             </div>
             <button
               onClick={onShare}
@@ -259,7 +264,7 @@ export function KpProposal({
         <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
             <span style={{ color: "var(--primary)" }}>MarketRadar</span>
-            <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· КП</span>
+            <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· Анализ</span>
           </div>
           <div className="kp-navscroll" style={{ position: "relative", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
             <div style={{
@@ -296,7 +301,7 @@ export function KpProposal({
                 {(v) => (
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
-                      Коммерческое предложение · анализ сайта
+                      Интерактивный анализ сайта
                     </div>
                     <h1 style={{ fontSize: 40, fontWeight: 850, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>{c.name}</h1>
                     {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 15, textDecoration: "none" }}>{c.url}</a>}
@@ -497,6 +502,46 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── AI-ВИДИМОСТЬ ─── */}
+        {aiVisibility && aiVisibility.status === "done" && aiVisibility.totalScore != null && (
+          <Section id="ai-visibility" title="AI-видимость" subtitle="Насколько бренд заметен в ответах AI-ассистентов — ChatGPT, Claude, YandexGPT, Gemini">
+            <div className="kp-hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,220px) 1fr", gap: 28, alignItems: "center" }}>
+              <Reveal>{(v) => <Ring value={aiVisibility.totalScore ?? 0} size={150} stroke={12} active={v} sublabel="AI-видимость / 100" />}</Reveal>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+                {(Object.entries(aiVisibility.scoresByLlm ?? {}) as Array<[LLMName, number]>)
+                  .filter(([, score]) => score >= 0)
+                  .map(([llm, score]) => (
+                    <Reveal key={llm}>
+                      {(v) => (
+                        <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                          <Ring value={score} size={64} stroke={6} active={v} />
+                          <div style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", marginTop: 4 }}>{LLM_LABELS[llm]}</div>
+                        </div>
+                      )}
+                    </Reveal>
+                  ))}
+              </div>
+            </div>
+            {aiVisibility.recommendations && aiVisibility.recommendations.length > 0 && (
+              <div style={{ display: "grid", gap: 10, marginTop: 24 }}>
+                {aiVisibility.recommendations.slice(0, 3).map((r, i) => (
+                  <Reveal key={i} delay={i * 60}>
+                    {() => (
+                      <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--primary)" }}>
+                        <Bot size={18} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.title}</div>
+                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 4 }}>{r.description}</div>
+                        </div>
+                      </div>
+                    )}
+                  </Reveal>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
+
         {/* ─── ТОЧКИ РОСТА ─── */}
         {(niche?.opportunities?.length || recs.length > 0) && (
           <Section id="growth" title="Точки роста" subtitle="Возможности ниши и приоритизация задач по эффекту и усилиям">
@@ -550,8 +595,37 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── КНОПКА-ПЕРЕХОД К ЦЕНАМ ─── */}
+        {!pricingRevealed && (
+          <Reveal>
+            {() => (
+              <div style={{ textAlign: "center", marginTop: 48 }}>
+                <button onClick={revealPricing} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 50, padding: "0 30px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <Eye size={18} /> Получить интерактивный анализ
+                </button>
+              </div>
+            )}
+          </Reveal>
+        )}
+
         {/* ─── ТАРИФЫ ─── */}
         <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
+          {!pricingRevealed ? (
+            <Reveal>
+              {() => (
+                <div className="ds-card" style={{ padding: "40px 32px", textAlign: "center" }}>
+                  <Lock size={28} style={{ color: "var(--muted-foreground)", marginBottom: 14 }} />
+                  <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Цены открываются по запросу</div>
+                  <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 20, maxWidth: 420, marginInline: "auto", lineHeight: 1.5 }}>
+                    Нажмите кнопку — покажем пакеты услуг и стоимость под ваши задачи.
+                  </div>
+                  <button onClick={revealPricing} className="ds-btn ds-btn-primary" style={{ height: 46, padding: "0 24px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <Eye size={17} /> Получить интерактивный анализ
+                  </button>
+                </div>
+              )}
+            </Reveal>
+          ) : (
           <div style={{ display: "grid", gap: 28 }}>
             {PACKAGES.map((pkg, pi) => (
               <Reveal key={pkg.name} delay={pi * 90}>
@@ -587,6 +661,7 @@ export function KpProposal({
               </Reveal>
             ))}
           </div>
+          )}
         </Section>
 
         {/* ─── CTA ─── */}
@@ -612,6 +687,26 @@ export function KpProposal({
               </div>
             )}
           </Reveal>
+
+          {/* Полноценный анализ за 2 990 ₽ — ведёт на отдельную форму заявки */}
+          <Reveal delay={100}>
+            {() => (
+              <div className="ds-card" style={{ marginTop: 24, padding: "24px 28px", textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Хотите полноценный анализ?</div>
+                <p style={{ fontSize: 14, color: "var(--muted-foreground)", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  Детальный разбор сайта, ниши и конкурентов от MarketRadar — <b style={{ color: "var(--foreground)" }}>2 990 ₽</b>.
+                </p>
+                <a
+                  href={`/analysis-request?company=${encodeURIComponent(c.name)}&site=${encodeURIComponent(c.url ?? "")}&ref=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/kp")}`}
+                  className="ds-btn ds-btn-primary"
+                  style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center", gap: 8, textDecoration: "none" }}
+                >
+                  Заказать за 2 990 ₽ <ArrowRight size={15} />
+                </a>
+              </div>
+            )}
+          </Reveal>
+
           <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12, marginTop: 24 }}>
             Данные подготовлены платформой MarketRadar{company.analyzedAt ? ` · ${new Date(company.analyzedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
           </div>
@@ -949,7 +1044,7 @@ function KpEmpty() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", color: "var(--foreground)", padding: 40, textAlign: "center", fontFamily: "system-ui" }}>
       <div>
         <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Нет данных анализа</div>
-        <div style={{ fontSize: 15, color: "var(--muted-foreground)", marginBottom: 24 }}>Запустите анализ компании на платформе — и КП соберётся автоматически.</div>
+        <div style={{ fontSize: 15, color: "var(--muted-foreground)", marginBottom: 24 }}>Запустите анализ компании на платформе — и интерактивный анализ соберётся автоматически.</div>
         <a href="/" className="ds-btn ds-btn-primary" style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center" }}>На платформу →</a>
       </div>
     </div>
@@ -1060,9 +1155,13 @@ function buildPlan(recs: Recommendation[]): Phase[] {
   const quick = recs.filter((r) => bucketOf(r) === "quick-win").slice(0, 5).map((r) => r.text);
   const foundation = recs.filter((r) => r.priority === "high" && bucketOf(r) !== "quick-win").slice(0, 5).map((r) => r.text);
   const growth = recs.filter((r) => bucketOf(r) === "big-bet" || r.priority === "medium").slice(0, 5).map((r) => r.text);
+  // Номер этапа не пишем в заголовок текстом — его показывает нумерованный
+  // кружок слева (i+1 при рендере). Раньше был хардкод «Этап 1/2/3»: если
+  // бакет «Фундамент» пуст, массив схлопывался в [quick, growth], и рядом
+  // с кружком «2» оказывался заголовок «Этап 3» — расхождение сбивало с толку.
   const phases: Phase[] = [];
-  if (quick.length) phases.push({ title: "Этап 1. Быстрые победы (1–2 недели)", items: quick });
-  if (foundation.length) phases.push({ title: "Этап 2. Фундамент (1–2 месяца)", items: foundation });
-  if (growth.length) phases.push({ title: "Этап 3. Рост и масштабирование", items: growth });
+  if (quick.length) phases.push({ title: "Быстрые победы (1–2 недели)", items: quick });
+  if (foundation.length) phases.push({ title: "Фундамент (1–2 месяца)", items: foundation });
+  if (growth.length) phases.push({ title: "Рост и масштабирование", items: growth });
   return phases;
 }

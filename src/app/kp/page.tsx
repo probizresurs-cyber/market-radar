@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /kp — интерактивное коммерческое предложение по анализу сайта.
+ * /kp — интерактивный анализ сайта для потенциального клиента.
  * Публичная ссылка: marketradar24.ru/kp. Тонкий враппер: грузит анализ текущего
  * пользователя (сервер → localStorage fallback) и отдаёт в KpProposal.
  * Если данных нет — KpProposal показывает заглушку со ссылкой на платформу.
@@ -9,17 +9,19 @@
  * Учитывает активный ПРОФИЛЬ (см. lib/profiles.ts) — если переключиться на
  * отдельный профиль (например, завести профиль под нового клиента и
  * проанализировать его сайт там), /kp покажет анализ ИМЕННО этого профиля,
- * не трогая данные «Основного». Так можно готовить КП для прочих компаний,
+ * не трогая данные «Основного». Так можно готовить анализ для прочих компаний,
  * не мешая текущему анализу.
  */
 import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
+import type { AIVisibilityAudit } from "@/lib/ai-visibility-types";
 import { KpProposal } from "@/components/kp/KpProposal";
 import { getActiveProfileId, profileLsSuffix, profileServerSuffix } from "@/lib/profiles";
 
 export default function KpPage() {
   const [company, setCompany] = useState<AnalysisResult | null>(null);
   const [competitors, setCompetitors] = useState<AnalysisResult[]>([]);
+  const [aiVisibility, setAiVisibility] = useState<AIVisibilityAudit | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [profileId, setProfileId] = useState("default");
 
@@ -98,17 +100,30 @@ export default function KpPage() {
           if (rawC) setCompetitors(JSON.parse(rawC) as AnalysisResult[]);
         } catch { /* ignore */ }
       }
+
+      // AI-видимость: аудиты не скоупятся по профилю (см. AIVisibilityView) —
+      // берём последний завершённый по userId, как есть.
+      if (uid) {
+        try {
+          const rawAudits = localStorage.getItem(`mr_ai_visibility_audits_${uid}`);
+          if (rawAudits) {
+            const audits = JSON.parse(rawAudits) as AIVisibilityAudit[];
+            const done = audits.find((a) => a.status === "done");
+            if (done) setAiVisibility(done);
+          }
+        } catch { /* ignore */ }
+      }
       setLoaded(true);
     })();
   }, []);
 
   if (!loaded) {
-    return <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui", color: "var(--muted-foreground)" }}>Готовим коммерческое предложение…</div>;
+    return <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui", color: "var(--muted-foreground)" }}>Готовим интерактивный анализ…</div>;
   }
 
   return (
     <KpProposal
-      company={company} competitors={competitors}
+      company={company} competitors={competitors} aiVisibility={aiVisibility}
       onShare={handleShare} sharing={sharing} shareLink={shareLink}
       shareCopied={shareCopied} shareError={shareError} onCopyShareLink={handleCopyShareLink}
     />
