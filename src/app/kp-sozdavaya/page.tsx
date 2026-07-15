@@ -2,14 +2,21 @@
 
 /**
  * /kp-sozdavaya — отдельная страница анализа под конкретного проспекта (sozdavay.art /
- * sozdavay-barelief.ru), не зависящая от того, какой «Профиль» сейчас активен
- * в основном приложении. В отличие от /kp (который всегда показывает АКТИВНЫЙ
- * профиль), эта страница ищет профиль по имени "Sozdavaya" и показывает его —
- * так можно спокойно работать над основным анализом на /kp, пока здесь лежит
- * отдельный анализ под этого проспекта.
+ * sozdavay-barelief.ru). Данные ищутся так:
+ *   1) профиль, реально названный "Sozdavaya" под ТЕКУЩИМ логином (на случай,
+ *      если анализ когда-нибудь будет жить как доп.профиль внутри чьего-то
+ *      основного аккаунта — старый вариант дизайна) — либо
+ *   2) если залогинен именно выделенный аккаунт этого клиента — его профиль
+ *      по умолчанию. Это оказался реальный случай: анализ живёт под
+ *      отдельным логином, а не под доп.профилем чьего-то ещё аккаунта,
+ *      поэтому матч по имени профиля сам по себе ничего не находил.
+ *      Какой именно это логин — проверяется на СЕРВЕРЕ через
+ *      /api/kp-sozdavaya-check (переменная SOZDAVAYA_ACCOUNT_EMAIL в
+ *      .env.local на проде) — email клиента не хранится в этом файле и не
+ *      коммитится в публичный репозиторий.
  *
- * Данные появятся здесь только после того, как в аккаунте создан профиль
- * с именем "Sozdavaya" и в нём проведён реальный анализ сайта — никаких
+ * Данные появятся здесь только когда одно из двух условий выше выполнено и
+ * в найденном профиле реально проведён анализ сайта — никаких
  * заглушек/выдуманных цифр до этого момента.
  *
  * pilotOffer=true — эта страница также показывает блоки «Формат работ»
@@ -21,7 +28,7 @@ import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { AIVisibilityAudit } from "@/lib/ai-visibility-types";
 import { KpProposal } from "@/components/kp/KpProposal";
-import { getProfiles, profileLsSuffix, profileServerSuffix } from "@/lib/profiles";
+import { DEFAULT_PROFILE_ID, getProfiles, profileLsSuffix, profileServerSuffix } from "@/lib/profiles";
 
 const PROFILE_NAME_MATCH = /sozdav/i;
 
@@ -82,7 +89,17 @@ export default function KpSozdavayaPage() {
 
       if (!uid) { setLoaded(true); return; }
 
-      const profile = getProfiles(uid).find((p) => PROFILE_NAME_MATCH.test(p.name));
+      const profiles = getProfiles(uid);
+      const named = profiles.find((p) => PROFILE_NAME_MATCH.test(p.name));
+      let isSozdavayaAccount = false;
+      if (!named) {
+        try {
+          const r = await fetch("/api/kp-sozdavaya-check", { credentials: "include" });
+          const j = await r.json();
+          isSozdavayaAccount = !!j.ok && !!j.isSozdavayaAccount;
+        } catch { /* ignore */ }
+      }
+      const profile = named ?? (isSozdavayaAccount ? profiles.find((p) => p.id === DEFAULT_PROFILE_ID) : undefined);
       if (!profile) { setLoaded(true); return; }
       setProfileFound(true);
       setProfileId(profile.id);
@@ -139,8 +156,8 @@ export default function KpSozdavayaPage() {
           <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Анализ для Sozdavaya пока не готов</div>
           <div style={{ fontSize: 15, color: "var(--muted-foreground)", marginBottom: 24, lineHeight: 1.5 }}>
             {!profileFound
-              ? <>Создайте профиль с именем «Sozdavaya» (переключатель профилей в сайдбаре → «Добавить профиль») и проведите в нём анализ сайта sozdavay.art — после этого здесь появится анализ.</>
-              : <>Профиль «Sozdavaya» создан, но анализ сайта в нём ещё не запускался. Запустите «Новый анализ» внутри этого профиля — интерактивный анализ соберётся автоматически.</>}
+              ? <>Войдите в выделенный аккаунт клиента (там уже есть анализ sozdavay.art) — либо создайте профиль с именем «Sozdavaya» в текущем аккаунте (переключатель профилей в сайдбаре → «Добавить профиль») и проведите в нём анализ сайта.</>
+              : <>Профиль найден, но анализ сайта в нём ещё не запускался. Запустите «Новый анализ» — интерактивный анализ соберётся автоматически.</>}
           </div>
           <a href="/" className="ds-btn ds-btn-primary" style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center" }}>На платформу →</a>
         </div>
