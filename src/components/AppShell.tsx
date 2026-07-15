@@ -2853,8 +2853,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         {activeNav === "settings" && <SettingsView c={c} user={currentUser} onUpdateUser={(updated) => setCurrentUser(updated)} onWhiteLabelChange={(cfg) => { setWhiteLabel(cfg); if (currentUser) saveWhiteLabel(currentUser.id, cfg); }} />}
         {activeNav === "ta-new" && <NewTAView c={c} myCompany={myCompany} isAnalyzing={isTAAnalyzing} onAnalyze={handleTAAnalysis} existingTypes={taExistingTypes} />}
         {activeNav === "ta-dashboard" && (taAnalysis ? <TADashboardView c={c} data={taAnalysis} altData={taAnalysisAlt} onSwitchType={handleSwitchTAType} onRunNew={() => setActiveNav("ta-new")} /> : <TAEmptyDashboard c={c} onRunAnalysis={() => setActiveNav("ta-new")} />)}
-        {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={handleGenerateCJM} myCompany={myCompany} taAnalysis={taAnalysis} error={cjmError} />}
-        {activeNav === "ta-benchmarks" && <BenchmarksView c={c} data={benchmarksData} isGenerating={isBenchmarksGenerating} onGenerate={handleGenerateBenchmarks} myCompany={myCompany} error={benchmarksError} />}
+        {activeNav === "ta-cjm" && <CJMView c={c} data={cjmData} isGenerating={isCJMGenerating} onGenerate={() => handleGenerateCJM()} myCompany={myCompany} taAnalysis={taAnalysis} error={cjmError} />}
+        {activeNav === "ta-benchmarks" && <BenchmarksView c={c} data={benchmarksData} isGenerating={isBenchmarksGenerating} onGenerate={() => handleGenerateBenchmarks()} myCompany={myCompany} error={benchmarksError} />}
         {activeNav === "ta-brandbook" && taAnalysis && (
           <BrandSuggestionsView c={c} taData={taAnalysis} brandSuggestions={brandSuggestions} setBrandSuggestions={handleSetBrandSuggestions} brandBook={brandBook} onUpdateBrandBook={handleUpdateBrandBook} />
         )}
