@@ -21,7 +21,7 @@ import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
-  Link2, Lock, Eye, Bot,
+  Link2, Lock, Eye, Bot, Sun, Moon,
 } from "lucide-react";
 
 interface Props {
@@ -116,6 +116,24 @@ export function KpProposal({
   // сразу под планом работ; теперь их раскрывает осознанное действие.
   // revealPricing определена ниже, после scrollTo (см. дальше по компоненту).
   const [pricingRevealed, setPricingRevealed] = useState(false);
+
+  // Светлая/тёмная тема — совместима с общим переключателем платформы:
+  // тот же ключ localStorage.mr_theme и тот же класс .dark на <html>,
+  // который уже проставляет beforeInteractive-скрипт в layout.tsx (без
+  // FOUC). Здесь просто читаем текущее состояние и умеем его переключить —
+  // страница /kp публичная и не рендерит общий сайдбар с тумблером.
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
+  const toggleTheme = () => {
+    const next = !isDark;
+    const root = document.documentElement;
+    root.classList.remove("dark", "warm");
+    if (next) root.classList.add("dark");
+    try { localStorage.setItem("mr_theme", next ? "dark" : "light"); } catch { /* ignore */ }
+    setIsDark(next);
+  };
   const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -287,6 +305,18 @@ export function KpProposal({
               </button>
             ))}
           </div>
+          <button
+            onClick={toggleTheme}
+            aria-label={isDark ? "Включить светлую тему" : "Включить тёмную тему"}
+            title={isDark ? "Светлая тема" : "Тёмная тема"}
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: 999, border: "1px solid var(--border)",
+              background: "var(--card)", color: "var(--foreground)", cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
         </div>
       </nav>
 
