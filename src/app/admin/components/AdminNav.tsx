@@ -24,6 +24,7 @@ const TABS = [
   { href: "/admin/leads", label: "Лиды" },
   { href: "/admin/partners", label: "Партнёры" },
   { href: "/admin/analysis-requests", label: "Заявки с анализа" },
+  { href: "/admin/kp-analytics", label: "Аналитика анализа" },
   { href: "/admin/pricing", label: "Тарифы" },
   { href: "/admin/payments", label: "Платежи" },
   { href: "/admin/promo", label: "Промокоды" },

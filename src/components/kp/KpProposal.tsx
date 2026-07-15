@@ -18,6 +18,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
 import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
+import { trackKpEvent } from "@/lib/kp-track";
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
@@ -187,6 +188,15 @@ export function KpProposal({
   const opportunityCount = company?.nicheForecast?.opportunities?.length ?? 0;
   const showWhyPanel = !!company && (sevCounts.critical > 0 || opportunityCount > 0);
 
+  // ─── трекинг вовлечённости: просмотр + до какого раздела долистали ──
+  // Просмотр шлём один раз при монтировании; "section" — только когда юзер
+  // ушёл ДАЛЬШЕ, чем был (maxSectionIdxRef), чтобы не спамить событиями на
+  // каждый пиксель скролла и не логировать возврат назад как новый прогресс.
+  const maxSectionIdxRef = useRef(-1);
+  useEffect(() => {
+    trackKpEvent("view");
+  }, []);
+
   // ─── скролл-спай + прогресс ──
   useEffect(() => {
     const onScroll = () => {
@@ -199,6 +209,11 @@ export function KpProposal({
         if (el && el.getBoundingClientRect().top <= 120) current = s.id;
       }
       setActive(current);
+      const idx = SECTIONS.findIndex((s) => s.id === current);
+      if (idx > maxSectionIdxRef.current) {
+        maxSectionIdxRef.current = idx;
+        trackKpEvent("section", current);
+      }
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -223,6 +238,12 @@ export function KpProposal({
   const c = company.company;
   const niche = company.nicheForecast;
   const categories = c.categories ?? [];
+
+  // Ссылка на форму заявки (/analysis-request) — company/site/ref подставляем
+  // из текущего анализа, intent разводит копирайт формы: "contact" — общая
+  // заявка («Оставить заявку»), "full" — платный полный анализ за 2 990 ₽.
+  const analysisRequestHref = (intent: "contact" | "full") =>
+    `/analysis-request?intent=${intent}&company=${encodeURIComponent(c.name)}&site=${encodeURIComponent(c.url ?? "")}&ref=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/kp")}`;
 
   return (
     <div ref={rootRef} style={{ background: "var(--background)", color: "var(--foreground)", minHeight: "100vh", fontFamily: "var(--font-sans, system-ui, sans-serif)", position: "relative" }}>
@@ -342,7 +363,7 @@ export function KpProposal({
                       <Badge icon={<ListChecks size={15} />} label="Рекомендаций" value={recs.length} active={v} />
                       {myRank > 0 && <Badge icon={<Gauge size={15} />} label="Позиция среди конкурентов" value={myRank} prefix="#" active={v} />}
                     </div>
-                    <button onClick={() => scrollTo("cta")} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
                       Обсудить проект <ArrowRight size={17} />
                     </button>
                   </div>
@@ -625,19 +646,6 @@ export function KpProposal({
           </Section>
         )}
 
-        {/* ─── КНОПКА-ПЕРЕХОД К ЦЕНАМ ─── */}
-        {!pricingRevealed && (
-          <Reveal>
-            {() => (
-              <div style={{ textAlign: "center", marginTop: 48 }}>
-                <button onClick={revealPricing} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 50, padding: "0 30px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <Eye size={18} /> Получить интерактивный анализ
-                </button>
-              </div>
-            )}
-          </Reveal>
-        )}
-
         {/* ─── ТАРИФЫ ─── */}
         <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
           {!pricingRevealed ? (
@@ -649,8 +657,8 @@ export function KpProposal({
                   <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 20, maxWidth: 420, marginInline: "auto", lineHeight: 1.5 }}>
                     Нажмите кнопку — покажем пакеты услуг и стоимость под ваши задачи.
                   </div>
-                  <button onClick={revealPricing} className="ds-btn ds-btn-primary" style={{ height: 46, padding: "0 24px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <Eye size={17} /> Получить интерактивный анализ
+                  <button onClick={() => { trackKpEvent("click", "reveal-pricing"); revealPricing(); }} className="ds-btn ds-btn-primary" style={{ height: 46, padding: "0 24px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <Eye size={17} /> Получить коммерческое предложение
                   </button>
                 </div>
               )}
@@ -705,7 +713,8 @@ export function KpProposal({
                     Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.
                   </p>
                   <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                    <a href={`mailto:${contactEmail}?subject=Заявка по анализу сайта ${encodeURIComponent(c.name)}`}
+                    <a href={analysisRequestHref("contact")}
+                      onClick={() => trackKpEvent("click", "leave-request")}
                       style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, textDecoration: "none", transition: "transform 0.2s var(--ease)" }}
                       onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
@@ -727,7 +736,8 @@ export function KpProposal({
                   Детальный разбор сайта, ниши и конкурентов от MarketRadar — <b style={{ color: "var(--foreground)" }}>2 990 ₽</b>.
                 </p>
                 <a
-                  href={`/analysis-request?company=${encodeURIComponent(c.name)}&site=${encodeURIComponent(c.url ?? "")}&ref=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/kp")}`}
+                  href={analysisRequestHref("full")}
+                  onClick={() => trackKpEvent("click", "order-full-analysis")}
                   className="ds-btn ds-btn-primary"
                   style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center", gap: 8, textDecoration: "none" }}
                 >
@@ -1185,13 +1195,42 @@ function buildPlan(recs: Recommendation[]): Phase[] {
   const quick = recs.filter((r) => bucketOf(r) === "quick-win").slice(0, 5).map((r) => r.text);
   const foundation = recs.filter((r) => r.priority === "high" && bucketOf(r) !== "quick-win").slice(0, 5).map((r) => r.text);
   const growth = recs.filter((r) => bucketOf(r) === "big-bet" || r.priority === "medium").slice(0, 5).map((r) => r.text);
-  // Номер этапа не пишем в заголовок текстом — его показывает нумерованный
-  // кружок слева (i+1 при рендере). Раньше был хардкод «Этап 1/2/3»: если
-  // бакет «Фундамент» пуст, массив схлопывался в [quick, growth], и рядом
-  // с кружком «2» оказывался заголовок «Этап 3» — расхождение сбивало с толку.
-  const phases: Phase[] = [];
-  if (quick.length) phases.push({ title: "Быстрые победы (1–2 недели)", items: quick });
-  if (foundation.length) phases.push({ title: "Фундамент (1–2 месяца)", items: foundation });
-  if (growth.length) phases.push({ title: "Рост и масштабирование", items: growth });
+  // План всегда из 4 шагов, независимо от того, сколько рекомендаций попало
+  // в каждый бакет. Раньше пустой бакет «Фундамент» просто выбрасывался из
+  // массива — план схлопывался до 2 шагов, а нумерованный кружок (i+1 при
+  // рендере) расходился с текстом заголовка («2» рядом с «Этап 3»). Теперь
+  // для пустого бакета показываем стандартное описание этого этапа работы
+  // (это про процесс/методологию MarketRadar, а не выдуманные факты о сайте).
+  const phases: Phase[] = [
+    {
+      title: "Быстрые победы (1–2 недели)",
+      items: quick.length ? quick : [
+        "Технический аудит сайта и приоритизация правок",
+        "Устранение критичных ошибок, найденных при анализе",
+      ],
+    },
+    {
+      title: "Фундамент (1–2 месяца)",
+      items: foundation.length ? foundation : [
+        "Проработка семантики и структуры под ключевые запросы ниши",
+        "Настройка аналитики и регулярной отчётности",
+      ],
+    },
+    {
+      title: "Рост и масштабирование",
+      items: growth.length ? growth : [
+        "Расширение охвата: новые кластеры запросов, каналы и форматы контента",
+        "Усиление позиций относительно конкурентов из ниши",
+      ],
+    },
+    {
+      title: "Мониторинг и поддержка",
+      items: [
+        "Ежемесячный отчёт о динамике позиций и метрик",
+        "Корректировка стратегии по свежим данным",
+        "Приоритет — задачи с максимальным эффектом",
+      ],
+    },
+  ];
   return phases;
 }
