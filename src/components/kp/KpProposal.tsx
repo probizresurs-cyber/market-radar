@@ -155,10 +155,27 @@ export function KpProposal({
       .then((json) => {
         if (json.ok && Array.isArray(json.results) && json.results.length > 0) {
           setPositionCheck({ engine: json.engine, checkedAt: json.checkedAt, results: json.results });
+          return;
         }
+        // Данных ещё нет — тихо запускаем живую проверку в фоне (займёт
+        // 1.5-2 мин, результат появится при следующем визите на страницу).
+        // /api/kp-position-check публичный (без авторизации) — работает для
+        // любого КП, кто бы его ни открыл. Единственная защита — cooldown
+        // 24ч по домену на сервере (не даёт задублировать проверку при
+        // перезагрузках страницы), это не access control. Ключевые слова
+        // берём из уже реально извлечённого SEO-анализа сайта
+        // (company.seo.keywords) — ничего не выдумываем; если их нет,
+        // просто не запускаем проверку.
+        const keywords = (company?.seo?.keywords ?? []).filter(Boolean).slice(0, 10);
+        if (keywords.length === 0) return;
+        fetch("/api/kp-position-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain, keywords, engine: "yandex" }),
+        }).catch(() => { /* тихо — не критично, раздел просто не появится в этот раз */ });
       })
       .catch(() => { /* тихо — раздел просто не появится */ });
-  }, [company?.company.url]);
+  }, [company?.company.url, company?.seo?.keywords]);
 
   // ─── Находки из реальных данных ──
   const findings = useMemo<Finding[]>(() => buildFindings(company, competitors), [company, competitors]);
