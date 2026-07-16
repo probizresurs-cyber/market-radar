@@ -21,6 +21,7 @@ import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import { trackKpEvent } from "@/lib/kp-track";
 import {
   EVIDENCE_LEGEND, PILOT_STRENGTHS, PILOT_RIVALS, PILOT_TRUMP, PILOT_GEO, PILOT_FORECAST,
+  PILOT_FINDINGS, PILOT_OFFERS, PILOT_OFFERS_TOTAL, PILOT_CHART,
   type Evidence,
 } from "./pilot-sozdavay-data";
 import {
@@ -183,6 +184,7 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean }[] = [
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста" },
   { id: "plan", label: "План" },
+  { id: "pilot-offer", label: "Предложение", pilotOnly: true },
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot", label: "Пилотные условия" },
@@ -663,8 +665,43 @@ export function KpProposal({
           </Reveal>
         )}
 
-        {/* ─── НАХОДКИ (дыры по каналам: сайт / соцсети / ИИ) ─── */}
-        {findings.length > 0 && (
+        {/* ─── НАХОДКИ: пилот — ручные кейсы «факт → важно → делать → даст» ─── */}
+        {pilotOffer && (
+          <Section id="findings" title="Находки — с доказательствами и эффектом" subtitle="Каждая находка: что нашли → почему это важно → что делать → что это даст. Всё проверено вручную 15–16.07.2026">
+            <div style={{ display: "grid", gap: 14 }}>
+              {PILOT_FINDINGS.map((f, i) => (
+                <Reveal key={i} delay={Math.min(i, 6) * 50}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: `4px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}` }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 16.5, fontWeight: 800, lineHeight: 1.3, flex: 1, minWidth: 220 }}>{f.title}</div>
+                        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: f.severity === "critical" ? "var(--destructive)" : "var(--warning)", border: `1px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}`, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap" }}>
+                          {f.severity === "critical" ? "КРИТИЧНО" : "ВНИМАНИЕ"}
+                        </span>
+                        <EvidenceBadge level={f.evidence} />
+                      </div>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.55, padding: "10px 14px", background: "var(--muted)", borderRadius: 8, marginBottom: 10 }}>{f.fact}</div>
+                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 12px" }}>{f.why}</p>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+                        <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--primary)", marginBottom: 4 }}>ЧТО ДЕЛАТЬ</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.action}</div>
+                        </div>
+                        <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--success) 8%, transparent)" }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>ЧТО ДАСТ <span style={{ fontWeight: 600, opacity: 0.8 }}>· прогноз</span></div>
+                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.effect}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ─── НАХОДКИ (дыры по каналам: сайт / соцсети / ИИ) — не-пилот ─── */}
+        {!pilotOffer && findings.length > 0 && (
           <Section id="findings" title="Где вы теряете клиентов" subtitle="Проблемы по трём каналам — сайт, соцсети и видимость в нейросетях — и как мы их закрываем">
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
               <ProportionBar critical={sevCounts.critical} warning={sevCounts.warning} ok={sevCounts.ok} />
@@ -1142,6 +1179,75 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Две разовые работы с фиксированной ценой — закрывают 6 из 9 находок выше и строят фундамент под всё остальное">
+            <div style={{ display: "grid", gap: 16 }}>
+              {PILOT_OFFERS.map((o) => (
+                <Reveal key={o.n} delay={o.n * 80}>
+                  {() => (
+                    <div className="ds-card" style={{ padding: "22px 24px", border: "2px solid var(--primary)", boxShadow: "0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 999, background: "var(--primary)", color: "var(--primary-foreground)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>{o.n}</div>
+                        <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={{ fontSize: 19, fontWeight: 850, lineHeight: 1.25 }}>{o.name}</div>
+                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 2 }}>{o.priceNote}</div>
+                        </div>
+                        <div style={{ fontSize: 27, fontWeight: 850, color: "var(--primary)", whiteSpace: "nowrap" }}>{o.price}</div>
+                      </div>
+                      {o.before && o.after && (
+                        <div style={{ display: "flex", gap: 10, alignItems: "stretch", marginBottom: 14, flexWrap: "wrap" }}>
+                          <div style={{ flex: "1 1 180px", borderRadius: 10, padding: "12px 16px", background: "color-mix(in srgb, var(--destructive) 9%, transparent)" }}>
+                            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--destructive)", marginBottom: 4 }}>{o.before.label.toUpperCase()}</div>
+                            <div style={{ fontSize: 17, fontWeight: 800 }}>{o.before.value}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", color: "var(--muted-foreground)" }}><ArrowRight size={20} /></div>
+                          <div style={{ flex: "1 1 180px", borderRadius: 10, padding: "12px 16px", background: "color-mix(in srgb, var(--success) 10%, transparent)" }}>
+                            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>{o.after.label.toUpperCase()}</div>
+                            <div style={{ fontSize: 17, fontWeight: 800 }}>{o.after.value}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 8 }}>Что входит</div>
+                          <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                            {o.what.map((w, j) => (
+                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                                <Wrench size={13} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {w}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", textTransform: "uppercase", marginBottom: 8 }}>Что получите</div>
+                          <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                            {o.gets.map((g, j) => (
+                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                                <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {g}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5, marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                        <b>Почему такая цена:</b> {o.effort}
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 16, padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+              <ShieldCheck size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <div style={{ fontSize: 14, lineHeight: 1.5, flex: 1, minWidth: 240 }}>{PILOT_OFFERS_TOTAL}</div>
+              <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo("cta"); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                Начать с переноса <ArrowRight size={15} />
+              </button>
+            </div>
+          </Section>
+        )}
+
         {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer) ─── */}
         {pilotOffer && (
           <Section id="pilot-forecast" title="Прогноз: что даст каждый канал и когда" subtitle="Расчётная модель с вилкой — ориентир для планирования, не гарантия. Пересчитывается ежемесячно по фактам Метрики и Вебмастера">
@@ -1186,6 +1292,9 @@ export function KpProposal({
                 </Reveal>
               ))}
             </div>
+
+            {/* График: заявки/мес по каналам (как в эталоне) */}
+            <PilotForecastChart isDark={isDark} />
 
             {/* Свод + юнит-экономика */}
             <div className="kp-cta-panel" style={{ marginTop: 16, padding: "24px 26px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
@@ -1535,6 +1644,127 @@ function EvidenceBadge({ level }: { level: Evidence }) {
       color: s.color, border: `1px solid ${s.color}`, borderRadius: 999, padding: "1px 8px",
       background: `color-mix(in srgb, ${s.color} 10%, transparent)`, whiteSpace: "nowrap",
     }}>{s.label}</span>
+  );
+}
+
+// ─── График прогноза: stacked bars «заявки/мес по каналам» ──────────────────
+// Палитра — категориальные слоты 1-4 референс-палитры dataviz-скилла,
+// валидирована scripts/validate_palette.js для light и dark (adjacent CVD
+// ΔE 24.2 / 10.3). WARN по контрасту закрыт: легенда + прямые подписи итогов
+// + таблица данных; между сегментами 2px зазор поверхности.
+const CHART_COLORS_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300"];
+const CHART_COLORS_DARK = ["#3987e5", "#199e70", "#c98500", "#008300"];
+
+function PilotForecastChart({ isDark }: { isDark: boolean }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const colors = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+  const { months, series } = PILOT_CHART;
+  const totals = months.map((_, m) => series.reduce((s, sr) => s + sr.values[m], 0));
+  const maxV = Math.ceil(Math.max(...totals) / 5) * 5 + 2; // до 28
+
+  const W = 680, H = 280, padL = 34, padB = 30, padT = 18, padR = 8;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const barW = Math.min(56, (plotW / months.length) * 0.55);
+  const xOf = (m: number) => padL + (plotW / months.length) * (m + 0.5) - barW / 2;
+  const yOf = (v: number) => padT + plotH - (v / maxV) * plotH;
+
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Дополнительные заявки в месяц — по каналам</div>
+        <EvidenceBadge level="forecast" />
+      </div>
+      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 12 }}>Середины вилок по каждому сценарию · наведите на месяц для разбивки</div>
+
+      {/* Легенда — идентичность серий не только цветом (порядок + подписи) */}
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
+        {series.map((s, i) => (
+          <span key={s.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--foreground)" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i], display: "inline-block" }} /> {s.name}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ position: "relative", overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: 480 }} role="img" aria-label="Прогноз дополнительных заявок в месяц по четырём каналам, месяцы 1–6">
+          {/* Сетка — рецессивные hairline-линии + подписи оси Y текстовыми токенами */}
+          {[0, 10, 20].map((v) => (
+            <g key={v}>
+              <line x1={padL} x2={W - padR} y1={yOf(v)} y2={yOf(v)} stroke="var(--border)" strokeWidth={1} />
+              <text x={padL - 6} y={yOf(v) + 4} textAnchor="end" fontSize={10.5} fill="var(--muted-foreground)">{v}</text>
+            </g>
+          ))}
+          {months.map((mLabel, m) => {
+            let acc = 0;
+            const x = xOf(m);
+            const dimmed = hover != null && hover !== m;
+            return (
+              <g key={m} opacity={dimmed ? 0.45 : 1} style={{ transition: "opacity 0.15s" }}
+                 onMouseEnter={() => setHover(m)} onMouseLeave={() => setHover(null)}>
+                {/* Невидимая зона наведения на всю колонку месяца */}
+                <rect x={padL + (plotW / months.length) * m} y={padT} width={plotW / months.length} height={plotH + padB} fill="transparent" />
+                {series.map((s, i) => {
+                  const v = s.values[m];
+                  if (v <= 0) { return null; }
+                  const y1 = yOf(acc + v), y0 = yOf(acc);
+                  acc += v;
+                  const isTop = acc === totals[m];
+                  const h = Math.max(1, y0 - y1 - 2); // 2px зазор поверхности между сегментами
+                  return isTop ? (
+                    <path key={s.name} d={`M ${x} ${y1 + 4} Q ${x} ${y1} ${x + 4} ${y1} H ${x + barW - 4} Q ${x + barW} ${y1} ${x + barW} ${y1 + 4} V ${y1 + h} H ${x} Z`} fill={colors[i]} />
+                  ) : (
+                    <rect key={s.name} x={x} y={y1} width={barW} height={h} fill={colors[i]} />
+                  );
+                })}
+                {/* Прямая подпись итога над колонкой (relief для WARN-контраста) */}
+                <text x={x + barW / 2} y={yOf(totals[m]) - 6} textAnchor="middle" fontSize={11.5} fontWeight={700} fill="var(--foreground)">{totals[m] % 1 === 0 ? totals[m] : totals[m].toFixed(1)}</text>
+                <text x={x + barW / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">{mLabel}</text>
+              </g>
+            );
+          })}
+        </svg>
+        {/* Тултип разбивки по наведённому месяцу */}
+        {hover != null && (
+          <div style={{ position: "absolute", top: 6, right: 6, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", pointerEvents: "none", minWidth: 170 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{months[hover]} · всего ≈ {totals[hover] % 1 === 0 ? totals[hover] : totals[hover].toFixed(1)}</div>
+            {series.map((s, i) => (
+              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 2 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: colors[i], flexShrink: 0 }} />
+                <span style={{ color: "var(--muted-foreground)", flex: 1 }}>{s.name}</span>
+                <b style={{ fontVariantNumeric: "tabular-nums" }}>{s.values[hover]}</b>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Таблица данных — доступность + relief */}
+      <details style={{ marginTop: 10 }}>
+        <summary style={{ fontSize: 12.5, color: "var(--muted-foreground)", cursor: "pointer" }}>Таблица данных графика</summary>
+        <div style={{ overflowX: "auto", marginTop: 8 }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 12.5, width: "100%" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)", color: "var(--muted-foreground)", fontWeight: 600 }}>Канал</th>
+                {months.map((mL) => <th key={mL} style={{ textAlign: "right", padding: "6px 10px", borderBottom: "1px solid var(--border)", color: "var(--muted-foreground)", fontWeight: 600 }}>{mL}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {series.map((s) => (
+                <tr key={s.name}>
+                  <td style={{ padding: "6px 10px", borderBottom: "1px solid var(--border)" }}>{s.name}</td>
+                  {s.values.map((v, m) => <td key={m} style={{ textAlign: "right", padding: "6px 10px", borderBottom: "1px solid var(--border)", fontVariantNumeric: "tabular-nums" }}>{v}</td>)}
+                </tr>
+              ))}
+              <tr>
+                <td style={{ padding: "6px 10px", fontWeight: 700 }}>Итого</td>
+                {totals.map((t, m) => <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{t % 1 === 0 ? t : t.toFixed(1)}</td>)}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
   );
 }
 
