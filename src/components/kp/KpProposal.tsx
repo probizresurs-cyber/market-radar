@@ -362,6 +362,26 @@ export function KpProposal({
   // ─── Видимость (Keys.so) ──
   const vis = company?.keysoDashboard?.yandex ?? company?.keysoDashboard?.google;
 
+  // ─── Доп. тех-факты (стек / индексация / возраст домена) — только реальные ──
+  // Каждый пункт показывается лишь если данные реально есть в анализе.
+  const techFacts = useMemo(() => {
+    const items: { label: string; value: string; hint?: string }[] = [];
+    const ts = company?.techStack;
+    const stackParts = [ts?.cms, ts?.hosting].filter((x): x is string => !!x && x !== "—" && x.trim() !== "");
+    if (stackParts.length) items.push({ label: "На чём сделан сайт", value: stackParts.join(" · "), hint: "Платформа и хостинг сайта" });
+    if (ts?.analytics && ts.analytics.length) items.push({ label: "Аналитика", value: ts.analytics.slice(0, 3).join(", ") });
+    const onSite = company?.seo?.pageCount;
+    const inIndex = vis?.pagesInOrganic;
+    if (onSite != null && inIndex != null) items.push({ label: "Индексация", value: `${inIndex} из ${onSite} стр.`, hint: "Страниц в поиске против страниц на сайте" });
+    else if (onSite != null) items.push({ label: "Страниц на сайте", value: String(onSite) });
+    else if (inIndex != null) items.push({ label: "Страниц в поиске", value: String(inIndex) });
+    const age = company?.seo?.domainAge;
+    if (age && age !== "—" && age.trim() !== "") items.push({ label: "Возраст домена", value: age, hint: "Не новый домен — значит проблема не в возрасте, а в структуре" });
+    if (vis?.dr != null) items.push({ label: "Авторитет домена (DR)", value: String(vis.dr), hint: "Оценка авторитетности по ссылочному профилю" });
+    if (vis?.referringDomains != null) items.push({ label: "Ссылающихся доменов", value: String(vis.referringDomains) });
+    return items;
+  }, [company?.techStack, company?.seo?.pageCount, company?.seo?.domainAge, vis]);
+
   // ─── «Почему это важно» — мостик диагноз → необходимость действия, только реальные числа ──
   const aheadCount = useMemo(
     () => (company ? competitors.filter((cm) => cm.company.score > company.company.score).length : 0),
@@ -734,6 +754,26 @@ export function KpProposal({
               {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Сдвиги вёрстки при загрузке. Хорошо — меньше 0,1." />}
               {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint="Задержка отклика на клики. Хорошо — меньше 200 мс." />}
             </div>
+            {techFacts.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+                  Дополнительно о сайте
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
+                  {techFacts.map((f, i) => (
+                    <Reveal key={i} delay={Math.min(i, 6) * 40}>
+                      {() => (
+                        <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{f.label}</div>
+                          <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.3 }}>{f.value}</div>
+                          {f.hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", lineHeight: 1.4, marginTop: 6 }}>{f.hint}</div>}
+                        </div>
+                      )}
+                    </Reveal>
+                  ))}
+                </div>
+              </>
+            )}
           </Section>
         )}
 
