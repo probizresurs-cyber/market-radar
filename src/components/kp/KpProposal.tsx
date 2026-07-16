@@ -22,7 +22,7 @@ import { trackKpEvent } from "@/lib/kp-track";
 import {
   EVIDENCE_LEGEND, PILOT_STRENGTHS, PILOT_RIVALS, PILOT_TRUMP, PILOT_GEO, PILOT_FORECAST,
   PILOT_FINDINGS, PILOT_OFFERS, PILOT_OFFERS_TOTAL, PILOT_CHART,
-  PILOT_HERO, PILOT_TIMELINE, PILOT_POSITION_DIAGNOSIS, PILOT_GUARANTEE,
+  PILOT_HERO, PILOT_TIMELINE, PILOT_POSITION_DIAGNOSIS, PILOT_GUARANTEE, PILOT_MONTHLY,
   type Evidence,
 } from "./pilot-sozdavay-data";
 import {
@@ -580,8 +580,13 @@ export function KpProposal({
                       <>
                         <p style={{ fontSize: 17, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PILOT_HERO.verdict}</p>
                         <div className="kp-hero-pop" style={{ marginTop: 20 }}>
+                          {/* Связка «боль → выгода»: label-мост, чтобы вердикт и цифра
+                              читались одной мыслью, а не двумя обрывками (мобильный фидбек) */}
+                          <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
+                            Потенциал после устранения находок
+                          </div>
                           <div style={{
-                            fontSize: 44, fontWeight: 850, lineHeight: 1.05, letterSpacing: "-0.02em",
+                            fontSize: "clamp(30px, 7vw, 44px)", fontWeight: 850, lineHeight: 1.05, letterSpacing: "-0.02em",
                             background: "linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, var(--primary)))",
                             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
                           }}>
@@ -1241,7 +1246,7 @@ export function KpProposal({
 
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Две разовые работы с фиксированной ценой — закрывают 6 из 9 находок выше и строят фундамент под всё остальное">
+          <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Разовый вход с фиксированной ценой + два месячных направления — внутренняя оптимизация уже входит в тариф СЕО+ГЕО">
             <div style={{ display: "grid", gap: 16 }}>
               {PILOT_OFFERS.map((o) => (
                 <Reveal key={o.n} delay={o.n * 80}>
@@ -1300,6 +1305,30 @@ export function KpProposal({
                 </Reveal>
               ))}
             </div>
+            {/* Месячные направления — цены партнёра; он-пейдж оптимизация входит в СЕО+ГЕО */}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              Дальше — помесячно
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
+              {PILOT_MONTHLY.map((m, i) => (
+                <Reveal key={m.name} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>{m.name}</div>
+                      <div style={{ fontSize: 23, fontWeight: 850, marginBottom: 12 }}>{m.price}</div>
+                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                        {m.items.map((it, j) => (
+                          <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                            <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {it}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
             {/* Что происходит по неделям после старта — снимает страх «заплачу и тишина» */}
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               Что происходит после старта
@@ -1486,7 +1515,7 @@ export function KpProposal({
                   </div>
                 </div>
                 <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>
-                  Вход — 25 000 ₽ за обе разовые работы: первый шаг окупается с первого договора.
+                  Разовый вход — 10 000 ₽ за перенос сайта: окупается с первого договора.
                 </p>
               </div>
             </div>
@@ -1518,32 +1547,8 @@ export function KpProposal({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 24 }}>
-              <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>СММ (соцсети)</div>
-                <div style={{ fontSize: 22, fontWeight: 850, marginBottom: 10 }}>от 50 000 ₽/мес</div>
-                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
-                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Контент снимаете вы (простыми кадрами на телефон), монтаж и контент-план на неделю вперёд — наши</li>
-                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Ежедневный контент; доп. аккаунт на контент-ферме — +15% от стоимости</li>
-                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Аккаунты от разных лиц (например, собственник / дизайнер / мастер) — каждый доп. аккаунт +70% (+35 000 ₽)</li>
-                </ul>
-              </div>
-              <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>СЕО + ГЕО</div>
-                <div style={{ fontSize: 22, fontWeight: 850, marginBottom: 10 }}>от 35 000 ₽/мес</div>
-                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
-                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>1 статья в день, публикация на сайте и на внешних площадках</li>
-                  <li style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45 }}>Перед публикацией — редакторская вычитка</li>
-                </ul>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-              <Clock size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
-              <div style={{ fontSize: 14, lineHeight: 1.5 }}>
-                <b>Старт потока — 21 июля 2026, максимум 10 компаний.</b> Взамен на пилотные условия — один пункт: результат оформляем как публичный кейс.
-              </div>
-            </div>
+            {/* Ценовые карточки переехали в «С чего предлагаем начать» (PILOT_MONTHLY),
+                плашка «Старт потока … публичный кейс» убрана по просьбе партнёра. */}
           </Section>
         )}
 
@@ -1636,7 +1641,7 @@ export function KpProposal({
           </Reveal>
 
           {/* Полноценный анализ за 2 990 ₽ — только для холодного /kp: на пилоте
-              конкурирует с оффером 25 000 ₽ и обесценивает уже показанный анализ */}
+              конкурирует с пилотным оффером и обесценивает уже показанный анализ */}
           {!pilotOffer && (
           <Reveal delay={100}>
             {() => (
