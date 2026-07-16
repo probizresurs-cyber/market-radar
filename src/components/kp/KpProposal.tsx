@@ -668,13 +668,13 @@ export function KpProposal({
                 ))}
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
-              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} />}
-              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="SEO" value={lhSet.seo} />}
-              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} />}
-              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} />}
-              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} />}
-              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} />}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} hint="Насколько быстро грузится и отзывается сайт. Чем ниже балл — тем больше людей уходят, не дождавшись загрузки." />}
+              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="SEO" value={lhSet.seo} hint="Техническая готовность к поисковикам: заголовки, мета-теги, разметка. Влияет на то, как легко сайту попасть в выдачу." />}
+              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} hint="Удобство для всех пользователей и корректность вёрстки. Важно и для людей, и как сигнал качества для роботов." />}
+              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint="Время загрузки основного контента страницы. Хорошо — до 2,5 с; дольше — посетитель начинает нервничать." />}
+              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Насколько «прыгает» вёрстка при загрузке. Хорошо — меньше 0,1; выше — кнопки уезжают из-под пальца." />}
+              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint="Задержка отклика на клики, пока страница грузится. Хорошо — меньше 200 мс; выше — сайт «тормозит»." />}
             </div>
           </Section>
         )}
@@ -1286,13 +1286,14 @@ function Ring({ value, size, stroke, color, active, sublabel }: { value: number;
   );
 }
 
-function RingTile({ label, value }: { label: string; value: number }) {
+function RingTile({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
     <Reveal>
       {(v) => (
         <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Ring value={value} size={84} stroke={8} active={v} />
-          <div style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>{label}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textAlign: "center" }}>{label}</div>
+          {hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", textAlign: "center", lineHeight: 1.4, marginTop: 2 }}>{hint}</div>}
         </div>
       )}
     </Reveal>
@@ -1405,14 +1406,14 @@ function FindingCard({ f, visible }: { f: Finding; visible: boolean }) {
   );
 }
 
-function TechTile({ label, value, suffix, text, pct }: { label: string; value?: number; suffix?: string; text?: string; pct?: number }) {
+function TechTile({ label, value, suffix, text, pct, hint }: { label: string; value?: number; suffix?: string; text?: string; pct?: number; hint?: string }) {
   const shownPct = pct != null ? pct : typeof value === "number" ? value : undefined;
   const col = shownPct != null ? scoreColor(shownPct) : "var(--foreground)";
   return (
     <Reveal>
       {(v) => (
         <div className="ds-card ds-card-interactive" style={{ padding: "16px" }}>
-          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>{label}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
             <span style={{ fontSize: 26, fontWeight: 800, color: col, fontVariantNumeric: "tabular-nums" }}>
               {text ?? (value != null ? <CountUp target={value} active={v} /> : "—")}
@@ -1424,6 +1425,7 @@ function TechTile({ label, value, suffix, text, pct }: { label: string; value?: 
               <div style={{ width: v ? `${Math.max(3, Math.min(100, pct))}%` : "0%", height: "100%", background: col, borderRadius: 999, transition: "width 0.8s var(--ease)" }} />
             </div>
           )}
+          {hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", lineHeight: 1.4, marginTop: 10 }}>{hint}</div>}
         </div>
       )}
     </Reveal>
