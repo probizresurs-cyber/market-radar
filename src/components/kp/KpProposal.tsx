@@ -23,6 +23,7 @@ import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
   Link2, Lock, Eye, Bot, Sun, Moon, FileText, Sparkles, ShieldCheck, Clock,
+  Globe, Share2, Wrench,
 } from "lucide-react";
 
 interface Props {
@@ -53,12 +54,23 @@ interface Props {
 }
 
 type Severity = "critical" | "warning" | "ok";
+type Channel = "site" | "social" | "ai" | "other";
 interface Finding {
   severity: Severity;
+  channel: Channel;
   category: string;
   title: string;
   detail: string;
+  /** Как MarketRadar это закрывает — методология/услуга, не выдуманный факт о сайте. */
+  fix?: string;
 }
+
+const CHANNEL_META: Record<Channel, { label: string; icon: typeof Globe }> = {
+  site: { label: "Сайт", icon: Globe },
+  social: { label: "Соцсети", icon: Share2 },
+  ai: { label: "Нейросети (ИИ)", icon: Bot },
+  other: { label: "Прочее", icon: Target },
+};
 
 // ─── Тарифные пакеты MarketRadar (предложение — правится здесь) ─────────────
 const PACKAGES = [
@@ -186,17 +198,33 @@ const LLM_LABELS: Record<LLMName, string> = {
   yandex: "YandexGPT", claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", perplexity: "Perplexity",
 };
 
+// Presence нейросети в анализе (aiPerception.knowledgePresence) → человекочитаемо.
+const aiPresenceLabel = (p: string) =>
+  p === "strong" ? "Сильное — нейросети знают и рекомендуют бренд"
+  : p === "moderate" ? "Умеренное — бренд иногда упоминается"
+  : p === "weak" ? "Слабое — нейросети почти не знают о бренде"
+  : "Минимальное — бренда фактически нет в ответах нейросетей";
+const aiPresenceColor = (p: string) =>
+  p === "strong" ? "var(--success)" : p === "moderate" ? "var(--warning)" : "var(--destructive)";
+
 export function KpProposal({
   company, competitors, contactEmail = "hello@marketradar24.ru",
   aiVisibility = null,
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
   pilotOffer = false,
 }: Props) {
+  // AI-видимость показываем, если есть либо отдельный аудит, либо
+  // aiPerception из основного анализа (он есть почти всегда) — блок больше
+  // не пропадает на КП без отдельного прогона AI-аудита.
+  const aiPerc = company?.aiPerception ?? null;
+  const hasAiViz = (aiVisibility?.status === "done" && aiVisibility.totalScore != null) || !!aiPerc;
   const SECTIONS = useMemo(
     () => BASE_SECTIONS.filter(
-      (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED) && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
+      (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
+        && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
+        && (s.id !== "ai-visibility" || hasAiViz)
     ),
-    [pilotOffer],
+    [pilotOffer, hasAiViz],
   );
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
@@ -222,7 +250,6 @@ export function KpProposal({
     try { localStorage.setItem("mr_theme", next ? "dark" : "light"); } catch { /* ignore */ }
     setIsDark(next);
   };
-  const [sevFilter, setSevFilter] = useState<Severity | "all">("all");
   const [techTab, setTechTab] = useState<"mobile" | "desktop">("mobile");
   const [expandedArticle, setExpandedArticle] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -278,10 +305,6 @@ export function KpProposal({
 
   // ─── Находки из реальных данных ──
   const findings = useMemo<Finding[]>(() => buildFindings(company, competitors), [company, competitors]);
-  const shownFindings = useMemo(
-    () => (sevFilter === "all" ? findings : findings.filter((f) => f.severity === sevFilter)),
-    [findings, sevFilter],
-  );
   const sevCounts = useMemo(() => ({
     critical: findings.filter((f) => f.severity === "critical").length,
     warning: findings.filter((f) => f.severity === "warning").length,
@@ -597,25 +620,37 @@ export function KpProposal({
           </Reveal>
         )}
 
-        {/* ─── НАХОДКИ ─── */}
+        {/* ─── НАХОДКИ (дыры по каналам: сайт / соцсети / ИИ) ─── */}
         {findings.length > 0 && (
-          <Section id="findings" title="Что мы нашли" subtitle="Проблемы и наблюдения по вашему сайту, отсортированные по важности">
-            <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 22 }}>
+          <Section id="findings" title="Где вы теряете клиентов" subtitle="Проблемы по трём каналам — сайт, соцсети и видимость в нейросетях — и как мы их закрываем">
+            <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
               <ProportionBar critical={sevCounts.critical} warning={sevCounts.warning} ok={sevCounts.ok} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <FilterChip active={sevFilter === "all"} onClick={() => setSevFilter("all")} label={`Все · ${findings.length}`} />
-                <FilterChip active={sevFilter === "critical"} onClick={() => setSevFilter("critical")} label={`Критично · ${sevCounts.critical}`} color="var(--destructive)" />
-                <FilterChip active={sevFilter === "warning"} onClick={() => setSevFilter("warning")} label={`Внимание · ${sevCounts.warning}`} color="var(--warning)" />
-                <FilterChip active={sevFilter === "ok"} onClick={() => setSevFilter("ok")} label={`В порядке · ${sevCounts.ok}`} color="var(--success)" />
+              <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+                Всего нашли <b style={{ color: "var(--foreground)" }}>{findings.length}</b> {ruPlural(findings.length, "точку роста", "точки роста", "точек роста")}
+                {sevCounts.critical > 0 && <>, из них <b style={{ color: "var(--destructive)" }}>{sevCounts.critical}</b> критичных</>}
               </div>
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              {shownFindings.map((f, i) => (
-                <Reveal key={`${sevFilter}-${i}`} delay={Math.min(i, 8) * 50}>
-                  {(v) => <FindingCard f={f} visible={v} />}
-                </Reveal>
-              ))}
-            </div>
+            {(["site", "social", "ai", "other"] as Channel[]).map((ch) => {
+              const group = findings.filter((f) => f.channel === ch);
+              if (group.length === 0) return null;
+              const meta = CHANNEL_META[ch];
+              return (
+                <div key={ch} style={{ marginTop: 26 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+                    <meta.icon size={17} style={{ color: "var(--primary)" }} />
+                    <span style={{ fontSize: 15, fontWeight: 800 }}>{meta.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", background: "var(--muted)", borderRadius: 999, padding: "2px 9px" }}>{group.length}</span>
+                  </div>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {group.map((f, i) => (
+                      <Reveal key={`${ch}-${i}`} delay={Math.min(i, 6) * 50}>
+                        {(v) => <FindingCard f={f} visible={v} />}
+                      </Reveal>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </Section>
         )}
 
@@ -691,7 +726,8 @@ export function KpProposal({
         )}
 
         {/* ─── AI-ВИДИМОСТЬ ─── */}
-        {aiVisibility && aiVisibility.status === "done" && aiVisibility.totalScore != null && (
+        {/* Полный аудит (отдельный прогон) — если он есть, показываем богатую версию. */}
+        {aiVisibility && aiVisibility.status === "done" && aiVisibility.totalScore != null ? (
           <Section id="ai-visibility" title="AI-видимость" subtitle="Насколько бренд заметен в ответах AI-ассистентов — ChatGPT, Claude, YandexGPT, Gemini">
             <div className="kp-hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,220px) 1fr", gap: 28, alignItems: "center" }}>
               <Reveal>{(v) => <Ring value={aiVisibility.totalScore ?? 0} size={150} stroke={12} active={v} sublabel="AI-видимость / 100" />}</Reveal>
@@ -728,7 +764,58 @@ export function KpProposal({
               </div>
             )}
           </Section>
-        )}
+        ) : aiPerc ? (
+          // Fallback: отдельного аудита нет, но в основном анализе всегда есть
+          // aiPerception (как нейросети воспринимают бренд) — показываем его,
+          // чтобы блок AI-видимости не пропадал. Все данные реальные (из анализа).
+          <Section id="ai-visibility" title="AI-видимость" subtitle="Как нейросети воспринимают ваш бренд — по анализу присутствия в ответах AI-ассистентов">
+            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
+              <Bot size={22} style={{ color: aiPresenceColor(aiPerc.knowledgePresence), flexShrink: 0 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>Присутствие в ответах нейросетей</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: aiPresenceColor(aiPerc.knowledgePresence) }}>{aiPresenceLabel(aiPerc.knowledgePresence)}</div>
+              </div>
+            </div>
+            {/* E-E-A-T — реальные баллы 0-100 из анализа */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 18 }}>
+              {([
+                ["Экспертность", aiPerc.eeat?.expertise],
+                ["Авторитет", aiPerc.eeat?.authority],
+                ["Доверие", aiPerc.eeat?.trust],
+                ["Опыт", aiPerc.eeat?.experience],
+              ] as Array<[string, number | undefined]>).filter(([, s]) => s != null).map(([label, s]) => (
+                <Reveal key={label}>
+                  {(v) => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                      <Ring value={s ?? 0} size={64} stroke={6} active={v} />
+                      <div style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>{label}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+            {aiPerc.sampleAnswer && (
+              <div className="ds-card" style={{ padding: "16px 18px", marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>Что нейросеть отвечает о вас сейчас</div>
+                <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, fontStyle: "italic", color: "var(--foreground)" }}>«{aiPerc.sampleAnswer}»</p>
+              </div>
+            )}
+            {aiPerc.improvementTips && aiPerc.improvementTips.length > 0 && (
+              <div style={{ display: "grid", gap: 10 }}>
+                {aiPerc.improvementTips.slice(0, 4).map((tip, i) => (
+                  <Reveal key={i} delay={i * 60}>
+                    {() => (
+                      <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--primary)" }}>
+                        <Sparkles size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ fontSize: 14, lineHeight: 1.5 }}>{tip}</span>
+                      </div>
+                    )}
+                  </Reveal>
+                ))}
+              </div>
+            )}
+          </Section>
+        ) : null}
 
         {/* ─── ПОЗИЦИИ В ПОИСКЕ ─── */}
         {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
@@ -1286,18 +1373,6 @@ function ProportionBar({ critical, warning, ok }: { critical: number; warning: n
   );
 }
 
-function FilterChip({ active, onClick, label, color }: { active: boolean; onClick: () => void; label: string; color?: string }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "7px 14px", borderRadius: 999, cursor: "pointer", fontSize: 13, fontWeight: 600,
-      border: `1px solid ${active ? (color || "var(--primary)") : "var(--border)"}`,
-      background: active ? (color || "var(--primary)") : "transparent",
-      color: active ? "#fff" : "var(--muted-foreground)",
-      transition: "background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease)",
-    }}>{label}</button>
-  );
-}
-
 function FindingCard({ f, visible }: { f: Finding; visible: boolean }) {
   const map = {
     critical: { c: "var(--destructive)", Icon: TriangleAlert, label: "критично" },
@@ -1317,6 +1392,14 @@ function FindingCard({ f, visible }: { f: Finding; visible: boolean }) {
           <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>· {f.category}</span>
         </div>
         <div style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 6 }}>{f.detail}</div>
+        {f.fix && (
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "color-mix(in srgb, var(--success) 10%, transparent)" }}>
+            <Wrench size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontSize: 13, lineHeight: 1.4 }}>
+              <b style={{ color: "var(--success)" }}>Как исправим:</b> <span style={{ color: "var(--foreground)" }}>{f.fix}</span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1468,29 +1551,122 @@ function bucketOf(r: Recommendation): "quick-win" | "big-bet" | "fill-in" {
 }
 
 /** Находки из категорий (низкие баллы), SEO-issues и отставания от конкурентов. */
+// Максимально полный список «дыр» по трём каналам (сайт / соцсети / ИИ) —
+// СТРОГО из реальных данных анализа (AnalysisResult), без выдумок: каждая
+// находка добавляется, только если данные реально указывают на проблему.
+// Поле fix описывает, как MarketRadar это закрывает (это про наши услуги/
+// методологию, а не про выдуманные факты о сайте — так можно).
 function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[]): Finding[] {
   if (!my) return [];
   const out: Finding[] = [];
+  const seo = my.seo;
+  const lh = seo.lighthouseScores;
+  const soc = my.social;
+  const ap = my.aiPerception;
 
-  // Категории с низким баллом
+  // ─────────────── САЙТ ───────────────
+  (seo.issues ?? []).slice(0, 8).forEach((iss) =>
+    out.push({ severity: "warning", channel: "site", category: "SEO", title: iss,
+      detail: "Обнаружено при техническом анализе страниц — влияет на позиции в поиске.",
+      fix: "Закроем в рамках технического аудита и правок на старте." }));
+
+  if (!seo.title || seo.title.trim().length < 5)
+    out.push({ severity: "critical", channel: "site", category: "SEO", title: "Слабый или отсутствующий заголовок страницы (title)",
+      detail: "Title — первое, что видит поисковик и человек в выдаче. Без него страница проигрывает конкурентам.",
+      fix: "Пропишем SEO-заголовки с ключевым запросом для каждой важной страницы." });
+  if (!seo.metaDescription || seo.metaDescription.trim().length < 10)
+    out.push({ severity: "warning", channel: "site", category: "SEO", title: "Нет или пустой meta description",
+      detail: "И поиск, и нейросети хуже понимают, о чём страница, а в выдаче нет цепляющего описания.",
+      fix: "Составим продающие описания под ключевые запросы." });
+  if ((seo.keywords ?? []).length === 0)
+    out.push({ severity: "warning", channel: "site", category: "Семантика", title: "Не собрана семантика — непонятно, по каким запросам вас искать",
+      detail: "Без семантического ядра невозможно системно расти в поиске.",
+      fix: "Соберём ядро запросов ниши и разложим его по страницам сайта." });
+  if (seo.pageCount != null && seo.pageCount > 0 && seo.pageCount < 10)
+    out.push({ severity: "warning", channel: "site", category: "Контент", title: `Мало страниц в индексе (${seo.pageCount})`,
+      detail: "Сайту буквально не за что ранжироваться по большинству запросов ниши.",
+      fix: "Запустим регулярный выпуск SEO-статей, расширяющих охват." });
+  if (lh) {
+    if (lh.performance != null && lh.performance < 60)
+      out.push({ severity: lh.performance < 40 ? "critical" : "warning", channel: "site", category: "Скорость", title: `Низкая скорость загрузки (Performance ${lh.performance}/100)`,
+        detail: "Часть посетителей уходит, не дождавшись загрузки — это прямая потеря заявок.",
+        fix: "Оптимизируем изображения, скрипты и Core Web Vitals." });
+    if (lh.seo != null && lh.seo < 80)
+      out.push({ severity: "warning", channel: "site", category: "Тех-SEO", title: `Технический SEO-балл ${lh.seo}/100`,
+        detail: "Есть ошибки разметки/структуры, которые мешают ранжированию.",
+        fix: "Закроем технические SEO-ошибки на старте." });
+    if (lh.accessibility != null && lh.accessibility < 70)
+      out.push({ severity: "warning", channel: "site", category: "Доступность", title: `Доступность ${lh.accessibility}/100`,
+        detail: "Часть пользователей и поисковых роботов испытывают трудности с сайтом.",
+        fix: "Поправим контрастность, разметку и навигацию." });
+  }
+
+  // ─────────────── СОЦСЕТИ ───────────────
+  if (!soc.vk)
+    out.push({ severity: "warning", channel: "social", category: "ВКонтакте", title: "ВКонтакте не найден или не ведётся",
+      detail: "Упускаете аудиторию главной соцсети РФ и целый канал бесплатного трафика.",
+      fix: "Заведём и упакуем профиль, запустим контент-план с рилсами и постами." });
+  else if (soc.vk.posts30d != null && soc.vk.posts30d < 8)
+    out.push({ severity: "warning", channel: "social", category: "ВКонтакте", title: `Мало публикаций во ВКонтакте (${soc.vk.posts30d} за 30 дней)`,
+      detail: "При редком постинге алгоритмы и подписчики быстро забывают о бренде.",
+      fix: "Контент-план на неделю вперёд + монтаж: стабильный поток контента." });
+  if (!soc.telegram)
+    out.push({ severity: "warning", channel: "social", category: "Telegram", title: "Нет Telegram-канала",
+      detail: "Упускаете лояльную аудиторию и прямой канал контакта с клиентами.",
+      fix: "Запустим канал и наполним его по контент-плану." });
+  else if (soc.telegram.posts30d != null && soc.telegram.posts30d < 8)
+    out.push({ severity: "warning", channel: "social", category: "Telegram", title: `Редкие публикации в Telegram (${soc.telegram.posts30d} за 30 дней)`,
+      detail: "Канал есть, но не работает как источник касаний с аудиторией.",
+      fix: "Добавим Telegram в общий контент-план." });
+  if (soc.yandexRating != null && soc.yandexReviews != null && soc.yandexReviews > 0 && soc.yandexReviews < 15)
+    out.push({ severity: "warning", channel: "social", category: "Репутация", title: `Мало отзывов на Яндекс.Картах (${soc.yandexReviews})`,
+      detail: "Новые клиенты меньше доверяют компании с малым числом отзывов.",
+      fix: "Настроим системный сбор отзывов и работу с репутацией." });
+  if (soc.gisRating != null && soc.gisReviews != null && soc.gisReviews > 0 && soc.gisReviews < 15)
+    out.push({ severity: "warning", channel: "social", category: "Репутация", title: `Мало отзывов в 2ГИС (${soc.gisReviews})`,
+      detail: "Отзывы в 2ГИС — важный сигнал доверия для локальных клиентов.",
+      fix: "Подключим сбор отзывов в 2ГИС в стратегию репутации." });
+
+  // ─────────────── НЕЙРОСЕТИ (ИИ) ───────────────
+  if (ap) {
+    if (ap.knowledgePresence === "weak" || ap.knowledgePresence === "minimal")
+      out.push({ severity: ap.knowledgePresence === "minimal" ? "critical" : "warning", channel: "ai", category: "Известность в ИИ", title: "Нейросети почти ничего не знают о вашем бренде",
+        detail: "При запросах в вашей нише ChatGPT, YandexGPT и Алиса вас не называют — а туда уходит всё больше решений о покупке.",
+        fix: "GEO-стратегия: экспертные статьи + структурирование данных, чтобы AI знал и рекомендовал вас." });
+    const e = ap.eeat;
+    if (e) {
+      if (e.expertise != null && e.expertise < 50)
+        out.push({ severity: "warning", channel: "ai", category: "E-E-A-T", title: `Слабый сигнал экспертности (${e.expertise}/100)`,
+          detail: "И поиск, и нейросети хуже доверяют источнику без выраженной экспертности.",
+          fix: "Экспертный контент с авторством и фактами — поднимаем экспертность бренда." });
+      if (e.trust != null && e.trust < 50)
+        out.push({ severity: "warning", channel: "ai", category: "E-E-A-T", title: `Слабый сигнал доверия (${e.trust}/100)`,
+          detail: "Низкий trust снижает и позиции в поиске, и вероятность попасть в ответ нейросети.",
+          fix: "Отзывы, кейсы, прозрачные контакты и реквизиты — усиливаем доверие." });
+    }
+  }
+  const aiMentions = my.keysoDashboard?.yandex?.aiMentions ?? my.keysoDashboard?.google?.aiMentions;
+  if (aiMentions != null && aiMentions === 0)
+    out.push({ severity: "warning", channel: "ai", category: "Яндекс Нейро", title: "Ноль упоминаний в ответах Яндекс Нейро / Алисы",
+      detail: "Ваш бренд не попадает в генеративные ответы Яндекса по запросам ниши.",
+      fix: "GEO-оптимизация контента под цитирование Яндекс Нейро." });
+
+  // ─────────────── ПРОЧЕЕ: категории и конкуренты ───────────────
   (my.company.categories ?? []).forEach((cat) => {
-    const severity: Severity = cat.score < 45 ? "critical" : cat.score < 65 ? "warning" : "ok";
-    const label = severity === "critical" ? "слабое место" : severity === "warning" ? "есть куда расти" : "в порядке";
-    out.push({ severity, category: cat.name, title: `${cat.name}: ${cat.score}/100 — ${label}`, detail: categoryVerdict(cat.score) });
+    if (cat.score >= 65) return; // хорошие категории не показываем как «дыры»
+    const severity: Severity = cat.score < 45 ? "critical" : "warning";
+    out.push({ severity, channel: "other", category: cat.name, title: `${cat.name}: ${cat.score}/100`,
+      detail: categoryVerdict(cat.score),
+      fix: "Проработаем эту зону в рамках комплексной стратегии." });
   });
-
-  // SEO-проблемы
-  (my.seo.issues ?? []).slice(0, 6).forEach((iss) =>
-    out.push({ severity: "warning", category: "SEO", title: iss, detail: "Обнаружено при техническом анализе страниц — влияет на позиции в поиске." }));
-
-  // Отставание от конкурентов
   const ahead = competitors.filter((c) => c.company.score > my.company.score);
   if (ahead.length > 0) {
     const top = ahead.sort((a, b) => b.company.score - a.company.score)[0];
-    out.push({ severity: "critical", category: "Конкуренты", title: `${ahead.length} конкурент(ов) опережают вас по общему баллу`, detail: `Лидер — ${top.company.name} (${top.company.score} против ваших ${my.company.score}). Разберём, за счёт чего они сильнее.` });
+    out.push({ severity: "critical", channel: "other", category: "Конкуренты", title: `${ahead.length} конкурент(ов) опережают вас по общему баллу`,
+      detail: `Лидер — ${top.company.name} (${top.company.score} против ваших ${my.company.score}).`,
+      fix: "Разберём, за счёт чего они сильнее, и составим план обгона." });
   }
 
-  // Сортировка: critical → warning → ok
   const order: Record<Severity, number> = { critical: 0, warning: 1, ok: 2 };
   return out.sort((a, b) => order[a.severity] - order[b.severity]);
 }
