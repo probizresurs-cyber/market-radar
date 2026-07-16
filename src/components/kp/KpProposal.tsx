@@ -20,10 +20,14 @@ import type { AnalysisResult, Recommendation } from "@/lib/types";
 import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import { trackKpEvent } from "@/lib/kp-track";
 import {
+  EVIDENCE_LEGEND, PILOT_STRENGTHS, PILOT_RIVALS, PILOT_TRUMP, PILOT_GEO, PILOT_FORECAST,
+  type Evidence,
+} from "./pilot-sozdavay-data";
+import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
   Link2, Lock, Eye, Bot, Sun, Moon, FileText, Sparkles, ShieldCheck, Clock,
-  Globe, Share2, Wrench,
+  Globe, Share2, Wrench, Trophy, Swords, BrainCircuit, LineChart,
 } from "lucide-react";
 
 interface Props {
@@ -165,15 +169,21 @@ const PILOT_STEPS = [
 // Playwright (официального API нет), это не менялось.
 const POSITION_CHECK_ENABLED = true;
 
-const BASE_SECTIONS = [
+// id → флаг, по которому секция включается. pilot-* показываются только на
+// /kp-sozdavaya (pilotOffer); positions — по POSITION_CHECK_ENABLED.
+const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean }[] = [
   { id: "overview", label: "Обзор" },
   { id: "findings", label: "Находки" },
+  { id: "pilot-strengths", label: "Сильные стороны", pilotOnly: true },
   { id: "tech", label: "Тех-аудит" },
   { id: "competitors", label: "Конкуренты" },
+  { id: "pilot-rivals", label: "Лидеры ниши", pilotOnly: true },
   { id: "ai-visibility", label: "AI-видимость" },
+  { id: "pilot-geo", label: "GEO-видимость", pilotOnly: true },
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста" },
   { id: "plan", label: "План" },
+  { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot", label: "Пилотные условия" },
   { id: "pricing", label: "Тарифы" },
@@ -222,6 +232,7 @@ export function KpProposal({
     () => BASE_SECTIONS.filter(
       (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
         && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
+        && (!s.pilotOnly || pilotOffer)
         && (s.id !== "ai-visibility" || hasAiViz)
     ),
     [pilotOffer, hasAiViz],
@@ -654,6 +665,41 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot-strengths" title="Что уже работает" subtitle="Честный аудит начинается с сильных сторон — их нельзя сломать в ходе работ, на них мы опираемся">
+            {/* Легенда достоверности — как читать весь отчёт */}
+            <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Как читать отчёт:</span>
+              {EVIDENCE_LEGEND.map((l) => (
+                <span key={l.level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
+                  <EvidenceBadge level={l.level} /> {l.desc}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {PILOT_STRENGTHS.map((s, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                        <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
+                        <EvidenceBadge level={s.evidence} />
+                      </div>
+                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.5, display: "flex", gap: 8 }}>
+                        <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
+                        <span><b style={{ color: "var(--success)" }}>На это опираемся:</b> {s.leverage}</span>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* ─── ТЕХ-АУДИТ ─── */}
         {hasTech && (
           <Section id="tech" title="Технический аудит" subtitle="Скорость и качество страниц по данным Google Lighthouse / Core Web Vitals">
@@ -722,6 +768,45 @@ export function KpProposal({
                 {vis.aiMentions != null && <TechTile label="Упоминаний в ИИ-ответах" value={vis.aiMentions} />}
               </div>
             )}
+          </Section>
+        )}
+
+        {/* ─── ЛИДЕРЫ НИШИ — разбор конкурентов вручную (только pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot-rivals" title="Лидеры ниши — разобраны вручную" subtitle="Три сайта из топа выдачи по ключевым запросам. У каждого — что забираем себе; ниша выигрывается структурой, а не бюджетом">
+            <div style={{ display: "grid", gap: 14 }}>
+              {PILOT_RIVALS.map((r, i) => (
+                <Reveal key={i} delay={i * 80}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                        <Swords size={18} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 16.5, fontWeight: 800 }}>{r.name}</span>
+                        <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{r.url}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Сильны в</div>
+                          <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.strength}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Слабое место</div>
+                          <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.weakness}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Что забираем</div>
+                          <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{r.steal}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 14, borderLeft: "4px solid var(--success)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>{PILOT_TRUMP}</p>
+            </div>
           </Section>
         )}
 
@@ -817,6 +902,97 @@ export function KpProposal({
           </Section>
         ) : null}
 
+        {/* ─── GEO-ВИДИМОСТЬ — глубокий разбор (только pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot-geo" title="GEO: видимость в ответах нейросетей" subtitle="Отдельный, растущий канал — как попасть в ответы Алисы, ChatGPT и Perplexity, когда клиент спрашивает «кто делает искусственные скалы в Москве»">
+            <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <BrainCircuit size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 10px" }}>{PILOT_GEO.intro}</p>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PILOT_GEO.whyNow}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Что вознаграждает каждый ассистент */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              Что вознаграждает каждый ассистент
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+              {PILOT_GEO.assistants.map((a, i) => (
+                <Reveal key={i} delay={i * 50}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                        <Bot size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 14.5, fontWeight: 800 }}>{a.name}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.rewards}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* Рычаги цитируемости */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              Чем мы поднимаем цитируемость — 5 рычагов
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {PILOT_GEO.levers.map((l, i) => (
+                <Reveal key={i} delay={i * 40}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 999, background: "color-mix(in srgb, var(--primary) 15%, transparent)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                      <div>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 3 }}>{l.title}</div>
+                        <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{l.detail}</div>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* Как замеряем */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 24, borderLeft: "4px solid var(--success)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <LineChart size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
+                <span style={{ fontSize: 15, fontWeight: 800 }}>Как честно замеряем результат</span>
+              </div>
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{PILOT_GEO.method.intro}</p>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PILOT_GEO.method.metric}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Примеры контрольных вопросов</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {PILOT_GEO.method.questions.map((q, i) => (
+                  <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>«{q}»</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Прогноз GEO по месяцам */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              Прогноз по GEO-каналу
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+              {PILOT_GEO.forecast.map((f, i) => (
+                <Reveal key={i} delay={i * 60}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{f.month}</span>
+                        <EvidenceBadge level={f.evidence} />
+                      </div>
+                      <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{f.text}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* ─── ПОЗИЦИИ В ПОИСКЕ ─── */}
         {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
           <Section
@@ -896,6 +1072,62 @@ export function KpProposal({
                   )}
                 </Reveal>
               ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer) ─── */}
+        {pilotOffer && (
+          <Section id="pilot-forecast" title="Прогноз: что даст каждый канал и когда" subtitle="Расчётная модель с вилкой — ориентир для планирования, не гарантия. Пересчитывается ежемесячно по фактам Метрики и Вебмастера">
+            {/* Формула + допущения */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Как считаем</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PILOT_FORECAST.formula}</div>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                {PILOT_FORECAST.assumptions.map((a, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                    <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
+                  </li>
+                ))}
+              </ul>
+              <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
+                <b>Пример расчёта.</b> {PILOT_FORECAST.example}
+              </div>
+            </div>
+
+            {/* Сценарии по каналам */}
+            <div style={{ display: "grid", gap: 12 }}>
+              {PILOT_FORECAST.scenarios.map((s, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+                        <LineChart size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} />
+                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
+                        <EvidenceBadge level="forecast" />
+                      </div>
+                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        {[{ m: "1-й месяц", t: s.m1 }, { m: "3-й месяц", t: s.m3 }, { m: "6-й месяц", t: s.m6 }].map((c, j) => (
+                          <div key={j} style={{ background: "var(--muted)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
+                            <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.t}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* Свод + юнит-экономика */}
+            <div className="kp-cta-panel" style={{ marginTop: 16, padding: "24px 26px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 8 }}>Сводный прогноз к 6-му месяцу</div>
+                <div style={{ fontSize: 34, fontWeight: 850, lineHeight: 1.1, marginBottom: 10 }}>+{PILOT_FORECAST.totalLow}–{PILOT_FORECAST.totalHigh} заявок в месяц</div>
+                <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0, opacity: 0.95 }}>{PILOT_FORECAST.economics}</p>
+              </div>
             </div>
           </Section>
         )}
@@ -1220,6 +1452,25 @@ function CountUp({ target, active, duration }: { target: number; active: boolean
 }
 
 // ─── подкомпоненты ──────────────────────────────────────────────────────────
+
+// Бейдж уровня достоверности (ФАКТ / ОЦЕНКА / ПРОГНОЗ) — честная маркировка
+// пилотных блоков: где проверенный факт, где экспертная оценка, где расчётный
+// прогноз. Повышает доверие, а не маскирует неопределённость.
+const EVIDENCE_STYLE: Record<Evidence, { label: string; color: string }> = {
+  fact: { label: "ФАКТ", color: "var(--success)" },
+  estimate: { label: "ОЦЕНКА", color: "var(--warning)" },
+  forecast: { label: "ПРОГНОЗ", color: "var(--primary)" },
+};
+function EvidenceBadge({ level }: { level: Evidence }) {
+  const s = EVIDENCE_STYLE[level];
+  return (
+    <span style={{
+      display: "inline-block", fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em",
+      color: s.color, border: `1px solid ${s.color}`, borderRadius: 999, padding: "1px 8px",
+      background: `color-mix(in srgb, ${s.color} 10%, transparent)`, whiteSpace: "nowrap",
+    }}>{s.label}</span>
+  );
+}
 
 function Section({ id, title, subtitle, children }: { id: string; title?: string; subtitle?: string; children: React.ReactNode }) {
   return (
