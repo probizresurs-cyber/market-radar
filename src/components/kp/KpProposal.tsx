@@ -572,32 +572,75 @@ export function KpProposal({
                     </div>
                     <h1 style={{ fontSize: 40, fontWeight: 850, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>{c.name}</h1>
                     {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 15, textDecoration: "none" }}>{c.url}</a>}
-                    <p style={{ fontSize: 18, lineHeight: 1.5, marginTop: 18, color: "var(--foreground)" }}>{verdictOf(c.score)}.</p>
-                    {pilotOffer && (
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "12px 18px", borderRadius: 12, background: "color-mix(in srgb, var(--success) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success) 35%, transparent)" }}>
-                          <span style={{ fontSize: 22, fontWeight: 850, color: "var(--success)", lineHeight: 1.2 }}>{PILOT_HERO.potential}</span>
-                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{PILOT_HERO.potentialNote}</span>
+                    {pilotOffer ? (
+                      /* Пилотный hero: строгая иерархия — 1 вердикт-строка,
+                         1 главный акцент (потенциал), чипы-факты со stagger,
+                         пульсирующий дедлайн, 2 кнопки. Автокарточки скрыты:
+                         «0 конкурентов» рядом с «3 разобраны вручную» врало. */
+                      <>
+                        <p style={{ fontSize: 17, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PILOT_HERO.verdict}</p>
+                        <div className="kp-hero-pop" style={{ marginTop: 20 }}>
+                          <div style={{
+                            fontSize: 44, fontWeight: 850, lineHeight: 1.05, letterSpacing: "-0.02em",
+                            background: "linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, var(--primary)))",
+                            WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+                          }}>
+                            {PILOT_HERO.potential}
+                          </div>
+                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 6 }}>{PILOT_HERO.potentialSub}</div>
                         </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-                          {PILOT_HERO.badges.map((b) => (
-                            <span key={b} style={{ fontSize: 12.5, fontWeight: 600, padding: "5px 12px", borderRadius: 999, background: "var(--muted)", color: "var(--foreground)" }}>{b}</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
+                          {PILOT_HERO.badges.map((b, bi) => (
+                            <span key={b} className="kp-hero-pop" style={{
+                              animationDelay: `${200 + bi * 110}ms`,
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              fontSize: 12.5, fontWeight: 650, padding: "6px 13px", borderRadius: 999,
+                              background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)",
+                            }}>
+                              <CheckCircle2 size={13} style={{ color: "var(--success)", flexShrink: 0 }} /> {b}
+                            </span>
                           ))}
                         </div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--warning)" }}>
-                          <Clock size={15} style={{ flexShrink: 0 }} /> {PILOT_HERO.deadline}
+                        <div className="kp-hero-pop" style={{
+                          animationDelay: "540ms",
+                          display: "inline-flex", alignItems: "center", gap: 10, marginTop: 16,
+                          fontSize: 13, fontWeight: 700, color: "var(--warning)",
+                          padding: "7px 14px", borderRadius: 999,
+                          background: "color-mix(in srgb, var(--warning) 10%, transparent)",
+                          border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
+                        }}>
+                          <span style={{ position: "relative", width: 8, height: 8, flexShrink: 0 }}>
+                            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--warning)" }} />
+                            <span className="kp-pulse-dot" style={{ color: "var(--warning)", top: 0, left: 0 }} />
+                          </span>
+                          {PILOT_HERO.deadline}
                         </div>
-                      </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
+                          <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            Обсудить проект <ArrowRight size={17} />
+                          </button>
+                          <button onClick={() => { trackKpEvent("click", "hero-offer"); scrollTo("pilot-offer"); }} style={{
+                            height: 46, padding: "0 20px", fontSize: 14.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 8,
+                            borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
+                          }}>
+                            Предложение — от 10 000 ₽
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ fontSize: 18, lineHeight: 1.5, marginTop: 18, color: "var(--foreground)" }}>{verdictOf(c.score)}.</p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
+                          <Badge icon={<Target size={15} />} label="Проанализировано конкурентов" value={competitors.length} active={v} />
+                          <Badge icon={<AlertTriangle size={15} />} label="Критичных проблем" value={sevCounts.critical} color="var(--destructive)" active={v} />
+                          <Badge icon={<ListChecks size={15} />} label="Рекомендаций" value={recs.length} active={v} />
+                          {myRank > 0 && <Badge icon={<Gauge size={15} />} label="Позиция среди конкурентов" value={myRank} prefix="#" active={v} />}
+                        </div>
+                        <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          Обсудить проект <ArrowRight size={17} />
+                        </button>
+                      </>
                     )}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
-                      <Badge icon={<Target size={15} />} label="Проанализировано конкурентов" value={competitors.length} active={v} />
-                      <Badge icon={<AlertTriangle size={15} />} label="Критичных проблем" value={sevCounts.critical} color="var(--destructive)" active={v} />
-                      <Badge icon={<ListChecks size={15} />} label="Рекомендаций" value={recs.length} active={v} />
-                      {myRank > 0 && <Badge icon={<Gauge size={15} />} label="Позиция среди конкурентов" value={myRank} prefix="#" active={v} />}
-                    </div>
-                    <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      Обсудить проект <ArrowRight size={17} />
-                    </button>
                   </div>
                 )}
               </Reveal>
@@ -2127,6 +2170,19 @@ function ResponsiveCss() {
       position: absolute; top: -2px; left: -2px; width: 8px; height: 8px; border-radius: 50%;
       animation: kp-pulse 1.8s ease-out infinite;
     }
+
+    /* Hero: мягкое каскадное появление (потенциал → чипы → дедлайн).
+       ВАЖНО: скрытие только через fill-mode:both (from-состояние во время
+       delay), БЕЗ постоянного opacity:0 в классе — если анимация не
+       запустилась (print/старый браузер/фоновая вкладка), контент остаётся
+       видимым, а не исчезает навсегда. */
+    .kp-hero-pop {
+      animation: kp-hero-pop 0.55s var(--ease, cubic-bezier(0.16,1,0.3,1)) both;
+    }
+    @keyframes kp-hero-pop {
+      from { opacity: 0; transform: translateY(10px) scale(0.985); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
     @keyframes kp-pulse {
       0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.7; }
       100% { box-shadow: 0 0 0 10px transparent; opacity: 0; }
@@ -2145,6 +2201,7 @@ function ResponsiveCss() {
     }
     @media (prefers-reduced-motion: reduce) {
       .kp-blob, .kp-cta-panel, .kp-pulse-dot { animation: none !important; }
+      .kp-hero-pop { animation: none !important; }
     }
   `}</style>;
 }
