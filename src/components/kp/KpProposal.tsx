@@ -606,20 +606,6 @@ export function KpProposal({
                             </span>
                           ))}
                         </div>
-                        <div className="kp-hero-pop" style={{
-                          animationDelay: "540ms",
-                          display: "inline-flex", alignItems: "center", gap: 10, marginTop: 16,
-                          fontSize: 13, fontWeight: 700, color: "var(--warning)",
-                          padding: "7px 14px", borderRadius: 999,
-                          background: "color-mix(in srgb, var(--warning) 10%, transparent)",
-                          border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
-                        }}>
-                          <span style={{ position: "relative", width: 8, height: 8, flexShrink: 0 }}>
-                            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--warning)" }} />
-                            <span className="kp-pulse-dot" style={{ color: "var(--warning)", top: 0, left: 0 }} />
-                          </span>
-                          {PILOT_HERO.deadline}
-                        </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
                           <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
                             Обсудить проект <ArrowRight size={17} />
