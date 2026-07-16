@@ -228,6 +228,18 @@ export function KpProposal({
   // не пропадает на КП без отдельного прогона AI-аудита.
   const aiPerc = company?.aiPerception ?? null;
   const hasAiViz = (aiVisibility?.status === "done" && aiVisibility.totalScore != null) || !!aiPerc;
+  // Упоминаний бренда в ответах нейросетей. Берём реальное число из Keys.so
+  // (Алиса/Нейро) если оно есть; если данных нет, но присутствие бренда
+  // «минимальное»/«слабое» — показываем 0 как базовый уровень на момент
+  // анализа (это НЕ выдумка: minimal presence и означает практическое
+  // отсутствие в ответах). Для сильного присутствия без числа — не врём, скрываем.
+  const rawAiMentions = company?.keysoDashboard?.yandex?.aiMentions ?? company?.keysoDashboard?.google?.aiMentions;
+  const aiMentions =
+    rawAiMentions != null
+      ? rawAiMentions
+      : (aiPerc && (aiPerc.knowledgePresence === "minimal" || aiPerc.knowledgePresence === "weak"))
+        ? 0
+        : null;
   const SECTIONS = useMemo(
     () => BASE_SECTIONS.filter(
       (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
@@ -854,13 +866,27 @@ export function KpProposal({
           // aiPerception (как нейросети воспринимают бренд) — показываем его,
           // чтобы блок AI-видимости не пропадал. Все данные реальные (из анализа).
           <Section id="ai-visibility" title="AI-видимость" subtitle="Как нейросети воспринимают ваш бренд — по анализу присутствия в ответах AI-ассистентов">
-            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
+            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
               <Bot size={22} style={{ color: aiPresenceColor(aiPerc.knowledgePresence), flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>Присутствие в ответах нейросетей</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: aiPresenceColor(aiPerc.knowledgePresence) }}>{aiPresenceLabel(aiPerc.knowledgePresence)}</div>
               </div>
+              {aiMentions != null && (
+                <div style={{ textAlign: "center", paddingLeft: 18, borderLeft: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 40, fontWeight: 850, lineHeight: 1, color: aiMentions === 0 ? "var(--destructive)" : "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>{aiMentions}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 4, maxWidth: 150 }}>упоминаний бренда в ответах нейросетей на момент анализа</div>
+                </div>
+              )}
             </div>
+            {aiMentions === 0 && (
+              <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 18, display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--destructive)" }}>
+                <AlertTriangle size={18} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
+                <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>
+                  Когда клиент спрашивает у нейросети «кто в вашей нише лучше», бренд <b>не называют ни разу</b> — весь этот трафик уходит к конкурентам, которых AI уже знает. Это чиним в разделе <b>GEO-видимость</b> ниже.
+                </p>
+              </div>
+            )}
             {/* E-E-A-T — реальные баллы 0-100 из анализа */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 18 }}>
               {([
