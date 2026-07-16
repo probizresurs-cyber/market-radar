@@ -670,7 +670,7 @@ export function KpProposal({
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} hint="Насколько быстро грузится и отзывается сайт. Чем ниже балл — тем больше людей уходят, не дождавшись загрузки." />}
-              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="SEO" value={lhSet.seo} hint="Техническая готовность к поисковикам: заголовки, мета-теги, разметка. Влияет на то, как легко сайту попасть в выдачу." />}
+              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="Тех. SEO страницы" value={lhSet.seo} hint="Технические основы: есть ли title, мета-теги, доступность для роботов, мобильность. Это НЕ позиции: высокий балл значит «страница технически исправна», а общий SEO-балл выше (по позициям и трафику) — про реальную видимость в выдаче. Чтобы расти там, нужны контент, семантика и ссылки." />}
               {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} hint="Удобство для всех пользователей и корректность вёрстки. Важно и для людей, и как сигнал качества для роботов." />}
               {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint="Время загрузки основного контента страницы. Хорошо — до 2,5 с; дольше — посетитель начинает нервничать." />}
               {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Насколько «прыгает» вёрстка при загрузке. Хорошо — меньше 0,1; выше — кнопки уезжают из-под пальца." />}
