@@ -52,7 +52,7 @@ export default function KpSozdavayaPage() {
       const r = await fetch("/api/share/create", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "kp", profileId }),
+        body: JSON.stringify({ kind: "kp", profileId, pilot: true }),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "Ошибка создания ссылки");

@@ -33,6 +33,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
     data?: DashboardData;
     createdAt?: string;
     kind?: "dashboard" | "kp";
+    pilot?: boolean;
   }>({ status: "loading" });
 
   useEffect(() => {
@@ -45,11 +46,12 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
           return;
         }
         const snap = (json.snapshot ?? {}) as Record<string, unknown>;
-        const meta = snap._meta as { kind?: "dashboard" | "kp" } | undefined;
+        const meta = snap._meta as { kind?: "dashboard" | "kp"; pilot?: boolean } | undefined;
         setState({
           status: "ok",
           createdAt: json.createdAt,
           kind: meta?.kind === "kp" ? "kp" : "dashboard",
+          pilot: meta?.pilot === true,
           data: {
             company: (snap.company as AnalysisResult) ?? null,
             competitors: Array.isArray(snap.competitors) ? (snap.competitors as AnalysisResult[]) : [],
@@ -96,7 +98,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
   }
 
   if (state.kind === "kp") {
-    return <KpProposal company={state.data.company} competitors={state.data.competitors} />;
+    return <KpProposal company={state.data.company} competitors={state.data.competitors} pilotOffer={state.pilot} />;
   }
 
   return <OwnerDashboardContent data={state.data} mode="public" createdAt={state.createdAt} />;

@@ -2229,7 +2229,11 @@ function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[])
     out.push({ severity: "warning", channel: "social", category: "ВКонтакте", title: "ВКонтакте не найден или не ведётся",
       detail: "Упускаете аудиторию главной соцсети РФ и целый канал бесплатного трафика.",
       fix: "Заведём и упакуем профиль, запустим контент-план с рилсами и постами." });
-  else if (soc.vk.posts30d != null && soc.vk.posts30d < 8)
+  // posts30d === 0 НЕ показываем как находку: ноль чаще означает «парсер не
+  // смог посчитать посты», чем реальное молчание канала (живой TG Sozdavay
+  // с 963 подписчиками получал «0 за 30 дней» — клиент справедливо спросил,
+  // откуда это). Утверждаем «редкие публикации» только при 1–7 реальных.
+  else if (soc.vk.posts30d != null && soc.vk.posts30d > 0 && soc.vk.posts30d < 8)
     out.push({ severity: "warning", channel: "social", category: "ВКонтакте", title: `Мало публикаций во ВКонтакте (${soc.vk.posts30d} за 30 дней)`,
       detail: "При редком постинге алгоритмы и подписчики быстро забывают о бренде.",
       fix: "Контент-план на неделю вперёд + монтаж: стабильный поток контента." });
@@ -2237,7 +2241,7 @@ function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[])
     out.push({ severity: "warning", channel: "social", category: "Telegram", title: "Нет Telegram-канала",
       detail: "Упускаете лояльную аудиторию и прямой канал контакта с клиентами.",
       fix: "Запустим канал и наполним его по контент-плану." });
-  else if (soc.telegram.posts30d != null && soc.telegram.posts30d < 8)
+  else if (soc.telegram.posts30d != null && soc.telegram.posts30d > 0 && soc.telegram.posts30d < 8)
     out.push({ severity: "warning", channel: "social", category: "Telegram", title: `Редкие публикации в Telegram (${soc.telegram.posts30d} за 30 дней)`,
       detail: "Канал есть, но не работает как источник касаний с аудиторией.",
       fix: "Добавим Telegram в общий контент-план." });
@@ -2277,6 +2281,9 @@ function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[])
   // ─────────────── ПРОЧЕЕ: категории и конкуренты ───────────────
   (my.company.categories ?? []).forEach((cat) => {
     if (cat.score >= 65) return; // хорошие категории не показываем как «дыры»
+    // HR-бренд/найм — не клиентский канал: фраза «тормозит привлечение
+    // клиентов» к нему не относится и звучит абсурдно (фидбек клиента).
+    if (/hr|найм|вакан|кадр/i.test(cat.name)) return;
     const severity: Severity = cat.score < 45 ? "critical" : "warning";
     out.push({ severity, channel: "other", category: cat.name, title: `${cat.name}: ${cat.score}/100`,
       detail: categoryVerdict(cat.score),
@@ -2308,7 +2315,10 @@ function buildPlan(recs: Recommendation[]): Phase[] {
   // (это про процесс/методологию MarketRadar, а не выдуманные факты о сайте).
   const phases: Phase[] = [
     {
-      title: "Быстрые победы (1–2 недели)",
+      // Честный срок: H1/alt/мета-правки — это часы-дни, а не недели.
+      // Завышенный срок на очевидно мелкие задачи подрывает доверие (фидбек
+      // клиента: «почему недели на работы, которые можно сделать за день»).
+      title: "Быстрые победы (1–3 дня)",
       items: quick.length ? quick : [
         "Технический аудит сайта и приоритизация правок",
         "Устранение критичных ошибок, найденных при анализе",

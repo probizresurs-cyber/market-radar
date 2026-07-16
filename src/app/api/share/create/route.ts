@@ -38,9 +38,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
     }
 
-    let body: { kind?: string; profileId?: string } = {};
+    let body: { kind?: string; profileId?: string; pilot?: boolean } = {};
     try { body = await req.json(); } catch { /* тело не обязательно (дашборд шлёт пустой POST) */ }
     const kind = body.kind === "kp" ? "kp" : "dashboard";
+    // pilot=true — ссылка создана с /kp-sozdavaya: публичная страница должна
+    // рендерить пилотную версию КП (кейсы, офферы, прогноз), а не генерик.
+    const pilot = body.pilot === true;
 
     const snapshot: Record<string, unknown> = {};
 
@@ -76,6 +79,7 @@ export async function POST(req: Request) {
       sharedAt: new Date().toISOString(),
       ownerUserId: session.userId,
       kind,
+      ...(pilot ? { pilot: true } : {}),
     };
 
     const id = randomUUID();
