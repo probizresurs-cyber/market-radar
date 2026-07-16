@@ -714,13 +714,13 @@ export function KpProposal({
                 ))}
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} hint="Насколько быстро грузится и отзывается сайт. Чем ниже балл — тем больше людей уходят, не дождавшись загрузки." />}
-              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="Тех. SEO страницы" value={lhSet.seo} hint="Технические основы: есть ли title, мета-теги, доступность для роботов, мобильность. Это НЕ позиции: высокий балл значит «страница технически исправна», а общий SEO-балл выше (по позициям и трафику) — про реальную видимость в выдаче. Чтобы расти там, нужны контент, семантика и ссылки." />}
-              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} hint="Удобство для всех пользователей и корректность вёрстки. Важно и для людей, и как сигнал качества для роботов." />}
-              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint="Время загрузки основного контента страницы. Хорошо — до 2,5 с; дольше — посетитель начинает нервничать." />}
-              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Насколько «прыгает» вёрстка при загрузке. Хорошо — меньше 0,1; выше — кнопки уезжают из-под пальца." />}
-              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint="Задержка отклика на клики, пока страница грузится. Хорошо — меньше 200 мс; выше — сайт «тормозит»." />}
+            <div className="kp-tech-grid">
+              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} hint="Как быстро грузится сайт. Низкий балл — люди уходят, не дождавшись." />}
+              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="Тех. SEO страницы" value={lhSet.seo} hint="Технические основы: title, мета-теги, мобильность. Это не позиции — за реальную видимость отвечает SEO-балл по трафику." />}
+              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} hint="Удобство и корректность вёрстки — сигнал качества для людей и роботов." />}
+              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint="Загрузка основного контента. Хорошо — до 2,5 с." />}
+              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Сдвиги вёрстки при загрузке. Хорошо — меньше 0,1." />}
+              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint="Задержка отклика на клики. Хорошо — меньше 200 мс." />}
             </div>
           </Section>
         )}
@@ -1767,6 +1767,12 @@ function ResponsiveCss() {
       0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.7; }
       100% { box-shadow: 0 0 0 10px transparent; opacity: 0; }
     }
+
+    /* Тех-аудит: ровная сетка — 3 колонки (кольца сверху, метрики снизу),
+       без «сиротской» карточки в отдельном ряду. */
+    .kp-tech-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+    @media (max-width: 980px) { .kp-tech-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .kp-tech-grid { grid-template-columns: 1fr; } }
 
     @media (max-width: 760px) {
       .kp-hero-grid { grid-template-columns: 1fr !important; }
