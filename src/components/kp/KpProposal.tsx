@@ -22,6 +22,7 @@ import { trackKpEvent } from "@/lib/kp-track";
 import {
   EVIDENCE_LEGEND, PILOT_STRENGTHS, PILOT_RIVALS, PILOT_TRUMP, PILOT_GEO, PILOT_FORECAST,
   PILOT_FINDINGS, PILOT_OFFERS, PILOT_OFFERS_TOTAL, PILOT_CHART,
+  PILOT_HERO, PILOT_TIMELINE, PILOT_POSITION_DIAGNOSIS, PILOT_GUARANTEE,
   type Evidence,
 } from "./pilot-sozdavay-data";
 import {
@@ -171,24 +172,28 @@ const PILOT_STEPS = [
 const POSITION_CHECK_ENABLED = true;
 
 // id → флаг, по которому секция включается. pilot-* показываются только на
-// /kp-sozdavaya (pilotOffer); positions — по POSITION_CHECK_ENABLED.
-const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean }[] = [
+// /kp-sozdavaya (pilotOffer); hideOnPilot — наоборот, генерик-блоки, которые
+// на пилотной странице разжижают воронку (точки роста/план/тарифы дублируют
+// кейсы-находки и пилотные цены); positions — по POSITION_CHECK_ENABLED.
+// Порядок = драматургия воронки: доверие → боль → доказательства → решение
+// с ценой → выгода → условия → заявка.
+const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPilot?: boolean }[] = [
   { id: "overview", label: "Обзор" },
-  { id: "findings", label: "Находки" },
   { id: "pilot-strengths", label: "Сильные стороны", pilotOnly: true },
+  { id: "findings", label: "Находки" },
   { id: "tech", label: "Тех-аудит" },
   { id: "competitors", label: "Конкуренты" },
   { id: "pilot-rivals", label: "Лидеры ниши", pilotOnly: true },
   { id: "ai-visibility", label: "AI-видимость" },
   { id: "pilot-geo", label: "GEO-видимость", pilotOnly: true },
   { id: "positions", label: "Позиции" },
-  { id: "growth", label: "Точки роста" },
-  { id: "plan", label: "План" },
+  { id: "growth", label: "Точки роста", hideOnPilot: true },
+  { id: "plan", label: "План", hideOnPilot: true },
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
-  { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
+  { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "pilot", label: "Пилотные условия" },
-  { id: "pricing", label: "Тарифы" },
+  { id: "pricing", label: "Тарифы", hideOnPilot: true },
   { id: "cta", label: "Заявка" },
 ];
 
@@ -247,6 +252,7 @@ export function KpProposal({
       (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
         && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
         && (!s.pilotOnly || pilotOffer)
+        && (!s.hideOnPilot || !pilotOffer)
         && (s.id !== "ai-visibility" || hasAiViz)
     ),
     [pilotOffer, hasAiViz],
@@ -438,6 +444,30 @@ export function KpProposal({
       {/* Прогресс-бар */}
       <div style={{ position: "fixed", top: 0, left: 0, height: 3, width: `${progress}%`, background: "var(--primary)", zIndex: 60, transition: "width 0.1s linear", boxShadow: "0 0 8px color-mix(in srgb, var(--primary) 70%, transparent)" }} />
 
+      {/* Sticky-CTA: оффер всегда на экране, пока читают середину страницы.
+          Скрыт в начале (hero сам продаёт) и в конце (не перекрывать финальный CTA). */}
+      {pilotOffer && progress > 18 && progress < 90 && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 55,
+          background: "color-mix(in srgb, var(--background) 92%, transparent)", backdropFilter: "blur(10px)",
+          borderTop: "1px solid var(--border)",
+        }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 13.5, minWidth: 0 }}>
+              <b>Перенос сайта на Astro — 10 000 ₽</b>
+              <span style={{ color: "var(--muted-foreground)" }}> · скорость 43 → 90+ за 3–5 дней · фиксированная цена</span>
+            </div>
+            <button
+              onClick={() => { trackKpEvent("click", "sticky-offer-cta"); scrollTo("pilot-offer"); }}
+              className="ds-btn ds-btn-primary"
+              style={{ height: 38, padding: "0 18px", fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+            >
+              Начать <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Панель шеринга — видна только владельцу (onShare передан из /kp), не на публичной странице */}
       {onShare && (
         <div style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
@@ -543,6 +573,22 @@ export function KpProposal({
                     <h1 style={{ fontSize: 40, fontWeight: 850, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>{c.name}</h1>
                     {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 15, textDecoration: "none" }}>{c.url}</a>}
                     <p style={{ fontSize: 18, lineHeight: 1.5, marginTop: 18, color: "var(--foreground)" }}>{verdictOf(c.score)}.</p>
+                    {pilotOffer && (
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "12px 18px", borderRadius: 12, background: "color-mix(in srgb, var(--success) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success) 35%, transparent)" }}>
+                          <span style={{ fontSize: 22, fontWeight: 850, color: "var(--success)", lineHeight: 1.2 }}>{PILOT_HERO.potential}</span>
+                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{PILOT_HERO.potentialNote}</span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                          {PILOT_HERO.badges.map((b) => (
+                            <span key={b} style={{ fontSize: 12.5, fontWeight: 600, padding: "5px 12px", borderRadius: 999, background: "var(--muted)", color: "var(--foreground)" }}>{b}</span>
+                          ))}
+                        </div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--warning)" }}>
+                          <Clock size={15} style={{ flexShrink: 0 }} /> {PILOT_HERO.deadline}
+                        </div>
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
                       <Badge icon={<Target size={15} />} label="Проанализировано конкурентов" value={competitors.length} active={v} />
                       <Badge icon={<AlertTriangle size={15} />} label="Критичных проблем" value={sevCounts.critical} color="var(--destructive)" active={v} />
@@ -646,6 +692,41 @@ export function KpProposal({
           </Reveal>
         )}
 
+        {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) — доверие до боли ─── */}
+        {pilotOffer && (
+          <Section id="pilot-strengths" title="Что уже работает" subtitle="Честный аудит начинается с сильных сторон — их нельзя сломать в ходе работ, на них мы опираемся">
+            {/* Легенда достоверности — как читать весь отчёт */}
+            <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Как читать отчёт:</span>
+              {EVIDENCE_LEGEND.map((l) => (
+                <span key={l.level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
+                  <EvidenceBadge level={l.level} /> {l.desc}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {PILOT_STRENGTHS.map((s, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                        <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
+                        <EvidenceBadge level={s.evidence} />
+                      </div>
+                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.5, display: "flex", gap: 8 }}>
+                        <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
+                        <span><b style={{ color: "var(--success)" }}>На это опираемся:</b> {s.leverage}</span>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* ─── НАХОДКИ: пилот — ручные кейсы «факт → важно → делать → даст» ─── */}
         {pilotOffer && (
           <Section id="findings" title="Находки — с доказательствами и эффектом" subtitle="Каждая находка: что нашли → почему это важно → что делать → что это даст. Всё проверено вручную 15–16.07.2026">
@@ -712,41 +793,6 @@ export function KpProposal({
                 </div>
               );
             })}
-          </Section>
-        )}
-
-        {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) ─── */}
-        {pilotOffer && (
-          <Section id="pilot-strengths" title="Что уже работает" subtitle="Честный аудит начинается с сильных сторон — их нельзя сломать в ходе работ, на них мы опираемся">
-            {/* Легенда достоверности — как читать весь отчёт */}
-            <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Как читать отчёт:</span>
-              {EVIDENCE_LEGEND.map((l) => (
-                <span key={l.level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
-                  <EvidenceBadge level={l.level} /> {l.desc}
-                </span>
-              ))}
-            </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              {PILOT_STRENGTHS.map((s, i) => (
-                <Reveal key={i} delay={i * 70}>
-                  {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-                        <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
-                        <EvidenceBadge level={s.evidence} />
-                      </div>
-                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
-                      <div style={{ fontSize: 13.5, lineHeight: 1.5, display: "flex", gap: 8 }}>
-                        <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
-                        <span><b style={{ color: "var(--success)" }}>На это опираемся:</b> {s.leverage}</span>
-                      </div>
-                    </div>
-                  )}
-                </Reveal>
-              ))}
-            </div>
           </Section>
         )}
 
@@ -1065,30 +1111,40 @@ export function KpProposal({
             subtitle={`Живая проверка в ${positionCheck.engine === "yandex" ? "Яндексе" : "Google"} по ключевым запросам — реальная выдача, не оценка AI · ${new Date(positionCheck.checkedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}`}
           >
             <div style={{ display: "grid", gap: 10 }}>
-              {positionCheck.results.map((r, i) => (
+              {positionCheck.results.map((r, i) => {
+                const diagnosis = pilotOffer ? PILOT_POSITION_DIAGNOSIS[r.keyword.toLowerCase().trim()] : undefined;
+                return (
                 <Reveal key={i} delay={Math.min(i, 8) * 50}>
                   {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 14.5 }}>{r.keyword}</span>
-                      {r.status === "done" && r.position != null ? (
-                        <span style={{ fontWeight: 800, fontSize: 18, color: r.position <= 3 ? "var(--success)" : r.position <= 10 ? "var(--warning)" : "var(--destructive)", fontVariantNumeric: "tabular-nums" }}>
-                          #{r.position}
-                        </span>
-                      ) : r.status === "not_found" ? (
-                        <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>вне топ-30</span>
-                      ) : (
-                        <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>не удалось проверить</span>
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 18px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontSize: 14.5 }}>{r.keyword}</span>
+                        {r.status === "done" && r.position != null ? (
+                          <span style={{ fontWeight: 800, fontSize: 18, color: r.position <= 3 ? "var(--success)" : r.position <= 10 ? "var(--warning)" : "var(--destructive)", fontVariantNumeric: "tabular-nums" }}>
+                            #{r.position}
+                          </span>
+                        ) : r.status === "not_found" ? (
+                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>вне топ-30</span>
+                        ) : (
+                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>не удалось проверить</span>
+                        )}
+                      </div>
+                      {diagnosis && (
+                        <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 6, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                          <b style={{ color: "var(--foreground)" }}>Диагноз:</b> {diagnosis}
+                        </div>
                       )}
                     </div>
                   )}
                 </Reveal>
-              ))}
+                );
+              })}
             </div>
           </Section>
         )}
 
         {/* ─── ТОЧКИ РОСТА ─── */}
-        {(niche?.opportunities?.length || recs.length > 0) && (
+        {!pilotOffer && (niche?.opportunities?.length || recs.length > 0) && (
           <Section id="growth" title="Точки роста" subtitle="Возможности ниши и приоритизация задач по эффекту и усилиям">
             {niche?.opportunities?.length > 0 && (
               <div style={{ display: "grid", gap: 10, marginBottom: 28 }}>
@@ -1115,7 +1171,7 @@ export function KpProposal({
         )}
 
         {/* ─── ПЛАН ─── */}
-        {plan.length > 0 && (
+        {!pilotOffer && plan.length > 0 && (
           <Section id="plan" title="План работ" subtitle="Как мы предлагаем двигаться — поэтапно, от быстрых результатов к росту">
             <div style={{ display: "grid", gap: 14, position: "relative" }}>
               {plan.length > 1 && (
@@ -1157,15 +1213,17 @@ export function KpProposal({
                         <div style={{ fontSize: 27, fontWeight: 850, color: "var(--primary)", whiteSpace: "nowrap" }}>{o.price}</div>
                       </div>
                       {o.before && o.after && (
-                        <div style={{ display: "flex", gap: 10, alignItems: "stretch", marginBottom: 14, flexWrap: "wrap" }}>
-                          <div style={{ flex: "1 1 180px", borderRadius: 10, padding: "12px 16px", background: "color-mix(in srgb, var(--destructive) 9%, transparent)" }}>
-                            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--destructive)", marginBottom: 4 }}>{o.before.label.toUpperCase()}</div>
-                            <div style={{ fontSize: 17, fontWeight: 800 }}>{o.before.value}</div>
+                        <div style={{ display: "flex", gap: 18, alignItems: "center", justifyContent: "center", marginBottom: 16, flexWrap: "wrap", padding: "14px 10px", borderRadius: 12, background: "var(--muted)" }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            <Ring value={43} size={104} stroke={10} active />
+                            <div style={{ fontSize: 12, fontWeight: 700 }}>{o.before.label}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{o.before.value}</div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", color: "var(--muted-foreground)" }}><ArrowRight size={20} /></div>
-                          <div style={{ flex: "1 1 180px", borderRadius: 10, padding: "12px 16px", background: "color-mix(in srgb, var(--success) 10%, transparent)" }}>
-                            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>{o.after.label.toUpperCase()}</div>
-                            <div style={{ fontSize: 17, fontWeight: 800 }}>{o.after.value}</div>
+                          <ArrowRight size={26} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            <Ring value={92} size={104} stroke={10} active />
+                            <div style={{ fontSize: 12, fontWeight: 700 }}>{o.after.label}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{o.after.value}</div>
                           </div>
                         </div>
                       )}
@@ -1199,71 +1257,33 @@ export function KpProposal({
                 </Reveal>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 16, padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-              <ShieldCheck size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
-              <div style={{ fontSize: 14, lineHeight: 1.5, flex: 1, minWidth: 240 }}>{PILOT_OFFERS_TOTAL}</div>
-              <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo("cta"); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                Начать с переноса <ArrowRight size={15} />
-              </button>
+            {/* Что происходит по неделям после старта — снимает страх «заплачу и тишина» */}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              Что происходит после старта
             </div>
-          </Section>
-        )}
-
-        {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer) ─── */}
-        {pilotOffer && (
-          <Section id="pilot-forecast" title="Прогноз: что даст каждый канал и когда" subtitle="Расчётная модель с вилкой — ориентир для планирования, не гарантия. Пересчитывается ежемесячно по фактам Метрики и Вебмастера">
-            {/* Формула + допущения */}
-            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Как считаем</div>
-              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PILOT_FORECAST.formula}</div>
-              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                {PILOT_FORECAST.assumptions.map((a, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
-                    <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
-                  </li>
-                ))}
-              </ul>
-              <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
-                <b>Пример расчёта.</b> {PILOT_FORECAST.example}
-              </div>
-            </div>
-
-            {/* Сценарии по каналам */}
-            <div style={{ display: "grid", gap: 12 }}>
-              {PILOT_FORECAST.scenarios.map((s, i) => (
-                <Reveal key={i} delay={i * 70}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+              {PILOT_TIMELINE.map((t, i) => (
+                <Reveal key={i} delay={i * 60}>
                   {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
-                        <LineChart size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} />
-                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
-                        <EvidenceBadge level="forecast" />
-                      </div>
-                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                        {[{ m: "1-й месяц", t: s.m1 }, { m: "3-й месяц", t: s.m3 }, { m: "6-й месяц", t: s.m6 }].map((c, j) => (
-                          <div key={j} style={{ background: "var(--muted)", borderRadius: 8, padding: "10px 12px" }}>
-                            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
-                            <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.t}</div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--primary)", marginBottom: 6 }}>{t.week}</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>{t.text}</div>
                     </div>
                   )}
                 </Reveal>
               ))}
             </div>
 
-            {/* График: заявки/мес по каналам (как в эталоне) */}
-            <PilotForecastChart isDark={isDark} />
-
-            {/* Свод + юнит-экономика */}
-            <div className="kp-cta-panel" style={{ marginTop: 16, padding: "24px 26px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "relative" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 8 }}>Сводный прогноз к 6-му месяцу</div>
-                <div style={{ fontSize: 34, fontWeight: 850, lineHeight: 1.1, marginBottom: 10 }}>+{PILOT_FORECAST.totalLow}–{PILOT_FORECAST.totalHigh} заявок в месяц</div>
-                <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0, opacity: 0.95 }}>{PILOT_FORECAST.economics}</p>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 16, padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 14, lineHeight: 1.5 }}>{PILOT_OFFERS_TOTAL}</div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 8, fontSize: 12.5, color: "var(--success)", fontWeight: 600 }}>
+                  <ShieldCheck size={15} style={{ flexShrink: 0 }} /> {PILOT_GUARANTEE}
+                </div>
               </div>
+              <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo("cta"); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                Начать с переноса <ArrowRight size={15} />
+              </button>
             </div>
           </Section>
         )}
@@ -1353,6 +1373,83 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer). Идёт после
+            «Формата работ»: пик выгоды подводит прямо к условиям и заявке. ─── */}
+        {pilotOffer && (
+          <Section id="pilot-forecast" title="Прогноз: что даст каждый канал и когда" subtitle="Расчётная модель с вилкой — ориентир для планирования, не гарантия. Пересчитывается ежемесячно по фактам Метрики и Вебмастера">
+            {/* Формула + допущения */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Как считаем</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PILOT_FORECAST.formula}</div>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                {PILOT_FORECAST.assumptions.map((a, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                    <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
+                  </li>
+                ))}
+              </ul>
+              <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
+                <b>Пример расчёта.</b> {PILOT_FORECAST.example}
+              </div>
+            </div>
+
+            {/* Сценарии по каналам */}
+            <div style={{ display: "grid", gap: 12 }}>
+              {PILOT_FORECAST.scenarios.map((s, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+                        <LineChart size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} />
+                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
+                        <EvidenceBadge level="forecast" />
+                      </div>
+                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        {[{ m: "1-й месяц", t: s.m1 }, { m: "3-й месяц", t: s.m3 }, { m: "6-й месяц", t: s.m6 }].map((c, j) => (
+                          <div key={j} style={{ background: "var(--muted)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
+                            <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.t}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* График: заявки/мес по каналам (как в эталоне) */}
+            <PilotForecastChart isDark={isDark} />
+
+            {/* Свод + юнит-экономика: главный аргумент — цифрами, не абзацем */}
+            <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>Сводный прогноз к 6-му месяцу · юнит-экономика</div>
+                <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PILOT_FORECAST.totalLow}–{PILOT_FORECAST.totalHigh}</div>
+                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>заявок в месяц</div>
+                  </div>
+                  <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>2–8</div>
+                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>договоров в месяц (конверсия 15–25%)</div>
+                  </div>
+                  <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>150–500 тыс ₽</div>
+                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>средний чек проекта</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>
+                  Вход — 25 000 ₽ за обе разовые работы: первый шаг окупается с первого договора.
+                </p>
+              </div>
+            </div>
+          </Section>
+        )}
+
         {/* ─── ПИЛОТНЫЕ УСЛОВИЯ (только для pilotOffer) ─── */}
         {pilotOffer && (
           <Section id="pilot" title="Пилотные условия — первый поток" subtitle="Специальные условия для первых 10 компаний — старт потока 21 июля 2026">
@@ -1407,7 +1504,8 @@ export function KpProposal({
           </Section>
         )}
 
-        {/* ─── ТАРИФЫ ─── */}
+        {/* ─── ТАРИФЫ — скрыты на пилоте: пилотные условия дают свои цены ─── */}
+        {!pilotOffer && (
         <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
           {!pricingRevealed ? (
             <Reveal>
@@ -1462,6 +1560,7 @@ export function KpProposal({
           </div>
           )}
         </Section>
+        )}
 
         {/* ─── CTA ─── */}
         <Section id="cta">
@@ -1482,13 +1581,20 @@ export function KpProposal({
                       <Mail size={18} /> Оставить заявку
                     </a>
                   </div>
+                  {pilotOffer && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13.5, opacity: 0.95 }}>
+                      <ShieldCheck size={16} style={{ flexShrink: 0 }} /> {PILOT_GUARANTEE}
+                    </div>
+                  )}
                   <div style={{ marginTop: 18, fontSize: 14, opacity: 0.85 }}>{contactEmail}</div>
                 </div>
               </div>
             )}
           </Reveal>
 
-          {/* Полноценный анализ за 2 990 ₽ — ведёт на отдельную форму заявки */}
+          {/* Полноценный анализ за 2 990 ₽ — только для холодного /kp: на пилоте
+              конкурирует с оффером 25 000 ₽ и обесценивает уже показанный анализ */}
+          {!pilotOffer && (
           <Reveal delay={100}>
             {() => (
               <div className="ds-card" style={{ marginTop: 24, padding: "24px 28px", textAlign: "center" }}>
@@ -1507,6 +1613,7 @@ export function KpProposal({
               </div>
             )}
           </Reveal>
+          )}
 
           <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12, marginTop: 24 }}>
             Данные подготовлены платформой MarketRadar{company.analyzedAt ? ` · ${new Date(company.analyzedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
