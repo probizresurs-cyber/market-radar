@@ -33,7 +33,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
     data?: DashboardData;
     createdAt?: string;
     kind?: "dashboard" | "kp";
-    pilot?: boolean;
+    pilot?: "sozdavaya" | "biglife";
   }>({ status: "loading" });
 
   useEffect(() => {
@@ -46,12 +46,15 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
           return;
         }
         const snap = (json.snapshot ?? {}) as Record<string, unknown>;
-        const meta = snap._meta as { kind?: "dashboard" | "kp"; pilot?: boolean } | undefined;
+        const meta = snap._meta as { kind?: "dashboard" | "kp"; pilot?: boolean | string } | undefined;
         setState({
           status: "ok",
           createdAt: json.createdAt,
           kind: meta?.kind === "kp" ? "kp" : "dashboard",
-          pilot: meta?.pilot === true,
+          // true — легаси старых sozdavaya-ссылок; строка — слаг клиента
+          pilot: meta?.pilot === true ? "sozdavaya"
+            : meta?.pilot === "sozdavaya" || meta?.pilot === "biglife" ? meta.pilot
+            : undefined,
           data: {
             company: (snap.company as AnalysisResult) ?? null,
             competitors: Array.isArray(snap.competitors) ? (snap.competitors as AnalysisResult[]) : [],
@@ -98,7 +101,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
   }
 
   if (state.kind === "kp") {
-    return <KpProposal company={state.data.company} competitors={state.data.competitors} pilotOffer={state.pilot} />;
+    return <KpProposal company={state.data.company} competitors={state.data.competitors} pilotClient={state.pilot} />;
   }
 
   return <OwnerDashboardContent data={state.data} mode="public" createdAt={state.createdAt} />;

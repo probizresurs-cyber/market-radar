@@ -38,12 +38,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
     }
 
-    let body: { kind?: string; profileId?: string; pilot?: boolean } = {};
+    let body: { kind?: string; profileId?: string; pilot?: boolean | string } = {};
     try { body = await req.json(); } catch { /* тело не обязательно (дашборд шлёт пустой POST) */ }
     const kind = body.kind === "kp" ? "kp" : "dashboard";
-    // pilot=true — ссылка создана с /kp-sozdavaya: публичная страница должна
-    // рендерить пилотную версию КП (кейсы, офферы, прогноз), а не генерик.
-    const pilot = body.pilot === true;
+    // pilot — слаг пилот-клиента ("sozdavaya" | "biglife"): публичная страница
+    // рендерит его пилотную версию КП. true — легаси от старых ссылок sozdavaya.
+    const pilot =
+      body.pilot === true ? "sozdavaya"
+      : body.pilot === "sozdavaya" || body.pilot === "biglife" ? body.pilot
+      : null;
 
     const snapshot: Record<string, unknown> = {};
 
@@ -79,7 +82,7 @@ export async function POST(req: Request) {
       sharedAt: new Date().toISOString(),
       ownerUserId: session.userId,
       kind,
-      ...(pilot ? { pilot: true } : {}),
+      ...(pilot ? { pilot } : {}),
     };
 
     const id = randomUUID();

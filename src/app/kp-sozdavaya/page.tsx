@@ -52,7 +52,7 @@ export default function KpSozdavayaPage() {
       const r = await fetch("/api/share/create", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "kp", profileId, pilot: true }),
+        body: JSON.stringify({ kind: "kp", profileId, pilot: "sozdavaya" }),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "Ошибка создания ссылки");
@@ -170,7 +170,7 @@ export default function KpSozdavayaPage() {
       company={company} competitors={competitors} aiVisibility={aiVisibility}
       onShare={handleShare} sharing={sharing} shareLink={shareLink}
       shareCopied={shareCopied} shareError={shareError} onCopyShareLink={handleCopyShareLink}
-      pilotOffer
+      pilotClient="sozdavaya"
     />
   );
 }

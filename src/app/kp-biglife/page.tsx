@@ -7,11 +7,9 @@
  *   2) выделенный аккаунт клиента (env BIGLIFE_ACCOUNT_EMAIL, проверка на
  *      сервере через /api/kp-account-check — email не хранится в исходниках).
  *
- * ВАЖНО: pilotOffer здесь НЕ включён — пилотные блоки (находки с
- * доказательствами, офферы с ценами, GEO-разбор, прогноз) наполнены ручным
- * аудитом Sozdavay и к BigLife не относятся. Страница показывает честную
- * версию из реального анализа платформы; ручной пилот-слой для BigLife
- * добавится, когда будет проведён его реальный аудит.
+ * pilotClient="biglife" — пилотные блоки наполнены СОБСТВЕННЫМ ручным
+ * аудитом BigLife (см. pilot-biglife-data.ts: живые проверки 16–17.07.2026).
+ * Раздел «Лидеры ниши» скрыт, пока не проведён ручной разбор конкурентов.
  */
 import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
@@ -41,7 +39,7 @@ export default function KpBiglifePage() {
       const r = await fetch("/api/share/create", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "kp", profileId }),
+        body: JSON.stringify({ kind: "kp", profileId, pilot: "biglife" }),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "Ошибка создания ссылки");
@@ -158,6 +156,7 @@ export default function KpBiglifePage() {
       company={company} competitors={competitors} aiVisibility={aiVisibility}
       onShare={handleShare} sharing={sharing} shareLink={shareLink}
       shareCopied={shareCopied} shareError={shareError} onCopyShareLink={handleCopyShareLink}
+      pilotClient="biglife"
     />
   );
 }

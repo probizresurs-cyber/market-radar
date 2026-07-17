@@ -19,12 +19,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
 import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import { trackKpEvent } from "@/lib/kp-track";
-import {
-  EVIDENCE_LEGEND, PILOT_STRENGTHS, PILOT_RIVALS, PILOT_TRUMP, PILOT_GEO, PILOT_FORECAST,
-  PILOT_FINDINGS, PILOT_OFFERS, PILOT_OFFERS_TOTAL, PILOT_CHART,
-  PILOT_HERO, PILOT_TIMELINE, PILOT_POSITION_DIAGNOSIS, PILOT_GUARANTEE, PILOT_MONTHLY,
-  type Evidence,
-} from "./pilot-sozdavay-data";
+import { EVIDENCE_LEGEND, SOZDAVAY_PILOT, type Evidence, type PilotBundle } from "./pilot-sozdavay-data";
+import { BIGLIFE_PILOT } from "./pilot-biglife-data";
+
+export type PilotClient = "sozdavaya" | "biglife";
+const PILOT_BUNDLES: Record<PilotClient, PilotBundle> = {
+  sozdavaya: SOZDAVAY_PILOT,
+  biglife: BIGLIFE_PILOT,
+};
 import {
   AlertTriangle, CheckCircle2, TriangleAlert, Gauge, Target, Rocket,
   ListChecks, ArrowRight, TrendingUp, TrendingDown, Minus, Zap, Mail, Radar as RadarIcon,
@@ -56,7 +58,7 @@ interface Props {
    * предложение MarketRadar), поэтому включается точечно через проп, а не
    * глобально для всех /kp. См. src/app/kp-sozdavaya/page.tsx.
    */
-  pilotOffer?: boolean;
+  pilotClient?: PilotClient;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -101,68 +103,6 @@ const PACKAGES = [
   },
 ];
 
-// ─── Контент пилотного предложения (проп pilotOffer) — специфично для
-// одного конкретного клиента (переговоры о барельефах), не общий питч
-// MarketRadar. Примеры статей — иллюстрация формата, а НЕ готовые/реальные
-// публикации; прогноз на месяц — ориентировочные направления работы, а не
-// гарантированные метрики (это план, гарантия описана отдельно ниже). ────
-const SEO_PREVIEW_ARTICLES = [
-  {
-    title: "Барельеф на стену в интерьере: 7 идей для гостиной и спальни",
-    excerpt: "Где барельеф уместен, а где перегружает пространство, сколько стоит индивидуальный заказ и как выбрать мастера.",
-    body: "Барельеф — рельефное изображение, выступающее над плоскостью стены, — уместен там, где нужен акцент без перегрузки цветом: над изголовьем кровати, за диваном, в нише прихожей. Разберём 7 сценариев по комнатам, с фото-референсами и подсказкой по масштабу рисунка под площадь стены.\n\nСколько стоит: индивидуальный эскиз + монтаж под ключ — от [диапазон уточняется под нишу], серийный рельеф из каталога — дешевле и быстрее. Как выбрать мастера: смотрите портфолио в объёме (не только фото анфас), спрашивайте про материал (гипс/артбетон) и гарантию на растрескивание.",
-    geoNotes: [
-      "Заголовок и первый абзац сразу называют, ЧТО такое барельеф и для чего он нужен — это ровно тот прямой ответ, который нейросеть цитирует, когда пользователь спрашивает «как оформить стену барельефом»",
-      "7 конкретных сценариев по комнатам — длинный хвост запросов («барельеф в спальне», «барельеф в прихожей») закрывается одной статьёй",
-    ],
-  },
-  {
-    title: "Барельеф своими руками или на заказ: сравниваем цену, качество и сроки",
-    excerpt: "Честное сравнение — что реально получится сделать самому, а где нужен профессиональный литейщик.",
-    body: "DIY-барельеф из шпаклёвки реален для простых форм (геометрия, растения) — но требует навыка работы со шпателем и 3-5 дней на слои и шлифовку. Профессиональный литейщик даёт точный рельеф, детализацию (лица, текстуры) и предсказуемый срок службы без трещин.\n\nСравнение по трём осям — цена, качество, сроки — сведено в таблицу, чтобы читатель за 30 секунд понял, какой вариант ему подходит, без давления «закажите у нас» в лоб.",
-    geoNotes: [
-      "Формат сравнения (таблица «сам vs заказ») — то, что нейросети чаще всего вытаскивают целиком при ответе на сравнительные запросы («барельеф своими руками или на заказ»)",
-      "Честность про DIY-вариант (а не только продажа услуги) повышает доверие к источнику — и у читателя, и как сигнал качества контента для ранжирования",
-    ],
-  },
-  {
-    title: "Уход за гипсовым барельефом: как не повредить рельеф при уборке",
-    excerpt: "Практическая инструкция — то, что люди ищут уже после покупки, и что закрепляет доверие к бренду.",
-    body: "Гипсовый рельеф боится избытка влаги и абразивных губок — рабочий способ: сухая щётка с мягким ворсом для пыли в углублениях, слегка влажная замша для общей поверхности, никаких спреев с спиртом на окрашенных участках.\n\nЭта статья не продаёт — она закрепляет доверие у тех, кто уже купил, и попадает в поиск от совершенно новой аудитории («как ухаживать за барельефом»), которая пока не покупатель, но видит бренд как экспертный источник.",
-    geoNotes: [
-      "Прямая пошаговая инструкция в первых предложениях — именно такой формат нейросети чаще всего используют для ответа на вопрос «как ухаживать за X»",
-      "Статья не о продаже — привлекает людей на более раннем этапе, до решения о покупке, и это тоже часть воронки, которую GEO усиливает",
-    ],
-  },
-];
-
-// Общие механики, почему именно такой формат статей работает и на
-// классическое SEO, и особенно на GEO (видимость в ответах нейросетей) —
-// показываются один раз под примерами, а не дублируются в каждой карточке.
-const SEO_GEO_MECHANICS = [
-  "Прямой ответ на вопрос в первых 2-3 предложениях — так формируются цитируемые фрагменты и для featured snippet в поиске, и для ответов нейросетей (GEO)",
-  "Заголовки в формате вопроса (H2) — совпадают с тем, как люди реально формулируют запросы к ChatGPT/YandexGPT/Perplexity",
-  "Ключевая фраза в H1, подзаголовках и первом абзаце — классический SEO-сигнал релевантности для поисковика",
-  "Структурированные списки и сравнения — их проще распарсить и поисковому роботу, и нейросети при генерации ответа",
-  "Внутренние ссылки между статьями по теме — усиливают тематический авторитет (topical authority) сайта, важный и для SEO, и для GEO",
-  "FAQ-блок в конце статьи — попадает в rich snippets Google/Яндекс и в готовые вопрос-ответ пары, которые нейросети переиспользуют напрямую",
-];
-
-const SEO_MONTH1_FORECAST = [
-  "Первая неделя — глубокий анализ ниши и полная стратегия SEO+GEO, семантика собрана, контент-план на месяц готов",
-  "≈20–25 статей опубликовано на сайте и на внешних площадках (при темпе 1 статья в день)",
-  "Большая часть статей проиндексирована в Яндексе и Google к концу месяца",
-  "Первые ответы AI-ассистентов (YandexGPT, ChatGPT, Perplexity) на профильные запросы начинают упоминать бренд",
-  "Еженедельный отчёт с цифрами: позиции, трафик, упоминания в AI-ответах",
-  "Цель — не подписчики и охваты, а целевые обращения от людей, которые ищут барельефы",
-];
-
-const PILOT_STEPS = [
-  "Бесплатно: экспресс-разбор ниши на созвоне (20 минут) — где вы в поиске сейчас, что отвечают нейросети про барельефы, что делают конкуренты в соцсетях, + план действий",
-  "Если план откликается — стартуем, оплата помесячно",
-  "Первая неделя — глубокий анализ и полная стратегия",
-  "Дальше — раз в неделю отчёт с цифрами",
-];
 
 // Живая проверка позиций снова включена (15.07.2026) — раньше здесь был
 // headless-браузер по yandex.ru, который на проде блокировался капчей в
@@ -228,8 +168,12 @@ export function KpProposal({
   company, competitors, contactEmail = "hello@marketradar24.ru",
   aiVisibility = null,
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
-  pilotOffer = false,
+  pilotClient,
 }: Props) {
+  // PD — активный пилот-бандл. Fallback на sozdavay безопасен: при
+  // pilotOffer=false все pilot-секции скрыты и PD не читается.
+  const PD = pilotClient ? PILOT_BUNDLES[pilotClient] : SOZDAVAY_PILOT;
+  const pilotOffer = pilotClient != null;
   // AI-видимость показываем, если есть либо отдельный аудит, либо
   // aiPerception из основного анализа (он есть почти всегда) — блок больше
   // не пропадает на КП без отдельного прогона AI-аудита.
@@ -253,9 +197,10 @@ export function KpProposal({
         && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
         && (!s.pilotOnly || pilotOffer)
         && (!s.hideOnPilot || !pilotOffer)
+        && (s.id !== "pilot-rivals" || PD.rivals.length > 0)
         && (s.id !== "ai-visibility" || hasAiViz)
     ),
-    [pilotOffer, hasAiViz],
+    [pilotOffer, hasAiViz, PD],
   );
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
@@ -454,8 +399,8 @@ export function KpProposal({
         }}>
           <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
             <div style={{ fontSize: 13.5, minWidth: 0 }}>
-              <b>Перенос сайта на Astro — 10 000 ₽</b>
-              <span style={{ color: "var(--muted-foreground)" }}> · скорость 43 → 90+ за 3–5 дней · фиксированная цена</span>
+              <b>{PD.offers[0].name} — {PD.offers[0].price}</b>
+              <span style={{ color: "var(--muted-foreground)" }}> · {PD.offers[0].priceNote} · фиксированная цена</span>
             </div>
             <button
               onClick={() => { trackKpEvent("click", "sticky-offer-cta"); scrollTo("pilot-offer"); }}
@@ -578,7 +523,7 @@ export function KpProposal({
                          пульсирующий дедлайн, 2 кнопки. Автокарточки скрыты:
                          «0 конкурентов» рядом с «3 разобраны вручную» врало. */
                       <>
-                        <p style={{ fontSize: 17, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PILOT_HERO.verdict}</p>
+                        <p style={{ fontSize: 17, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PD.hero.verdict}</p>
                         <div className="kp-hero-pop" style={{ marginTop: 20 }}>
                           {/* Связка «боль → выгода»: label-мост, чтобы вердикт и цифра
                               читались одной мыслью, а не двумя обрывками (мобильный фидбек) */}
@@ -590,12 +535,12 @@ export function KpProposal({
                             background: "linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, var(--primary)))",
                             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
                           }}>
-                            {PILOT_HERO.potential}
+                            {PD.hero.potential}
                           </div>
-                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 6 }}>{PILOT_HERO.potentialSub}</div>
+                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 6 }}>{PD.hero.potentialSub}</div>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
-                          {PILOT_HERO.badges.map((b, bi) => (
+                          {PD.hero.badges.map((b, bi) => (
                             <span key={b} className="kp-hero-pop" style={{
                               animationDelay: `${200 + bi * 110}ms`,
                               display: "inline-flex", alignItems: "center", gap: 6,
@@ -614,7 +559,7 @@ export function KpProposal({
                             height: 46, padding: "0 20px", fontSize: 14.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 8,
                             borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
                           }}>
-                            Предложение — от 10 000 ₽
+                            Предложение — от {PD.offers[0].price}
                           </button>
                         </div>
                       </>
@@ -739,7 +684,7 @@ export function KpProposal({
               ))}
             </div>
             <div style={{ display: "grid", gap: 12 }}>
-              {PILOT_STRENGTHS.map((s, i) => (
+              {PD.strengths.map((s, i) => (
                 <Reveal key={i} delay={i * 70}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
@@ -765,7 +710,7 @@ export function KpProposal({
         {pilotOffer && (
           <Section id="findings" title="Находки — с доказательствами и эффектом" subtitle="Каждая находка: что нашли → почему это важно → что делать → что это даст. Всё проверено вручную 15–16.07.2026">
             <div style={{ display: "grid", gap: 14 }}>
-              {PILOT_FINDINGS.map((f, i) => (
+              {PD.findings.map((f, i) => (
                 <Reveal key={i} delay={Math.min(i, 6) * 50}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: `4px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}` }}>
@@ -901,11 +846,12 @@ export function KpProposal({
           </Section>
         )}
 
-        {/* ─── ЛИДЕРЫ НИШИ — разбор конкурентов вручную (только pilotOffer) ─── */}
-        {pilotOffer && (
+        {/* ─── ЛИДЕРЫ НИШИ — разбор конкурентов вручную; скрыт, если для этого
+            клиента ручной разбор ещё не проводился (rivals пуст) ─── */}
+        {pilotOffer && PD.rivals.length > 0 && (
           <Section id="pilot-rivals" title="Лидеры ниши — разобраны вручную" subtitle="Три сайта из топа выдачи по ключевым запросам. У каждого — что забираем себе; ниша выигрывается структурой, а не бюджетом">
             <div style={{ display: "grid", gap: 14 }}>
-              {PILOT_RIVALS.map((r, i) => (
+              {PD.rivals.map((r, i) => (
                 <Reveal key={i} delay={i * 80}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
@@ -935,7 +881,7 @@ export function KpProposal({
             </div>
             <div className="ds-card" style={{ padding: "18px 20px", marginTop: 14, borderLeft: "4px solid var(--success)", display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>{PILOT_TRUMP}</p>
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>{PD.trump}</p>
             </div>
           </Section>
         )}
@@ -1053,8 +999,8 @@ export function KpProposal({
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <BrainCircuit size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 10px" }}>{PILOT_GEO.intro}</p>
-                  <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PILOT_GEO.whyNow}</p>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 10px" }}>{PD.geo.intro}</p>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PD.geo.whyNow}</p>
                 </div>
               </div>
             </div>
@@ -1064,7 +1010,7 @@ export function KpProposal({
               Что вознаграждает каждый ассистент
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
-              {PILOT_GEO.assistants.map((a, i) => (
+              {PD.geo.assistants.map((a, i) => (
                 <Reveal key={i} delay={i * 50}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
@@ -1084,7 +1030,7 @@ export function KpProposal({
               Чем мы поднимаем цитируемость — 5 рычагов
             </div>
             <div style={{ display: "grid", gap: 10 }}>
-              {PILOT_GEO.levers.map((l, i) => (
+              {PD.geo.levers.map((l, i) => (
                 <Reveal key={i} delay={i * 40}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -1105,11 +1051,11 @@ export function KpProposal({
                 <LineChart size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
                 <span style={{ fontSize: 15, fontWeight: 800 }}>Как честно замеряем результат</span>
               </div>
-              <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{PILOT_GEO.method.intro}</p>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PILOT_GEO.method.metric}</div>
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{PD.geo.method.intro}</p>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PD.geo.method.metric}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Примеры контрольных вопросов</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {PILOT_GEO.method.questions.map((q, i) => (
+                {PD.geo.method.questions.map((q, i) => (
                   <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>«{q}»</span>
                 ))}
               </div>
@@ -1120,7 +1066,7 @@ export function KpProposal({
               Прогноз по GEO-каналу
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              {PILOT_GEO.forecast.map((f, i) => (
+              {PD.geo.forecast.map((f, i) => (
                 <Reveal key={i} delay={i * 60}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "16px" }}>
@@ -1146,7 +1092,7 @@ export function KpProposal({
           >
             <div style={{ display: "grid", gap: 10 }}>
               {positionCheck.results.map((r, i) => {
-                const diagnosis = pilotOffer ? PILOT_POSITION_DIAGNOSIS[r.keyword.toLowerCase().trim()] : undefined;
+                const diagnosis = pilotOffer ? PD.positionDiagnosis[r.keyword.toLowerCase().trim()] : undefined;
                 return (
                 <Reveal key={i} delay={Math.min(i, 8) * 50}>
                   {() => (
@@ -1234,7 +1180,7 @@ export function KpProposal({
         {pilotOffer && (
           <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Разовый вход с фиксированной ценой + два месячных направления — внутренняя оптимизация уже входит в тариф СЕО+ГЕО">
             <div style={{ display: "grid", gap: 16 }}>
-              {PILOT_OFFERS.map((o) => (
+              {PD.offers.map((o) => (
                 <Reveal key={o.n} delay={o.n * 80}>
                   {() => (
                     <div className="ds-card" style={{ padding: "22px 24px", border: "2px solid var(--primary)", boxShadow: "0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent)" }}>
@@ -1296,7 +1242,7 @@ export function KpProposal({
               Дальше — помесячно
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
-              {PILOT_MONTHLY.map((m, i) => (
+              {PD.monthly.map((m, i) => (
                 <Reveal key={m.name} delay={i * 70}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
@@ -1320,7 +1266,7 @@ export function KpProposal({
               Что происходит после старта
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              {PILOT_TIMELINE.map((t, i) => (
+              {PD.timeline.map((t, i) => (
                 <Reveal key={i} delay={i * 60}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
@@ -1334,9 +1280,9 @@ export function KpProposal({
 
             <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 16, padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 14, lineHeight: 1.5 }}>{PILOT_OFFERS_TOTAL}</div>
+                <div style={{ fontSize: 14, lineHeight: 1.5 }}>{PD.offersTotal}</div>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 8, fontSize: 12.5, color: "var(--success)", fontWeight: 600 }}>
-                  <ShieldCheck size={15} style={{ flexShrink: 0 }} /> {PILOT_GUARANTEE}
+                  <ShieldCheck size={15} style={{ flexShrink: 0 }} /> {PD.guarantee}
                 </div>
               </div>
               <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo("cta"); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -1353,7 +1299,7 @@ export function KpProposal({
               Пример формата статей — нажмите, чтобы прочитать
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 16, alignItems: "start" }}>
-              {SEO_PREVIEW_ARTICLES.map((a, i) => {
+              {PD.articles.map((a, i) => {
                 const isOpen = expandedArticle === i;
                 return (
                   <Reveal key={i} delay={i * 70}>
@@ -1398,7 +1344,7 @@ export function KpProposal({
                 Почему такой формат в целом поднимает SEO и особенно ГЕО
               </div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
-                {SEO_GEO_MECHANICS.map((m, i) => (
+                {PD.articleMechanics.map((m, i) => (
                   <li key={i} style={{ display: "flex", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
                     <CheckCircle2 size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {m}
                   </li>
@@ -1411,7 +1357,7 @@ export function KpProposal({
             </div>
             <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 32 }}>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
-                {SEO_MONTH1_FORECAST.map((it, j) => (
+                {PD.month1.map((it, j) => (
                   <li key={j} style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.45 }}>
                     <CheckCircle2 size={17} style={{ color: "var(--success)", flexShrink: 0, marginTop: 1 }} /> {it}
                   </li>
@@ -1438,22 +1384,22 @@ export function KpProposal({
             {/* Формула + допущения */}
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Как считаем</div>
-              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PILOT_FORECAST.formula}</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PD.forecast.formula}</div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                {PILOT_FORECAST.assumptions.map((a, i) => (
+                {PD.forecast.assumptions.map((a, i) => (
                   <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
                     <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
                   </li>
                 ))}
               </ul>
               <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
-                <b>Пример расчёта.</b> {PILOT_FORECAST.example}
+                <b>Пример расчёта.</b> {PD.forecast.example}
               </div>
             </div>
 
             {/* Сценарии по каналам */}
             <div style={{ display: "grid", gap: 12 }}>
-              {PILOT_FORECAST.scenarios.map((s, i) => (
+              {PD.forecast.scenarios.map((s, i) => (
                 <Reveal key={i} delay={i * 70}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
@@ -1478,7 +1424,7 @@ export function KpProposal({
             </div>
 
             {/* График: заявки/мес по каналам (как в эталоне) */}
-            <PilotForecastChart isDark={isDark} />
+            <PilotForecastChart isDark={isDark} data={PD.chart} />
 
             {/* Свод + юнит-экономика: главный аргумент — цифрами, не абзацем */}
             <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
@@ -1486,7 +1432,7 @@ export function KpProposal({
                 <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>Сводный прогноз к 6-му месяцу · юнит-экономика</div>
                 <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
                   <div>
-                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PILOT_FORECAST.totalLow}–{PILOT_FORECAST.totalHigh}</div>
+                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PD.forecast.totalLow}–{PD.forecast.totalHigh}</div>
                     <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>заявок в месяц</div>
                   </div>
                   <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
@@ -1518,7 +1464,7 @@ export function KpProposal({
                   Сейчас запускаем первый поток — 10 компаний на пилотных условиях, их результаты станут первыми публичными кейсами MarketRadar. Условия ниже — специально для первого потока, ниже стандартных.
                 </p>
                 <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
-                  {PILOT_STEPS.map((it, j) => (
+                  {PD.steps.map((it, j) => (
                     <li key={j} style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.5 }}>
                       <CheckCircle2 size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} /> {it}
                     </li>
@@ -1533,7 +1479,7 @@ export function KpProposal({
               </div>
             </div>
 
-            {/* Ценовые карточки переехали в «С чего предлагаем начать» (PILOT_MONTHLY),
+            {/* Ценовые карточки переехали в «С чего предлагаем начать» (PD.monthly),
                 плашка «Старт потока … публичный кейс» убрана по просьбе партнёра. */}
           </Section>
         )}
@@ -1617,7 +1563,7 @@ export function KpProposal({
                   </div>
                   {pilotOffer && (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13.5, opacity: 0.95 }}>
-                      <ShieldCheck size={16} style={{ flexShrink: 0 }} /> {PILOT_GUARANTEE}
+                      <ShieldCheck size={16} style={{ flexShrink: 0 }} /> {PD.guarantee}
                     </div>
                   )}
                   <div style={{ marginTop: 18, fontSize: 14, opacity: 0.85 }}>{contactEmail}</div>
@@ -1759,10 +1705,10 @@ function EvidenceBadge({ level }: { level: Evidence }) {
 const CHART_COLORS_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300"];
 const CHART_COLORS_DARK = ["#3987e5", "#199e70", "#c98500", "#008300"];
 
-function PilotForecastChart({ isDark }: { isDark: boolean }) {
+function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBundle["chart"] }) {
   const [hover, setHover] = useState<number | null>(null);
   const colors = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
-  const { months, series } = PILOT_CHART;
+  const { months, series } = data;
   const totals = months.map((_, m) => series.reduce((s, sr) => s + sr.values[m], 0));
   // Линии (как в эталоне): шкала по максимуму ОДНОЙ серии, не суммы стека.
   const maxV = Math.ceil(Math.max(...series.flatMap((s) => s.values)) / 2) * 2 + 2; // 12 → 14
