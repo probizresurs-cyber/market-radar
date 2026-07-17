@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import * as cheerio from "cheerio";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
-import { scrapeWebsite } from "@/lib/scraper";
+import { scrapeForRebuild, type RebuildScrape } from "@/lib/rebuild-scrape";
+import { getSessionUser } from "@/lib/auth";
+import { query, initDb } from "@/lib/db";
 
-// Пересборка сайта в Astro-проект. Скрейпим реальный сайт → отдаём Claude его
-// контент + найденные SEO/структурные дыры → получаем полный Astro-проект
-// (набор файлов), который воспроизводит контент, но ЧИНИТ проблемы.
-//
-// Большой JSON-вывод (несколько файлов) — держим maxDuration высоким и
-// max_tokens большим. Модель — основная Sonnet проекта.
+// Пересборка сайта в Astro. Модель делает ОДНУ самодостаточную HTML-страницу
+// (инлайн-CSS, реальные картинки, якорная навигация, Schema/meta) — это живое
+// превью. Astro-проект для zip собираем из неё в коде (Layout + index через
+// set:html), чтобы zip выглядел идентично превью и не падал на путях к CSS.
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -23,20 +25,16 @@ export interface AstroFile {
 
 export interface RebuildAstroResult {
   ok: true;
-  source: {
-    url: string;
-    title: string;
-    issues: string[];
-  };
+  id: string;
+  previewUrl: string;
+  source: { url: string; title: string; issues: string[] };
   files: AstroFile[];
   fixes: string[];
   summary: string;
   modelUsed: string;
 }
 
-// Собираем список объективных дыр из ScrapedData — это ФАКТЫ со страницы,
-// не гипотезы. Их же передаём модели как «что обязательно исправить».
-function detectIssues(s: Awaited<ReturnType<typeof scrapeWebsite>>): string[] {
+function detectIssues(s: RebuildScrape): string[] {
   const issues: string[] = [];
   if (!s.metaDescription?.trim()) issues.push("Отсутствует meta description");
   if (s.h1.length === 0) issues.push("Нет ни одного H1 на странице");
@@ -56,55 +54,118 @@ function detectIssues(s: Awaited<ReturnType<typeof scrapeWebsite>>): string[] {
 function buildSystemPrompt(): string {
   return `${ANTI_HALLUCINATION_SHORT}
 
-Ты — senior frontend-инженер, эксперт по Astro (astro.build) и техническому SEO. Твоя задача — пересобрать существующий сайт как чистый, быстрый, SEO-безупречный проект Astro, сохранив ВЕСЬ реальный контент исходной страницы, но исправив технические дыры.
+Ты — топовый веб-дизайнер и frontend-инженер. Пересобираешь существующий сайт как ОДНУ красивую, современную, адаптивную HTML-страницу, сохраняя весь реальный контент, но исправляя технические SEO-дыры и делая дизайн привлекательным.
 
 ЖЁСТКИЕ ПРАВИЛА:
-1. Используй ТОЛЬКО контент, который есть в предоставленных данных страницы. НЕ выдумывай услуги, цены, телефоны, адреса, отзывы, цифры, названия компаний, которых нет во входных данных. Если чего-то нет — не добавляй заглушки с выдуманными фактами; оставь нейтральный текст или пропусти секцию.
-2. Собери НАСТОЯЩИЙ Astro-проект, который собирается командой \`npm install && npm run build\` без ошибок:
-   - package.json (astro в dependencies, актуальная мажорная версия, scripts dev/build/preview)
-   - astro.config.mjs
-   - tsconfig.json
-   - src/layouts/Layout.astro — общий layout с корректными <head>: charset, viewport, title, meta description, canonical, Open Graph, JSON-LD Schema.org
-   - src/pages/index.astro — главная, использующая Layout
-   - при необходимости src/components/*.astro (Header, Hero, Footer и секции по контенту)
-   - public/robots.txt
-   - src/styles/global.css (или inline-стили) — аккуратная адаптивная вёрстка
-   ВАЖНО про sitemap: если подключаешь @astrojs/sitemap, в astro.config.mjs ОБЯЗАТЕЛЬНО задай верхнеуровневый параметр \`site\` с полным URL сайта (например site: "https://example.com") — БЕЗ него @astrojs/sitemap падает на сборке с ошибкой "Cannot read properties of undefined (reading 'reduce')". Точный URL для \`site\` дан во входных данных ниже. Также добавь @astrojs/sitemap в devDependencies package.json.
-3. Исправь ВСЕ перечисленные в задаче проблемы: один смысловой H1, заполненная meta description, alt у всех <img>, Schema.org (подходящий тип: Organization/LocalBusiness/Article — выбери по смыслу контента), viewport, canonical, семантические теги (header/main/section/footer), доступность.
-4. Семантика и производительность: статический HTML (Astro island только если реально нужно), картинки с alt, ленивую загрузку где уместно.
+1. Контент — ТОЛЬКО из предоставленных данных. НЕ выдумывай услуги, цены, телефоны, адреса, отзывы, цифры. Что не дано — не пиши.
+2. Возвращаешь ОДИН самодостаточный HTML-документ (полный: <!doctype html> … </html>):
+   - Весь CSS — ВНУТРИ страницы, в теге <style> в <head>. НИКАКИХ внешних .css файлов и CDN.
+   - Реальные изображения из списка ниже — вставляй по их абсолютным URL (<img src="https://…" alt="осмысленный alt" loading="lazy">). Hero-изображение используй крупным фоном или в первом экране. НЕ выдумывай URL картинок — бери только из списка.
+   - Дизайн: современный, чистый, с продуманной типографикой, отступами, секциями, hover-эффектами, адаптивом (flex/grid, media-queries). Приятная палитра (если дан themeColor — отталкивайся от него). Это должно выглядеть как хороший коммерческий сайт, а не как черновик.
+   - Навигация: <header> с меню; пункты меню — якоря на секции этой же страницы (href="#section-id"), чтобы всё листалось и кликалось в пределах одной страницы. Каждой секции — id.
+   - Секции по смыслу контента: hero, о компании/услугах, проекты/портфолио (галерея реальных картинок), преимущества, отзывы (если есть в данных), контакты, footer.
+   - SEO в <head>: <title>, <meta name="description">, <meta name="viewport">, <link rel="canonical"> (URL дан ниже), Open Graph, и <script type="application/ld+json"> со Schema.org (тип по смыслу: Organization/LocalBusiness/Article).
+   - Семантика: header/main/section/nav/footer, один <h1>, alt у всех <img>, aria-label у интерактивных элементов.
+   - Не подключай внешний JS. Небольшой инлайн-скрипт допустим только для мелочей (например, мобильное меню), но сайт должен полностью работать и без JS.
 
-ФОРМАТ ОТВЕТА — СТРОГО валидный JSON, без markdown-обёртки, без комментариев:
+ФОРМАТ ОТВЕТА — СТРОГО валидный JSON, без markdown-обёртки:
 {
   "summary": "1-2 предложения: что за сайт и что сделано",
   "fixes": ["исправление 1", "исправление 2", ...],
-  "files": [
-    { "path": "package.json", "content": "..." },
-    { "path": "src/pages/index.astro", "content": "..." }
-  ]
+  "html": "<!doctype html>…полный документ…"
 }
-Каждый файл — полный, готовый к работе. Экранируй переносы строк и кавычки в content по правилам JSON.`;
+Поле html — ПОЛНАЯ готовая страница. Экранируй кавычки и переносы строк по правилам JSON.`;
 }
 
-function originOf(url: string): string {
-  try { return new URL(url).origin; } catch { return url.replace(/\/+$/, ""); }
-}
-
-function buildUserPrompt(s: Awaited<ReturnType<typeof scrapeWebsite>>, issues: string[]): string {
+function buildUserPrompt(s: RebuildScrape, issues: string[]): string {
   const parts: string[] = [];
-  parts.push(`Пересобери этот сайт в Astro-проект.`);
-  parts.push(`URL: ${s.url}`);
-  parts.push(`site для astro.config.mjs (используй ровно это значение в параметре site): ${originOf(s.url)}`);
+  parts.push(`Пересобери этот сайт в одну красивую HTML-страницу.`);
+  parts.push(`URL (для canonical и site): ${s.url}`);
   parts.push(`Заголовок (title): ${s.title || "(пусто)"}`);
-  parts.push(`Meta description: ${s.metaDescription || "(отсутствует)"}`);
-  if (s.h1.length) parts.push(`H1 на странице: ${s.h1.join(" | ")}`);
-  if (s.h2.length) parts.push(`H2 на странице: ${s.h2.slice(0, 20).join(" | ")}`);
+  parts.push(`Meta description исходная: ${s.metaDescription || "(отсутствует)"}`);
+  if (s.themeColor) parts.push(`Фирменный цвет (theme-color): ${s.themeColor}`);
+  if (s.h1.length) parts.push(`H1: ${s.h1.join(" | ")}`);
+  if (s.h2.length) parts.push(`H2 (секции): ${s.h2.join(" | ")}`);
+  if (s.h3.length) parts.push(`H3: ${s.h3.slice(0, 20).join(" | ")}`);
+  if (s.navLinks.length) parts.push(`Пункты меню исходного сайта: ${s.navLinks.map(n => n.text).join(", ")}`);
+  if (s.heroImage) parts.push(`Hero-изображение (главный визуал, крупно): ${s.heroImage}`);
+  if (s.images.length) {
+    parts.push(`Доступные изображения (используй по абсолютным URL, только из этого списка):`);
+    parts.push(s.images.map((im, i) => `${i + 1}. ${im.src}${im.alt ? ` — «${im.alt}»` : ""}`).join("\n"));
+  }
   if (Object.keys(s.socialLinks).length)
     parts.push(`Соцсети: ${Object.entries(s.socialLinks).map(([k, v]) => `${k}: ${v}`).join(", ")}`);
-  if (s.techStack.length) parts.push(`Текущий стек: ${s.techStack.join(", ")}`);
-  parts.push(`\nТекстовый контент страницы (выдержка, используй как источник смысла):\n"""\n${s.rawTextSample.slice(0, 6000)}\n"""`);
+  parts.push(`\nТекстовый контент страницы (источник смысла):\n"""\n${s.textContent}\n"""`);
   parts.push(`\nОбязательно исправь эти найденные проблемы:\n${issues.map((i, n) => `${n + 1}. ${i}`).join("\n")}`);
-  parts.push(`\nВерни JSON по заданному формату. Собери связный, современный, адаптивный сайт на реальном контенте выше.`);
+  parts.push(`\nВерни JSON {summary, fixes, html}. html — цельная современная адаптивная страница на реальном контенте и реальных картинках выше.`);
   return parts.join("\n");
+}
+
+// Экранируем строку для вставки в шаблонный литерал Astro (`...`).
+function escapeForTemplate(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+}
+
+// Собираем Astro-проект из готового HTML: Layout несёт <head>, index — <body>
+// (оба через set:html, чтобы Astro не парсил произвольный HTML как шаблон).
+function assembleAstroProject(html: string, origin: string, title: string): AstroFile[] {
+  const $ = cheerio.load(html);
+  const headInner = $("head").html() ?? `<meta charset="utf-8"><title>${title}</title>`;
+  const bodyInner = $("body").html() ?? html;
+
+  const layout = `---
+const { head = "" } = Astro.props;
+---
+<!doctype html>
+<html lang="ru">
+  <head set:html={head}></head>
+  <body>
+    <slot />
+  </body>
+</html>
+`;
+
+  const index = `---
+import Layout from '../layouts/Layout.astro';
+const head = \`${escapeForTemplate(headInner)}\`;
+const body = \`${escapeForTemplate(bodyInner)}\`;
+---
+<Layout head={head}>
+  <Fragment set:html={body} />
+</Layout>
+`;
+
+  const astroConfig = `import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
+
+// site обязателен для @astrojs/sitemap — без него сборка падает.
+export default defineConfig({
+  site: '${origin}',
+  integrations: [sitemap()],
+});
+`;
+
+  const pkg = JSON.stringify({
+    name: "rebuilt-site",
+    type: "module",
+    version: "1.0.0",
+    scripts: { dev: "astro dev", build: "astro build", preview: "astro preview" },
+    dependencies: { astro: "^5.0.0", "@astrojs/sitemap": "^3.2.0" },
+  }, null, 2) + "\n";
+
+  const tsconfig = JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2) + "\n";
+  const robots = `User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap-index.xml\n`;
+  const readme = `# Пересобранный сайт (Astro)\n\nСборка:\n\n\`\`\`\nnpm install\nnpm run build\n\`\`\`\n\nЛокальный просмотр: \`npm run preview\`.\n`;
+
+  return [
+    { path: "package.json", content: pkg },
+    { path: "astro.config.mjs", content: astroConfig },
+    { path: "tsconfig.json", content: tsconfig },
+    { path: "src/layouts/Layout.astro", content: layout },
+    { path: "src/pages/index.astro", content: index },
+    { path: "public/robots.txt", content: robots },
+    { path: "README.md", content: readme },
+  ];
 }
 
 export async function POST(req: Request) {
@@ -112,16 +173,15 @@ export async function POST(req: Request) {
   if (!access.allowed) return access.response;
 
   try {
+    await initDb();
     const body = await req.json().catch(() => ({}));
     const rawUrl: string = typeof body.url === "string" ? body.url.trim() : "";
-    if (!rawUrl) {
-      return NextResponse.json({ ok: false, error: "Укажите URL сайта" }, { status: 400 });
-    }
+    if (!rawUrl) return NextResponse.json({ ok: false, error: "Укажите URL сайта" }, { status: 400 });
 
-    // 1) Скрейпим реальный сайт
-    let scraped: Awaited<ReturnType<typeof scrapeWebsite>>;
+    // 1) Скрейпим сайт (с картинками)
+    let scraped: RebuildScrape;
     try {
-      scraped = await scrapeWebsite(rawUrl);
+      scraped = await scrapeForRebuild(rawUrl);
     } catch (e) {
       await access.log({ endpoint: "rebuild-astro", model: "-", success: false, errorMessage: "scrape failed" });
       return NextResponse.json(
@@ -129,70 +189,72 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-
     const issues = detectIssues(scraped);
 
-    // 2) Генерируем Astro-проект
+    // 2) Генерируем одну самодостаточную страницу
     const started = Date.now();
-    // Стриминг обязателен: при max_tokens 32k SDK иначе бросает
-    // «Streaming is required for operations that may take longer than 10 minutes».
     const { text, modelUsed, error } = await safeAnthropicStream({
       model: MODEL,
       max_tokens: 32000,
       system: buildSystemPrompt(),
       messages: [{ role: "user", content: buildUserPrompt(scraped, issues) }],
-      temperature: 0.4,
+      temperature: 0.5,
     });
-
     if (!text) {
       await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: error?.slice(0, 200) });
       const fe = friendlyAiError(error);
       return NextResponse.json({ ok: false, error: fe.message }, { status: fe.status });
     }
 
-    // 3) Парсим JSON-ответ модели
-    const parsed = extractJson<{ summary?: string; fixes?: string[]; files?: AstroFile[] }>(text);
-    if (!parsed || !Array.isArray(parsed.files) || parsed.files.length === 0) {
-      await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: "bad JSON / no files" });
+    const parsed = extractJson<{ summary?: string; fixes?: string[]; html?: string }>(text);
+    const html = parsed?.html?.trim();
+    if (!html || !/<html[\s>]/i.test(html)) {
+      await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: "bad JSON / no html" });
       return NextResponse.json(
         { ok: false, error: "Модель вернула ответ в неожиданном формате. Попробуйте ещё раз." },
         { status: 502 },
       );
     }
 
-    // Санитизация: только валидные файлы с относительными путями (без ../, без абсолютных)
-    const files = parsed.files
-      .filter((f): f is AstroFile =>
-        !!f && typeof f.path === "string" && typeof f.content === "string" && f.path.length > 0)
-      .map((f) => ({ path: f.path.replace(/^\/+/, "").replace(/\.\.[/\\]/g, ""), content: f.content }))
-      .filter((f) => f.path.length > 0);
+    const files = assembleAstroProject(html, scraped.origin, scraped.title || "Сайт");
 
-    if (files.length === 0) {
-      await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: "no valid files" });
-      return NextResponse.json({ ok: false, error: "Модель не вернула валидных файлов проекта." }, { status: 502 });
+    // 3) Сохраняем для живого превью
+    const id = randomUUID();
+    const session = await getSessionUser().catch(() => null);
+    const snapshot = {
+      previewHtml: html,
+      files,
+      fixes: Array.isArray(parsed?.fixes) ? parsed.fixes : [],
+      summary: typeof parsed?.summary === "string" ? parsed.summary : "",
+      source: { url: scraped.url, title: scraped.title, issues },
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await query(
+        `INSERT INTO astro_rebuilds (id, user_id, source_url, title, snapshot, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [id, session?.userId ?? null, scraped.url, scraped.title || "", JSON.stringify(snapshot)],
+      );
+    } catch (e) {
+      console.error("[rebuild-astro] persist failed:", e);
+      // Не роняем — превью-ссылки не будет, но файлы вернём
     }
 
-    await access.log({
-      endpoint: "rebuild-astro",
-      model: modelUsed,
-      success: true,
-      durationMs: Date.now() - started,
-    });
+    await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: true, durationMs: Date.now() - started });
 
     const result: RebuildAstroResult = {
       ok: true,
+      id,
+      previewUrl: `/api/site-preview/${id}`,
       source: { url: scraped.url, title: scraped.title, issues },
       files,
-      fixes: Array.isArray(parsed.fixes) ? parsed.fixes : [],
-      summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      fixes: snapshot.fixes,
+      summary: snapshot.summary,
       modelUsed,
     };
     return NextResponse.json(result);
   } catch (err) {
     console.error("rebuild-astro error:", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Ошибка сервера" },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Ошибка сервера" }, { status: 500 });
   }
 }

@@ -358,6 +358,21 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_public_shares_user_id ON public_shares(user_id)`);
 
+  // ─── Astro rebuilds (пересборка сайта в Astro + живое превью по ссылке) ─────
+  // snapshot: { previewHtml, files[], fixes[], summary, source, createdAt }.
+  // user_id nullable — превью доступно по прямой ссылке без авторизации.
+  await query(`
+    CREATE TABLE IF NOT EXISTS astro_rebuilds (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      source_url TEXT NOT NULL,
+      title TEXT,
+      snapshot JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_astro_rebuilds_user_id ON astro_rebuilds(user_id)`);
+
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`
     CREATE TABLE IF NOT EXISTS partner_applications (

@@ -87,10 +87,12 @@ export default function AstroRebuildPage() {
 
   const tree = useMemo(() => (result ? buildTree(result.files) : null), [result]);
 
+  const [view, setView] = useState<"preview" | "code">("preview");
+
   const run = async () => {
     const u = url.trim();
     if (!u) { setError("Введите URL сайта"); return; }
-    setLoading(true); setError(null); setResult(null); setActive(null);
+    setLoading(true); setError(null); setResult(null); setActive(null); setView("preview");
     try {
       const res = await fetch("/api/rebuild-astro", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -190,16 +192,30 @@ export default function AstroRebuildPage() {
                   Источник: {result.source.url} · файлов: {result.files.length} · модель: {result.modelUsed}
                 </div>
               </div>
-              <button
-                onClick={downloadZip}
-                disabled={zipping}
-                style={{
-                  height: 42, padding: "0 20px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
-                  background: "var(--success, #059669)", color: "#fff", cursor: zipping ? "default" : "pointer", whiteSpace: "nowrap",
-                }}
-              >
-                {zipping ? "Пакуем…" : "Скачать .zip"}
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {result.previewUrl && (
+                  <a
+                    href={result.previewUrl} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      height: 42, padding: "0 20px", fontSize: 14, fontWeight: 700, borderRadius: 10,
+                      background: "var(--primary, #2a78d6)", color: "#fff", cursor: "pointer", whiteSpace: "nowrap",
+                      display: "inline-flex", alignItems: "center", textDecoration: "none",
+                    }}
+                  >
+                    Открыть сайт ↗
+                  </a>
+                )}
+                <button
+                  onClick={downloadZip}
+                  disabled={zipping}
+                  style={{
+                    height: 42, padding: "0 20px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
+                    background: "var(--success, #059669)", color: "#fff", cursor: zipping ? "default" : "pointer", whiteSpace: "nowrap",
+                  }}
+                >
+                  {zipping ? "Пакуем…" : "Скачать .zip"}
+                </button>
+              </div>
             </div>
 
             {result.source.issues.length > 0 && (
@@ -224,22 +240,56 @@ export default function AstroRebuildPage() {
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) 1fr", gap: 16, alignItems: "start" }}>
-            <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, padding: 8, maxHeight: 560, overflow: "auto" }}>
-              {tree && <TreeView node={tree} depth={0} selected={active?.path ?? ""} onSelect={setActive} />}
-            </div>
-            <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e7eb)", fontSize: 13, fontFamily: "ui-monospace, monospace", color: "var(--muted-foreground, #6b7280)" }}>
-                {active?.path ?? "выберите файл"}
-              </div>
-              <pre style={{
-                margin: 0, padding: 16, fontSize: 12.5, lineHeight: 1.55, overflow: "auto", maxHeight: 520,
-                fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", whiteSpace: "pre",
-              }}>
-                {active?.content ?? ""}
-              </pre>
-            </div>
+          {/* Переключатель: живой сайт / исходники */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            {(["preview", "code"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{
+                  height: 34, padding: "0 16px", fontSize: 13, fontWeight: 600, borderRadius: 8,
+                  border: "1px solid var(--border, #e5e7eb)", cursor: "pointer",
+                  background: view === v ? "var(--primary, #2a78d6)" : "transparent",
+                  color: view === v ? "#fff" : "inherit",
+                }}
+              >
+                {v === "preview" ? "Живой сайт" : "Исходники"}
+              </button>
+            ))}
           </div>
+
+          {view === "preview" ? (
+            <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+              {result.previewUrl ? (
+                <iframe
+                  src={result.previewUrl}
+                  title="Превью пересобранного сайта"
+                  style={{ width: "100%", height: 640, border: "none", display: "block" }}
+                />
+              ) : (
+                <div style={{ padding: 40, textAlign: "center", color: "var(--muted-foreground, #6b7280)" }}>
+                  Живое превью недоступно (не удалось сохранить). Скачайте .zip и запустите локально.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) 1fr", gap: 16, alignItems: "start" }}>
+              <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, padding: 8, maxHeight: 560, overflow: "auto" }}>
+                {tree && <TreeView node={tree} depth={0} selected={active?.path ?? ""} onSelect={setActive} />}
+              </div>
+              <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e7eb)", fontSize: 13, fontFamily: "ui-monospace, monospace", color: "var(--muted-foreground, #6b7280)" }}>
+                  {active?.path ?? "выберите файл"}
+                </div>
+                <pre style={{
+                  margin: 0, padding: 16, fontSize: 12.5, lineHeight: 1.55, overflow: "auto", maxHeight: 520,
+                  fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", whiteSpace: "pre",
+                }}>
+                  {active?.content ?? ""}
+                </pre>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
