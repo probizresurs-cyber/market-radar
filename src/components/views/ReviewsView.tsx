@@ -8,25 +8,60 @@ import { AISummary } from "@/components/ui/AISummary";
 import { SentimentTimeline } from "@/components/ui/SentimentTimeline";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
-export function ReviewsView({ c, companyName, domain, niche }: {
+/** LS-ключ хранилища отзывов. uid уже скоуплен по workspace+профилю. */
+export function reviewsStorageKey(uid: string): string {
+  return `mr_reviews_${uid}`;
+}
+
+/** Что лежит в localStorage: результат авто-сбора + AI-анализ. */
+export interface ReviewsStore {
+  reviews: Review[];
+  analysis: ReviewAnalysis | null;
+  log: string[];
+  fetchedAt: string;
+}
+
+function readReviewsStore(storageKey?: string): ReviewsStore | null {
+  if (!storageKey || typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as ReviewsStore;
+    return Array.isArray(s?.reviews) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+export function ReviewsView({ c, companyName, domain, niche, storageKey }: {
   c: Colors;
   companyName: string;
   /** Домен компании — улучшает результат search-maps (URL + name-derivative). */
   domain?: string;
   /** Ниша/описание — добавляется как ключ к запросу. */
   niche?: string;
+  /**
+   * Ключ localStorage для сохранения отзывов между заходами. Раньше отзывы
+   * жили только в стейте: юзер уходил со вкладки — всё терялось, и каждый
+   * заход заново дёргал Google/Яндекс/2ГИС. Если ключ задан — гидрируемся
+   * из него (в т.ч. результатами авто-сбора из мастера) и пишем обратно.
+   */
+  storageKey?: string;
 }) {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [analysis, setAnalysis] = useState<ReviewAnalysis | null>(null);
+  const stored = React.useMemo(() => readReviewsStore(storageKey), [storageKey]);
+  const [reviews, setReviews] = useState<Review[]>(stored?.reviews ?? []);
+  const [analysis, setAnalysis] = useState<ReviewAnalysis | null>(stored?.analysis ?? null);
   const [inputMode, setInputMode] = useState<"paste" | "screenshot" | "2gis">("paste");
   const [pasteText, setPasteText] = useState("");
   const [gisUrl, setGisUrl] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"input" | "reviews" | "analysis">("input");
-  const [autoFetchStatus, setAutoFetchStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [autoFetchLog, setAutoFetchLog] = useState<string[]>([]);
+  const [tab, setTab] = useState<"input" | "reviews" | "analysis">(
+    stored?.analysis ? "analysis" : (stored?.reviews.length ? "reviews" : "input"),
+  );
+  const [autoFetchStatus, setAutoFetchStatus] = useState<"idle" | "loading" | "done" | "error">(stored ? "done" : "idle");
+  const [autoFetchLog, setAutoFetchLog] = useState<string[]>(stored?.log ?? []);
   const [addressInput, setAddressInput] = useState("");
   const [addressSearchName, setAddressSearchName] = useState(companyName);
   // Сколько отзывов тянуть с каждой платформы. По умолчанию 20.
@@ -135,12 +170,25 @@ export function ReviewsView({ c, companyName, domain, niche }: {
     setAutoFetchStatus("done");
   };
 
-  // Auto-fetch from Google + 2GIS on mount when company name is known
+  // Auto-fetch from Google + 2GIS on mount when company name is known.
+  // Если данные уже есть (собраны мастером или прошлым заходом) — не дёргаем
+  // карты заново: юзер сам жмёт «Обновить» в блоке авто-сбора.
   useEffect(() => {
     if (!companyName.trim()) return;
+    if (stored && (stored.reviews.length > 0 || stored.log.length > 0)) return;
     runAutoFetch(companyName);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyName]);
+
+  // Persist: отзывы + анализ переживают уход со вкладки и перезагрузку.
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    if (reviews.length === 0 && !analysis && autoFetchLog.length === 0) return;
+    try {
+      const payload: ReviewsStore = { reviews, analysis, log: autoFetchLog, fetchedAt: new Date().toISOString() };
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch { /* quota — не роняем вкладку */ }
+  }, [reviews, analysis, autoFetchLog, storageKey]);
 
   // Handle screenshot drop/paste
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -166,7 +166,7 @@ import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 
 import { LandingGeneratorView } from "@/components/views/LandingGeneratorView";
 import { PresentationView } from "@/components/views/PresentationView";
-import { ReviewsView } from "@/components/views/ReviewsView";
+import { ReviewsView, reviewsStorageKey, type ReviewsStore } from "@/components/views/ReviewsView";
 import { StoriesView } from "@/components/views/StoriesView";
 import { GeneratedCarouselsView } from "@/components/views/GeneratedCarouselsView";
 import { CJMView, BenchmarksView } from "@/components/views/CJMBenchmarks";
@@ -1220,7 +1220,32 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         })());
       }
     }
-    // Reviews — отдельная вкладка, юзер запускает вручную.
+    if (opts.modules.includes("reviews")) {
+      moduleNames.push("Отзывы");
+      console.info("[wizard] → запускаю runReviewsInBackground", { companyName: result.company.name });
+      tasks.push(
+        runReviewsInBackground(result)
+          .then((n) => {
+            console.info("[wizard] ✓ Отзывы готовы:", n);
+            if (n > 0) {
+              toast({ kind: "success", title: `Отзывы: собрано ${n}`, description: "Разбор тональности готов — раздел «Рынок и отзывы»." });
+            } else {
+              // Честно: не нашли ≠ ошибка. Компании может не быть на картах.
+              toast({
+                kind: "info",
+                title: "Отзывы не найдены на картах",
+                description: "Google / Яндекс / 2ГИС не отдали отзывов по названию. Добавьте их вручную в разделе «Рынок и отзывы».",
+              });
+            }
+          })
+          .catch((e) => {
+            console.error("[wizard] ✗ Отзывы failed:", e);
+            toast({ kind: "error", title: "Сбор отзывов не удался", description: e instanceof Error ? e.message : "Ошибка" });
+          })
+      );
+    } else {
+      console.info("[wizard] ⊘ Отзывы пропускаются — не отмечены в wizard");
+    }
 
     // Сразу показываем info-toast чтобы юзер видел что модули реально запущены
     if (moduleNames.length > 0) {
@@ -1395,6 +1420,68 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     } finally {
       setAutoCompetitorInsightsGenerating(false);
     }
+  };
+
+  // Отзывы — модуль мастера. Раньше галка «Анализ отзывов» в мастере не делала
+  // НИЧЕГО (обработчика просто не было), а ReviewsView собирал отзывы только
+  // при открытии вкладки и держал их в стейте — уход со вкладки всё терял.
+  // Теперь: карты опрашиваются в фоне сразу после анализа, результат + AI-разбор
+  // пишутся в localStorage, вкладка гидрируется из него.
+  // Возвращает число собранных отзывов (0 — честно «не нашли», не ошибка).
+  const runReviewsInBackground = async (company: AnalysisResult): Promise<number> => {
+    const uid = (currentUser?.id ?? "") + profileSuffixRef.current;
+    if (!uid) return 0;
+    const companyName = company.company.name;
+    const payload = { companyName, limit: 20, domain: company.company.url, niche: company.company.description ?? "" };
+    const sources: Array<[string, string]> = [
+      ["/api/fetch-reviews-google", "Google Maps"],
+      ["/api/fetch-reviews-yandex", "Яндекс.Карты"],
+      ["/api/fetch-reviews-2gis", "2ГИС"],
+    ];
+
+    const fetched: Review[] = [];
+    const log: string[] = [];
+    for (const [endpoint, label] of sources) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = await jsonOrThrow(res);
+        const got: Review[] = Array.isArray(json?.data?.reviews) ? json.data.reviews : [];
+        if (json.ok && got.length > 0) {
+          const seen = new Set(fetched.map(r => r.id));
+          fetched.push(...got.filter(r => !seen.has(r.id)));
+          log.push(`${label}: ${got.length} отзывов`);
+        } else {
+          log.push(`${label}: не найдено`);
+        }
+      } catch {
+        log.push(`${label}: ошибка загрузки`);
+      }
+    }
+
+    // AI-разбор — только если есть что разбирать. Без отзывов не выдумываем.
+    let analysis: ReviewAnalysis | null = null;
+    if (fetched.length > 0) {
+      try {
+        const res = await fetch("/api/analyze-reviews", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyName, reviews: fetched }),
+        });
+        const json = await jsonOrThrow(res);
+        if (json.ok) analysis = json.data as ReviewAnalysis;
+        else console.warn("[wizard] analyze-reviews не удался:", json.error);
+      } catch (e) {
+        console.warn("[wizard] analyze-reviews не удался:", e);
+      }
+    }
+
+    try {
+      const store: ReviewsStore = { reviews: fetched, analysis, log, fetchedAt: new Date().toISOString() };
+      localStorage.setItem(reviewsStorageKey(uid), JSON.stringify(store));
+    } catch { /* quota */ }
+    return fetched.length;
   };
 
   const handleNewAnalysis = async (url: string, personalBrand?: { name: string; position: string; parentCompanyContext?: string }): Promise<AnalysisResult | null> => {
@@ -2996,7 +3083,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
             внутри SEOArticlesView. Отдельный geo-* dispatch удалён. */}
         {activeNav === "reviews-analysis" && (
           featureOn("reviews-analysis")
-            ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} domain={myCompany?.company.url} niche={myCompany?.company.description ?? ""} />
+            ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} domain={myCompany?.company.url} niche={myCompany?.company.description ?? ""} storageKey={workspaceLsId ? reviewsStorageKey(workspaceLsId) : undefined} />
             : <ComingSoonView c={c} featureId="reviews-analysis" title={features.labels["reviews-analysis"] ?? "Рынок и отзывы"} description={features.descriptions["reviews-analysis"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "brand-presentation" && (
