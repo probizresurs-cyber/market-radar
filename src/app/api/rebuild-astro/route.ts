@@ -68,8 +68,8 @@ function buildSystemPrompt(): string {
    - src/pages/index.astro — главная, использующая Layout
    - при необходимости src/components/*.astro (Header, Hero, Footer и секции по контенту)
    - public/robots.txt
-   - astro.config или интеграция @astrojs/sitemap для sitemap.xml
    - src/styles/global.css (или inline-стили) — аккуратная адаптивная вёрстка
+   ВАЖНО про sitemap: если подключаешь @astrojs/sitemap, в astro.config.mjs ОБЯЗАТЕЛЬНО задай верхнеуровневый параметр \`site\` с полным URL сайта (например site: "https://example.com") — БЕЗ него @astrojs/sitemap падает на сборке с ошибкой "Cannot read properties of undefined (reading 'reduce')". Точный URL для \`site\` дан во входных данных ниже. Также добавь @astrojs/sitemap в devDependencies package.json.
 3. Исправь ВСЕ перечисленные в задаче проблемы: один смысловой H1, заполненная meta description, alt у всех <img>, Schema.org (подходящий тип: Organization/LocalBusiness/Article — выбери по смыслу контента), viewport, canonical, семантические теги (header/main/section/footer), доступность.
 4. Семантика и производительность: статический HTML (Astro island только если реально нужно), картинки с alt, ленивую загрузку где уместно.
 
@@ -85,10 +85,15 @@ function buildSystemPrompt(): string {
 Каждый файл — полный, готовый к работе. Экранируй переносы строк и кавычки в content по правилам JSON.`;
 }
 
+function originOf(url: string): string {
+  try { return new URL(url).origin; } catch { return url.replace(/\/+$/, ""); }
+}
+
 function buildUserPrompt(s: Awaited<ReturnType<typeof scrapeWebsite>>, issues: string[]): string {
   const parts: string[] = [];
   parts.push(`Пересобери этот сайт в Astro-проект.`);
   parts.push(`URL: ${s.url}`);
+  parts.push(`site для astro.config.mjs (используй ровно это значение в параметре site): ${originOf(s.url)}`);
   parts.push(`Заголовок (title): ${s.title || "(пусто)"}`);
   parts.push(`Meta description: ${s.metaDescription || "(отсутствует)"}`);
   if (s.h1.length) parts.push(`H1 на странице: ${s.h1.join(" | ")}`);
