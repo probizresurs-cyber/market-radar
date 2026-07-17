@@ -16,6 +16,8 @@ const USER_AGENT =
 export interface RebuildScrape {
   url: string;
   origin: string;
+  /** Сырой HTML исходной страницы — для сохранения дизайна 1:1. */
+  html: string;
   title: string;
   metaDescription: string;
   h1: string[];
@@ -194,7 +196,7 @@ export async function scrapeForRebuild(rawUrl: string): Promise<RebuildScrape> {
   ]);
 
   return {
-    url: finalUrl, origin, title, metaDescription,
+    url: finalUrl, origin, html, title, metaDescription,
     h1, h2, h3, navLinks, images, heroImage, ogImage, themeColor, socialLinks, techStack, textContent,
     imageCount, imagesWithAlt, hasSchemaMarkup, hasCanonical, hasViewport, hasSitemap, hasRobotsTxt, isHttps, jsHeavy,
   };

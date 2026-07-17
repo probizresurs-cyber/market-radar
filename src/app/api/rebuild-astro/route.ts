@@ -2,19 +2,19 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import * as cheerio from "cheerio";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
-import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
+import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import { scrapeForRebuild, type RebuildScrape } from "@/lib/rebuild-scrape";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 
-// Пересборка сайта в Astro. Модель делает ОДНУ самодостаточную HTML-страницу
-// (инлайн-CSS, реальные картинки, якорная навигация, Schema/meta) — это живое
-// превью. Astro-проект для zip собираем из неё в коде (Layout + index через
-// set:html), чтобы zip выглядел идентично превью и не падал на путях к CSS.
+// Пересборка сайта в Astro С СОХРАНЕНИЕМ ДИЗАЙНА 1:1.
+// НЕ пересоздаём дизайн через AI — берём оригинальную вёрстку (весь HTML/CSS,
+// картинки, видео) как есть и хирургически правим только «внутряк»: absolutize
+// ссылок на ассеты (чтобы всё грузилось), meta description, H1, alt, Schema.org,
+// canonical, viewport. AI нужен по минимуму — только текст meta и Schema.
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 180;
 
 const MODEL = "claude-sonnet-4-6";
 
@@ -47,67 +47,190 @@ function detectIssues(s: RebuildScrape): string[] {
   if (!s.hasSitemap) issues.push("Нет sitemap.xml");
   if (!s.hasRobotsTxt) issues.push("Нет robots.txt");
   if (!s.isHttps) issues.push("Сайт не на HTTPS");
-  if (s.jsHeavy) issues.push("Тяжёлый JS-рендеринг — контент недоступен без выполнения скриптов (плохо для SEO/GEO)");
   return issues;
 }
 
-function buildSystemPrompt(): string {
-  return `${ANTI_HALLUCINATION_SHORT}
+// ─── AI: только SEO-текст (meta description + Schema.org), не дизайн ──────────
+async function generateSeoMeta(s: RebuildScrape): Promise<{
+  metaDescription: string; schema: unknown; modelUsed: string;
+}> {
+  const system = `${ANTI_HALLUCINATION_SHORT}
 
-Ты — топовый веб-дизайнер и frontend-инженер. Пересобираешь существующий сайт как ОДНУ красивую, современную, адаптивную HTML-страницу, сохраняя весь реальный контент, но исправляя технические SEO-дыры и делая дизайн привлекательным.
-
-ЖЁСТКИЕ ПРАВИЛА:
-1. Контент — ТОЛЬКО из предоставленных данных. НЕ выдумывай услуги, цены, телефоны, адреса, отзывы, цифры. Что не дано — не пиши.
-2. Возвращаешь ОДИН самодостаточный HTML-документ (полный: <!doctype html> … </html>):
-   - Весь CSS — ВНУТРИ страницы, в теге <style> в <head>. НИКАКИХ внешних .css файлов и CDN.
-   - Реальные изображения из списка ниже — вставляй по их абсолютным URL (<img src="https://…" alt="осмысленный alt" loading="lazy">). Hero-изображение используй крупным фоном или в первом экране. НЕ выдумывай URL картинок — бери только из списка.
-   - Дизайн: современный, чистый, с продуманной типографикой, отступами, секциями, hover-эффектами, адаптивом (flex/grid, media-queries). Приятная палитра (если дан themeColor — отталкивайся от него). Это должно выглядеть как хороший коммерческий сайт, а не как черновик.
-   - Навигация: <header> с меню; пункты меню — якоря на секции этой же страницы (href="#section-id"), чтобы всё листалось и кликалось в пределах одной страницы. Каждой секции — id.
-   - Секции по смыслу контента: hero, о компании/услугах, проекты/портфолио (галерея реальных картинок), преимущества, отзывы (если есть в данных), контакты, footer.
-   - SEO в <head>: <title>, <meta name="description">, <meta name="viewport">, <link rel="canonical"> (URL дан ниже), Open Graph, и <script type="application/ld+json"> со Schema.org (тип по смыслу: Organization/LocalBusiness/Article).
-   - Семантика: header/main/section/nav/footer, один <h1>, alt у всех <img>, aria-label у интерактивных элементов.
-   - Не подключай внешний JS. Небольшой инлайн-скрипт допустим только для мелочей (например, мобильное меню), но сайт должен полностью работать и без JS.
-
-ФОРМАТ ОТВЕТА — СТРОГО валидный JSON, без markdown-обёртки:
+Ты — SEO-специалист. По данным страницы верни JSON:
 {
-  "summary": "1-2 предложения: что за сайт и что сделано",
-  "fixes": ["исправление 1", "исправление 2", ...],
-  "html": "<!doctype html>…полный документ…"
+  "metaDescription": "160-символьное описание на русском, из реального контента, без выдумок",
+  "schema": { … валидный объект Schema.org JSON-LD (@context/@type), тип по смыслу: Organization/LocalBusiness/Article — только реальные данные, без выдуманных телефонов/адресов/цен … }
 }
-Поле html — ПОЛНАЯ готовая страница. Экранируй кавычки и переносы строк по правилам JSON.`;
+Только JSON, без обёрток.`;
+  const user = [
+    `Сайт: ${s.url}`,
+    `Title: ${s.title}`,
+    s.h1.length ? `H1: ${s.h1.join(" | ")}` : "",
+    s.h2.length ? `H2: ${s.h2.slice(0, 10).join(" | ")}` : "",
+    Object.keys(s.socialLinks).length ? `Соцсети: ${Object.values(s.socialLinks).join(", ")}` : "",
+    `Текст: ${s.textContent.slice(0, 2500)}`,
+  ].filter(Boolean).join("\n");
+
+  const { text, modelUsed } = await safeAnthropicCreate({
+    model: MODEL, max_tokens: 1500, system,
+    messages: [{ role: "user", content: user }], temperature: 0.3,
+  });
+  const parsed = extractJson<{ metaDescription?: string; schema?: unknown }>(text) ?? {};
+  return {
+    metaDescription: typeof parsed.metaDescription === "string" ? parsed.metaDescription : "",
+    schema: parsed.schema ?? null,
+    modelUsed,
+  };
 }
 
-function buildUserPrompt(s: RebuildScrape, issues: string[]): string {
-  const parts: string[] = [];
-  parts.push(`Пересобери этот сайт в одну красивую HTML-страницу.`);
-  parts.push(`URL (для canonical и site): ${s.url}`);
-  parts.push(`Заголовок (title): ${s.title || "(пусто)"}`);
-  parts.push(`Meta description исходная: ${s.metaDescription || "(отсутствует)"}`);
-  if (s.themeColor) parts.push(`Фирменный цвет (theme-color): ${s.themeColor}`);
-  if (s.h1.length) parts.push(`H1: ${s.h1.join(" | ")}`);
-  if (s.h2.length) parts.push(`H2 (секции): ${s.h2.join(" | ")}`);
-  if (s.h3.length) parts.push(`H3: ${s.h3.slice(0, 20).join(" | ")}`);
-  if (s.navLinks.length) parts.push(`Пункты меню исходного сайта: ${s.navLinks.map(n => n.text).join(", ")}`);
-  if (s.heroImage) parts.push(`Hero-изображение (главный визуал, крупно): ${s.heroImage}`);
-  if (s.images.length) {
-    parts.push(`Доступные изображения (используй по абсолютным URL, только из этого списка):`);
-    parts.push(s.images.map((im, i) => `${i + 1}. ${im.src}${im.alt ? ` — «${im.alt}»` : ""}`).join("\n"));
+// ─── DOM-хирургия: сохраняем дизайн, правим только внутряк ────────────────────
+function absUrl(raw: string | undefined, base: string): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s || s.startsWith("data:") || s.startsWith("#") || s.startsWith("mailto:") ||
+      s.startsWith("tel:") || s.startsWith("javascript:")) return null;
+  try { return new URL(s, base).href; } catch { return null; }
+}
+
+function absolutizeSrcset(val: string, base: string): string {
+  return val.split(",").map((part) => {
+    const seg = part.trim();
+    const sp = seg.indexOf(" ");
+    const u = sp === -1 ? seg : seg.slice(0, sp);
+    const rest = sp === -1 ? "" : seg.slice(sp);
+    const abs = absUrl(u, base);
+    return (abs ?? u) + rest;
+  }).join(", ");
+}
+
+function humanizeAlt(src: string, fallback: string): string {
+  try {
+    const file = decodeURIComponent(new URL(src).pathname.split("/").pop() || "");
+    const name = file.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").trim();
+    return name.length >= 3 ? name : fallback;
+  } catch { return fallback; }
+}
+
+// Возвращает исправленный полный HTML + список реально применённых правок.
+function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: string; schema: unknown }): {
+  html: string; fixes: string[];
+} {
+  const $ = cheerio.load(rawHtml);
+  const base = s.url;
+  const fixes: string[] = [];
+
+  // 1) Absolutize всех ссылок на ассеты — чтобы CSS/картинки/видео грузились
+  //    из оригинального домена и дизайн отображался 1:1.
+  const attrMap: Array<[string, string]> = [
+    ["link[href]", "href"], ["script[src]", "src"], ["img[src]", "src"],
+    ["img[data-src]", "data-src"], ["source[src]", "src"], ["video[src]", "src"],
+    ["video[poster]", "poster"], ["audio[src]", "src"], ["object[data]", "data"],
+    ["use[href]", "href"], ["embed[src]", "src"], ["iframe[src]", "src"],
+  ];
+  for (const [sel, attr] of attrMap) {
+    $(sel).each((_, el) => {
+      const abs = absUrl($(el).attr(attr), base);
+      if (abs) $(el).attr(attr, abs);
+    });
   }
-  if (Object.keys(s.socialLinks).length)
-    parts.push(`Соцсети: ${Object.entries(s.socialLinks).map(([k, v]) => `${k}: ${v}`).join(", ")}`);
-  parts.push(`\nТекстовый контент страницы (источник смысла):\n"""\n${s.textContent}\n"""`);
-  parts.push(`\nОбязательно исправь эти найденные проблемы:\n${issues.map((i, n) => `${n + 1}. ${i}`).join("\n")}`);
-  parts.push(`\nВерни JSON {summary, fixes, html}. html — цельная современная адаптивная страница на реальном контенте и реальных картинках выше.`);
-  return parts.join("\n");
+  // srcset (img, source)
+  $("img[srcset], source[srcset]").each((_, el) => {
+    const v = $(el).attr("srcset");
+    if (v) $(el).attr("srcset", absolutizeSrcset(v, base));
+  });
+  // relative <a href> → absolute (чтобы ссылки вели на оригинал, а не в никуда)
+  $("a[href]").each((_, el) => {
+    const href = $(el).attr("href") ?? "";
+    if (href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+    const abs = absUrl(href, base);
+    if (abs) $(el).attr("href", abs);
+  });
+  // background-image: url(...) в inline style
+  $("[style]").each((_, el) => {
+    const style = $(el).attr("style") ?? "";
+    if (/url\(/i.test(style)) {
+      const fixed = style.replace(/url\((['"]?)([^'")]+)\1\)/gi, (m, q, u) => {
+        const abs = absUrl(u, base);
+        return abs ? `url(${q}${abs}${q})` : m;
+      });
+      $(el).attr("style", fixed);
+    }
+  });
+  fixes.push("Все ссылки на CSS, картинки и видео сделаны абсолютными — дизайн грузится 1:1");
+
+  const head = $("head");
+
+  // 2) charset + viewport
+  if (!head.find('meta[charset]').length) head.prepend('<meta charset="utf-8">');
+  if (!$('meta[name="viewport"]').length) {
+    head.append('<meta name="viewport" content="width=device-width, initial-scale=1">');
+    fixes.push("Добавлен viewport — корректная адаптация под мобильные");
+  }
+
+  // 3) meta description
+  if (!$('meta[name="description"]').attr("content")?.trim() && seo.metaDescription) {
+    head.append(`<meta name="description" content="${seo.metaDescription.replace(/"/g, "&quot;")}">`);
+    fixes.push("Добавлена meta description");
+  }
+
+  // 4) canonical
+  if (!$('link[rel="canonical"]').length) {
+    head.append(`<link rel="canonical" href="${s.url}">`);
+    fixes.push("Добавлен canonical");
+  }
+
+  // 5) Open Graph (если нет)
+  if (!$('meta[property="og:title"]').length) {
+    const ogDesc = seo.metaDescription || s.metaDescription || "";
+    head.append(`<meta property="og:title" content="${(s.title || "").replace(/"/g, "&quot;")}">`);
+    if (ogDesc) head.append(`<meta property="og:description" content="${ogDesc.replace(/"/g, "&quot;")}">`);
+    head.append(`<meta property="og:url" content="${s.url}">`);
+    head.append(`<meta property="og:type" content="website">`);
+    if (s.heroImage) head.append(`<meta property="og:image" content="${s.heroImage}">`);
+    fixes.push("Добавлены Open Graph теги (превью в соцсетях/мессенджерах)");
+  }
+
+  // 6) Schema.org JSON-LD
+  if (!$('script[type="application/ld+json"]').length && seo.schema) {
+    head.append(`<script type="application/ld+json">${JSON.stringify(seo.schema)}</script>`);
+    fixes.push("Добавлена разметка Schema.org (structured data)");
+  }
+
+  // 7) H1: если нет ни одного — повышаем первый заметный заголовок до H1,
+  //    сохраняя все классы/атрибуты (дизайн не меняется, меняется только тег).
+  if ($("h1").length === 0) {
+    const cand = $("h2").first();
+    if (cand.length) {
+      const attrs = (cand[0] as unknown as { attribs: Record<string, string> }).attribs || {};
+      const inner = cand.html() ?? "";
+      const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${String(v).replace(/"/g, "&quot;")}"`).join(" ");
+      cand.replaceWith(`<h1 ${attrStr}>${inner}</h1>`);
+      fixes.push("Первый заголовок повышен до единственного H1 (без изменения вида)");
+    }
+  }
+
+  // 8) alt у изображений без alt
+  let altAdded = 0;
+  $("img").each((_, el) => {
+    const alt = ($(el).attr("alt") ?? "").trim();
+    if (!alt) {
+      const src = $(el).attr("src") || $(el).attr("data-src") || "";
+      $(el).attr("alt", src ? humanizeAlt(src, s.title || "изображение") : (s.title || "изображение"));
+      altAdded++;
+    }
+  });
+  if (altAdded > 0) fixes.push(`Проставлен alt у ${altAdded} изображений без описания`);
+
+  return { html: $.html(), fixes };
 }
 
 // Экранируем строку для вставки в шаблонный литерал Astro (`...`).
-function escapeForTemplate(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+function escapeForTemplate(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
 }
 
-// Собираем Astro-проект из готового HTML: Layout несёт <head>, index — <body>
-// (оба через set:html, чтобы Astro не парсил произвольный HTML как шаблон).
+// Собираем Astro-проект из исправленного HTML: Layout несёт <head>, index —
+// <body> (оба через set:html, чтобы Astro не парсил чужой HTML как шаблон).
 function assembleAstroProject(html: string, origin: string, title: string): AstroFile[] {
   const $ = cheerio.load(html);
   const headInner = $("head").html() ?? `<meta charset="utf-8"><title>${title}</title>`;
@@ -124,7 +247,6 @@ const { head = "" } = Astro.props;
   </body>
 </html>
 `;
-
   const index = `---
 import Layout from '../layouts/Layout.astro';
 const head = \`${escapeForTemplate(headInner)}\`;
@@ -134,7 +256,6 @@ const body = \`${escapeForTemplate(bodyInner)}\`;
   <Fragment set:html={body} />
 </Layout>
 `;
-
   const astroConfig = `import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 
@@ -144,18 +265,14 @@ export default defineConfig({
   integrations: [sitemap()],
 });
 `;
-
   const pkg = JSON.stringify({
-    name: "rebuilt-site",
-    type: "module",
-    version: "1.0.0",
+    name: "rebuilt-site", type: "module", version: "1.0.0",
     scripts: { dev: "astro dev", build: "astro build", preview: "astro preview" },
     dependencies: { astro: "^5.0.0", "@astrojs/sitemap": "^3.2.0" },
   }, null, 2) + "\n";
-
   const tsconfig = JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2) + "\n";
   const robots = `User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap-index.xml\n`;
-  const readme = `# Пересобранный сайт (Astro)\n\nСборка:\n\n\`\`\`\nnpm install\nnpm run build\n\`\`\`\n\nЛокальный просмотр: \`npm run preview\`.\n`;
+  const readme = `# Пересобранный сайт (Astro)\n\nДизайн сохранён 1:1, исправлен технический внутряк (SEO).\n\n\`\`\`\nnpm install\nnpm run build\n\`\`\`\n\nПросмотр: \`npm run preview\`.\n\nЗамечание: внешние ассеты (картинки, видео, шрифты) подгружаются с оригинального домена.\n`;
 
   return [
     { path: "package.json", content: pkg },
@@ -178,7 +295,7 @@ export async function POST(req: Request) {
     const rawUrl: string = typeof body.url === "string" ? body.url.trim() : "";
     if (!rawUrl) return NextResponse.json({ ok: false, error: "Укажите URL сайта" }, { status: 400 });
 
-    // 1) Скрейпим сайт (с картинками)
+    // 1) Скрейпим сайт (сырой HTML + метаданные)
     let scraped: RebuildScrape;
     try {
       scraped = await scrapeForRebuild(rawUrl);
@@ -191,41 +308,27 @@ export async function POST(req: Request) {
     }
     const issues = detectIssues(scraped);
 
-    // 2) Генерируем одну самодостаточную страницу
+    // 2) AI генерирует ТОЛЬКО SEO-текст (meta + schema), не дизайн
     const started = Date.now();
-    const { text, modelUsed, error } = await safeAnthropicStream({
-      model: MODEL,
-      max_tokens: 32000,
-      system: buildSystemPrompt(),
-      messages: [{ role: "user", content: buildUserPrompt(scraped, issues) }],
-      temperature: 0.5,
-    });
-    if (!text) {
-      await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: error?.slice(0, 200) });
-      const fe = friendlyAiError(error);
-      return NextResponse.json({ ok: false, error: fe.message }, { status: fe.status });
+    let seo = { metaDescription: "", schema: null as unknown, modelUsed: MODEL };
+    try {
+      seo = await generateSeoMeta(scraped);
+    } catch (e) {
+      console.warn("[rebuild-astro] SEO meta gen failed, continue without:", e);
     }
 
-    const parsed = extractJson<{ summary?: string; fixes?: string[]; html?: string }>(text);
-    const html = parsed?.html?.trim();
-    if (!html || !/<html[\s>]/i.test(html)) {
-      await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: false, errorMessage: "bad JSON / no html" });
-      return NextResponse.json(
-        { ok: false, error: "Модель вернула ответ в неожиданном формате. Попробуйте ещё раз." },
-        { status: 502 },
-      );
-    }
+    // 3) DOM-хирургия: сохраняем дизайн, правим внутряк
+    const { html: fixedHtml, fixes } = surgicalFix(scraped.html, scraped, seo);
 
-    const files = assembleAstroProject(html, scraped.origin, scraped.title || "Сайт");
+    // 4) Собираем Astro-проект
+    const files = assembleAstroProject(fixedHtml, scraped.origin, scraped.title || "Сайт");
 
-    // 3) Сохраняем для живого превью
+    // 5) Сохраняем для живого превью
     const id = randomUUID();
     const session = await getSessionUser().catch(() => null);
+    const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
     const snapshot = {
-      previewHtml: html,
-      files,
-      fixes: Array.isArray(parsed?.fixes) ? parsed.fixes : [],
-      summary: typeof parsed?.summary === "string" ? parsed.summary : "",
+      previewHtml: fixedHtml, files, fixes, summary,
       source: { url: scraped.url, title: scraped.title, issues },
       createdAt: new Date().toISOString(),
     };
@@ -237,20 +340,14 @@ export async function POST(req: Request) {
       );
     } catch (e) {
       console.error("[rebuild-astro] persist failed:", e);
-      // Не роняем — превью-ссылки не будет, но файлы вернём
     }
 
-    await access.log({ endpoint: "rebuild-astro", model: modelUsed, success: true, durationMs: Date.now() - started });
+    await access.log({ endpoint: "rebuild-astro", model: seo.modelUsed, success: true, durationMs: Date.now() - started });
 
     const result: RebuildAstroResult = {
-      ok: true,
-      id,
-      previewUrl: `/api/site-preview/${id}`,
+      ok: true, id, previewUrl: `/api/site-preview/${id}`,
       source: { url: scraped.url, title: scraped.title, issues },
-      files,
-      fixes: snapshot.fixes,
-      summary: snapshot.summary,
-      modelUsed,
+      files, fixes, summary, modelUsed: seo.modelUsed,
     };
     return NextResponse.json(result);
   } catch (err) {
