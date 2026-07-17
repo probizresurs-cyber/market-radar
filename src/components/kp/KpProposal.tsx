@@ -1650,7 +1650,9 @@ export function KpProposal({
           )}
 
           <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12, marginTop: 24 }}>
-            Данные подготовлены платформой MarketRadar{company.analyzedAt ? ` · ${new Date(company.analyzedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
+            {pilotOffer
+              ? "Аудит выполнен вручную командой MarketRadar · данные проверены 15–16 июля 2026 · прогнозы — расчётная модель, помечены как ПРОГНОЗ"
+              : <>Данные подготовлены платформой MarketRadar{company.analyzedAt ? ` · ${new Date(company.analyzedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}` : ""}</>}
           </div>
         </Section>
       </main>
@@ -1762,13 +1764,27 @@ function PilotForecastChart({ isDark }: { isDark: boolean }) {
   const colors = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
   const { months, series } = PILOT_CHART;
   const totals = months.map((_, m) => series.reduce((s, sr) => s + sr.values[m], 0));
-  const maxV = Math.ceil(Math.max(...totals) / 5) * 5 + 2; // до 28
+  // Линии (как в эталоне): шкала по максимуму ОДНОЙ серии, не суммы стека.
+  const maxV = Math.ceil(Math.max(...series.flatMap((s) => s.values)) / 2) * 2 + 2; // 12 → 14
 
-  const W = 680, H = 280, padL = 34, padB = 30, padT = 18, padR = 8;
+  const W = 680, H = 280, padL = 34, padB = 30, padT = 16, padR = 150; // справа место под подписи серий
   const plotW = W - padL - padR, plotH = H - padT - padB;
-  const barW = Math.min(56, (plotW / months.length) * 0.55);
-  const xOf = (m: number) => padL + (plotW / months.length) * (m + 0.5) - barW / 2;
+  const xOf = (m: number) => padL + (plotW / (months.length - 1)) * m;
   const yOf = (v: number) => padT + plotH - (v / maxV) * plotH;
+  const fmt = (v: number) => (v % 1 === 0 ? String(v) : v.toFixed(1).replace(".", ","));
+
+  // Подписи серий у последних точек: разводим коллизии (мин. зазор 16px),
+  // сохраняя порядок сверху-вниз — иначе близкие финальные значения слипаются.
+  const lastIdx = months.length - 1;
+  const labelYs = (() => {
+    const order = series.map((s, i) => ({ i, y: yOf(s.values[lastIdx]) })).sort((a, b) => a.y - b.y);
+    for (let k = 1; k < order.length; k++) {
+      if (order[k].y < order[k - 1].y + 19) order[k].y = order[k - 1].y + 19;
+    }
+    const out: number[] = [];
+    order.forEach((o) => { out[o.i] = o.y; });
+    return out;
+  })();
 
   return (
     <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, marginBottom: 16 }}>
@@ -1788,52 +1804,51 @@ function PilotForecastChart({ isDark }: { isDark: boolean }) {
       </div>
 
       <div style={{ position: "relative", overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: 480 }} role="img" aria-label="Прогноз дополнительных заявок в месяц по четырём каналам, месяцы 1–6">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: 520 }} role="img" aria-label="Прогноз дополнительных заявок в месяц по четырём каналам, месяцы 1–6">
           {/* Сетка — рецессивные hairline-линии + подписи оси Y текстовыми токенами */}
-          {[0, 10, 20].map((v) => (
+          {[0, 5, 10].map((v) => (
             <g key={v}>
-              <line x1={padL} x2={W - padR} y1={yOf(v)} y2={yOf(v)} stroke="var(--border)" strokeWidth={1} />
+              <line x1={padL} x2={W - padR + 8} y1={yOf(v)} y2={yOf(v)} stroke="var(--border)" strokeWidth={1} />
               <text x={padL - 6} y={yOf(v) + 4} textAnchor="end" fontSize={10.5} fill="var(--muted-foreground)">{v}</text>
             </g>
           ))}
-          {months.map((mLabel, m) => {
-            let acc = 0;
-            const x = xOf(m);
-            const dimmed = hover != null && hover !== m;
-            return (
-              <g key={m} opacity={dimmed ? 0.45 : 1} style={{ transition: "opacity 0.15s" }}
-                 onMouseEnter={() => setHover(m)} onMouseLeave={() => setHover(null)}>
-                {/* Невидимая зона наведения на всю колонку месяца */}
-                <rect x={padL + (plotW / months.length) * m} y={padT} width={plotW / months.length} height={plotH + padB} fill="transparent" />
-                {series.map((s, i) => {
-                  const v = s.values[m];
-                  if (v <= 0) { return null; }
-                  const y1 = yOf(acc + v), y0 = yOf(acc);
-                  acc += v;
-                  const isTop = acc === totals[m];
-                  const h = Math.max(1, y0 - y1 - 2); // 2px зазор поверхности между сегментами
-                  return isTop ? (
-                    <path key={s.name} d={`M ${x} ${y1 + 4} Q ${x} ${y1} ${x + 4} ${y1} H ${x + barW - 4} Q ${x + barW} ${y1} ${x + barW} ${y1 + 4} V ${y1 + h} H ${x} Z`} fill={colors[i]} />
-                  ) : (
-                    <rect key={s.name} x={x} y={y1} width={barW} height={h} fill={colors[i]} />
-                  );
-                })}
-                {/* Прямая подпись итога над колонкой (relief для WARN-контраста) */}
-                <text x={x + barW / 2} y={yOf(totals[m]) - 6} textAnchor="middle" fontSize={11.5} fontWeight={700} fill="var(--foreground)">{totals[m] % 1 === 0 ? totals[m] : totals[m].toFixed(1)}</text>
-                <text x={x + barW / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">{mLabel}</text>
-              </g>
-            );
-          })}
+          {/* Crosshair наведённого месяца */}
+          {hover != null && (
+            <line x1={xOf(hover)} x2={xOf(hover)} y1={padT} y2={padT + plotH} stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+          )}
+          {/* Линии серий (2px, как в эталоне) + точки на наведённом месяце */}
+          {series.map((s, i) => (
+            <g key={s.name}>
+              <path
+                d={s.values.map((v, m) => `${m === 0 ? "M" : "L"} ${xOf(m)} ${yOf(v)}`).join(" ")}
+                fill="none" stroke={colors[i]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+              />
+              {hover != null && (
+                <circle cx={xOf(hover)} cy={yOf(s.values[hover])} r={4} fill={colors[i]} stroke="var(--card)" strokeWidth={2} />
+              )}
+              {/* Прямая подпись серии у последней точки (как в эталоне), с разведением коллизий */}
+              <text x={xOf(lastIdx) + 10} y={labelYs[i] + 4} fontSize={11.5} fontWeight={700} fill="var(--foreground)">
+                {s.name} · {fmt(s.values[lastIdx])}
+              </text>
+            </g>
+          ))}
+          {/* Подписи месяцев + невидимые зоны наведения */}
+          {months.map((mLabel, m) => (
+            <g key={m} onMouseEnter={() => setHover(m)} onMouseLeave={() => setHover(null)}>
+              <rect x={xOf(m) - (plotW / (months.length - 1)) / 2} y={padT} width={plotW / (months.length - 1)} height={plotH + padB} fill="transparent" />
+              <text x={xOf(m)} y={H - 8} textAnchor="middle" fontSize={11} fill={hover === m ? "var(--foreground)" : "var(--muted-foreground)"} fontWeight={hover === m ? 700 : 400}>{mLabel}</text>
+            </g>
+          ))}
         </svg>
         {/* Тултип разбивки по наведённому месяцу */}
         {hover != null && (
           <div style={{ position: "absolute", top: 6, right: 6, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", pointerEvents: "none", minWidth: 170 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{months[hover]} · всего ≈ {totals[hover] % 1 === 0 ? totals[hover] : totals[hover].toFixed(1)}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{months[hover]} · всего ≈ {fmt(totals[hover])}</div>
             {series.map((s, i) => (
               <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 2 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: colors[i], flexShrink: 0 }} />
                 <span style={{ color: "var(--muted-foreground)", flex: 1 }}>{s.name}</span>
-                <b style={{ fontVariantNumeric: "tabular-nums" }}>{s.values[hover]}</b>
+                <b style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(s.values[hover])}</b>
               </div>
             ))}
           </div>
@@ -1860,7 +1875,7 @@ function PilotForecastChart({ isDark }: { isDark: boolean }) {
               ))}
               <tr>
                 <td style={{ padding: "6px 10px", fontWeight: 700 }}>Итого</td>
-                {totals.map((t, m) => <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{t % 1 === 0 ? t : t.toFixed(1)}</td>)}
+                {totals.map((t, m) => <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{fmt(t)}</td>)}
               </tr>
             </tbody>
           </table>
