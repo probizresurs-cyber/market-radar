@@ -319,6 +319,8 @@ export async function POST(req: Request) {
     const hasAny = Object.values(socialLinks).some(v => typeof v === "string" && v.trim());
     // Для личного бренда socseti необязательны — достаточно ниши/описания
     if (!isPersonal && !hasAny && !niche.trim()) {
+      // Логируем отказ — см. коммент в analyze-ta: молчаливые 400 прятали баг.
+      await access.log({ endpoint: "analyze-smm", model: "-", success: false, errorMessage: "empty niche + no social links" });
       return NextResponse.json(
         { ok: false, error: "Укажите хотя бы одну ссылку на соцсеть или опишите нишу" },
         { status: 400 },

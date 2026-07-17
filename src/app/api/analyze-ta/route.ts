@@ -480,6 +480,9 @@ export async function POST(req: Request) {
     const isPersonal = profileKind === "personal";
 
     if (!isPersonal && !niche?.trim()) {
+      // Логируем отказ: раньше ранние 400 не попадали в ai_logs, поэтому
+      // «модуль ЦА молча не работает» месяцами выглядел как «запрос не дошёл».
+      await access.log({ endpoint: "analyze-ta", model: "-", success: false, errorMessage: "empty niche" });
       return NextResponse.json({ ok: false, error: "Укажите нишу / описание продукта" }, { status: 400 });
     }
 

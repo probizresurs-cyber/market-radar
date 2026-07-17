@@ -1097,7 +1097,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
 
     if (opts.modules.includes("ta")) {
       moduleNames.push("ЦА");
-      // niche/extraContext пустые — TA-route сам возьмёт контекст из company.
+      // niche/extraContext пустые — handleTAAnalysis подставит описание компании
+      // (роут САМ контекст из company не достаёт и на пустой niche отвечает 400).
       const bt = currentUser?.businessType ?? "";
       const audienceType: TAAudienceType = bt.startsWith("b2b") ? "b2b" : "b2c";
       console.info("[wizard] → запускаю handleTAAnalysis", { audienceType, companyName: result.company.name });
@@ -1624,8 +1625,16 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     // ещё не успел обновиться, поэтому принимаем companyOverride явно.
     const company = companyOverride ?? myCompany;
     const isPersonal = activeProfileKind === "personal";
-    // Для личного бренда: description = позиционирование эксперта, используем как niche
-    const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
+    // niche берём из описания компании (для личного бренда description =
+    // позиционирование эксперта — та же логика). Раньше для компаний сюда
+    // уходила пустая строка в расчёте на то, что роут сам достанет контекст
+    // из company — он этого не делает, а отвечает 400 «Укажите нишу», из-за
+    // чего ЦА из мастера НИКОГДА не считалась. Имя — последний фолбэк, чтобы
+    // не упереться в 400 на компании без описания.
+    const effectiveNiche =
+      niche
+      || (company?.company.description ?? "").slice(0, 400)
+      || (company?.company.name ?? "");
     setIsTAAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-ta", {
@@ -1752,8 +1761,13 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     // (React state ещё не обновился в момент вызова из мастера).
     const company = companyOverride ?? myCompany;
     const isPersonal = activeProfileKind === "personal";
-    // Для личного бренда: description = позиционирование, используем как niche
-    const effectiveNiche = niche || (isPersonal ? (company?.company.description ?? "").slice(0, 400) : "");
+    // Как в handleTAAnalysis: пустой niche + не заполненные в мастере соцсети
+    // давали 400 «Укажите хотя бы одну ссылку или опишите нишу» — СММ из
+    // мастера не считался. Описание компании и есть ниша.
+    const effectiveNiche =
+      niche
+      || (company?.company.description ?? "").slice(0, 400)
+      || (company?.company.name ?? "");
     setIsSMMAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-smm", {
