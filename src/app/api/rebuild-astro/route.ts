@@ -158,6 +158,31 @@ function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: 
   });
   fixes.push("Все ссылки на CSS, картинки и видео сделаны абсолютными — дизайн грузится 1:1");
 
+  // 1b) Материализуем ленивую загрузку (Tilda и др.): реальные картинки лежат
+  //     в data-original/data-src и подставляются JS при скролле. В статике JS
+  //     не срабатывает → пусто. Проставляем их сразу: <img> → src, блоки-фоны
+  //     (t-bgimg и пр.) → inline background-image. Так картинки видны без JS.
+  let lazyMaterialized = 0;
+  $("[data-original], [data-src], [data-lazy-src]").each((_, el) => {
+    const $el = $(el);
+    const rawSrc = $el.attr("data-original") || $el.attr("data-src") || $el.attr("data-lazy-src");
+    const abs = absUrl(rawSrc, base);
+    if (!abs) return;
+    const tag = (el as unknown as { tagName?: string; name?: string }).tagName
+      || (el as unknown as { name?: string }).name || "";
+    if (tag.toLowerCase() === "img") {
+      $el.attr("src", abs);
+    } else {
+      // Блок-фон (Tilda t-bgimg и аналоги): ставим background-image инлайн.
+      // cover/center берём на себя — совпадает с дефолтом Tilda .t-bgimg.
+      const prev = $el.attr("style") ?? "";
+      const bg = `background-image:url('${abs}');background-size:cover;background-position:center;background-repeat:no-repeat;`;
+      $el.attr("style", prev ? `${prev.replace(/;?\s*$/, ";")}${bg}` : bg);
+    }
+    lazyMaterialized++;
+  });
+  if (lazyMaterialized > 0) fixes.push(`Материализована ленивая загрузка ${lazyMaterialized} изображений/фонов (видны без JS)`);
+
   const head = $("head");
 
   // 2) charset + viewport

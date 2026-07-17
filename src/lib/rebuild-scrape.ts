@@ -91,13 +91,13 @@ export async function scrapeForRebuild(rawUrl: string): Promise<RebuildScrape> {
     const res = await fetchWithTimeout(url);
     finalUrl = res.url || url;
     const text = await res.text();
-    html = text.length > 800_000 ? text.slice(0, 800_000) : text;
+    html = text.length > 3_000_000 ? text.slice(0, 3_000_000) : text;
   } catch (err) {
     if (url.startsWith("https://")) {
       const res = await fetchWithTimeout(url.replace("https://", "http://"));
       finalUrl = res.url || url;
       const text = await res.text();
-      html = text.length > 800_000 ? text.slice(0, 800_000) : text;
+      html = text.length > 3_000_000 ? text.slice(0, 3_000_000) : text;
     } else {
       throw err;
     }
