@@ -88,6 +88,20 @@ export default function AstroRebuildPage() {
   const tree = useMemo(() => (result ? buildTree(result.files) : null), [result]);
 
   const [view, setView] = useState<"preview" | "code">("preview");
+  const [copied, setCopied] = useState(false);
+
+  // Ссылка на сам инструмент — для шеринга. Ссылка на готовый сайт уже
+  // публичная и доступна кнопкой «Открыть сайт», отдельно её не дублируем.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const toolShareUrl = origin + "/astro-rebuild";
+
+  const copyToolLink = () => {
+    if (!toolShareUrl) return;
+    navigator.clipboard.writeText(toolShareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => { /* clipboard denied — ссылка видна в поле */ });
+  };
 
   const run = async () => {
     const u = url.trim();
@@ -238,6 +252,38 @@ export default function AstroRebuildPage() {
                 </ul>
               </div>
             )}
+
+            {/* Публичная ссылка на сам инструмент — для шеринга */}
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border, #e5e7eb)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 8 }}>
+                Поделиться инструментом
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  readOnly
+                  value={toolShareUrl}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={{
+                    minWidth: 0, flex: 1, height: 38, padding: "0 12px", fontSize: 13, borderRadius: 8,
+                    border: "1px solid var(--border, #e5e7eb)", background: "var(--muted, #f8fafc)",
+                    color: "var(--foreground, #0f1123)", fontFamily: "ui-monospace, monospace",
+                  }}
+                />
+                <button
+                  onClick={copyToolLink}
+                  style={{
+                    height: 38, padding: "0 18px", fontSize: 13.5, fontWeight: 700, borderRadius: 8, border: "none",
+                    background: copied ? "var(--success, #059669)" : "var(--primary, #2a78d6)",
+                    color: "#fff", cursor: "pointer", whiteSpace: "nowrap",
+                  }}
+                >
+                  {copied ? "Скопировано ✓" : "Копировать"}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground, #6b7280)", marginTop: 6 }}>
+                Открывшему нужен вход в аккаунт. Ссылка на готовый сайт — в кнопке «Открыть сайт» выше (публичная, работает у любого).
+              </div>
+            </div>
           </div>
 
           {/* Переключатель: живой сайт / исходники */}
