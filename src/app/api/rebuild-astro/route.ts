@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
-import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
+import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
 import { scrapeWebsite } from "@/lib/scraper";
 
 // Пересборка сайта в Astro-проект. Скрейпим реальный сайт → отдаём Claude его
@@ -129,7 +129,9 @@ export async function POST(req: Request) {
 
     // 2) Генерируем Astro-проект
     const started = Date.now();
-    const { text, modelUsed, error } = await safeAnthropicCreate({
+    // Стриминг обязателен: при max_tokens 32k SDK иначе бросает
+    // «Streaming is required for operations that may take longer than 10 minutes».
+    const { text, modelUsed, error } = await safeAnthropicStream({
       model: MODEL,
       max_tokens: 32000,
       system: buildSystemPrompt(),

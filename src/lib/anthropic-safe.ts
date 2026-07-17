@@ -157,6 +157,68 @@ export async function safeAnthropicCreate(opts: SafeCreateOpts): Promise<SafeCre
 }
 
 /**
+ * Стриминговый вариант safeAnthropicCreate. Нужен когда max_tokens большой
+ * (SDK требует streaming для операций, которые потенциально дольше 10 минут —
+ * иначе бросает «Streaming is required…»). Аккумулирует весь текст из потока
+ * и возвращает тем же контрактом SafeCreateResult. Fallback-логика и детект
+ * HTML-ошибок прокси — как в безстримовой версии.
+ */
+export async function safeAnthropicStream(opts: SafeCreateOpts): Promise<SafeCreateResult> {
+  const client = getClient();
+  const candidates = [
+    opts.model,
+    ...(opts.fallbackModels ?? defaultFallbacks(opts.model)),
+  ];
+
+  let lastError = "";
+  let proxyDegraded = false;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i];
+    try {
+      const stream = client.messages.stream({
+        model,
+        max_tokens: opts.max_tokens,
+        system: opts.system,
+        messages: opts.messages,
+        ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+      });
+
+      let text = "";
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          text += event.delta.text;
+        }
+      }
+      text = text.trim();
+      if (text) {
+        return { text, modelUsed: model, proxyDegraded };
+      }
+      lastError = `Модель ${model} вернула пустой ответ`;
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      const htmlFromProxy = HTML_ERROR_PATTERN.test(raw);
+      if (htmlFromProxy) {
+        proxyDegraded = true;
+        if (i === 0 && opts.onProxyDegraded) {
+          try { opts.onProxyDegraded(model, raw); } catch { /* ignore logger errors */ }
+        }
+        lastError = `Прокси AI вернул HTML на модели ${model}`;
+      } else {
+        lastError = raw;
+      }
+    }
+  }
+
+  return {
+    text: "",
+    modelUsed: candidates[0],
+    proxyDegraded,
+    error: lastError || "Все модели не ответили",
+  };
+}
+
+/**
  * Универсальный retry на 429 (rate_limit_error) с экспоненциальным backoff.
  * Anthropic возвращает 429 «Type 2b rate limited» когда слишком много
  * параллельных запросов. Оборачиваем любой Anthropic-вызов:
