@@ -422,13 +422,6 @@ export const SEO_MONTH1_FORECAST = [
   "Цель — не подписчики и охваты, а целевые обращения от людей, которые ищут барельефы",
 ];
 
-export const PILOT_STEPS = [
-  "Бесплатно: экспресс-разбор ниши на созвоне (20 минут) — где вы в поиске сейчас, что отвечают нейросети про барельефы, что делают конкуренты в соцсетях, + план действий",
-  "Если план откликается — стартуем, оплата помесячно",
-  "Первая неделя — глубокий анализ и полная стратегия",
-  "Дальше — раз в неделю отчёт с цифрами",
-];
-
 // ─── Единый bundle пилот-клиента (KpProposal переключается по pilotClient) ────
 export interface PilotBundle {
   hero: typeof PILOT_HERO;
@@ -448,7 +441,6 @@ export interface PilotBundle {
   articles: PilotArticle[];
   articleMechanics: string[];
   month1: string[];
-  steps: string[];
 }
 
 export const SOZDAVAY_PILOT: PilotBundle = {
@@ -469,5 +461,4 @@ export const SOZDAVAY_PILOT: PilotBundle = {
   articles: SEO_PREVIEW_ARTICLES,
   articleMechanics: SEO_GEO_MECHANICS,
   month1: SEO_MONTH1_FORECAST,
-  steps: PILOT_STEPS,
 };

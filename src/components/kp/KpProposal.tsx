@@ -132,7 +132,6 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
-  { id: "pilot", label: "Пилотные условия" },
   { id: "pricing", label: "Тарифы", hideOnPilot: true },
   { id: "cta", label: "Заявка" },
 ];
@@ -194,7 +193,7 @@ export function KpProposal({
   const SECTIONS = useMemo(
     () => BASE_SECTIONS.filter(
       (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
-        && ((s.id !== "seo-preview" && s.id !== "pilot") || pilotOffer)
+        && (s.id !== "seo-preview" || pilotOffer)
         && (!s.pilotOnly || pilotOffer)
         && (!s.hideOnPilot || !pilotOffer)
         && (s.id !== "pilot-rivals" || PD.rivals.length > 0)
@@ -1454,37 +1453,7 @@ export function KpProposal({
           </Section>
         )}
 
-        {/* ─── ПИЛОТНЫЕ УСЛОВИЯ (только для pilotOffer) ─── */}
-        {pilotOffer && (
-          <Section id="pilot" title="Пилотные условия — первый поток" subtitle="Специальные условия для первых 10 компаний — старт потока 21 июля 2026">
-            <div className="ds-card" style={{ borderLeft: "4px solid var(--primary)", padding: "22px 26px", marginBottom: 24, display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <Sparkles size={22} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 15, lineHeight: 1.55, margin: "0 0 14px" }}>
-                  Сейчас запускаем первый поток — 10 компаний на пилотных условиях, их результаты станут первыми публичными кейсами MarketRadar. Условия ниже — специально для первого потока, ниже стандартных.
-                </p>
-                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
-                  {PD.steps.map((it, j) => (
-                    <li key={j} style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.5 }}>
-                      <CheckCircle2 size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} /> {it}
-                    </li>
-                  ))}
-                </ul>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14 }}>
-                  <ShieldCheck size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ fontSize: 14, lineHeight: 1.5 }}>
-                    <b>Гарантия:</b> если за месяц не выпускаем заявленный объём работ — возвращаем оплату этого месяца.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Ценовые карточки переехали в «С чего предлагаем начать» (PD.monthly),
-                плашка «Старт потока … публичный кейс» убрана по просьбе партнёра. */}
-          </Section>
-        )}
-
-        {/* ─── ТАРИФЫ — скрыты на пилоте: пилотные условия дают свои цены ─── */}
+        {/* ─── ТАРИФЫ — скрыты на пилоте: цены уже даны в «С чего предлагаем начать» ─── */}
         {!pilotOffer && (
         <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
           {!pricingRevealed ? (
