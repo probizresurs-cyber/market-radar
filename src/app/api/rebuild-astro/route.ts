@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import * as cheerio from "cheerio";
-import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import { scrapeForRebuild, type RebuildScrape } from "@/lib/rebuild-scrape";
 import { getSessionUser } from "@/lib/auth";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { query, initDb } from "@/lib/db";
 
 // Пересборка сайта в Astro С СОХРАНЕНИЕМ ДИЗАЙНА 1:1.
@@ -13,10 +13,25 @@ import { query, initDb } from "@/lib/db";
 // картинки, видео) как есть и хирургически правим только «внутряк»: absolutize
 // ссылок на ассеты (чтобы всё грузилось), meta description, H1, alt, Schema.org,
 // canonical, viewport. AI нужен по минимуму — только текст meta и Schema.
+//
+// Публичный инструмент (без логина — сама страница /astro-rebuild и эта
+// пересборка отдаются по прямой ссылке), поэтому вместо checkAiAccess здесь
+// свой IP-лимит: раньше публичный доступ к AI-роутам без rate-limit'а уже
+// разорял бюджет через ротирующиеся прокси (см. историю checkAiAccess) —
+// здесь цена вызова минимальна (только SEO-текст, не весь сайт), но лимит
+// всё равно нужен как страховка от спама.
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-const MODEL = "claude-sonnet-4-6";
+function logAi(opts: { endpoint: string; model: string; userId: string | null; success: boolean; durationMs?: number; errorMessage?: string }) {
+  query(
+    `INSERT INTO ai_logs (id, user_id, endpoint, model, duration_ms, success, error_message)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [randomUUID(), opts.userId, opts.endpoint, opts.model, opts.durationMs ?? null, opts.success, opts.errorMessage?.slice(0, 200) ?? null],
+  ).catch(() => { /* никогда не роняем основной поток из-за лога */ });
+}
+
+export const MODEL = "claude-sonnet-4-6";
 
 export interface AstroFile {
   path: string;
@@ -311,8 +326,23 @@ export default defineConfig({
 }
 
 export async function POST(req: Request) {
-  const access = await checkAiAccess(req);
-  if (!access.allowed) return access.response;
+  // Публичный инструмент — без логина. Взамен checkAiAccess: IP-лимит.
+  // 15/день на IP — с запасом на реальное использование (показать клиенту,
+  // пересобрать пару раз), но не даёт залить бюджет спамом с одного адреса.
+  // Не защищает от ротирующегося прокси — если увидим злоупотребление,
+  // здесь первое место, куда добавлять более жёсткую защиту (капча/токен).
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    || req.headers.get("x-real-ip")
+    || "unknown";
+  const limit = checkRateLimit(ip, { keyPrefix: "rebuild-astro-public", maxRequests: 15, windowMs: 24 * 60 * 60 * 1000 });
+  if (!limit.allowed) {
+    const minutesLeft = limit.retryAfterMs ? Math.ceil(limit.retryAfterMs / 60000) : 60;
+    return NextResponse.json(
+      { ok: false, error: `Слишком много запросов с этого адреса. Попробуйте через ${minutesLeft} мин.` },
+      { status: 429, headers: rateLimitHeaders(limit) },
+    );
+  }
+  const session = await getSessionUser().catch(() => null);
 
   try {
     await initDb();
@@ -325,7 +355,7 @@ export async function POST(req: Request) {
     try {
       scraped = await scrapeForRebuild(rawUrl);
     } catch (e) {
-      await access.log({ endpoint: "rebuild-astro", model: "-", success: false, errorMessage: "scrape failed" });
+      logAi({ endpoint: "rebuild-astro", model: "-", userId: session?.userId ?? null, success: false, errorMessage: "scrape failed" });
       return NextResponse.json(
         { ok: false, error: `Не удалось загрузить сайт: ${e instanceof Error ? e.message : "ошибка"}. Проверьте URL.` },
         { status: 502 },
@@ -350,7 +380,6 @@ export async function POST(req: Request) {
 
     // 5) Сохраняем для живого превью
     const id = randomUUID();
-    const session = await getSessionUser().catch(() => null);
     const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
     const snapshot = {
       previewHtml: fixedHtml, files, fixes, summary,
@@ -367,7 +396,7 @@ export async function POST(req: Request) {
       console.error("[rebuild-astro] persist failed:", e);
     }
 
-    await access.log({ endpoint: "rebuild-astro", model: seo.modelUsed, success: true, durationMs: Date.now() - started });
+    logAi({ endpoint: "rebuild-astro", model: seo.modelUsed, userId: session?.userId ?? null, success: true, durationMs: Date.now() - started });
 
     const result: RebuildAstroResult = {
       ok: true, id, previewUrl: `/api/site-preview/${id}`,

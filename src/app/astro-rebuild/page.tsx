@@ -1,15 +1,18 @@
 "use client";
 
 /**
- * /astro-rebuild — ТЕСТОВАЯ страница пересборки сайта в Astro-проект.
+ * /astro-rebuild — публичная страница пересборки сайта в Astro-проект.
  * Ввод URL → /api/rebuild-astro (скрейп + Claude) → дерево файлов Astro-проекта,
- * превью каждого файла и скачивание готового .zip (jszip, на клиенте).
+ * живое превью, скачивание готового .zip (jszip, на клиенте).
  *
- * Пока не на проде/не в КП — отдельная страница для тестов. Требует логина
- * (роут за checkAiAccess). Гейт на «пробную» подписку добавим при выкатке.
+ * Без логина — роут защищён IP-лимитом (15/день), а не авторизацией.
+ * Результат каждой пересборки сохраняется под id и подставляется в URL
+ * (?id=...), поэтому: (а) перезагрузка страницы не сбрасывает результат —
+ * он подтягивается заново по этому id; (б) ссылка с ?id= — публичный шеринг
+ * ГОТОВОГО результата + формы, по которой можно пересобрать другой сайт.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AstroFile, RebuildAstroResult } from "@/app/api/rebuild-astro/route";
 
 type FileNode = {
@@ -80,6 +83,7 @@ function TreeView({ node, depth, selected, onSelect }: {
 export default function AstroRebuildPage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hydrating, setHydrating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RebuildAstroResult | null>(null);
   const [active, setActive] = useState<AstroFile | null>(null);
@@ -90,10 +94,37 @@ export default function AstroRebuildPage() {
   const [view, setView] = useState<"preview" | "code">("preview");
   const [copied, setCopied] = useState(false);
 
-  // Ссылка на сам инструмент — для шеринга. Ссылка на готовый сайт уже
-  // публичная и доступна кнопкой «Открыть сайт», отдельно её не дублируем.
+  const applyResult = (r: RebuildAstroResult) => {
+    setResult(r);
+    setActive(r.files.find(f => /index\.astro$/.test(f.path)) ?? r.files[0] ?? null);
+    setView("preview");
+  };
+
+  // При заходе по ссылке с ?id= — подтягиваем сохранённый результат заново.
+  // Это же решает «перезагрузка страницы всё сбрасывает»: после успешной
+  // пересборки id кладём в URL (см. run()), и обновление страницы просто
+  // повторяет эту гидрацию вместо потери состояния.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (!id) { setHydrating(false); return; }
+    (async () => {
+      try {
+        const res = await fetch(`/api/rebuild-astro/${id}`);
+        const json = await res.json();
+        if (json.ok) {
+          applyResult(json as RebuildAstroResult);
+          setUrl((json as RebuildAstroResult).source.url);
+        }
+      } catch { /* ссылка устарела — просто покажем пустую форму */ }
+      finally { setHydrating(false); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Ссылка для шеринга: с результатом — сразу показывает готовый сайт
+  // + форму для пересборки другого; без результата — просто форма.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const toolShareUrl = origin + "/astro-rebuild";
+  const toolShareUrl = origin + "/astro-rebuild" + (result ? `?id=${result.id}` : "");
 
   const copyToolLink = () => {
     if (!toolShareUrl) return;
@@ -115,9 +146,9 @@ export default function AstroRebuildPage() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Ошибка пересборки");
       const r = json as RebuildAstroResult;
-      setResult(r);
-      // Открываем главную страницу проекта по умолчанию
-      setActive(r.files.find(f => /index\.astro$/.test(f.path)) ?? r.files[0] ?? null);
+      applyResult(r);
+      // Кладём id в URL — переживает перезагрузку и делает ссылку шерабельной.
+      window.history.replaceState(null, "", `/astro-rebuild?id=${r.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -182,6 +213,12 @@ export default function AstroRebuildPage() {
           {loading ? "Пересобираем…" : "Пересобрать"}
         </button>
       </div>
+
+      {hydrating && (
+        <div style={{ padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)" }}>
+          Загружаем сохранённый результат…
+        </div>
+      )}
 
       {loading && (
         <div style={{ padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)" }}>
@@ -281,7 +318,7 @@ export default function AstroRebuildPage() {
                 </button>
               </div>
               <div style={{ fontSize: 12, color: "var(--muted-foreground, #6b7280)", marginTop: 6 }}>
-                Открывшему нужен вход в аккаунт. Ссылка на готовый сайт — в кнопке «Открыть сайт» выше (публичная, работает у любого).
+                Публичная — вход не нужен. Открывшему сразу покажет этот результат (живой сайт и файлы) и даст пересобрать другой.
               </div>
             </div>
           </div>
