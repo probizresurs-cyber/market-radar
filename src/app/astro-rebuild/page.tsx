@@ -190,6 +190,8 @@ export default function AstroRebuildPage() {
   const [copied, setCopied] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
 
   const tree = useMemo(() => (result ? buildTree(result.files) : null), [result]);
   const opt = result?.optimization;
@@ -250,6 +252,27 @@ export default function AstroRebuildPage() {
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Этап 2 (отдельная услуга): оптимизация скорости. Ленивые фоны, перенос
+  // ассетов к себе, WebP и т.д. — до ~2 минут (качаются все картинки).
+  const runOptimize = async () => {
+    if (!result || optimizing) return;
+    setOptimizing(true); setOptimizeError(null);
+    try {
+      const res = await fetch("/api/rebuild-astro/optimize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: result.id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!json?.ok) throw new Error(json?.error || "Оптимизация не удалась — попробуйте ещё раз");
+      setResult(json as RebuildAstroResult);
+      setCompareError(null); // старый замер сброшен сервером — можно мерить заново
+    } catch (e) {
+      setOptimizeError(e instanceof Error ? e.message : "Ошибка оптимизации");
+    } finally {
+      setOptimizing(false);
     }
   };
 
@@ -401,7 +424,11 @@ export default function AstroRebuildPage() {
               {/* Метрики */}
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
                 <StatTile label="SEO-правок" value={String(result.fixes.length)} hint="применено при переносе" />
-                <StatTile label="Оптимизаций" value={String(opt?.applied.length ?? 0)} hint="скорость загрузки" />
+                <StatTile
+                  label="Оптимизаций"
+                  value={result.optimizedAt ? String(opt?.applied.length ?? 0) : "—"}
+                  hint={result.optimizedAt ? "скорость загрузки" : "не применена — таб «Оптимизация»"}
+                />
                 <StatTile label="Проблем найдено" value={String((result.source.issues.length) + (opt?.issues.length ?? 0))} hint={`${result.source.issues.length} SEO · ${opt?.issues.length ?? 0} перфоманс`} />
                 <StatTile label="Файлов в проекте" value={String(result.files.length)} hint="Astro, готов к сборке" />
               </div>
@@ -484,6 +511,45 @@ export default function AstroRebuildPage() {
             {/* ─── Таб: оптимизация ─── */}
             {view === "optimization" && opt && (
               <div style={{ display: "grid", gap: 14 }}>
+                {/* Этап 2 — отдельная услуга: применить оптимизацию */}
+                {!result.optimizedAt && (
+                  <div style={{ ...card, padding: "20px 22px", border: "2px solid var(--primary, #2a78d6)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 240, flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>
+                          Оптимизация скорости — отдельный шаг
+                        </div>
+                        <div style={{ fontSize: 13.5, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.55 }}>
+                          Перенос готов 1:1. Оптимизация исправит найденные ниже проблемы: ленивая
+                          загрузка картинок и фонов, перенос ассетов к себе, сжатие в WebP, уборка
+                          двойной загрузки конструктора. Дизайн не меняется. Занимает 1–2 минуты.
+                        </div>
+                      </div>
+                      <button
+                        onClick={runOptimize}
+                        disabled={optimizing}
+                        style={{
+                          height: 44, padding: "0 22px", fontSize: 14.5, fontWeight: 700, borderRadius: 10, border: "none",
+                          background: optimizing ? "var(--muted, #9ca3af)" : "var(--primary, #2a78d6)", color: "#fff",
+                          cursor: optimizing ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
+                        }}
+                      >
+                        {optimizing
+                          ? <><Loader2 size={15} style={{ animation: "ar-spin 0.9s linear infinite" }} /> Оптимизируем…</>
+                          : <><Zap size={15} /> Применить оптимизацию</>}
+                      </button>
+                    </div>
+                    {optimizing && (
+                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground, #6b7280)", marginTop: 10 }}>
+                        Скачиваем и сжимаем картинки, переносим стили и шрифты — не закрывайте страницу.
+                      </div>
+                    )}
+                    {optimizeError && !optimizing && (
+                      <div style={{ fontSize: 13, color: "#dc2626", marginTop: 10 }}>{optimizeError}</div>
+                    )}
+                  </div>
+                )}
+
                 {/* Замер скорости: было → стало (Google PageSpeed / Lighthouse) */}
                 <div style={{ ...card, padding: "18px 20px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: result.speedCompare ? 14 : 8 }}>
@@ -531,9 +597,12 @@ export default function AstroRebuildPage() {
                         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border, #e5e7eb)", fontSize: 13.5, lineHeight: 1.5 }}>
                           {(() => {
                             const d = result.speedCompare.rebuilt.performance - result.speedCompare.original.performance;
-                            if (d > 0) return <><b style={{ color: "#059669" }}>+{d} баллов Performance.</b> Дальнейший рост — перенос ассетов к себе и сжатие картинок (см. рекомендации ниже).</>;
-                            if (d === 0) return <>Балл пока тот же — тяжёлые скрипты и картинки всё ещё грузятся с оригинального домена. Основной выигрыш даст перенос ассетов и сжатие изображений.</>;
-                            return <>Пересобранная версия пока набирает меньше — вероятно, превью отдаётся без кэша/CDN. Реальный результат оценивайте после деплоя проекта на хостинг.</>;
+                            const tail = result.optimizedAt
+                              ? "Остальной потолок — скрипты конструктора (см. рекомендации ниже): их сокращение возможно только ручной доработкой."
+                              : "Оптимизация ещё не применена — примените её на этом табе и замерьте заново.";
+                            if (d > 0) return <><b style={{ color: "#059669" }}>+{d} баллов Performance.</b> {tail}</>;
+                            if (d === 0) return <>Балл пока тот же. {tail}</>;
+                            return <>Пересобранная версия пока набирает меньше. {tail} Финальный результат оценивайте после деплоя проекта на хостинг с CDN.</>;
                           })()}
                           <div style={{ fontSize: 11.5, color: "var(--muted-foreground, #6b7280)", marginTop: 4 }}>
                             Замер {new Date(result.speedCompare.measuredAt).toLocaleString("ru-RU")} · Lighthouse mobile · Google PageSpeed API
@@ -584,7 +653,9 @@ export default function AstroRebuildPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <Gauge size={16} style={{ color: "var(--primary, #2a78d6)" }} />
                       <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                        Проблемы производительности ({opt.issues.length}, исправлено {fixedCount})
+                        {result.optimizedAt
+                          ? `Проблемы производительности (${opt.issues.length}, исправлено ${fixedCount})`
+                          : `Найдено при анализе (${opt.issues.length}) — исправит оптимизация`}
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: 10 }}>

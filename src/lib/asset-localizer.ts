@@ -167,6 +167,8 @@ export async function localizeAssets(html: string, opts: {
     const style = $(el).attr("style") ?? "";
     for (const m of style.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi)) add(m[2], "image");
   });
+  // Ленивые фоны этапа оптимизации (см. /api/rebuild-astro/optimize)
+  $("[data-mrbg]").each((_, el) => add($(el).attr("data-mrbg"), "image"));
 
   // ── 2. Скачивание ─────────────────────────────────────────────────────────
   const urlToLocal = new Map<string, string>(); // абсолютный URL → локальное имя
@@ -294,6 +296,7 @@ export async function localizeAssets(html: string, opts: {
   };
   rewriteAttr("img[src]", "src");
   rewriteAttr("video[poster]", "poster");
+  rewriteAttr("[data-mrbg]", "data-mrbg");
   rewriteAttr('link[rel="stylesheet"]', "href");
   rewriteAttr('link[rel~="icon"], link[rel="apple-touch-icon"]', "href");
   rewriteAttr('link[rel="preload"][as="image"]', "href");

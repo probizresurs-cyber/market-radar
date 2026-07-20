@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import { scrapeForRebuild, type RebuildScrape } from "@/lib/rebuild-scrape";
-import { localizeAssets, rebuildAssetsRoot } from "@/lib/asset-localizer";
+import { rebuildAssetsRoot } from "@/lib/asset-localizer";
 import fs from "fs/promises";
 import path from "path";
 import { getSessionUser } from "@/lib/auth";
@@ -45,8 +45,10 @@ export interface OptIssue {
   severity: "critical" | "warn" | "info";
   title: string;
   detail: string;
-  /** true — исправлено автоматически при переносе; false — рекомендация. */
+  /** true — исправлено оптимизацией; false — найдено/рекомендация. */
   fixed: boolean;
+  /** Машинный ключ проблемы — по нему этап оптимизации помечает fixed. */
+  key?: string;
 }
 
 export interface OptimizationReport {
@@ -87,6 +89,8 @@ export interface RebuildAstroResult {
   files: AstroFile[];
   fixes: string[];
   optimization: OptimizationReport;
+  /** null — оптимизация (отдельная услуга) ещё не применялась. */
+  optimizedAt: string | null;
   /** Замер скорости обеих версий — появляется после кнопки «Замерить». */
   speedCompare?: SpeedCompare | null;
   summary: string;
@@ -170,90 +174,85 @@ function humanizeAlt(src: string, fallback: string): string {
   } catch { return fallback; }
 }
 
-// ─── Оптимизация производительности: диагностика + безопасные авто-правки ────
-// Правим только то, что гарантированно не меняет внешний вид: lazy-загрузка
-// картинок/iframe ниже первого экрана, preconnect к CDN, preload hero.
-// Ничего не удаляем и не дефёрим — скрипты конструкторов (Tilda и др.)
-// завязаны на порядок исполнения, их трогать опасно.
-function optimizeAndReport($: cheerio.CheerioAPI, s: RebuildScrape, rawHtmlLen: number): OptimizationReport {
+// ─── Диагностика производительности (БЕЗ правок) ─────────────────────────────
+// Запускается на этапе переноса и честно перечисляет, что тормозит страницу.
+// Сами правки — отдельная услуга «Оптимизация» (/api/rebuild-astro/optimize):
+// она флипает fixed=true по ключам key и дополняет отчёт реальными цифрами.
+export function detectPerf(html: string, origin: string, techStack: string[]): OptimizationReport {
+  const $ = cheerio.load(html);
   const issues: OptIssue[] = [];
-  const applied: string[] = [];
 
-  const htmlKb = Math.round(rawHtmlLen / 1024);
+  const htmlKb = Math.round(html.length / 1024);
   const extScripts = $("script[src]").length;
   const extCss = $('link[rel="stylesheet"]').length;
-  const imgs = $("img");
+  const imgs = $("img").length;
+  const lazyImgs = $('img[loading="lazy"]').length;
+  // Фоновые блоки конструктора (материализованы при переносе → грузятся разом)
+  const bgBlocks = $("[data-original]").not("img").length;
 
-  // 1) Ленивая загрузка изображений. Первые 2 <img> пропускаем — они почти
-  //    всегда в первом экране (логотип, hero), lazy там только вредит (LCP).
-  let lazied = 0;
-  imgs.each((i, el) => {
-    if (i < 2) return;
-    const $el = $(el);
-    if (!$el.attr("loading")) { $el.attr("loading", "lazy"); lazied++; }
-    if (!$el.attr("decoding")) $el.attr("decoding", "async");
+  // Сколько ассетов уезжает на чужие домены
+  let foreign = 0;
+  $('img[src], link[rel="stylesheet"][href]').each((_, el) => {
+    const u = $(el).attr("src") || $(el).attr("href") || "";
+    try { if (u.startsWith("http") && new URL(u).origin !== origin) foreign++; } catch { /* ignore */ }
   });
-  if (lazied > 0) {
-    applied.push(`Ленивая загрузка ${lazied} изображений (loading="lazy" + decoding="async")`);
+
+  // — Исправимо оптимизацией (key → флипается в fixed) —
+  if (imgs - lazyImgs > 2) {
     issues.push({
-      severity: "warn",
-      title: `${lazied} изображений грузились сразу, а не по мере прокрутки`,
-      detail: "Браузер качал все фото при открытии страницы, замедляя первую отрисовку. Теперь картинки ниже первого экрана грузятся лениво.",
-      fixed: true,
+      key: "img-lazy", severity: "warn",
+      title: `${imgs - lazyImgs} изображений грузятся сразу, без ленивой загрузки`,
+      detail: "Браузер качает все фото при открытии страницы, замедляя первую отрисовку. Оптимизация переведёт картинки ниже первого экрана на загрузку по прокрутке.",
+      fixed: false,
+    });
+  }
+  if (bgBlocks > 4) {
+    issues.push({
+      key: "bg-lazy", severity: "critical",
+      title: `${bgBlocks} фоновых изображений загружаются все разом`,
+      detail: "После переноса фоны прописаны в вёрстке напрямую — браузер скачивает их все при открытии, это главный тормоз первой загрузки. Оптимизация вернёт ленивую подгрузку по прокрутке (без изменения вида).",
+      fixed: false,
+    });
+  }
+  if (bgBlocks > 0 || $("img[data-original]").length > 0) {
+    issues.push({
+      key: "double-load", severity: "warn",
+      title: "Двойная загрузка картинок скриптом конструктора",
+      detail: "Скрипт конструктора видит свои lazy-атрибуты (data-original) и качает те же картинки второй раз со своего CDN. Оптимизация уберёт атрибуты — каждая картинка скачается один раз.",
+      fixed: false,
+    });
+  }
+  if (foreign > 0) {
+    issues.push({
+      key: "cdn", severity: "warn",
+      title: `Ассеты грузятся с домена конструктора (${foreign}+ файлов)`,
+      detail: "Картинки, стили и шрифты приходят с чужого CDN — без контроля кэша и с реферер-блокировками (403 на шрифтах). Оптимизация перенесёт их в проект.",
+      fixed: false,
+    });
+  }
+  if (imgs + bgBlocks > 0) {
+    issues.push({
+      key: "webp", severity: "warn",
+      title: "Изображения без современного сжатия",
+      detail: "JPEG/PNG лежат как есть — обычно в 2-4 раза тяжелее необходимого. Оптимизация сожмёт их в WebP с ресайзом до 1920px.",
+      fixed: false,
+    });
+  }
+  if (!$('link[rel="preconnect"]').length) {
+    issues.push({
+      key: "preconnect", severity: "info",
+      title: "Нет preconnect к внешним доменам",
+      detail: "Браузер поздно узнаёт о доменах, откуда пойдут скрипты и стили. Оптимизация добавит preconnect к самым нагруженным.",
+      fixed: false,
     });
   }
 
-  // 2) iframe (карты, видео-встройки) — тоже лениво.
-  let iframesLazied = 0;
-  $("iframe").each((_, el) => {
-    if (!$(el).attr("loading")) { $(el).attr("loading", "lazy"); iframesLazied++; }
-  });
-  if (iframesLazied > 0) applied.push(`loading="lazy" у ${iframesLazied} iframe (карты/встройки)`);
-
-  // 3) Preconnect к внешним CDN — браузер заранее откроет соединения к
-  //    доменам, откуда пойдут стили/картинки, вместо ожидания по цепочке.
-  const hostCount = new Map<string, number>();
-  $('link[href], script[src], img[src]').each((_, el) => {
-    const u = $(el).attr("href") || $(el).attr("src") || "";
-    try {
-      const { origin } = new URL(u);
-      if (origin !== s.origin && origin.startsWith("http")) {
-        hostCount.set(origin, (hostCount.get(origin) ?? 0) + 1);
-      }
-    } catch { /* относительный/битый URL — пропускаем */ }
-  });
-  const alreadyPreconnected = new Set(
-    $('link[rel="preconnect"]').map((_, el) => $(el).attr("href") ?? "").get(),
-  );
-  const topHosts = [...hostCount.entries()]
-    .filter(([h, n]) => n >= 3 && !alreadyPreconnected.has(h))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
-  for (const [host] of topHosts) {
-    $("head").prepend(`<link rel="preconnect" href="${host}" crossorigin>`);
-  }
-  if (topHosts.length > 0) {
-    applied.push(`Preconnect к ${topHosts.length} CDN-доменам — соединения открываются заранее`);
-    issues.push({
-      severity: "info",
-      title: "Не было preconnect к CDN с ассетами",
-      detail: `Стили и картинки грузятся с внешних доменов (${topHosts.map(([h]) => new URL(h).hostname).join(", ")}), но браузер узнавал о них поздно. Добавили preconnect.`,
-      fixed: true,
-    });
-  }
-
-  // 4) Preload hero-изображения — приоритетная загрузка самой заметной картинки.
-  if (s.heroImage && !$(`link[rel="preload"][href="${s.heroImage}"]`).length) {
-    $("head").append(`<link rel="preload" as="image" href="${s.heroImage}">`);
-    applied.push("Hero-изображение предзагружается (rel=\"preload\") — быстрее LCP");
-  }
-
-  // 5) Диагностика без авто-фикса — честно помечаем как рекомендации.
+  // — Не чиним автоматически: честные рекомендации —
   if (htmlKb > 500) {
     issues.push({
       severity: "critical",
       title: `HTML-документ весит ${htmlKb} КБ`,
-      detail: "Это очень много для одной страницы (норма — до 100-200 КБ). Обычно причина — конструктор, который кладёт всю вёрстку и стили инлайн. Радикально лечится только чистой пересборкой вёрстки.",
+      detail: "Это очень много для одной страницы (норма — до 100-200 КБ). Причина — конструктор кладёт всю вёрстку и стили инлайн. Радикально лечится только чистой пересборкой вёрстки (ручная доработка).",
       fixed: false,
     });
   } else if (htmlKb > 200) {
@@ -268,11 +267,11 @@ function optimizeAndReport($: cheerio.CheerioAPI, s: RebuildScrape, rawHtmlLen: 
     issues.push({
       severity: "warn",
       title: `${extScripts} внешних скриптов`,
-      detail: "Каждый скрипт — отдельное сетевое соединение и время исполнения. Автоматически удалять их небезопасно (сломаются слайдеры/формы конструктора) — сокращение возможно при ручной доработке.",
+      detail: "Каждый скрипт — отдельное соединение и время исполнения; это главный потолок Lighthouse-балла. Автоматически удалять их небезопасно (сломаются слайдеры/формы конструктора) — сокращение возможно при ручной доработке.",
       fixed: false,
     });
   }
-  if (s.techStack.includes("jQuery")) {
+  if (techStack.includes("jQuery")) {
     issues.push({
       severity: "info",
       title: "Используется jQuery",
@@ -290,21 +289,15 @@ function optimizeAndReport($: cheerio.CheerioAPI, s: RebuildScrape, rawHtmlLen: 
   }
 
   return {
-    stats: {
-      htmlKb,
-      externalScripts: extScripts,
-      externalCss: extCss,
-      images: imgs.length,
-      lazyImages: lazied,
-    },
+    stats: { htmlKb, externalScripts: extScripts, externalCss: extCss, images: imgs, lazyImages: lazyImgs },
     issues,
-    applied,
+    applied: [],
   };
 }
 
 // Возвращает исправленный полный HTML + список реально применённых правок.
 function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: string; schema: unknown }): {
-  html: string; fixes: string[]; optimization: OptimizationReport;
+  html: string; fixes: string[];
 } {
   const $ = cheerio.load(rawHtml);
   const base = s.url;
@@ -458,10 +451,7 @@ function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: 
   });
   if (altAdded > 0) fixes.push(`Проставлен alt у ${altAdded} изображений без описания`);
 
-  // 9) Оптимизация производительности (диагностика + безопасные авто-правки)
-  const optimization = optimizeAndReport($, s, rawHtml.length);
-
-  return { html: $.html(), fixes, optimization };
+  return { html: $.html(), fixes };
 }
 
 // Экранируем строку для вставки в шаблонный литерал Astro (`...`).
@@ -471,7 +461,8 @@ function escapeForTemplate(str: string): string {
 
 // Собираем Astro-проект из исправленного HTML: Layout несёт <head>, index —
 // <body> (оба через set:html, чтобы Astro не парсил чужой HTML как шаблон).
-function assembleAstroProject(html: string, origin: string, title: string): AstroFile[] {
+// Экспорт: используется и этапом оптимизации (/api/rebuild-astro/optimize).
+export function assembleAstroProject(html: string, origin: string, title: string): AstroFile[] {
   const $ = cheerio.load(html);
   const headInner = $("head").html() ?? `<meta charset="utf-8"><title>${title}</title>`;
   const bodyInner = $("body").html() ?? html;
@@ -580,64 +571,12 @@ export async function POST(req: Request) {
       console.warn("[rebuild-astro] SEO meta gen failed, continue without:", e);
     }
 
-    // 3) DOM-хирургия: сохраняем дизайн, правим внутряк + оптимизация
-    const { html: surgicalHtml, fixes, optimization } = surgicalFix(scraped.html, scraped, seo);
-
-    // 3b) Локализация ассетов: картинки/CSS/шрифты скачиваются к нам,
-    //     JPEG/PNG сжимаются в WebP. id нужен заранее — он входит в пути.
+    // 3) DOM-хирургия: сохраняем дизайн, правим SEO-внутряк.
+    //    Оптимизация (lazy/перенос ассетов/WebP) — ОТДЕЛЬНАЯ услуга, здесь
+    //    только диагностика: что тормозит и что исправит этап оптимизации.
+    const { html: fixedHtml, fixes } = surgicalFix(scraped.html, scraped, seo);
+    const optimization = detectPerf(fixedHtml, scraped.origin, scraped.techStack);
     const id = randomUUID();
-    let fixedHtml = surgicalHtml;
-    try {
-      const { html: localizedHtml, report } = await localizeAssets(surgicalHtml, {
-        id, publicPrefix: `/api/rebuild-asset/${id}`,
-      });
-      fixedHtml = localizedHtml;
-      if (report.localized > 0) {
-        optimization.applied.push(
-          `Перенесено к себе ${report.localized} ассетов (${report.cssLocalized} CSS, ${report.fontsLocalized} шрифтов) — сайт не зависит от CDN конструктора`,
-        );
-        optimization.issues.push({
-          severity: "warn",
-          title: "Ассеты грузились с домена конструктора",
-          detail: `Картинки, стили и шрифты приходили с чужого CDN — без контроля кэша и с реферер-блокировками (403 на шрифтах). ${report.localized} файлов перенесено в проект.`,
-          fixed: true,
-        });
-      }
-      if (report.imagesOptimized > 0) {
-        const beforeKb = Math.round(report.imageBytesBefore / 1024);
-        const afterKb = Math.round(report.imageBytesAfter / 1024);
-        const savedPct = beforeKb > 0 ? Math.round((1 - afterKb / beforeKb) * 100) : 0;
-        optimization.applied.push(
-          `Сжато ${report.imagesOptimized} изображений в WebP: ${beforeKb} КБ → ${afterKb} КБ (−${savedPct}%)`,
-        );
-        optimization.issues.push({
-          severity: "warn",
-          title: `Изображения весили ${beforeKb} КБ без сжатия`,
-          detail: `JPEG/PNG без оптимизации — главный тормоз загрузки. Сконвертированы в WebP с ресайзом до 1920px: теперь ${afterKb} КБ (экономия ${savedPct}%).`,
-          fixed: true,
-        });
-      }
-      if (report.failed > 0) {
-        optimization.issues.push({
-          severity: "info",
-          title: `${report.failed} ассетов остались на оригинальном домене`,
-          detail: "Не удалось скачать (таймаут/блокировка) — ссылки на них сохранены как были, сайт работает.",
-          fixed: false,
-        });
-      }
-      for (const note of report.notes) {
-        optimization.issues.push({ severity: "info", title: note, detail: "", fixed: false });
-      }
-    } catch (e) {
-      // Диск недоступен/нет прав — честно продолжаем без локализации.
-      console.warn("[rebuild-astro] asset localization failed, keeping remote assets:", e);
-      optimization.issues.push({
-        severity: "info",
-        title: "Ассеты оставлены на оригинальном домене",
-        detail: "Хранилище ассетов недоступно на сервере — перенос картинок/шрифтов не выполнялся. Сайт работает, но зависит от CDN конструктора.",
-        fixed: false,
-      });
-    }
 
     // Фоновая уборка: каталоги ассетов старше 14 дней удаляем, чтобы не
     // забить диск (по ссылкам такой давности превью уже вряд ли смотрят).
@@ -661,7 +600,11 @@ export async function POST(req: Request) {
     // 5) Сохраняем для живого превью
     const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
     const snapshot = {
-      previewHtml: fixedHtml, files, fixes, optimization, summary, modelUsed: seo.modelUsed,
+      // baseHtml — «чистый перенос» до оптимизации: этап /optimize стартует
+      // от него, чтобы правки не наслаивались при повторных запусках.
+      previewHtml: fixedHtml, baseHtml: fixedHtml, files, fixes, optimization,
+      optimizedAt: null as string | null,
+      summary, modelUsed: seo.modelUsed,
       source: { url: scraped.url, title: scraped.title, issues },
       createdAt: new Date().toISOString(),
     };
@@ -680,7 +623,7 @@ export async function POST(req: Request) {
     const result: RebuildAstroResult = {
       ok: true, id, previewUrl: `/api/site-preview/${id}`,
       source: { url: scraped.url, title: scraped.title, issues },
-      files, fixes, optimization, summary, modelUsed: seo.modelUsed,
+      files, fixes, optimization, optimizedAt: null, summary, modelUsed: seo.modelUsed,
     };
     return NextResponse.json(result);
   } catch (err) {

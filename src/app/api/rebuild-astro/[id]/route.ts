@@ -15,6 +15,7 @@ interface Row {
     // Старые снапшоты (до этих полей) не хранили модель/оптимизацию — фолбэки.
     modelUsed?: string;
     optimization?: RebuildAstroResult["optimization"];
+    optimizedAt?: string | null;
     speedCompare?: RebuildAstroResult["speedCompare"];
     source: { url: string; title: string; issues: string[] };
   };
@@ -44,6 +45,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       files: snap.files,
       fixes: snap.fixes,
       optimization: snap.optimization ?? EMPTY_OPTIMIZATION,
+      // Легаси-снапшоты (оптимизация применялась прямо при переносе, поля
+      // optimizedAt ещё не было): считаем оптимизированными, если applied
+      // непустой — иначе кнопка «Оптимизировать» наслоит правки повторно.
+      optimizedAt: snap.optimizedAt
+        ?? ((snap.optimization?.applied?.length ?? 0) > 0 ? "legacy" : null),
       speedCompare: snap.speedCompare ?? null,
       summary: snap.summary,
       modelUsed: snap.modelUsed || MODEL,
