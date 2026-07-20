@@ -441,6 +441,11 @@ export interface PilotBundle {
   articles: PilotArticle[];
   articleMechanics: string[];
   month1: string[];
+  /**
+   * Сравнение «маркетолог в штате vs мы» — необязательно (у ручных пилотов
+   * не задано, показывается дефолт). Цены — строками на языке КП.
+   */
+  savings?: { marketerPrice: string; ourPrice: string; headline?: string; note?: string };
 }
 
 export const SOZDAVAY_PILOT: PilotBundle = {

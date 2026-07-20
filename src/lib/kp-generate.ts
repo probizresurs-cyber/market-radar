@@ -1,6 +1,6 @@
 import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
-import { enrichCompanyData } from "@/lib/enricher";
+import { enrichDomainData } from "@/lib/enricher";
 import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import type { AnalysisResult } from "@/lib/types";
@@ -48,27 +48,35 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 - В monthly — помесячные направления (СЕО+ГЕО, СММ) с ценами «от …».
 - guarantee — гарантия возврата за месяц при невыполнении объёма.
 
-ФОРМАТ — СТРОГО валидный JSON PilotBundle без markdown:
+ФОРМАТ — СТРОГО валидный JSON PilotBundle без markdown. Соблюдай ФОРМУ вложенных объектов ТОЧНО (иначе КП сломается):
 {
- "hero": {"verdict": "...", "potential": "+N заявок/мес", "potentialSub": "...", "badges": ["...","...","..."]},
- "strengths": [{"title":"...","detail":"..."}],
+ "hero": {"verdict": "...", "potential": "+N заявок/мес", "potentialSub": "...", "badges": ["строка","строка","строка"]},
+ "strengths": [{"title":"...","evidence":"fact|estimate","body":"...","leverage":"на что это опираемся в работе"}],
  "findings": [{"severity":"critical|warning","title":"...","evidence":"fact|estimate|forecast","fact":"...","why":"...","action":"...","effect":"..."}],
- "rivals": [],
+ "rivals": [{"name":"...","url":"...","strength":"...","weakness":"...","steal":"что у них забрать"}],
  "trump": "...",
- "geo": {"intro":"...","whyNow":"...","mechanics":["..."],"method":["..."],"forecast":["..."]},
- "forecast": {"formula":"...","assumptions":["..."],"example":"...","scenarios":[{"name":"...","desc":"...","m1":"...","m3":"...","m6":"...","mid":N}],"totalLow":N,"totalHigh":N},
- "chart": {"months":["мес 1",..."мес 6"],"series":[{"name":"...","values":[6 чисел]}]},
- "offers": [{"n":1,"name":"Перенос сайта на Astro","price":"...","priceNote":"...","what":["..."],"gets":["..."],"effort":"..."}],
+ "savings": {"marketerPrice":"100 000 ₽/мес","ourPrice":"25 000 ₽/мес","headline":"Столько же работы — вчетверо дешевле штатного маркетолога","note":"..."},
+ "geo": {
+   "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
+   "whyNow":"почему входить сейчас дешевле",
+   "assistants":[{"name":"Алиса / Яндекс Нейро","rewards":"что нужно, чтобы этот ассистент называл бренд"},{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"GigaChat (Сбер)","rewards":"..."}],
+   "levers":[{"title":"...","detail":"..."}],
+   "method":{"intro":"как честно замеряем","metric":"метрика: % ответов с упоминанием бренда","questions":["вопрос 1","...","6-8 контрольных вопросов ассистентам под нишу"]},
+   "forecast":[{"month":"1-й месяц","evidence":"estimate","text":"..."},{"month":"3-й месяц","evidence":"forecast","text":"..."},{"month":"6-й месяц","evidence":"forecast","text":"..."}]
+ },
+ "forecast": {"formula":"...","assumptions":["..."],"example":"...","scenarios":[{"name":"...","desc":"...","m1":"...","m3":"...","m6":"..."}],"totalLow":N,"totalHigh":N},
+ "chart": {"months":["мес 1","мес 2","мес 3","мес 4","мес 5","мес 6"],"series":[{"name":"...","values":[6 чисел — ровно 6, без null]}]},
+ "offers": [{"n":1,"name":"Перенос сайта на Astro","price":"...","priceNote":"разовая работа","what":["..."],"gets":["..."],"effort":"почему такая цена"}],
  "monthly": [{"name":"...","price":"от ...","items":["..."]}],
  "offersTotal": "...",
  "timeline": [{"week":"Неделя 1","text":"..."}],
- "positionDiagnosis": {},
+ "positionDiagnosis": {"ключевой-запрос-строчными":"короткий диагноз почему такая позиция"},
  "guarantee": "...",
  "articles": [{"title":"...","excerpt":"...","body":"...","geoNotes":["..."]}],
  "articleMechanics": ["..."],
  "month1": ["..."]
 }
-geo.method — 15-20 контрольных вопросов ассистентам под нишу. articles — 3 примера статей. chart.series суммарно даёт forecast.totalLow..totalHigh к 6 мес.`;
+СТРОГО: geo.assistants/levers — массивы объектов; geo.method — ОБЪЕКТ с массивом questions; geo.forecast — массив объектов {month,evidence,text}. badges — ровно 3 строки. chart: длина values = длине months = 6; сумма серий к 6-му месяцу ≈ forecast.totalHigh. positionDiagnosis — словарь по реальным запросам (ключи строчными). articles — 3 примера статей. Если реальных конкурентов в данных нет — верни "rivals": [].`;
 }
 
 function buildContext(company: AnalysisResult, scraped: Awaited<ReturnType<typeof scrapeWebsite>>): string {
@@ -82,6 +90,8 @@ function buildContext(company: AnalysisResult, scraped: Awaited<ReturnType<typeo
   if (company.aiPerception) parts.push(`AI-восприятие бренда: ${JSON.stringify(company.aiPerception).slice(0, 500)}`);
   const rivals = company.spywordsDashboard?.competitors?.yandex ?? company.keysoDashboard?.yandex?.competitors ?? [];
   if (Array.isArray(rivals) && rivals.length) parts.push(`Конкуренты из данных: ${JSON.stringify(rivals).slice(0, 600)}`);
+  const kws = company.seo?.keywords;
+  if (Array.isArray(kws) && kws.length) parts.push(`Ключевые запросы ниши (для positionDiagnosis, ключи строчными): ${kws.slice(0, 12).map(k => typeof k === "string" ? k : (k as { keyword?: string }).keyword).filter(Boolean).join(", ")}`);
   parts.push(`Соцсети: ${Object.keys(scraped.socialLinks || {}).join(", ") || "нет"}`);
   parts.push(`Стек: ${(scraped.techStack || []).join(", ") || "н/д"}`);
   parts.push(`Контент (выдержка): ${(scraped.rawTextSample || "").slice(0, 2500)}`);
@@ -96,12 +106,42 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   const company: AnalysisResult = await analyzeWithClaude(scraped);
   company.company.url = company.company.url || scraped.url;
 
-  // 3. Обогащение (best-effort — не роняем генерацию)
+  // 3. Обогащение домена — ТО ЖЕ, что делает /api/analyze, иначе у авто-КП
+  //    пустой Тех-аудит и AI-видимость (пилоты берут это из полного анализа
+  //    платформы). Маппинг зеркалит src/app/api/analyze/route.ts.
   try {
     const domain = (company.company.url || scraped.url).replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    const enriched = await enrichCompanyData(company.company.name, domain);
-    if (enriched) Object.assign(company, { _enriched: enriched });
-  } catch { /* игнорируем */ }
+    const real = await enrichDomainData(domain, scraped.socialLinks || {});
+    if (real) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const seo = company.seo as any;
+      if (real.spywords) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (company as any).spywordsDashboard = {
+          overview: real.spywords.overview, competitors: real.spywords.competitors,
+          advCompetitors: real.spywords.advCompetitors, ads: real.spywords.ads,
+          topPages: real.spywords.topPages, smartKeywords: real.spywords.smartKeywords, organic: real.spywords.organic,
+        };
+      }
+      if (real.keyso) {
+        if (real.keyso.yandex.length > 0) { seo.positions = real.keyso.yandex; seo.keywordsSource = "keyso"; }
+        if (real.keyso.google.length > 0) seo.googlePositions = real.keyso.google;
+        if (real.keyso.dashboard) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (company as any).keysoDashboard = real.keyso.dashboard;
+          if (real.keyso.dashboard.yandex && real.keyso.dashboard.yandex.traffic > 0) {
+            seo.estimatedTraffic = `~${real.keyso.dashboard.yandex.traffic.toLocaleString("ru-RU")} визитов/мес (Key.so)`;
+          }
+        }
+      }
+      if (real.pageSpeed) {
+        seo.lighthouseScores = { ...real.pageSpeed, ...(real.pageSpeedDesktop ? { desktop: real.pageSpeedDesktop } : {}) };
+      } else if (real.pageSpeedDesktop) {
+        seo.lighthouseScores = { ...real.pageSpeedDesktop, desktop: real.pageSpeedDesktop };
+      }
+      if (real.domainAge) seo.domainAge = real.domainAge;
+    }
+  } catch { /* энричеры best-effort — не роняем генерацию */ }
 
   // 4. AI-обёртка в PilotBundle
   const { text, error } = await safeAnthropicStream({
@@ -117,13 +157,54 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   if (!bundle || !bundle.hero || !Array.isArray(bundle.findings)) {
     throw new Error("AI вернул КП в неожиданном формате");
   }
-  // Санитайз обязательных полей — чтобы KpProposal не падал.
-  bundle.rivals = Array.isArray(bundle.rivals) ? bundle.rivals : [];
-  bundle.positionDiagnosis = bundle.positionDiagnosis && typeof bundle.positionDiagnosis === "object" ? bundle.positionDiagnosis : {};
-  bundle.articles = Array.isArray(bundle.articles) ? bundle.articles : [];
-  bundle.articleMechanics = Array.isArray(bundle.articleMechanics) ? bundle.articleMechanics : [];
-  bundle.month1 = Array.isArray(bundle.month1) ? bundle.month1 : [];
-  bundle.strengths = Array.isArray(bundle.strengths) ? bundle.strengths : [];
+  // Санитайз — чтобы битый ответ LLM НЕ ронял KpProposal (он читает вложенные
+  // .map без защиты). Гарантируем форму каждого поля, которое рендерится.
+  const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? v as T[] : []);
+  bundle.rivals = arr(bundle.rivals);
+  bundle.positionDiagnosis = bundle.positionDiagnosis && typeof bundle.positionDiagnosis === "object" && !Array.isArray(bundle.positionDiagnosis) ? bundle.positionDiagnosis : {};
+  bundle.articles = arr(bundle.articles);
+  bundle.articleMechanics = arr(bundle.articleMechanics);
+  bundle.month1 = arr(bundle.month1);
+  bundle.strengths = arr(bundle.strengths);
+  bundle.offers = arr(bundle.offers);
+  bundle.monthly = arr(bundle.monthly);
+  bundle.timeline = arr(bundle.timeline);
+
+  // geo — источник краша: компонент делает .map по assistants/levers/method.questions/forecast.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = (bundle.geo ?? {}) as any;
+  bundle.geo = {
+    intro: g.intro || "", whyNow: g.whyNow || "",
+    assistants: arr(g.assistants),
+    levers: arr(g.levers),
+    method: {
+      intro: g.method?.intro || "",
+      metric: g.method?.metric || "",
+      questions: arr(g.method?.questions),
+    },
+    forecast: arr(g.forecast),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+
+  // chart — PilotForecastChart падает в NaN при кривых values.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ch = (bundle.chart ?? {}) as any;
+  const months = arr<string>(ch.months).length === 6 ? ch.months : ["мес 1", "мес 2", "мес 3", "мес 4", "мес 5", "мес 6"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const series = arr<any>(ch.series)
+    .filter((s) => s && typeof s.name === "string" && Array.isArray(s.values))
+    .map((s) => ({ name: s.name, values: (s.values as unknown[]).slice(0, 6).map((n) => (typeof n === "number" && isFinite(n) ? n : 0)) }))
+    .filter((s) => s.values.length === 6);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bundle.chart = { months, series } as any;
+
+  // forecast — компонент читает scenarios[].{name,desc,m1,m3,m6} и totalLow/High.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fc = (bundle.forecast ?? {}) as any;
+  fc.assumptions = arr(fc.assumptions);
+  fc.scenarios = arr(fc.scenarios);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bundle.forecast = fc;
 
   return { company, bundle, companyName: company.company.name || scraped.title || rawUrl };
 }

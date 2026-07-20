@@ -1183,6 +1183,41 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── СРАВНЕНИЕ «МАРКЕТОЛОГ В ШТАТЕ vs МЫ» (только pilotOffer) ─── */}
+        {pilotOffer && (() => {
+          const sv = PD.savings ?? { marketerPrice: "100 000 ₽/мес", ourPrice: "25 000 ₽/мес", headline: "Столько же работы — вчетверо дешевле штатного маркетолога" };
+          return (
+            <Section id="pilot-savings">
+              <Reveal>
+                {() => (
+                  <div className="kp-cta-panel" style={{ position: "relative", overflow: "hidden", color: "var(--primary-foreground)", borderRadius: "var(--radius-xl, 20px)", padding: "28px 30px" }}>
+                    <div style={{ position: "relative" }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.35, marginBottom: 16, maxWidth: 640 }}>
+                        {sv.headline || "Столько же работы — в разы дешевле штатного маркетолога"}
+                      </div>
+                      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "stretch" }}>
+                        <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "rgba(255,255,255,0.12)" }}>
+                          <div style={{ fontSize: 12.5, opacity: 0.85, marginBottom: 6 }}>Маркетолог в штате</div>
+                          <div style={{ fontSize: 26, fontWeight: 850, textDecoration: "line-through", textDecorationThickness: 2, opacity: 0.9 }}>{sv.marketerPrice}</div>
+                          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>+ налоги, отпуск, обучение, риск «не сработается»</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <ArrowRight size={24} style={{ opacity: 0.75 }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "#fff", color: "var(--primary)" }}>
+                          <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 6, fontWeight: 700 }}>MarketRadar — команда + AI</div>
+                          <div style={{ fontSize: 30, fontWeight: 850 }}>{sv.ourPrice}</div>
+                          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>{sv.note || "Отчёт с цифрами каждую неделю, гарантия возврата за месяц"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Reveal>
+            </Section>
+          );
+        })()}
+
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
           <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Разовый вход с фиксированной ценой + два месячных направления — внутренняя оптимизация уже входит в тариф СЕО+ГЕО">
