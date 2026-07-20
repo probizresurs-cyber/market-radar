@@ -20,9 +20,11 @@ export async function GET(req: Request) {
   const rows = await query<{
     id: string; url: string; company_name: string | null; status: string; error: string | null;
     share_token: string | null; share_password: string | null; rebuild_status: string | null;
+    rebuild_id: string | null; client_email: string | null;
     created_at: string; completed_at: string | null;
   }>(
-    `SELECT id, url, company_name, status, error, share_token, share_password, rebuild_status, created_at, completed_at
+    `SELECT id, url, company_name, status, error, share_token, share_password, rebuild_status,
+            rebuild_id, client_email, created_at, completed_at
        FROM kp_generations WHERE locale = $1 ORDER BY created_at DESC LIMIT 200`,
     [locale],
   );

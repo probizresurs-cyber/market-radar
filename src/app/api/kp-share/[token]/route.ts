@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 interface Row {
   status: string; company_name: string | null; share_password: string | null;
   bundle: PilotBundle | null; company: AnalysisResult | null; locale: string; url: string;
+  rebuild_status: string | null; client_email: string | null;
 }
 
 export async function GET(_req: Request, ctx: { params: Promise<{ token: string }> }) {
@@ -60,5 +61,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     url: r.url,
     company: r.company,
     bundle: r.bundle,
+    rebuildStatus: r.rebuild_status,
+    clientEmail: r.client_email,
   });
 }

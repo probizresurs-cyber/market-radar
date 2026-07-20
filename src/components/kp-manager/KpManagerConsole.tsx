@@ -14,8 +14,11 @@ import { KP_I18N, type KpLocale } from "@/lib/kp-i18n";
 interface GenItem {
   id: string; url: string; company_name: string | null; status: string; error: string | null;
   share_token: string | null; share_password: string | null; rebuild_status: string | null;
+  rebuild_id: string | null; client_email: string | null;
   created_at: string;
 }
+
+const REVIEW_STATUSES = new Set(["running", "pending_review", "approved", "sent", "rejected", "error"]);
 
 type Tab = "create" | "history" | "review";
 
@@ -32,6 +35,8 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
 
   const [items, setItems] = useState<GenItem[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,7 +73,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   useEffect(() => {
     if (!authed) return;
     loadHistory();
-    const hasActive = items.some(i => i.status === "queued" || i.status === "running");
+    const hasActive = items.some(i => i.status === "queued" || i.status === "running" || i.rebuild_status === "running");
     const iv = setInterval(loadHistory, hasActive ? 4000 : 15000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,6 +108,39 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
       setCopiedId(item.id); setTimeout(() => setCopiedId(null), 2000);
     }).catch(() => {});
   };
+
+  const approveRebuild = async (item: GenItem) => {
+    setReviewBusyId(item.id); setReviewNotice(null);
+    try {
+      const r = await fetch(`/api/kp-generate/${item.id}/approve-rebuild`, { method: "POST", credentials: "include" });
+      const j = await r.json();
+      if (!j.ok) { setReviewNotice({ id: item.id, text: j.error || "Ошибка" }); return; }
+      setReviewNotice({ id: item.id, text: j.emailSent ? t.reviewEmailSent : t.reviewEmailFailed });
+      loadHistory();
+    } catch { setReviewNotice({ id: item.id, text: "Ошибка сети" }); }
+    finally { setReviewBusyId(null); }
+  };
+
+  const rejectRebuild = async (item: GenItem) => {
+    setReviewBusyId(item.id); setReviewNotice(null);
+    try {
+      const r = await fetch(`/api/kp-generate/${item.id}/reject-rebuild`, { method: "POST", credentials: "include" });
+      const j = await r.json();
+      if (!j.ok) { setReviewNotice({ id: item.id, text: j.error || "Ошибка" }); return; }
+      loadHistory();
+    } catch { setReviewNotice({ id: item.id, text: "Ошибка сети" }); }
+    finally { setReviewBusyId(null); }
+  };
+
+  const rebuildStatusLabel = (s: string) =>
+    s === "running" ? t.reviewStatusRunning
+    : s === "pending_review" ? t.reviewStatusPending
+    : s === "approved" ? t.reviewStatusApproved
+    : s === "sent" ? t.reviewStatusSent
+    : s === "rejected" ? t.reviewStatusRejected
+    : t.reviewStatusError;
+  const rebuildStatusColor = (s: string) =>
+    s === "sent" ? "#059669" : s === "pending_review" ? "#d97706" : s === "error" ? "#dc2626" : s === "rejected" ? "#6b7280" : "#2a78d6";
 
   const statusLabel = (s: string) =>
     s === "queued" ? t.statusQueued : s === "running" ? t.statusRunning : s === "done" ? t.statusDone : t.statusError;
@@ -226,10 +264,56 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
           </div>
         )}
 
-        {/* РЕВЬЮ (Фаза 3) */}
-        {tab === "review" && (
-          <div style={{ ...card, padding: 28, textAlign: "center", color: "#6b7280", fontSize: 14 }}>{t.reviewEmpty}</div>
-        )}
+        {/* РЕВЬЮ ПЕРЕСБОРОК (Фаза 3) */}
+        {tab === "review" && (() => {
+          const reviewItems = items.filter(i => i.rebuild_status && REVIEW_STATUSES.has(i.rebuild_status));
+          if (reviewItems.length === 0) {
+            return <div style={{ ...card, padding: 28, textAlign: "center", color: "#6b7280", fontSize: 14 }}>{t.reviewEmpty}</div>;
+          }
+          return (
+            <div style={{ display: "grid", gap: 10 }}>
+              {reviewItems.map(item => (
+                <div key={item.id} style={{ ...card, padding: "14px 18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>{item.company_name || item.url}</div>
+                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>{item.url}</div>
+                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 4 }}>
+                        {t.reviewClientEmail}: <b style={{ color: "#334155" }}>{item.client_email || t.reviewNoEmail}</b>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 999, background: `color-mix(in srgb, ${rebuildStatusColor(item.rebuild_status!)} 12%, transparent)`, color: rebuildStatusColor(item.rebuild_status!) }}>
+                      {rebuildStatusLabel(item.rebuild_status!)}
+                    </span>
+                  </div>
+                  {item.rebuild_id && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <a href={`/astro-rebuild?id=${item.rebuild_id}`} target="_blank" rel="noopener noreferrer"
+                        style={{ height: 34, padding: "0 14px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", color: "#334155", display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                        {t.reviewCompare}
+                      </a>
+                      {(item.rebuild_status === "pending_review" || item.rebuild_status === "approved") && item.client_email && (
+                        <>
+                          <button onClick={() => approveRebuild(item)} disabled={reviewBusyId === item.id}
+                            style={{ height: 34, padding: "0 14px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "none", background: reviewBusyId === item.id ? "#9ca3af" : "#059669", color: "#fff", cursor: reviewBusyId === item.id ? "default" : "pointer" }}>
+                            {reviewBusyId === item.id ? t.reviewApproving : t.reviewApprove}
+                          </button>
+                          <button onClick={() => rejectRebuild(item)} disabled={reviewBusyId === item.id}
+                            style={{ height: 34, padding: "0 14px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#dc2626", cursor: reviewBusyId === item.id ? "default" : "pointer" }}>
+                            {t.reviewReject}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {reviewNotice?.id === item.id && (
+                    <div style={{ marginTop: 10, fontSize: 12.5, color: "#334155" }}>{reviewNotice.text}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

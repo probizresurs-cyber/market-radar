@@ -403,6 +403,12 @@ export async function initDb() {
   // момента СТАРТА, а не постановки) и защиты от бесконечных перезапусков.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`);
+  // Фаза 3: клиент запрашивает пересборку на Astro прямо из /kp-share.
+  // rebuild_status: null → running → pending_review → approved/rejected → sent/error.
+  // client_email — куда отправить готовую ссылку после одобрения менеджером.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_email TEXT`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS rebuild_error TEXT`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`);
 
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`

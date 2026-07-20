@@ -12,6 +12,11 @@ export interface KpStrings {
   statusQueued: string; statusRunning: string; statusDone: string; statusError: string;
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
   reviewEmpty: string;
+  reviewClientEmail: string; reviewNoEmail: string; reviewCompare: string;
+  reviewApprove: string; reviewReject: string; reviewApproving: string;
+  reviewStatusRunning: string; reviewStatusPending: string; reviewStatusApproved: string;
+  reviewStatusSent: string; reviewStatusRejected: string; reviewStatusError: string;
+  reviewEmailSent: string; reviewEmailFailed: string;
 }
 
 export const KP_I18N: Record<KpLocale, KpStrings> = {
@@ -42,6 +47,20 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     copy: "Копировать",
     copied: "Скопировано",
     reviewEmpty: "Здесь появятся пересобранные сайты, ожидающие вашего одобрения перед отправкой клиенту.",
+    reviewClientEmail: "Email клиента",
+    reviewNoEmail: "Email не указан",
+    reviewCompare: "Сравнить версии",
+    reviewApprove: "Одобрить и отправить",
+    reviewReject: "Отклонить",
+    reviewApproving: "Отправляем…",
+    reviewStatusRunning: "Собираем…",
+    reviewStatusPending: "Ждёт вашего решения",
+    reviewStatusApproved: "Одобрено — письмо не ушло",
+    reviewStatusSent: "Отправлено клиенту",
+    reviewStatusRejected: "Отклонено",
+    reviewStatusError: "Ошибка пересборки",
+    reviewEmailSent: "Письмо отправлено клиенту",
+    reviewEmailFailed: "Письмо не ушло — отправьте ссылку клиенту вручную",
   },
   de: {
     title: "KP-Generator — Deutschland",
@@ -70,5 +89,19 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     copy: "Kopieren",
     copied: "Kopiert",
     reviewEmpty: "Hier erscheinen umgebaute Websites, die auf Ihre Freigabe vor dem Versand an den Kunden warten.",
+    reviewClientEmail: "Kunden-E-Mail",
+    reviewNoEmail: "Keine E-Mail angegeben",
+    reviewCompare: "Versionen vergleichen",
+    reviewApprove: "Freigeben & senden",
+    reviewReject: "Ablehnen",
+    reviewApproving: "Wird gesendet…",
+    reviewStatusRunning: "Wird zusammengestellt…",
+    reviewStatusPending: "Wartet auf Ihre Entscheidung",
+    reviewStatusApproved: "Freigegeben — E-Mail nicht gesendet",
+    reviewStatusSent: "An Kunden gesendet",
+    reviewStatusRejected: "Abgelehnt",
+    reviewStatusError: "Fehler beim Umbau",
+    reviewEmailSent: "E-Mail an Kunden gesendet",
+    reviewEmailFailed: "E-Mail nicht gesendet — Link bitte manuell an den Kunden senden",
   },
 };

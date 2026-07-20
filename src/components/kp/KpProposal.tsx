@@ -65,6 +65,20 @@ interface Props {
    * pilotClient.
    */
   generatedBundle?: PilotBundle | null;
+  /**
+   * Блок «Новая версия сайта на Astro» — только для клиентской /kp-share
+   * страницы авто-КП (Фаза 3). Кнопка запускает пересборку по URL, который
+   * уже известен из генерации КП (повторно вводить не нужно). Результат
+   * уходит на ревью менеджеру, а не сразу клиенту — отсюда честная копия
+   * «пришлём на почту» вместо мгновенного превью.
+   */
+  astroRebuild?: {
+    status: "idle" | "running" | "pending_review" | "approved" | "sent" | "error" | "rejected";
+    onRequest: (email: string) => void;
+    submitting?: boolean;
+    error?: string | null;
+    clientEmail?: string | null;
+  } | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -138,6 +152,7 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
+  { id: "astro-offer", label: "Новая версия сайта", pilotOnly: true },
   { id: "pricing", label: "Тарифы", hideOnPilot: true },
   { id: "cta", label: "Заявка" },
 ];
@@ -175,6 +190,7 @@ export function KpProposal({
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
   pilotClient,
   generatedBundle = null,
+  astroRebuild = null,
 }: Props) {
   // PD — активный пилот-бандл. Приоритет: сгенерированный бандл (авто-КП) →
   // хардкод по pilotClient → sozdavay-fallback (безопасен: при pilotOffer=false
@@ -206,8 +222,9 @@ export function KpProposal({
         && (!s.hideOnPilot || !pilotOffer)
         && (s.id !== "pilot-rivals" || PD.rivals.length > 0)
         && (s.id !== "ai-visibility" || hasAiViz)
+        && (s.id !== "astro-offer" || !!astroRebuild)
     ),
-    [pilotOffer, hasAiViz, PD],
+    [pilotOffer, hasAiViz, PD, astroRebuild],
   );
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
@@ -1504,6 +1521,13 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── НОВАЯ ВЕРСИЯ САЙТА (Astro) — Фаза 3, только когда прокинут astroRebuild ─── */}
+        {pilotOffer && astroRebuild && (
+          <Section id="astro-offer" title="Хотите увидеть сайт быстрее и без потери дизайна?" subtitle="Соберём рабочую копию на современном движке: тот же вид 1:1, устранены технические проблемы из находок выше">
+            <AstroOfferPanel astroRebuild={astroRebuild} />
+          </Section>
+        )}
+
         {/* ─── ТАРИФЫ — скрыты на пилоте: цены уже даны в «С чего предлагаем начать» ─── */}
         {!pilotOffer && (
         <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
@@ -2098,6 +2122,86 @@ function HeroBlobs({ score }: { score: number }) {
 
 function DotGridBackdrop() {
   return <div aria-hidden className="kp-page-dotgrid" />;
+}
+
+// ─── Блок «Новая версия сайта на Astro» (Фаза 3) ───────────────────────────
+type AstroRebuildProp = NonNullable<Props["astroRebuild"]>;
+
+function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
+  const { status, onRequest, submitting = false, error = null, clientEmail = null } = astroRebuild;
+  const [email, setEmail] = useState(clientEmail ?? "");
+  const [touched, setTouched] = useState(false);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  // «В работе» — независимо от того, дошло ли уже до ревью менеджера: клиенту
+  // не нужно видеть внутреннюю кухню статуса, только честное «ждём».
+  const inProgress = status === "running" || status === "pending_review" || status === "approved";
+  const done = status === "sent";
+  // error/rejected не тупик — форма показывается снова, можно попробовать ещё раз.
+
+  if (done) {
+    return (
+      <div className="ds-card" style={{ padding: "24px 26px", borderLeft: "4px solid var(--success)", display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Готово — ссылка у вас на почте</div>
+          <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
+            Мы собрали новую версию сайта и отправили ссылку на {clientEmail || "указанный вами адрес"}. Если письма нет — проверьте папку «Спам» или напишите нам.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (inProgress) {
+    return (
+      <div className="ds-card" style={{ padding: "24px 26px", borderLeft: "4px solid var(--primary)", display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <Clock size={22} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Собираем новую версию сайта</div>
+          <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
+            Обычно это занимает около 1 дня. Как только всё будет готово и проверено, пришлём ссылку на {clientEmail || "указанный вами email"}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ds-card" style={{ padding: "24px 26px" }}>
+      <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 18px", color: "var(--foreground)" }}>
+        Дизайн останется точно таким же — переносим только «внутряк»: устраняем технические проблемы из находок выше (скорость загрузки, мета-теги, разметка) и готовим сайт к SEO и GEO. Оставьте email — пришлём ссылку на готовую версию, как только менеджер её проверит.
+      </p>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div style={{ flex: "1 1 260px", minWidth: 220 }}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setTouched(true)}
+            placeholder="you@company.ru"
+            style={{
+              width: "100%", height: 46, padding: "0 14px", fontSize: 14.5,
+              border: `1px solid ${touched && !emailValid ? "var(--destructive)" : "var(--border)"}`,
+              borderRadius: 10, background: "var(--background)", color: "var(--foreground)",
+            }}
+          />
+          {touched && !emailValid && (
+            <div style={{ fontSize: 12, color: "var(--destructive)", marginTop: 6 }}>Укажите корректный email</div>
+          )}
+        </div>
+        <button
+          onClick={() => { setTouched(true); if (emailValid) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim()); } }}
+          disabled={submitting}
+          className="ds-btn ds-btn-primary"
+          style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}
+        >
+          {submitting ? "Отправляем…" : "Да, интересно"} {!submitting && <ArrowRight size={16} />}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10 }}>{error}</div>}
+    </div>
+  );
 }
 
 function KpEmpty() {

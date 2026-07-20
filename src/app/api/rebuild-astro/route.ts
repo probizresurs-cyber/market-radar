@@ -524,6 +524,84 @@ export default defineConfig({
   ];
 }
 
+// Основной конвейер переноса — вынесен из POST, чтобы им мог пользоваться
+// и другой триггер (клиентская кнопка «Да, интересно» на /kp-share,
+// см. /api/kp-share/[token]/rebuild), не только публичная форма /astro-rebuild.
+// Бросает исключение при неудачном скрейпе — вызывающий код сам решает,
+// как это показать (разный контекст = разные сообщения об ошибке).
+export async function runRebuild(rawUrl: string, userId: string | null): Promise<{ id: string; result: RebuildAstroResult }> {
+  await initDb();
+
+  // 1) Скрейпим сайт (сырой HTML + метаданные)
+  const scraped: RebuildScrape = await scrapeForRebuild(rawUrl);
+  const issues = detectIssues(scraped);
+
+  // 2) AI генерирует ТОЛЬКО SEO-текст (meta + schema), не дизайн
+  const started = Date.now();
+  let seo = { metaDescription: "", schema: null as unknown, modelUsed: MODEL };
+  try {
+    seo = await generateSeoMeta(scraped);
+  } catch (e) {
+    console.warn("[rebuild-astro] SEO meta gen failed, continue without:", e);
+  }
+
+  // 3) DOM-хирургия: сохраняем дизайн, правим SEO-внутряк.
+  //    Оптимизация (lazy/перенос ассетов/WebP) — ОТДЕЛЬНАЯ услуга, здесь
+  //    только диагностика: что тормозит и что исправит этап оптимизации.
+  const { html: fixedHtml, fixes } = surgicalFix(scraped.html, scraped, seo);
+  const optimization = detectPerf(fixedHtml, scraped.origin, scraped.techStack);
+  const id = randomUUID();
+
+  // Фоновая уборка: каталоги ассетов старше 14 дней удаляем, чтобы не
+  // забить диск (по ссылкам такой давности превью уже вряд ли смотрят).
+  void (async () => {
+    try {
+      const root = rebuildAssetsRoot();
+      const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      for (const name of await fs.readdir(root)) {
+        const p = path.join(root, name);
+        const st = await fs.stat(p).catch(() => null);
+        if (st?.isDirectory() && st.mtimeMs < cutoff) {
+          await fs.rm(p, { recursive: true, force: true }).catch(() => { /* ignore */ });
+        }
+      }
+    } catch { /* каталога ещё нет — нечего убирать */ }
+  })();
+
+  // 4) Собираем Astro-проект
+  const files = assembleAstroProject(fixedHtml, scraped.origin, scraped.title || "Сайт");
+
+  // 5) Сохраняем для живого превью
+  const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
+  const snapshot = {
+    // baseHtml — «чистый перенос» до оптимизации: этап /optimize стартует
+    // от него, чтобы правки не наслаивались при повторных запусках.
+    previewHtml: fixedHtml, baseHtml: fixedHtml, files, fixes, optimization,
+    optimizedAt: null as string | null,
+    summary, modelUsed: seo.modelUsed,
+    source: { url: scraped.url, title: scraped.title, issues },
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    await query(
+      `INSERT INTO astro_rebuilds (id, user_id, source_url, title, snapshot, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [id, userId, scraped.url, scraped.title || "", JSON.stringify(snapshot)],
+    );
+  } catch (e) {
+    console.error("[rebuild-astro] persist failed:", e);
+  }
+
+  logAi({ endpoint: "rebuild-astro", model: seo.modelUsed, userId, success: true, durationMs: Date.now() - started });
+
+  const result: RebuildAstroResult = {
+    ok: true, id, previewUrl: `/api/site-preview/${id}`,
+    source: { url: scraped.url, title: scraped.title, issues },
+    files, fixes, optimization, optimizedAt: null, summary, modelUsed: seo.modelUsed,
+  };
+  return { id, result };
+}
+
 export async function POST(req: Request) {
   // Публичный инструмент — без логина. Взамен checkAiAccess: IP-лимит.
   // 15/день на IP — с запасом на реальное использование (показать клиенту,
@@ -544,15 +622,13 @@ export async function POST(req: Request) {
   const session = await getSessionUser().catch(() => null);
 
   try {
-    await initDb();
     const body = await req.json().catch(() => ({}));
     const rawUrl: string = typeof body.url === "string" ? body.url.trim() : "";
     if (!rawUrl) return NextResponse.json({ ok: false, error: "Укажите URL сайта" }, { status: 400 });
 
-    // 1) Скрейпим сайт (сырой HTML + метаданные)
-    let scraped: RebuildScrape;
+    let run: { id: string; result: RebuildAstroResult };
     try {
-      scraped = await scrapeForRebuild(rawUrl);
+      run = await runRebuild(rawUrl, session?.userId ?? null);
     } catch (e) {
       logAi({ endpoint: "rebuild-astro", model: "-", userId: session?.userId ?? null, success: false, errorMessage: "scrape failed" });
       return NextResponse.json(
@@ -560,72 +636,7 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    const issues = detectIssues(scraped);
-
-    // 2) AI генерирует ТОЛЬКО SEO-текст (meta + schema), не дизайн
-    const started = Date.now();
-    let seo = { metaDescription: "", schema: null as unknown, modelUsed: MODEL };
-    try {
-      seo = await generateSeoMeta(scraped);
-    } catch (e) {
-      console.warn("[rebuild-astro] SEO meta gen failed, continue without:", e);
-    }
-
-    // 3) DOM-хирургия: сохраняем дизайн, правим SEO-внутряк.
-    //    Оптимизация (lazy/перенос ассетов/WebP) — ОТДЕЛЬНАЯ услуга, здесь
-    //    только диагностика: что тормозит и что исправит этап оптимизации.
-    const { html: fixedHtml, fixes } = surgicalFix(scraped.html, scraped, seo);
-    const optimization = detectPerf(fixedHtml, scraped.origin, scraped.techStack);
-    const id = randomUUID();
-
-    // Фоновая уборка: каталоги ассетов старше 14 дней удаляем, чтобы не
-    // забить диск (по ссылкам такой давности превью уже вряд ли смотрят).
-    void (async () => {
-      try {
-        const root = rebuildAssetsRoot();
-        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-        for (const name of await fs.readdir(root)) {
-          const p = path.join(root, name);
-          const st = await fs.stat(p).catch(() => null);
-          if (st?.isDirectory() && st.mtimeMs < cutoff) {
-            await fs.rm(p, { recursive: true, force: true }).catch(() => { /* ignore */ });
-          }
-        }
-      } catch { /* каталога ещё нет — нечего убирать */ }
-    })();
-
-    // 4) Собираем Astro-проект
-    const files = assembleAstroProject(fixedHtml, scraped.origin, scraped.title || "Сайт");
-
-    // 5) Сохраняем для живого превью
-    const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
-    const snapshot = {
-      // baseHtml — «чистый перенос» до оптимизации: этап /optimize стартует
-      // от него, чтобы правки не наслаивались при повторных запусках.
-      previewHtml: fixedHtml, baseHtml: fixedHtml, files, fixes, optimization,
-      optimizedAt: null as string | null,
-      summary, modelUsed: seo.modelUsed,
-      source: { url: scraped.url, title: scraped.title, issues },
-      createdAt: new Date().toISOString(),
-    };
-    try {
-      await query(
-        `INSERT INTO astro_rebuilds (id, user_id, source_url, title, snapshot, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [id, session?.userId ?? null, scraped.url, scraped.title || "", JSON.stringify(snapshot)],
-      );
-    } catch (e) {
-      console.error("[rebuild-astro] persist failed:", e);
-    }
-
-    logAi({ endpoint: "rebuild-astro", model: seo.modelUsed, userId: session?.userId ?? null, success: true, durationMs: Date.now() - started });
-
-    const result: RebuildAstroResult = {
-      ok: true, id, previewUrl: `/api/site-preview/${id}`,
-      source: { url: scraped.url, title: scraped.title, issues },
-      files, fixes, optimization, optimizedAt: null, summary, modelUsed: seo.modelUsed,
-    };
-    return NextResponse.json(result);
+    return NextResponse.json(run.result);
   } catch (err) {
     console.error("rebuild-astro error:", err);
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Ошибка сервера" }, { status: 500 });

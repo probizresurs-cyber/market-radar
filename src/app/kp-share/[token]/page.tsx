@@ -13,6 +13,8 @@ import { KpProposal } from "@/components/kp/KpProposal";
 
 interface Loaded { company: AnalysisResult; bundle: PilotBundle; companyName: string | null; url: string; }
 
+type AstroStatus = "idle" | "running" | "pending_review" | "approved" | "sent" | "error" | "rejected";
+
 export default function KpSharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [phase, setPhase] = useState<"loading" | "gate" | "ok" | "error">("loading");
@@ -21,6 +23,29 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [data, setData] = useState<Loaded | null>(null);
+
+  // Фаза 3: статус запроса пересборки на Astro — восстанавливается из ответа
+  // разблокировки (если клиент уже нажимал «Да, интересно» раньше и вернулся
+  // по той же ссылке), дальше живёт локально до следующей перезагрузки.
+  const [astroStatus, setAstroStatus] = useState<AstroStatus>("idle");
+  const [astroEmail, setAstroEmail] = useState<string | null>(null);
+  const [astroSubmitting, setAstroSubmitting] = useState(false);
+  const [astroError, setAstroError] = useState<string | null>(null);
+
+  const requestAstroRebuild = async (email: string) => {
+    setAstroSubmitting(true); setAstroError(null);
+    try {
+      const r = await fetch(`/api/kp-share/${token}/rebuild`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const j = await r.json();
+      if (!j.ok) { setAstroError(j.error || "Не получилось отправить запрос"); return; }
+      setAstroStatus(j.status as AstroStatus);
+      setAstroEmail(email);
+    } catch { setAstroError("Ошибка сети"); }
+    finally { setAstroSubmitting(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -44,6 +69,8 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
       const j = await r.json();
       if (!j.ok) { setError(j.error || "Неверный пароль"); return; }
       setData({ company: j.company, bundle: j.bundle, companyName: j.companyName, url: j.url });
+      if (j.rebuildStatus) setAstroStatus(j.rebuildStatus as AstroStatus);
+      if (j.clientEmail) setAstroEmail(j.clientEmail);
       setPhase("ok");
     } catch { setError("Ошибка сети"); }
     finally { setSubmitting(false); }
@@ -65,7 +92,20 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
   }
 
   if (phase === "ok" && data) {
-    return <KpProposal company={data.company} competitors={[]} generatedBundle={data.bundle} />;
+    return (
+      <KpProposal
+        company={data.company}
+        competitors={[]}
+        generatedBundle={data.bundle}
+        astroRebuild={{
+          status: astroStatus,
+          onRequest: requestAstroRebuild,
+          submitting: astroSubmitting,
+          error: astroError,
+          clientEmail: astroEmail,
+        }}
+      />
+    );
   }
 
   // gate
