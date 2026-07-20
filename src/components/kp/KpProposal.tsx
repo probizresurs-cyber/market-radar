@@ -19,8 +19,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisResult, Recommendation } from "@/lib/types";
 import type { AIVisibilityAudit, LLMName } from "@/lib/ai-visibility-types";
 import { trackKpEvent } from "@/lib/kp-track";
-import { EVIDENCE_LEGEND, SOZDAVAY_PILOT, type Evidence, type PilotBundle } from "./pilot-sozdavay-data";
+import { SOZDAVAY_PILOT, type Evidence, type PilotBundle } from "./pilot-sozdavay-data";
 import { BIGLIFE_PILOT } from "./pilot-biglife-data";
+import { KP_PROPOSAL_I18N, type KpProposalLocale } from "./kp-proposal-i18n";
 
 export type PilotClient = "sozdavaya" | "biglife";
 const PILOT_BUNDLES: Record<PilotClient, PilotBundle> = {
@@ -79,6 +80,14 @@ interface Props {
     error?: string | null;
     clientEmail?: string | null;
   } | null;
+  /**
+   * Язык статичного текста интерфейса (навигация, заголовки секций, лейблы
+   * тех-аудита и т.п.) — НЕ содержимого КП (это уже на нужном языке в
+   * PilotBundle). По умолчанию "ru" — так ведут себя все существующие
+   * страницы (ручные пилоты, /kp-gen менеджерский просмотр). Задаётся "de"
+   * только на клиентской /kp-share для немецких авто-КП.
+   */
+  locale?: KpProposalLocale;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -175,12 +184,8 @@ const LLM_LABELS: Record<LLMName, string> = {
   yandex: "YandexGPT", claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", perplexity: "Perplexity",
 };
 
-// Presence нейросети в анализе (aiPerception.knowledgePresence) → человекочитаемо.
-const aiPresenceLabel = (p: string) =>
-  p === "strong" ? "Сильное — нейросети знают и рекомендуют бренд"
-  : p === "moderate" ? "Умеренное — бренд иногда упоминается"
-  : p === "weak" ? "Слабое — нейросети почти не знают о бренде"
-  : "Минимальное — бренда фактически нет в ответах нейросетей";
+// Presence нейросети в анализе (aiPerception.knowledgePresence) → цвет индикатора.
+// Текст-лейбл теперь берётся из локализованного словаря (t.aiPresence*) в месте рендера.
 const aiPresenceColor = (p: string) =>
   p === "strong" ? "var(--success)" : p === "moderate" ? "var(--warning)" : "var(--destructive)";
 
@@ -191,7 +196,9 @@ export function KpProposal({
   pilotClient,
   generatedBundle = null,
   astroRebuild = null,
+  locale = "ru",
 }: Props) {
+  const t = KP_PROPOSAL_I18N[locale];
   // PD — активный пилот-бандл. Приоритет: сгенерированный бандл (авто-КП) →
   // хардкод по pilotClient → sozdavay-fallback (безопасен: при pilotOffer=false
   // все pilot-секции скрыты и PD не читается).
@@ -226,6 +233,16 @@ export function KpProposal({
     ),
     [pilotOffer, hasAiViz, PD, astroRebuild],
   );
+  // Лейблы навигации — переведены только для секций, которые реально
+  // показываются на pilotOffer/DE-пути; growth/plan/pricing — только для
+  // обычного (не-pilot) /kp, который всегда на русском, поэтому берут
+  // дефолт из BASE_SECTIONS.label напрямую.
+  const NAV_LABELS: Record<string, string> = {
+    overview: t.navOverview, "pilot-strengths": t.navStrengths, findings: t.navFindings, tech: t.navTech,
+    competitors: t.navCompetitors, "pilot-rivals": t.navRivals, "ai-visibility": t.navAiVisibility,
+    "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
+    "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
+  };
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   // Тарифы скрыты за кнопкой «Получить анализ» — раньше цены висели открыто
@@ -429,14 +446,14 @@ export function KpProposal({
           <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
             <div style={{ fontSize: 13.5, minWidth: 0 }}>
               <b>{PD.offers[0].name} — {PD.offers[0].price}</b>
-              <span style={{ color: "var(--muted-foreground)" }}> · {PD.offers[0].priceNote} · фиксированная цена</span>
+              <span style={{ color: "var(--muted-foreground)" }}> · {PD.offers[0].priceNote} · {t.stickyFixedPrice}</span>
             </div>
             <button
               onClick={() => { trackKpEvent("click", "sticky-offer-cta"); scrollTo("pilot-offer"); }}
               className="ds-btn ds-btn-primary"
               style={{ height: 38, padding: "0 18px", fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
             >
-              Начать <ArrowRight size={14} />
+              {t.stickyStartBtn} <ArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -493,7 +510,7 @@ export function KpProposal({
         <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
             <span style={{ color: "var(--primary)" }}>MarketRadar</span>
-            <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· Анализ</span>
+            <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· {t.brandSuffix}</span>
           </div>
           <div className="kp-navscroll" style={{ position: "relative", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
             <div style={{
@@ -512,14 +529,14 @@ export function KpProposal({
                   transition: "color 0.2s var(--ease)",
                 }}
               >
-                {s.label}
+                {NAV_LABELS[s.id] ?? s.label}
               </button>
             ))}
           </div>
           <button
             onClick={toggleTheme}
-            aria-label={isDark ? "Включить светлую тему" : "Включить тёмную тему"}
-            title={isDark ? "Светлая тема" : "Тёмная тема"}
+            aria-label={isDark ? t.themeLight : t.themeDark}
+            title={isDark ? t.themeLight : t.themeDark}
             style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               width: 34, height: 34, borderRadius: 999, border: "1px solid var(--border)",
@@ -542,7 +559,7 @@ export function KpProposal({
                 {(v) => (
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
-                      Интерактивный анализ сайта
+                      {t.heroKicker}
                     </div>
                     <h1 style={{ fontSize: 40, fontWeight: 850, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>{c.name}</h1>
                     {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 15, textDecoration: "none" }}>{c.url}</a>}
@@ -557,7 +574,7 @@ export function KpProposal({
                           {/* Связка «боль → выгода»: label-мост, чтобы вердикт и цифра
                               читались одной мыслью, а не двумя обрывками (мобильный фидбек) */}
                           <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
-                            Потенциал после устранения находок
+                            {t.heroPotentialLabel}
                           </div>
                           <div style={{
                             fontSize: "clamp(30px, 7vw, 44px)", fontWeight: 850, lineHeight: 1.05, letterSpacing: "-0.02em",
@@ -582,13 +599,13 @@ export function KpProposal({
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
                           <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                            Обсудить проект <ArrowRight size={17} />
+                            {t.heroDiscussBtn} <ArrowRight size={17} />
                           </button>
                           <button onClick={() => { trackKpEvent("click", "hero-offer"); scrollTo("pilot-offer"); }} style={{
                             height: 46, padding: "0 20px", fontSize: 14.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 8,
                             borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
                           }}>
-                            Предложение — от {PD.offers[0].price}
+                            {t.heroOfferBtnPrefix} {PD.offers[0].price}
                           </button>
                         </div>
                       </>
@@ -609,7 +626,7 @@ export function KpProposal({
                   </div>
                 )}
               </Reveal>
-              <Reveal delay={120}>{(v) => <Ring value={c.score} size={220} stroke={16} active={v} sublabel="общий балл / 100" />}</Reveal>
+              <Reveal delay={120}>{(v) => <Ring value={c.score} size={220} stroke={16} active={v} sublabel={t.ringScoreLabel} />}</Reveal>
             </div>
           </div>
 
@@ -621,7 +638,7 @@ export function KpProposal({
                   {(v) => (
                     <div className="ds-card" style={{ padding: "18px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
-                        <RadarIcon size={13} /> Профиль по категориям
+                        <RadarIcon size={13} /> {t.profileByCategories}
                       </div>
                       <RadarChart categories={categories.map((cat) => ({ name: cat.name, score: cat.score }))} active={v} />
                     </div>
@@ -648,7 +665,7 @@ export function KpProposal({
                               <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
                             </div>
                             <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)", marginTop: 8 }}>
-                              {categoryVerdict(cat.score)}
+                              {cat.score < 45 ? t.categoryVerdictLow : cat.score < 65 ? t.categoryVerdictMid : t.categoryVerdictHigh}
                             </div>
                           </div>
                         )}
@@ -671,28 +688,20 @@ export function KpProposal({
                   : <TrendingUp size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", marginBottom: 8 }}>
-                    Почему это важно
+                    {t.whyImportant}
                   </div>
                   <p style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.4, margin: "0 0 8px" }}>
-                    {nicheGap > 3
-                      ? `Вы отстаёте от среднего уровня по нише на ${nicheGap} ${ruPlural(nicheGap, "балл", "балла", "баллов")}`
-                      : nicheGap < -3
-                      ? `Вы опережаете средний уровень по нише на ${-nicheGap} ${ruPlural(-nicheGap, "балл", "балла", "баллов")}`
-                      : `Вы на уровне среднего по нише`}
-                    {aheadCount > 0 && ` — ${aheadCount} ${ruPlural(aheadCount, "конкурент опережает", "конкурента опережают", "конкурентов опережают")} вас по общему баллу`}
+                    {nicheGap > 3 ? t.whyBehindBy(nicheGap) : nicheGap < -3 ? t.whyAheadBy(-nicheGap) : t.whyAtAverage}
+                    {aheadCount > 0 && t.whyCompetitorsAhead(aheadCount)}
                   </p>
                   <p style={{ fontSize: 14.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
-                    Это напрямую влияет на то, сколько клиентов доходит до вас, а не до конкурентов.
-                    {sevCounts.critical > 0 && ` Мы нашли ${sevCounts.critical} ${ruPlural(sevCounts.critical, "критичную проблему", "критичные проблемы", "критичных проблем")}`}
-                    {sevCounts.critical > 0 && opportunityCount > 0 && " и "}
-                    {opportunityCount > 0 && `${sevCounts.critical > 0 ? "" : "Нашли "}${opportunityCount} ${ruPlural(opportunityCount, "точку роста", "точки роста", "точек роста")}`}
-                    {" "}— ниже показываем план, с чего начать и что это даёт.
+                    {t.whyBody(sevCounts.critical, opportunityCount)}
                   </p>
-                  <button onClick={() => scrollTo("plan")} style={{
+                  <button onClick={() => scrollTo(pilotOffer ? primaryCtaId : "plan")} style={{
                     marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none",
                     color: "var(--primary)", fontWeight: 700, fontSize: 14, cursor: "pointer", padding: 0,
                   }}>
-                    Смотреть план работ <ArrowRight size={15} />
+                    {t.whySeePlan} <ArrowRight size={15} />
                   </button>
                 </div>
               </div>
@@ -702,13 +711,15 @@ export function KpProposal({
 
         {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) — доверие до боли ─── */}
         {pilotOffer && (
-          <Section id="pilot-strengths" title="Что уже работает" subtitle="Честный аудит начинается с сильных сторон — их нельзя сломать в ходе работ, на них мы опираемся">
+          <Section id="pilot-strengths" title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
             {/* Легенда достоверности — как читать весь отчёт */}
             <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Как читать отчёт:</span>
-              {EVIDENCE_LEGEND.map((l) => (
-                <span key={l.level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
-                  <EvidenceBadge level={l.level} /> {l.desc}
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
+              {([
+                ["fact", t.evidenceLegendFact], ["estimate", t.evidenceLegendEstimate], ["forecast", t.evidenceLegendForecast],
+              ] as Array<[Evidence, string]>).map(([level, desc]) => (
+                <span key={level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
+                  <EvidenceBadge level={level} locale={locale} /> {desc}
                 </span>
               ))}
             </div>
@@ -720,12 +731,12 @@ export function KpProposal({
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
                         <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
                         <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
-                        <EvidenceBadge level={s.evidence} />
+                        <EvidenceBadge level={s.evidence} locale={locale} />
                       </div>
                       <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
                       <div style={{ fontSize: 13.5, lineHeight: 1.5, display: "flex", gap: 8 }}>
                         <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
-                        <span><b style={{ color: "var(--success)" }}>На это опираемся:</b> {s.leverage}</span>
+                        <span><b style={{ color: "var(--success)" }}>{t.weRelyOnThis}</b> {s.leverage}</span>
                       </div>
                     </div>
                   )}
@@ -737,7 +748,7 @@ export function KpProposal({
 
         {/* ─── НАХОДКИ: пилот — ручные кейсы «факт → важно → делать → даст» ─── */}
         {pilotOffer && (
-          <Section id="findings" title="Находки — с доказательствами и эффектом" subtitle="Каждая находка: что нашли → почему это важно → что делать → что это даст. Всё проверено вручную 15–16.07.2026">
+          <Section id="findings" title={t.findingsTitle} subtitle={t.findingsSubtitle}>
             <div style={{ display: "grid", gap: 14 }}>
               {PD.findings.map((f, i) => (
                 <Reveal key={i} delay={Math.min(i, 6) * 50}>
@@ -746,19 +757,19 @@ export function KpProposal({
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                         <div style={{ fontSize: 16.5, fontWeight: 800, lineHeight: 1.3, flex: 1, minWidth: 220 }}>{f.title}</div>
                         <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: f.severity === "critical" ? "var(--destructive)" : "var(--warning)", border: `1px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}`, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap" }}>
-                          {f.severity === "critical" ? "КРИТИЧНО" : "ВНИМАНИЕ"}
+                          {f.severity === "critical" ? t.severityCritical : t.severityWarning}
                         </span>
-                        <EvidenceBadge level={f.evidence} />
+                        <EvidenceBadge level={f.evidence} locale={locale} />
                       </div>
                       <div style={{ fontSize: 13.5, lineHeight: 1.55, padding: "10px 14px", background: "var(--muted)", borderRadius: 8, marginBottom: 10 }}>{f.fact}</div>
                       <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 12px" }}>{f.why}</p>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
                         <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--primary)", marginBottom: 4 }}>ЧТО ДЕЛАТЬ</div>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--primary)", marginBottom: 4 }}>{t.whatToDo}</div>
                           <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.action}</div>
                         </div>
                         <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--success) 8%, transparent)" }}>
-                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>ЧТО ДАСТ <span style={{ fontWeight: 600, opacity: 0.8 }}>· прогноз</span></div>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>{t.whatItGives} <span style={{ fontWeight: 600, opacity: 0.8 }}>· {t.forecastSuffix}</span></div>
                           <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.effect}</div>
                         </div>
                       </div>
@@ -806,32 +817,32 @@ export function KpProposal({
 
         {/* ─── ТЕХ-АУДИТ ─── */}
         {hasTech && (
-          <Section id="tech" title="Технический аудит" subtitle="Скорость и качество страниц по данным Google Lighthouse / Core Web Vitals">
+          <Section id="tech" title={t.techTitle} subtitle={t.techSubtitle}>
             {lh?.desktop && (
               <div style={{ display: "inline-flex", gap: 4, padding: 4, background: "var(--muted)", borderRadius: 10, marginBottom: 18 }}>
-                {(["mobile", "desktop"] as const).map((t) => (
-                  <button key={t} onClick={() => setTechTab(t)} style={{
+                {(["mobile", "desktop"] as const).map((tab) => (
+                  <button key={tab} onClick={() => setTechTab(tab)} style={{
                     padding: "6px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    background: techTab === t ? "var(--card)" : "transparent", color: techTab === t ? "var(--foreground)" : "var(--muted-foreground)",
+                    background: techTab === tab ? "var(--card)" : "transparent", color: techTab === tab ? "var(--foreground)" : "var(--muted-foreground)",
                     transition: "background 0.2s var(--ease), color 0.2s var(--ease)",
-                  }}>{t === "mobile" ? "Мобильные" : "Десктоп"}</button>
+                  }}>{tab === "mobile" ? t.tabMobile : t.tabDesktop}</button>
                 ))}
               </div>
             )}
             <div className="kp-tech-grid">
-              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label="Производительность" value={lhSet.performance} hint="Как быстро грузится сайт. Низкий балл — люди уходят, не дождавшись." />}
-              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label="Тех. SEO страницы" value={lhSet.seo} hint="Технические основы: title, мета-теги, мобильность. Это не позиции — за реальную видимость отвечает SEO-балл по трафику." />}
-              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label="Доступность" value={lhSet.accessibility} hint="Удобство и корректность вёрстки — сигнал качества для людей и роботов." />}
-              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint="Загрузка основного контента. Хорошо — до 2,5 с." />}
-              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint="Сдвиги вёрстки при загрузке. Хорошо — меньше 0,1." />}
-              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint="Задержка отклика на клики. Хорошо — меньше 200 мс." />}
+              {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label={t.perfLabel} value={lhSet.performance} hint={t.perfHint} />}
+              {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label={t.techSeoLabel} value={lhSet.seo} hint={t.techSeoHint} />}
+              {lhSet?.accessibility != null && <RingTile key={`acc-${techTab}`} label={t.accessibilityLabel} value={lhSet.accessibility} hint={t.accessibilityHint} />}
+              {lhSet?.lcp && <TechTile label="LCP" text={lhSet.lcp.display} pct={lhSet.lcp.score * 100} hint={t.lcpHint} />}
+              {lhSet?.cls && <TechTile label="CLS" text={lhSet.cls.display} pct={lhSet.cls.score * 100} hint={t.clsHint} />}
+              {lhSet?.tbt && <TechTile label="TBT" text={lhSet.tbt.display} pct={lhSet.tbt.score * 100} hint={t.tbtHint} />}
             </div>
           </Section>
         )}
 
         {/* ─── КОНКУРЕНТЫ ─── */}
         {ranking.length > 1 && (
-          <Section id="competitors" title="Где вы среди конкурентов" subtitle="Общий балл вашего сайта против конкурентов из вашей ниши">
+          <Section id="competitors" title={t.competitorsTitle} subtitle={t.competitorsSubtitle}>
             <div style={{ display: "grid", gap: 10 }}>
               {ranking.map((r, i) => (
                 <Reveal key={i} delay={Math.min(i, 8) * 55}>
@@ -846,7 +857,7 @@ export function KpProposal({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, gap: 12 }}>
                           <span style={{ fontWeight: r.mine ? 800 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {r.name}{r.mine && <span style={{ color: "var(--primary)" }}> · вы</span>}
+                            {r.name}{r.mine && <span style={{ color: "var(--primary)" }}> · {t.youSuffix}</span>}
                           </span>
                           <span style={{ fontWeight: 800, color: scoreColor(r.score), flexShrink: 0, fontVariantNumeric: "tabular-nums" }}><CountUp target={r.score} active={v} /></span>
                         </div>
@@ -866,10 +877,10 @@ export function KpProposal({
             </div>
             {vis && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginTop: 24 }}>
-                <TechTile label="Трафик из поиска / сут" value={vis.traffic} />
-                <TechTile label="Запросов в топ-10" value={vis.top10} />
-                <TechTile label="Страниц в выдаче" value={vis.pagesInOrganic} />
-                {vis.aiMentions != null && <TechTile label="Упоминаний в ИИ-ответах" value={vis.aiMentions} />}
+                <TechTile label={t.trafficLabel} value={vis.traffic} />
+                <TechTile label={t.top10Label} value={vis.top10} />
+                <TechTile label={t.pagesLabel} value={vis.pagesInOrganic} />
+                {vis.aiMentions != null && <TechTile label={t.aiMentionsLabel} value={vis.aiMentions} />}
               </div>
             )}
           </Section>
@@ -878,7 +889,7 @@ export function KpProposal({
         {/* ─── ЛИДЕРЫ НИШИ — разбор конкурентов вручную; скрыт, если для этого
             клиента ручной разбор ещё не проводился (rivals пуст) ─── */}
         {pilotOffer && PD.rivals.length > 0 && (
-          <Section id="pilot-rivals" title="Лидеры ниши — разобраны вручную" subtitle="Три сайта из топа выдачи по ключевым запросам. У каждого — что забираем себе; ниша выигрывается структурой, а не бюджетом">
+          <Section id="pilot-rivals" title={t.rivalsTitle} subtitle={t.rivalsSubtitle}>
             <div style={{ display: "grid", gap: 14 }}>
               {PD.rivals.map((r, i) => (
                 <Reveal key={i} delay={i * 80}>
@@ -891,15 +902,15 @@ export function KpProposal({
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Сильны в</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.strongIn}</div>
                           <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.strength}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Слабое место</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.weakSpot}</div>
                           <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.weakness}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>Что забираем</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.whatWeTake}</div>
                           <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{r.steal}</div>
                         </div>
                       </div>
@@ -918,9 +929,9 @@ export function KpProposal({
         {/* ─── AI-ВИДИМОСТЬ ─── */}
         {/* Полный аудит (отдельный прогон) — если он есть, показываем богатую версию. */}
         {aiVisibility && aiVisibility.status === "done" && aiVisibility.totalScore != null ? (
-          <Section id="ai-visibility" title="AI-видимость" subtitle="Насколько бренд заметен в ответах AI-ассистентов — ChatGPT, Claude, YandexGPT, Gemini">
+          <Section id="ai-visibility" title={t.aiVisibilityTitleFull} subtitle={t.aiVisibilitySubtitleFull}>
             <div className="kp-hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,220px) 1fr", gap: 28, alignItems: "center" }}>
-              <Reveal>{(v) => <Ring value={aiVisibility.totalScore ?? 0} size={150} stroke={12} active={v} sublabel="AI-видимость / 100" />}</Reveal>
+              <Reveal>{(v) => <Ring value={aiVisibility.totalScore ?? 0} size={150} stroke={12} active={v} sublabel={t.aiVisibilityRingLabel} />}</Reveal>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
                 {(Object.entries(aiVisibility.scoresByLlm ?? {}) as Array<[LLMName, number]>)
                   .filter(([, score]) => score >= 0)
@@ -958,17 +969,22 @@ export function KpProposal({
           // Fallback: отдельного аудита нет, но в основном анализе всегда есть
           // aiPerception (как нейросети воспринимают бренд) — показываем его,
           // чтобы блок AI-видимости не пропадал. Все данные реальные (из анализа).
-          <Section id="ai-visibility" title="AI-видимость" subtitle="Как нейросети воспринимают ваш бренд — по анализу присутствия в ответах AI-ассистентов">
+          <Section id="ai-visibility" title={t.aiVisibilityTitleFallback} subtitle={t.aiVisibilitySubtitleFallback}>
             <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
               <Bot size={22} style={{ color: aiPresenceColor(aiPerc.knowledgePresence), flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>Присутствие в ответах нейросетей</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: aiPresenceColor(aiPerc.knowledgePresence) }}>{aiPresenceLabel(aiPerc.knowledgePresence)}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>{t.aiPresenceLabel}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: aiPresenceColor(aiPerc.knowledgePresence) }}>
+                  {aiPerc.knowledgePresence === "strong" ? t.aiPresenceStrong
+                    : aiPerc.knowledgePresence === "moderate" ? t.aiPresenceModerate
+                    : aiPerc.knowledgePresence === "weak" ? t.aiPresenceWeak
+                    : t.aiPresenceMinimal}
+                </div>
               </div>
               {aiMentions != null && (
                 <div style={{ textAlign: "center", paddingLeft: 18, borderLeft: "1px solid var(--border)" }}>
                   <div style={{ fontSize: 40, fontWeight: 850, lineHeight: 1, color: aiMentions === 0 ? "var(--destructive)" : "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>{aiMentions}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 4, maxWidth: 150 }}>упоминаний бренда в ответах нейросетей на момент анализа</div>
+                  <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 4, maxWidth: 150 }}>{t.aiMentionsSuffix}</div>
                 </div>
               )}
             </div>
@@ -976,17 +992,17 @@ export function KpProposal({
               <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 18, display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--destructive)" }}>
                 <AlertTriangle size={18} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
                 <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>
-                  Когда клиент спрашивает у нейросети «кто в вашей нише лучше», бренд <b>не называют ни разу</b> — весь этот трафик уходит к конкурентам, которых AI уже знает. Это чиним в разделе <b>GEO-видимость</b> ниже.
+                  {t.aiZeroMentionsWarning}
                 </p>
               </div>
             )}
             {/* E-E-A-T — реальные баллы 0-100 из анализа */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 18 }}>
               {([
-                ["Экспертность", aiPerc.eeat?.expertise],
-                ["Авторитет", aiPerc.eeat?.authority],
-                ["Доверие", aiPerc.eeat?.trust],
-                ["Опыт", aiPerc.eeat?.experience],
+                [t.eeatExpertise, aiPerc.eeat?.expertise],
+                [t.eeatAuthority, aiPerc.eeat?.authority],
+                [t.eeatTrust, aiPerc.eeat?.trust],
+                [t.eeatExperience, aiPerc.eeat?.experience],
               ] as Array<[string, number | undefined]>).filter(([, s]) => s != null).map(([label, s]) => (
                 <Reveal key={label}>
                   {(v) => (
@@ -1000,7 +1016,7 @@ export function KpProposal({
             </div>
             {aiPerc.sampleAnswer && (
               <div className="ds-card" style={{ padding: "16px 18px", marginBottom: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>Что нейросеть отвечает о вас сейчас</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>{t.aiSampleAnswerLabel}</div>
                 <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, fontStyle: "italic", color: "var(--foreground)" }}>«{aiPerc.sampleAnswer}»</p>
               </div>
             )}
@@ -1023,7 +1039,7 @@ export function KpProposal({
 
         {/* ─── GEO-ВИДИМОСТЬ — глубокий разбор (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-geo" title="GEO: видимость в ответах нейросетей" subtitle="Отдельный, растущий канал — как попасть в ответы Алисы, ChatGPT и Perplexity, когда клиент спрашивает «кто делает искусственные скалы в Москве»">
+          <Section id="pilot-geo" title={t.geoTitle} subtitle={t.geoSubtitle}>
             <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <BrainCircuit size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
@@ -1036,7 +1052,7 @@ export function KpProposal({
 
             {/* Что вознаграждает каждый ассистент */}
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              Что вознаграждает каждый ассистент
+              {t.geoAssistantRewardsTitle}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
               {PD.geo.assistants.map((a, i) => (
@@ -1056,7 +1072,7 @@ export function KpProposal({
 
             {/* Рычаги цитируемости */}
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              Чем мы поднимаем цитируемость — 5 рычагов
+              {t.geoLeversTitle}
             </div>
             <div style={{ display: "grid", gap: 10 }}>
               {PD.geo.levers.map((l, i) => (
@@ -1078,11 +1094,11 @@ export function KpProposal({
             <div className="ds-card" style={{ padding: "18px 20px", marginTop: 24, borderLeft: "4px solid var(--success)" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
                 <LineChart size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
-                <span style={{ fontSize: 15, fontWeight: 800 }}>Как честно замеряем результат</span>
+                <span style={{ fontSize: 15, fontWeight: 800 }}>{t.geoMethodTitle}</span>
               </div>
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{PD.geo.method.intro}</p>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PD.geo.method.metric}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Примеры контрольных вопросов</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{t.geoMethodQuestionsLabel}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {PD.geo.method.questions.map((q, i) => (
                   <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>«{q}»</span>
@@ -1092,7 +1108,7 @@ export function KpProposal({
 
             {/* Прогноз GEO по месяцам */}
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              Прогноз по GEO-каналу
+              {t.geoForecastTitle}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               {PD.geo.forecast.map((f, i) => (
@@ -1101,7 +1117,7 @@ export function KpProposal({
                     <div className="ds-card ds-card-interactive" style={{ padding: "16px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{f.month}</span>
-                        <EvidenceBadge level={f.evidence} />
+                        <EvidenceBadge level={f.evidence} locale={locale} />
                       </div>
                       <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{f.text}</div>
                     </div>
@@ -1116,8 +1132,8 @@ export function KpProposal({
         {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
           <Section
             id="positions"
-            title="Позиции в поиске"
-            subtitle={`Живая проверка в ${positionCheck.engine === "yandex" ? "Яндексе" : "Google"} по ключевым запросам — реальная выдача, не оценка AI · ${new Date(positionCheck.checkedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}`}
+            title={t.positionsTitleEngine(positionCheck.engine === "yandex" ? "Yandex" : "Google")}
+            subtitle={new Date(positionCheck.checkedAt).toLocaleDateString(locale === "de" ? "de-DE" : "ru-RU", { day: "2-digit", month: "long", year: "numeric" })}
           >
             <div style={{ display: "grid", gap: 10 }}>
               {positionCheck.results.map((r, i) => {
@@ -1133,14 +1149,14 @@ export function KpProposal({
                             #{r.position}
                           </span>
                         ) : r.status === "not_found" ? (
-                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>вне топ-30</span>
+                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>{t.positionsOutOfTop30}</span>
                         ) : (
-                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>не удалось проверить</span>
+                          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)", fontWeight: 600 }}>{t.positionsCheckFailed}</span>
                         )}
                       </div>
                       {diagnosis && (
                         <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 6, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                          <b style={{ color: "var(--foreground)" }}>Диагноз:</b> {diagnosis}
+                          <b style={{ color: "var(--foreground)" }}>{t.positionsDiagnosisLabel}</b> {diagnosis}
                         </div>
                       )}
                     </div>
@@ -1207,7 +1223,7 @@ export function KpProposal({
 
         {/* ─── СРАВНЕНИЕ «МАРКЕТОЛОГ В ШТАТЕ vs МЫ» (только pilotOffer) ─── */}
         {pilotOffer && (() => {
-          const sv = PD.savings ?? { marketerPrice: "100 000 ₽/мес", ourPrice: "25 000 ₽/мес", headline: "Столько же работы — вчетверо дешевле штатного маркетолога" };
+          const sv = PD.savings ?? { marketerPrice: t.marketerInStaff, ourPrice: t.ourTeamLabel, headline: t.savingsHeadlineFallback };
           return (
             <Section id="pilot-savings">
               <Reveal>
@@ -1215,21 +1231,21 @@ export function KpProposal({
                   <div className="kp-cta-panel" style={{ position: "relative", overflow: "hidden", color: "var(--primary-foreground)", borderRadius: "var(--radius-xl, 20px)", padding: "28px 30px" }}>
                     <div style={{ position: "relative" }}>
                       <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.35, marginBottom: 16, maxWidth: 640 }}>
-                        {sv.headline || "Столько же работы — в разы дешевле штатного маркетолога"}
+                        {sv.headline || t.savingsHeadlineFallback}
                       </div>
                       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "stretch" }}>
                         <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "rgba(255,255,255,0.12)" }}>
-                          <div style={{ fontSize: 12.5, opacity: 0.85, marginBottom: 6 }}>Маркетолог в штате</div>
+                          <div style={{ fontSize: 12.5, opacity: 0.85, marginBottom: 6 }}>{t.marketerInStaff}</div>
                           <div style={{ fontSize: 26, fontWeight: 850, textDecoration: "line-through", textDecorationThickness: 2, opacity: 0.9 }}>{sv.marketerPrice}</div>
-                          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>+ налоги, отпуск, обучение, риск «не сработается»</div>
+                          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>{t.marketerNote}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           <ArrowRight size={24} style={{ opacity: 0.75 }} />
                         </div>
                         <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "#fff", color: "var(--primary)" }}>
-                          <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 6, fontWeight: 700 }}>MarketRadar — команда + AI</div>
+                          <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 6, fontWeight: 700 }}>{t.ourTeamLabel}</div>
                           <div style={{ fontSize: 30, fontWeight: 850 }}>{sv.ourPrice}</div>
-                          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>{sv.note || "Отчёт с цифрами каждую неделю, гарантия возврата за месяц"}</div>
+                          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>{sv.note || t.ourNoteFallback}</div>
                         </div>
                       </div>
                     </div>
@@ -1242,7 +1258,7 @@ export function KpProposal({
 
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-offer" title="С чего предлагаем начать" subtitle="Разовый вход с фиксированной ценой + два месячных направления — внутренняя оптимизация уже входит в тариф СЕО+ГЕО">
+          <Section id="pilot-offer" title={t.offerStartTitle} subtitle={t.offerStartSubtitle}>
             <div style={{ display: "grid", gap: 16 }}>
               {PD.offers.map((o) => (
                 <Reveal key={o.n} delay={o.n * 80}>
@@ -1273,7 +1289,7 @@ export function KpProposal({
                       )}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 8 }}>Что входит</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 8 }}>{t.offerIncludes}</div>
                           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                             {o.what.map((w, j) => (
                               <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
@@ -1283,7 +1299,7 @@ export function KpProposal({
                           </ul>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", textTransform: "uppercase", marginBottom: 8 }}>Что получите</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", textTransform: "uppercase", marginBottom: 8 }}>{t.offerGets}</div>
                           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                             {o.gets.map((g, j) => (
                               <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
@@ -1294,7 +1310,7 @@ export function KpProposal({
                         </div>
                       </div>
                       <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5, marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-                        <b>Почему такая цена:</b> {o.effort}
+                        <b>{t.offerWhyPrice}</b> {o.effort}
                       </div>
                     </div>
                   )}
@@ -1303,7 +1319,7 @@ export function KpProposal({
             </div>
             {/* Месячные направления — цены партнёра; он-пейдж оптимизация входит в СЕО+ГЕО */}
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              Дальше — помесячно
+              {t.offerMonthlyLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
               {PD.monthly.map((m, i) => (
@@ -1327,7 +1343,7 @@ export function KpProposal({
 
             {/* Что происходит по неделям после старта — снимает страх «заплачу и тишина» */}
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              Что происходит после старта
+              {t.offerTimelineLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               {PD.timeline.map((t, i) => (
@@ -1350,7 +1366,7 @@ export function KpProposal({
                 </div>
               </div>
               <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                Начать с переноса <ArrowRight size={15} />
+                {t.offerStartBtn} <ArrowRight size={15} />
               </button>
             </div>
           </Section>
@@ -1358,9 +1374,9 @@ export function KpProposal({
 
         {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="seo-preview" title="Как это будет выглядеть" subtitle="Формат SEO+GEO статей — иллюстрация, не готовые публикации — и ориентир по результату первого месяца">
+          <Section id="seo-preview" title={t.formatTitle} subtitle={t.formatSubtitle}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-              Пример формата статей — нажмите, чтобы прочитать
+              {t.articlesExampleLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 16, alignItems: "start" }}>
               {PD.articles.map((a, i) => {
@@ -1375,7 +1391,7 @@ export function KpProposal({
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <FileText size={18} style={{ color: "var(--primary)", marginBottom: 10, flexShrink: 0 }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{isOpen ? "Свернуть ↑" : "Читать →"}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{isOpen ? t.articleCollapse : t.articleExpand}</span>
                         </div>
                         <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
                         <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
@@ -1385,7 +1401,7 @@ export function KpProposal({
                               <p key={pi} style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--foreground)", margin: pi === 0 ? "0 0 10px" : "0 0 10px" }}>{para}</p>
                             ))}
                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "14px 0 8px" }}>
-                              Почему это работает на SEO и ГЕО
+                              {t.articleWhySeo}
                             </div>
                             <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                               {a.geoNotes.map((note, ni) => (
@@ -1405,7 +1421,7 @@ export function KpProposal({
 
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 32, borderLeft: "4px solid var(--success)" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-                Почему такой формат в целом поднимает SEO и особенно ГЕО
+                {t.articleMechanicsLabel}
               </div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
                 {PD.articleMechanics.map((m, i) => (
@@ -1417,7 +1433,7 @@ export function KpProposal({
             </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-              Ориентир на первый месяц — СЕО+ГЕО
+              {t.month1Label}
             </div>
             <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 32 }}>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -1430,12 +1446,12 @@ export function KpProposal({
             </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-              Контент-завод для соцсетей
+              {t.socialFactoryLabel}
             </div>
             <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Rocket size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
               <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>
-                Сделаем то же по соцсетям: разберём нишу и аудиторию, найдём форматы, которые сейчас заходят в декоре/интерьере, и соберём контент-план со сценариями на неделю вперёд — что и как снимать, простыми кадрами на телефон. Примеры готовых роликов покажем уже в процессе работы, после старта.
+                {t.socialFactoryText}
               </p>
             </div>
           </Section>
@@ -1444,10 +1460,10 @@ export function KpProposal({
         {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer). Идёт после
             «Формата работ»: пик выгоды подводит прямо к условиям и заявке. ─── */}
         {pilotOffer && (
-          <Section id="pilot-forecast" title="Прогноз: что даст каждый канал и когда" subtitle="Расчётная модель с вилкой — ориентир для планирования, не гарантия. Пересчитывается ежемесячно по фактам Метрики и Вебмастера">
+          <Section id="pilot-forecast" title={t.forecastTitle} subtitle={t.forecastSubtitle}>
             {/* Формула + допущения */}
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Как считаем</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{t.howWeCalculate}</div>
               <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PD.forecast.formula}</div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
                 {PD.forecast.assumptions.map((a, i) => (
@@ -1457,7 +1473,7 @@ export function KpProposal({
                 ))}
               </ul>
               <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
-                <b>Пример расчёта.</b> {PD.forecast.example}
+                <b>{t.exampleCalc}</b> {PD.forecast.example}
               </div>
             </div>
 
@@ -1470,14 +1486,14 @@ export function KpProposal({
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
                         <LineChart size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} />
                         <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
-                        <EvidenceBadge level="forecast" />
+                        <EvidenceBadge level="forecast" locale={locale} />
                       </div>
                       <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                        {[{ m: "1-й месяц", t: s.m1 }, { m: "3-й месяц", t: s.m3 }, { m: "6-й месяц", t: s.m6 }].map((c, j) => (
+                        {[{ m: t.month1Short, v: s.m1 }, { m: t.month3Short, v: s.m3 }, { m: t.month6Short, v: s.m6 }].map((c, j) => (
                           <div key={j} style={{ background: "var(--muted)", borderRadius: 8, padding: "10px 12px" }}>
                             <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
-                            <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.t}</div>
+                            <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.v}</div>
                           </div>
                         ))}
                       </div>
@@ -1488,24 +1504,24 @@ export function KpProposal({
             </div>
 
             {/* График: заявки/мес по каналам (как в эталоне) */}
-            <PilotForecastChart isDark={isDark} data={PD.chart} />
+            <PilotForecastChart isDark={isDark} data={PD.chart} locale={locale} />
 
             {/* Свод + юнит-экономика: главный аргумент — цифрами, не абзацем.
                 Цифры из бандла (unitEconomics); дефолт — sozdavay-пилот. */}
             {(() => {
               const ue = PD.unitEconomics ?? {
-                deals: "2–8", dealsNote: "договоров в месяц (конверсия 15–25%)",
-                check: "150–500 тыс ₽", checkNote: "средний чек проекта",
-                entry: "Разовый вход — 10 000 ₽ за перенос сайта: окупается с первого договора.",
+                deals: "2–8", dealsNote: t.unitEconDealsFallback,
+                check: "150–500 тыс ₽", checkNote: t.unitEconCheckFallback,
+                entry: t.unitEconEntryFallback,
               };
               return (
                 <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "relative" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>Сводный прогноз к 6-му месяцу · юнит-экономика</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>{t.summaryTitle}</div>
                     <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
                       <div>
                         <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PD.forecast.totalLow}–{PD.forecast.totalHigh}</div>
-                        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>заявок в месяц</div>
+                        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>{t.requestsPerMonth}</div>
                       </div>
                       <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
                       <div>
@@ -1528,8 +1544,8 @@ export function KpProposal({
 
         {/* ─── НОВАЯ ВЕРСИЯ САЙТА (Astro) — Фаза 3, только когда прокинут astroRebuild ─── */}
         {pilotOffer && astroRebuild && (
-          <Section id="astro-offer" title="Хотите увидеть сайт быстрее и без потери дизайна?" subtitle="Соберём рабочую копию на современном движке: тот же вид 1:1, устранены технические проблемы из находок выше">
-            <AstroOfferPanel astroRebuild={astroRebuild} />
+          <Section id="astro-offer" title={t.astroOfferTitle} subtitle={t.astroOfferSubtitle}>
+            <AstroOfferPanel astroRebuild={astroRebuild} locale={locale} />
           </Section>
         )}
 
@@ -1599,24 +1615,24 @@ export function KpProposal({
                 <div style={{ position: "relative" }}>
                   {astroRebuild ? (
                     <>
-                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>Готовы посмотреть новую версию сайта?</h2>
+                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaAstroTitle}</h2>
                       <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
-                        Один шаг — оставьте email в блоке «Новая версия сайта» выше, и мы соберём рабочую копию с сохранённым дизайном.
+                        {t.finalCtaAstroBody}
                       </p>
                       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                         <button onClick={() => { trackKpEvent("click", "final-cta-astro"); scrollTo("astro-offer"); }}
                           style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", transition: "transform 0.2s var(--ease)" }}
                           onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-                          <Rocket size={18} /> Собрать новую версию сайта
+                          <Rocket size={18} /> {t.finalCtaAstroBtn}
                         </button>
                       </div>
                     </>
                   ) : (
                     <>
-                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>Готовы вырасти в выдаче и лидах?</h2>
+                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaGenericTitle}</h2>
                       <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
-                        Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.
+                        {t.finalCtaGenericBody}
                       </p>
                       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                         <a href={analysisRequestHref("contact")}
@@ -1624,7 +1640,7 @@ export function KpProposal({
                           style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, textDecoration: "none", transition: "transform 0.2s var(--ease)" }}
                           onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-                          <Mail size={18} /> Оставить заявку
+                          <Mail size={18} /> {t.leaveRequestBtn}
                         </a>
                       </div>
                     </>
@@ -1664,8 +1680,10 @@ export function KpProposal({
           )}
 
           <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12, marginTop: 24 }}>
-            {pilotOffer
+            {pilotClient
               ? "Аудит выполнен вручную командой MarketRadar · данные проверены 15–16 июля 2026 · прогнозы — расчётная модель, помечены как ПРОГНОЗ"
+              : pilotOffer
+              ? t.footerAutoGenerated
               : <>Данные подготовлены платформой MarketRadar{company.analyzedAt ? ` · ${new Date(company.analyzedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" })}` : ""}</>}
           </div>
         </Section>
@@ -1749,13 +1767,13 @@ function CountUp({ target, active, duration }: { target: number; active: boolean
 // Бейдж уровня достоверности (ФАКТ / ОЦЕНКА / ПРОГНОЗ) — честная маркировка
 // пилотных блоков: где проверенный факт, где экспертная оценка, где расчётный
 // прогноз. Повышает доверие, а не маскирует неопределённость.
-const EVIDENCE_STYLE: Record<Evidence, { label: string; color: string }> = {
-  fact: { label: "ФАКТ", color: "var(--success)" },
-  estimate: { label: "ОЦЕНКА", color: "var(--warning)" },
-  forecast: { label: "ПРОГНОЗ", color: "var(--primary)" },
+const EVIDENCE_COLOR: Record<Evidence, string> = {
+  fact: "var(--success)", estimate: "var(--warning)", forecast: "var(--primary)",
 };
-function EvidenceBadge({ level }: { level: Evidence }) {
-  const s = EVIDENCE_STYLE[level];
+function EvidenceBadge({ level, locale = "ru" }: { level: Evidence; locale?: KpProposalLocale }) {
+  const t = KP_PROPOSAL_I18N[locale];
+  const label = level === "fact" ? t.evidenceFact : level === "estimate" ? t.evidenceEstimate : t.evidenceForecast;
+  const s = { label, color: EVIDENCE_COLOR[level] };
   return (
     <span style={{
       display: "inline-block", fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em",
@@ -1773,7 +1791,8 @@ function EvidenceBadge({ level }: { level: Evidence }) {
 const CHART_COLORS_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300"];
 const CHART_COLORS_DARK = ["#3987e5", "#199e70", "#c98500", "#008300"];
 
-function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBundle["chart"] }) {
+function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: PilotBundle["chart"]; locale: KpProposalLocale }) {
+  const t = KP_PROPOSAL_I18N[locale];
   const [hover, setHover] = useState<number | null>(null);
   const colors = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
   const { months, series } = data;
@@ -1803,10 +1822,10 @@ function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBund
   return (
     <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-        <div style={{ fontSize: 15, fontWeight: 800 }}>Дополнительные заявки в месяц — по каналам</div>
-        <EvidenceBadge level="forecast" />
+        <div style={{ fontSize: 15, fontWeight: 800 }}>{t.chartTitle}</div>
+        <EvidenceBadge level="forecast" locale={locale} />
       </div>
-      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 12 }}>Середины вилок по каждому сценарию · наведите на месяц для разбивки</div>
+      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 12 }}>{t.chartSubtitle}</div>
 
       {/* Легенда — идентичность серий не только цветом (порядок + подписи) */}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1818,7 +1837,7 @@ function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBund
       </div>
 
       <div style={{ position: "relative", overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: 520 }} role="img" aria-label="Прогноз дополнительных заявок в месяц по четырём каналам, месяцы 1–6">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: 520 }} role="img" aria-label={t.chartAriaLabel}>
           {/* Сетка — рецессивные hairline-линии + подписи оси Y текстовыми токенами */}
           {[0, 5, 10].map((v) => (
             <g key={v}>
@@ -1871,12 +1890,12 @@ function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBund
 
       {/* Таблица данных — доступность + relief */}
       <details style={{ marginTop: 10 }}>
-        <summary style={{ fontSize: 12.5, color: "var(--muted-foreground)", cursor: "pointer" }}>Таблица данных графика</summary>
+        <summary style={{ fontSize: 12.5, color: "var(--muted-foreground)", cursor: "pointer" }}>{t.chartDataTable}</summary>
         <div style={{ overflowX: "auto", marginTop: 8 }}>
           <table style={{ borderCollapse: "collapse", fontSize: 12.5, width: "100%" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)", color: "var(--muted-foreground)", fontWeight: 600 }}>Канал</th>
+                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)", color: "var(--muted-foreground)", fontWeight: 600 }}>{t.chartChannel}</th>
                 {months.map((mL) => <th key={mL} style={{ textAlign: "right", padding: "6px 10px", borderBottom: "1px solid var(--border)", color: "var(--muted-foreground)", fontWeight: 600 }}>{mL}</th>)}
               </tr>
             </thead>
@@ -1888,7 +1907,7 @@ function PilotForecastChart({ isDark, data }: { isDark: boolean; data: PilotBund
                 </tr>
               ))}
               <tr>
-                <td style={{ padding: "6px 10px", fontWeight: 700 }}>Итого</td>
+                <td style={{ padding: "6px 10px", fontWeight: 700 }}>{t.chartTotal}</td>
                 {totals.map((t, m) => <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{fmt(t)}</td>)}
               </tr>
             </tbody>
@@ -2151,7 +2170,8 @@ function DotGridBackdrop() {
 // ─── Блок «Новая версия сайта на Astro» (Фаза 3) ───────────────────────────
 type AstroRebuildProp = NonNullable<Props["astroRebuild"]>;
 
-function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
+function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildProp; locale: KpProposalLocale }) {
+  const t = KP_PROPOSAL_I18N[locale];
   const { status, onRequest, submitting = false, error = null, clientEmail = null } = astroRebuild;
   const [email, setEmail] = useState(clientEmail ?? "");
   const [touched, setTouched] = useState(false);
@@ -2168,9 +2188,9 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
       <div className="ds-card" style={{ padding: "24px 26px", borderLeft: "4px solid var(--success)", display: "flex", gap: 14, alignItems: "flex-start" }}>
         <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Готово — ссылка у вас на почте</div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{t.astroDone}</div>
           <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
-            Мы собрали новую версию сайта и отправили ссылку на {clientEmail || "указанный вами адрес"}. Если письма нет — проверьте папку «Спам» или напишите нам.
+            {t.astroDoneBody(clientEmail || t.astroEmailPlaceholder)}
           </p>
         </div>
       </div>
@@ -2182,9 +2202,9 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
       <div className="ds-card" style={{ padding: "24px 26px", borderLeft: "4px solid var(--primary)", display: "flex", gap: 14, alignItems: "flex-start" }}>
         <Clock size={22} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Собираем новую версию сайта</div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{t.astroInProgress}</div>
           <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
-            Обычно это занимает около 1 дня. Как только всё будет готово и проверено, пришлём ссылку на {clientEmail || "указанный вами email"}.
+            {t.astroInProgressBody(clientEmail || t.astroEmailPlaceholder)}
           </p>
         </div>
       </div>
@@ -2194,7 +2214,7 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
   return (
     <div className="ds-card" style={{ padding: "24px 26px" }}>
       <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 18px", color: "var(--foreground)" }}>
-        Дизайн останется точно таким же — переносим только «внутряк»: устраняем технические проблемы из находок выше (скорость загрузки, мета-теги, разметка) и готовим сайт к SEO и GEO. Оставьте email — пришлём ссылку на готовую версию, как только менеджер её проверит.
+        {t.astroPitch}
       </p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
         <div style={{ flex: "1 1 260px", minWidth: 220 }}>
@@ -2203,7 +2223,7 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched(true)}
-            placeholder="you@company.ru"
+            placeholder={t.astroEmailPlaceholder}
             style={{
               width: "100%", height: 46, padding: "0 14px", fontSize: 14.5,
               border: `1px solid ${touched && !emailValid ? "var(--destructive)" : "var(--border)"}`,
@@ -2211,7 +2231,7 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
             }}
           />
           {touched && !emailValid && (
-            <div style={{ fontSize: 12, color: "var(--destructive)", marginTop: 6 }}>Укажите корректный email</div>
+            <div style={{ fontSize: 12, color: "var(--destructive)", marginTop: 6 }}>{t.astroEmailInvalid}</div>
           )}
         </div>
         <button
@@ -2220,7 +2240,7 @@ function AstroOfferPanel({ astroRebuild }: { astroRebuild: AstroRebuildProp }) {
           className="ds-btn ds-btn-primary"
           style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}
         >
-          {submitting ? "Отправляем…" : "Да, интересно"} {!submitting && <ArrowRight size={16} />}
+          {submitting ? t.astroSubmitting : t.astroSubmitBtn} {!submitting && <ArrowRight size={16} />}
         </button>
       </div>
       {error && <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10 }}>{error}</div>}

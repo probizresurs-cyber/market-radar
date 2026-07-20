@@ -37,6 +37,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<{ id: string; text: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -110,6 +111,17 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
     navigator.clipboard.writeText(item.share_password).then(() => {
       setCopiedId(item.id); setTimeout(() => setCopiedId(null), 2000);
     }).catch(() => {});
+  };
+
+  const deleteItem = async (item: GenItem) => {
+    if (!window.confirm(`${t.deleteConfirm} «${item.company_name || item.url}»?`)) return;
+    setDeletingId(item.id);
+    try {
+      const r = await fetch(`/api/kp-generate/${item.id}`, { method: "DELETE", credentials: "include" });
+      const j = await r.json();
+      if (j.ok) setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch { /* ignore */ }
+    finally { setDeletingId(null); }
   };
 
   const approveRebuild = async (item: GenItem) => {
@@ -248,6 +260,10 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                         {t.open}
                       </a>
                     )}
+                    <button onClick={() => deleteItem(item)} disabled={deletingId === item.id}
+                      style={{ height: 34, padding: "0 14px", fontSize: 13, fontWeight: 700, borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#dc2626", cursor: deletingId === item.id ? "default" : "pointer" }}>
+                      {deletingId === item.id ? t.deleting : t.delete}
+                    </button>
                   </div>
                 </div>
                 {item.status === "done" && item.share_token && (

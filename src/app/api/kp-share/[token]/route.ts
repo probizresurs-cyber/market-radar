@@ -19,14 +19,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   await initDb();
   const { token } = await ctx.params;
   const rows = await query<Row>(
-    "SELECT status, company_name FROM kp_generations WHERE share_token = $1",
+    "SELECT status, company_name, locale FROM kp_generations WHERE share_token = $1",
     [token],
   );
   const r = rows[0];
   if (!r || r.status !== "done") {
     return NextResponse.json({ ok: false, error: "Ссылка недоступна" }, { status: 404 });
   }
-  return NextResponse.json({ ok: true, companyName: r.company_name });
+  return NextResponse.json({ ok: true, companyName: r.company_name, locale: r.locale });
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {

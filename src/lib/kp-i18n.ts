@@ -11,6 +11,7 @@ export interface KpStrings {
   historyEmpty: string; refresh: string;
   statusQueued: string; statusRunning: string; statusDone: string; statusError: string;
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
+  delete: string; deleting: string; deleteConfirm: string;
   reviewEmpty: string;
   reviewClientEmail: string; reviewNoEmail: string; reviewCompare: string;
   reviewApprove: string; reviewReject: string; reviewApproving: string;
@@ -46,6 +47,9 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     passwordLabel: "Пароль",
     copy: "Копировать",
     copied: "Скопировано",
+    delete: "Удалить",
+    deleting: "Удаляем…",
+    deleteConfirm: "Удалить КП",
     reviewEmpty: "Здесь появятся пересобранные сайты, ожидающие вашего одобрения перед отправкой клиенту.",
     reviewClientEmail: "Email клиента",
     reviewNoEmail: "Email не указан",
@@ -88,6 +92,9 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     passwordLabel: "Passwort",
     copy: "Kopieren",
     copied: "Kopiert",
+    delete: "Löschen",
+    deleting: "Wird gelöscht…",
+    deleteConfirm: "Angebot löschen",
     reviewEmpty: "Hier erscheinen umgebaute Websites, die auf Ihre Freigabe vor dem Versand an den Kunden warten.",
     reviewClientEmail: "Kunden-E-Mail",
     reviewNoEmail: "Keine E-Mail angegeben",

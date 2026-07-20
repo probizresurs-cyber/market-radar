@@ -260,5 +260,24 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bundle.forecast = fc;
 
+  // Цены — принудительно перезаписываем из фиксированной сетки кодом, а не
+  // доверяем модели их дословно перенести из промпта. Увидено на живом тесте:
+  // DE-генерация вернула 4 500 €/990 €/150 € (наши СТАРЫЕ плейсхолдеры) вместо
+  // заданных 1 000 €/250 €/100 €, хотя промпт прямо запрещал это — модель
+  // подставила «более реалистичные», по её мнению, немецкие рыночные цифры.
+  // Для RU та же инструкция всегда соблюдалась, но полагаться на это нельзя.
+  const p = PRICE_POLICY[locale];
+  bundle.savings = {
+    marketerPrice: p.marketer,
+    ourPrice: p.ours,
+    headline: bundle.savings?.headline,
+    note: bundle.savings?.note,
+  };
+  if (bundle.offers[0]) bundle.offers[0].price = p.astro;
+  const seoGeoIdx = bundle.monthly.findIndex((m) => /seo|geo/i.test(m.name));
+  const smmIdx = bundle.monthly.findIndex((m, i) => i !== seoGeoIdx && /smm|social|соц/i.test(m.name));
+  if (bundle.monthly[seoGeoIdx >= 0 ? seoGeoIdx : 0]) bundle.monthly[seoGeoIdx >= 0 ? seoGeoIdx : 0].price = p.seoGeo;
+  if (bundle.monthly[smmIdx >= 0 ? smmIdx : 1]) bundle.monthly[smmIdx >= 0 ? smmIdx : 1].price = p.smm;
+
   return { company, bundle, companyName: company.company.name || scraped.title || rawUrl };
 }

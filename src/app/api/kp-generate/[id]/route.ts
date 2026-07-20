@@ -26,3 +26,17 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!r) return NextResponse.json({ ok: false, error: "КП не найдено" }, { status: 404 });
   return NextResponse.json({ ok: true, generation: r });
 }
+
+// DELETE /api/kp-generate/<id> — убрать КП из истории (тестовые прогоны,
+// мусорные ссылки). Удаляет саму запись; share-ссылка клиента после этого
+// перестаёт работать (404 по /api/kp-share/<token>).
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  if (!(await isKpManager())) {
+    return NextResponse.json({ ok: false, error: "Требуется вход менеджера" }, { status: 401 });
+  }
+  await initDb();
+  const { id } = await ctx.params;
+  const rows = await query<{ id: string }>("DELETE FROM kp_generations WHERE id = $1 RETURNING id", [id]);
+  if (!rows[0]) return NextResponse.json({ ok: false, error: "КП не найдено" }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}
