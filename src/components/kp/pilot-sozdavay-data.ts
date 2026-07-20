@@ -446,6 +446,13 @@ export interface PilotBundle {
    * не задано, показывается дефолт). Цены — строками на языке КП.
    */
   savings?: { marketerPrice: string; ourPrice: string; headline?: string; note?: string };
+  /**
+   * Юнит-экономика для сводной панели прогноза. У ручных пилотов не задана —
+   * рендерится sozdavay-дефолт (2–8 договоров / 150–500 тыс ₽ / вход 10 000 ₽).
+   * Для авто-КП обязана приходить из генерации, иначе чужому бизнесу
+   * показывались бы sozdavay-цифры (= выдумка).
+   */
+  unitEconomics?: { deals: string; dealsNote: string; check: string; checkNote: string; entry: string };
 }
 
 export const SOZDAVAY_PILOT: PilotBundle = {

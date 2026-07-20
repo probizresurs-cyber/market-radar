@@ -1468,31 +1468,39 @@ export function KpProposal({
             {/* График: заявки/мес по каналам (как в эталоне) */}
             <PilotForecastChart isDark={isDark} data={PD.chart} />
 
-            {/* Свод + юнит-экономика: главный аргумент — цифрами, не абзацем */}
-            <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "relative" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>Сводный прогноз к 6-му месяцу · юнит-экономика</div>
-                <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
-                  <div>
-                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PD.forecast.totalLow}–{PD.forecast.totalHigh}</div>
-                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>заявок в месяц</div>
-                  </div>
-                  <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>2–8</div>
-                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>договоров в месяц (конверсия 15–25%)</div>
-                  </div>
-                  <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>150–500 тыс ₽</div>
-                    <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>средний чек проекта</div>
+            {/* Свод + юнит-экономика: главный аргумент — цифрами, не абзацем.
+                Цифры из бандла (unitEconomics); дефолт — sozdavay-пилот. */}
+            {(() => {
+              const ue = PD.unitEconomics ?? {
+                deals: "2–8", dealsNote: "договоров в месяц (конверсия 15–25%)",
+                check: "150–500 тыс ₽", checkNote: "средний чек проекта",
+                entry: "Разовый вход — 10 000 ₽ за перенос сайта: окупается с первого договора.",
+              };
+              return (
+                <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "relative" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>Сводный прогноз к 6-му месяцу · юнит-экономика</div>
+                    <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PD.forecast.totalLow}–{PD.forecast.totalHigh}</div>
+                        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>заявок в месяц</div>
+                      </div>
+                      <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>{ue.deals}</div>
+                        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>{ue.dealsNote}</div>
+                      </div>
+                      <ArrowRight size={22} style={{ opacity: 0.7, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>{ue.check}</div>
+                        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>{ue.checkNote}</div>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>{ue.entry}</p>
                   </div>
                 </div>
-                <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>
-                  Разовый вход — 10 000 ₽ за перенос сайта: окупается с первого договора.
-                </p>
-              </div>
-            </div>
+              );
+            })()}
           </Section>
         )}
 

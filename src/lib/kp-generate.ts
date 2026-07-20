@@ -24,6 +24,28 @@ import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 export type KpLocale = "ru" | "de";
 const MODEL = "claude-sonnet-4-6";
 
+// Фиксированная ценовая сетка — цены НЕ придумывает AI. Меняются здесь,
+// в одном месте (или через env, если понадобится). DE-цены — стартовые
+// плейсхолдеры, подтвердить у руководителя перед продажами в Германии.
+const PRICE_POLICY: Record<KpLocale, {
+  marketer: string; ours: string; astro: string; seoGeo: string; smm: string;
+}> = {
+  ru: {
+    marketer: "100 000 ₽/мес",
+    ours: "от 25 000 ₽/мес",
+    astro: "10 000 ₽",
+    seoGeo: "от 25 000 ₽/мес",
+    smm: "от 25 000 ₽/мес",
+  },
+  de: {
+    marketer: "4 500 €/Monat",
+    ours: "ab 990 €/Monat",
+    astro: "150 €",
+    seoGeo: "ab 990 €/Monat",
+    smm: "ab 990 €/Monat",
+  },
+};
+
 export interface KpGenResult {
   company: AnalysisResult;
   bundle: PilotBundle;
@@ -36,16 +58,28 @@ function bundleSchemaPrompt(locale: KpLocale): string {
   const geoNote = locale === "de"
     ? "Рынок — Германия: поиск Google (не Yandex), ассистенты ChatGPT/Perplexity/Gemini."
     : "Рынок — Россия: Яндекс+Google, ассистенты Алиса/Яндекс Нейро/ChatGPT/GigaChat.";
+  const p = PRICE_POLICY[locale];
   return `${ANTI_HALLUCINATION_SHORT}
 
 Ты — старший маркетолог-стратег MarketRadar. По РЕАЛЬНЫМ данным анализа сайта собери коммерческое предложение (КП) — структуру PilotBundle. ВЕСЬ текст на ${lang} языке. Цены — в ${currency}. ${geoNote}
+
+ЦЕНЫ — ФИКСИРОВАННАЯ СЕТКА, СВОИ НЕ ПРИДУМЫВАЙ:
+- savings: маркетолог в штате ${p.marketer} → мы ${p.ours}
+- offers[0] «Перенос сайта на Astro»: ${p.astro} (разовая работа)
+- monthly: СЕО+ГЕО ${p.seoGeo}; СММ ${p.smm}
+- unitEconomics.entry: про разовый вход ${p.astro} за перенос на Astro
+
+СОГЛАСОВАННОСТЬ ЦИФР (КП с расходящимися цифрами = брак):
+- hero.potential = "+{totalLow}–{totalHigh} заявок/мес" — ровно те же числа, что forecast.totalLow/totalHigh
+- сумма последних (6-х) значений всех chart.series ≈ totalHigh (допуск ±15%)
+- chart.series — те же каналы, что forecast.scenarios (3-4: SEO+GEO сайт, дистрибуция статей, соцсети, AI-видимость — выбери применимые к нише)
+- unitEconomics.deals — из totalLow..totalHigh × конверсия (конверсию пометь как ОЦЕНКУ в dealsNote)
+- unitEconomics.check — средний чек ТОЛЬКО из реальных данных сайта/ниши; если данных нет, напиши «уточним на созвоне»
 
 ЖЁСТКИЕ ПРАВИЛА:
 - Находки (findings) — ТОЛЬКО из переданных данных анализа. Никаких выдуманных цифр, конкурентов, отзывов. Каждая находка: evidence "fact" (проверено анализом) / "estimate" (оценка) / "forecast" (прогноз).
 - Прогнозы (forecast, chart, hero.potential) — расчётная модель, честно помеченная. Не выдавай за факт.
 - rivals (конкуренты): заполняй ТОЛЬКО если в данных есть реальные конкуренты с метриками. Если нет — верни пустой массив [] (секция скроется).
-- В offers обязательно 1-й оффер — перенос сайта на Astro (разовый вход, фикс-цена ~10 000 ₽ / ~120 €), с честной оценкой объёма в effort.
-- В monthly — помесячные направления (СЕО+ГЕО, СММ) с ценами «от …».
 - guarantee — гарантия возврата за месяц при невыполнении объёма.
 
 ФОРМАТ — СТРОГО валидный JSON PilotBundle без markdown. Соблюдай ФОРМУ вложенных объектов ТОЧНО (иначе КП сломается):
@@ -55,7 +89,8 @@ function bundleSchemaPrompt(locale: KpLocale): string {
  "findings": [{"severity":"critical|warning","title":"...","evidence":"fact|estimate|forecast","fact":"...","why":"...","action":"...","effect":"..."}],
  "rivals": [{"name":"...","url":"...","strength":"...","weakness":"...","steal":"что у них забрать"}],
  "trump": "...",
- "savings": {"marketerPrice":"100 000 ₽/мес","ourPrice":"25 000 ₽/мес","headline":"Столько же работы — вчетверо дешевле штатного маркетолога","note":"..."},
+ "savings": {"marketerPrice":"из ценовой сетки","ourPrice":"из ценовой сетки","headline":"Столько же работы — в разы дешевле штатного маркетолога","note":"..."},
+ "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или «уточним на созвоне»","checkNote":"средний чек — откуда цифра","entry":"Разовый вход — ... за перенос на Astro: ..."},
  "geo": {
    "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
    "whyNow":"почему входить сейчас дешевле",
