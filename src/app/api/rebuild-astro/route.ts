@@ -58,6 +58,24 @@ export interface OptimizationReport {
   applied: string[];
 }
 
+// Метрики Lighthouse (Google PageSpeed API) — для замера «было → стало».
+export interface SpeedMetrics {
+  performance: number | null; // 0-100
+  fcpMs: number | null;
+  lcpMs: number | null;
+  tbtMs: number | null;
+  cls: number | null;
+  bytes: number | null;
+  error?: string;
+}
+
+export interface SpeedCompare {
+  original: SpeedMetrics;
+  rebuilt: SpeedMetrics;
+  measuredAt: string;
+  strategy: "mobile";
+}
+
 export interface RebuildAstroResult {
   ok: true;
   id: string;
@@ -66,6 +84,8 @@ export interface RebuildAstroResult {
   files: AstroFile[];
   fixes: string[];
   optimization: OptimizationReport;
+  /** Замер скорости обеих версий — появляется после кнопки «Замерить». */
+  speedCompare?: SpeedCompare | null;
   summary: string;
   modelUsed: string;
 }

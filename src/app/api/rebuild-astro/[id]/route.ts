@@ -15,6 +15,7 @@ interface Row {
     // Старые снапшоты (до этих полей) не хранили модель/оптимизацию — фолбэки.
     modelUsed?: string;
     optimization?: RebuildAstroResult["optimization"];
+    speedCompare?: RebuildAstroResult["speedCompare"];
     source: { url: string; title: string; issues: string[] };
   };
 }
@@ -43,6 +44,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       files: snap.files,
       fixes: snap.fixes,
       optimization: snap.optimization ?? EMPTY_OPTIMIZATION,
+      speedCompare: snap.speedCompare ?? null,
       summary: snap.summary,
       modelUsed: snap.modelUsed || MODEL,
     };

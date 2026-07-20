@@ -17,7 +17,7 @@ import {
   AlertTriangle, ArrowRight, Check, CheckCircle2, Copy, Download, ExternalLink,
   Eye, FileCode, FileText, Folder, Gauge, Globe, Info, Loader2, Wrench, Zap,
 } from "lucide-react";
-import type { AstroFile, OptIssue, RebuildAstroResult } from "@/app/api/rebuild-astro/route";
+import type { AstroFile, OptIssue, RebuildAstroResult, SpeedMetrics } from "@/app/api/rebuild-astro/route";
 
 // ─── Дерево файлов ────────────────────────────────────────────────────────────
 
@@ -108,6 +108,52 @@ function StatTile({ label, value, hint }: { label: string; value: string; hint?:
   );
 }
 
+// ─── Формат метрик Lighthouse ─────────────────────────────────────────────────
+
+const fmtMs = (v: number | null) => v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)} с` : `${Math.round(v)} мс`;
+const fmtCls = (v: number | null) => v == null ? "—" : v.toFixed(2);
+const fmtMb = (v: number | null) => v == null ? "—" : `${(v / 1024 / 1024).toFixed(1)} МБ`;
+const perfColor = (s: number | null) => s == null ? "#6b7280" : s >= 90 ? "#059669" : s >= 50 ? "#d97706" : "#dc2626";
+
+function SpeedColumn({ label, m }: { label: string; m: SpeedMetrics }) {
+  return (
+    <div style={{ flex: 1, minWidth: 220 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 10 }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{
+          width: 62, height: 62, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+          border: `4px solid ${perfColor(m.performance)}`, fontSize: 20, fontWeight: 850, color: perfColor(m.performance),
+        }}>
+          {m.performance ?? "—"}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.4 }}>
+          Performance<br />(Lighthouse, mobile)
+        </div>
+      </div>
+      {m.error ? (
+        <div style={{ fontSize: 12.5, color: "#dc2626", lineHeight: 1.45 }}>{m.error}</div>
+      ) : (
+        <div style={{ display: "grid", gap: 5 }}>
+          {[
+            ["LCP (крупный контент)", fmtMs(m.lcpMs)],
+            ["FCP (первая отрисовка)", fmtMs(m.fcpMs)],
+            ["TBT (блокировка)", fmtMs(m.tbtMs)],
+            ["CLS (сдвиги вёрстки)", fmtCls(m.cls)],
+            ["Вес страницы", fmtMb(m.bytes)],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+              <span style={{ color: "var(--muted-foreground, #6b7280)" }}>{k}</span>
+              <span style={{ fontWeight: 650, fontFamily: "ui-monospace, monospace" }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SeverityBadge({ severity, fixed }: { severity: OptIssue["severity"]; fixed: boolean }) {
   if (fixed) {
     return (
@@ -143,6 +189,8 @@ export default function AstroRebuildPage() {
   const [zipping, setZipping] = useState(false);
   const [view, setView] = useState<Tab>("preview");
   const [copied, setCopied] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
 
   const tree = useMemo(() => (result ? buildTree(result.files) : null), [result]);
   const opt = result?.optimization;
@@ -203,6 +251,26 @@ export default function AstroRebuildPage() {
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Замер «было → стало» через Google PageSpeed. До ~2 минут: Lighthouse
+  // гоняется по оригиналу и по нашему превью параллельно.
+  const runCompare = async () => {
+    if (!result || comparing) return;
+    setComparing(true); setCompareError(null);
+    try {
+      const res = await fetch("/api/rebuild-astro/compare", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: result.id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!json?.ok) throw new Error(json?.error || "Замер не уложился в таймаут — попробуйте ещё раз");
+      setResult({ ...result, speedCompare: json.speedCompare });
+    } catch (e) {
+      setCompareError(e instanceof Error ? e.message : "Ошибка замера");
+    } finally {
+      setComparing(false);
     }
   };
 
@@ -438,6 +506,73 @@ export default function AstroRebuildPage() {
             {/* ─── Таб: оптимизация ─── */}
             {view === "optimization" && opt && (
               <div style={{ display: "grid", gap: 14 }}>
+                {/* Замер скорости: было → стало (Google PageSpeed / Lighthouse) */}
+                <div style={{ ...card, padding: "18px 20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: result.speedCompare ? 14 : 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Zap size={16} style={{ color: "var(--primary, #2a78d6)" }} />
+                      <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Скорость: было → стало
+                      </div>
+                    </div>
+                    <button
+                      onClick={runCompare}
+                      disabled={comparing}
+                      style={{
+                        height: 36, padding: "0 16px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none",
+                        background: comparing ? "var(--muted, #9ca3af)" : "var(--primary, #2a78d6)", color: "#fff",
+                        cursor: comparing ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+                      }}
+                    >
+                      {comparing
+                        ? <><Loader2 size={14} style={{ animation: "ar-spin 0.9s linear infinite" }} /> Замеряем…</>
+                        : <><Gauge size={14} /> {result.speedCompare ? "Замерить заново" : "Замерить"}</>}
+                    </button>
+                  </div>
+
+                  {comparing && (
+                    <div style={{ fontSize: 13, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.5 }}>
+                      Google PageSpeed прогоняет Lighthouse по оригинальному сайту и по пересобранной
+                      версии — обычно 30–90 секунд. Не закрывайте страницу.
+                    </div>
+                  )}
+                  {compareError && !comparing && (
+                    <div style={{ fontSize: 13, color: "#dc2626", lineHeight: 1.5 }}>{compareError}</div>
+                  )}
+
+                  {result.speedCompare && !comparing && (
+                    <>
+                      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "stretch" }}>
+                        <SpeedColumn label="Оригинал" m={result.speedCompare.original} />
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <ArrowRight size={20} style={{ color: "var(--muted-foreground, #9ca3af)" }} />
+                        </div>
+                        <SpeedColumn label="После переноса" m={result.speedCompare.rebuilt} />
+                      </div>
+                      {result.speedCompare.original.performance != null && result.speedCompare.rebuilt.performance != null && (
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border, #e5e7eb)", fontSize: 13.5, lineHeight: 1.5 }}>
+                          {(() => {
+                            const d = result.speedCompare.rebuilt.performance - result.speedCompare.original.performance;
+                            if (d > 0) return <><b style={{ color: "#059669" }}>+{d} баллов Performance.</b> Дальнейший рост — перенос ассетов к себе и сжатие картинок (см. рекомендации ниже).</>;
+                            if (d === 0) return <>Балл пока тот же — тяжёлые скрипты и картинки всё ещё грузятся с оригинального домена. Основной выигрыш даст перенос ассетов и сжатие изображений.</>;
+                            return <>Пересобранная версия пока набирает меньше — вероятно, превью отдаётся без кэша/CDN. Реальный результат оценивайте после деплоя проекта на хостинг.</>;
+                          })()}
+                          <div style={{ fontSize: 11.5, color: "var(--muted-foreground, #6b7280)", marginTop: 4 }}>
+                            Замер {new Date(result.speedCompare.measuredAt).toLocaleString("ru-RU")} · Lighthouse mobile · Google PageSpeed API
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {!result.speedCompare && !comparing && !compareError && (
+                    <div style={{ fontSize: 13, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.5 }}>
+                      Реальный замер обеих версий через Google PageSpeed (Lighthouse, mobile):
+                      Performance-балл, LCP, TBT, CLS и вес страницы — бок о бок. Занимает 1–2 минуты.
+                    </div>
+                  )}
+                </div>
+
                 {/* Метрики страницы */}
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <StatTile label="Вес HTML" value={opt.stats.htmlKb > 0 ? `${opt.stats.htmlKb} КБ` : "—"} hint={opt.stats.htmlKb > 200 ? "выше нормы 200 КБ" : "в пределах нормы"} />
