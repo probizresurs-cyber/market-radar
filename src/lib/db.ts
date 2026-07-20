@@ -399,6 +399,10 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_locale ON kp_generations(locale, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_share ON kp_generations(share_token)`);
+  // started_at/attempts — для честной реанимации зависших генераций (от
+  // момента СТАРТА, а не постановки) и защиты от бесконечных перезапусков.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`);
 
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`

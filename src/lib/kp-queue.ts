@@ -33,8 +33,9 @@ export async function enqueueKp(url: string, locale: KpLocale): Promise<string> 
 
 async function processOne(row: { id: string; url: string; locale: string }) {
   running++;
+  const started = Date.now();
+  console.info(`[kp-queue] → старт генерации ${row.id.slice(0, 8)} (${row.locale}) ${row.url}`);
   try {
-    await query("UPDATE kp_generations SET status='running' WHERE id=$1", [row.id]);
     const { company, bundle, companyName } = await generateKp(row.url, row.locale as KpLocale);
     await query(
       `UPDATE kp_generations
@@ -42,10 +43,13 @@ async function processOne(row: { id: string; url: string; locale: string }) {
        WHERE id=$1`,
       [row.id, companyName, JSON.stringify(bundle), JSON.stringify(company)],
     );
+    console.info(`[kp-queue] ✓ готово ${row.id.slice(0, 8)} «${companyName}» за ${Math.round((Date.now() - started) / 1000)}с`);
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Ошибка генерации";
+    console.error(`[kp-queue] ✗ ошибка ${row.id.slice(0, 8)} ${row.url} за ${Math.round((Date.now() - started) / 1000)}с: ${msg}`);
     await query(
       "UPDATE kp_generations SET status='error', error=$2 WHERE id=$1",
-      [row.id, (e instanceof Error ? e.message : "Ошибка генерации").slice(0, 400)],
+      [row.id, msg.slice(0, 400)],
     );
   } finally {
     running--;
@@ -58,9 +62,15 @@ export async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
-    // Реанимация «зависших»: running дольше 15 мин → снова queued (процесс мог упасть).
+    // Реанимация «зависших»: считаем от СТАРТА (started_at), а не постановки —
+    // иначе задача, отстоявшая очередь, перезапускалась бы прямо во время
+    // честной работы. COALESCE — для строк, захваченных старым кодом без
+    // started_at. Больше 3 попыток → error, чтобы не крутиться вечно.
     await query(
-      "UPDATE kp_generations SET status='queued' WHERE status='running' AND created_at < NOW() - INTERVAL '15 minutes'",
+      `UPDATE kp_generations
+         SET status = CASE WHEN attempts >= 3 THEN 'error' ELSE 'queued' END,
+             error  = CASE WHEN attempts >= 3 THEN 'Генерация зависала 3 раза подряд — проверьте сайт и запустите заново' ELSE error END
+       WHERE status='running' AND COALESCE(started_at, created_at) < NOW() - INTERVAL '20 minutes'`,
     ).catch(() => {});
     while (running < CONCURRENCY) {
       const rows = await query<{ id: string; url: string; locale: string }>(
@@ -69,7 +79,7 @@ export async function tick(): Promise<void> {
       if (!rows.length) break;
       // Атомарно захватываем строку, чтобы параллельные tick не взяли одну и ту же.
       const claim = await query(
-        "UPDATE kp_generations SET status='running' WHERE id=$1 AND status='queued' RETURNING id",
+        "UPDATE kp_generations SET status='running', started_at=NOW(), attempts=attempts+1 WHERE id=$1 AND status='queued' RETURNING id",
         [rows[0].id],
       );
       if (!claim.length) continue;
