@@ -319,9 +319,8 @@ export default function AstroRebuildPage() {
             Перенос сайта на Astro
           </h1>
           <p style={{ fontSize: 14.5, color: "var(--muted-foreground, #6b7280)", margin: 0, lineHeight: 1.55, maxWidth: 720 }}>
-            Вставьте адрес сайта — соберём его заново как чистый Astro-проект с сохранением дизайна 1:1,
-            исправим SEO-дыры и оптимизируем загрузку. На выходе — живое превью и готовый проект
-            для <code style={{ fontSize: 13 }}>npm install &amp;&amp; npm run build</code>.
+            Вставьте адрес сайта — соберём рабочую копию с сохранением дизайна 1:1, исправим технические
+            проблемы (скорость загрузки, SEO) и покажем живое превью.
           </p>
         </div>
 
