@@ -186,7 +186,6 @@ export default function AstroRebuildPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RebuildAstroResult | null>(null);
   const [active, setActive] = useState<AstroFile | null>(null);
-  const [zipping, setZipping] = useState(false);
   const [view, setView] = useState<Tab>("preview");
   const [copied, setCopied] = useState(false);
   const [comparing, setComparing] = useState(false);
@@ -274,28 +273,8 @@ export default function AstroRebuildPage() {
     }
   };
 
-  const downloadZip = async () => {
-    if (!result) return;
-    setZipping(true);
-    try {
-      const { default: JSZip } = await import("jszip");
-      const zip = new JSZip();
-      for (const f of result.files) zip.file(f.path, f.content);
-      const blob = await zip.generateAsync({ type: "blob" });
-      const host = (() => { try { return new URL(result.source.url).hostname.replace(/^www\./, ""); } catch { return "site"; } })();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${host}-astro.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось собрать zip");
-    } finally {
-      setZipping(false);
-    }
-  };
+  // Zip собирается на сервере (/api/rebuild-astro/<id>/zip): в проект входят
+  // бинарные ассеты (картинки/шрифты) с диска — клиентский jszip их не видел.
 
   const TABS: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
     { key: "preview", label: "Живой сайт", icon: <Eye size={14} /> },
@@ -406,17 +385,16 @@ export default function AstroRebuildPage() {
                       <ExternalLink size={15} /> Открыть сайт
                     </a>
                   )}
-                  <button
-                    onClick={downloadZip}
-                    disabled={zipping}
+                  <a
+                    href={`/api/rebuild-astro/${result.id}/zip`}
                     style={{
-                      height: 42, padding: "0 18px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
-                      background: "var(--success, #059669)", color: "#fff", cursor: zipping ? "default" : "pointer",
-                      whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 8,
+                      height: 42, padding: "0 18px", fontSize: 14, fontWeight: 700, borderRadius: 10,
+                      background: "var(--success, #059669)", color: "#fff",
+                      whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none",
                     }}
                   >
-                    <Download size={15} /> {zipping ? "Пакуем…" : "Скачать .zip"}
-                  </button>
+                    <Download size={15} /> Скачать .zip
+                  </a>
                 </div>
               </div>
 

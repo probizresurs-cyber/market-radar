@@ -4,6 +4,9 @@ import * as cheerio from "cheerio";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import { scrapeForRebuild, type RebuildScrape } from "@/lib/rebuild-scrape";
+import { localizeAssets, rebuildAssetsRoot } from "@/lib/asset-localizer";
+import fs from "fs/promises";
+import path from "path";
 import { getSessionUser } from "@/lib/auth";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { query, initDb } from "@/lib/db";
@@ -517,7 +520,7 @@ export default defineConfig({
   }, null, 2) + "\n";
   const tsconfig = JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2) + "\n";
   const robots = `User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap-index.xml\n`;
-  const readme = `# Пересобранный сайт (Astro)\n\nДизайн сохранён 1:1, исправлен технический внутряк (SEO).\n\n\`\`\`\nnpm install\nnpm run build\n\`\`\`\n\nПросмотр: \`npm run preview\`.\n\nЗамечание: внешние ассеты (картинки, видео, шрифты) подгружаются с оригинального домена.\n`;
+  const readme = `# Пересобранный сайт (Astro)\n\nДизайн сохранён 1:1, исправлен технический внутряк (SEO) и оптимизирована загрузка.\n\n\`\`\`\nnpm install\nnpm run build\n\`\`\`\n\nПросмотр: \`npm run preview\`.\n\nКартинки, стили и шрифты перенесены в public/assets/ (JPEG/PNG сжаты в WebP).\nВидео и скрипты конструктора подгружаются с оригинального домена.\n`;
 
   return [
     { path: "package.json", content: pkg },
@@ -578,13 +581,84 @@ export async function POST(req: Request) {
     }
 
     // 3) DOM-хирургия: сохраняем дизайн, правим внутряк + оптимизация
-    const { html: fixedHtml, fixes, optimization } = surgicalFix(scraped.html, scraped, seo);
+    const { html: surgicalHtml, fixes, optimization } = surgicalFix(scraped.html, scraped, seo);
+
+    // 3b) Локализация ассетов: картинки/CSS/шрифты скачиваются к нам,
+    //     JPEG/PNG сжимаются в WebP. id нужен заранее — он входит в пути.
+    const id = randomUUID();
+    let fixedHtml = surgicalHtml;
+    try {
+      const { html: localizedHtml, report } = await localizeAssets(surgicalHtml, {
+        id, publicPrefix: `/api/rebuild-asset/${id}`,
+      });
+      fixedHtml = localizedHtml;
+      if (report.localized > 0) {
+        optimization.applied.push(
+          `Перенесено к себе ${report.localized} ассетов (${report.cssLocalized} CSS, ${report.fontsLocalized} шрифтов) — сайт не зависит от CDN конструктора`,
+        );
+        optimization.issues.push({
+          severity: "warn",
+          title: "Ассеты грузились с домена конструктора",
+          detail: `Картинки, стили и шрифты приходили с чужого CDN — без контроля кэша и с реферер-блокировками (403 на шрифтах). ${report.localized} файлов перенесено в проект.`,
+          fixed: true,
+        });
+      }
+      if (report.imagesOptimized > 0) {
+        const beforeKb = Math.round(report.imageBytesBefore / 1024);
+        const afterKb = Math.round(report.imageBytesAfter / 1024);
+        const savedPct = beforeKb > 0 ? Math.round((1 - afterKb / beforeKb) * 100) : 0;
+        optimization.applied.push(
+          `Сжато ${report.imagesOptimized} изображений в WebP: ${beforeKb} КБ → ${afterKb} КБ (−${savedPct}%)`,
+        );
+        optimization.issues.push({
+          severity: "warn",
+          title: `Изображения весили ${beforeKb} КБ без сжатия`,
+          detail: `JPEG/PNG без оптимизации — главный тормоз загрузки. Сконвертированы в WebP с ресайзом до 1920px: теперь ${afterKb} КБ (экономия ${savedPct}%).`,
+          fixed: true,
+        });
+      }
+      if (report.failed > 0) {
+        optimization.issues.push({
+          severity: "info",
+          title: `${report.failed} ассетов остались на оригинальном домене`,
+          detail: "Не удалось скачать (таймаут/блокировка) — ссылки на них сохранены как были, сайт работает.",
+          fixed: false,
+        });
+      }
+      for (const note of report.notes) {
+        optimization.issues.push({ severity: "info", title: note, detail: "", fixed: false });
+      }
+    } catch (e) {
+      // Диск недоступен/нет прав — честно продолжаем без локализации.
+      console.warn("[rebuild-astro] asset localization failed, keeping remote assets:", e);
+      optimization.issues.push({
+        severity: "info",
+        title: "Ассеты оставлены на оригинальном домене",
+        detail: "Хранилище ассетов недоступно на сервере — перенос картинок/шрифтов не выполнялся. Сайт работает, но зависит от CDN конструктора.",
+        fixed: false,
+      });
+    }
+
+    // Фоновая уборка: каталоги ассетов старше 14 дней удаляем, чтобы не
+    // забить диск (по ссылкам такой давности превью уже вряд ли смотрят).
+    void (async () => {
+      try {
+        const root = rebuildAssetsRoot();
+        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+        for (const name of await fs.readdir(root)) {
+          const p = path.join(root, name);
+          const st = await fs.stat(p).catch(() => null);
+          if (st?.isDirectory() && st.mtimeMs < cutoff) {
+            await fs.rm(p, { recursive: true, force: true }).catch(() => { /* ignore */ });
+          }
+        }
+      } catch { /* каталога ещё нет — нечего убирать */ }
+    })();
 
     // 4) Собираем Astro-проект
     const files = assembleAstroProject(fixedHtml, scraped.origin, scraped.title || "Сайт");
 
     // 5) Сохраняем для живого превью
-    const id = randomUUID();
     const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
     const snapshot = {
       previewHtml: fixedHtml, files, fixes, optimization, summary, modelUsed: seo.modelUsed,
