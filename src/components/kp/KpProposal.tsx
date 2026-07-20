@@ -406,6 +406,11 @@ export function KpProposal({
   const analysisRequestHref = (intent: "contact" | "full") =>
     `/analysis-request?intent=${intent}&company=${encodeURIComponent(c.name)}&site=${encodeURIComponent(c.url ?? "")}&ref=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/kp")}`;
 
+  // Когда доступна пересборка на Astro (клиентская /kp-share) — все «зовущие»
+  // кнопки ведут в одно место, к её форме, а не в отдельную generic-форму
+  // заявки: один понятный путь вместо нескольких конкурирующих CTA.
+  const primaryCtaId = astroRebuild ? "astro-offer" : "cta";
+
   return (
     <div ref={rootRef} style={{ background: "var(--background)", color: "var(--foreground)", minHeight: "100vh", fontFamily: "var(--font-sans, system-ui, sans-serif)", position: "relative" }}>
       <DotGridBackdrop />
@@ -576,7 +581,7 @@ export function KpProposal({
                           ))}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
-                          <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
                             Обсудить проект <ArrowRight size={17} />
                           </button>
                           <button onClick={() => { trackKpEvent("click", "hero-offer"); scrollTo("pilot-offer"); }} style={{
@@ -596,7 +601,7 @@ export function KpProposal({
                           <Badge icon={<ListChecks size={15} />} label="Рекомендаций" value={recs.length} active={v} />
                           {myRank > 0 && <Badge icon={<Gauge size={15} />} label="Позиция среди конкурентов" value={myRank} prefix="#" active={v} />}
                         </div>
-                        <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo("cta"); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
                           Обсудить проект <ArrowRight size={17} />
                         </button>
                       </>
@@ -1344,7 +1349,7 @@ export function KpProposal({
                   <ShieldCheck size={15} style={{ flexShrink: 0 }} /> {PD.guarantee}
                 </div>
               </div>
-              <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo("cta"); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <button onClick={() => { trackKpEvent("click", "pilot-offer-cta"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary" style={{ height: 42, padding: "0 20px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 Начать с переноса <ArrowRight size={15} />
               </button>
             </div>
@@ -1592,19 +1597,38 @@ export function KpProposal({
             {() => (
               <div className="kp-cta-panel" style={{ position: "relative", overflow: "hidden", color: "var(--primary-foreground)", borderRadius: "var(--radius-xl, 20px)", padding: "44px 36px", textAlign: "center" }}>
                 <div style={{ position: "relative" }}>
-                  <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>Готовы вырасти в выдаче и лидах?</h2>
-                  <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
-                    Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.
-                  </p>
-                  <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                    <a href={analysisRequestHref("contact")}
-                      onClick={() => trackKpEvent("click", "leave-request")}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, textDecoration: "none", transition: "transform 0.2s var(--ease)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-                      <Mail size={18} /> Оставить заявку
-                    </a>
-                  </div>
+                  {astroRebuild ? (
+                    <>
+                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>Готовы посмотреть новую версию сайта?</h2>
+                      <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
+                        Один шаг — оставьте email в блоке «Новая версия сайта» выше, и мы соберём рабочую копию с сохранённым дизайном.
+                      </p>
+                      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                        <button onClick={() => { trackKpEvent("click", "final-cta-astro"); scrollTo("astro-offer"); }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", transition: "transform 0.2s var(--ease)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+                          <Rocket size={18} /> Собрать новую версию сайта
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>Готовы вырасти в выдаче и лидах?</h2>
+                      <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
+                        Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.
+                      </p>
+                      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                        <a href={analysisRequestHref("contact")}
+                          onClick={() => trackKpEvent("click", "leave-request")}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, textDecoration: "none", transition: "transform 0.2s var(--ease)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+                          <Mail size={18} /> Оставить заявку
+                        </a>
+                      </div>
+                    </>
+                  )}
                   {pilotOffer && (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13.5, opacity: 0.95 }}>
                       <ShieldCheck size={16} style={{ flexShrink: 0 }} /> {PD.guarantee}

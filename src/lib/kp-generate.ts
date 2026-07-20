@@ -25,8 +25,12 @@ export type KpLocale = "ru" | "de";
 const MODEL = "claude-sonnet-4-6";
 
 // Фиксированная ценовая сетка — цены НЕ придумывает AI. Меняются здесь,
-// в одном месте (или через env, если понадобится). DE-цены — стартовые
-// плейсхолдеры, подтвердить у руководителя перед продажами в Германии.
+// в одном месте (или через env, если понадобится).
+// DE-цены — прямая конвертация RU-сетки по курсу ~100 ₽/€ (округлено для
+// маркетинговых цифр), НЕ калибровка под реальный немецкий рынок услуг —
+// это явная просьба владельца («цены прикинь от русских»), а не независимая
+// оценка. Перед реальными продажами в Германии стоит свериться с фактическими
+// ставками агентств там (обычно выше, чем прямая конвертация РФ-цен).
 const PRICE_POLICY: Record<KpLocale, {
   marketer: string; ours: string; astro: string; seoGeo: string; smm: string;
 }> = {
@@ -38,11 +42,11 @@ const PRICE_POLICY: Record<KpLocale, {
     smm: "от 25 000 ₽/мес",
   },
   de: {
-    marketer: "4 500 €/Monat",
-    ours: "ab 990 €/Monat",
-    astro: "150 €",
-    seoGeo: "ab 990 €/Monat",
-    smm: "ab 990 €/Monat",
+    marketer: "1 000 €/Monat",
+    ours: "ab 250 €/Monat",
+    astro: "100 €",
+    seoGeo: "ab 250 €/Monat",
+    smm: "ab 250 €/Monat",
   },
 };
 
@@ -59,6 +63,18 @@ function bundleSchemaPrompt(locale: KpLocale): string {
     ? "Рынок — Германия: поиск Google (не Yandex), ассистенты ChatGPT/Perplexity/Gemini."
     : "Рынок — Россия: Яндекс+Google, ассистенты Алиса/Яндекс Нейро/ChatGPT/GigaChat.";
   const p = PRICE_POLICY[locale];
+  const assistantsExample = locale === "de"
+    ? `[{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"Google Gemini","rewards":"..."},{"name":"Microsoft Copilot","rewards":"..."}]`
+    : `[{"name":"Алиса / Яндекс Нейро","rewards":"..."},{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"GigaChat (Сбер)","rewards":"..."}]`;
+  // Остальные примеры-заглушки в схеме ниже — тоже НЕ переводились по locale
+  // и рисковали протечь в бандл буквально (модель копирует форму примера).
+  const potentialExample = locale === "de" ? "+N Anfragen/Monat" : "+N заявок/мес";
+  const monthsExample = locale === "de"
+    ? `["Monat 1","Monat 2","Monat 3","Monat 4","Monat 5","Monat 6"]`
+    : `["мес 1","мес 2","мес 3","мес 4","мес 5","мес 6"]`;
+  const offerNameExample = locale === "de" ? "Website-Umzug zu Astro" : "Перенос сайта на Astro";
+  const offerPriceNoteExample = locale === "de" ? "einmalige Arbeit" : "разовая работа";
+  const weekExample = locale === "de" ? "Woche 1" : "Неделя 1";
   return `${ANTI_HALLUCINATION_SHORT}
 
 Ты — старший маркетолог-стратег MarketRadar. По РЕАЛЬНЫМ данным анализа сайта собери коммерческое предложение (КП) — структуру PilotBundle. ВЕСЬ текст на ${lang} языке. Цены — в ${currency}. ${geoNote}
@@ -84,7 +100,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 
 ФОРМАТ — СТРОГО валидный JSON PilotBundle без markdown. Соблюдай ФОРМУ вложенных объектов ТОЧНО (иначе КП сломается):
 {
- "hero": {"verdict": "...", "potential": "+N заявок/мес", "potentialSub": "...", "badges": ["строка","строка","строка"]},
+ "hero": {"verdict": "...", "potential": "${potentialExample}", "potentialSub": "...", "badges": ["строка","строка","строка"]},
  "strengths": [{"title":"...","evidence":"fact|estimate","body":"...","leverage":"на что это опираемся в работе"}],
  "findings": [{"severity":"critical|warning","title":"...","evidence":"fact|estimate|forecast","fact":"...","why":"...","action":"...","effect":"..."}],
  "rivals": [{"name":"...","url":"...","strength":"...","weakness":"...","steal":"что у них забрать"}],
@@ -94,17 +110,17 @@ function bundleSchemaPrompt(locale: KpLocale): string {
  "geo": {
    "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
    "whyNow":"почему входить сейчас дешевле",
-   "assistants":[{"name":"Алиса / Яндекс Нейро","rewards":"что нужно, чтобы этот ассистент называл бренд"},{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"GigaChat (Сбер)","rewards":"..."}],
+   "assistants":${assistantsExample},
    "levers":[{"title":"...","detail":"..."}],
    "method":{"intro":"как честно замеряем","metric":"метрика: % ответов с упоминанием бренда","questions":["вопрос 1","...","6-8 контрольных вопросов ассистентам под нишу"]},
    "forecast":[{"month":"1-й месяц","evidence":"estimate","text":"..."},{"month":"3-й месяц","evidence":"forecast","text":"..."},{"month":"6-й месяц","evidence":"forecast","text":"..."}]
  },
  "forecast": {"formula":"...","assumptions":["..."],"example":"...","scenarios":[{"name":"...","desc":"...","m1":"...","m3":"...","m6":"..."}],"totalLow":N,"totalHigh":N},
- "chart": {"months":["мес 1","мес 2","мес 3","мес 4","мес 5","мес 6"],"series":[{"name":"...","values":[6 чисел — ровно 6, без null]}]},
- "offers": [{"n":1,"name":"Перенос сайта на Astro","price":"...","priceNote":"разовая работа","what":["..."],"gets":["..."],"effort":"почему такая цена"}],
+ "chart": {"months":${monthsExample},"series":[{"name":"...","values":[6 чисел — ровно 6, без null]}]},
+ "offers": [{"n":1,"name":"${offerNameExample}","price":"...","priceNote":"${offerPriceNoteExample}","what":["..."],"gets":["..."],"effort":"почему такая цена"}],
  "monthly": [{"name":"...","price":"от ...","items":["..."]}],
  "offersTotal": "...",
- "timeline": [{"week":"Неделя 1","text":"..."}],
+ "timeline": [{"week":"${weekExample}","text":"..."}],
  "positionDiagnosis": {"ключевой-запрос-строчными":"короткий диагноз почему такая позиция"},
  "guarantee": "...",
  "articles": [{"title":"...","excerpt":"...","body":"...","geoNotes":["..."]}],
@@ -224,7 +240,10 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   // chart — PilotForecastChart падает в NaN при кривых values.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ch = (bundle.chart ?? {}) as any;
-  const months = arr<string>(ch.months).length === 6 ? ch.months : ["мес 1", "мес 2", "мес 3", "мес 4", "мес 5", "мес 6"];
+  const monthsFallback = locale === "de"
+    ? ["Monat 1", "Monat 2", "Monat 3", "Monat 4", "Monat 5", "Monat 6"]
+    : ["мес 1", "мес 2", "мес 3", "мес 4", "мес 5", "мес 6"];
+  const months = arr<string>(ch.months).length === 6 ? ch.months : monthsFallback;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const series = arr<any>(ch.series)
     .filter((s) => s && typeof s.name === "string" && Array.isArray(s.values))

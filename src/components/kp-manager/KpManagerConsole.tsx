@@ -101,10 +101,13 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
     }
   };
 
-  const copyShare = (item: GenItem) => {
-    if (!item.share_token) return;
-    const url = `${window.location.origin}/kp-share/${item.share_token}`;
-    navigator.clipboard.writeText(url).then(() => {
+  // «Открыть КП» ведёт сразу на клиентскую ссылку (то же самое, что увидит
+  // клиент) — раньше открывала внутренний /kp-gen/<id>, из-за чего в
+  // истории было слишком много разных ссылок непонятно для чего. Копирование
+  // теперь копирует пароль — ссылку менеджер и так видит открытой во вкладке.
+  const copyPassword = (item: GenItem) => {
+    if (!item.share_password) return;
+    navigator.clipboard.writeText(item.share_password).then(() => {
       setCopiedId(item.id); setTimeout(() => setCopiedId(null), 2000);
     }).catch(() => {});
   };
@@ -239,8 +242,8 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                       background: `color-mix(in srgb, ${statusColor(item.status)} 12%, transparent)`, color: statusColor(item.status) }}>
                       {statusLabel(item.status)}
                     </span>
-                    {item.status === "done" && (
-                      <a href={`/kp-gen/${item.id}`} target="_blank" rel="noopener noreferrer"
+                    {item.status === "done" && item.share_token && (
+                      <a href={`/kp-share/${item.share_token}`} target="_blank" rel="noopener noreferrer"
                         style={{ height: 34, padding: "0 14px", fontSize: 13, fontWeight: 700, borderRadius: 8, background: "#2a78d6", color: "#fff", display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
                         {t.open}
                       </a>
@@ -253,7 +256,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                     <code style={{ fontSize: 12.5 }}>/kp-share/{item.share_token}</code>
                     <span style={{ color: "#6b7280" }}>· {t.passwordLabel}:</span>
                     <b style={{ fontFamily: "ui-monospace,monospace" }}>{item.share_password}</b>
-                    <button onClick={() => copyShare(item)}
+                    <button onClick={() => copyPassword(item)}
                       style={{ height: 30, padding: "0 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "none", background: copiedId === item.id ? "#059669" : "#eef2f7", color: copiedId === item.id ? "#fff" : "#334155", cursor: "pointer" }}>
                       {copiedId === item.id ? t.copied : t.copy}
                     </button>
