@@ -59,6 +59,12 @@ interface Props {
    * глобально для всех /kp. См. src/app/kp-sozdavaya/page.tsx.
    */
   pilotClient?: PilotClient;
+  /**
+   * Сгенерированный бандл (авто-КП с /kp-ru, /kp-de) — рендерится как пилот,
+   * но данные берутся отсюда, а не из хардкод-PILOT_BUNDLES. Приоритетнее
+   * pilotClient.
+   */
+  generatedBundle?: PilotBundle | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -168,11 +174,13 @@ export function KpProposal({
   aiVisibility = null,
   onShare, sharing = false, shareLink = null, shareCopied = false, shareError = null, onCopyShareLink,
   pilotClient,
+  generatedBundle = null,
 }: Props) {
-  // PD — активный пилот-бандл. Fallback на sozdavay безопасен: при
-  // pilotOffer=false все pilot-секции скрыты и PD не читается.
-  const PD = pilotClient ? PILOT_BUNDLES[pilotClient] : SOZDAVAY_PILOT;
-  const pilotOffer = pilotClient != null;
+  // PD — активный пилот-бандл. Приоритет: сгенерированный бандл (авто-КП) →
+  // хардкод по pilotClient → sozdavay-fallback (безопасен: при pilotOffer=false
+  // все pilot-секции скрыты и PD не читается).
+  const PD = generatedBundle ?? (pilotClient ? PILOT_BUNDLES[pilotClient] : SOZDAVAY_PILOT);
+  const pilotOffer = generatedBundle != null || pilotClient != null;
   // AI-видимость показываем, если есть либо отдельный аудит, либо
   // aiPerception из основного анализа (он есть почти всегда) — блок больше
   // не пропадает на КП без отдельного прогона AI-аудита.

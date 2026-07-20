@@ -373,6 +373,33 @@ export async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_astro_rebuilds_user_id ON astro_rebuilds(user_id)`);
 
+  // ─── KP-генерации (менеджерские авто-КП: /kp-ru, /kp-de) ────────────────────
+  // Полное КП генерируется по одной ссылке на сайт, без предварительного
+  // анализа. bundle — сгенерированный PilotBundle; company — AnalysisResult
+  // (нужен KpProposal для тех-аудита/AI-видимости). status — очередь генерации.
+  // rebuild_id/rebuild_status — связка с пересборкой на Astro (Фаза 3).
+  await query(`
+    CREATE TABLE IF NOT EXISTS kp_generations (
+      id TEXT PRIMARY KEY,
+      locale TEXT NOT NULL DEFAULT 'ru',
+      url TEXT NOT NULL,
+      company_name TEXT,
+      status TEXT NOT NULL DEFAULT 'queued',
+      error TEXT,
+      bundle JSONB,
+      company JSONB,
+      share_token TEXT UNIQUE,
+      share_password TEXT,
+      views INTEGER NOT NULL DEFAULT 0,
+      rebuild_id TEXT,
+      rebuild_status TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_locale ON kp_generations(locale, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_share ON kp_generations(share_token)`);
+
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`
     CREATE TABLE IF NOT EXISTS partner_applications (
