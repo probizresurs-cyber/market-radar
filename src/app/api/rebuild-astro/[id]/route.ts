@@ -12,9 +12,19 @@ interface Row {
     files: RebuildAstroResult["files"];
     fixes: string[];
     summary: string;
+    // Старые снапшоты (до этих полей) не хранили модель/оптимизацию — фолбэки.
+    modelUsed?: string;
+    optimization?: RebuildAstroResult["optimization"];
     source: { url: string; title: string; issues: string[] };
   };
 }
+
+// Пустой отчёт для снапшотов, созданных до появления блока оптимизации.
+const EMPTY_OPTIMIZATION: RebuildAstroResult["optimization"] = {
+  stats: { htmlKb: 0, externalScripts: 0, externalCss: 0, images: 0, lazyImages: 0 },
+  issues: [],
+  applied: [],
+};
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -32,8 +42,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       source: snap.source,
       files: snap.files,
       fixes: snap.fixes,
+      optimization: snap.optimization ?? EMPTY_OPTIMIZATION,
       summary: snap.summary,
-      modelUsed: MODEL,
+      modelUsed: snap.modelUsed || MODEL,
     };
     return NextResponse.json(result);
   } catch (e) {

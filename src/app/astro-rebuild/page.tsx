@@ -2,8 +2,8 @@
 
 /**
  * /astro-rebuild — публичная страница пересборки сайта в Astro-проект.
- * Ввод URL → /api/rebuild-astro (скрейп + Claude) → дерево файлов Astro-проекта,
- * живое превью, скачивание готового .zip (jszip, на клиенте).
+ * Ввод URL → /api/rebuild-astro (скрейп + Claude) → живое превью, отчёт по
+ * оптимизации, дерево файлов Astro-проекта и скачивание .zip (jszip, клиент).
  *
  * Без логина — роут защищён IP-лимитом (15/день), а не авторизацией.
  * Результат каждой пересборки сохраняется под id и подставляется в URL
@@ -13,7 +13,13 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import type { AstroFile, RebuildAstroResult } from "@/app/api/rebuild-astro/route";
+import {
+  AlertTriangle, ArrowRight, Check, CheckCircle2, Copy, Download, ExternalLink,
+  Eye, FileCode, FileText, Folder, Gauge, Globe, Info, Loader2, Wrench, Zap,
+} from "lucide-react";
+import type { AstroFile, OptIssue, RebuildAstroResult } from "@/app/api/rebuild-astro/route";
+
+// ─── Дерево файлов ────────────────────────────────────────────────────────────
 
 type FileNode = {
   name: string;
@@ -62,14 +68,16 @@ function TreeView({ node, depth, selected, onSelect }: {
             <div
               onClick={() => child.file && onSelect(child.file)}
               style={{
-                padding: "4px 8px", paddingLeft: 8 + depth * 16, cursor: child.file ? "pointer" : "default",
-                fontSize: 13, borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
-                background: isSel ? "color-mix(in srgb, var(--primary, #2a78d6) 14%, transparent)" : "transparent",
+                padding: "5px 8px", paddingLeft: 8 + depth * 16, cursor: child.file ? "pointer" : "default",
+                fontSize: 13, borderRadius: 6, display: "flex", alignItems: "center", gap: 7,
+                background: isSel ? "color-mix(in srgb, var(--primary, #2a78d6) 12%, transparent)" : "transparent",
                 color: isSel ? "var(--primary, #2a78d6)" : "inherit", fontWeight: isSel ? 600 : 400,
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}
             >
-              <span style={{ opacity: 0.7 }}>{isDir ? "📁" : "📄"}</span>
+              {isDir
+                ? <Folder size={14} style={{ opacity: 0.55, flexShrink: 0 }} />
+                : <FileText size={14} style={{ opacity: 0.55, flexShrink: 0 }} />}
               {child.name}
             </div>
             {isDir && <TreeView node={child} depth={depth + 1} selected={selected} onSelect={onSelect} />}
@@ -80,6 +88,51 @@ function TreeView({ node, depth, selected, onSelect }: {
   );
 }
 
+// ─── Мелкие UI-примитивы (инлайн-стили, в духе остального проекта) ────────────
+
+const card: React.CSSProperties = {
+  border: "1px solid var(--border, #e5e7eb)",
+  borderRadius: 14,
+  background: "var(--card, #fff)",
+};
+
+function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div style={{ ...card, padding: "14px 16px", minWidth: 130, flex: 1 }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{value}</div>
+      {hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground, #6b7280)", marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function SeverityBadge({ severity, fixed }: { severity: OptIssue["severity"]; fixed: boolean }) {
+  if (fixed) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, padding: "3px 10px", borderRadius: 999, background: "color-mix(in srgb, #059669 12%, transparent)", color: "#059669", whiteSpace: "nowrap" }}>
+        <CheckCircle2 size={12} /> Исправлено
+      </span>
+    );
+  }
+  const map = {
+    critical: { color: "#dc2626", label: "Критично" },
+    warn: { color: "#d97706", label: "Внимание" },
+    info: { color: "#6b7280", label: "Рекомендация" },
+  } as const;
+  const m = map[severity];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, padding: "3px 10px", borderRadius: 999, background: `color-mix(in srgb, ${m.color} 12%, transparent)`, color: m.color, whiteSpace: "nowrap" }}>
+      {severity === "critical" ? <AlertTriangle size={12} /> : <Info size={12} />} {m.label}
+    </span>
+  );
+}
+
+// ─── Страница ─────────────────────────────────────────────────────────────────
+
+type Tab = "preview" | "optimization" | "code";
+
 export default function AstroRebuildPage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -88,11 +141,12 @@ export default function AstroRebuildPage() {
   const [result, setResult] = useState<RebuildAstroResult | null>(null);
   const [active, setActive] = useState<AstroFile | null>(null);
   const [zipping, setZipping] = useState(false);
+  const [view, setView] = useState<Tab>("preview");
+  const [copied, setCopied] = useState(false);
 
   const tree = useMemo(() => (result ? buildTree(result.files) : null), [result]);
-
-  const [view, setView] = useState<"preview" | "code">("preview");
-  const [copied, setCopied] = useState(false);
+  const opt = result?.optimization;
+  const fixedCount = opt ? opt.issues.filter(i => i.fixed).length : 0;
 
   const applyResult = (r: RebuildAstroResult) => {
     setResult(r);
@@ -101,9 +155,7 @@ export default function AstroRebuildPage() {
   };
 
   // При заходе по ссылке с ?id= — подтягиваем сохранённый результат заново.
-  // Это же решает «перезагрузка страницы всё сбрасывает»: после успешной
-  // пересборки id кладём в URL (см. run()), и обновление страницы просто
-  // повторяет эту гидрацию вместо потери состояния.
+  // Это же решает «перезагрузка страницы всё сбрасывает».
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
     if (!id) { setHydrating(false); return; }
@@ -121,8 +173,6 @@ export default function AstroRebuildPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Ссылка для шеринга: с результатом — сразу показывает готовый сайт
-  // + форму для пересборки другого; без результата — просто форма.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const toolShareUrl = origin + "/astro-rebuild" + (result ? `?id=${result.id}` : "");
 
@@ -179,202 +229,326 @@ export default function AstroRebuildPage() {
     }
   };
 
+  const TABS: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
+    { key: "preview", label: "Живой сайт", icon: <Eye size={14} /> },
+    { key: "optimization", label: "Оптимизация", icon: <Gauge size={14} /> },
+    { key: "code", label: "Исходники", icon: <FileCode size={14} /> },
+  ];
+
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 20px", fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 850, margin: "0 0 6px" }}>Пересборка сайта в Astro</h1>
-      <p style={{ fontSize: 14, color: "var(--muted-foreground, #6b7280)", margin: "0 0 20px", lineHeight: 1.5 }}>
-        Тестовая страница. Вставьте адрес сайта — соберём его заново как чистый Astro-проект,
-        исправив найденные SEO- и структурные дыры. На выходе — готовый проект для{" "}
-        <code>npm install &amp;&amp; npm run build</code>.
-      </p>
+    <div style={{ minHeight: "100vh", background: "var(--background, #f7f7f8)", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`@keyframes ar-spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "36px 20px 64px" }}>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-        <input
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !loading) run(); }}
-          placeholder="https://example.com"
-          disabled={loading}
-          style={{
-            flex: 1, minWidth: 260, height: 44, padding: "0 14px", fontSize: 15,
-            border: "1px solid var(--border, #d1d5db)", borderRadius: 10, background: "var(--background, #fff)",
-            color: "inherit",
-          }}
-        />
-        <button
-          onClick={run}
-          disabled={loading}
-          style={{
-            height: 44, padding: "0 22px", fontSize: 15, fontWeight: 700, borderRadius: 10, border: "none",
-            background: loading ? "var(--muted, #9ca3af)" : "var(--primary, #2a78d6)", color: "#fff",
-            cursor: loading ? "default" : "pointer", whiteSpace: "nowrap",
-          }}
-        >
-          {loading ? "Пересобираем…" : "Пересобрать"}
-        </button>
-      </div>
-
-      {hydrating && (
-        <div style={{ padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)" }}>
-          Загружаем сохранённый результат…
+        {/* ─── Шапка ─── */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--primary, #2a78d6)", marginBottom: 8 }}>
+            MarketRadar · Инструменты
+          </div>
+          <h1 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 8px", letterSpacing: "-0.02em" }}>
+            Перенос сайта на Astro
+          </h1>
+          <p style={{ fontSize: 14.5, color: "var(--muted-foreground, #6b7280)", margin: 0, lineHeight: 1.55, maxWidth: 720 }}>
+            Вставьте адрес сайта — соберём его заново как чистый Astro-проект с сохранением дизайна 1:1,
+            исправим SEO-дыры и оптимизируем загрузку. На выходе — живое превью и готовый проект
+            для <code style={{ fontSize: 13 }}>npm install &amp;&amp; npm run build</code>.
+          </p>
         </div>
-      )}
 
-      {loading && (
-        <div style={{ padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)" }}>
-          Скрейпим сайт и генерируем Astro-проект — это может занять до минуты…
+        {/* ─── Форма ─── */}
+        <div style={{ ...card, padding: 18, marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 260, position: "relative" }}>
+              <Globe size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground, #9ca3af)" }} />
+              <input
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !loading) run(); }}
+                placeholder="https://example.com"
+                disabled={loading}
+                style={{
+                  width: "100%", height: 46, padding: "0 14px 0 40px", fontSize: 15,
+                  border: "1px solid var(--border, #d1d5db)", borderRadius: 10,
+                  background: "var(--background, #fff)", color: "inherit",
+                }}
+              />
+            </div>
+            <button
+              onClick={run}
+              disabled={loading}
+              style={{
+                height: 46, padding: "0 24px", fontSize: 15, fontWeight: 700, borderRadius: 10, border: "none",
+                background: loading ? "var(--muted, #9ca3af)" : "var(--primary, #2a78d6)", color: "#fff",
+                cursor: loading ? "default" : "pointer", whiteSpace: "nowrap",
+                display: "inline-flex", alignItems: "center", gap: 8,
+              }}
+            >
+              {loading
+                ? <><Loader2 size={16} style={{ animation: "ar-spin 0.9s linear infinite" }} /> Пересобираем…</>
+                : <><Zap size={16} /> Пересобрать</>}
+            </button>
+          </div>
         </div>
-      )}
 
-      {error && (
-        <div style={{ padding: "14px 16px", borderRadius: 10, background: "color-mix(in srgb, #dc2626 10%, transparent)", color: "#dc2626", fontSize: 14, marginBottom: 20 }}>
-          {error}
-        </div>
-      )}
+        {hydrating && (
+          <div style={{ ...card, padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)", display: "flex", alignItems: "center", gap: 10 }}>
+            <Loader2 size={16} style={{ animation: "ar-spin 0.9s linear infinite" }} /> Загружаем сохранённый результат…
+          </div>
+        )}
 
-      {result && (
-        <>
-          <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, padding: "16px 18px", marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 4 }}>Что собрали</div>
-                <div style={{ fontSize: 15, lineHeight: 1.5 }}>{result.summary || result.source.title}</div>
-                <div style={{ fontSize: 12.5, color: "var(--muted-foreground, #6b7280)", marginTop: 6 }}>
-                  Источник: {result.source.url} · файлов: {result.files.length} · модель: {result.modelUsed}
+        {loading && (
+          <div style={{ ...card, padding: 20, fontSize: 14, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.6 }}>
+            Скрейпим сайт, анализируем структуру и собираем Astro-проект — до минуты.
+            Дизайн сохраняется 1:1, правится только технический внутряк.
+          </div>
+        )}
+
+        {error && (
+          <div style={{ padding: "14px 16px", borderRadius: 12, background: "color-mix(in srgb, #dc2626 9%, transparent)", color: "#dc2626", fontSize: 14, marginBottom: 20, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: 1 }} /> {error}
+          </div>
+        )}
+
+        {result && (
+          <>
+            {/* ─── Сводка ─── */}
+            <div style={{ ...card, padding: "20px 22px", marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 999, background: "color-mix(in srgb, #059669 12%, transparent)", color: "#059669" }}>
+                      <CheckCircle2 size={13} /> Готово
+                    </span>
+                    <span style={{ fontSize: 13, color: "var(--muted-foreground, #6b7280)" }}>
+                      {result.source.url} · модель {result.modelUsed}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 15.5, lineHeight: 1.5, fontWeight: 500 }}>{result.summary || result.source.title}</div>
                 </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {result.previewUrl && (
-                  <a
-                    href={result.previewUrl} target="_blank" rel="noopener noreferrer"
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {result.previewUrl && (
+                    <a
+                      href={result.previewUrl} target="_blank" rel="noopener noreferrer"
+                      style={{
+                        height: 42, padding: "0 18px", fontSize: 14, fontWeight: 700, borderRadius: 10,
+                        background: "var(--primary, #2a78d6)", color: "#fff", whiteSpace: "nowrap",
+                        display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none",
+                      }}
+                    >
+                      <ExternalLink size={15} /> Открыть сайт
+                    </a>
+                  )}
+                  <button
+                    onClick={downloadZip}
+                    disabled={zipping}
                     style={{
-                      height: 42, padding: "0 20px", fontSize: 14, fontWeight: 700, borderRadius: 10,
-                      background: "var(--primary, #2a78d6)", color: "#fff", cursor: "pointer", whiteSpace: "nowrap",
-                      display: "inline-flex", alignItems: "center", textDecoration: "none",
+                      height: 42, padding: "0 18px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
+                      background: "var(--success, #059669)", color: "#fff", cursor: zipping ? "default" : "pointer",
+                      whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 8,
                     }}
                   >
-                    Открыть сайт ↗
-                  </a>
+                    <Download size={15} /> {zipping ? "Пакуем…" : "Скачать .zip"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Метрики */}
+              <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+                <StatTile label="SEO-правок" value={String(result.fixes.length)} hint="применено при переносе" />
+                <StatTile label="Оптимизаций" value={String(opt?.applied.length ?? 0)} hint="скорость загрузки" />
+                <StatTile label="Проблем найдено" value={String((result.source.issues.length) + (opt?.issues.length ?? 0))} hint={`${result.source.issues.length} SEO · ${opt?.issues.length ?? 0} перфоманс`} />
+                <StatTile label="Файлов в проекте" value={String(result.files.length)} hint="Astro, готов к сборке" />
+              </div>
+
+              {/* Ссылка для шеринга */}
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border, #e5e7eb)" }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 8 }}>
+                  Поделиться результатом
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    readOnly
+                    value={toolShareUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    style={{
+                      minWidth: 0, flex: 1, height: 38, padding: "0 12px", fontSize: 13, borderRadius: 8,
+                      border: "1px solid var(--border, #e5e7eb)", background: "var(--muted, #f8fafc)",
+                      color: "var(--foreground, #0f1123)", fontFamily: "ui-monospace, monospace",
+                    }}
+                  />
+                  <button
+                    onClick={copyToolLink}
+                    style={{
+                      height: 38, padding: "0 16px", fontSize: 13.5, fontWeight: 700, borderRadius: 8, border: "none",
+                      background: copied ? "var(--success, #059669)" : "var(--primary, #2a78d6)",
+                      color: "#fff", cursor: "pointer", whiteSpace: "nowrap",
+                      display: "inline-flex", alignItems: "center", gap: 7,
+                    }}
+                  >
+                    {copied ? <><Check size={14} /> Скопировано</> : <><Copy size={14} /> Копировать</>}
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted-foreground, #6b7280)", marginTop: 6 }}>
+                  Публичная — вход не нужен. Открывшему сразу покажет этот результат и даст пересобрать другой сайт.
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Табы ─── */}
+            <div style={{ display: "inline-flex", gap: 4, marginBottom: 14, padding: 4, borderRadius: 12, background: "var(--muted, #eef0f3)" }}>
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setView(t.key)}
+                  style={{
+                    height: 36, padding: "0 16px", fontSize: 13.5, fontWeight: 650, borderRadius: 9,
+                    border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+                    background: view === t.key ? "var(--card, #fff)" : "transparent",
+                    color: view === t.key ? "var(--primary, #2a78d6)" : "var(--muted-foreground, #6b7280)",
+                    boxShadow: view === t.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  }}
+                >
+                  {t.icon} {t.label}
+                  {t.key === "optimization" && opt && opt.issues.length > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 800, minWidth: 18, height: 18, borderRadius: 999, background: "color-mix(in srgb, var(--primary, #2a78d6) 14%, transparent)", color: "var(--primary, #2a78d6)", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>
+                      {opt.issues.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* ─── Таб: живой сайт ─── */}
+            {view === "preview" && (
+              <div style={{ ...card, overflow: "hidden", background: "#fff" }}>
+                {result.previewUrl ? (
+                  <iframe
+                    src={result.previewUrl}
+                    title="Превью пересобранного сайта"
+                    style={{ width: "100%", height: 660, border: "none", display: "block" }}
+                  />
+                ) : (
+                  <div style={{ padding: 40, textAlign: "center", color: "var(--muted-foreground, #6b7280)" }}>
+                    Живое превью недоступно. Скачайте .zip и запустите локально.
+                  </div>
                 )}
-                <button
-                  onClick={downloadZip}
-                  disabled={zipping}
-                  style={{
-                    height: 42, padding: "0 20px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
-                    background: "var(--success, #059669)", color: "#fff", cursor: zipping ? "default" : "pointer", whiteSpace: "nowrap",
-                  }}
-                >
-                  {zipping ? "Пакуем…" : "Скачать .zip"}
-                </button>
-              </div>
-            </div>
-
-            {result.source.issues.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  Найдено на исходном сайте ({result.source.issues.length})
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.55 }}>
-                  {result.source.issues.map((i, n) => <li key={n}>{i}</li>)}
-                </ul>
-              </div>
-            )}
-            {result.fixes.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success, #059669)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  Исправлено в новом проекте ({result.fixes.length})
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.55 }}>
-                  {result.fixes.map((i, n) => <li key={n}>{i}</li>)}
-                </ul>
               </div>
             )}
 
-            {/* Публичная ссылка на сам инструмент — для шеринга */}
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border, #e5e7eb)" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground, #6b7280)", marginBottom: 8 }}>
-                Поделиться инструментом
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  readOnly
-                  value={toolShareUrl}
-                  onFocus={(e) => e.currentTarget.select()}
-                  style={{
-                    minWidth: 0, flex: 1, height: 38, padding: "0 12px", fontSize: 13, borderRadius: 8,
-                    border: "1px solid var(--border, #e5e7eb)", background: "var(--muted, #f8fafc)",
-                    color: "var(--foreground, #0f1123)", fontFamily: "ui-monospace, monospace",
-                  }}
-                />
-                <button
-                  onClick={copyToolLink}
-                  style={{
-                    height: 38, padding: "0 18px", fontSize: 13.5, fontWeight: 700, borderRadius: 8, border: "none",
-                    background: copied ? "var(--success, #059669)" : "var(--primary, #2a78d6)",
-                    color: "#fff", cursor: "pointer", whiteSpace: "nowrap",
-                  }}
-                >
-                  {copied ? "Скопировано ✓" : "Копировать"}
-                </button>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--muted-foreground, #6b7280)", marginTop: 6 }}>
-                Публичная — вход не нужен. Открывшему сразу покажет этот результат (живой сайт и файлы) и даст пересобрать другой.
-              </div>
-            </div>
-          </div>
-
-          {/* Переключатель: живой сайт / исходники */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            {(["preview", "code"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                style={{
-                  height: 34, padding: "0 16px", fontSize: 13, fontWeight: 600, borderRadius: 8,
-                  border: "1px solid var(--border, #e5e7eb)", cursor: "pointer",
-                  background: view === v ? "var(--primary, #2a78d6)" : "transparent",
-                  color: view === v ? "#fff" : "inherit",
-                }}
-              >
-                {v === "preview" ? "Живой сайт" : "Исходники"}
-              </button>
-            ))}
-          </div>
-
-          {view === "preview" ? (
-            <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
-              {result.previewUrl ? (
-                <iframe
-                  src={result.previewUrl}
-                  title="Превью пересобранного сайта"
-                  style={{ width: "100%", height: 640, border: "none", display: "block" }}
-                />
-              ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "var(--muted-foreground, #6b7280)" }}>
-                  Живое превью недоступно (не удалось сохранить). Скачайте .zip и запустите локально.
+            {/* ─── Таб: оптимизация ─── */}
+            {view === "optimization" && opt && (
+              <div style={{ display: "grid", gap: 14 }}>
+                {/* Метрики страницы */}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <StatTile label="Вес HTML" value={opt.stats.htmlKb > 0 ? `${opt.stats.htmlKb} КБ` : "—"} hint={opt.stats.htmlKb > 200 ? "выше нормы 200 КБ" : "в пределах нормы"} />
+                  <StatTile label="Внешних скриптов" value={String(opt.stats.externalScripts)} />
+                  <StatTile label="CSS-файлов" value={String(opt.stats.externalCss)} />
+                  <StatTile label="Изображений" value={String(opt.stats.images)} hint={opt.stats.lazyImages > 0 ? `${opt.stats.lazyImages} переведено на lazy` : undefined} />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) 1fr", gap: 16, alignItems: "start" }}>
-              <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, padding: 8, maxHeight: 560, overflow: "auto" }}>
-                {tree && <TreeView node={tree} depth={0} selected={active?.path ?? ""} onSelect={setActive} />}
-              </div>
-              <div style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e7eb)", fontSize: 13, fontFamily: "ui-monospace, monospace", color: "var(--muted-foreground, #6b7280)" }}>
-                  {active?.path ?? "выберите файл"}
+
+                {/* Применено автоматически */}
+                {opt.applied.length > 0 && (
+                  <div style={{ ...card, padding: "18px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <Wrench size={16} style={{ color: "var(--success, #059669)" }} />
+                      <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Применено автоматически ({opt.applied.length})
+                      </div>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
+                      {opt.applied.map((a, i) => (
+                        <li key={i} style={{ display: "flex", gap: 9, fontSize: 13.5, lineHeight: 1.5 }}>
+                          <CheckCircle2 size={15} style={{ color: "var(--success, #059669)", flexShrink: 0, marginTop: 2 }} /> {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Найденные проблемы */}
+                {opt.issues.length > 0 ? (
+                  <div style={{ ...card, padding: "18px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <Gauge size={16} style={{ color: "var(--primary, #2a78d6)" }} />
+                      <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Проблемы производительности ({opt.issues.length}, исправлено {fixedCount})
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {opt.issues.map((issue, i) => (
+                        <div key={i} style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 10, padding: "13px 15px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 5 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>{issue.title}</div>
+                            <SeverityBadge severity={issue.severity} fixed={issue.fixed} />
+                          </div>
+                          <div style={{ fontSize: 13, color: "var(--muted-foreground, #6b7280)", lineHeight: 1.5 }}>{issue.detail}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ ...card, padding: "28px 20px", textAlign: "center", color: "var(--muted-foreground, #6b7280)", fontSize: 14 }}>
+                    Проблем производительности не найдено — либо результат создан до появления
+                    этого отчёта. Пересоберите сайт заново, чтобы получить свежий анализ.
+                  </div>
+                )}
+
+                {/* SEO-блок: что нашли и что исправили при переносе */}
+                <div style={{ ...card, padding: "18px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <ArrowRight size={16} style={{ color: "var(--primary, #2a78d6)" }} />
+                    <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      SEO: найдено на исходном сайте → исправлено при переносе
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", marginBottom: 8 }}>Найдено ({result.source.issues.length})</div>
+                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                        {result.source.issues.map((it, n) => (
+                          <li key={n} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                            <AlertTriangle size={13} style={{ color: "#dc2626", flexShrink: 0, marginTop: 3 }} /> {it}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--success, #059669)", marginBottom: 8 }}>Исправлено ({result.fixes.length})</div>
+                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                        {result.fixes.map((it, n) => (
+                          <li key={n} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                            <CheckCircle2 size={13} style={{ color: "var(--success, #059669)", flexShrink: 0, marginTop: 3 }} /> {it}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
-                <pre style={{
-                  margin: 0, padding: 16, fontSize: 12.5, lineHeight: 1.55, overflow: "auto", maxHeight: 520,
-                  fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", whiteSpace: "pre",
-                }}>
-                  {active?.content ?? ""}
-                </pre>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+
+            {/* ─── Таб: исходники ─── */}
+            {view === "code" && (
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) 1fr", gap: 14, alignItems: "start" }}>
+                <div style={{ ...card, padding: 8, maxHeight: 580, overflow: "auto" }}>
+                  {tree && <TreeView node={tree} depth={0} selected={active?.path ?? ""} onSelect={setActive} />}
+                </div>
+                <div style={{ ...card, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e7eb)", fontSize: 13, fontFamily: "ui-monospace, monospace", color: "var(--muted-foreground, #6b7280)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <FileText size={13} style={{ opacity: 0.6 }} /> {active?.path ?? "выберите файл"}
+                  </div>
+                  <pre style={{
+                    margin: 0, padding: 16, fontSize: 12.5, lineHeight: 1.55, overflow: "auto", maxHeight: 540,
+                    fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", whiteSpace: "pre",
+                  }}>
+                    {active?.content ?? ""}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

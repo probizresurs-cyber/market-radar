@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { checkSafeUrl } from "@/lib/url-guard";
 
 /**
  * Обогащённый скрейп специально для пересборки сайта в Astro (/api/rebuild-astro).
@@ -85,6 +86,16 @@ export async function scrapeForRebuild(rawUrl: string): Promise<RebuildScrape> {
   let url = rawUrl.trim();
   if (!/^https?:\/\//i.test(url)) url = "https://" + url;
 
+  // КРИТИЧНО: SSRF guard. Инструмент публичный (без логина) и по запросу
+  // пользователя тянет произвольный URL с сервера — без проверки любой мог бы
+  // заставить нас сходить на http://169.254.169.254/ (cloud metadata),
+  // localhost/внутренние сервисы и т.д. Один DNS-резолв на весь домен —
+  // http/https fallback ниже бьёт по тому же хосту, повторно не проверяем.
+  const guard = await checkSafeUrl(url, { allowedProtocols: ["https:", "http:"], resolveDns: true });
+  if (!guard.ok) {
+    throw new Error(`Адрес отклонён по соображениям безопасности: ${guard.reason}`);
+  }
+
   let html = "";
   let finalUrl = url;
   try {
@@ -151,8 +162,11 @@ export async function scrapeForRebuild(rawUrl: string): Promise<RebuildScrape> {
     }
   });
 
-  // Hero-картинка: og:image → первое крупное фоновое изображение → первая img.
-  // Фоновые ищем в inline style="background(-image): url(...)".
+  // Hero-картинка: og:image → инлайн-фон (style="background-image:...") →
+  // ленивый фон конструкторов (Tilda и др.: data-original на НЕ-img элементе,
+  // JS подставляет его в background при скролле — самый частый случай для
+  // hero-фото на лендингах, но раньше эта ветка не проверялась, и hero почти
+  // всегда падал на случайную мелкую <img> вроде иконки) → первая img.
   let heroImage: string | null = ogImage;
   if (!heroImage) {
     $("[style]").each((_, el) => {
@@ -160,6 +174,14 @@ export async function scrapeForRebuild(rawUrl: string): Promise<RebuildScrape> {
       const style = $(el).attr("style") ?? "";
       const m = style.match(/background(?:-image)?\s*:\s*url\(['"]?([^'")]+)['"]?\)/i);
       if (m) heroImage = absolutize(m[1], finalUrl);
+    });
+  }
+  if (!heroImage) {
+    $("[data-original]").each((_, el) => {
+      if (heroImage) return;
+      const tag = ((el as unknown as { tagName?: string }).tagName ?? "").toLowerCase();
+      if (tag === "img") return; // обычные <img data-original> уже покрыты images[]
+      heroImage = absolutize($(el).attr("data-original"), finalUrl);
     });
   }
   if (!heroImage && images.length) heroImage = images[0].src;

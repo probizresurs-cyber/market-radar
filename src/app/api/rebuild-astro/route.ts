@@ -38,6 +38,26 @@ export interface AstroFile {
   content: string;
 }
 
+export interface OptIssue {
+  severity: "critical" | "warn" | "info";
+  title: string;
+  detail: string;
+  /** true — исправлено автоматически при переносе; false — рекомендация. */
+  fixed: boolean;
+}
+
+export interface OptimizationReport {
+  stats: {
+    htmlKb: number;
+    externalScripts: number;
+    externalCss: number;
+    images: number;
+    lazyImages: number;
+  };
+  issues: OptIssue[];
+  applied: string[];
+}
+
 export interface RebuildAstroResult {
   ok: true;
   id: string;
@@ -45,6 +65,7 @@ export interface RebuildAstroResult {
   source: { url: string; title: string; issues: string[] };
   files: AstroFile[];
   fixes: string[];
+  optimization: OptimizationReport;
   summary: string;
   modelUsed: string;
 }
@@ -126,9 +147,141 @@ function humanizeAlt(src: string, fallback: string): string {
   } catch { return fallback; }
 }
 
+// ─── Оптимизация производительности: диагностика + безопасные авто-правки ────
+// Правим только то, что гарантированно не меняет внешний вид: lazy-загрузка
+// картинок/iframe ниже первого экрана, preconnect к CDN, preload hero.
+// Ничего не удаляем и не дефёрим — скрипты конструкторов (Tilda и др.)
+// завязаны на порядок исполнения, их трогать опасно.
+function optimizeAndReport($: cheerio.CheerioAPI, s: RebuildScrape, rawHtmlLen: number): OptimizationReport {
+  const issues: OptIssue[] = [];
+  const applied: string[] = [];
+
+  const htmlKb = Math.round(rawHtmlLen / 1024);
+  const extScripts = $("script[src]").length;
+  const extCss = $('link[rel="stylesheet"]').length;
+  const imgs = $("img");
+
+  // 1) Ленивая загрузка изображений. Первые 2 <img> пропускаем — они почти
+  //    всегда в первом экране (логотип, hero), lazy там только вредит (LCP).
+  let lazied = 0;
+  imgs.each((i, el) => {
+    if (i < 2) return;
+    const $el = $(el);
+    if (!$el.attr("loading")) { $el.attr("loading", "lazy"); lazied++; }
+    if (!$el.attr("decoding")) $el.attr("decoding", "async");
+  });
+  if (lazied > 0) {
+    applied.push(`Ленивая загрузка ${lazied} изображений (loading="lazy" + decoding="async")`);
+    issues.push({
+      severity: "warn",
+      title: `${lazied} изображений грузились сразу, а не по мере прокрутки`,
+      detail: "Браузер качал все фото при открытии страницы, замедляя первую отрисовку. Теперь картинки ниже первого экрана грузятся лениво.",
+      fixed: true,
+    });
+  }
+
+  // 2) iframe (карты, видео-встройки) — тоже лениво.
+  let iframesLazied = 0;
+  $("iframe").each((_, el) => {
+    if (!$(el).attr("loading")) { $(el).attr("loading", "lazy"); iframesLazied++; }
+  });
+  if (iframesLazied > 0) applied.push(`loading="lazy" у ${iframesLazied} iframe (карты/встройки)`);
+
+  // 3) Preconnect к внешним CDN — браузер заранее откроет соединения к
+  //    доменам, откуда пойдут стили/картинки, вместо ожидания по цепочке.
+  const hostCount = new Map<string, number>();
+  $('link[href], script[src], img[src]').each((_, el) => {
+    const u = $(el).attr("href") || $(el).attr("src") || "";
+    try {
+      const { origin } = new URL(u);
+      if (origin !== s.origin && origin.startsWith("http")) {
+        hostCount.set(origin, (hostCount.get(origin) ?? 0) + 1);
+      }
+    } catch { /* относительный/битый URL — пропускаем */ }
+  });
+  const alreadyPreconnected = new Set(
+    $('link[rel="preconnect"]').map((_, el) => $(el).attr("href") ?? "").get(),
+  );
+  const topHosts = [...hostCount.entries()]
+    .filter(([h, n]) => n >= 3 && !alreadyPreconnected.has(h))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  for (const [host] of topHosts) {
+    $("head").prepend(`<link rel="preconnect" href="${host}" crossorigin>`);
+  }
+  if (topHosts.length > 0) {
+    applied.push(`Preconnect к ${topHosts.length} CDN-доменам — соединения открываются заранее`);
+    issues.push({
+      severity: "info",
+      title: "Не было preconnect к CDN с ассетами",
+      detail: `Стили и картинки грузятся с внешних доменов (${topHosts.map(([h]) => new URL(h).hostname).join(", ")}), но браузер узнавал о них поздно. Добавили preconnect.`,
+      fixed: true,
+    });
+  }
+
+  // 4) Preload hero-изображения — приоритетная загрузка самой заметной картинки.
+  if (s.heroImage && !$(`link[rel="preload"][href="${s.heroImage}"]`).length) {
+    $("head").append(`<link rel="preload" as="image" href="${s.heroImage}">`);
+    applied.push("Hero-изображение предзагружается (rel=\"preload\") — быстрее LCP");
+  }
+
+  // 5) Диагностика без авто-фикса — честно помечаем как рекомендации.
+  if (htmlKb > 500) {
+    issues.push({
+      severity: "critical",
+      title: `HTML-документ весит ${htmlKb} КБ`,
+      detail: "Это очень много для одной страницы (норма — до 100-200 КБ). Обычно причина — конструктор, который кладёт всю вёрстку и стили инлайн. Радикально лечится только чистой пересборкой вёрстки.",
+      fixed: false,
+    });
+  } else if (htmlKb > 200) {
+    issues.push({
+      severity: "warn",
+      title: `HTML-документ весит ${htmlKb} КБ`,
+      detail: "Больше рекомендованных 200 КБ — сказывается на скорости первой загрузки, особенно на мобильных.",
+      fixed: false,
+    });
+  }
+  if (extScripts > 20) {
+    issues.push({
+      severity: "warn",
+      title: `${extScripts} внешних скриптов`,
+      detail: "Каждый скрипт — отдельное сетевое соединение и время исполнения. Автоматически удалять их небезопасно (сломаются слайдеры/формы конструктора) — сокращение возможно при ручной доработке.",
+      fixed: false,
+    });
+  }
+  if (s.techStack.includes("jQuery")) {
+    issues.push({
+      severity: "info",
+      title: "Используется jQuery",
+      detail: "Устаревшая библиотека (~90 КБ). Оставлена, потому что на ней держатся скрипты исходного сайта; при чистой пересборке от неё можно отказаться.",
+      fixed: false,
+    });
+  }
+  if (extCss > 8) {
+    issues.push({
+      severity: "info",
+      title: `${extCss} внешних CSS-файлов`,
+      detail: "Много отдельных файлов стилей — каждый блокирует отрисовку. При ручной доработке их можно объединить.",
+      fixed: false,
+    });
+  }
+
+  return {
+    stats: {
+      htmlKb,
+      externalScripts: extScripts,
+      externalCss: extCss,
+      images: imgs.length,
+      lazyImages: lazied,
+    },
+    issues,
+    applied,
+  };
+}
+
 // Возвращает исправленный полный HTML + список реально применённых правок.
 function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: string; schema: unknown }): {
-  html: string; fixes: string[];
+  html: string; fixes: string[]; optimization: OptimizationReport;
 } {
   const $ = cheerio.load(rawHtml);
   const base = s.url;
@@ -188,10 +341,16 @@ function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: 
     if (tag.toLowerCase() === "img") {
       $el.attr("src", abs);
     } else {
-      // Блок-фон (Tilda t-bgimg и аналоги): ставим background-image инлайн.
-      // cover/center берём на себя — совпадает с дефолтом Tilda .t-bgimg.
+      // Блок-фон (Tilda t-bgimg и аналоги): ставим ТОЛЬКО background-image
+      // инлайн. Раньше сюда же дописывались background-size/position/repeat —
+      // но внутри одного style-атрибута позже объявленное свойство побеждает,
+      // а Tilda нередко задаёт свой inline background-position (фокус кропа
+      // конкретного фото, например для мобильной версии) ДО data-original —
+      // наш cover/center его перетирал и портил кадрирование. size/position
+      // и так приходят из внешней Tilda-вёрстки (класс t-bgimg), которую мы
+      // не трогаем — доверяем ей.
       const prev = $el.attr("style") ?? "";
-      const bg = `background-image:url('${abs}');background-size:cover;background-position:center;background-repeat:no-repeat;`;
+      const bg = `background-image:url('${abs}');`;
       $el.attr("style", prev ? `${prev.replace(/;?\s*$/, ";")}${bg}` : bg);
     }
     lazyMaterialized++;
@@ -236,16 +395,31 @@ function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: 
     fixes.push("Добавлена разметка Schema.org (structured data)");
   }
 
-  // 7) H1: если нет ни одного — повышаем первый заметный заголовок до H1,
-  //    сохраняя все классы/атрибуты (дизайн не меняется, меняется только тег).
+  // 7) H1: если нет ни одного — повышаем заметный заголовок до H1, сохраняя
+  //    все классы/атрибуты (дизайн не меняется, меняется только тег).
+  //    Раньше брали ПЕРВЫЙ h2 в документе — им мог оказаться случайный
+  //    заголовок из футера/сайдбара, а не смысловой заголовок страницы.
+  //    Теперь: сперва ищем внутри main/article, иначе — вне footer/nav/aside,
+  //    и при отсутствии h2 пробуем h3.
   if ($("h1").length === 0) {
-    const cand = $("h2").first();
+    // Без reassignment между веткам — разные виды селекторов у cheerio
+    // инстанциируют разные generic-типы Cheerio<...>, присвоение одной
+    // переменной их конфликтует. Три независимых return вместо этого.
+    const pickCandidate = (tag: string) => {
+      const inScope = $(`main ${tag}, article ${tag}`);
+      if (inScope.length) return inScope.first();
+      const outside = $(tag).not(`footer ${tag}, nav ${tag}, aside ${tag}`);
+      if (outside.length) return outside.first();
+      return $(tag).first();
+    };
+    const h2cand = pickCandidate("h2");
+    const cand = h2cand.length ? h2cand : pickCandidate("h3");
     if (cand.length) {
       const attrs = (cand[0] as unknown as { attribs: Record<string, string> }).attribs || {};
       const inner = cand.html() ?? "";
       const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${String(v).replace(/"/g, "&quot;")}"`).join(" ");
       cand.replaceWith(`<h1 ${attrStr}>${inner}</h1>`);
-      fixes.push("Первый заголовок повышен до единственного H1 (без изменения вида)");
+      fixes.push("Заметный заголовок повышен до единственного H1 (без изменения вида)");
     }
   }
 
@@ -261,7 +435,10 @@ function surgicalFix(rawHtml: string, s: RebuildScrape, seo: { metaDescription: 
   });
   if (altAdded > 0) fixes.push(`Проставлен alt у ${altAdded} изображений без описания`);
 
-  return { html: $.html(), fixes };
+  // 9) Оптимизация производительности (диагностика + безопасные авто-правки)
+  const optimization = optimizeAndReport($, s, rawHtml.length);
+
+  return { html: $.html(), fixes, optimization };
 }
 
 // Экранируем строку для вставки в шаблонный литерал Astro (`...`).
@@ -276,11 +453,19 @@ function assembleAstroProject(html: string, origin: string, title: string): Astr
   const headInner = $("head").html() ?? `<meta charset="utf-8"><title>${title}</title>`;
   const bodyInner = $("body").html() ?? html;
 
+  // Раньше <html> всегда хардкодился как lang="ru" — терялись lang/dir/class
+  // оригинала (dir="rtl", data-theme на <html> и т.п.). Переносим их через
+  // пропсы Layout вместо set:html — они всего 2-3 коротких атрибута.
+  const htmlEl = $("html");
+  const lang = (htmlEl.attr("lang") || "ru").replace(/"/g, "");
+  const dir = (htmlEl.attr("dir") || "").replace(/"/g, "");
+  const htmlClass = (htmlEl.attr("class") || "").replace(/"/g, "");
+
   const layout = `---
-const { head = "" } = Astro.props;
+const { head = "", lang = "ru", dir, htmlClass } = Astro.props;
 ---
 <!doctype html>
-<html lang="ru">
+<html lang={lang} dir={dir} class={htmlClass}>
   <head set:html={head}></head>
   <body>
     <slot />
@@ -292,7 +477,7 @@ import Layout from '../layouts/Layout.astro';
 const head = \`${escapeForTemplate(headInner)}\`;
 const body = \`${escapeForTemplate(bodyInner)}\`;
 ---
-<Layout head={head}>
+<Layout head={head} lang="${lang}"${dir ? ` dir="${dir}"` : ""}${htmlClass ? ` htmlClass="${htmlClass}"` : ""}>
   <Fragment set:html={body} />
 </Layout>
 `;
@@ -372,8 +557,8 @@ export async function POST(req: Request) {
       console.warn("[rebuild-astro] SEO meta gen failed, continue without:", e);
     }
 
-    // 3) DOM-хирургия: сохраняем дизайн, правим внутряк
-    const { html: fixedHtml, fixes } = surgicalFix(scraped.html, scraped, seo);
+    // 3) DOM-хирургия: сохраняем дизайн, правим внутряк + оптимизация
+    const { html: fixedHtml, fixes, optimization } = surgicalFix(scraped.html, scraped, seo);
 
     // 4) Собираем Astro-проект
     const files = assembleAstroProject(fixedHtml, scraped.origin, scraped.title || "Сайт");
@@ -382,7 +567,7 @@ export async function POST(req: Request) {
     const id = randomUUID();
     const summary = `Сайт «${scraped.title || scraped.url}» перенесён на Astro с сохранением дизайна 1:1. Исправлен технический внутряк: ${fixes.length} правок.`;
     const snapshot = {
-      previewHtml: fixedHtml, files, fixes, summary,
+      previewHtml: fixedHtml, files, fixes, optimization, summary, modelUsed: seo.modelUsed,
       source: { url: scraped.url, title: scraped.title, issues },
       createdAt: new Date().toISOString(),
     };
@@ -401,7 +586,7 @@ export async function POST(req: Request) {
     const result: RebuildAstroResult = {
       ok: true, id, previewUrl: `/api/site-preview/${id}`,
       source: { url: scraped.url, title: scraped.title, issues },
-      files, fixes, summary, modelUsed: seo.modelUsed,
+      files, fixes, optimization, summary, modelUsed: seo.modelUsed,
     };
     return NextResponse.json(result);
   } catch (err) {
