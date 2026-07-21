@@ -4,6 +4,7 @@ import { canScan, recordScan, formatNextAllowed } from "@/lib/tg-scan-limiter";
 import { query, initDb } from "@/lib/db";
 import {
   sendKpInboundAck, forwardToKpManager, extractClientChatId, sendKpTgMessage, kpShareUrl,
+  sendKpConnected, sendKpCodeInvalid,
   type KpFunnelCtx, type KpTgLocale,
 } from "@/lib/kp-tg-funnel";
 
@@ -111,12 +112,6 @@ const EXPRESS_PROMPT =
   `Через пару минут вернусь с отчётом: общий score, 5 категорий (SEO, скорость, UX, доверие, контент), топ-инсайты и краткая база конкурентов.\n\n` +
   `💡 Хотите сразу полный экспресс с сохранением на email и PDF? Перейдите на сайт с промокодом <b>START</b> — отдадим за 1 ₽:\n` +
   `${SITE}/express-report`;
-
-const KP_TG_CONNECTED = (companyName: string) =>
-  `✅ <b>Готово!</b>\n\n` +
-  `Подключили уведомления по КП «${companyName}». Как только новая версия сайта будет готова и проверена — пришлём ссылку сюда же, не только на почту.`;
-const KP_TG_CODE_INVALID =
-  `🤔 Эта ссылка для подключения уже недействительна — попробуйте открыть её заново со страницы вашего КП.`;
 
 const CONNECT_PROMPT =
   `🔗 Чтобы подключить уведомления:\n\n` +
@@ -272,10 +267,9 @@ export async function POST(req: NextRequest) {
       if (row) {
         await query("UPDATE kp_generations SET client_tg_chat_id = $1 WHERE id = $2", [chatId, row.id]);
         const ctx = kpFunnelCtx(row);
-        const kpButtons: InlineButton[][] = ctx.kpUrl ? [[{ text: "📄 Открыть предложение", url: ctx.kpUrl }]] : [];
-        await sendMessage(chatId, KP_TG_CONNECTED(ctx.companyName), kpButtons.length ? kpButtons : undefined);
+        await sendKpConnected(chatId, ctx);
       } else {
-        await sendMessage(chatId, KP_TG_CODE_INVALID);
+        await sendKpCodeInvalid(chatId);
       }
     } else if (command === "/start") {
       await sendMessage(chatId, WELCOME(firstName), SITE_BUTTONS);

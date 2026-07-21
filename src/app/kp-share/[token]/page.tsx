@@ -10,7 +10,7 @@ import { use, useEffect, useState } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 import { KpProposal } from "@/components/kp/KpProposal";
-import type { KpProposalLocale } from "@/components/kp/kp-proposal-i18n";
+import { KP_PROPOSAL_I18N, type KpProposalLocale } from "@/components/kp/kp-proposal-i18n";
 
 interface Loaded { company: AnalysisResult; bundle: PilotBundle; companyName: string | null; url: string; locale: KpProposalLocale; }
 
@@ -21,14 +21,14 @@ type AstroStatus = "idle" | "running" | "pending_review" | "approved" | "sent" |
 const GATE_I18N: Record<KpProposalLocale, {
   loading: string; linkUnavailable: string; checkLink: string; networkError: string;
   personalReview: string; reviewFor: (name: string) => string; passwordPrompt: string;
-  passwordPlaceholder: string; wrongPassword: string; opening: string; openBtn: string;
+  passwordPlaceholder: string; wrongPassword: string; tooManyAttempts: string; opening: string; openBtn: string;
 }> = {
   ru: {
     loading: "Загружаем…", linkUnavailable: "Ссылка недоступна", checkLink: "Проверьте ссылку или попросите новую.",
     networkError: "Ошибка сети",
     personalReview: "Персональный разбор", reviewFor: (name) => `Разбор для «${name}»`,
     passwordPrompt: "Введите пароль из сообщения менеджера, чтобы открыть предложение.",
-    passwordPlaceholder: "Пароль", wrongPassword: "Неверный пароль",
+    passwordPlaceholder: "Пароль", wrongPassword: "Неверный пароль", tooManyAttempts: "Слишком много попыток — подождите немного",
     opening: "Открываем…", openBtn: "Открыть предложение",
   },
   de: {
@@ -36,7 +36,7 @@ const GATE_I18N: Record<KpProposalLocale, {
     networkError: "Netzwerkfehler",
     personalReview: "Persönliche Analyse", reviewFor: (name) => `Analyse für „${name}"`,
     passwordPrompt: "Geben Sie das Passwort aus der Nachricht Ihres Ansprechpartners ein, um das Angebot zu öffnen.",
-    passwordPlaceholder: "Passwort", wrongPassword: "Falsches Passwort",
+    passwordPlaceholder: "Passwort", wrongPassword: "Falsches Passwort", tooManyAttempts: "Zu viele Versuche — bitte kurz warten",
     opening: "Wird geöffnet…", openBtn: "Angebot öffnen",
   },
 };
@@ -64,17 +64,23 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
 
   const requestAstroRebuild = async (email: string) => {
     setAstroSubmitting(true); setAstroError(null);
+    // Серверные тексты ошибок (429/400/404/502) всегда по-русски — для DE
+    // клиента маппим по статусу через локализованный словарь, а не доверяем j.error.
+    const pt = KP_PROPOSAL_I18N[gateLocale];
     try {
       const r = await fetch(`/api/kp-share/${token}/rebuild`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const j = await r.json();
-      if (!j.ok) { setAstroError(j.error || "Не получилось отправить запрос"); return; }
+      const j = await r.json().catch(() => ({ ok: false }));
+      if (!j.ok) {
+        setAstroError(r.status === 429 ? pt.astroTooManyRequests : r.status === 400 ? pt.astroEmailInvalid : pt.astroRequestError);
+        return;
+      }
       setAstroStatus(j.status as AstroStatus);
       setAstroEmail(email);
       if (j.tgConnectUrl) setTgConnectUrl(j.tgConnectUrl);
-    } catch { setAstroError("Ошибка сети"); }
+    } catch { setAstroError(pt.astroRequestError); }
     finally { setAstroSubmitting(false); }
   };
 
@@ -84,10 +90,10 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
         const r = await fetch(`/api/kp-share/${token}`);
         const j = await r.json();
         if (j.locale === "de") setGateLocale("de");
-        if (!j.ok) { setPhase("error"); setError(j.error || "Ссылка недоступна"); return; }
+        if (!j.ok) { setPhase("error"); return; }
         setCompanyName(j.companyName);
         setPhase("gate");
-      } catch { setPhase("error"); setError("Ошибка сети"); }
+      } catch { setPhase("error"); }
     })();
   }, [token]);
 
@@ -98,8 +104,12 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      const j = await r.json();
-      if (!j.ok) { setError(j.error || g.wrongPassword); return; }
+      const j = await r.json().catch(() => ({ ok: false }));
+      if (!j.ok) {
+        // Серверный текст ошибки всегда по-русски — маппим по статусу, а не доверяем j.error.
+        setError(r.status === 429 ? g.tooManyAttempts : r.status === 404 ? g.linkUnavailable : g.wrongPassword);
+        return;
+      }
       const loc: KpProposalLocale = j.locale === "de" ? "de" : "ru";
       setData({ company: j.company, bundle: j.bundle, companyName: j.companyName, url: j.url, locale: loc });
       setGateLocale(loc);
@@ -121,7 +131,7 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
       <div style={{ minHeight: "80vh", display: "grid", placeItems: "center", fontFamily: "'Inter',system-ui", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 420 }}>
           <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{g.linkUnavailable}</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>{error || g.checkLink}</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>{g.checkLink}</div>
         </div>
       </div>
     );

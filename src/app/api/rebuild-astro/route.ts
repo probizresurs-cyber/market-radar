@@ -62,6 +62,13 @@ export interface OptIssue {
    *   а не запускает автоматику.
    */
   risk?: "safe" | "moderate" | "manual";
+  /**
+   * Число, стоящее за title/detail (КБ / кол-во файлов) — для клиентской
+   * DE-локализации на /site-ready: title/detail здесь всегда по-русски
+   * (используются менеджерским /astro-rebuild), а немецкий текст на
+   * /site-ready собирается из шаблона по key+severity, подставляя metric.
+   */
+  metric?: number;
 }
 
 export interface OptimizationReport {
@@ -264,14 +271,14 @@ export function detectPerf(html: string, origin: string, techStack: string[]): O
   // (см. /api/rebuild-astro/optimize-item), у каждого свой уровень риска.
   if (htmlKb > 500) {
     issues.push({
-      key: "html-size", risk: "safe", severity: "critical",
+      key: "html-size", risk: "safe", severity: "critical", metric: htmlKb,
       title: `HTML-документ весит ${htmlKb} КБ`,
       detail: "Это очень много для одной страницы (норма — до 100-200 КБ). Причина — конструктор кладёт всю вёрстку и стили инлайн. Можно безопасно убрать комментарии и лишние пробелы (минификация) — заметный, но не полный эффект; полностью лечится только чистой пересборкой вёрстки.",
       fixed: false,
     });
   } else if (htmlKb > 200) {
     issues.push({
-      key: "html-size", risk: "safe", severity: "warn",
+      key: "html-size", risk: "safe", severity: "warn", metric: htmlKb,
       title: `HTML-документ весит ${htmlKb} КБ`,
       detail: "Больше рекомендованных 200 КБ — сказывается на скорости первой загрузки, особенно на мобильных. Минификация (без изменения вида) немного облегчит файл.",
       fixed: false,
@@ -279,7 +286,7 @@ export function detectPerf(html: string, origin: string, techStack: string[]): O
   }
   if (extScripts > 20) {
     issues.push({
-      key: "ext-scripts", risk: "moderate", severity: "warn",
+      key: "ext-scripts", risk: "moderate", severity: "warn", metric: extScripts,
       title: `${extScripts} внешних скриптов`,
       detail: "Каждый скрипт — отдельное соединение и время исполнения; это главный потолок Lighthouse-балла. Можно перевести незаблокированные скрипты на отложенную загрузку (defer) — они продолжат работать в исходном порядке, но не будут тормозить отрисовку страницы. Очень редко это может задеть скрипт, ожидающий немедленного исполнения.",
       fixed: false,
@@ -295,7 +302,7 @@ export function detectPerf(html: string, origin: string, techStack: string[]): O
   }
   if (extCss > 8) {
     issues.push({
-      key: "ext-css", risk: "safe", severity: "info",
+      key: "ext-css", risk: "safe", severity: "info", metric: extCss,
       title: `${extCss} внешних CSS-файлов`,
       detail: "Много отдельных файлов стилей — каждый блокирует отрисовку. Можно безопасно объединить их в один встроенный блок стилей — вид страницы не меняется, просто меньше запросов.",
       fixed: false,

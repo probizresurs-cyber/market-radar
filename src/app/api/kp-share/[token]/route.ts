@@ -26,7 +26,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   );
   const r = rows[0];
   if (!r || r.status !== "done") {
-    return NextResponse.json({ ok: false, error: "Ссылка недоступна" }, { status: 404 });
+    // locale отдаём даже в 404-ветке (если строка вообще нашлась) — иначе
+    // клиент не знает, на каком языке показать «ссылка недоступна».
+    return NextResponse.json({ ok: false, error: "Ссылка недоступна", locale: r?.locale ?? null }, { status: 404 });
   }
   return NextResponse.json({ ok: true, companyName: r.company_name, locale: r.locale });
 }

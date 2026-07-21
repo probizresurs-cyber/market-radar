@@ -33,6 +33,7 @@ interface OptIssue {
   queued?: boolean;
   key?: string;
   risk?: Risk;
+  metric?: number;
 }
 interface RebuildResult {
   ok: boolean;
@@ -75,6 +76,40 @@ const T: Record<Locale, {
     approveBtn: "Genehmigen", approving: "Wird angewendet…", doneBtn: "Erledigt", queuedBtn: "In Bearbeitung", approveError: "Fehlgeschlagen — bitte erneut versuchen",
   },
 };
+
+// title/detail в OptIssue всегда по-русски (эти данные использует и
+// менеджерский /astro-rebuild) — для DE-клиента здесь собираем текст
+// заново по key+severity+metric, а не переводим строку из бэкенда.
+function localizeIssue(issue: OptIssue, locale: Locale): { title: string; detail: string } {
+  if (locale === "ru") return { title: issue.title, detail: issue.detail };
+  const n = issue.metric ?? 0;
+  switch (issue.key) {
+    case "html-size":
+      return {
+        title: `HTML-Dokument ist ${n} KB groß`,
+        detail: issue.severity === "critical"
+          ? "Das ist sehr viel für eine einzelne Seite (üblich sind 100-200 KB). Der Grund: Der Baukasten schreibt das gesamte Layout und alle Stile inline in die Seite. Kommentare und überflüssige Leerzeichen lassen sich sicher entfernen (Minifizierung) — ein spürbarer, aber kein vollständiger Effekt; vollständig behebt das nur ein sauberer Neuaufbau des Layouts."
+          : "Mehr als die empfohlenen 200 KB — das wirkt sich auf die Ladegeschwindigkeit aus, besonders auf Mobilgeräten. Die Minifizierung (ohne Änderung der Optik) macht die Datei etwas leichter.",
+      };
+    case "ext-scripts":
+      return {
+        title: `${n} externe Skripte`,
+        detail: "Jedes Skript ist eine eigene Verbindung und Ausführungszeit — das ist die Hauptbremse für den Lighthouse-Wert. Nicht blockierende Skripte lassen sich auf verzögertes Laden (defer) umstellen — sie laufen weiter in der ursprünglichen Reihenfolge, bremsen aber nicht mehr die Darstellung der Seite. In sehr seltenen Fällen kann das ein Skript betreffen, das eine sofortige Ausführung erwartet.",
+      };
+    case "jquery":
+      return {
+        title: "jQuery wird verwendet",
+        detail: "Veraltete Bibliothek (~90 KB). Sie bleibt, weil die Skripte der Original-Website darauf aufbauen — automatisch entfernen ist riskant, das könnte Slider oder Formulare zerstören. Die Genehmigung hier startet keine Automatik, sondern gibt eine Aufgabe zur manuellen Bearbeitung an unser Team weiter.",
+      };
+    case "ext-css":
+      return {
+        title: `${n} externe CSS-Dateien`,
+        detail: "Viele einzelne Stildateien — jede blockiert die Darstellung. Sie lassen sich sicher zu einem eingebetteten Stilblock zusammenfassen — die Optik der Seite ändert sich nicht, es gibt nur weniger Anfragen.",
+      };
+    default:
+      return { title: issue.title, detail: issue.detail };
+  }
+}
 
 export default function SiteReadyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -122,7 +157,7 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
       <div style={{ minHeight: "80vh", display: "grid", placeItems: "center", fontFamily: "'Inter',system-ui", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 420 }}>
           <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{t.notFound}</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>{state.error || t.notFoundBody}</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>{t.notFoundBody}</div>
         </div>
       </div>
     );
@@ -193,12 +228,13 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
               {pendingItems.map((issue) => {
                 const handled = issue.fixed || issue.queued;
                 const busy = busyKey === issue.key;
+                const loc = localizeIssue(issue, locale);
                 return (
                   <div key={issue.key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{issue.title}</div>
-                        <div style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5, marginBottom: 6 }}>{issue.detail}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{loc.title}</div>
+                        <div style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5, marginBottom: 6 }}>{loc.detail}</div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: riskColor(issue.risk) }}>{riskLabel(issue.risk)}</span>
                       </div>
                       {handled ? (

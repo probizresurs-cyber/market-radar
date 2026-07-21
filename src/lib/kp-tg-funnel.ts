@@ -71,6 +71,8 @@ export function kpShareUrl(shareToken: string | null): string | null {
 // ─── Тексты ─────────────────────────────────────────────────────────────────
 
 const T: Record<KpTgLocale, {
+  connected: (name: string) => string;
+  codeInvalid: string;
   siteReady: (name: string) => string;
   btnOpenSite: string;
   btnFullAnalysis: string;
@@ -80,6 +82,11 @@ const T: Record<KpTgLocale, {
   inboundAck: string;
 }> = {
   ru: {
+    connected: (name) =>
+      `✅ <b>Готово!</b>\n\n` +
+      `Подключили уведомления по КП «${name}». Как только новая версия сайта будет готова и проверена — пришлём ссылку сюда же, не только на почту.`,
+    codeInvalid:
+      `🤔 Эта ссылка для подключения уже недействительна — попробуйте открыть её заново со страницы вашего КП.`,
     siteReady: (name) =>
       `🚀 <b>Новая версия сайта готова</b>\n\n` +
       `Мы подготовили обновлённую версию сайта «${name}»: дизайн сохранён, технические проблемы устранены — сайт грузится быстрее и лучше виден в поиске.\n\n` +
@@ -103,6 +110,11 @@ const T: Record<KpTgLocale, {
       `Пока ждёте, всё по вашему проекту — по кнопкам ниже:`,
   },
   de: {
+    connected: (name) =>
+      `✅ <b>Fertig!</b>\n\n` +
+      `Benachrichtigungen für das Angebot „${name}" sind verbunden. Sobald die neue Website-Version fertig und geprüft ist, senden wir den Link auch hierher — nicht nur per E-Mail.`,
+    codeInvalid:
+      `🤔 Dieser Verbindungslink ist nicht mehr gültig — öffnen Sie ihn bitte erneut über die Seite Ihres Angebots.`,
     siteReady: (name) =>
       `🚀 <b>Die neue Website-Version ist fertig</b>\n\n` +
       `Wir haben eine aktualisierte Version der Website „${name}" vorbereitet: Design unverändert, technische Probleme behoben — die Website lädt schneller und ist in der Suche besser sichtbar.\n\n` +
@@ -136,6 +148,22 @@ function funnelButtons(ctx: KpFunnelCtx): TgButton[][] {
 }
 
 // ─── Шаги воронки ───────────────────────────────────────────────────────────
+
+/** Шаг 1: подтверждение подписки после /start kp_<код> (зовётся из webhook). */
+export async function sendKpConnected(chatId: number | string, ctx: KpFunnelCtx) {
+  const t = T[ctx.locale];
+  const buttons: TgButton[][] = ctx.kpUrl ? [[{ text: t.btnOpenKp, url: ctx.kpUrl }]] : [];
+  return sendKpTgMessage(chatId, t.connected(ctx.companyName), buttons.length ? buttons : undefined);
+}
+
+/**
+ * Код kp_<...> из /start не найден в БД (устарел/ошибка) — на этом этапе
+ * ещё нет строки kp_generations, поэтому locale клиента неизвестен.
+ * Честно шлём оба варианта одним сообщением, а не гадаем язык.
+ */
+export async function sendKpCodeInvalid(chatId: number | string) {
+  return sendKpTgMessage(chatId, `${T.ru.codeInvalid}\n\n${T.de.codeInvalid}`);
+}
 
 /** Шаг 2: «новый сайт готов» + кнопки апселла (зовётся из approve-rebuild). */
 export async function sendKpSiteReady(chatId: number | string, ctx: KpFunnelCtx) {

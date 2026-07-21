@@ -1021,7 +1021,7 @@ export function KpProposal({
             {aiPerc.sampleAnswer && (
               <div className="ds-card" style={{ padding: "16px 18px", marginBottom: 18 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>{t.aiSampleAnswerLabel}</div>
-                <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, fontStyle: "italic", color: "var(--foreground)" }}>«{aiPerc.sampleAnswer}»</p>
+                <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, fontStyle: "italic", color: "var(--foreground)" }}>{locale === "de" ? `„${aiPerc.sampleAnswer}"` : `«${aiPerc.sampleAnswer}»`}</p>
               </div>
             )}
             {aiPerc.improvementTips && aiPerc.improvementTips.length > 0 && (
@@ -1105,7 +1105,7 @@ export function KpProposal({
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{t.geoMethodQuestionsLabel}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {PD.geo.method.questions.map((q, i) => (
-                  <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>«{q}»</span>
+                  <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>{locale === "de" ? `„${q}"` : `«${q}»`}</span>
                 ))}
               </div>
             </div>
@@ -1515,7 +1515,7 @@ export function KpProposal({
             {(() => {
               const ue = PD.unitEconomics ?? {
                 deals: "2–8", dealsNote: t.unitEconDealsFallback,
-                check: "150–500 тыс ₽", checkNote: t.unitEconCheckFallback,
+                check: t.unitEconCheckValueFallback, checkNote: t.unitEconCheckFallback,
                 entry: t.unitEconEntryFallback,
               };
               return (

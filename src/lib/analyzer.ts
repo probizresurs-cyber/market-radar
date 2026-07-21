@@ -561,12 +561,17 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
     scores.seo * 0.25 + scores.social * 0.25 + scores.content * 0.2 + scores.hrBrand * 0.15 + scores.technology * 0.15
   );
 
+  // Названия категорий рендерятся клиенту (карточки обзора, радар-чарт в KpProposal) —
+  // на DE-КП были захардкожены по-русски независимо от locale.
+  const categoryNames = locale === "de"
+    ? { social: "Social Media", content: "Inhalte", hrBrand: "Arbeitgebermarke", technology: "Technologie" }
+    : { social: "Соцсети", content: "Контент", hrBrand: "HR-бренд", technology: "Технологии" };
   const categories: CategoryScore[] = [
     { name: "SEO", weight: 25, score: scores.seo, icon: "🔍", delta: 0 },
-    { name: "Соцсети", weight: 25, score: scores.social, icon: "📱", delta: 0 },
-    { name: "Контент", weight: 20, score: scores.content, icon: "✏️", delta: 0 },
-    { name: "HR-бренд", weight: 15, score: scores.hrBrand, icon: "👥", delta: 0 },
-    { name: "Технологии", weight: 15, score: scores.technology, icon: "⚙️", delta: 0 },
+    { name: categoryNames.social, weight: 25, score: scores.social, icon: "📱", delta: 0 },
+    { name: categoryNames.content, weight: 20, score: scores.content, icon: "✏️", delta: 0 },
+    { name: categoryNames.hrBrand, weight: 15, score: scores.hrBrand, icon: "👥", delta: 0 },
+    { name: categoryNames.technology, weight: 15, score: scores.technology, icon: "⚙️", delta: 0 },
   ];
 
   const domain = new URL(data.url).hostname.replace(/^www\./, "");
