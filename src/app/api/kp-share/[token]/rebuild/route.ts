@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { query, initDb } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { runRebuild } from "@/app/api/rebuild-astro/route";
@@ -12,8 +13,13 @@ import { runRebuild } from "@/app/api/rebuild-astro/route";
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
+// Фаза 5: тот же бот, что уже обслуживает платформенные /connect-уведомления
+// (@market_radar1_bot) — отдельный /start-payload (kp_<код>), не пересекается
+// с форматом MR-XXXXXX. Опционально, в дополнение к email.
+const TG_BOT_USERNAME = "market_radar1_bot";
+
 interface Row {
-  id: string; url: string; status: string; rebuild_status: string | null;
+  id: string; url: string; status: string; rebuild_status: string | null; client_tg_code: string | null;
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
@@ -33,7 +39,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   }
 
   const rows = await query<Row>(
-    "SELECT id, url, status, rebuild_status FROM kp_generations WHERE share_token = $1",
+    "SELECT id, url, status, rebuild_status, client_tg_code FROM kp_generations WHERE share_token = $1",
     [token],
   );
   const r = rows[0];
@@ -41,15 +47,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     return NextResponse.json({ ok: false, error: "Ссылка недоступна" }, { status: 404 });
   }
 
+  // Код для Telegram-подключения — генерируем один раз и переиспользуем при
+  // повторных вызовах (идемпотентная ветка ниже тоже его возвращает).
+  const tgCode = r.client_tg_code ?? `kp_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  const tgConnectUrl = `https://t.me/${TG_BOT_USERNAME}?start=${tgCode}`;
+
   // Идемпотентно: уже в работе/готово/отправлено — не запускаем вторую
   // пересборку по повторному клику или двойной отправке формы.
   if (r.rebuild_status && r.rebuild_status !== "error" && r.rebuild_status !== "rejected") {
-    return NextResponse.json({ ok: true, status: r.rebuild_status });
+    if (!r.client_tg_code) await query("UPDATE kp_generations SET client_tg_code = $2 WHERE id = $1", [r.id, tgCode]);
+    return NextResponse.json({ ok: true, status: r.rebuild_status, tgConnectUrl });
   }
 
   await query(
-    "UPDATE kp_generations SET rebuild_status = 'running', client_email = $2, rebuild_error = NULL WHERE id = $1",
-    [r.id, email],
+    "UPDATE kp_generations SET rebuild_status = 'running', client_email = $2, client_tg_code = $3, rebuild_error = NULL WHERE id = $1",
+    [r.id, email, tgCode],
   );
 
   try {
@@ -58,7 +70,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
       "UPDATE kp_generations SET rebuild_status = 'pending_review', rebuild_id = $2 WHERE id = $1",
       [r.id, rebuildId],
     );
-    return NextResponse.json({ ok: true, status: "pending_review" });
+    return NextResponse.json({ ok: true, status: "pending_review", tgConnectUrl });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ошибка пересборки";
     await query(

@@ -79,6 +79,10 @@ interface Props {
     submitting?: boolean;
     error?: string | null;
     clientEmail?: string | null;
+    /** Диплинк на @market_radar1_bot — доступен после первой отправки email (Фаза 5). */
+    tgConnectUrl?: string | null;
+    /** Ссылка на клиентскую /site-ready — когда менеджер одобрил и статус "sent". */
+    siteReadyUrl?: string | null;
   } | null;
   /**
    * Язык статичного текста интерфейса (навигация, заголовки секций, лейблы
@@ -2172,7 +2176,7 @@ type AstroRebuildProp = NonNullable<Props["astroRebuild"]>;
 
 function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildProp; locale: KpProposalLocale }) {
   const t = KP_PROPOSAL_I18N[locale];
-  const { status, onRequest, submitting = false, error = null, clientEmail = null } = astroRebuild;
+  const { status, onRequest, submitting = false, error = null, clientEmail = null, tgConnectUrl = null, siteReadyUrl = null } = astroRebuild;
   const [email, setEmail] = useState(clientEmail ?? "");
   const [touched, setTouched] = useState(false);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -2184,14 +2188,24 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
   // error/rejected не тупик — форма показывается снова, можно попробовать ещё раз.
 
   if (done) {
+    // Ссылка на готовый сайт живёт прямо в КП (не только в письме/TG) — клиент,
+    // вернувшийся по шер-ссылке, открывает новую версию в один клик.
     return (
       <div className="ds-card" style={{ padding: "24px 26px", borderLeft: "4px solid var(--success)", display: "flex", gap: 14, alignItems: "flex-start" }}>
         <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{t.astroDone}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{siteReadyUrl ? t.astroDoneReady : t.astroDone}</div>
           <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
-            {t.astroDoneBody(clientEmail || t.astroEmailPlaceholder)}
+            {(siteReadyUrl ? t.astroDoneReadyBody : t.astroDoneBody)(clientEmail || t.astroEmailPlaceholder)}
           </p>
+          {siteReadyUrl && (
+            <a href={siteReadyUrl} target="_blank" rel="noopener noreferrer"
+              onClick={() => trackKpEvent("click", "astro-open-site")}
+              className="ds-btn ds-btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 44, padding: "0 20px", fontSize: 14.5, marginTop: 14, textDecoration: "none" }}>
+              {t.astroOpenSiteBtn} <ArrowRight size={16} />
+            </a>
+          )}
         </div>
       </div>
     );
@@ -2206,6 +2220,15 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
             {t.astroInProgressBody(clientEmail || t.astroEmailPlaceholder)}
           </p>
+          {tgConnectUrl && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 10px" }}>{t.tgConnectPrompt}</p>
+              <a href={tgConnectUrl} target="_blank" rel="noopener noreferrer"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 38, padding: "0 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontWeight: 600, fontSize: 13.5, textDecoration: "none" }}>
+                {t.tgConnectBtn}
+              </a>
+            </div>
+          )}
         </div>
       </div>
     );

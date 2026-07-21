@@ -80,10 +80,12 @@ export interface KpProposalStrings {
   unitEconDealsFallback: string; unitEconCheckFallback: string; unitEconEntryFallback: string;
   astroOfferTitle: string; astroOfferSubtitle: string;
   astroDone: string; astroDoneBody: (email: string) => string;
+  astroDoneReady: string; astroDoneReadyBody: (email: string) => string; astroOpenSiteBtn: string;
   astroInProgress: string; astroInProgressBody: (email: string) => string;
   astroPitch: string;
   astroEmailPlaceholder: string; astroEmailInvalid: string;
   astroSubmitting: string; astroSubmitBtn: string;
+  tgConnectPrompt: string; tgConnectBtn: string;
   finalCtaAstroTitle: string; finalCtaAstroBody: string; finalCtaAstroBtn: string;
   finalCtaGenericTitle: string; finalCtaGenericBody: string; leaveRequestBtn: string;
   evidenceFact: string; evidenceEstimate: string; evidenceForecast: string;
@@ -183,10 +185,13 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     unitEconEntryFallback: "Разовый вход за перенос сайта на Astro: окупается с первого договора.",
     astroOfferTitle: "Хотите увидеть сайт быстрее и без потери дизайна?", astroOfferSubtitle: "Соберём рабочую копию на современном движке: тот же вид 1:1, устранены технические проблемы из находок выше",
     astroDone: "Готово — ссылка у вас на почте", astroDoneBody: (email) => `Мы собрали новую версию сайта и отправили ссылку на ${email}. Если письма нет — проверьте папку «Спам» или напишите нам.`,
+    astroDoneReady: "Новая версия сайта готова", astroDoneReadyBody: (email) => `Откройте её по кнопке ниже. Копию ссылки мы также отправили на ${email}.`, astroOpenSiteBtn: "Открыть новый сайт",
     astroInProgress: "Собираем новую версию сайта", astroInProgressBody: (email) => `Обычно это занимает около 1 дня. Как только всё будет готово и проверено, пришлём ссылку на ${email}.`,
     astroPitch: "Дизайн останется точно таким же — переносим только «внутряк»: устраняем технические проблемы из находок выше и готовим сайт к SEO и GEO. Оставьте email — пришлём ссылку на готовую версию, как только менеджер её проверит.",
     astroEmailPlaceholder: "you@company.ru", astroEmailInvalid: "Укажите корректный email",
     astroSubmitting: "Отправляем…", astroSubmitBtn: "Да, интересно",
+    tgConnectPrompt: "Не хотите пропустить уведомление? Подключите Telegram — пришлём готовую ссылку туда же.",
+    tgConnectBtn: "Подключить Telegram",
     finalCtaAstroTitle: "Готовы посмотреть новую версию сайта?", finalCtaAstroBody: "Один шаг — оставьте email в блоке «Новая версия сайта» выше, и мы соберём рабочую копию с сохранённым дизайном.", finalCtaAstroBtn: "Собрать новую версию сайта",
     finalCtaGenericTitle: "Готовы вырасти в выдаче и лидах?", finalCtaGenericBody: "Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.", leaveRequestBtn: "Оставить заявку",
     evidenceFact: "ФАКТ", evidenceEstimate: "ОЦЕНКА", evidenceForecast: "ПРОГНОЗ",
@@ -285,10 +290,13 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     unitEconEntryFallback: "Einmaliger Einstieg für die Migration auf Astro: amortisiert sich ab dem ersten Vertrag.",
     astroOfferTitle: "Möchten Sie die Website schneller sehen — ohne das Design zu verlieren?", astroOfferSubtitle: "Wir erstellen eine Arbeitskopie auf einer modernen Engine: gleiches Erscheinungsbild 1:1, technische Probleme aus den obigen Erkenntnissen behoben",
     astroDone: "Fertig — der Link ist in Ihrem Postfach", astroDoneBody: (email) => `Wir haben die neue Version der Website erstellt und den Link an ${email} gesendet. Falls keine E-Mail ankommt — prüfen Sie den Spam-Ordner oder schreiben Sie uns.`,
+    astroDoneReady: "Die neue Version der Website ist fertig", astroDoneReadyBody: (email) => `Öffnen Sie sie über den Button unten. Eine Kopie des Links haben wir auch an ${email} gesendet.`, astroOpenSiteBtn: "Neue Website öffnen",
     astroInProgress: "Wir erstellen die neue Version der Website", astroInProgressBody: (email) => `Das dauert normalerweise etwa 1 Tag. Sobald alles fertig und geprüft ist, senden wir den Link an ${email}.`,
     astroPitch: "Das Design bleibt exakt gleich — wir übertragen nur die technische Basis: wir beheben die technischen Probleme aus den obigen Erkenntnissen und bereiten die Website für SEO und GEO vor. Hinterlassen Sie Ihre E-Mail — wir senden den Link zur fertigen Version, sobald unser Manager sie geprüft hat.",
     astroEmailPlaceholder: "sie@firma.de", astroEmailInvalid: "Bitte geben Sie eine gültige E-Mail-Adresse an",
     astroSubmitting: "Wird gesendet…", astroSubmitBtn: "Ja, interessant",
+    tgConnectPrompt: "Möchten Sie die Benachrichtigung nicht verpassen? Verbinden Sie Telegram — wir senden den fertigen Link auch dorthin.",
+    tgConnectBtn: "Telegram verbinden",
     finalCtaAstroTitle: "Bereit, die neue Website-Version zu sehen?", finalCtaAstroBody: "Ein Schritt — hinterlassen Sie Ihre E-Mail im Block „Neue Website-Version“ oben, und wir erstellen eine Arbeitskopie mit erhaltenem Design.", finalCtaAstroBtn: "Neue Website-Version erstellen",
     finalCtaGenericTitle: "Bereit, in Rankings und Leads zu wachsen?", finalCtaGenericBody: "Wir gehen die Erkenntnisse zu Ihrer Website durch, wählen ein passendes Paket und zeigen eine Ergebnisprognose.", leaveRequestBtn: "Anfrage hinterlassen",
     evidenceFact: "FAKT", evidenceEstimate: "SCHÄTZUNG", evidenceForecast: "PROGNOSE",

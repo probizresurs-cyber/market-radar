@@ -409,6 +409,16 @@ export async function initDb() {
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_email TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS rebuild_error TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`);
+  // Фаза 5: клиент опционально подключает Telegram через уже существующего
+  // бота (@market_radar1_bot) — тот же webhook, что и для платформенных
+  // уведомлений, отдельный /start-payload (kp_<код>), НЕ пересекается с
+  // форматом MR-XXXXXX платформенного /connect.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_tg_code TEXT`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_tg_chat_id BIGINT`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_tg_code ON kp_generations(client_tg_code)`);
+  // Дожим-воронка в TG после отправки нового сайта (cron/kp-followups):
+  // 0 — ничего не слали, 1 — day-1 отправлен, 2 — day-3 отправлен (конец серии).
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS followup_stage INTEGER NOT NULL DEFAULT 0`);
 
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`

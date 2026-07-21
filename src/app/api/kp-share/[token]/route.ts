@@ -12,8 +12,10 @@ export const runtime = "nodejs";
 interface Row {
   status: string; company_name: string | null; share_password: string | null;
   bundle: PilotBundle | null; company: AnalysisResult | null; locale: string; url: string;
-  rebuild_status: string | null; client_email: string | null;
+  rebuild_status: string | null; rebuild_id: string | null; client_email: string | null; client_tg_code: string | null;
 }
+
+const TG_BOT_USERNAME = "market_radar1_bot";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ token: string }> }) {
   await initDb();
@@ -63,5 +65,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     bundle: r.bundle,
     rebuildStatus: r.rebuild_status,
     clientEmail: r.client_email,
+    tgConnectUrl: r.client_tg_code ? `https://t.me/${TG_BOT_USERNAME}?start=${r.client_tg_code}` : null,
+    // Ссылка на готовый сайт прямо в КП — третий канал доставки после email и TG.
+    siteReadyUrl: r.rebuild_status === "sent" && r.rebuild_id
+      ? `/site-ready/${r.rebuild_id}?locale=${r.locale === "de" ? "de" : "ru"}`
+      : null,
   });
 }

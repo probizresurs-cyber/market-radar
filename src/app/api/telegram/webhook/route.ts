@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveChatId } from "@/lib/tgStore";
 import { canScan, recordScan, formatNextAllowed } from "@/lib/tg-scan-limiter";
+import { query, initDb } from "@/lib/db";
+import {
+  sendKpInboundAck, forwardToKpManager, extractClientChatId, sendKpTgMessage, kpShareUrl,
+  type KpFunnelCtx, type KpTgLocale,
+} from "@/lib/kp-tg-funnel";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
@@ -107,6 +112,12 @@ const EXPRESS_PROMPT =
   `💡 Хотите сразу полный экспресс с сохранением на email и PDF? Перейдите на сайт с промокодом <b>START</b> — отдадим за 1 ₽:\n` +
   `${SITE}/express-report`;
 
+const KP_TG_CONNECTED = (companyName: string) =>
+  `✅ <b>Готово!</b>\n\n` +
+  `Подключили уведомления по КП «${companyName}». Как только новая версия сайта будет готова и проверена — пришлём ссылку сюда же, не только на почту.`;
+const KP_TG_CODE_INVALID =
+  `🤔 Эта ссылка для подключения уже недействительна — попробуйте открыть её заново со страницы вашего КП.`;
+
 const CONNECT_PROMPT =
   `🔗 Чтобы подключить уведомления:\n\n` +
   `1. Откройте MarketRadar → <b>Настройки → Уведомления</b>\n` +
@@ -160,6 +171,54 @@ function extractUrl(text: string): string | null {
   return m ? m[0] : null;
 }
 
+interface KpClientRow {
+  id: string;
+  company_name: string | null;
+  url: string;
+  locale: string;
+  share_token: string | null;
+  rebuild_id: string | null;
+  rebuild_status: string | null;
+}
+
+/** КП-клиент? Берём самую свежую привязанную заявку (клиент мог подключить несколько). */
+async function findKpClient(chatId: number): Promise<KpClientRow | null> {
+  await initDb();
+  const rows = await query<KpClientRow>(
+    `SELECT id, company_name, url, locale, share_token, rebuild_id, rebuild_status
+     FROM kp_generations WHERE client_tg_chat_id = $1
+     ORDER BY created_at DESC LIMIT 1`,
+    [chatId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Входящий текст от КП-клиента: подтверждаем получение (locale-aware, с кнопками
+ * «новый сайт» / «полный анализ + SEO/GEO») и пересылаем менеджеру. Возвращает
+ * false, если чат не привязан ни к одному КП — тогда работает обычный роутинг.
+ */
+async function handleKpClientMessage(chatId: number, firstName: string, text: string): Promise<boolean> {
+  const row = await findKpClient(chatId);
+  if (!row) return false;
+  const ctx = kpFunnelCtx(row);
+  await sendKpInboundAck(chatId, ctx);
+  await forwardToKpManager({ companyName: ctx.companyName, clientChatId: chatId, clientName: firstName, text });
+  return true;
+}
+
+function kpFunnelCtx(row: KpClientRow): KpFunnelCtx {
+  const locale: KpTgLocale = row.locale === "de" ? "de" : "ru";
+  return {
+    companyName: row.company_name || row.url,
+    locale,
+    siteReadyUrl: row.rebuild_id && row.rebuild_status === "sent"
+      ? `${SITE}/site-ready/${row.rebuild_id}?locale=${locale}`
+      : null,
+    kpUrl: kpShareUrl(row.share_token),
+  };
+}
+
 export async function POST(req: NextRequest) {
   // Anti-spoof: Telegram передаёт secret_token в этом header при правильно
   // настроенном webhook. Без проверки атакующий мог подделать update с
@@ -184,7 +243,41 @@ export async function POST(req: NextRequest) {
     // Normalize command (strip @botname suffix, lowercase)
     const command = text.split(/\s/)[0].replace(/@.*/, "").toLowerCase();
 
-    if (command === "/start") {
+    // Reply-релей менеджера: если менеджер (env KP_MANAGER_TG_CHAT_ID) делает
+    // Reply на пересланное ботом сообщение КП-клиента — передаём текст клиенту.
+    const managerChat = process.env.KP_MANAGER_TG_CHAT_ID;
+    const replyToText: string | undefined = msg.reply_to_message?.text;
+    if (managerChat && String(chatId) === managerChat && replyToText && text && !text.startsWith("/")) {
+      const clientChatId = extractClientChatId(replyToText);
+      if (clientChatId) {
+        const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const relayed = await sendKpTgMessage(clientChatId, `💬 <b>MarketRadar:</b> ${esc}`);
+        await sendKpTgMessage(chatId, relayed.ok ? "✅ Передал клиенту." : `⚠️ Не получилось: ${relayed.error}`);
+        return NextResponse.json({ ok: true });
+      }
+    }
+
+    // /start payload — Telegram передаёт его как второй "аргумент" команды,
+    // напр. /start kp_a1b2c3d4. Отдельная ветка ДО общего /start: клиент КП
+    // не должен увидеть маркетинговый WELCOME вместо подтверждения подписки.
+    const startPayload = command === "/start" ? text.split(/\s+/)[1] : null;
+    if (startPayload?.startsWith("kp_")) {
+      await initDb();
+      const rows = await query<KpClientRow>(
+        `SELECT id, company_name, url, locale, share_token, rebuild_id, rebuild_status
+         FROM kp_generations WHERE client_tg_code = $1`,
+        [startPayload],
+      );
+      const row = rows[0];
+      if (row) {
+        await query("UPDATE kp_generations SET client_tg_chat_id = $1 WHERE id = $2", [chatId, row.id]);
+        const ctx = kpFunnelCtx(row);
+        const kpButtons: InlineButton[][] = ctx.kpUrl ? [[{ text: "📄 Открыть предложение", url: ctx.kpUrl }]] : [];
+        await sendMessage(chatId, KP_TG_CONNECTED(ctx.companyName), kpButtons.length ? kpButtons : undefined);
+      } else {
+        await sendMessage(chatId, KP_TG_CODE_INVALID);
+      }
+    } else if (command === "/start") {
       await sendMessage(chatId, WELCOME(firstName), SITE_BUTTONS);
     } else if (command === "/help") {
       await sendMessage(chatId, HELP, SITE_BUTTONS);
@@ -211,6 +304,8 @@ export async function POST(req: NextRequest) {
           `Сюда будут приходить новые анализы, изменения у конкурентов и еженедельный дайджест.`,
         SITE_BUTTONS,
       );
+    } else if (text && !text.startsWith("/") && await handleKpClientMessage(chatId, firstName, text)) {
+      // КП-клиент написал боту — ответ-меню + пересылка менеджеру (внутри хелпера)
     } else if (extractUrl(text)) {
       const url = extractUrl(text)!;
       // 1 scan per chat per calendar month — see src/lib/tg-scan-limiter.ts

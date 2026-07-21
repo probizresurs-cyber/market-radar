@@ -59,6 +59,8 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
   const [astroEmail, setAstroEmail] = useState<string | null>(null);
   const [astroSubmitting, setAstroSubmitting] = useState(false);
   const [astroError, setAstroError] = useState<string | null>(null);
+  const [tgConnectUrl, setTgConnectUrl] = useState<string | null>(null);
+  const [siteReadyUrl, setSiteReadyUrl] = useState<string | null>(null);
 
   const requestAstroRebuild = async (email: string) => {
     setAstroSubmitting(true); setAstroError(null);
@@ -71,6 +73,7 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
       if (!j.ok) { setAstroError(j.error || "Не получилось отправить запрос"); return; }
       setAstroStatus(j.status as AstroStatus);
       setAstroEmail(email);
+      if (j.tgConnectUrl) setTgConnectUrl(j.tgConnectUrl);
     } catch { setAstroError("Ошибка сети"); }
     finally { setAstroSubmitting(false); }
   };
@@ -102,6 +105,8 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
       setGateLocale(loc);
       if (j.rebuildStatus) setAstroStatus(j.rebuildStatus as AstroStatus);
       if (j.clientEmail) setAstroEmail(j.clientEmail);
+      if (j.tgConnectUrl) setTgConnectUrl(j.tgConnectUrl);
+      if (j.siteReadyUrl) setSiteReadyUrl(j.siteReadyUrl);
       setPhase("ok");
     } catch { setError(g.networkError); }
     finally { setSubmitting(false); }
@@ -135,6 +140,8 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
           submitting: astroSubmitting,
           error: astroError,
           clientEmail: astroEmail,
+          tgConnectUrl,
+          siteReadyUrl,
         }}
       />
     );
