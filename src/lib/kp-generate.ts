@@ -75,6 +75,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
   const offerNameExample = locale === "de" ? "Website-Umzug zu Astro" : "Перенос сайта на Astro";
   const offerPriceNoteExample = locale === "de" ? "einmalige Arbeit" : "разовая работа";
   const weekExample = locale === "de" ? "Woche 1" : "Неделя 1";
+  const deferToCallExample = locale === "de" ? "klären wir im Erstgespräch" : "уточним на созвоне";
   return `${ANTI_HALLUCINATION_SHORT}
 
 Ты — старший маркетолог-стратег MarketRadar. По РЕАЛЬНЫМ данным анализа сайта собери коммерческое предложение (КП) — структуру PilotBundle. ВЕСЬ текст на ${lang} языке. Цены — в ${currency}. ${geoNote}
@@ -90,7 +91,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 - сумма последних (6-х) значений всех chart.series ≈ totalHigh (допуск ±15%)
 - chart.series — те же каналы, что forecast.scenarios (3-4: SEO+GEO сайт, дистрибуция статей, соцсети, AI-видимость — выбери применимые к нише)
 - unitEconomics.deals — из totalLow..totalHigh × конверсия (конверсию пометь как ОЦЕНКУ в dealsNote)
-- unitEconomics.check — средний чек ТОЛЬКО из реальных данных сайта/ниши; если данных нет, напиши «уточним на созвоне»
+- unitEconomics.check — средний чек ТОЛЬКО из реальных данных сайта/ниши; если данных нет, напиши буквально "${deferToCallExample}" (на ${lang} языке, не на русском)
 
 ЖЁСТКИЕ ПРАВИЛА:
 - Находки (findings) — ТОЛЬКО из переданных данных анализа. Никаких выдуманных цифр, конкурентов, отзывов. Каждая находка: evidence "fact" (проверено анализом) / "estimate" (оценка) / "forecast" (прогноз).
@@ -106,7 +107,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
  "rivals": [{"name":"...","url":"...","strength":"...","weakness":"...","steal":"что у них забрать"}],
  "trump": "...",
  "savings": {"marketerPrice":"из ценовой сетки","ourPrice":"из ценовой сетки","headline":"Столько же работы — в разы дешевле штатного маркетолога","note":"..."},
- "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или «уточним на созвоне»","checkNote":"средний чек — откуда цифра","entry":"Разовый вход — ... за перенос на Astro: ..."},
+ "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или '${deferToCallExample}'","checkNote":"средний чек — откуда цифра","entry":"Разовый вход — ... за перенос на Astro: ..."},
  "geo": {
    "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
    "whyNow":"почему входить сейчас дешевле",
@@ -154,7 +155,7 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   const scraped = await scrapeWebsite(rawUrl);
 
   // 2. Глубокий анализ (настоящий движок платформы)
-  const company: AnalysisResult = await analyzeWithClaude(scraped);
+  const company: AnalysisResult = await analyzeWithClaude(scraped, undefined, locale);
   company.company.url = company.company.url || scraped.url;
 
   // 3. Обогащение домена — ТО ЖЕ, что делает /api/analyze, иначе у авто-КП

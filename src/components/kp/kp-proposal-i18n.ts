@@ -210,15 +210,15 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     categoryVerdictMid: "Mittleres Niveau: Wettbewerber mit stärkerem Wert gewinnen einen Teil Ihrer Zielgruppe.",
     categoryVerdictHigh: "Gutes Ergebnis — auf diesem Niveau halten.",
     whyImportant: "Warum das wichtig ist",
-    whyAheadBy: (n) => `Sie liegen ${n} Punkte über dem Branchendurchschnitt`,
-    whyBehindBy: (n) => `Sie liegen ${n} Punkte unter dem Branchendurchschnitt`,
+    whyAheadBy: (n) => `Sie liegen ${n} ${n === 1 ? "Punkt" : "Punkte"} über dem Branchendurchschnitt`,
+    whyBehindBy: (n) => `Sie liegen ${n} ${n === 1 ? "Punkt" : "Punkte"} unter dem Branchendurchschnitt`,
     whyAtAverage: "Sie liegen auf dem Branchendurchschnitt",
-    whyCompetitorsAhead: (n) => ` — ${n} Wettbewerber liegen im Gesamtscore vor Ihnen`,
+    whyCompetitorsAhead: (n) => ` — ${n} Wettbewerber ${n === 1 ? "liegt" : "liegen"} im Gesamtscore vor Ihnen`,
     whyBody: (crit, opp) => {
       let s = "Das wirkt sich direkt darauf aus, wie viele Kunden zu Ihnen statt zu Wettbewerbern gelangen.";
       const parts: string[] = [];
-      if (crit > 0) parts.push(`${crit} kritische ${crit === 1 ? "Problem" : "Probleme"}`);
-      if (opp > 0) parts.push(`${opp} Wachstumschancen`);
+      if (crit > 0) parts.push(`${crit} ${crit === 1 ? "kritisches Problem" : "kritische Probleme"}`);
+      if (opp > 0) parts.push(`${opp} ${opp === 1 ? "Wachstumschance" : "Wachstumschancen"}`);
       if (parts.length) s += ` Wir haben ${parts.join(" und ")} gefunden`;
       return s + " — unten zeigen wir den Plan, womit zu beginnen ist und was das bringt.";
     },
@@ -231,8 +231,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     whatToDo: "WAS ZU TUN IST", whatItGives: "WAS ES BRINGT", forecastSuffix: "Prognose",
     techTitle: "Technik-Audit", techSubtitle: "Geschwindigkeit und Qualität der Seiten nach Google-Lighthouse- / Core-Web-Vitals-Daten",
     tabMobile: "Mobil", tabDesktop: "Desktop",
-    perfLabel: "Performance", perfHint: "Wie schnell die Website lädt. Niedriger Wert — Besucher springen ab, bevor die Seite lädt.",
-    techSeoLabel: "Technisches SEO", techSeoHint: "Technische Grundlagen: Title, Meta-Tags, Mobiltauglichkeit. Das sind keine Rankings — für echte Sichtbarkeit steht der Traffic-SEO-Score.",
+    perfLabel: "Performance", perfHint: "Wie schnell die Website lädt. Bei niedrigem Wert springen Besucher ab, bevor die Seite fertig geladen ist.",
+    techSeoLabel: "Technisches SEO", techSeoHint: "Technische Grundlagen: Title, Meta-Tags, Mobiltauglichkeit. Das sind keine Rankings — echte Sichtbarkeit misst der traffic-basierte SEO-Score.",
     accessibilityLabel: "Barrierefreiheit", accessibilityHint: "Bedienfreundlichkeit und korrektes Markup — ein Qualitätssignal für Menschen und Suchmaschinen.",
     lcpHint: "Ladezeit des Hauptinhalts. Gut — bis 2,5 s.",
     clsHint: "Layout-Verschiebungen beim Laden. Gut — weniger als 0,1.",
@@ -240,7 +240,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     competitorsTitle: "Ihre Position unter Wettbewerbern", competitorsSubtitle: "Gesamtscore Ihrer Website im Vergleich zu Wettbewerbern aus Ihrer Branche",
     youSuffix: "Sie",
     trafficLabel: "Suchtraffic / Tag", top10Label: "Keywords in Top 10", pagesLabel: "Seiten in der Ergebnisliste", aiMentionsLabel: "Erwähnungen in KI-Antworten",
-    rivalsTitle: "Marktführer — manuell analysiert", rivalsSubtitle: "Drei Websites aus den Top-Suchergebnissen zu Ihren Schlüsselbegriffen. Bei jeder — was wir für Sie übernehmen",
+    rivalsTitle: "Marktführer — manuell analysiert", rivalsSubtitle: "Drei Websites aus den Top-Suchergebnissen zu Ihren Schlüsselbegriffen. Zu jeder: was wir für Sie übernehmen",
     strongIn: "Stark in", weakSpot: "Schwachstelle", whatWeTake: "Was wir übernehmen",
     aiVisibilityTitleFull: "KI-Sichtbarkeit", aiVisibilitySubtitleFull: "Wie sichtbar die Marke in den Antworten von KI-Assistenten ist — ChatGPT, Claude, Gemini",
     aiVisibilityTitleFallback: "KI-Sichtbarkeit", aiVisibilitySubtitleFallback: "Wie KI-Systeme Ihre Marke wahrnehmen — basierend auf der Präsenz in KI-Antworten",
@@ -277,7 +277,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     forecastTitle: "Prognose: was jeder Kanal bringt und wann", forecastSubtitle: "Rechenmodell mit Spanne — Orientierung für die Planung, keine Garantie",
     howWeCalculate: "So rechnen wir", exampleCalc: "Rechenbeispiel.",
     month1Short: "1. Monat", month3Short: "3. Monat", month6Short: "6. Monat",
-    chartTitle: "Zusätzliche Anfragen pro Monat — nach Kanälen", chartSubtitle: "Mittelwerte der Spannen je Szenario · Monat für Aufschlüsselung markieren",
+    chartTitle: "Zusätzliche Anfragen pro Monat — nach Kanälen", chartSubtitle: "Mittelwerte der Spannen je Szenario · Aufschlüsselung beim Überfahren eines Monats",
     chartAriaLabel: "Prognose zusätzlicher Anfragen pro Monat nach Kanälen, Monate 1–6",
     chartDataTable: "Datentabelle des Diagramms", chartChannel: "Kanal", chartTotal: "Gesamt",
     summaryTitle: "Gesamtprognose zum 6. Monat · Unit-Economics", requestsPerMonth: "Anfragen pro Monat",
