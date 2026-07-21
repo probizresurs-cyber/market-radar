@@ -2415,6 +2415,22 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     });
   };
 
+  // «Разбор ролика» (Тренды) уже отдаёт готовый GeneratedReel из /adapt —
+  // просто кладём его в библиотеку, без повторной генерации.
+  const handleSendReelToLibrary = React.useCallback((reel: GeneratedReel) => {
+    setGeneratedReels(prev => {
+      const next = [reel, ...prev];
+      persistContent(contentPlanRef.current, generatedPostsRef.current, next);
+      return next;
+    });
+    toast({
+      kind: "success",
+      title: "Сценарий сохранён",
+      description: "Добавлен в «Готовые рилсы» — можно сгенерировать видео.",
+      action: { label: "Открыть", onClick: () => setActiveNav("content-reels") },
+    });
+  }, [toast]);
+
   const handleDeletePost = (postId: string) => {
     setGeneratedPosts(prev => {
       const next = prev.filter(p => p.id !== postId);
@@ -2976,7 +2992,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         {(activeNav === "content-trends" || activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && featureOn("content-factory") && !featureOn(activeNav) && (
           <ComingSoonView c={c} featureId={activeNav} title={features.labels[activeNav] ?? "Модуль"} description={features.descriptions[activeNav]} userEmail={currentUser?.email} />
         )}
-        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} userId={currentUser?.id} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} />}
+        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} userId={currentUser?.id} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} smmAnalysis={smmAnalysis} brandBook={brandBook} onSendReelToLibrary={handleSendReelToLibrary} />}
         {activeNav === "content-plan" && featureOn("content-factory") && featureOn("content-plan") && (
           contentPlan
             ? <ContentPlanView

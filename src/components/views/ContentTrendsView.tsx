@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2, Link2, Upload, Clapperboard, Send } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
+import type { SMMResult } from "@/lib/smm-types";
+import type { BrandBook, ReelBreakdown, GeneratedReel } from "@/lib/content-types";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface TrendItem {
@@ -201,7 +203,12 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   /** Пакетная генерация — пост + сторис + карусель + рилс параллельно
    *  одной идеей. Кнопка «Пакет (4 формата)» на карточке. */
   onCreatePackage?: (idea: TrendContentIdea) => Promise<void>;
+  smmAnalysis?: SMMResult | null;
+  brandBook?: BrandBook | null;
+  /** «Разбор ролика» — готовый адаптированный сценарий отправляется прямо в библиотеку рилсов. */
+  onSendReelToLibrary?: (reel: GeneratedReel) => void;
 }) {
+  const [mode, setMode] = useState<"query" | "breakdown">("query");
   const defaultQuery = analysis?.company?.description?.split("\n")[0]?.slice(0, 80) || analysis?.company?.name || "";
   // Persist всё нужное состояние под mr_trends_<uid>: query, sources,
   // result (тренды), ideas (AI-рекомендации), filter. Иначе после смены
@@ -341,6 +348,43 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
         </p>
       </div>
 
+      {/* Mode switch: поиск трендов по нише vs разбор конкретного ролика */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        <button
+          onClick={() => setMode("query")}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+            border: `1px solid ${mode === "query" ? "var(--primary)" : "var(--border)"}`, cursor: "pointer",
+            background: mode === "query" ? "var(--primary)" : "var(--card)",
+            color: mode === "query" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+          }}
+        >
+          <TrendingUp size={14} /> Тренды по нише
+        </button>
+        <button
+          onClick={() => setMode("breakdown")}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+            border: `1px solid ${mode === "breakdown" ? "var(--primary)" : "var(--border)"}`, cursor: "pointer",
+            background: mode === "breakdown" ? "var(--primary)" : "var(--card)",
+            color: mode === "breakdown" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+          }}
+        >
+          <Clapperboard size={14} /> Разбор ролика
+        </button>
+      </div>
+
+      {mode === "breakdown" && (
+        <ReelBreakdownPanel
+          companyName={analysis?.company?.name ?? ""}
+          niche={analysis?.company?.description ?? ""}
+          smmAnalysis={smmAnalysis ?? null}
+          brandBook={brandBook ?? null}
+          onSendReelToLibrary={onSendReelToLibrary}
+        />
+      )}
+
+      {mode === "query" && <>
       {/* Search panel */}
       <div className="ds-card" style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
@@ -563,6 +607,272 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
           <div style={{ fontSize: 13, color: "var(--muted-foreground)", maxWidth: 360, margin: "0 auto" }}>
             Введите тему или нишу — получите свежие публикации из ведущих IT- и маркетинговых изданий. Идеально для планирования актуального контента.
           </div>
+        </div>
+      )}
+      </>}
+    </div>
+  );
+}
+
+const MAX_UPLOAD_MB = 24;
+
+/**
+ * «Разбор ролика» — вторая вкладка Трендов. Разбирает чужой успешный ролик
+ * (YouTube-ссылка или свой файл через Whisper) на крюк/структуру/приёмы
+ * удержания/CTA, затем одной кнопкой адаптирует под компанию пользователя.
+ * Instagram/VK/TikTok по ссылке не поддержаны (закрытые API) — для них
+ * нужно скачать ролик и загрузить как файл.
+ */
+function ReelBreakdownPanel({ companyName, niche, smmAnalysis, brandBook, onSendReelToLibrary }: {
+  companyName: string;
+  niche: string;
+  smmAnalysis: SMMResult | null;
+  brandBook: BrandBook | null;
+  onSendReelToLibrary?: (reel: GeneratedReel) => void;
+}) {
+  const [source, setSource] = useState<"url" | "upload">("url");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [breakdown, setBreakdown] = useState<ReelBreakdown | null>(null);
+
+  const [adapting, setAdapting] = useState(false);
+  const [adaptErr, setAdaptErr] = useState("");
+  const [adapted, setAdapted] = useState<GeneratedReel | null>(null);
+  const [sent, setSent] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    });
+  };
+
+  const runBreakdown = async () => {
+    setErr(""); setBreakdown(null); setAdapted(null); setAdaptErr(""); setSent(false);
+    if (source === "url") {
+      if (!youtubeUrl.trim()) return;
+      setLoading(true);
+      try {
+        const res = await fetch("/api/content/reel-breakdown", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ youtubeUrl: youtubeUrl.trim() }),
+        });
+        const data = await jsonOrThrow(res);
+        if (data.ok) setBreakdown(data.breakdown);
+        else setErr(data.error || "Не удалось разобрать ролик");
+      } catch (e) { setErr(String(e)); }
+      finally { setLoading(false); }
+    } else {
+      if (!file) return;
+      setLoading(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("filename", file.name);
+        const res = await fetch("/api/content/reel-breakdown", { method: "POST", body: form });
+        const data = await jsonOrThrow(res);
+        if (data.ok) setBreakdown(data.breakdown);
+        else setErr(data.error || "Не удалось разобрать ролик");
+      } catch (e) { setErr(String(e)); }
+      finally { setLoading(false); }
+    }
+  };
+
+  const runAdapt = async () => {
+    if (!breakdown) return;
+    setAdapting(true); setAdaptErr(""); setSent(false);
+    try {
+      const res = await fetch("/api/content/reel-breakdown/adapt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ breakdown, companyName, niche, smmAnalysis, brandBook, durationSec: 30 }),
+      });
+      const data = await jsonOrThrow(res);
+      if (data.ok) setAdapted(data.data);
+      else setAdaptErr(data.error || "Не удалось адаптировать сценарий");
+    } catch (e) { setAdaptErr(String(e)); }
+    finally { setAdapting(false); }
+  };
+
+  const handleFileChange = (f: File | null) => {
+    setErr("");
+    if (f && f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setErr(`Файл слишком большой (${(f.size / 1024 / 1024).toFixed(1)} МБ > ${MAX_UPLOAD_MB} МБ) — обрежьте ролик или сожмите`);
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  };
+
+  return (
+    <div>
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button
+            onClick={() => setSource("url")}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "1px solid var(--border)", cursor: "pointer", background: source === "url" ? "var(--primary)" : "var(--card)", color: source === "url" ? "var(--primary-foreground)" : "var(--muted-foreground)" }}
+          >
+            <Link2 size={12} /> Ссылка на YouTube
+          </button>
+          <button
+            onClick={() => setSource("upload")}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "1px solid var(--border)", cursor: "pointer", background: source === "upload" ? "var(--primary)" : "var(--card)", color: source === "upload" ? "var(--primary-foreground)" : "var(--muted-foreground)" }}
+          >
+            <Upload size={12} /> Загрузить свой файл
+          </button>
+        </div>
+
+        {source === "url" ? (
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              className="ds-input"
+              style={{ flex: 1 }}
+              placeholder="https://www.youtube.com/watch?v=... или youtu.be/..."
+              value={youtubeUrl}
+              onChange={e => setYoutubeUrl(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && runBreakdown()}
+            />
+            <button className="ds-btn ds-btn-primary" onClick={runBreakdown} disabled={loading || !youtubeUrl.trim()} style={{ minWidth: 130 }}>
+              {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Разбираю…</> : <><Clapperboard size={14} /> Разобрать</>}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*,audio/*"
+              style={{ display: "none" }}
+              onChange={e => handleFileChange(e.target.files?.[0] ?? null)}
+            />
+            <button className="ds-btn ds-btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ flex: 1, justifyContent: "flex-start" }}>
+              <Upload size={14} /> {file ? file.name : `Выбрать видео/аудио файл (до ${MAX_UPLOAD_MB} МБ)`}
+            </button>
+            <button className="ds-btn ds-btn-primary" onClick={runBreakdown} disabled={loading || !file} style={{ minWidth: 130 }}>
+              {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Разбираю…</> : <><Clapperboard size={14} /> Разобрать</>}
+            </button>
+          </div>
+        )}
+
+        <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 10, lineHeight: 1.5 }}>
+          Instagram Reels и VK Клипы по ссылке не разбираем — закрытые API. Скачайте ролик и загрузите файлом — сработает так же.
+        </div>
+
+        {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
+      </div>
+
+      {breakdown && (
+        <div className="ds-card" style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 16, color: "var(--foreground)", marginBottom: 14 }}>
+            <Film size={18} style={{ color: "var(--primary)" }} />
+            Разбор: «{breakdown.sourceTitle}»
+          </div>
+
+          <div style={{ display: "grid", gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Крюк</div>
+              <div style={{ fontSize: 14, color: "var(--foreground)", marginBottom: 4 }}>«{breakdown.hookText}»</div>
+              <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{breakdown.hookWhy}</div>
+            </div>
+
+            {breakdown.structure.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Структура по таймкодам</div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {breakdown.structure.map((b, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: "var(--muted-foreground)", fontFamily: "monospace", flexShrink: 0, minWidth: 78 }}>{b.timeRange}</span>
+                      <span style={{ fontWeight: 700, color: "var(--foreground)", flexShrink: 0 }}>{b.beat}</span>
+                      <span style={{ color: "var(--muted-foreground)" }}>{b.description}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {breakdown.retentionTricks.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Приёмы удержания</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.7 }}>
+                  {breakdown.retentionTricks.map((t, i) => <li key={i}>{t}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {breakdown.cta && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>CTA</div>
+                <div style={{ fontSize: 13, color: "var(--foreground)" }}>{breakdown.cta}</div>
+              </div>
+            )}
+
+            <div style={{ padding: "10px 14px", background: "color-mix(in oklch, var(--primary) 6%, var(--card))", borderRadius: 10, fontSize: 12.5, color: "var(--foreground-secondary)", lineHeight: 1.6 }}>
+              <b>Почему сработало:</b> {breakdown.whyItWorks}
+            </div>
+          </div>
+
+          <button
+            className="ds-btn ds-btn-primary"
+            onClick={runAdapt}
+            disabled={adapting || !companyName}
+            style={{ marginTop: 16, width: "100%" }}
+            title={!companyName ? "Сначала запустите анализ компании" : undefined}
+          >
+            {adapting
+              ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Адаптирую под {companyName}…</>
+              : <><Wand2 size={14} /> Адаптировать под мою компанию</>
+            }
+          </button>
+          {!companyName && (
+            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 6, textAlign: "center" }}>
+              Нужен анализ компании — запустите его на вкладке «Моя компания».
+            </div>
+          )}
+          {adaptErr && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 8 }}>{adaptErr}</div>}
+        </div>
+      )}
+
+      {adapted && (
+        <div className="ds-card" style={{ background: "color-mix(in oklch, var(--success) 5%, var(--card))", borderColor: "color-mix(in oklch, var(--success) 25%, var(--border))" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 16, color: "var(--foreground)", marginBottom: 12 }}>
+            <Sparkles size={18} style={{ color: "var(--success)" }} />
+            {adapted.title}
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Раскадровка</div>
+              <button onClick={() => copy(adapted.scenario, "scenario")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                {copiedField === "scenario" ? <><Check size={12} /> Скопировано</> : <><Copy size={12} /> Копировать</>}
+              </button>
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--foreground)", whiteSpace: "pre-wrap", lineHeight: 1.6, padding: "10px 12px", background: "var(--card)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              {adapted.scenario}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+            {adapted.hashtags.map((h, i) => (
+              <span key={i} style={{ fontSize: 11, color: "var(--primary)", background: "color-mix(in oklch, var(--primary) 10%, transparent)", padding: "2px 8px", borderRadius: 8 }}>{h}</span>
+            ))}
+          </div>
+
+          {onSendReelToLibrary && (
+            <button
+              className="ds-btn ds-btn-primary"
+              onClick={() => { onSendReelToLibrary(adapted); setSent(true); }}
+              disabled={sent}
+              style={{ width: "100%" }}
+            >
+              {sent ? <><Check size={14} /> Отправлено в «Готовые рилсы»</> : <><Send size={14} /> Отправить в библиотеку рилсов</>}
+            </button>
+          )}
         </div>
       )}
     </div>

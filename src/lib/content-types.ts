@@ -35,6 +35,25 @@ export interface ContentReelIdea {
   hashtags: string[];
 }
 
+/** Результат AI-разбора чужого ролика (YouTube-ссылка или свой файл через Whisper). */
+export interface ReelBreakdownBeat {
+  timeRange: string;   // "0:00-0:03"
+  beat: string;        // "КРЮК" / "ИНТРИГА" / "ПРОБЛЕМА" / ...
+  description: string; // что происходит в этом отрезке и почему это работает
+}
+export interface ReelBreakdown {
+  sourceType: "youtube" | "upload";
+  sourceTitle: string;
+  sourceUrl?: string;
+  hookText: string;
+  hookWhy: string;
+  structure: ReelBreakdownBeat[];
+  retentionTricks: string[];
+  cta: string;
+  whyItWorks: string;
+  transcript: string;
+}
+
 export interface ContentPlan {
   generatedAt: string;
   companyName: string;
