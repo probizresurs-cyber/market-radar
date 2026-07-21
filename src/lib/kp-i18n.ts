@@ -12,6 +12,7 @@ export interface KpStrings {
   statusQueued: string; statusRunning: string; statusDone: string; statusError: string;
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
   delete: string; deleting: string; deleteConfirm: string;
+  generationTime: string;
   reviewEmpty: string;
   reviewClientEmail: string; reviewNoEmail: string; reviewCompare: string;
   reviewApprove: string; reviewReject: string; reviewApproving: string;
@@ -50,6 +51,7 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     delete: "Удалить",
     deleting: "Удаляем…",
     deleteConfirm: "Удалить КП",
+    generationTime: "Время генерации",
     reviewEmpty: "Здесь появятся пересобранные сайты, ожидающие вашего одобрения перед отправкой клиенту.",
     reviewClientEmail: "Email клиента",
     reviewNoEmail: "Email не указан",
@@ -95,6 +97,7 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     delete: "Löschen",
     deleting: "Wird gelöscht…",
     deleteConfirm: "Angebot löschen",
+    generationTime: "Generierungszeit",
     reviewEmpty: "Hier erscheinen umgebaute Websites, die auf Ihre Freigabe vor dem Versand an den Kunden warten.",
     reviewClientEmail: "Kunden-E-Mail",
     reviewNoEmail: "Keine E-Mail angegeben",

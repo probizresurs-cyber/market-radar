@@ -48,7 +48,7 @@ async function processOne(row: { id: string; url: string; locale: string }) {
     const msg = e instanceof Error ? e.message : "Ошибка генерации";
     console.error(`[kp-queue] ✗ ошибка ${row.id.slice(0, 8)} ${row.url} за ${Math.round((Date.now() - started) / 1000)}с: ${msg}`);
     await query(
-      "UPDATE kp_generations SET status='error', error=$2 WHERE id=$1",
+      "UPDATE kp_generations SET status='error', error=$2, completed_at=NOW() WHERE id=$1",
       [row.id, msg.slice(0, 400)],
     );
   } finally {

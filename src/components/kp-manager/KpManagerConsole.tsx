@@ -15,10 +15,25 @@ interface GenItem {
   id: string; url: string; company_name: string | null; status: string; error: string | null;
   share_token: string | null; share_password: string | null; rebuild_status: string | null;
   rebuild_id: string | null; client_email: string | null;
-  created_at: string;
+  created_at: string; started_at: string | null; completed_at: string | null;
 }
 
 const REVIEW_STATUSES = new Set(["running", "pending_review", "approved", "sent", "rejected", "error"]);
+
+// Время генерации — от захвата воркером (started_at) до готовности/ошибки
+// (completed_at), не от постановки в очередь (created_at может ждать своей
+// очереди дольше, чем сама генерация — это ввело бы в заблуждение).
+function formatDuration(startedAt: string | null, completedAt: string | null, locale: KpLocale): string | null {
+  if (!startedAt || !completedAt) return null;
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (!isFinite(ms) || ms < 0) return null;
+  const totalSec = Math.round(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  const minLabel = locale === "de" ? "Min" : "мин";
+  const secLabel = locale === "de" ? "s" : "с";
+  return min > 0 ? `${min} ${minLabel} ${sec} ${secLabel}` : `${sec} ${secLabel}`;
+}
 
 type Tab = "create" | "history" | "review";
 
@@ -244,7 +259,12 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{item.company_name || item.url}</div>
-                    <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>{item.url}</div>
+                    <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>
+                      {item.url}
+                      {formatDuration(item.started_at, item.completed_at, locale) && (
+                        <> · {t.generationTime}: {formatDuration(item.started_at, item.completed_at, locale)}</>
+                      )}
+                    </div>
                     {item.status === "error" && item.error && (
                       <div style={{ fontSize: 12.5, color: "#dc2626", marginTop: 4 }}>{item.error}</div>
                     )}
