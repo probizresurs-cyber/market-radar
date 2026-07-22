@@ -44,6 +44,12 @@ export interface LocalizeReport {
   imageBytesBefore: number;
   imageBytesAfter: number;
   notes: string[];          // человекочитаемые пояснения для отчёта
+  /** Локальные имена перенесённых шрифтов (для preload первых woff2 на этапе оптимизации). */
+  fontFiles: string[];
+  /** Финальные размеры картинок по локальному имени — для width/height (анти-CLS). */
+  imageDims: Record<string, { w: number; h: number }>;
+  /** Сколько @font-face в CSS получили font-display:swap. */
+  fontSwapAdded: number;
 }
 
 /** Корневой каталог хранения ассетов пересборок. */
@@ -130,6 +136,7 @@ export async function localizeAssets(html: string, opts: {
   const report: LocalizeReport = {
     localized: 0, failed: 0, cssLocalized: 0, fontsLocalized: 0,
     imagesOptimized: 0, imageBytesBefore: 0, imageBytesAfter: 0, notes: [],
+    fontFiles: [], imageDims: {}, fontSwapAdded: 0,
   };
 
   const dir = path.join(rebuildAssetsRoot(), opts.id);
@@ -191,14 +198,25 @@ export async function localizeAssets(html: string, opts: {
     try {
       const img = sharp(buf, { failOn: "none" }).rotate();
       const meta = await img.metadata();
+      // Финальные размеры (после возможного ресайза) — для width/height в HTML (анти-CLS).
+      const dims = meta.width && meta.height
+        ? (meta.width > 1920
+          ? { w: 1920, h: Math.round(meta.height * 1920 / meta.width) }
+          : { w: meta.width, h: meta.height })
+        : null;
       const pipeline = (meta.width ?? 0) > 1920 ? img.resize({ width: 1920 }) : img;
       const webp = await pipeline.webp({ quality: 80 }).toBuffer();
       if (webp.length < buf.length) {
         report.imagesOptimized++;
         report.imageBytesBefore += buf.length;
         report.imageBytesAfter += webp.length;
-        return { buf: webp, name: localName(url, ".webp") };
+        const name = localName(url, ".webp");
+        if (dims) report.imageDims[name] = dims;
+        return { buf: webp, name };
       }
+      const name = localName(url);
+      if (dims) report.imageDims[name] = dims;
+      return { buf, name };
     } catch { /* битая картинка — оставляем как есть */ }
     return { buf, name: localName(url) };
   };
@@ -206,6 +224,14 @@ export async function localizeAssets(html: string, opts: {
   // CSS: скачиваем файл, внутри находим url(...) на шрифты/картинки, скачиваем
   // их тоже и переписываем ссылки на ОТНОСИТЕЛЬНЫЕ имена (тот же каталог).
   const processCss = async (cssUrl: string, cssText: string): Promise<string> => {
+    // font-display:swap в каждый @font-face без него — текст показывается
+    // системным шрифтом сразу, вместо невидимого текста до загрузки шрифта
+    // (FOIT). Вид не меняется, только исчезает «мигание пустоты».
+    cssText = cssText.replace(/@font-face\s*\{[^}]*\}/gi, (block) => {
+      if (/font-display\s*:/i.test(block)) return block;
+      report.fontSwapAdded++;
+      return block.replace(/\}\s*$/, ";font-display:swap}");
+    });
     const refs = new Map<string, string>(); // исходная подстрока → абсолютный URL
     for (const m of cssText.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi)) {
       const raw = m[2].trim();
@@ -228,6 +254,7 @@ export async function localizeAssets(html: string, opts: {
         if (isFont) {
           name = localName(abs);
           report.fontsLocalized++;
+          report.fontFiles.push(name);
         } else {
           const processed = await processImage(abs, got.buf, got.contentType);
           got.buf = processed.buf;
@@ -263,6 +290,7 @@ export async function localizeAssets(html: string, opts: {
     } else if (task.kind === "font") {
       name = localName(task.url);
       report.fontsLocalized++;
+      report.fontFiles.push(name);
     } else {
       const processed = await processImage(task.url, buf, got.contentType);
       buf = processed.buf;

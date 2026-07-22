@@ -74,15 +74,35 @@ export async function POST(req: Request) {
     const applied: string[] = [];
     const $ = cheerio.load(baseHtml);
 
-    // ── 1. <img>: ленивая загрузка ниже первого экрана ────────────────────
+    // ── 1. <img>: ленивая загрузка ниже первого экрана + приоритет hero ───
     let lazied = 0;
     $("img").each((i, el) => {
-      if (i < 2) return;
       const $el = $(el);
+      if (i === 0 && !$el.attr("fetchpriority")) {
+        // Первая картинка — почти всегда LCP-элемент: качаем её раньше остального.
+        $el.attr("fetchpriority", "high");
+      }
+      if (i < 2) return;
       if (!$el.attr("loading")) { $el.attr("loading", "lazy"); lazied++; }
       if (!$el.attr("decoding")) $el.attr("decoding", "async");
     });
     if (lazied > 0) applied.push(`Ленивая загрузка ${lazied} изображений (loading="lazy" + decoding="async")`);
+    if ($("img").length > 0) applied.push(`Первое изображение получило приоритет загрузки (fetchpriority="high") — быстрее LCP`);
+
+    // font-display:swap в инлайновых <style> — текст виден сразу системным
+    // шрифтом, без «пустого» ожидания веб-шрифта (в CSS-файлах то же самое
+    // делает localizeAssets).
+    let inlineFontSwap = 0;
+    $("style").each((_, el) => {
+      const css = $(el).html() ?? "";
+      if (!/@font-face/i.test(css)) return;
+      const out = css.replace(/@font-face\s*\{[^}]*\}/gi, (block) => {
+        if (/font-display\s*:/i.test(block)) return block;
+        inlineFontSwap++;
+        return block.replace(/\}\s*$/, ";font-display:swap}");
+      });
+      if (out !== css) $(el).html(out);
+    });
 
     // ── 2. Фоновые блоки: подгрузка по прокрутке вместо «всё разом» ───────
     // Берём только блоки с data-original — у оригинала они и так были
@@ -123,11 +143,17 @@ export async function POST(req: Request) {
     // ── 5. Перенос ассетов к себе + WebP ──────────────────────────────────
     let html = $.html();
     let localizedNote = "";
+    let fontFiles: string[] = [];
+    let imageDims: Record<string, { w: number; h: number }> = {};
+    let fontSwapTotal = inlineFontSwap;
     try {
       const { html: localized, report } = await localizeAssets(html, {
         id, publicPrefix: `/api/rebuild-asset/${id}`,
       });
       html = localized;
+      fontFiles = report.fontFiles;
+      imageDims = report.imageDims;
+      fontSwapTotal += report.fontSwapAdded;
       if (report.localized > 0) {
         applied.push(`Перенесено к себе ${report.localized} ассетов (${report.cssLocalized} CSS, ${report.fontsLocalized} шрифтов) — без зависимости от CDN конструктора`);
       }
@@ -143,8 +169,11 @@ export async function POST(req: Request) {
       console.warn("[rebuild-optimize] localization failed:", e);
       localizedNote = "Хранилище ассетов недоступно — перенос картинок/шрифтов не выполнен";
     }
+    if (fontSwapTotal > 0) {
+      applied.push(`font-display: swap у ${fontSwapTotal} шрифтов — текст виден сразу, без ожидания загрузки веб-шрифта`);
+    }
 
-    // ── 6. preconnect к оставшимся внешним доменам + preload hero ─────────
+    // ── 6. preconnect/dns-prefetch к внешним доменам + preload hero/шрифтов ──
     const $2 = cheerio.load(html);
     const hostCount = new Map<string, number>();
     $2('script[src], link[href], img[src]').each((_, el) => {
@@ -154,24 +183,58 @@ export async function POST(req: Request) {
         if (o !== origin && o.startsWith("http")) hostCount.set(o, (hostCount.get(o) ?? 0) + 1);
       } catch { /* относительный URL */ }
     });
-    const topHosts = [...hostCount.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const sortedHosts = [...hostCount.entries()].sort((a, b) => b[1] - a[1]);
+    const topHosts = sortedHosts.filter(([, n]) => n >= 3).slice(0, 3);
     for (const [host] of topHosts) {
       if (!$2(`link[rel="preconnect"][href="${host}"]`).length) {
         $2("head").prepend(`<link rel="preconnect" href="${host}" crossorigin>`);
       }
     }
     if (topHosts.length > 0) applied.push(`Preconnect к ${topHosts.length} внешним доменам (скрипты конструктора)`);
+    // Остальным внешним доменам — дешёвый dns-prefetch (одна DNS-резолюция заранее).
+    const prefetchHosts = sortedHosts.filter(([h, n]) => n < 3 || topHosts.every(([t]) => t !== h)).slice(0, 5);
+    for (const [host] of prefetchHosts) {
+      if (!$2(`link[rel="dns-prefetch"][href="${host}"]`).length && !$2(`link[rel="preconnect"][href="${host}"]`).length) {
+        $2("head").prepend(`<link rel="dns-prefetch" href="${host}">`);
+      }
+    }
+    if (prefetchHosts.length > 0) applied.push(`DNS-prefetch к ${prefetchHosts.length} второстепенным внешним доменам`);
 
     const firstLocalImg = $2(`img[src^="/api/rebuild-asset/"]`).first().attr("src");
     if (firstLocalImg && !$2(`link[rel="preload"][href="${firstLocalImg}"]`).length) {
       $2("head").append(`<link rel="preload" as="image" href="${firstLocalImg}">`);
       applied.push("Первое изображение предзагружается (rel=\"preload\") — быстрее LCP");
     }
+
+    // Preload первых двух woff2-шрифтов — убирает каскад «HTML → CSS → шрифт».
+    const woff2 = fontFiles.filter((f) => /\.woff2$/i.test(f)).slice(0, 2);
+    for (const f of woff2) {
+      const href = `/api/rebuild-asset/${id}/${f}`;
+      if (!$2(`link[rel="preload"][href="${href}"]`).length) {
+        $2("head").append(`<link rel="preload" as="font" type="font/woff2" href="${href}" crossorigin>`);
+      }
+    }
+    if (woff2.length > 0) applied.push(`Предзагрузка ${woff2.length} основных шрифтов (preload woff2)`);
+
+    // width/height картинкам (анти-CLS): размеры знаем из sharp при переносе.
+    // Только тем, у кого нет НИ width, НИ height — заданные не трогаем.
+    let dimsSet = 0;
+    $2(`img[src^="/api/rebuild-asset/${id}/"]`).each((_, el) => {
+      const $el = $2(el);
+      if ($el.attr("width") || $el.attr("height")) return;
+      const name = ($el.attr("src") ?? "").split("/").pop() ?? "";
+      const d = imageDims[name];
+      if (!d) return;
+      $el.attr("width", String(d.w));
+      $el.attr("height", String(d.h));
+      dimsSet++;
+    });
+    if (dimsSet > 0) applied.push(`Заданы размеры ${dimsSet} изображениям (width/height) — страница не «прыгает» при загрузке (CLS)`);
     html = $2.html();
 
     // ── 7. Обновляем отчёт: флипаем исправленные проблемы ─────────────────
     const optimization: OptimizationReport = snap.optimization ?? { stats: { htmlKb: 0, externalScripts: 0, externalCss: 0, images: 0, lazyImages: 0 }, issues: [], applied: [] };
-    const fixedKeys = new Set(["img-lazy", "bg-lazy", "double-load", "cdn", "webp", "preconnect"]);
+    const fixedKeys = new Set(["img-lazy", "bg-lazy", "double-load", "cdn", "webp", "preconnect", "img-dims"]);
     for (const issue of optimization.issues) {
       if (issue.key && fixedKeys.has(issue.key)) issue.fixed = true;
     }

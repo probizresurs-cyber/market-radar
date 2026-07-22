@@ -19,7 +19,8 @@
 
 import { use, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, ArrowRight, Gauge, Zap, Users } from "lucide-react";
+import { CheckCircle2, ArrowRight, Gauge, Zap, Users, BarChart3, Rocket } from "lucide-react";
+import { KP_UPSELL_PRICE } from "@/lib/kp-upsell-pricing";
 
 type Locale = "ru" | "de";
 type Risk = "safe" | "moderate" | "manual";
@@ -52,6 +53,10 @@ const T: Record<Locale, {
   moreTitle: string; moreSubtitle: string;
   riskSafe: string; riskModerate: string; riskManual: string;
   approveBtn: string; approving: string; doneBtn: string; queuedBtn: string; approveError: string;
+  nextTitle: string; nextSubtitle: string;
+  productAnalysisTitle: string; productAnalysisBody: string;
+  productSeoGeoTitle: string; productSeoGeoBody: string;
+  productBtn: string;
 }> = {
   ru: {
     loading: "Загружаем…", notFound: "Ссылка недоступна", notFoundBody: "Проверьте ссылку или напишите нам.",
@@ -63,6 +68,12 @@ const T: Record<Locale, {
     moreTitle: "Хотите ускорить ещё?", moreSubtitle: "Необязательные доработки — одобрите то, что нужно",
     riskSafe: "Безопасно, вид не меняется", riskModerate: "Может слегка изменить поведение скриптов", riskManual: "Требует ручной работы нашей команды",
     approveBtn: "Одобрить", approving: "Применяем…", doneBtn: "Сделано", queuedBtn: "Передано в работу", approveError: "Не получилось — попробуйте ещё раз",
+    nextTitle: "Что дальше?", nextSubtitle: "Быстрый сайт — фундамент. Чтобы он приводил клиентов — два шага, можно по отдельности:",
+    productAnalysisTitle: `Полный анализ — ${KP_UPSELL_PRICE.ru.fullAnalysis}`,
+    productAnalysisBody: "SEO, конкуренты, целевая аудитория, план роста — всё по вашей компании, с конкретными шагами.",
+    productSeoGeoTitle: `SEO/GEO-продвижение — ${KP_UPSELL_PRICE.ru.seoGeo}`,
+    productSeoGeoBody: "Видимость в поиске (Яндекс, Google) и в ответах ИИ (ChatGPT, Алиса, Gemini), куда всё чаще уходят клиенты.",
+    productBtn: "Подробнее",
   },
   de: {
     loading: "Wird geladen…", notFound: "Link nicht verfügbar", notFoundBody: "Prüfen Sie den Link oder schreiben Sie uns.",
@@ -74,6 +85,12 @@ const T: Record<Locale, {
     moreTitle: "Möchten Sie es noch schneller?", moreSubtitle: "Optionale Verbesserungen — genehmigen Sie, was Sie möchten",
     riskSafe: "Sicher, das Erscheinungsbild ändert sich nicht", riskModerate: "Kann das Skriptverhalten leicht verändern", riskManual: "Erfordert manuelle Arbeit unseres Teams",
     approveBtn: "Genehmigen", approving: "Wird angewendet…", doneBtn: "Erledigt", queuedBtn: "In Bearbeitung", approveError: "Fehlgeschlagen — bitte erneut versuchen",
+    nextTitle: "Wie geht es weiter?", nextSubtitle: "Eine schnelle Website ist das Fundament. Damit sie Kunden bringt — zwei Schritte, einzeln buchbar:",
+    productAnalysisTitle: `Vollanalyse — ${KP_UPSELL_PRICE.de.fullAnalysis}`,
+    productAnalysisBody: "SEO, Wettbewerber, Zielgruppe, Wachstumsplan — alles zu Ihrem Unternehmen, mit konkreten Schritten.",
+    productSeoGeoTitle: `SEO/GEO — ${KP_UPSELL_PRICE.de.seoGeo}`,
+    productSeoGeoBody: "Sichtbarkeit in der Suche (Google) und in KI-Antworten (ChatGPT, Gemini), wohin immer mehr Kunden abwandern.",
+    productBtn: "Mehr erfahren",
   },
 };
 
@@ -115,6 +132,11 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const searchParams = useSearchParams();
   const locale: Locale = searchParams.get("locale") === "de" ? "de" : "ru";
+  // Токен КП (если ссылка пришла из письма/TG/КП) — карточка «Полный анализ»
+  // ведёт обратно в интерактивный анализ клиента, а не на общий сайт.
+  const kpToken = searchParams.get("kp");
+  const fullAnalysisUrl = kpToken && /^[A-Za-z0-9_-]{8,64}$/.test(kpToken)
+    ? `/kp-share/${kpToken}` : "https://marketradar24.ru";
   const t = T[locale];
 
   const [state, setState] = useState<{ status: "loading" | "ok" | "error"; data?: RebuildResult; error?: string }>({ status: "loading" });
@@ -255,6 +277,31 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         )}
+
+        {/* Дожим: два следующих продукта — полный анализ и SEO/GEO, каждый со
+            своим тарифом (KP_UPSELL_PRICE — те же цены, что в боте и письме). */}
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 20, padding: "28px 32px", marginTop: 20 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px" }}>{t.nextTitle}</h2>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 18px", lineHeight: 1.5 }}>{t.nextSubtitle}</p>
+          <div style={{ display: "grid", gap: 12 }}>
+            {[
+              { icon: <BarChart3 size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productAnalysisTitle, body: t.productAnalysisBody, href: fullAnalysisUrl },
+              { icon: <Rocket size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productSeoGeoTitle, body: t.productSeoGeoBody, href: "https://marketradar24.ru/seo-geo" },
+            ].map((p, i) => (
+              <div key={i} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                {p.icon}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>{p.title}</div>
+                  <div style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5, marginBottom: 10 }}>{p.body}</div>
+                  <a href={p.href} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#2a78d6", textDecoration: "none" }}>
+                    {t.productBtn} <ArrowRight size={14} />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

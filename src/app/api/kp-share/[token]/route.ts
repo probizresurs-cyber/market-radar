@@ -69,8 +69,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     clientEmail: r.client_email,
     tgConnectUrl: r.client_tg_code ? `https://t.me/${TG_BOT_USERNAME}?start=${r.client_tg_code}` : null,
     // Ссылка на готовый сайт прямо в КП — третий канал доставки после email и TG.
+    // kp=<token> — чтобы карточка «Полный анализ» на /site-ready вела обратно в КП.
     siteReadyUrl: r.rebuild_status === "sent" && r.rebuild_id
-      ? `/site-ready/${r.rebuild_id}?locale=${r.locale === "de" ? "de" : "ru"}`
+      ? `/site-ready/${r.rebuild_id}?locale=${r.locale === "de" ? "de" : "ru"}&kp=${token}`
       : null,
   });
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query, initDb } from "@/lib/db";
 import { isKpManager } from "@/lib/kp-manager-auth";
 import { sendMail } from "@/lib/mailer";
-import { sendKpSiteReady, kpShareUrl } from "@/lib/kp-tg-funnel";
+import { sendKpSiteReady, kpShareUrl, KP_UPSELL_PRICE } from "@/lib/kp-tg-funnel";
 
 // POST /api/kp-generate/<id>/approve-rebuild — менеджер сравнил оригинал и
 // пересобранную версию (таб «Ревью пересборок») и одобряет отправку клиенту.
@@ -18,13 +18,19 @@ interface Row {
   client_tg_chat_id: number | null; share_token: string | null;
 }
 
-const EMAIL_TEXT: Record<string, { subject: (n: string) => string; title: string; body: (n: string) => string; cta: string; footer: string }> = {
+const EMAIL_TEXT: Record<string, {
+  subject: (n: string) => string; title: string; body: (n: string) => string; cta: string; footer: string;
+  upsellTitle: string; upsellAnalysis: string; upsellSeoGeo: string;
+}> = {
   ru: {
     subject: (n) => `Новая версия сайта готова — ${n}`,
     title: "Новая версия сайта готова",
     body: (n) => `Здравствуйте! Мы подготовили обновлённую версию сайта «${n}» — дизайн сохранён без изменений, устранены технические проблемы, из-за которых сайт грузился медленнее и хуже был виден в поиске.`,
     cta: "Посмотреть новую версию →",
     footer: "Если хотите оставить эту версию себе — просто ответьте на это письмо, обсудим детали переноса.",
+    upsellTitle: "Что дальше — два шага на выбор:",
+    upsellAnalysis: `📊 Полный анализ — SEO, конкуренты, целевая аудитория, план роста — ${KP_UPSELL_PRICE.ru.fullAnalysis}`,
+    upsellSeoGeo: `🚀 SEO/GEO-продвижение — видимость в поиске и в ответах ИИ — ${KP_UPSELL_PRICE.ru.seoGeo}`,
   },
   de: {
     subject: (n) => `Neue Website-Version fertig — ${n}`,
@@ -32,6 +38,9 @@ const EMAIL_TEXT: Record<string, { subject: (n: string) => string; title: string
     body: (n) => `Hallo! Wir haben eine aktualisierte Version der Website „${n}" vorbereitet — das Design ist unverändert, technische Probleme wurden behoben, die die Website verlangsamt und die Sichtbarkeit in der Suche verschlechtert haben.`,
     cta: "Neue Version ansehen →",
     footer: "Möchten Sie diese Version behalten — antworten Sie einfach auf diese E-Mail, wir besprechen die Details.",
+    upsellTitle: "Wie es weitergeht — zwei Schritte zur Auswahl:",
+    upsellAnalysis: `📊 Vollanalyse — SEO, Wettbewerber, Zielgruppe, Wachstumsplan — ${KP_UPSELL_PRICE.de.fullAnalysis}`,
+    upsellSeoGeo: `🚀 SEO/GEO — Sichtbarkeit in der Suche und in KI-Antworten — ${KP_UPSELL_PRICE.de.seoGeo}`,
   },
 };
 
@@ -57,7 +66,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const origin = new URL(req.url).origin;
   const locale = r.locale === "de" ? "de" : "ru";
-  const siteReadyUrl = `${origin}/site-ready/${r.rebuild_id}?locale=${locale}`;
+  // kp=<share_token> — чтобы /site-ready мог вести «Полный анализ» обратно в КП клиента.
+  const siteReadyUrl = `${origin}/site-ready/${r.rebuild_id}?locale=${locale}${r.share_token ? `&kp=${r.share_token}` : ""}`;
   const name = r.company_name || r.url;
   const et = EMAIL_TEXT[locale];
 
@@ -79,6 +89,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         </a>
       </div>
       <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">${et.footer}</p>
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0 0 10px;font-size:13.5px;font-weight:700;color:#111827;">${et.upsellTitle}</p>
+        <p style="margin:0 0 6px;font-size:13px;color:#4b5563;line-height:1.6;">
+          <a href="${kpShareUrl(r.share_token) ?? "https://marketradar24.ru"}" style="color:#2a78d6;text-decoration:none;">${et.upsellAnalysis}</a>
+        </p>
+        <p style="margin:0;font-size:13px;color:#4b5563;line-height:1.6;">
+          <a href="https://marketradar24.ru/seo-geo" style="color:#2a78d6;text-decoration:none;">${et.upsellSeoGeo}</a>
+        </p>
+      </div>
     </div>
     <div style="text-align:center;margin-top:20px;font-size:12px;color:#9ca3af;">MarketRadar · marketradar24.ru</div>
   </div>

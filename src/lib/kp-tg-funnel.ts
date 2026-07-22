@@ -70,12 +70,16 @@ export function kpShareUrl(shareToken: string | null): string | null {
 
 // ─── Тексты ─────────────────────────────────────────────────────────────────
 
+export { KP_UPSELL_PRICE } from "@/lib/kp-upsell-pricing";
+import { KP_UPSELL_PRICE } from "@/lib/kp-upsell-pricing";
+
 const T: Record<KpTgLocale, {
   connected: (name: string) => string;
   codeInvalid: string;
   siteReady: (name: string) => string;
   btnOpenSite: string;
   btnFullAnalysis: string;
+  btnSeoGeo: string;
   btnOpenKp: string;
   followup1: (name: string) => string;
   followup2: (name: string) => string;
@@ -90,9 +94,13 @@ const T: Record<KpTgLocale, {
     siteReady: (name) =>
       `🚀 <b>Новая версия сайта готова</b>\n\n` +
       `Мы подготовили обновлённую версию сайта «${name}»: дизайн сохранён, технические проблемы устранены — сайт грузится быстрее и лучше виден в поиске.\n\n` +
-      `А чтобы быстрый сайт ещё и приводил клиентов, следующий шаг — полный анализ: SEO, конкуренты, целевая аудитория + SEO/GEO-продвижение (видимость в поиске и в ответах ИИ — ChatGPT, Алиса, Gemini).`,
+      `Быстрый сайт — фундамент. Чтобы он ещё и приводил клиентов, дальше два шага (можно по отдельности):\n` +
+      `📊 <b>Полный анализ</b> — SEO, конкуренты, целевая аудитория, план роста — ${KP_UPSELL_PRICE.ru.fullAnalysis}\n` +
+      `🚀 <b>SEO/GEO-продвижение</b> — видимость в поиске и в ответах ИИ (ChatGPT, Алиса, Gemini) — ${KP_UPSELL_PRICE.ru.seoGeo}\n\n` +
+      `Подробности — по кнопкам ниже.`,
     btnOpenSite: "🌐 Открыть новый сайт",
-    btnFullAnalysis: "📊 Полный анализ + SEO/GEO",
+    btnFullAnalysis: `📊 Полный анализ — ${KP_UPSELL_PRICE.ru.fullAnalysis}`,
+    btnSeoGeo: `🚀 SEO/GEO-продвижение — ${KP_UPSELL_PRICE.ru.seoGeo}`,
     btnOpenKp: "📄 Открыть предложение",
     followup1: (name) =>
       `👋 Здравствуйте! Пару дней назад мы отправили вам новую версию сайта «${name}».\n\n` +
@@ -103,7 +111,8 @@ const T: Record<KpTgLocale, {
       `Быстрый сайт — первый шаг. Второй — чтобы его находили:\n` +
       `• <b>SEO</b> — позиции в Яндексе и Google по вашим запросам\n` +
       `• <b>GEO</b> — попадание в ответы ИИ (ChatGPT, Алиса, Gemini), куда всё чаще уходят клиенты\n` +
-      `• <b>Полный анализ</b> — конкуренты, целевая аудитория, план роста\n\n` +
+      `• <b>SEO/GEO-продвижение</b> — ${KP_UPSELL_PRICE.ru.seoGeo}\n` +
+      `• <b>Полный анализ</b> — конкуренты, целевая аудитория, план роста — ${KP_UPSELL_PRICE.ru.fullAnalysis}\n\n` +
       `Если интересно — просто ответьте на это сообщение или откройте предложение по кнопке ниже. Ответим в тот же день.`,
     inboundAck:
       `✅ Спасибо, получили ваше сообщение — передали менеджеру, ответим в ближайшее время.\n\n` +
@@ -118,9 +127,13 @@ const T: Record<KpTgLocale, {
     siteReady: (name) =>
       `🚀 <b>Die neue Website-Version ist fertig</b>\n\n` +
       `Wir haben eine aktualisierte Version der Website „${name}" vorbereitet: Design unverändert, technische Probleme behoben — die Website lädt schneller und ist in der Suche besser sichtbar.\n\n` +
-      `Damit die schnelle Website auch Kunden bringt, ist der nächste Schritt eine vollständige Analyse: SEO, Wettbewerber, Zielgruppe + SEO/GEO-Optimierung (Sichtbarkeit in der Suche und in KI-Antworten — ChatGPT, Gemini).`,
+      `Eine schnelle Website ist das Fundament. Damit sie auch Kunden bringt, gibt es zwei nächste Schritte (einzeln buchbar):\n` +
+      `📊 <b>Vollanalyse</b> — SEO, Wettbewerber, Zielgruppe, Wachstumsplan — ${KP_UPSELL_PRICE.de.fullAnalysis}\n` +
+      `🚀 <b>SEO/GEO</b> — Sichtbarkeit in der Suche und in KI-Antworten (ChatGPT, Gemini) — ${KP_UPSELL_PRICE.de.seoGeo}\n\n` +
+      `Details über die Buttons unten.`,
     btnOpenSite: "🌐 Neue Website öffnen",
-    btnFullAnalysis: "📊 Vollanalyse + SEO/GEO",
+    btnFullAnalysis: `📊 Vollanalyse — ${KP_UPSELL_PRICE.de.fullAnalysis}`,
+    btnSeoGeo: `🚀 SEO/GEO — ${KP_UPSELL_PRICE.de.seoGeo}`,
     btnOpenKp: "📄 Angebot öffnen",
     followup1: (name) =>
       `👋 Hallo! Vor ein paar Tagen haben wir Ihnen die neue Version der Website „${name}" geschickt.\n\n` +
@@ -131,7 +144,8 @@ const T: Record<KpTgLocale, {
       `Eine schnelle Website ist der erste Schritt. Der zweite — gefunden zu werden:\n` +
       `• <b>SEO</b> — Positionen bei Google zu Ihren Suchanfragen\n` +
       `• <b>GEO</b> — Präsenz in KI-Antworten (ChatGPT, Gemini), wohin immer mehr Kunden abwandern\n` +
-      `• <b>Vollanalyse</b> — Wettbewerber, Zielgruppe, Wachstumsplan\n\n` +
+      `• <b>SEO/GEO</b> — ${KP_UPSELL_PRICE.de.seoGeo}\n` +
+      `• <b>Vollanalyse</b> — Wettbewerber, Zielgruppe, Wachstumsplan — ${KP_UPSELL_PRICE.de.fullAnalysis}\n\n` +
       `Bei Interesse antworten Sie einfach auf diese Nachricht oder öffnen Sie das Angebot über den Button unten. Wir antworten am selben Tag.`,
     inboundAck:
       `✅ Danke, wir haben Ihre Nachricht erhalten und an Ihren Manager weitergeleitet — wir melden uns in Kürze.\n\n` +
@@ -144,6 +158,8 @@ function funnelButtons(ctx: KpFunnelCtx): TgButton[][] {
   const rows: TgButton[][] = [];
   if (ctx.siteReadyUrl) rows.push([{ text: t.btnOpenSite, url: ctx.siteReadyUrl }]);
   if (ctx.kpUrl) rows.push([{ text: ctx.siteReadyUrl ? t.btnFullAnalysis : t.btnOpenKp, url: ctx.kpUrl }]);
+  // SEO/GEO — отдельный продукт со своим тарифом, ведёт на страницу услуги.
+  if (ctx.siteReadyUrl) rows.push([{ text: t.btnSeoGeo, url: `${SITE}/seo-geo` }]);
   return rows;
 }
 

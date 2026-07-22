@@ -266,6 +266,15 @@ export function detectPerf(html: string, origin: string, techStack: string[]): O
       fixed: false,
     });
   }
+  const imgsNoDims = $("img").filter((_, el) => !$(el).attr("width") && !$(el).attr("height")).length;
+  if (imgsNoDims > 3) {
+    issues.push({
+      key: "img-dims", severity: "warn", metric: imgsNoDims,
+      title: `${imgsNoDims} изображений без заданных размеров`,
+      detail: "Браузер не знает размеры картинок заранее — контент «прыгает» по мере их загрузки (CLS, один из факторов Google). Оптимизация пропишет width/height автоматически.",
+      fixed: false,
+    });
+  }
 
   // — Раньше "не чиним автоматически" — теперь можно одобрить точечно
   // (см. /api/rebuild-astro/optimize-item), у каждого свой уровень риска.
