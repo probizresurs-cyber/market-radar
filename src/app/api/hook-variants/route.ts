@@ -15,6 +15,8 @@ import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BrandBook } from "@/lib/content-types";
+import type { TASegment } from "@/lib/ta-types";
+import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
     const pillar: string = body.pillar ?? "";
     const platform: string = body.platform ?? "";
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    const taSegment: TASegment | null = body.taSegment ?? null;
     const count: number = Math.min(Math.max(body.count ?? 3, 1), 5);
 
     if (!hook && !text) {
@@ -83,9 +86,10 @@ export async function POST(req: Request) {
     });
 
     const brandHints = buildBrandHints(brandBook);
+    const segmentBlock = buildSegmentBlock(taSegment);
     const userMessage = `Платформа: ${platform || "не указана"}
 Контент-столп: ${pillar || "не указан"}
-${brandHints}
+${brandHints}${segmentBlock}
 ТЕКУЩИЙ КРЮЧОК:
 «${hook}»
 

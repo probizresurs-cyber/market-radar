@@ -2,6 +2,8 @@ import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import type { TASegment } from "@/lib/ta-types";
+import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import type { CompanyStyleProfile } from "@/lib/company-style-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { generateOpenAIImage } from "@/lib/openai-image";
@@ -162,7 +164,7 @@ function platformGuidelines(platform: string): string {
 - Хэштеги: 5-8`;
 }
 
-function buildPrompt(companyName: string, companyNiche: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null, styleProfile: CompanyStyleProfile | null): string {
+function buildPrompt(companyName: string, companyNiche: string, idea: ContentPostIdea, smm: SMMResult | null, brandBook: BrandBook | null, styleProfile: CompanyStyleProfile | null, taSegment: TASegment | null = null): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
 УТП: ${smm.brandIdentity.uniqueValue}
@@ -180,6 +182,7 @@ function buildPrompt(companyName: string, companyNiche: string, idea: ContentPos
 
   const brandBlock = buildBrandBookBlock(brandBook);
   const styleBlock = buildStyleBlock(styleProfile);
+  const segmentBlock = buildSegmentBlock(taSegment);
   const platformBlock = platformGuidelines(idea.platform);
 
   // Бренд-консистенция: если в брендбуке указано имя — требуем органичное упоминание
@@ -196,7 +199,7 @@ function buildPrompt(companyName: string, companyNiche: string, idea: ContentPos
   return `Разверни идею поста в готовый пост.
 
 Компания: ${companyName}
-${nicheBlock}${smmBlock}${brandBlock}${styleBlock}${brandConsistencyBlock}
+${nicheBlock}${smmBlock}${segmentBlock}${brandBlock}${styleBlock}${brandConsistencyBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Формат: ${idea.format}
@@ -240,6 +243,8 @@ export async function POST(req: Request) {
     const idea: ContentPostIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    // Выбранный аватар ЦА (сегмент из анализа) — пост пишется под его боли и язык.
+    const taSegment: TASegment | null = body.taSegment ?? null;
     const styleProfile: CompanyStyleProfile | null = body.companyStyleProfile ?? null;
     const generateImage: boolean = body.generateImage !== false;
     const userPrompt: string = body.userPrompt ?? ""; // custom prompt override для ТЕКСТА
@@ -268,7 +273,8 @@ export async function POST(req: Request) {
     // Even if userPrompt is provided, append brandBook + style rules so they aren't ignored
     const brandBlockForCustom = buildBrandBookBlock(brandBook);
     const styleBlockForCustom = buildStyleBlock(styleProfile);
-    const extraCustomRules = [brandBlockForCustom, styleBlockForCustom].filter(Boolean).join("\n");
+    const segmentBlockForCustom = buildSegmentBlock(taSegment);
+    const extraCustomRules = [brandBlockForCustom, styleBlockForCustom, segmentBlockForCustom].filter(Boolean).join("\n");
     // Ниша обогащает и кастомный промпт (когда юзер сам что-то пишет),
     // чтобы визуал не уехал в «таблица Менделеева» при стоматологии.
     const effectiveNiche = companyNiche
@@ -278,7 +284,7 @@ export async function POST(req: Request) {
       : "";
     const userMessage = userPrompt.trim()
       ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}${nicheRule}` : `${userPrompt.trim()}${nicheRule}`)
-      : buildPrompt(companyName, effectiveNiche, idea, smm, brandBook, styleProfile);
+      : buildPrompt(companyName, effectiveNiche, idea, smm, brandBook, styleProfile, taSegment);
     const textRes = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
       method: "POST",
       headers: {

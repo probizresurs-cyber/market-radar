@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { ContentPlan } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import type { TASegment } from "@/lib/ta-types";
+import { buildSegmentsSummary } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
@@ -28,7 +30,8 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 
 ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток. Твой ответ должен начинаться с { и заканчиваться }.`;
 
-function buildPrompt(companyName: string, niche: string, smm: SMMResult | null): string {
+function buildPrompt(companyName: string, niche: string, smm: SMMResult | null, taSegments: TASegment[] | null = null): string {
+  const segmentsBlock = buildSegmentsSummary(taSegments);
   const smmBlock = smm ? `
 СМM-АНАЛИЗ КОМПАНИИ (используй как основу):
 - Архетип бренда: ${smm.brandIdentity.archetype}
@@ -46,7 +49,7 @@ function buildPrompt(companyName: string, niche: string, smm: SMMResult | null):
 
 Компания: ${companyName || "—"}
 Ниша: ${niche || "—"}
-${smmBlock}
+${smmBlock}${segmentsBlock}
 
 Сделай контент-план на 30 дней — 12 идей постов и 8 идей видео-рилсов. Каждая идея — конкретная, готовая в работу.
 
@@ -130,6 +133,8 @@ export async function POST(req: Request) {
     const companyName: string = body.companyName ?? "";
     const niche: string = body.niche ?? "";
     const smm: SMMResult | null = body.smmAnalysis ?? null;
+    // Сегменты ЦА — рубрики/темы плана привязываются к конкретным аватарам.
+    const taSegments: TASegment[] | null = Array.isArray(body.taSegments) ? body.taSegments : null;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -152,7 +157,7 @@ export async function POST(req: Request) {
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: buildPrompt(companyName, niche, smm) },
+            { role: "user", content: buildPrompt(companyName, niche, smm, taSegments) },
           ],
           temperature: 0.9,
           // 7000 обрезало JSON при большом числе идей (30 дней × поля).

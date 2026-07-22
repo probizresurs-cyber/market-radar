@@ -10,6 +10,7 @@ import { OnboardingChecklist, type OnboardingState } from "@/components/ui/Onboa
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { StatusTabs, computeStatus, type ContentStatus } from "@/components/ui/StatusTabs";
 import { AutoIdeasModal, type ContentIdea } from "@/components/ui/AutoIdeasModal";
+import { SegmentSelect, useSegmentSelect } from "@/components/ui/SegmentSelect";
 import { IMAGE_STYLE_OPTIONS, stylePhraseFor, runWithConcurrency, type ImageStyleKey } from "@/lib/image-style";
 import { MetricsBlock } from "@/components/views/GeneratedPostsView";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
@@ -53,6 +54,8 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
   const [showImageBlock, setShowImageBlock] = useState(false);
   const [imageStyle, setImageStyle] = useState<ImageStyleKey>("");
   const [customImagePrompt, setCustomImagePrompt] = useState("");
+  // Аватар ЦА, под которого пишем серию (null = все сегменты, как раньше).
+  const { segmentId, segment, setSegmentId } = useSegmentSelect(taResult);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -61,7 +64,7 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
       const res = await fetch("/api/generate-stories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName, platform, slidesCount, goal, brief, pillar, smmAnalysis, brandBook }),
+        body: JSON.stringify({ companyName, platform, slidesCount, goal, brief, pillar, smmAnalysis, brandBook, taSegment: segment }),
       });
       const json = await jsonOrThrow<{ ok: boolean; data?: GeneratedStory; error?: string }>(res);
       if (!json.ok) throw new Error(json.error ?? "Ошибка генерации");
@@ -286,6 +289,14 @@ export function StoriesView({ c, stories, plan, smmAnalysis, myCompany, taResult
                   <option value="">— свободная тема —</option>
                   {plan.pillars.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                 </select>
+              </div>
+            ) : null}
+
+            {/* Аватар ЦА (рендерится только если анализ ЦА есть) */}
+            {taResult?.segments?.length ? (
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>АВАТАР ЦА</label>
+                <SegmentSelect taResult={taResult} value={segmentId} onChange={(id) => setSegmentId(id)} />
               </div>
             ) : null}
           </div>

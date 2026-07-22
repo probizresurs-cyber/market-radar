@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { GeneratedCarousel, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import type { TASegment } from "@/lib/ta-types";
+import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
@@ -30,10 +32,12 @@ function buildCarouselPrompt(
   pillar: string,
   smm: SMMResult | null,
   brandBook: BrandBook | null,
+  taSegment: TASegment | null = null,
 ): string {
   const smmBlock = smm
     ? `\nБренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}\nТон: ${smm.brandIdentity.toneOfVoice.join(", ")}\n`
     : "";
+  const segmentBlock = buildSegmentBlock(taSegment);
 
   const brandBlock = brandBook
     ? [
@@ -45,7 +49,7 @@ function buildCarouselPrompt(
     : "";
 
   return `Создай образовательную карусель из ${slidesCount} слайдов для ${platform} компании «${companyName}».
-${smmBlock}${brandBlock ? `\nБРЕНДБУК:\n${brandBlock}\n` : ""}
+${smmBlock}${segmentBlock}${brandBlock ? `\nБРЕНДБУК:\n${brandBlock}\n` : ""}
 Контент-столп: ${pillar}
 Цель: ${goal}
 Тема / бриф: ${brief || "На твоё усмотрение по контент-столпу"}
@@ -97,6 +101,7 @@ export async function POST(req: Request) {
     const pillar: string = body.pillar ?? "";
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    const taSegment: TASegment | null = body.taSegment ?? null;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -104,7 +109,7 @@ export async function POST(req: Request) {
     }
 
     const userMessage = buildCarouselPrompt(
-      companyName, platform, slidesCount, goal, brief, pillar, smm, brandBook,
+      companyName, platform, slidesCount, goal, brief, pillar, smm, brandBook, taSegment,
     );
 
     const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {

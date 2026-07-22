@@ -157,6 +157,7 @@ import { GeneratedPostsView } from "@/components/views/GeneratedPostsView";
 import { GeneratedReelsView } from "@/components/views/GeneratedReelsView";
 import { ContentAnalyticsView, ROICalculatorView } from "@/components/views/ContentAnalyticsView";
 import { ImageReferencePanel } from "@/components/ui/ImageReferencePanel";
+import { SegmentSelect } from "@/components/ui/SegmentSelect";
 import { BrandBookPanel } from "@/components/ui/BrandBookPanel";
 import { AvatarSettingsPanel } from "@/components/ui/AvatarSettingsPanel";
 
@@ -402,6 +403,11 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   // (второй, другого типа) — если есть.
   const [taAnalysis, setTaAnalysis] = useState<TAResult | null>(null);
   const [taAnalysisAlt, setTaAnalysisAlt] = useState<TAResult | null>(null);
+  // Аватар ЦА для генерации контента (посты/рилсы через центральные хендлеры
+  // ниже). null = все сегменты — прежнее поведение. Сторис/карусели держат
+  // свой выбор локально в своих формах.
+  const [contentSegmentId, setContentSegmentId] = useState<number | null>(null);
+  const contentTaSegment = taAnalysis?.segments?.find(s => s.id === contentSegmentId) ?? null;
   const taExistingTypes: TAAudienceType[] = [
     ...(taAnalysis ? [taAnalysis.audienceType ?? "b2c"] : []),
     ...(taAnalysisAlt ? [taAnalysisAlt.audienceType ?? "b2c"] : []),
@@ -1987,6 +1993,9 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           companyName: myCompany?.company.name ?? smmAnalysis.companyName,
           niche,
           smmAnalysis,
+          // Сегменты ЦА (если анализ ЦА сделан) — рубрики/темы плана
+          // привязываются к конкретным аватарам, а не «для всех сразу».
+          taSegments: taAnalysis?.segments ?? null,
         }),
       });
       const json = await jsonOrThrow(res);
@@ -2032,6 +2041,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
             idea: adaptedIdea,
             smmAnalysis,
             brandBook,
+            taSegment: contentTaSegment,
             companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
             generateImage: true,
             userPrompt: idea.prompt, // пробрасываем оригинальный промпт идеи
@@ -2190,7 +2200,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       body: JSON.stringify({
         companyName,
         companyNiche: myCompany?.company?.description ?? "",
-        idea: adaptedIdea, smmAnalysis, brandBook,
+        idea: adaptedIdea, smmAnalysis, brandBook, taSegment: contentTaSegment,
         companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
         generateImage: true, userPrompt: idea.prompt,
       }),
@@ -2217,7 +2227,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         companyName, platform,
         slidesCount: 5, goal: "прогрев",
         brief: idea.prompt, pillar: idea.topic,
-        smmAnalysis, brandBook,
+        smmAnalysis, brandBook, taSegment: contentTaSegment,
       }),
     }).then(r => r.json()).then(json => {
       if (json?.ok && json.data) {
@@ -2240,7 +2250,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         companyName,
         companyNiche: myCompany?.company?.description ?? "",
         idea: { ...adaptedIdea, id: `${idea.id}-car`, format: "карусель" as const },
-        smmAnalysis, brandBook,
+        smmAnalysis, brandBook, taSegment: contentTaSegment,
         companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
         generateImage: true,
         userPrompt: `Карусель из 5-7 слайдов с разделителями ---. ${idea.prompt}`,
@@ -2277,7 +2287,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           visualStyle: "динамичный, кадры 2-3 сек",
           hashtags: [],
         },
-        smmAnalysis, brandBook,
+        smmAnalysis, brandBook, taSegment: contentTaSegment,
         voiceDescription: avatarSettings.voiceDescription,
         avatarDescription: avatarSettings.avatarDescription,
         userPrompt: idea.prompt,
@@ -2347,6 +2357,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           imageOverlayText: imageOpts?.imageOverlayText,
           smmAnalysis,
           brandBook,
+          taSegment: contentTaSegment,
           companyStyleProfile: companyStyleState.applyToGeneration ? companyStyleState.profile : null,
           generateImage: true,
           userPrompt: customPrompt,
@@ -2379,6 +2390,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           idea,
           smmAnalysis,
           brandBook,
+          taSegment: contentTaSegment,
           voiceDescription: avatarSettings.voiceDescription,
           avatarDescription: avatarSettings.avatarDescription,
           userPrompt: customPrompt,
@@ -3036,6 +3048,12 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           />
         )}
         {activeNav === "content-posts" && featureOn("content-factory") && featureOn("content-posts") && (
+          <>
+          {taAnalysis?.segments?.length ? (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <SegmentSelect taResult={taAnalysis} value={contentSegmentId} onChange={(id) => setContentSegmentId(id)} />
+            </div>
+          ) : null}
           <GeneratedPostsView
             c={c}
             posts={generatedPosts}
@@ -3061,8 +3079,15 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
               description: myCompany?.company.description,
             }}
           />
+          </>
         )}
         {activeNav === "content-reels" && featureOn("content-factory") && featureOn("content-reels") && (
+          <>
+          {taAnalysis?.segments?.length ? (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <SegmentSelect taResult={taAnalysis} value={contentSegmentId} onChange={(id) => setContentSegmentId(id)} />
+            </div>
+          ) : null}
           <GeneratedReelsView
             c={c}
             reels={generatedReels}
@@ -3087,6 +3112,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
             taResult={taAnalysis}
             smmAnalysis={smmAnalysis}
           />
+          </>
         )}
         {activeNav === "content-stories" && featureOn("content-factory") && featureOn("content-stories") && <StoriesView c={c} stories={generatedStories} plan={contentPlan} smmAnalysis={smmAnalysis} myCompany={myCompany} taResult={taAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddStory} onDelete={handleDeleteStory} onUpdate={handleUpdateStory} onboardingState={onboardingState} />}
         {activeNav === "content-carousels" && featureOn("content-factory") && featureOn("content-carousels") && <GeneratedCarouselsView c={c} carousels={generatedCarousels} plan={contentPlan} smmAnalysis={smmAnalysis} myCompany={myCompany} taResult={taAnalysis} companyName={myCompany?.company.name ?? ""} brandBook={brandBook} onAdd={handleAddCarousel} onDelete={handleDeleteCarousel} onUpdate={handleUpdateCarousel} onboardingState={onboardingState} />}

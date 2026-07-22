@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { GeneratedReel, ContentReelIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
+import type { TASegment } from "@/lib/ta-types";
+import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 
@@ -44,6 +46,7 @@ function buildPrompt(
   voiceDescription: string,
   avatarDescription: string,
   brandBook: BrandBook | null,
+  taSegment: TASegment | null = null,
 ): string {
   const smmBlock = smm ? `
 Бренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}
@@ -51,6 +54,8 @@ function buildPrompt(
 ` : "";
 
   const brandBlock = buildBrandBookBlock(brandBook);
+  // «Аватар» ниже — это ведущий HeyGen (внешность/голос); сегмент ЦА — отдельно.
+  const segmentBlock = buildSegmentBlock(taSegment);
 
   const avatarBlock = (voiceDescription || avatarDescription) ? `
 АВАТАР И ГОЛОС (адаптируй сценарий и стиль речи под этого ведущего):
@@ -61,7 +66,7 @@ ${voiceDescription ? `- Голос / манера речи: ${voiceDescription}`
   return `Разверни идею рилса в готовый сценарий и текст для озвучки аватаром HeyGen.
 
 Компания: ${companyName}
-${smmBlock}${brandBlock}${avatarBlock}
+${smmBlock}${segmentBlock}${brandBlock}${avatarBlock}
 ИДЕЯ:
 - Контент-столп: ${idea.pillar}
 - Крюк: ${idea.hook}
@@ -100,6 +105,7 @@ export async function POST(req: Request) {
     const idea: ContentReelIdea = body.idea;
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    const taSegment: TASegment | null = body.taSegment ?? null;
     const voiceDescription: string = body.voiceDescription ?? "";
     const avatarDescription: string = body.avatarDescription ?? "";
     const userPrompt: string = body.userPrompt ?? "";
@@ -125,7 +131,7 @@ export async function POST(req: Request) {
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt.trim()
               ? (buildBrandBookBlock(brandBook) ? `${userPrompt.trim()}\n${buildBrandBookBlock(brandBook)}` : userPrompt.trim())
-              : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook) },
+              : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook, taSegment) },
         ],
         temperature: 0.9,
         max_tokens: 4096,
