@@ -92,7 +92,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e5e7eb;">
         <p style="margin:0 0 10px;font-size:13.5px;font-weight:700;color:#111827;">${et.upsellTitle}</p>
         <p style="margin:0 0 6px;font-size:13px;color:#4b5563;line-height:1.6;">
-          <a href="${kpShareUrl(r.share_token) ?? "https://marketradar24.ru"}" style="color:#2a78d6;text-decoration:none;">${et.upsellAnalysis}</a>
+          <a href="https://marketradar24.ru" style="color:#2a78d6;text-decoration:none;">${et.upsellAnalysis}</a>
         </p>
         <p style="margin:0;font-size:13px;color:#4b5563;line-height:1.6;">
           <a href="https://marketradar24.ru/seo-geo" style="color:#2a78d6;text-decoration:none;">${et.upsellSeoGeo}</a>

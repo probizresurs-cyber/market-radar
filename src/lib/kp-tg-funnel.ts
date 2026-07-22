@@ -156,10 +156,15 @@ const T: Record<KpTgLocale, {
 function funnelButtons(ctx: KpFunnelCtx): TgButton[][] {
   const t = T[ctx.locale];
   const rows: TgButton[][] = [];
-  if (ctx.siteReadyUrl) rows.push([{ text: t.btnOpenSite, url: ctx.siteReadyUrl }]);
-  if (ctx.kpUrl) rows.push([{ text: ctx.siteReadyUrl ? t.btnFullAnalysis : t.btnOpenKp, url: ctx.kpUrl }]);
-  // SEO/GEO — отдельный продукт со своим тарифом, ведёт на страницу услуги.
-  if (ctx.siteReadyUrl) rows.push([{ text: t.btnSeoGeo, url: `${SITE}/seo-geo` }]);
+  if (ctx.siteReadyUrl) {
+    rows.push([{ text: t.btnOpenSite, url: ctx.siteReadyUrl }]);
+    // Два следующих продукта, каждый со своим тарифом: полный анализ ведёт
+    // на платформу MarketRadar (сам продукт), SEO/GEO — на страницу услуги.
+    rows.push([{ text: t.btnFullAnalysis, url: SITE }]);
+    rows.push([{ text: t.btnSeoGeo, url: `${SITE}/seo-geo` }]);
+  } else if (ctx.kpUrl) {
+    rows.push([{ text: t.btnOpenKp, url: ctx.kpUrl }]);
+  }
   return rows;
 }
 

@@ -132,11 +132,9 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const searchParams = useSearchParams();
   const locale: Locale = searchParams.get("locale") === "de" ? "de" : "ru";
-  // Токен КП (если ссылка пришла из письма/TG/КП) — карточка «Полный анализ»
-  // ведёт обратно в интерактивный анализ клиента, а не на общий сайт.
-  const kpToken = searchParams.get("kp");
-  const fullAnalysisUrl = kpToken && /^[A-Za-z0-9_-]{8,64}$/.test(kpToken)
-    ? `/kp-share/${kpToken}` : "https://marketradar24.ru";
+  // «Полный анализ» ведёт на платформу MarketRadar (сам продукт полного
+  // анализа), а не обратно в КП — КП клиент уже видел.
+  const fullAnalysisUrl = "https://marketradar24.ru";
   const t = T[locale];
 
   const [state, setState] = useState<{ status: "loading" | "ok" | "error"; data?: RebuildResult; error?: string }>({ status: "loading" });
