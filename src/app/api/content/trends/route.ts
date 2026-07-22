@@ -29,6 +29,16 @@ interface TrendItem {
   source: string;
   publishedAt: string;
   description?: string;
+  /**
+   * 0-100, ранг виральности ВНУТРИ своего источника (соцсети уже отсортированы
+   * по вовлечённости: Reddit по score, VK по engagement, YouTube по просмотрам,
+   * TikTok/Instagram по лайкам). Кросс-платформенные сырые метрики
+   * несравнимы (1000 лайков VK ≠ 1000 просмотров YouTube), поэтому ранг.
+   * У новостей/блогов метрик нет — поле отсутствует.
+   */
+  virality?: number;
+  /** Запрос, по которому найден элемент — отличен от основного при поиске по смежным нишам. */
+  matchedQuery?: string;
 }
 
 const UA =
@@ -502,6 +512,44 @@ const SOURCE_FETCHERS: Record<string, (q: string) => Promise<TrendItem[]>> = {
   instagram: fetchInstagram,
 };
 
+// Источники, чьи фетчеры возвращают элементы, отсортированные по вовлечённости —
+// только для них можно честно посчитать ранг виральности.
+const ENGAGEMENT_SORTED = new Set(["reddit", "reddit_ru", "youtube", "vk", "tiktok", "instagram"]);
+
+/**
+ * Смежные ниши: одна быстрая AI-подсказка «по каким ещё запросам искать» —
+ * закрывает обещание «виральный контент в вашей И СМЕЖНЫХ нишах» (раньше
+ * поиск шёл только по одной строке пользователя). До 3 запросов, при любой
+ * ошибке тихо возвращаем пусто — основной поиск не страдает.
+ */
+async function suggestAdjacentQueries(query: string): Promise<string[]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return [];
+  try {
+    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{
+          role: "user",
+          content: `Ниша/запрос: «${query}». Назови 3 СМЕЖНЫЕ ниши/темы, где живёт та же аудитория и виральный контент переносится (не синонимы запроса!). Верни СТРОГО JSON: {"queries":["...","...","..."]} — каждый запрос 1-4 слова, на языке исходного запроса.`,
+        }],
+        temperature: 0.7,
+        max_tokens: 150,
+        response_format: { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as { queries?: string[] };
+    return (parsed.queries ?? []).filter(q => typeof q === "string" && q.trim() && q.length <= 60).slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(req: Request) {
   const session = await getSessionUser();
   if (!session) {
@@ -514,6 +562,8 @@ export async function POST(req: Request) {
     const requestedSources: string[] = Array.isArray(body.sources) && body.sources.length > 0
       ? body.sources
       : ["yandex_news", "habr", "vc"];
+    const expandNiches: boolean = body.expandNiches === true;
+    const sortMode: "date" | "viral" = body.sort === "viral" ? "viral" : "date";
 
     if (!query) {
       return NextResponse.json({ ok: false, error: "query required" }, { status: 400 });
@@ -523,20 +573,38 @@ export async function POST(req: Request) {
     }
 
     const valid = requestedSources.filter(s => s in SOURCE_FETCHERS);
-    // Параллельно собираем + считаем стату по каждому источнику отдельно.
-    // Нужно чтобы UI понимал «почему TikTok 0» (не настроен RAPIDAPI_KEY,
-    // или просто нечего нашли).
-    const perSourceResults = await Promise.all(
-      valid.map(async s => {
+
+    const adjacentQueries = expandNiches ? await suggestAdjacentQueries(query) : [];
+    const allQueries = [query, ...adjacentQueries];
+
+    // Параллельно собираем ВСЕ пары источник×запрос + считаем стату по каждому
+    // источнику отдельно (по основному запросу) — чтобы UI понимал «почему
+    // TikTok 0» (не настроен RAPIDAPI_KEY, или просто ничего не нашли).
+    const perFetchResults = await Promise.all(
+      valid.flatMap(s => allQueries.map(async (q, qi) => {
         try {
-          const items = await SOURCE_FETCHERS[s](query);
-          return { source: s, items, error: null as string | null };
+          const items = await SOURCE_FETCHERS[s](q);
+          return { source: s, query: q, isMain: qi === 0, items, error: null as string | null };
         } catch (e) {
-          return { source: s, items: [], error: e instanceof Error ? e.message : "unknown" };
+          return { source: s, query: q, isMain: qi === 0, items: [] as TrendItem[], error: e instanceof Error ? e.message : "unknown" };
         }
-      })
+      }))
     );
-    const allItems = perSourceResults.flatMap(r => r.items);
+    const perSourceResults = valid.map(s => {
+      const main = perFetchResults.find(r => r.source === s && r.isMain)!;
+      return { source: s, items: main.items, error: main.error };
+    });
+
+    // Ранг виральности внутри каждой выборки источник×запрос (фетчеры соцсетей
+    // возвращают элементы уже отсортированными по вовлечённости).
+    const allItems = perFetchResults.flatMap(r => {
+      const ranked = ENGAGEMENT_SORTED.has(r.source);
+      return r.items.map((item, idx) => ({
+        ...item,
+        matchedQuery: r.isMain ? undefined : r.query,
+        virality: ranked && r.items.length > 0 ? Math.round(100 * (1 - idx / r.items.length)) : undefined,
+      }));
+    });
 
     // Маркеры «не настроен ключ»
     const SOURCE_NEEDS_KEY: Record<string, string> = {
@@ -566,14 +634,26 @@ export async function POST(req: Request) {
       deduped.push(item);
     }
 
-    // Sort by date (newest first)
-    deduped.sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
+    // Сортировка: "viral" — сначала элементы с рангом виральности (по убыванию),
+    // затем без метрик по дате; "date" — прежнее поведение, только по дате.
+    if (sortMode === "viral") {
+      deduped.sort((a, b) => {
+        const av = a.virality ?? -1;
+        const bv = b.virality ?? -1;
+        if (av !== bv) return bv - av;
+        return +new Date(b.publishedAt) - +new Date(a.publishedAt);
+      });
+    } else {
+      deduped.sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
+    }
 
     const result = {
       query,
+      adjacentQueries,
+      sort: sortMode,
       sources: valid,
       total: deduped.length,
-      items: deduped.slice(0, 50),
+      items: deduped.slice(0, 60),
       sourceStats,
     };
 

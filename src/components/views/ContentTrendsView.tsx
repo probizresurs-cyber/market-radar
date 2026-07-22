@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { TrendingUp, Search, RefreshCw, ExternalLink, Calendar, Loader2, Sparkles, Copy, Check, FileText, Film, Image, Layout, Wand2, Link2, Upload, Clapperboard, Send } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 import type { SMMResult } from "@/lib/smm-types";
-import type { BrandBook, ReelBreakdown, GeneratedReel } from "@/lib/content-types";
+import type { BrandBook, ReelBreakdown, GeneratedReel, GeneratedPost } from "@/lib/content-types";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
 interface TrendItem {
@@ -13,6 +13,10 @@ interface TrendItem {
   source: string;
   publishedAt: string;
   description?: string;
+  /** 0-100 — ранг виральности внутри своего источника (только соцсети). */
+  virality?: number;
+  /** Смежная ниша, по которой найден элемент (пусто = основной запрос). */
+  matchedQuery?: string;
 }
 
 export type TrendIdeaFormat = "пост" | "карусель" | "рилс" | "сторис";
@@ -207,15 +211,17 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   brandBook?: BrandBook | null;
   /** «Разбор ролика» — готовый адаптированный сценарий отправляется прямо в библиотеку рилсов. */
   onSendReelToLibrary?: (reel: GeneratedReel) => void;
+  /** «Рерайт текста» — переписанный чужой текст отправляется в библиотеку постов. */
+  onSendPostToLibrary?: (post: GeneratedPost) => void;
 }) {
-  const [mode, setMode] = useState<"query" | "breakdown">("query");
+  const [mode, setMode] = useState<"query" | "breakdown" | "rewrite">("query");
   const defaultQuery = analysis?.company?.description?.split("\n")[0]?.slice(0, 80) || analysis?.company?.name || "";
   // Persist всё нужное состояние под mr_trends_<uid>: query, sources,
   // result (тренды), ideas (AI-рекомендации), filter. Иначе после смены
   // вкладки и возврата всё пересоздаётся с нуля.
   const storageKey = `mr_trends_${userId || "anon"}`;
   type SourceStat = { source: string; count: number; status: string; note?: string };
-  type ResultShape = { query: string; total: number; items: TrendItem[]; sourceStats?: SourceStat[] };
+  type ResultShape = { query: string; total: number; items: TrendItem[]; sourceStats?: SourceStat[]; adjacentQueries?: string[] };
   type TrendsPersist = {
     query: string;
     sources: string[];
@@ -238,6 +244,9 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
   const [err, setErr] = useState("");
   const [result, setResult] = useState<ResultShape | null>(init.result ?? null);
   const [filter, setFilter] = useState<string>(init.filter ?? "all");
+  // Поиск и по смежным нишам (AI подберёт до 3 соседних тем) + сортировка.
+  const [expandNiches, setExpandNiches] = useState(false);
+  const [sortMode, setSortMode] = useState<"viral" | "date">("viral");
 
   // Trend analysis state
   const [analyzing, setAnalyzing] = useState(false);
@@ -298,7 +307,7 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
       const res = await fetch("/api/content/trends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim(), sources }),
+        body: JSON.stringify({ query: query.trim(), sources, expandNiches, sort: sortMode }),
       });
       const data = await jsonOrThrow(res);
       if (data.ok) setResult(data.result);
@@ -372,6 +381,17 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
         >
           <Clapperboard size={14} /> Разбор ролика
         </button>
+        <button
+          onClick={() => setMode("rewrite")}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+            border: `1px solid ${mode === "rewrite" ? "var(--primary)" : "var(--border)"}`, cursor: "pointer",
+            background: mode === "rewrite" ? "var(--primary)" : "var(--card)",
+            color: mode === "rewrite" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+          }}
+        >
+          <Wand2 size={14} /> Рерайт текста
+        </button>
       </div>
 
       {mode === "breakdown" && (
@@ -381,6 +401,16 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
           smmAnalysis={smmAnalysis ?? null}
           brandBook={brandBook ?? null}
           onSendReelToLibrary={onSendReelToLibrary}
+        />
+      )}
+
+      {mode === "rewrite" && (
+        <RewritePanel
+          companyName={analysis?.company?.name ?? ""}
+          niche={analysis?.company?.description ?? ""}
+          smmAnalysis={smmAnalysis ?? null}
+          brandBook={brandBook ?? null}
+          onSendPostToLibrary={onSendPostToLibrary}
         />
       )}
 
@@ -431,6 +461,22 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
             </div>
           </div>
         ))}
+
+        {/* Смежные ниши + сортировка */}
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, cursor: "pointer", color: "var(--foreground)" }}>
+            <input type="checkbox" checked={expandNiches} onChange={e => setExpandNiches(e.target.checked)} />
+            + смежные ниши (AI подберёт до 3 соседних тем)
+          </label>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--muted-foreground)" }}>
+            Сначала:
+            <select value={sortMode} onChange={e => setSortMode(e.target.value as "viral" | "date")}
+              style={{ height: 28, padding: "0 8px", fontSize: 12.5, borderRadius: 7, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer" }}>
+              <option value="viral">виральные</option>
+              <option value="date">свежие</option>
+            </select>
+          </label>
+        </div>
 
         {err && <div style={{ color: "var(--destructive)", fontSize: 12, marginTop: 10 }}>{err}</div>}
       </div>
@@ -582,10 +628,22 @@ export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreate
                           {item.description.slice(0, 180)}{item.description.length > 180 ? "…" : ""}
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--primary)15", color: "var(--primary)" }}>
                           {item.source}
                         </span>
+                        {typeof item.virality === "number" && item.virality >= 60 && (
+                          <span title="Ранг виральности внутри источника"
+                            style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: "color-mix(in srgb, #f59e0b 14%, transparent)", color: "#d97706" }}>
+                            🔥 {item.virality}
+                          </span>
+                        )}
+                        {item.matchedQuery && (
+                          <span title="Найдено по смежной нише"
+                            style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "color-mix(in srgb, #8b5cf6 12%, transparent)", color: "#7c3aed" }}>
+                            смежная: {item.matchedQuery}
+                          </span>
+                        )}
                         <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--muted-foreground)" }}>
                           <Calendar size={10} /> {timeAgo(item.publishedAt)}
                         </span>
@@ -871,6 +929,92 @@ function ReelBreakdownPanel({ companyName, niche, smmAnalysis, brandBook, onSend
               style={{ width: "100%" }}
             >
               {sent ? <><Check size={14} /> Отправлено в «Готовые рилсы»</> : <><Send size={14} /> Отправить в библиотеку рилсов</>}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Рерайт чужого текста под свою компанию ──────────────────────────────────
+// Обещание «адаптировать и переписывать сценарии под вашу компанию» для
+// текстов: вставил чужой пост/сценарий → та же механика, своё содержание,
+// свой бренд. Результат уходит в библиотеку постов.
+function RewritePanel({ companyName, niche, smmAnalysis, brandBook, onSendPostToLibrary }: {
+  companyName: string;
+  niche: string;
+  smmAnalysis: SMMResult | null;
+  brandBook: BrandBook | null;
+  onSendPostToLibrary?: (post: GeneratedPost) => void;
+}) {
+  const [sourceText, setSourceText] = useState("");
+  const [platform, setPlatform] = useState("instagram");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<GeneratedPost | null>(null);
+  const [mechanicsNote, setMechanicsNote] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const run = async () => {
+    setBusy(true); setError(""); setResult(null); setSent(false);
+    try {
+      const res = await fetch("/api/content/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceText, companyName, niche, platform, smmAnalysis, brandBook }),
+      });
+      const data = await jsonOrThrow(res);
+      if (!data.ok) { setError(data.error || "Ошибка"); return; }
+      setResult(data.data as GeneratedPost);
+      setMechanicsNote(data.mechanicsNote || "");
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="ds-card" style={{ marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 12px", lineHeight: 1.5 }}>
+        Вставьте чужой работающий текст (пост конкурента, сценарий, статью) — перепишем под вашу компанию:
+        та же механика крючка и структуры, но своё содержание, ваш бренд и тон голоса. Чужие факты и цифры не переносятся.
+      </p>
+      <textarea
+        value={sourceText}
+        onChange={e => setSourceText(e.target.value)}
+        placeholder="Текст оригинала (от 50 символов)…"
+        rows={7}
+        className="ds-input"
+        style={{ width: "100%", resize: "vertical", marginBottom: 10, fontSize: 13.5, lineHeight: 1.5, boxSizing: "border-box" }}
+      />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <select value={platform} onChange={e => setPlatform(e.target.value)}
+          style={{ height: 36, padding: "0 10px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer" }}>
+          <option value="instagram">Instagram</option>
+          <option value="vk">ВКонтакте</option>
+          <option value="telegram">Telegram</option>
+        </select>
+        <button className="ds-btn ds-btn-primary" onClick={run} disabled={busy || sourceText.trim().length < 50}>
+          {busy ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Переписываем…</> : <><Wand2 size={14} /> Переписать под мою компанию</>}
+        </button>
+      </div>
+      {error && <div style={{ color: "var(--destructive)", fontSize: 12.5, marginTop: 10 }}>{error}</div>}
+
+      {result && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+          {mechanicsNote && (
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10, fontStyle: "italic" }}>
+              Механика оригинала: {mechanicsNote}
+            </div>
+          )}
+          <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 6 }}>{result.hook}</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 8 }}>{result.body}</div>
+          {result.hashtags.length > 0 && (
+            <div style={{ fontSize: 12.5, color: "var(--primary)", marginBottom: 12 }}>{result.hashtags.join(" ")}</div>
+          )}
+          {onSendPostToLibrary && (
+            <button className="ds-btn ds-btn-primary" disabled={sent}
+              onClick={() => { onSendPostToLibrary(result); setSent(true); }}>
+              {sent ? <><Check size={14} /> В библиотеке постов</> : <><Send size={14} /> В библиотеку постов</>}
             </button>
           )}
         </div>

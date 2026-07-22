@@ -2443,6 +2443,21 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     });
   }, [toast]);
 
+  // «Рерайт текста» (Тренды) — переписанный чужой текст в библиотеку постов.
+  const handleSendPostToLibrary = React.useCallback((post: GeneratedPost) => {
+    setGeneratedPosts(prev => {
+      const next = [post, ...prev];
+      persistContent(contentPlanRef.current, next, generatedReelsRef.current);
+      return next;
+    });
+    toast({
+      kind: "success",
+      title: "Пост сохранён",
+      description: "Добавлен в «Готовые посты» — можно доработать и опубликовать.",
+      action: { label: "Открыть", onClick: () => setActiveNav("content-posts") },
+    });
+  }, [toast]);
+
   const handleDeletePost = (postId: string) => {
     setGeneratedPosts(prev => {
       const next = prev.filter(p => p.id !== postId);
@@ -3004,7 +3019,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         {(activeNav === "content-trends" || activeNav === "content-plan" || activeNav === "content-calendar" || activeNav === "content-posts" || activeNav === "content-reels" || activeNav === "content-stories" || activeNav === "content-carousels" || activeNav === "content-analytics" || activeNav === "content-roi") && featureOn("content-factory") && !featureOn(activeNav) && (
           <ComingSoonView c={c} featureId={activeNav} title={features.labels[activeNav] ?? "Модуль"} description={features.descriptions[activeNav]} userEmail={currentUser?.email} />
         )}
-        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} userId={currentUser?.id} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} smmAnalysis={smmAnalysis} brandBook={brandBook} onSendReelToLibrary={handleSendReelToLibrary} />}
+        {activeNav === "content-trends" && featureOn("content-factory") && featureOn("content-trends") && <ContentTrendsView analysis={myCompany ?? null} userId={currentUser?.id} onCreateFromIdea={handleCreateFromTrendIdea} onCreatePackage={handleCreatePackageFromTrend} smmAnalysis={smmAnalysis} brandBook={brandBook} onSendReelToLibrary={handleSendReelToLibrary} onSendPostToLibrary={handleSendPostToLibrary} />}
         {activeNav === "content-plan" && featureOn("content-factory") && featureOn("content-plan") && (
           contentPlan
             ? <ContentPlanView
