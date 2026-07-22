@@ -193,7 +193,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
             type="password" value={password} onChange={e => setPassword(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") login(); }}
             placeholder={t.passwordPlaceholder}
-            style={{ width: "100%", height: 44, padding: "0 14px", fontSize: 15, border: "1px solid #d1d5db", borderRadius: 10, marginBottom: 10 }}
+            style={{ width: "100%", height: 44, padding: "0 14px", fontSize: 16, border: "1px solid #d1d5db", borderRadius: 10, marginBottom: 10, boxSizing: "border-box" }}
           />
           {authError && <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 10 }}>{authError}</div>}
           <button onClick={login} style={{ width: "100%", height: 44, fontSize: 15, fontWeight: 700, borderRadius: 10, border: "none", background: "#2a78d6", color: "#fff", cursor: "pointer" }}>
@@ -213,11 +213,24 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f7f7f8", fontFamily: "'Inter',system-ui" }}>
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 20px 64px" }}>
-        <h1 style={{ fontSize: 26, fontWeight: 850, margin: "0 0 6px" }}>{t.title}</h1>
+      {/* Мобильная адаптивка: консоль открывают и с телефона (в т.ч. из
+          Telegram-webview, у которого плавающая шапка поверх контента) —
+          отсюда запас сверху, скроллящиеся табы и стек карточек. */}
+      <style>{`
+        .kpm-wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+        .kpm-tabs { display: flex; gap: 4px; margin-bottom: 18px; padding: 4px; border-radius: 12px; background: #eef0f3; width: fit-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .kpm-tabs::-webkit-scrollbar { display: none; }
+        .kpm-tabs button { white-space: nowrap; flex-shrink: 0; }
+        @media (max-width: 640px) {
+          .kpm-wrap { padding: 52px 14px 48px; }
+          .kpm-title { font-size: 21px !important; }
+        }
+      `}</style>
+      <div className="kpm-wrap">
+        <h1 className="kpm-title" style={{ fontSize: 26, fontWeight: 850, margin: "0 0 6px" }}>{t.title}</h1>
         <p style={{ fontSize: 14, color: "#6b7280", margin: "0 0 20px", lineHeight: 1.5 }}>{t.subtitle}</p>
 
-        <div style={{ display: "inline-flex", gap: 4, marginBottom: 18, padding: 4, borderRadius: 12, background: "#eef0f3" }}>
+        <div className="kpm-tabs">
           {TABS.map(x => (
             <button key={x.k} onClick={() => setTab(x.k)}
               style={{ height: 36, padding: "0 16px", fontSize: 13.5, fontWeight: 650, borderRadius: 9, border: "none", cursor: "pointer",
@@ -232,10 +245,12 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
         {tab === "create" && (
           <div style={{ ...card, padding: 20 }}>
             <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 10 }}>{t.createHint}</div>
+            {/* rows=3 и fontSize 16: компактнее на телефоне, и iOS не зумит
+                страницу при фокусе (зумит только поля с шрифтом <16px). */}
             <textarea
               value={urls} onChange={e => setUrls(e.target.value)} placeholder={t.urlsPlaceholder}
-              rows={5}
-              style={{ width: "100%", padding: "12px 14px", fontSize: 14, border: "1px solid #d1d5db", borderRadius: 10, fontFamily: "ui-monospace,monospace", resize: "vertical", marginBottom: 12 }}
+              rows={3}
+              style={{ width: "100%", padding: "10px 14px", fontSize: 16, border: "1px solid #d1d5db", borderRadius: 10, fontFamily: "ui-monospace,monospace", resize: "vertical", marginBottom: 12, boxSizing: "border-box" }}
             />
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <button onClick={submit} disabled={submitting}
@@ -257,9 +272,11 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
             {items.map(item => (
               <div key={item.id} style={{ ...card, padding: "14px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>{item.company_name || item.url}</div>
-                    <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>
+                  {/* flex-basis 240px: на телефоне блок занимает всю строку, а
+                      бейдж с кнопками уходит вниз — вместо названия «в столбик». */}
+                  <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, overflowWrap: "anywhere" }}>{item.company_name || item.url}</div>
+                    <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2, overflowWrap: "anywhere" }}>
                       {item.url}
                       {formatDuration(item.started_at, item.completed_at, locale) && (
                         <> · {t.generationTime}: {formatDuration(item.started_at, item.completed_at, locale)}</>
@@ -289,7 +306,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                 {item.status === "done" && item.share_token && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
                     <span style={{ color: "#6b7280" }}>{t.shareLabel}:</span>
-                    <code style={{ fontSize: 12.5 }}>/kp-share/{item.share_token}</code>
+                    <code style={{ fontSize: 12.5, overflowWrap: "anywhere", minWidth: 0 }}>/kp-share/{item.share_token}</code>
                     <span style={{ color: "#6b7280" }}>· {t.passwordLabel}:</span>
                     <b style={{ fontFamily: "ui-monospace,monospace" }}>{item.share_password}</b>
                     <button onClick={() => copyPassword(item)}
@@ -314,10 +331,10 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
               {reviewItems.map(item => (
                 <div key={item.id} style={{ ...card, padding: "14px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{item.company_name || item.url}</div>
-                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>{item.url}</div>
-                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 4 }}>
+                    <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, overflowWrap: "anywhere" }}>{item.company_name || item.url}</div>
+                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2, overflowWrap: "anywhere" }}>{item.url}</div>
+                      <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 4, overflowWrap: "anywhere" }}>
                         {t.reviewClientEmail}: <b style={{ color: "#334155" }}>{item.client_email || t.reviewNoEmail}</b>
                       </div>
                     </div>
