@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, initDb } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { notifyKpManager } from "@/lib/kp-tg-funnel";
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 
@@ -13,6 +14,7 @@ interface Row {
   status: string; company_name: string | null; share_password: string | null;
   bundle: PilotBundle | null; company: AnalysisResult | null; locale: string; url: string;
   rebuild_status: string | null; rebuild_id: string | null; client_email: string | null; client_tg_code: string | null;
+  views: number;
 }
 
 const TG_BOT_USERNAME = "market_radar1_bot";
@@ -57,6 +59,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
 
   // Счётчик просмотров (best-effort).
   query("UPDATE kp_generations SET views = views + 1 WHERE share_token = $1", [token]).catch(() => {});
+  // Первое открытие КП — самый горячий момент для звонка: сообщаем менеджеру.
+  if (r.views === 0) {
+    void notifyKpManager(
+      `👀 <b>Клиент впервые открыл КП</b>\n` +
+      `Компания: ${(r.company_name || r.url).slice(0, 100)}\n` +
+      `${r.url}`,
+    );
+  }
 
   return NextResponse.json({
     ok: true,

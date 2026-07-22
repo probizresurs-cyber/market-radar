@@ -204,6 +204,18 @@ export async function sendKpInboundAck(chatId: number | string, ctx: KpFunnelCtx
 }
 
 /**
+ * Служебное уведомление менеджеру о горячем событии воронки (клиент открыл
+ * КП, новая заявка на пересборку, ошибка пересборки, новая заявка на
+ * апселл). Best-effort: без KP_MANAGER_TG_CHAT_ID — no-op, основной поток
+ * никогда не падает из-за уведомления.
+ */
+export async function notifyKpManager(text: string): Promise<void> {
+  const managerChat = process.env.KP_MANAGER_TG_CHAT_ID;
+  if (!managerChat) return;
+  try { await sendKpTgMessage(managerChat, text); } catch { /* не роняем поток */ }
+}
+
+/**
  * Пересылка сообщения КП-клиента менеджеру (личка/группа менеджеров).
  * Работает, только если задан env KP_MANAGER_TG_CHAT_ID — иначе no-op.
  */

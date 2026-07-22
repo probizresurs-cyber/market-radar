@@ -11,6 +11,8 @@ export interface KpStrings {
   historyEmpty: string; refresh: string;
   statusQueued: string; statusRunning: string; statusDone: string; statusError: string;
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
+  sendEmailPlaceholder: string; sendBtn: string; sending: string; sendDone: string; sendError: string;
+  sentAtLabel: string; viewsLabel: string; notOpenedYet: string; phoneLabel: string;
   delete: string; deleting: string; deleteConfirm: string;
   generationTime: string;
   reviewEmpty: string;
@@ -46,6 +48,12 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     open: "Открыть КП",
     shareLabel: "Ссылка для клиента",
     passwordLabel: "Пароль",
+    sendEmailPlaceholder: "email клиента",
+    sendBtn: "Отправить на email", sending: "Отправляем…",
+    sendDone: "Отправлено — ссылка и пароль ушли клиенту",
+    sendError: "Не удалось отправить письмо",
+    sentAtLabel: "Отправлено", viewsLabel: "просмотров", notOpenedYet: "ещё не открывал",
+    phoneLabel: "Телефон",
     copy: "Копировать",
     copied: "Скопировано",
     delete: "Удалить",
@@ -92,6 +100,12 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     open: "Angebot öffnen",
     shareLabel: "Link für den Kunden",
     passwordLabel: "Passwort",
+    sendEmailPlaceholder: "Kunden-E-Mail",
+    sendBtn: "Per E-Mail senden", sending: "Wird gesendet…",
+    sendDone: "Gesendet — Link und Passwort sind beim Kunden",
+    sendError: "E-Mail konnte nicht gesendet werden",
+    sentAtLabel: "Gesendet", viewsLabel: "Aufrufe", notOpenedYet: "noch nicht geöffnet",
+    phoneLabel: "Telefon",
     copy: "Kopieren",
     copied: "Kopiert",
     delete: "Löschen",

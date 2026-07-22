@@ -75,7 +75,7 @@ interface Props {
    */
   astroRebuild?: {
     status: "idle" | "running" | "pending_review" | "approved" | "sent" | "error" | "rejected";
-    onRequest: (email: string) => void;
+    onRequest: (email: string, phone?: string) => void;
     submitting?: boolean;
     error?: string | null;
     clientEmail?: string | null;
@@ -2178,6 +2178,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
   const t = KP_PROPOSAL_I18N[locale];
   const { status, onRequest, submitting = false, error = null, clientEmail = null, tgConnectUrl = null, siteReadyUrl = null } = astroRebuild;
   const [email, setEmail] = useState(clientEmail ?? "");
+  const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState(false);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -2257,8 +2258,18 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
             <div style={{ fontSize: 12, color: "var(--destructive)", marginTop: 6 }}>{t.astroEmailInvalid}</div>
           )}
         </div>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder={t.astroPhonePlaceholder}
+          style={{
+            flex: "1 1 180px", minWidth: 160, height: 46, padding: "0 14px", fontSize: 14.5,
+            border: "1px solid var(--border)", borderRadius: 10, background: "var(--background)", color: "var(--foreground)",
+          }}
+        />
         <button
-          onClick={() => { setTouched(true); if (emailValid) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim()); } }}
+          onClick={() => { setTouched(true); if (emailValid) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim(), phone.trim() || undefined); } }}
           disabled={submitting}
           className="ds-btn ds-btn-primary"
           style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}

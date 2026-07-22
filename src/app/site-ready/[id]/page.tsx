@@ -57,6 +57,8 @@ const T: Record<Locale, {
   productAnalysisTitle: string; productAnalysisBody: string;
   productSeoGeoTitle: string; productSeoGeoBody: string;
   productBtn: string;
+  leadBtn: string; leadContactPlaceholder: string; leadSubmit: string; leadSubmitting: string;
+  leadDone: string; leadError: string;
 }> = {
   ru: {
     loading: "Загружаем…", notFound: "Ссылка недоступна", notFoundBody: "Проверьте ссылку или напишите нам.",
@@ -74,6 +76,9 @@ const T: Record<Locale, {
     productSeoGeoTitle: `SEO/GEO-продвижение — ${KP_UPSELL_PRICE.ru.seoGeo}`,
     productSeoGeoBody: "Видимость в поиске (Яндекс, Google) и в ответах ИИ (ChatGPT, Алиса, Gemini), куда всё чаще уходят клиенты.",
     productBtn: "Подробнее",
+    leadBtn: "Оставить заявку", leadContactPlaceholder: "Email или телефон",
+    leadSubmit: "Отправить", leadSubmitting: "Отправляем…",
+    leadDone: "Заявка принята — свяжемся сегодня", leadError: "Не получилось — попробуйте ещё раз",
   },
   de: {
     loading: "Wird geladen…", notFound: "Link nicht verfügbar", notFoundBody: "Prüfen Sie den Link oder schreiben Sie uns.",
@@ -91,6 +96,9 @@ const T: Record<Locale, {
     productSeoGeoTitle: `SEO/GEO — ${KP_UPSELL_PRICE.de.seoGeo}`,
     productSeoGeoBody: "Sichtbarkeit in der Suche (Google) und in KI-Antworten (ChatGPT, Gemini), wohin immer mehr Kunden abwandern.",
     productBtn: "Mehr erfahren",
+    leadBtn: "Anfrage senden", leadContactPlaceholder: "E-Mail oder Telefon",
+    leadSubmit: "Senden", leadSubmitting: "Wird gesendet…",
+    leadDone: "Anfrage erhalten — wir melden uns heute", leadError: "Fehlgeschlagen — bitte erneut versuchen",
   },
 };
 
@@ -140,6 +148,34 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
   const [state, setState] = useState<{ status: "loading" | "ok" | "error"; data?: RebuildResult; error?: string }>({ status: "loading" });
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  // Заявка в 1 клик на апселл-продукты (полный анализ / SEO-GEO).
+  const [leadOpenFor, setLeadOpenFor] = useState<string | null>(null);
+  const [leadContact, setLeadContact] = useState("");
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadDoneFor, setLeadDoneFor] = useState<Set<string>>(new Set());
+  const [leadError, setLeadError] = useState(false);
+
+  const submitLead = async (intent: string) => {
+    if (leadContact.trim().length < 5 || !state.data) return;
+    setLeadBusy(true); setLeadError(false);
+    try {
+      const r = await fetch("/api/analysis-request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: state.data.source.title || state.data.source.url,
+          website: state.data.source.url,
+          contact: leadContact.trim(),
+          intent,
+          source_path: `/site-ready/${id}`,
+        }),
+      });
+      const j = await r.json().catch(() => ({ ok: false }));
+      if (!j.ok) { setLeadError(true); return; }
+      setLeadDoneFor(prev => new Set(prev).add(intent));
+      setLeadOpenFor(null);
+    } catch { setLeadError(true); }
+    finally { setLeadBusy(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -283,18 +319,45 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
           <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 18px", lineHeight: 1.5 }}>{t.nextSubtitle}</p>
           <div style={{ display: "grid", gap: 12 }}>
             {[
-              { icon: <BarChart3 size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productAnalysisTitle, body: t.productAnalysisBody, href: fullAnalysisUrl },
-              { icon: <Rocket size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productSeoGeoTitle, body: t.productSeoGeoBody, href: "https://marketradar24.ru/seo-geo" },
-            ].map((p, i) => (
-              <div key={i} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+              { intent: "full", icon: <BarChart3 size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productAnalysisTitle, body: t.productAnalysisBody, href: fullAnalysisUrl },
+              { intent: "seo-geo", icon: <Rocket size={18} style={{ color: "#2a78d6", flexShrink: 0, marginTop: 1 }} />, title: t.productSeoGeoTitle, body: t.productSeoGeoBody, href: "https://marketradar24.ru/seo-geo" },
+            ].map((p) => (
+              <div key={p.intent} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 {p.icon}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>{p.title}</div>
                   <div style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5, marginBottom: 10 }}>{p.body}</div>
-                  <a href={p.href} target="_blank" rel="noopener noreferrer"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#2a78d6", textDecoration: "none" }}>
-                    {t.productBtn} <ArrowRight size={14} />
-                  </a>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                    <a href={p.href} target="_blank" rel="noopener noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#2a78d6", textDecoration: "none" }}>
+                      {t.productBtn} <ArrowRight size={14} />
+                    </a>
+                    {leadDoneFor.has(p.intent) ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: "#059669" }}>
+                        <CheckCircle2 size={14} /> {t.leadDone}
+                      </span>
+                    ) : (
+                      <button onClick={() => { setLeadOpenFor(leadOpenFor === p.intent ? null : p.intent); setLeadError(false); }}
+                        style={{ height: 30, padding: "0 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "1px solid #2a78d6", background: "#fff", color: "#2a78d6", cursor: "pointer" }}>
+                        {t.leadBtn}
+                      </button>
+                    )}
+                  </div>
+                  {leadOpenFor === p.intent && !leadDoneFor.has(p.intent) && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <input
+                        value={leadContact}
+                        onChange={e => setLeadContact(e.target.value)}
+                        placeholder={t.leadContactPlaceholder}
+                        style={{ height: 36, padding: "0 12px", fontSize: 16, border: "1px solid #d1d5db", borderRadius: 8, flex: "1 1 180px", minWidth: 160, boxSizing: "border-box" }}
+                      />
+                      <button onClick={() => submitLead(p.intent)} disabled={leadBusy || leadContact.trim().length < 5}
+                        style={{ height: 36, padding: "0 16px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "none", background: leadBusy ? "#9ca3af" : "#2a78d6", color: "#fff", cursor: leadBusy ? "default" : "pointer" }}>
+                        {leadBusy ? t.leadSubmitting : t.leadSubmit}
+                      </button>
+                      {leadError && <div style={{ fontSize: 12, color: "#dc2626", alignSelf: "center" }}>{t.leadError}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

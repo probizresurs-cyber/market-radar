@@ -62,7 +62,7 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
   const [tgConnectUrl, setTgConnectUrl] = useState<string | null>(null);
   const [siteReadyUrl, setSiteReadyUrl] = useState<string | null>(null);
 
-  const requestAstroRebuild = async (email: string) => {
+  const requestAstroRebuild = async (email: string, phone?: string) => {
     setAstroSubmitting(true); setAstroError(null);
     // Серверные тексты ошибок (429/400/404/502) всегда по-русски — для DE
     // клиента маппим по статусу через локализованный словарь, а не доверяем j.error.
@@ -70,7 +70,7 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
     try {
       const r = await fetch(`/api/kp-share/${token}/rebuild`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, phone }),
       });
       const j = await r.json().catch(() => ({ ok: false }));
       if (!j.ok) {

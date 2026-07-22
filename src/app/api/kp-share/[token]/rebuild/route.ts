@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { query, initDb } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { runRebuild } from "@/app/api/rebuild-astro/route";
+import { notifyKpManager } from "@/lib/kp-tg-funnel";
 
 // POST /api/kp-share/<token>/rebuild { email } — клиент нажал «Да, интересно»
 // на своей КП-странице и просит собрать новую версию сайта на Astro. Запускает
@@ -20,6 +21,7 @@ const TG_BOT_USERNAME = "market_radar1_bot";
 
 interface Row {
   id: string; url: string; status: string; rebuild_status: string | null; client_tg_code: string | null;
+  company_name: string | null;
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
@@ -34,12 +36,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
 
   const body = await req.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim() : "";
+  // Телефон опционален — но для менеджера это возможность позвонить, а не писать.
+  const phone = typeof body.phone === "string" ? body.phone.trim().slice(0, 30) : "";
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ ok: false, error: "Укажите корректный email" }, { status: 400 });
   }
 
   const rows = await query<Row>(
-    "SELECT id, url, status, rebuild_status, client_tg_code FROM kp_generations WHERE share_token = $1",
+    "SELECT id, url, status, rebuild_status, client_tg_code, company_name FROM kp_generations WHERE share_token = $1",
     [token],
   );
   const r = rows[0];
@@ -60,8 +64,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   }
 
   await query(
-    "UPDATE kp_generations SET rebuild_status = 'running', client_email = $2, client_tg_code = $3, rebuild_error = NULL WHERE id = $1",
-    [r.id, email, tgCode],
+    "UPDATE kp_generations SET rebuild_status = 'running', client_email = $2, client_phone = $4, client_tg_code = $3, rebuild_error = NULL WHERE id = $1",
+    [r.id, email, tgCode, phone || null],
+  );
+
+  // Горячее событие: клиент нажал главный CTA — менеджер должен узнать сразу,
+  // а не когда заглянет в таб «Ревью».
+  const name = r.company_name || r.url;
+  void notifyKpManager(
+    `🔥 <b>Новая заявка на пересборку сайта</b>\n` +
+    `Компания: ${name.slice(0, 100)}\n` +
+    `Email: ${email}${phone ? `\nТелефон: ${phone}` : ""}\n` +
+    `Пересборка запущена — результат появится в табе «Ревью пересборок».`,
   );
 
   try {
@@ -70,12 +84,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
       "UPDATE kp_generations SET rebuild_status = 'pending_review', rebuild_id = $2 WHERE id = $1",
       [r.id, rebuildId],
     );
+    void notifyKpManager(`✅ Пересборка «${name.slice(0, 100)}» готова к ревью — можно одобрять.`);
     return NextResponse.json({ ok: true, status: "pending_review", tgConnectUrl });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ошибка пересборки";
     await query(
       "UPDATE kp_generations SET rebuild_status = 'error', rebuild_error = $2 WHERE id = $1",
       [r.id, msg.slice(0, 400)],
+    );
+    void notifyKpManager(
+      `⚠️ <b>Пересборка упала</b>\nКомпания: ${name.slice(0, 100)}\nОшибка: ${msg.slice(0, 200)}\n` +
+      `Клиент (${email}) увидел «попробуйте позже» — стоит связаться вручную.`,
     );
     return NextResponse.json({ ok: false, error: "Не удалось собрать новую версию сайта. Попробуйте позже." }, { status: 502 });
   }

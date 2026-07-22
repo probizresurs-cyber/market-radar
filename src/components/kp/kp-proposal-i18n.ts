@@ -87,6 +87,7 @@ export interface KpProposalStrings {
   astroEmailPlaceholder: string; astroEmailInvalid: string;
   astroSubmitting: string; astroSubmitBtn: string;
   astroRequestError: string; astroTooManyRequests: string;
+  astroPhonePlaceholder: string;
   tgConnectPrompt: string; tgConnectBtn: string;
   finalCtaAstroTitle: string; finalCtaAstroBody: string; finalCtaAstroBtn: string;
   finalCtaGenericTitle: string; finalCtaGenericBody: string; leaveRequestBtn: string;
@@ -194,6 +195,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroEmailPlaceholder: "you@company.ru", astroEmailInvalid: "Укажите корректный email",
     astroSubmitting: "Отправляем…", astroSubmitBtn: "Да, интересно",
     astroRequestError: "Не получилось отправить запрос — попробуйте позже", astroTooManyRequests: "Слишком много запросов — попробуйте позже",
+    astroPhonePlaceholder: "Телефон (необязательно)",
     tgConnectPrompt: "Не хотите пропустить уведомление? Подключите Telegram — пришлём готовую ссылку туда же.",
     tgConnectBtn: "Подключить Telegram",
     finalCtaAstroTitle: "Готовы посмотреть новую версию сайта?", finalCtaAstroBody: "Один шаг — оставьте email в блоке «Новая версия сайта» выше, и мы соберём рабочую копию с сохранённым дизайном.", finalCtaAstroBtn: "Собрать новую версию сайта",
@@ -301,6 +303,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroEmailPlaceholder: "sie@firma.de", astroEmailInvalid: "Bitte geben Sie eine gültige E-Mail-Adresse an",
     astroSubmitting: "Wird gesendet…", astroSubmitBtn: "Ja, interessant",
     astroRequestError: "Anfrage konnte nicht gesendet werden — bitte später erneut versuchen", astroTooManyRequests: "Zu viele Anfragen — bitte später erneut versuchen",
+    astroPhonePlaceholder: "Telefon (optional)",
     tgConnectPrompt: "Möchten Sie die Benachrichtigung nicht verpassen? Verbinden Sie Telegram — wir senden den fertigen Link auch dorthin.",
     tgConnectBtn: "Telegram verbinden",
     finalCtaAstroTitle: "Bereit, die neue Website-Version zu sehen?", finalCtaAstroBody: "Ein Schritt — hinterlassen Sie Ihre E-Mail im Block „Neue Website-Version“ oben, und wir erstellen eine Arbeitskopie mit erhaltenem Design.", finalCtaAstroBtn: "Neue Website-Version erstellen",

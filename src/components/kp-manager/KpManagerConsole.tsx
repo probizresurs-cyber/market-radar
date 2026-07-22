@@ -14,7 +14,8 @@ import { KP_I18N, type KpLocale } from "@/lib/kp-i18n";
 interface GenItem {
   id: string; url: string; company_name: string | null; status: string; error: string | null;
   share_token: string | null; share_password: string | null; rebuild_status: string | null;
-  rebuild_id: string | null; client_email: string | null;
+  rebuild_id: string | null; client_email: string | null; client_phone: string | null;
+  kp_sent_at: string | null; kp_sent_to: string | null; views: number;
   created_at: string; started_at: string | null; completed_at: string | null;
 }
 
@@ -53,6 +54,27 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<{ id: string; text: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Отправка КП клиенту на email из карточки истории.
+  const [sendEmailById, setSendEmailById] = useState<Record<string, string>>({});
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendNotice, setSendNotice] = useState<{ id: string; text: string; ok: boolean } | null>(null);
+
+  const sendKp = async (item: GenItem) => {
+    const email = (sendEmailById[item.id] ?? "").trim();
+    if (!email) return;
+    setSendingId(item.id); setSendNotice(null);
+    try {
+      const r = await fetch(`/api/kp-generate/${item.id}/send`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const j = await r.json();
+      setSendNotice({ id: item.id, text: j.ok ? t.sendDone : (j.error || t.sendError), ok: !!j.ok });
+      if (j.ok) loadHistory();
+    } catch {
+      setSendNotice({ id: item.id, text: t.sendError, ok: false });
+    } finally { setSendingId(null); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -304,6 +326,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                   </div>
                 </div>
                 {item.status === "done" && item.share_token && (
+                  <>
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
                     <span style={{ color: "#6b7280" }}>{t.shareLabel}:</span>
                     <code style={{ fontSize: 12.5, overflowWrap: "anywhere", minWidth: 0 }}>/kp-share/{item.share_token}</code>
@@ -314,6 +337,32 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                       {copiedId === item.id ? t.copied : t.copy}
                     </button>
                   </div>
+                  {/* Отправка клиенту из системы + статус воронки (отправлено/открыто) */}
+                  <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+                    <input
+                      type="email"
+                      value={sendEmailById[item.id] ?? item.kp_sent_to ?? item.client_email ?? ""}
+                      onChange={e => setSendEmailById(prev => ({ ...prev, [item.id]: e.target.value }))}
+                      placeholder={t.sendEmailPlaceholder}
+                      style={{ height: 32, padding: "0 10px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 8, flex: "1 1 180px", minWidth: 160, boxSizing: "border-box" }}
+                    />
+                    <button onClick={() => sendKp(item)} disabled={sendingId === item.id}
+                      style={{ height: 32, padding: "0 14px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "none", background: sendingId === item.id ? "#9ca3af" : "#2a78d6", color: "#fff", cursor: sendingId === item.id ? "default" : "pointer" }}>
+                      {sendingId === item.id ? t.sending : t.sendBtn}
+                    </button>
+                    {item.kp_sent_at && (
+                      <span style={{ color: "#059669", fontWeight: 600 }}>
+                        {t.sentAtLabel} {new Date(item.kp_sent_at).toLocaleDateString(locale === "de" ? "de-DE" : "ru-RU")}
+                      </span>
+                    )}
+                    <span style={{ color: item.views > 0 ? "#059669" : "#9ca3af" }}>
+                      {item.views > 0 ? `👀 ${item.views} ${t.viewsLabel}` : t.notOpenedYet}
+                    </span>
+                  </div>
+                  {sendNotice?.id === item.id && (
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: sendNotice.ok ? "#059669" : "#dc2626" }}>{sendNotice.text}</div>
+                  )}
+                  </>
                 )}
               </div>
             ))}
@@ -336,6 +385,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                       <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2, overflowWrap: "anywhere" }}>{item.url}</div>
                       <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 4, overflowWrap: "anywhere" }}>
                         {t.reviewClientEmail}: <b style={{ color: "#334155" }}>{item.client_email || t.reviewNoEmail}</b>
+                        {item.client_phone && <> · {t.phoneLabel}: <b style={{ color: "#334155" }}>{item.client_phone}</b></>}
                       </div>
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 999, background: `color-mix(in srgb, ${rebuildStatusColor(item.rebuild_status!)} 12%, transparent)`, color: rebuildStatusColor(item.rebuild_status!) }}>
