@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoginView } from "@/components/views/LoginView";
 import { COLORS } from "@/lib/colors";
 import { PRODUCT_BY_SCOPE, type ProductScope } from "@/lib/products";
+
+// Читаем ?magicLinkError=1 отдельным компонентом-обёрткой — useSearchParams
+// требует Suspense-границу в App Router, чтобы страница не падала при
+// пререндере/навигации.
+function MagicLinkErrorBanner({ onValue }: { onValue: (v: string | null) => void }) {
+  const params = useSearchParams();
+  useEffect(() => {
+    onValue(params.get("magicLinkError") ? "Ссылка недействительна или уже использована — войдите с паролем, либо попросите менеджера прислать новую ссылку." : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+  return null;
+}
 
 // Страница входа отдельного продукта. Авторизация — по аккаунту MarketRadar
 // (тот же /api/auth/login и cookie).
@@ -19,6 +31,7 @@ export function ProductLogin({ scope }: { scope: ProductScope }) {
   const target = scope === "core" ? "/main" : (PRODUCT_BY_SCOPE[scope]?.route ?? "/");
   const route = target;
   const [checking, setChecking] = useState(true);
+  const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,11 +62,17 @@ export function ProductLogin({ scope }: { scope: ProductScope }) {
   }
 
   return (
-    <LoginView
-      c={COLORS.dark}
-      onSuccess={() => router.replace(route)}
-      onRegister={() => router.push("/?register=1")}
-      onBack={() => router.push("/")}
-    />
+    <>
+      <Suspense fallback={null}>
+        <MagicLinkErrorBanner onValue={setMagicLinkError} />
+      </Suspense>
+      <LoginView
+        c={COLORS.dark}
+        onSuccess={() => router.replace(route)}
+        onRegister={() => router.push("/?register=1")}
+        onBack={() => router.push("/")}
+        initialError={magicLinkError}
+      />
+    </>
   );
 }

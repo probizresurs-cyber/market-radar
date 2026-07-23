@@ -16,6 +16,7 @@ interface GenItem {
   share_token: string | null; share_password: string | null; rebuild_status: string | null;
   rebuild_id: string | null; client_email: string | null; client_phone: string | null;
   kp_sent_at: string | null; kp_sent_to: string | null; views: number;
+  platform_user_id: string | null;
   created_at: string; started_at: string | null; completed_at: string | null;
 }
 
@@ -58,6 +59,9 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   const [sendEmailById, setSendEmailById] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendNotice, setSendNotice] = useState<{ id: string; text: string; ok: boolean } | null>(null);
+  // Фаза B: «Создать доступ к платформе» — magic-link аккаунт из КП.
+  const [magicLinkBusyId, setMagicLinkBusyId] = useState<string | null>(null);
+  const [magicLinkNotice, setMagicLinkNotice] = useState<{ id: string; text: string; ok: boolean } | null>(null);
 
   const sendKp = async (item: GenItem) => {
     const email = (sendEmailById[item.id] ?? "").trim();
@@ -74,6 +78,18 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
     } catch {
       setSendNotice({ id: item.id, text: t.sendError, ok: false });
     } finally { setSendingId(null); }
+  };
+
+  const createMagicLink = async (item: GenItem) => {
+    setMagicLinkBusyId(item.id); setMagicLinkNotice(null);
+    try {
+      const r = await fetch(`/api/kp-generate/${item.id}/magic-link`, { method: "POST" });
+      const j = await r.json();
+      setMagicLinkNotice({ id: item.id, text: j.ok ? t.magicLinkDone : (j.error || t.magicLinkError), ok: !!j.ok });
+      if (j.ok) loadHistory();
+    } catch {
+      setMagicLinkNotice({ id: item.id, text: t.magicLinkError, ok: false });
+    } finally { setMagicLinkBusyId(null); }
   };
 
   useEffect(() => {
@@ -361,6 +377,19 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                   </div>
                   {sendNotice?.id === item.id && (
                     <div style={{ marginTop: 6, fontSize: 12.5, color: sendNotice.ok ? "#059669" : "#dc2626" }}>{sendNotice.text}</div>
+                  )}
+                  {/* Фаза B: доступ к платформе (magic-link аккаунт с готовым анализом) */}
+                  <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+                    <button onClick={() => createMagicLink(item)} disabled={magicLinkBusyId === item.id}
+                      style={{ height: 30, padding: "0 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", color: "#334155", cursor: magicLinkBusyId === item.id ? "default" : "pointer" }}>
+                      {magicLinkBusyId === item.id ? t.magicLinkSending : (item.platform_user_id ? t.magicLinkResend : t.magicLinkBtn)}
+                    </button>
+                    {item.platform_user_id && (
+                      <span style={{ color: "#059669", fontWeight: 600 }}>{t.magicLinkAccountExists}</span>
+                    )}
+                  </div>
+                  {magicLinkNotice?.id === item.id && (
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: magicLinkNotice.ok ? "#059669" : "#dc2626" }}>{magicLinkNotice.text}</div>
                   )}
                   </>
                 )}

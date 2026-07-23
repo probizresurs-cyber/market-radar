@@ -3,6 +3,13 @@
  * Сводка вовлечённости по страницам интерактивного анализа (/kp, /kp-sozdavaya,
  * /share/[id]) — просмотры, уникальные сессии, до какого раздела долистали,
  * клики по ключевым кнопкам. Источник — kp_events (см. /api/kp-track).
+ *
+ * Плюс сквозная воронка (Фаза B, п.8) — created → sent → opened → rebuild
+ * requested → approved → platform account, из kp_generations (уже есть все
+ * нужные метки времени/флаги, join с kp_events не нужен). Апселлы
+ * («Полный анализ»/«SEO/GEO») считаются отдельно из analysis_requests —
+ * там нет привязки к конкретному kp_generations.id, поэтому это глобальное
+ * число за период, не часть последовательной воронки по каждому лиду.
  */
 import { NextResponse } from "next/server";
 import { query, initDb } from "@/lib/db";
@@ -36,7 +43,7 @@ export async function GET(req: Request) {
   const pathFilter = path && path !== "all" ? "AND path = $2" : "";
   const params = path && path !== "all" ? [`${days} days`, path] : [`${days} days`];
 
-  const [summary, byPath, byLabel, bySection, recent] = await Promise.all([
+  const [summary, byPath, byLabel, bySection, recent, funnelRows, upsellRows] = await Promise.all([
     query<{ total_views: string; unique_sessions: string }>(
       `SELECT COUNT(*) FILTER (WHERE event_type = 'view') AS total_views,
               COUNT(DISTINCT session_id) AS unique_sessions
@@ -67,6 +74,25 @@ export async function GET(req: Request) {
        ORDER BY created_at DESC LIMIT 200`,
       params
     ),
+    query<{
+      created: string; sent: string; opened: string;
+      rebuild_requested: string; approved: string; platform_account: string;
+    }>(
+      `SELECT
+         COUNT(*) AS created,
+         COUNT(*) FILTER (WHERE kp_sent_at IS NOT NULL) AS sent,
+         COUNT(*) FILTER (WHERE views > 0) AS opened,
+         COUNT(*) FILTER (WHERE rebuild_status IS NOT NULL) AS rebuild_requested,
+         COUNT(*) FILTER (WHERE approved_at IS NOT NULL OR rebuild_status = 'approved') AS approved,
+         COUNT(*) FILTER (WHERE platform_user_id IS NOT NULL) AS platform_account
+       FROM kp_generations WHERE created_at > NOW() - $1::interval`,
+      [`${days} days`],
+    ),
+    query<{ intent: string; count: string }>(
+      `SELECT intent, COUNT(*) AS count FROM analysis_requests
+       WHERE created_at > NOW() - $1::interval GROUP BY intent ORDER BY count DESC`,
+      [`${days} days`],
+    ),
   ]);
 
   return NextResponse.json({
@@ -76,5 +102,7 @@ export async function GET(req: Request) {
     byLabel,
     bySection,
     recent,
+    funnel: funnelRows[0] ?? { created: "0", sent: "0", opened: "0", rebuild_requested: "0", approved: "0", platform_account: "0" },
+    upsellByIntent: upsellRows,
   });
 }

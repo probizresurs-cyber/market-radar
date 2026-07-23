@@ -22,10 +22,12 @@ export async function GET(req: Request) {
     share_token: string | null; share_password: string | null; rebuild_status: string | null;
     rebuild_id: string | null; client_email: string | null; client_phone: string | null;
     kp_sent_at: string | null; kp_sent_to: string | null; views: number;
+    platform_user_id: string | null;
     created_at: string; started_at: string | null; completed_at: string | null;
   }>(
     `SELECT id, url, company_name, status, error, share_token, share_password, rebuild_status,
             rebuild_id, client_email, client_phone, kp_sent_at, kp_sent_to, views,
+            platform_user_id,
             created_at, started_at, completed_at
        FROM kp_generations WHERE locale = $1 ORDER BY created_at DESC LIMIT 200`,
     [locale],

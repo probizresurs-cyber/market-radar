@@ -13,6 +13,8 @@ export interface KpStrings {
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
   sendEmailPlaceholder: string; sendBtn: string; sending: string; sendDone: string; sendError: string;
   sentAtLabel: string; viewsLabel: string; notOpenedYet: string; phoneLabel: string;
+  magicLinkBtn: string; magicLinkSending: string; magicLinkDone: string; magicLinkError: string;
+  magicLinkAccountExists: string; magicLinkResend: string;
   delete: string; deleting: string; deleteConfirm: string;
   generationTime: string;
   reviewEmpty: string;
@@ -54,6 +56,10 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     sendError: "Не удалось отправить письмо",
     sentAtLabel: "Отправлено", viewsLabel: "просмотров", notOpenedYet: "ещё не открывал",
     phoneLabel: "Телефон",
+    magicLinkBtn: "Создать доступ к платформе", magicLinkSending: "Создаём…",
+    magicLinkDone: "Готово — ссылка входа ушла клиенту на email",
+    magicLinkError: "Не удалось создать доступ",
+    magicLinkAccountExists: "✓ Аккаунт создан", magicLinkResend: "Переслать ссылку",
     copy: "Копировать",
     copied: "Скопировано",
     delete: "Удалить",
@@ -106,6 +112,10 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     sendError: "E-Mail konnte nicht gesendet werden",
     sentAtLabel: "Gesendet", viewsLabel: "Aufrufe", notOpenedYet: "noch nicht geöffnet",
     phoneLabel: "Telefon",
+    magicLinkBtn: "Plattform-Zugang erstellen", magicLinkSending: "Wird erstellt…",
+    magicLinkDone: "Fertig — Login-Link wurde an den Kunden gesendet",
+    magicLinkError: "Zugang konnte nicht erstellt werden",
+    magicLinkAccountExists: "✓ Konto erstellt", magicLinkResend: "Link erneut senden",
     copy: "Kopieren",
     copied: "Kopiert",
     delete: "Löschen",

@@ -9,15 +9,17 @@ import { MarketRadarLogo } from "@/components/ui/MarketRadarLogo";
 import { ArrowLeft, Mail, Lock, Loader2 } from "lucide-react";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
 
-export function LoginView({ c, onSuccess, onRegister, onBack }: {
+export function LoginView({ c, onSuccess, onRegister, onBack, initialError }: {
   c: Colors;
   onSuccess: (user: UserAccount) => void;
   onRegister: () => void;
   onBack?: () => void;
+  /** Показать баннер ошибки сразу при монтировании (например, протухшая magic-link ссылка). */
+  initialError?: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const onFocusL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = `0 0 0 3px var(--primary)20`; e.currentTarget.style.borderColor = "var(--primary)"; };
   const onBlurL = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--border)"; };
   void onFocusL; void onBlurL;

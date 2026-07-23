@@ -14,6 +14,11 @@ interface EventRow {
 }
 interface CountRow { label: string; count: string }
 interface PathRow { path: string; views: string }
+interface FunnelData {
+  created: string; sent: string; opened: string;
+  rebuild_requested: string; approved: string; platform_account: string;
+}
+interface UpsellRow { intent: string; count: string }
 
 const S = {
   page: { minHeight: "100vh", background: "#0f1117", color: "#e2e8f0" } as React.CSSProperties,
@@ -77,6 +82,8 @@ export default function KpAnalyticsAdmin() {
   const [byLabel, setByLabel] = useState<CountRow[]>([]);
   const [bySection, setBySection] = useState<CountRow[]>([]);
   const [recent, setRecent] = useState<EventRow[]>([]);
+  const [funnel, setFunnel] = useState<FunnelData>({ created: "0", sent: "0", opened: "0", rebuild_requested: "0", approved: "0", platform_account: "0" });
+  const [upsellByIntent, setUpsellByIntent] = useState<UpsellRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -92,6 +99,8 @@ export default function KpAnalyticsAdmin() {
         setByLabel(d.byLabel);
         setBySection(d.bySection);
         setRecent(d.recent);
+        setFunnel(d.funnel);
+        setUpsellByIntent(d.upsellByIntent ?? []);
       }
     } finally {
       setLoading(false);
@@ -136,6 +145,51 @@ export default function KpAnalyticsAdmin() {
             <div style={S.statValue}>{summary.unique_sessions}</div>
           </div>
         </div>
+
+        {(() => {
+          const stages: { key: keyof FunnelData; label: string }[] = [
+            { key: "created", label: "Создано КП" },
+            { key: "sent", label: "Отправлено клиенту" },
+            { key: "opened", label: "Открыто клиентом" },
+            { key: "rebuild_requested", label: "Запросил пересборку" },
+            { key: "approved", label: "Пересборка одобрена" },
+            { key: "platform_account", label: "Доступ к платформе выдан" },
+          ];
+          const total = Math.max(1, parseInt(funnel.created, 10));
+          return (
+            <div style={{ ...S.card, marginBottom: 20 }}>
+              <div style={S.cardTitle}>Сквозная воронка КП (за период)</div>
+              {stages.map((s, i) => {
+                const count = parseInt(funnel[s.key], 10) || 0;
+                const prevCount = i === 0 ? count : (parseInt(funnel[stages[i - 1].key], 10) || 0);
+                const pctOfTotal = Math.round((count / total) * 100);
+                const pctOfPrev = i === 0 ? null : (prevCount > 0 ? Math.round((count / prevCount) * 100) : 0);
+                return (
+                  <div key={s.key} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                      <span>{s.label}</span>
+                      <span style={{ color: "#94a3b8" }}>
+                        <b style={{ color: "#f1f5f9" }}>{count}</b> · {pctOfTotal}%
+                        {pctOfPrev !== null && <span style={{ color: "#64748b" }}> ({pctOfPrev}% от пред. этапа)</span>}
+                      </span>
+                    </div>
+                    <div style={S.barBg}><div style={{ width: `${pctOfTotal}%`, height: "100%", background: "#7c3aed" }} /></div>
+                  </div>
+                );
+              })}
+              {upsellByIntent.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #1e2737" }}>
+                  <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: 8 }}>
+                    Заявки на апселл (не привязаны к конкретному КП)
+                  </div>
+                  {upsellByIntent.map((r) => (
+                    <div key={r.intent} style={S.row}><span>{r.intent}</span><span style={{ fontWeight: 700, color: "#f1f5f9" }}>{r.count}</span></div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {path === "all" && byPath.length > 0 && (
           <div style={{ ...S.card, marginBottom: 20 }}>

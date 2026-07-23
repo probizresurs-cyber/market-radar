@@ -437,6 +437,27 @@ export async function initDb() {
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_sent_to TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_nudge_stage INTEGER NOT NULL DEFAULT 0`);
 
+  // Фаза B воронки: magic-link аккаунт из КП. platform_user_id — привязан ли
+  // уже реальный аккаунт платформы к этому лиду (менеджер жмёт «Создать
+  // доступ» в консоли); NULL пока не создан.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS platform_user_id TEXT REFERENCES users(id) ON DELETE SET NULL`);
+
+  // Одноразовые токены входа без пароля — выдаются менеджером из КП (клиент
+  // не проходит обычную регистрацию, но факт клика по ссылке = его согласие,
+  // consent_accepted_at проставляется в момент редима, не создания).
+  await query(`
+    CREATE TABLE IF NOT EXISTS magic_links (
+      id TEXT PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kp_generation_id TEXT REFERENCES kp_generations(id) ON DELETE SET NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_magic_links_token_hash ON magic_links(token_hash)`);
+
   // ─── Partner applications (публичные заявки без учётной записи) ──────────────
   await query(`
     CREATE TABLE IF NOT EXISTS partner_applications (
