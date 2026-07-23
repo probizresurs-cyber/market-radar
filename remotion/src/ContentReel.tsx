@@ -18,6 +18,8 @@ import { HookScene } from "./scenes/HookScene";
 import { CTAScene } from "./scenes/CTAScene";
 import { CaptionsLayer } from "./CaptionsLayer";
 
+const captionWordSchema = z.object({ word: z.string(), start: z.number(), end: z.number() });
+
 export const contentReelSchema = z.object({
   hookText: z.string(),
   ctaText: z.string(),
@@ -33,6 +35,8 @@ export const contentReelSchema = z.object({
   videoDurationSec: z.number().optional(),
   captionsEnabled: z.boolean().optional(),
   captionsScript: z.string().optional(),
+  /** Точные пословные тайминги (Whisper) — если заданы, субтитры идут в такт голосу, а не оценочно. */
+  captionsWords: z.array(captionWordSchema).optional(),
 });
 
 export type ContentReelProps = z.infer<typeof contentReelSchema>;
@@ -134,7 +138,10 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
       </Sequence>
 
       {props.captionsEnabled ? (
-        <CaptionsLayer script={props.captionsScript ?? `${props.hookText}. ${props.ctaText}`} />
+        <CaptionsLayer
+          script={props.captionsScript ?? `${props.hookText}. ${props.ctaText}`}
+          words={props.captionsWords}
+        />
       ) : null}
 
       {props.voiceoverUrl ? <Audio src={props.voiceoverUrl} volume={1} /> : null}

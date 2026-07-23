@@ -1,21 +1,20 @@
 /**
  * CaptionsLayer — субтитры внизу кадра в стиле TikTok / Reels.
  *
- * Берёт текст (voiceoverScript или fallback на hook+problem+CTA),
- * разбивает по 3-4 слова на chunk, и показывает их по очереди равномерно
- * распределёнными по длительности композиции. Каждый chunk появляется
- * с лёгкой анимацией (scale + fade).
+ * Два режима таймига chunk'ов:
+ *  - words (точный): переданы реальные пословные тайминги из Whisper-
+ *    транскрипции сгенерированной озвучки (см. content/video/render —
+ *    транскрибирует свой же ElevenLabs-файл). Субтитры идут ТОЧНО в такт
+ *    голосу, а не оценочно.
+ *  - script (fallback, как было): только текст, без таймингов — chunks
+ *    распределяются РАВНОМЕРНО по длительности композиции пропорционально
+ *    числу слов. Используется когда транскрипция недоступна (упала,
+ *    ElevenLabs не настроен) и в PromoReel, который words не передаёт —
+ *    это ветка НЕ тронута, чтобы не менять поведение уже работающего
+ *    промо-пайплайна.
  *
- * Стиль: белый текст с чёрной тенью + полупрозрачный pill-фон. Bold
- * sans-serif. Размер крупный (~58px). Помещён в зоне 1500-1700px по Y
- * (стандарт reels — не наезжает на главные визуалы и не упирается в
- * нижний край).
- *
- * Sync с voice: если script совпадает с реальной voice-озвучкой
- * (юзер передал тот же текст в voiceoverScript), субтитры будут идти
- * +/- синхронно. ElevenLabs говорит ~3 слова/сек, chunk из 3-4 слов
- * примерно 1.0-1.3 сек. Идеального словесного-таймстемпинга нет, но
- * визуально читается естественно.
+ * Стиль общий для обоих режимов: белый текст с чёрной тенью +
+ * полупрозрачный pill-фон, bold sans-serif, ~58px, зона 1500-1700px по Y.
  */
 import {
   AbsoluteFill,
@@ -24,65 +23,92 @@ import {
   useVideoConfig,
 } from "remotion";
 
+export interface CaptionWord { word: string; start: number; end: number }
+
 interface Props {
-  /** Полный текст для субтитров. Если null/undefined — слой не рендерится. */
+  /** Полный текст для субтитров (fallback-режим). Игнорируется если задан words. */
   script: string | null;
+  /** Точные пословные тайминги (сек) из Whisper — если заданы, используется точный режим. */
+  words?: CaptionWord[];
   /** Размер chunk'а в словах. Default 4 — оптимально читается в 1 кадре. */
   wordsPerChunk?: number;
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, wordsPerChunk = 4 }) => {
-  const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+interface TimedChunk { text: string; startFrame: number; endFrame: number }
 
-  if (!script || !script.trim()) return null;
+/** Точный режим: группирует слова по wordsPerChunk, границы — из реальных таймингов Whisper (в секундах → кадры). */
+function buildTimedChunks(words: CaptionWord[], wordsPerChunk: number, fps: number, durationInFrames: number): TimedChunk[] {
+  const chunks: TimedChunk[] = [];
+  for (let i = 0; i < words.length; i += wordsPerChunk) {
+    const group = words.slice(i, i + wordsPerChunk);
+    if (group.length === 0) continue;
+    const startFrame = Math.max(0, Math.round(group[0].start * fps));
+    // Конец chunk'а — начало следующего chunk'а (без "мёртвого" зазора) либо конец композиции для последнего.
+    const nextGroup = words[i + wordsPerChunk];
+    const endFrame = nextGroup ? Math.round(nextGroup.start * fps) : Math.min(durationInFrames, Math.round(group[group.length - 1].end * fps) + fps);
+    chunks.push({ text: group.map((w) => w.word).join(" ").trim(), startFrame, endFrame: Math.max(endFrame, startFrame + 1) });
+  }
+  return chunks;
+}
 
-  // Разбиваем по словам + чистим пунктуацию-в-конце для красоты chunk'а.
+/** Fallback-режим (как было): равномерное распределение по длительности пропорционально числу слов в chunk'е. */
+function buildProportionalChunks(script: string, wordsPerChunk: number, durationInFrames: number): TimedChunk[] {
   const words = script.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return null;
+  if (words.length === 0) return [];
 
-  // Группируем в chunks. Не разрываем фразу посередине знака препинания
-  // если возможно — стараемся заканчивать chunk на пунктуации.
-  const chunks: string[] = [];
+  const rawChunks: string[] = [];
   let buffer: string[] = [];
   for (let i = 0; i < words.length; i++) {
     buffer.push(words[i]);
     const endsWithPunct = /[.,!?:;—]$/.test(words[i]);
     if (buffer.length >= wordsPerChunk || (endsWithPunct && buffer.length >= 2)) {
-      chunks.push(buffer.join(" "));
+      rawChunks.push(buffer.join(" "));
       buffer = [];
     }
   }
-  if (buffer.length > 0) chunks.push(buffer.join(" "));
+  if (buffer.length > 0) rawChunks.push(buffer.join(" "));
+  if (rawChunks.length === 0) return [];
+
+  const chunkWordCounts = rawChunks.map((c) => c.split(/\s+/).length);
+  const totalWords = chunkWordCounts.reduce((sum, n) => sum + n, 0);
+
+  const starts: number[] = [];
+  let acc = 0;
+  for (const wc of chunkWordCounts) {
+    starts.push(acc);
+    acc += (wc / totalWords) * durationInFrames;
+  }
+  return rawChunks.map((text, i) => ({
+    text,
+    startFrame: starts[i],
+    endFrame: i < starts.length - 1 ? starts[i + 1] : durationInFrames,
+  }));
+}
+
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4 }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames, fps } = useVideoConfig();
+
+  const chunks: TimedChunk[] = words?.length
+    ? buildTimedChunks(words, wordsPerChunk, fps, durationInFrames)
+    : script?.trim()
+      ? buildProportionalChunks(script, wordsPerChunk, durationInFrames)
+      : [];
 
   if (chunks.length === 0) return null;
 
-  // Время каждого chunk'а пропорционально числу слов в нём
-  // (длинные chunks показываются дольше). Это даёт более естественный темп.
-  const chunkWordCounts = chunks.map((c) => c.split(/\s+/).length);
-  const totalWords = chunkWordCounts.reduce((sum, n) => sum + n, 0);
-
-  // Начальные кадры для каждого chunk'а
-  const chunkStarts: number[] = [];
-  let acc = 0;
-  for (const wc of chunkWordCounts) {
-    chunkStarts.push(acc);
-    acc += (wc / totalWords) * durationInFrames;
+  let activeIndex = -1;
+  for (let i = 0; i < chunks.length; i++) {
+    if (frame >= chunks[i].startFrame && frame < chunks[i].endFrame) { activeIndex = i; break; }
+    if (frame >= chunks[i].startFrame) activeIndex = i;
   }
+  if (activeIndex === -1) return null;
 
-  // Какой chunk сейчас активен
-  let activeIndex = 0;
-  for (let i = 0; i < chunkStarts.length; i++) {
-    if (frame >= chunkStarts[i]) activeIndex = i;
-    else break;
-  }
-
-  const currentChunk = chunks[activeIndex];
-  const chunkStart = chunkStarts[activeIndex];
-  const chunkEnd =
-    activeIndex < chunkStarts.length - 1 ? chunkStarts[activeIndex + 1] : durationInFrames;
+  const currentChunk = chunks[activeIndex].text;
+  const chunkStart = chunks[activeIndex].startFrame;
+  const chunkEnd = chunks[activeIndex].endFrame;
   const localFrame = frame - chunkStart;
-  const chunkDuration = chunkEnd - chunkStart;
+  const chunkDuration = Math.max(1, chunkEnd - chunkStart);
 
   // Появление chunk'а: scale 0.85→1 + fade-in за 8 кадров.
   // Исчезновение: fade-out за последние 5 кадров.

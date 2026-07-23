@@ -125,12 +125,21 @@ export async function fetchYouTubeTranscript(url: string): Promise<YouTubeTransc
 export const MAX_UPLOAD_BYTES = 24 * 1024 * 1024;
 
 export interface WhisperSegment { start: number; end: number; text: string }
+export interface WhisperWord { word: string; start: number; end: number }
 
-/** Транскрибирует видео/аудио файл через Whisper. Видео (mp4/mov/webm) — ОК, звук вытащит сам OpenAI. */
+/**
+ * Транскрибирует видео/аудио файл через Whisper. Видео (mp4/mov/webm) — ОК, звук вытащит сам OpenAI.
+ *
+ * opts.wordTimestamps — запросить ещё и пословные тайминги (для точной
+ * синхронизации субтитров в видео-конвейере Контент-завода — см.
+ * ContentReel.tsx/CaptionsLayer.tsx). По умолчанию false — существующий
+ * вызов из /api/content/reel-breakdown поведение не меняет.
+ */
 export async function transcribeWithWhisper(
   file: Blob,
   filename: string,
-): Promise<{ transcript: string; durationSec: number | null }> {
+  opts?: { wordTimestamps?: boolean },
+): Promise<{ transcript: string; durationSec: number | null; words?: WhisperWord[] }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OpenAI API key не настроен");
 
@@ -138,6 +147,7 @@ export async function transcribeWithWhisper(
   form.append("file", file, filename);
   form.append("model", "whisper-1");
   form.append("response_format", "verbose_json");
+  if (opts?.wordTimestamps) form.append("timestamp_granularities[]", "word");
 
   const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/audio/transcriptions`, {
     method: "POST",
@@ -149,7 +159,8 @@ export async function transcribeWithWhisper(
     const errBody = await res.text().catch(() => "");
     throw new Error(`Whisper error ${res.status}: ${errBody.slice(0, 300)}`);
   }
-  const data = await res.json() as { text?: string; duration?: number; segments?: WhisperSegment[] };
+  const data = await res.json() as { text?: string; duration?: number; segments?: WhisperSegment[]; words?: WhisperWord[] };
+  const words = opts?.wordTimestamps && data.words?.length ? data.words : undefined;
 
   if (data.segments?.length) {
     const lines = data.segments.map(s => {
@@ -157,7 +168,7 @@ export async function transcribeWithWhisper(
       const ss = String(Math.round(s.start % 60)).padStart(2, "0");
       return `[${mm}:${ss}] ${s.text.trim()}`;
     });
-    return { transcript: lines.join("\n"), durationSec: data.duration ?? null };
+    return { transcript: lines.join("\n"), durationSec: data.duration ?? null, words };
   }
-  return { transcript: (data.text ?? "").trim(), durationSec: data.duration ?? null };
+  return { transcript: (data.text ?? "").trim(), durationSec: data.duration ?? null, words };
 }

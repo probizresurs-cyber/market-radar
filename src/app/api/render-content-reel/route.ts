@@ -32,6 +32,8 @@ const REMOTION_PROJECT_DIR =
 const OUTPUT_DIR = path.join(REMOTION_PROJECT_DIR, "out");
 const TEMP_DIR = process.env.REMOTION_TEMP_DIR ?? "";
 
+interface CaptionWord { word: string; start: number; end: number }
+
 interface RenderProps {
   hookText: string;
   ctaText: string;
@@ -46,6 +48,7 @@ interface RenderProps {
   videoDurationSec: number;
   captionsEnabled: boolean;
   captionsScript: string | null;
+  captionsWords?: CaptionWord[];
 }
 
 function resolveMediaUrl(raw: string | null | undefined, assetsOrigin: string): string | null {
@@ -87,6 +90,11 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
     brollUrls,
     captionsEnabled: Boolean(body.captionsEnabled ?? false),
     captionsScript: body.captionsScript ? String(body.captionsScript) : null,
+    captionsWords: Array.isArray(body.captionsWords)
+      ? (body.captionsWords as unknown[]).filter(
+          (w): w is CaptionWord => typeof w === "object" && w !== null && "word" in w && "start" in w && "end" in w,
+        )
+      : undefined,
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);
       if (!Number.isFinite(n)) return 30;

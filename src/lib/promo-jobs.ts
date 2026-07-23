@@ -21,8 +21,11 @@ export type PromoJobStatus = "queued" | "running" | "done" | "failed";
 export interface PromoStepReport {
   name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render"
     // Шаги пайплайна content/video/render (Контент-завод → готовый ролик):
-    // "plan" — Director+QC агент, "render" переиспользуется.
-    | "plan";
+    // "plan" — Director+QC агент, "render" переиспользуется, "captions" —
+    // Whisper-транскрипция для точной пословной синхронизации субтитров,
+    // "music" — подбор фоновой музыки, "avatar" — режим HeyGen внутри
+    // того же оркестратора (альтернатива b-roll режиму).
+    | "plan" | "captions" | "music" | "avatar";
   status: "ok" | "failed" | "skipped" | "in_progress";
   ms: number;
   error?: string;

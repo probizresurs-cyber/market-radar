@@ -61,10 +61,11 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 
   const busy = generatingVideoFor === reel.id || reel.videoStatus === "generating";
 
-  // Монтаж через Remotion (b-roll + озвучка + субтитры, без аватара) —
-  // альтернативный движок рендера, параллельный HeyGen-пути ниже.
-  // Самодостаточный: сам стучится в очередь и поллит статус, наружу
-  // отдаёт только готовый videoUrl через тот же onUpdate.
+  // Единый оркестратор /api/content/video/render — сам умеет и b-roll
+  // (Remotion), и аватар (HeyGen внутри того же job-статуса), выбор через
+  // mode. Самодостаточный виджет: сам стучится в очередь и поллит статус,
+  // наружу отдаёт только готовый videoUrl через onUpdate.
+  const [montageMode, setMontageMode] = useState<"broll" | "avatar">("broll");
   const [montageBusy, setMontageBusy] = useState(false);
   const [montageError, setMontageError] = useState<string | null>(null);
   const [montageStep, setMontageStep] = useState<string | null>(null);
@@ -73,13 +74,32 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   useEffect(() => () => { if (montagePollRef.current) clearTimeout(montagePollRef.current); }, []);
 
   const handleAssembleMontage = async () => {
-    setMontageBusy(true); setMontageError(null); setMontageStep("Планируем монтаж…");
+    setMontageBusy(true); setMontageError(null);
+    setMontageStep(montageMode === "avatar" ? "Запускаем HeyGen…" : "Планируем монтаж…");
     try {
+      const plannedScenes = (reel.brollClips ?? [])
+        .filter(c => c.status === "planned" && c.prompt?.trim())
+        .map(c => ({ prompt: c.prompt, motionHint: c.motionHint, position: c.position, referenceImageUrl: c.referenceImageUrl }));
+      const avatarIdToUse = reel.selectedAvatarId || avatarSettings?.avatarId || undefined;
+
       const r = await fetch("/api/content/video/render", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mode: montageMode,
           title: reel.title, scenario: reel.scenario, voiceoverScript: reel.voiceoverScript,
           companyName, companyNiche, brandBook,
+          // Поля ниже нужны только для mode:"avatar" — оркестратор их
+          // игнорирует в режиме "broll".
+          avatarId: avatarIdToUse,
+          voiceId: avatarSettings?.voiceId || undefined,
+          aspect: avatarSettings?.aspect,
+          brollScenes: plannedScenes,
+          targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
+          subtitles: reel.subtitles !== false,
+          videoMode: reel.videoMode ?? "mixed",
+          voiceSpeed: avatarSettings?.voiceSpeed,
+          voicePitch: avatarSettings?.voicePitch,
+          voiceEmotion: avatarSettings?.voiceEmotion,
         }),
       });
       const j = await r.json();
@@ -834,18 +854,35 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                 : reel.videoStatus === "failed" ? "Повторить генерацию"
                 : "Сгенерировать видео с аватаром"}
             </button>
-            {/* Второй движок рендера: b-roll со стоков + озвучка + субтитры,
-                без говорящей головы. Дешевле и быстрее HeyGen (~1-2 мин). */}
-            <button
-              onClick={handleAssembleMontage}
-              disabled={busy || montageBusy}
-              title="Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, подбирает видео со стоков под тему, озвучивает и монтирует — без говорящего аватара"
-              style={{ width: "100%", marginTop: 8, padding: "12px 16px", borderRadius: 10, border: "1.5px solid #8b5cf6", background: montageBusy ? "var(--muted)" : "color-mix(in srgb, #8b5cf6 10%, transparent)", color: montageBusy ? "var(--muted-foreground)" : "#8b5cf6", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
-              {montageBusy
-                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> {montageStep || "Собираем видео…"}</>
-                : "Собрать видео из b-roll (без аватара, ~1-2 мин)"}
-            </button>
-            {montageError && <div style={{ fontSize: 12.5, color: "#dc2626", marginTop: 6 }}>{montageError}</div>}
+            {/* Второй, единый оркестратор (/api/content/video/render) — сам
+                умеет и b-roll (Remotion, дешевле/быстрее), и аватар (тот же
+                HeyGen, что и кнопка выше, но через общий job-статус —
+                один поллинг вместо двух разных механизмов). */}
+            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1.5px solid #8b5cf6", background: "color-mix(in srgb, #8b5cf6 6%, transparent)" }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                {(["broll", "avatar"] as const).map(m => (
+                  <button key={m} onClick={() => setMontageMode(m)} disabled={montageBusy}
+                    style={{ flex: 1, padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: montageBusy ? "default" : "pointer",
+                      border: `1.5px solid ${montageMode === m ? "#8b5cf6" : "var(--border)"}`,
+                      background: montageMode === m ? "#8b5cf6" : "transparent",
+                      color: montageMode === m ? "#fff" : "var(--muted-foreground)" }}>
+                    {m === "broll" ? "Без аватара (b-roll)" : "С аватаром (HeyGen)"}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleAssembleMontage}
+                disabled={busy || montageBusy}
+                title={montageMode === "broll"
+                  ? "Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, подбирает видео со стоков под тему, озвучивает и монтирует — без говорящего аватара"
+                  : "То же, что кнопка выше, но статус и результат приходят в этот же виджет"}
+                style={{ width: "100%", padding: "12px 16px", borderRadius: 9, border: "none", background: montageBusy ? "var(--muted)" : "#8b5cf6", color: montageBusy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
+                {montageBusy
+                  ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> {montageStep || "Собираем видео…"}</>
+                  : montageMode === "broll" ? "Собрать видео (~1-2 мин)" : "Собрать видео с аватаром (~2-5 мин)"}
+              </button>
+              {montageError && <div style={{ fontSize: 12.5, color: "#dc2626", marginTop: 6 }}>{montageError}</div>}
+            </div>
             </>
           )}
 

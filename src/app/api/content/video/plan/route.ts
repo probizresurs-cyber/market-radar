@@ -36,11 +36,14 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 1. hookText — крючок для ПЕРВЫХ 2-3 секунд, крупный текст на экране. Короткий (до 60 знаков), цепляющий, на языке сценария. НЕ повторяй дословно первую фразу озвучки — это отдельный визуальный крючок, он может быть острее/короче.
 2. ctaText — призыв к действию для ПОСЛЕДНИХ 3-4 секунд. Короткий (до 45 знаков), на языке сценария. Не дублирует hookText по смыслу.
 3. brollQueries — 3-4 английские короткие поисковые фразы (2-4 слова каждая) для поиска стоковых видео на Pexels, которые визуально иллюстрируют содержание ролика. Конкретные, предметные (например "dentist examining patient", "modern office team meeting"), НЕ абстрактные ("business success").
+4. mood — настроение фоновой музыки, СТРОГО одно из: "upbeat" (энергичное, продающее), "calm" (спокойное, доверительное), "corporate" (нейтрально-деловое), "dramatic" (напряжённое, для проблема→решение), "playful" (лёгкое, с юмором).
 
 Отвечай СТРОГО валидным JSON без markdown:
-{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."]}`;
+{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate"}`;
 
-interface PlanResult { hookText: string; ctaText: string; brollQueries: string[] }
+const VALID_MOODS = new Set(["upbeat", "calm", "corporate", "dramatic", "playful"]);
+
+interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string }
 
 function buildBrandHints(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -151,6 +154,7 @@ ${issues.map(i => `- ${i}`).join("\n")}
         hookText: (parsed.hookText ?? "").trim().slice(0, 120) || (title || "Смотрите до конца"),
         ctaText: (parsed.ctaText ?? "").trim().slice(0, 90) || "Узнайте подробнее",
         brollQueries: (parsed.brollQueries ?? []).filter(q => q?.trim()).slice(0, 4),
+        mood: VALID_MOODS.has(parsed.mood ?? "") ? parsed.mood : "corporate",
         qcNotes: issues,
       },
     });
