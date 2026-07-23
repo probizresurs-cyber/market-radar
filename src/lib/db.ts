@@ -343,6 +343,17 @@ export async function initDb() {
     ON CONFLICT (id) DO UPDATE SET parent_id = EXCLUDED.parent_id
   `);
 
+  // «Создать видео» ранее был вручную выключен в /admin/features (юзеры
+  // видели плейсхолдер «Скоро будет»), хотя пайплайн уже рабочий (b-roll +
+  // avatar режимы). Пока даём доступ всем аккаунтам — форсим enabled=true
+  // при каждом старте, независимо от текущего состояния в БД. Если админ
+  // осознанно выключит модуль позже через /admin/features — эта строка
+  // снова включит его на следующем деплое, так что финальное выключение
+  // нужно будет сделать здесь, а не только в UI.
+  await query(
+    `UPDATE features SET enabled = true, updated_at = NOW() WHERE id IN ('content-factory', 'content-reels') AND enabled = false`
+  );
+
   // ─── Public shares (дашборд по публичной ссылке, без авторизации) ──────────
   // Каждая генерация ссылки создаёт новую строку со своим UUID.
   await query(`
