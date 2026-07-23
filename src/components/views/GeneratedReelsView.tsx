@@ -61,6 +61,57 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 
   const busy = generatingVideoFor === reel.id || reel.videoStatus === "generating";
 
+  // Монтаж через Remotion (b-roll + озвучка + субтитры, без аватара) —
+  // альтернативный движок рендера, параллельный HeyGen-пути ниже.
+  // Самодостаточный: сам стучится в очередь и поллит статус, наружу
+  // отдаёт только готовый videoUrl через тот же onUpdate.
+  const [montageBusy, setMontageBusy] = useState(false);
+  const [montageError, setMontageError] = useState<string | null>(null);
+  const [montageStep, setMontageStep] = useState<string | null>(null);
+  const montagePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (montagePollRef.current) clearTimeout(montagePollRef.current); }, []);
+
+  const handleAssembleMontage = async () => {
+    setMontageBusy(true); setMontageError(null); setMontageStep("Планируем монтаж…");
+    try {
+      const r = await fetch("/api/content/video/render", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: reel.title, scenario: reel.scenario, voiceoverScript: reel.voiceoverScript,
+          companyName, companyNiche, brandBook,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Не получилось запустить сборку");
+      const jobId = j.data.jobId as string;
+
+      const poll = async () => {
+        try {
+          const sr = await fetch(`/api/promo-job-status/${jobId}`);
+          const sj = await sr.json();
+          if (!sj.ok) throw new Error(sj.error || "Ошибка статуса");
+          const d = sj.data;
+          const lastStep = d.progress?.[d.progress.length - 1];
+          if (lastStep) setMontageStep(`Шаг «${lastStep.name}»: ${lastStep.status === "ok" ? "готово" : lastStep.status === "failed" ? "не получилось (продолжаем)" : "работаем…"}`);
+          if (d.status === "done") {
+            onUpdate({ ...reel, videoUrl: d.result.url, videoStatus: "ready" });
+            setMontageBusy(false); setMontageStep(null);
+          } else if (d.status === "failed") {
+            setMontageError(d.error || "Сборка не удалась"); setMontageBusy(false); setMontageStep(null);
+          } else {
+            montagePollRef.current = setTimeout(poll, 3000);
+          }
+        } catch (e) {
+          setMontageError(e instanceof Error ? e.message : "Ошибка"); setMontageBusy(false); setMontageStep(null);
+        }
+      };
+      montagePollRef.current = setTimeout(poll, 2000);
+    } catch (e) {
+      setMontageError(e instanceof Error ? e.message : "Ошибка"); setMontageBusy(false); setMontageStep(null);
+    }
+  };
+
   const handleSave = () => {
     const tags = hashtagsRaw.split(/[\s,]+/).filter(Boolean).map(t => t.startsWith("#") ? t : "#" + t);
     onUpdate({ ...reel, title, scenario, voiceoverScript: voiceover, hashtags: tags });
@@ -772,16 +823,30 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           )}
 
           {reel.videoStatus !== "ready" && (
+            <>
             <button
               onClick={() => onGenerateVideo(reel.id)}
-              disabled={busy}
-              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
+              disabled={busy || montageBusy}
+              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
               {reel.videoStatus === "generating"
                 ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> HeyGen рендерит видео… (~2-5 мин)</>
                 : busy ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Запускаем HeyGen…</>
                 : reel.videoStatus === "failed" ? "Повторить генерацию"
                 : "Сгенерировать видео с аватаром"}
             </button>
+            {/* Второй движок рендера: b-roll со стоков + озвучка + субтитры,
+                без говорящей головы. Дешевле и быстрее HeyGen (~1-2 мин). */}
+            <button
+              onClick={handleAssembleMontage}
+              disabled={busy || montageBusy}
+              title="Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, подбирает видео со стоков под тему, озвучивает и монтирует — без говорящего аватара"
+              style={{ width: "100%", marginTop: 8, padding: "12px 16px", borderRadius: 10, border: "1.5px solid #8b5cf6", background: montageBusy ? "var(--muted)" : "color-mix(in srgb, #8b5cf6 10%, transparent)", color: montageBusy ? "var(--muted-foreground)" : "#8b5cf6", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
+              {montageBusy
+                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> {montageStep || "Собираем видео…"}</>
+                : "Собрать видео из b-roll (без аватара, ~1-2 мин)"}
+            </button>
+            {montageError && <div style={{ fontSize: 12.5, color: "#dc2626", marginTop: 6 }}>{montageError}</div>}
+            </>
           )}
 
           <MetricsBlock

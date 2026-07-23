@@ -19,7 +19,10 @@
 export type PromoJobStatus = "queued" | "running" | "done" | "failed";
 
 export interface PromoStepReport {
-  name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render";
+  name: "images" | "screencast" | "voiceover" | "stock-videos" | "animated-broll" | "render"
+    // Шаги пайплайна content/video/render (Контент-завод → готовый ролик):
+    // "plan" — Director+QC агент, "render" переиспользуется.
+    | "plan";
   status: "ok" | "failed" | "skipped" | "in_progress";
   ms: number;
   error?: string;
