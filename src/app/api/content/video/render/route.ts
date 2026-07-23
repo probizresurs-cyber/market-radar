@@ -15,7 +15,7 @@
  *   3) Whisper-транскрипция СВОЕЙ ЖЕ озвучки с пословными таймингами —
  *      для точной синхронизации субтитров (не оценка по числу слов) и
  *      реальной длительности ролика (не прикидка)
- *   4) /api/fetch-stock-videos       — по каждому brollQuery, параллельно
+ *   4) /api/generate-broll-videos    — AI-видео (Replicate) по brollQueries
  *   5) lib/music-library             — фоновая музыка по настроению (mood)
  *   6) /api/render-content-reel      — финальный рендер (ContentReel)
  *
@@ -261,18 +261,29 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       pushStep({ name: "captions", status: "skipped", ms: 0 });
     }
 
-    // ── Шаг 4: b-roll с Pexels по каждому запросу, параллельно ──────────
+    // ── Шаг 4: AI-видео b-roll через Replicate (Seedance), не Pexels —
+    // PEXELS_API_KEY на проде невалиден/не настроен (401), и это уже
+    // используемый в админке сервис для генерации вертикальных роликов.
+    // Каждый brollQuery от Director'а идёт отдельным prompt'ом (в обход
+    // фиксированных fintech-шаблонов generate-broll-videos), лёгкая
+    // кинематографичная обёртка — чтобы сюжет клипа реально соответствовал
+    // теме ролика, а не дефолтным «аналитик за дашбордом».
     let brollUrls: string[] = [];
     if (brollQueries.length > 0) {
       const stepT = Date.now();
-      const results = await Promise.all(
-        brollQueries.slice(0, 4).map((q) =>
-          callLocal<StockData>("/api/fetch-stock-videos", { query: q, count: 1 }, req, 60_000)),
+      const prompts = brollQueries
+        .slice(0, 4)
+        .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting. ${q}, slow camera movement.`);
+      const r = await callLocal<StockData>(
+        "/api/generate-broll-videos",
+        { prompts, jobId: `content-broll-${jobId}` },
+        req,
+        620_000, // generate-broll-videos.maxDuration = 600 + запас на HTTP round-trip
       );
-      brollUrls = results.flatMap((r) => (r.ok && r.data ? r.data.urls : []));
+      brollUrls = r.ok && r.data ? r.data.urls : [];
       const ms = Date.now() - stepT;
       if (brollUrls.length > 0) pushStep({ name: "stock-videos", status: "ok", ms });
-      else pushStep({ name: "stock-videos", status: "failed", ms, error: "Pexels не нашёл ни одного клипа ни по одному запросу" });
+      else pushStep({ name: "stock-videos", status: "failed", ms, error: r.error ?? "Replicate не сгенерил ни одного клипа" });
     } else {
       pushStep({ name: "stock-videos", status: "skipped", ms: 0 });
     }

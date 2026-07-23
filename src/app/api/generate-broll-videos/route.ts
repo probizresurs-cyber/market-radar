@@ -17,6 +17,12 @@
  *   query     — английский промпт для модели (одна строка типа сцены)
  *   count     — сколько клипов (1-8). Default 4.
  *   model?    — replicate-модель override (default из env / minimax/hailuo-02)
+ *   prompts?  — массив ГОТОВЫХ английских промптов, по одному на клип (1-8). Если
+ *               передан — используется НАПРЯМУЮ вместо шаблонов
+ *               brollVideoPrompts(theme) ниже (которые заточены под
+ *               собственный fintech/dashboard b-roll МаркетРадара и не
+ *               подходят для контента произвольной ниши клиента). count
+ *               в этом случае игнорируется — берём prompts.length.
  *
  * Returns:
  *   { ok, data: { urls: [/api/static-asset/broll-videos/...], generationsMs } }
@@ -73,11 +79,17 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
     const theme = String(body.query ?? body.theme ?? "").trim();
-    const count = Math.max(1, Math.min(8, Number(body.count ?? 4)));
     const model = body.model ? String(body.model) : undefined;
     const jobId = String(body.jobId ?? `broll-vid-${Date.now()}-${randomUUID().slice(0, 8)}`);
 
-    const prompts = brollVideoPrompts(theme).slice(0, count);
+    const customPrompts = Array.isArray(body.prompts)
+      ? body.prompts.map((p) => String(p).trim()).filter(Boolean).slice(0, 8)
+      : [];
+    const count = Math.max(1, Math.min(8, Number(body.count ?? 4)));
+    // Готовые prompts (по одной сцене за штуку) имеют приоритет над
+    // шаблонами brollVideoPrompts — те заточены под fintech-b-roll МР
+    // и одинаковы для любой theme, кроме приписанной в конце строки.
+    const prompts = customPrompts.length > 0 ? customPrompts : brollVideoPrompts(theme).slice(0, count);
 
     // Параллельная генерация. Replicate сам очередит если параллелим больше
     // чем разрешает аккаунт — просто будет дольше.

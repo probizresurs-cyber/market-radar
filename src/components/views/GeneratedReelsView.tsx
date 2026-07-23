@@ -874,12 +874,12 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                 onClick={handleAssembleMontage}
                 disabled={busy || montageBusy}
                 title={montageMode === "broll"
-                  ? "Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, подбирает видео со стоков под тему, озвучивает и монтирует — без говорящего аватара"
+                  ? "Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, генерирует AI-видео под тему (Replicate), озвучивает и монтирует — без говорящего аватара"
                   : "То же, что кнопка выше, но статус и результат приходят в этот же виджет"}
                 style={{ width: "100%", padding: "12px 16px", borderRadius: 9, border: "none", background: montageBusy ? "var(--muted)" : "#8b5cf6", color: montageBusy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
                 {montageBusy
                   ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> {montageStep || "Собираем видео…"}</>
-                  : montageMode === "broll" ? "Собрать видео (~1-2 мин)" : "Собрать видео с аватаром (~2-5 мин)"}
+                  : montageMode === "broll" ? "Собрать видео (~3-8 мин)" : "Собрать видео с аватаром (~2-5 мин)"}
               </button>
               {montageError && <div style={{ fontSize: 12.5, color: "#dc2626", marginTop: 6 }}>{montageError}</div>}
             </div>
