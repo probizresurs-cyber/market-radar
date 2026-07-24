@@ -4,10 +4,14 @@ import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { Zap, User, Inbox } from "lucide-react";
 import { ProductBlocks } from "./ProductBlocks";
+import { PlanControls } from "./PlanControls";
 
 export const dynamic = "force-dynamic";
 
-interface UserRow { id: string; email: string; name: string | null; role: string; created_at: string; }
+interface UserRow {
+  id: string; email: string; name: string | null; role: string; created_at: string;
+  plan: string | null; plan_expires_at: string | null; tokens_used: number | null; tokens_limit: number | null;
+}
 interface DataRow { key: string; value: unknown; }
 
 // Known data keys and their labels
@@ -90,7 +94,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   if (!session || session.role !== "admin") redirect("/admin/login");
 
   await initDb();
-  const users = await query<UserRow>("SELECT id, email, name, role, created_at FROM users WHERE id = $1", [id]);
+  const users = await query<UserRow>(
+    "SELECT id, email, name, role, created_at, plan, plan_expires_at, tokens_used, tokens_limit FROM users WHERE id = $1",
+    [id],
+  );
   const user = users[0];
   if (!user) notFound();
 
@@ -127,6 +134,18 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           </div>
           {/* Role toggle form */}
           <RoleForm userId={user.id} currentRole={user.role} />
+        </div>
+
+        {/* Тариф / триал — продление точечно этому пользователю */}
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9", margin: "0 0 12px" }}>Тариф и токены</h2>
+          <PlanControls
+            userId={user.id}
+            plan={user.plan}
+            planExpiresAt={user.plan_expires_at}
+            tokensUsed={user.tokens_used}
+            tokensLimit={user.tokens_limit}
+          />
         </div>
 
         {/* Продукты / блоки — подключение доступа и подписки пользователю */}
