@@ -37,15 +37,25 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 2. ctaText — призыв к действию для ПОСЛЕДНИХ 3-4 секунд. Короткий (до 45 знаков), на языке сценария. Не дублирует hookText по смыслу.
 3. brollQueries — 3-4 английские короткие поисковые фразы (2-4 слова каждая) для поиска стоковых видео на Pexels, которые визуально иллюстрируют содержание ролика. Конкретные, предметные (например "dentist examining patient", "modern office team meeting"), НЕ абстрактные ("business success").
 4. mood — настроение фоновой музыки, СТРОГО одно из: "upbeat" (энергичное, продающее), "calm" (спокойное, доверительное), "corporate" (нейтрально-деловое), "dramatic" (напряжённое, для проблема→решение), "playful" (лёгкое, с юмором).
-5. visualStyle — визуальная манера монтажа, СТРОГО одно из: "dynamic" (энергичный: зум-панчи, зерно, для продающих/трендовых тем), "clean" (спокойный премиум: мягкие фейды, без зерна — медицина, финансы, доверие), "bold" (дерзкий: капс в хуке, врезки сбоку — провокационные хуки, молодёжная аудитория).
+5. styleSpec — ты ещё и АРТ-ДИРЕКТОР: собери под ЭТОТ ролик уникальную визуальную манеру из словаря ниже. Не выбирай шаблон — комбинируй под тему, нишу и аудиторию (клиника ≠ стритвир ≠ финтех). Если задан «Стиль от пользователя» — он ГЛАВНЕЕ твоего вкуса, переведи его пожелание в параметры словаря максимально буквально.
+
+Словарь styleSpec (ТОЛЬКО эти ключи и значения):
+{
+ "typography": {"uppercase": bool, "weight": 700|800|900, "letterSpacing": -3..4, "fontScale": 0.8..1.25},
+ "hook": {"wordAnimation": "spring-up"|"blur-in"|"slide-left"|"scale-pop"|"typewriter", "accentTarget": "longest"|"last"|"first"|"none", "underline": bool},
+ "broll": {"transition": "fade"|"slide-left"|"slide-right"|"slide-up"|"wipe"|"flip"|"clock-wipe"|"punch"|"whip", "kenBurns": "subtle"|"strong"|"off"},
+ "decor": {"grain": 0..1, "vignette": 0..1, "shapes": bool, "lightLeak": bool},
+ "captions": {"mode": "pill"|"bare"|"boxed", "karaoke": bool},
+ "progressBar": bool
+}
+Подсказки: премиум/доверие → blur-in, fade, grain 0-0.2, pill; энергия/продажа → spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed; дерзко/молодёжно → uppercase, slide-left, whip, boxed, grain 0.7-1; ностальгия/тепло → lightLeak true, grain 0.6+; техно/футуризм → typewriter или blur-in, wipe/clock-wipe, letterSpacing 2-4.
 
 Отвечай СТРОГО валидным JSON без markdown:
-{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate","visualStyle":"dynamic"}`;
+{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate","styleSpec":{...}}`;
 
 const VALID_MOODS = new Set(["upbeat", "calm", "corporate", "dramatic", "playful"]);
-const VALID_STYLES = new Set(["dynamic", "clean", "bold"]);
 
-interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; visualStyle?: string }
+interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; styleSpec?: Record<string, unknown> }
 
 function buildBrandHints(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -98,6 +108,9 @@ export async function POST(req: Request) {
     const companyName: string = (body.companyName ?? "").trim();
     const companyNiche: string = (body.companyNiche ?? "").trim();
     const brandBook: BrandBook | null = body.brandBook ?? null;
+    // Пользовательский стиль-промпт («неон и глитч», «мягкий пастельный») —
+    // арт-директор переводит его в styleSpec, приоритет над авто-выбором.
+    const stylePrompt: string = (body.stylePrompt ?? "").trim().slice(0, 300);
 
     if (!scenario && !voiceoverScript) {
       return NextResponse.json({ ok: false, error: "scenario или voiceoverScript обязателен" }, { status: 400 });
@@ -116,7 +129,7 @@ ${voiceoverScript || "(не указан)"}
 
 Сценарий/раскадровка:
 ${scenario || "(не указан)"}
-${buildBrandHints(brandBook)}
+${buildBrandHints(brandBook)}${stylePrompt ? `\nСтиль от пользователя (ПРИОРИТЕТ для styleSpec): ${stylePrompt}\n` : ""}
 Составь монтажный план по инструкции.`;
 
     let { raw, parsed } = await callClaude(client, baseMessage);
@@ -157,7 +170,9 @@ ${issues.map(i => `- ${i}`).join("\n")}
         ctaText: (parsed.ctaText ?? "").trim().slice(0, 90) || "Узнайте подробнее",
         brollQueries: (parsed.brollQueries ?? []).filter(q => q?.trim()).slice(0, 4),
         mood: VALID_MOODS.has(parsed.mood ?? "") ? parsed.mood : "corporate",
-        visualStyle: VALID_STYLES.has(parsed.visualStyle ?? "") ? parsed.visualStyle : "dynamic",
+        // styleSpec отдаём как есть — жёсткий санитайз (enum-whitelist, клампы)
+        // делает render-content-reel перед рендером.
+        styleSpec: parsed.styleSpec && typeof parsed.styleSpec === "object" ? parsed.styleSpec : undefined,
         qcNotes: issues,
       },
     });

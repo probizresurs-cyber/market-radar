@@ -69,6 +69,8 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   const [montageBusy, setMontageBusy] = useState(false);
   const [montageError, setMontageError] = useState<string | null>(null);
   const [montageStep, setMontageStep] = useState<string | null>(null);
+  // Стиль ролика словами — ИИ-арт-директор переведёт в параметры монтажа.
+  const [montageStylePrompt, setMontageStylePrompt] = useState("");
   const montagePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (montagePollRef.current) clearTimeout(montagePollRef.current); }, []);
@@ -88,6 +90,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           mode: montageMode,
           title: reel.title, scenario: reel.scenario, voiceoverScript: reel.voiceoverScript,
           companyName, companyNiche, brandBook,
+          stylePrompt: montageStylePrompt.trim() || undefined,
           // Поля ниже нужны только для mode:"avatar" — оркестратор их
           // игнорирует в режиме "broll".
           avatarId: avatarIdToUse,
@@ -870,11 +873,26 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                   </button>
                 ))}
               </div>
+              {montageMode === "broll" && (
+                <input
+                  type="text"
+                  value={montageStylePrompt}
+                  onChange={e => setMontageStylePrompt(e.target.value)}
+                  disabled={montageBusy}
+                  placeholder="Стиль (необязательно): «неон и глитч», «мягкий пастель», «дерзкий уличный»…"
+                  maxLength={300}
+                  style={{
+                    width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "8px 11px",
+                    borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)",
+                    color: "var(--foreground)", fontSize: 12.5, fontFamily: "inherit", outline: "none",
+                  }}
+                />
+              )}
               <button
                 onClick={handleAssembleMontage}
                 disabled={busy || montageBusy}
                 title={montageMode === "broll"
-                  ? "Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, генерирует AI-видео под тему (Replicate), озвучивает и монтирует — без говорящего аватара"
+                  ? "Режиссёр-агент разбивает сценарий на крючок/b-roll/CTA, генерирует AI-видео под тему (Replicate), а ИИ-арт-директор собирает уникальный стиль монтажа — свой под каждый ролик, или по вашему описанию"
                   : "То же, что кнопка выше, но статус и результат приходят в этот же виджет"}
                 style={{ width: "100%", padding: "12px 16px", borderRadius: 9, border: "none", background: montageBusy ? "var(--muted)" : "#8b5cf6", color: montageBusy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
                 {montageBusy

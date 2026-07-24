@@ -70,7 +70,7 @@ async function callLocal<T = unknown>(
   } finally { clearTimeout(timer); }
 }
 
-interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; visualStyle?: string; qcNotes: string[] }
+interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; styleSpec?: Record<string, unknown>; qcNotes: string[] }
 interface VoiceoverData { url: string }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
@@ -204,18 +204,18 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     let ctaText = "Узнайте подробнее";
     let brollQueries: string[] = [];
     let mood: string | undefined;
-    let visualStyle: string | undefined;
+    let styleSpec: Record<string, unknown> | undefined;
     {
       const stepT = Date.now();
       const r = await callLocal<PlanData>("/api/content/video/plan",
-        { title, scenario, voiceoverScript, companyName, companyNiche, brandBook }, req, 55_000);
+        { title, scenario, voiceoverScript, companyName, companyNiche, brandBook, stylePrompt: body.stylePrompt }, req, 55_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         hookText = r.data.hookText || hookText;
         ctaText = r.data.ctaText || ctaText;
         brollQueries = r.data.brollQueries ?? [];
         mood = r.data.mood;
-        visualStyle = r.data.visualStyle;
+        styleSpec = r.data.styleSpec;
         pushStep({ name: "plan", status: "ok", ms, error: r.data.qcNotes?.length ? `QC: ${r.data.qcNotes.join("; ")}` : undefined });
       } else {
         pushStep({ name: "plan", status: "failed", ms, error: r.error });
@@ -321,7 +321,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
-      styleVariant: visualStyle,
+      styleSpec,
     }, req, 310_000);
     const renderMs = Date.now() - stepT;
 

@@ -34,6 +34,72 @@ const TEMP_DIR = process.env.REMOTION_TEMP_DIR ?? "";
 
 interface CaptionWord { word: string; start: number; end: number }
 
+/**
+ * Генеративный стиль (v3): спек от ИИ-арт-директора. Санитайзим кодом —
+ * enum-whitelist + клампы. Невалидные значения выбрасываются (композиция
+ * подставит свои дефолты), рендер не может упасть из-за фантазий модели.
+ * Дублирует словарь remotion/src/style-spec.ts — у Next-приложения нет zod
+ * и нет импорта из remotion-проекта (раздельные сборки).
+ */
+interface StyleSpecInput {
+  typography?: { uppercase?: boolean; weight?: number; letterSpacing?: number; fontScale?: number };
+  hook?: { wordAnimation?: string; accentTarget?: string; underline?: boolean };
+  broll?: { transition?: string; kenBurns?: string };
+  decor?: { grain?: number; vignette?: number; shapes?: boolean; lightLeak?: boolean };
+  captions?: { mode?: string; karaoke?: boolean };
+  progressBar?: boolean;
+}
+
+const WORD_ANIMS = new Set(["spring-up", "blur-in", "slide-left", "scale-pop", "typewriter"]);
+const ACCENT_TARGETS = new Set(["longest", "last", "first", "none"]);
+const TRANSITIONS = new Set(["fade", "slide-left", "slide-right", "slide-up", "wipe", "flip", "clock-wipe", "punch", "whip"]);
+const KEN_BURNS = new Set(["subtle", "strong", "off"]);
+const CAPTION_MODES = new Set(["pill", "bare", "boxed"]);
+
+function num(v: unknown, min: number, max: number): number | undefined {
+  return typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined;
+}
+function bool(v: unknown): boolean | undefined {
+  return typeof v === "boolean" ? v : undefined;
+}
+function oneOf(v: unknown, set: Set<string>): string | undefined {
+  return typeof v === "string" && set.has(v) ? v : undefined;
+}
+
+function sanitizeStyleSpec(raw: unknown): StyleSpecInput | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const r = raw as Record<string, Record<string, unknown>>;
+  const spec: StyleSpecInput = {
+    typography: {
+      uppercase: bool(r.typography?.uppercase),
+      weight: [700, 800, 900].includes(r.typography?.weight as number) ? (r.typography!.weight as number) : undefined,
+      letterSpacing: num(r.typography?.letterSpacing, -3, 4),
+      fontScale: num(r.typography?.fontScale, 0.8, 1.25),
+    },
+    hook: {
+      wordAnimation: oneOf(r.hook?.wordAnimation, WORD_ANIMS),
+      accentTarget: oneOf(r.hook?.accentTarget, ACCENT_TARGETS),
+      underline: bool(r.hook?.underline),
+    },
+    broll: {
+      transition: oneOf(r.broll?.transition, TRANSITIONS),
+      kenBurns: oneOf(r.broll?.kenBurns, KEN_BURNS),
+    },
+    decor: {
+      grain: num(r.decor?.grain, 0, 1),
+      vignette: num(r.decor?.vignette, 0, 1),
+      shapes: bool(r.decor?.shapes),
+      lightLeak: bool(r.decor?.lightLeak),
+    },
+    captions: {
+      mode: oneOf(r.captions?.mode, CAPTION_MODES),
+      karaoke: bool(r.captions?.karaoke),
+    },
+    progressBar: bool((raw as Record<string, unknown>).progressBar),
+  };
+  return spec;
+}
+
 interface RenderProps {
   hookText: string;
   ctaText: string;
@@ -49,7 +115,9 @@ interface RenderProps {
   captionsEnabled: boolean;
   captionsScript: string | null;
   captionsWords?: CaptionWord[];
-  /** Визуальный стиль композиции (см. STYLE_PRESETS в ContentReel.tsx). */
+  /** Генеративная спецификация стиля (v3) — приоритетнее styleVariant. */
+  styleSpec?: StyleSpecInput;
+  /** Легаси-пресеты (v2) — используются, только если styleSpec не задан. */
   styleVariant?: "dynamic" | "clean" | "bold";
 }
 
@@ -97,6 +165,7 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
           (w): w is CaptionWord => typeof w === "object" && w !== null && "word" in w && "start" in w && "end" in w,
         )
       : undefined,
+    styleSpec: sanitizeStyleSpec(body.styleSpec),
     styleVariant: body.styleVariant === "clean" || body.styleVariant === "bold" ? body.styleVariant : "dynamic",
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);

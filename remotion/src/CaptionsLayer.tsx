@@ -34,6 +34,10 @@ interface Props {
   wordsPerChunk?: number;
   /** Акцентный цвет карооке-подсветки активного слова (только точный режим). */
   accentColor?: string;
+  /** Оформление: pill (тёмная плашка), bare (без фона, жирная тень), boxed (активное слово в цветном боксе). */
+  mode?: "pill" | "bare" | "boxed";
+  /** Подсвечивать ли произносимое слово (только точный режим). Default true. */
+  karaoke?: boolean;
 }
 
 interface TimedWord { word: string; startFrame: number; endFrame: number }
@@ -98,7 +102,7 @@ function buildProportionalChunks(script: string, wordsPerChunk: number, duration
   }));
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee" }) => {
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode = "pill", karaoke = true }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
@@ -154,21 +158,23 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
         <div
           style={{
             display: "inline-block",
-            background: "rgba(0, 0, 0, 0.78)",
+            background: mode === "pill" ? "rgba(0, 0, 0, 0.78)" : "transparent",
             color: "#fff",
-            padding: "16px 28px",
+            padding: mode === "pill" ? "16px 28px" : "8px 12px",
             borderRadius: 18,
             fontFamily: "Inter, -apple-system, system-ui, sans-serif",
-            fontWeight: 800,
+            fontWeight: mode === "bare" ? 900 : 800,
             fontSize: 56,
             lineHeight: 1.25,
             letterSpacing: -0.5,
-            textShadow: "0 4px 16px rgba(0,0,0,0.8)",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            textShadow: mode === "bare"
+              ? "0 3px 0 rgba(0,0,0,0.9), 0 6px 24px rgba(0,0,0,0.95)"
+              : "0 4px 16px rgba(0,0,0,0.8)",
+            boxShadow: mode === "pill" ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
             maxWidth: "92%",
           }}
         >
-          {chunks[activeIndex].words ? (
+          {chunks[activeIndex].words && karaoke ? (
             // Карооке-режим (только при точных таймингах): произносимое СЕЙЧАС
             // слово подсвечено акцентом и чуть увеличено — как в нативных
             // капшенах TikTok/CapCut. PromoReel (fallback-режим) не задет.
@@ -177,6 +183,7 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
               const pop = active
                 ? interpolate(frame, [w.startFrame, w.startFrame + 4], [1, 1.12], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
                 : 1;
+              const boxed = mode === "boxed";
               return (
                 <span
                   key={i}
@@ -184,10 +191,15 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
                     display: "inline-block",
                     marginRight: 14,
                     scale: String(pop),
-                    color: active ? accentColor : "#fff",
-                    textShadow: active
+                    color: active ? (boxed ? "#0a0e1a" : accentColor) : "#fff",
+                    background: active && boxed ? accentColor : "transparent",
+                    borderRadius: boxed ? 10 : 0,
+                    padding: boxed ? "0px 10px" : 0,
+                    textShadow: active && !boxed
                       ? `0 0 24px ${accentColor}aa, 0 4px 16px rgba(0,0,0,0.8)`
-                      : "0 4px 16px rgba(0,0,0,0.8)",
+                      : boxed && active
+                        ? "none"
+                        : "0 4px 16px rgba(0,0,0,0.8)",
                   }}
                 >
                   {w.word}
