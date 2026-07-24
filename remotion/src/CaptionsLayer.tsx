@@ -32,11 +32,15 @@ interface Props {
   words?: CaptionWord[];
   /** Размер chunk'а в словах. Default 4 — оптимально читается в 1 кадре. */
   wordsPerChunk?: number;
+  /** Акцентный цвет карооке-подсветки активного слова (только точный режим). */
+  accentColor?: string;
 }
 
-interface TimedChunk { text: string; startFrame: number; endFrame: number }
+interface TimedWord { word: string; startFrame: number; endFrame: number }
+interface TimedChunk { text: string; startFrame: number; endFrame: number; words?: TimedWord[] }
 
-/** Точный режим: группирует слова по wordsPerChunk, границы — из реальных таймингов Whisper (в секундах → кадры). */
+/** Точный режим: группирует слова по wordsPerChunk, границы — из реальных таймингов Whisper (в секундах → кадры).
+ *  Пословные фреймы сохраняются для карооке-подсветки активного слова. */
 function buildTimedChunks(words: CaptionWord[], wordsPerChunk: number, fps: number, durationInFrames: number): TimedChunk[] {
   const chunks: TimedChunk[] = [];
   for (let i = 0; i < words.length; i += wordsPerChunk) {
@@ -46,7 +50,16 @@ function buildTimedChunks(words: CaptionWord[], wordsPerChunk: number, fps: numb
     // Конец chunk'а — начало следующего chunk'а (без "мёртвого" зазора) либо конец композиции для последнего.
     const nextGroup = words[i + wordsPerChunk];
     const endFrame = nextGroup ? Math.round(nextGroup.start * fps) : Math.min(durationInFrames, Math.round(group[group.length - 1].end * fps) + fps);
-    chunks.push({ text: group.map((w) => w.word).join(" ").trim(), startFrame, endFrame: Math.max(endFrame, startFrame + 1) });
+    chunks.push({
+      text: group.map((w) => w.word).join(" ").trim(),
+      startFrame,
+      endFrame: Math.max(endFrame, startFrame + 1),
+      words: group.map((w) => ({
+        word: w.word,
+        startFrame: Math.max(0, Math.round(w.start * fps)),
+        endFrame: Math.max(Math.round(w.end * fps), Math.round(w.start * fps) + 1),
+      })),
+    });
   }
   return chunks;
 }
@@ -85,7 +98,7 @@ function buildProportionalChunks(script: string, wordsPerChunk: number, duration
   }));
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4 }) => {
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee" }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
@@ -148,14 +161,42 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
             fontFamily: "Inter, -apple-system, system-ui, sans-serif",
             fontWeight: 800,
             fontSize: 56,
-            lineHeight: 1.2,
+            lineHeight: 1.25,
             letterSpacing: -0.5,
             textShadow: "0 4px 16px rgba(0,0,0,0.8)",
             boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
             maxWidth: "92%",
           }}
         >
-          {currentChunk}
+          {chunks[activeIndex].words ? (
+            // Карооке-режим (только при точных таймингах): произносимое СЕЙЧАС
+            // слово подсвечено акцентом и чуть увеличено — как в нативных
+            // капшенах TikTok/CapCut. PromoReel (fallback-режим) не задет.
+            chunks[activeIndex].words!.map((w, i) => {
+              const active = frame >= w.startFrame && frame < w.endFrame;
+              const pop = active
+                ? interpolate(frame, [w.startFrame, w.startFrame + 4], [1, 1.12], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+                : 1;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    display: "inline-block",
+                    marginRight: 14,
+                    scale: String(pop),
+                    color: active ? accentColor : "#fff",
+                    textShadow: active
+                      ? `0 0 24px ${accentColor}aa, 0 4px 16px rgba(0,0,0,0.8)`
+                      : "0 4px 16px rgba(0,0,0,0.8)",
+                  }}
+                >
+                  {w.word}
+                </span>
+              );
+            })
+          ) : (
+            currentChunk
+          )}
         </div>
       </div>
     </AbsoluteFill>

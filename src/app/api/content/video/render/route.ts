@@ -70,7 +70,7 @@ async function callLocal<T = unknown>(
   } finally { clearTimeout(timer); }
 }
 
-interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; qcNotes: string[] }
+interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; visualStyle?: string; qcNotes: string[] }
 interface VoiceoverData { url: string }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
@@ -204,6 +204,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     let ctaText = "Узнайте подробнее";
     let brollQueries: string[] = [];
     let mood: string | undefined;
+    let visualStyle: string | undefined;
     {
       const stepT = Date.now();
       const r = await callLocal<PlanData>("/api/content/video/plan",
@@ -214,6 +215,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         ctaText = r.data.ctaText || ctaText;
         brollQueries = r.data.brollQueries ?? [];
         mood = r.data.mood;
+        visualStyle = r.data.visualStyle;
         pushStep({ name: "plan", status: "ok", ms, error: r.data.qcNotes?.length ? `QC: ${r.data.qcNotes.join("; ")}` : undefined });
       } else {
         pushStep({ name: "plan", status: "failed", ms, error: r.error });
@@ -319,6 +321,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
+      styleVariant: visualStyle,
     }, req, 310_000);
     const renderMs = Date.now() - stepT;
 

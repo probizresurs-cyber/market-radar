@@ -37,13 +37,15 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 2. ctaText — призыв к действию для ПОСЛЕДНИХ 3-4 секунд. Короткий (до 45 знаков), на языке сценария. Не дублирует hookText по смыслу.
 3. brollQueries — 3-4 английские короткие поисковые фразы (2-4 слова каждая) для поиска стоковых видео на Pexels, которые визуально иллюстрируют содержание ролика. Конкретные, предметные (например "dentist examining patient", "modern office team meeting"), НЕ абстрактные ("business success").
 4. mood — настроение фоновой музыки, СТРОГО одно из: "upbeat" (энергичное, продающее), "calm" (спокойное, доверительное), "corporate" (нейтрально-деловое), "dramatic" (напряжённое, для проблема→решение), "playful" (лёгкое, с юмором).
+5. visualStyle — визуальная манера монтажа, СТРОГО одно из: "dynamic" (энергичный: зум-панчи, зерно, для продающих/трендовых тем), "clean" (спокойный премиум: мягкие фейды, без зерна — медицина, финансы, доверие), "bold" (дерзкий: капс в хуке, врезки сбоку — провокационные хуки, молодёжная аудитория).
 
 Отвечай СТРОГО валидным JSON без markdown:
-{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate"}`;
+{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate","visualStyle":"dynamic"}`;
 
 const VALID_MOODS = new Set(["upbeat", "calm", "corporate", "dramatic", "playful"]);
+const VALID_STYLES = new Set(["dynamic", "clean", "bold"]);
 
-interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string }
+interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; visualStyle?: string }
 
 function buildBrandHints(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -155,6 +157,7 @@ ${issues.map(i => `- ${i}`).join("\n")}
         ctaText: (parsed.ctaText ?? "").trim().slice(0, 90) || "Узнайте подробнее",
         brollQueries: (parsed.brollQueries ?? []).filter(q => q?.trim()).slice(0, 4),
         mood: VALID_MOODS.has(parsed.mood ?? "") ? parsed.mood : "corporate",
+        visualStyle: VALID_STYLES.has(parsed.visualStyle ?? "") ? parsed.visualStyle : "dynamic",
         qcNotes: issues,
       },
     });

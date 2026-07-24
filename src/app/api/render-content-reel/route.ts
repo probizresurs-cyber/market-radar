@@ -49,6 +49,8 @@ interface RenderProps {
   captionsEnabled: boolean;
   captionsScript: string | null;
   captionsWords?: CaptionWord[];
+  /** Визуальный стиль композиции (см. STYLE_PRESETS в ContentReel.tsx). */
+  styleVariant?: "dynamic" | "clean" | "bold";
 }
 
 function resolveMediaUrl(raw: string | null | undefined, assetsOrigin: string): string | null {
@@ -95,6 +97,7 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
           (w): w is CaptionWord => typeof w === "object" && w !== null && "word" in w && "start" in w && "end" in w,
         )
       : undefined,
+    styleVariant: body.styleVariant === "clean" || body.styleVariant === "bold" ? body.styleVariant : "dynamic",
     videoDurationSec: (() => {
       const n = Number(body.videoDurationSec);
       if (!Number.isFinite(n)) return 30;
