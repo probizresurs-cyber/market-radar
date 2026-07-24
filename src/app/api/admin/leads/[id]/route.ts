@@ -85,6 +85,13 @@ export async function GET(_req: Request, { params }: Params) {
       [id],
     );
 
+    // Фаза C: КП, сгенерированные из этого лида (связка лидген → КП-генератор).
+    const kpRows = await query(
+      `SELECT id, status, error, share_token, share_password, views, kp_sent_at, kp_sent_to, created_at, completed_at
+         FROM kp_generations WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 5`,
+      [id],
+    );
+
     return NextResponse.json({
       ok: true,
       lead: leadRows[0],
@@ -92,6 +99,7 @@ export async function GET(_req: Request, { params }: Params) {
       notes: notesRows,
       history: historyRows,
       emails: emailRows,
+      kps: kpRows,
     });
   } catch (e) {
     console.error("admin/leads/[id] GET error", e);

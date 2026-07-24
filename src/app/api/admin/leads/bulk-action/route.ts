@@ -4,11 +4,14 @@
  * Body:
  *   { leadIds: string[], action: "delete" }
  *   { leadIds: string[], action: "set-status", status: LeadStatus, note?: string }
+ *   { leadIds: string[], action: "generate-kp" }
  *
  * Используется CRM-доской для bulk-операций:
  *   • удалить N выбранных лидов одним запросом,
  *   • перевести N лидов в новый статус (с записью в lead_status_history
- *     по каждому, чтобы аналитика воронки не врала).
+ *     по каждому, чтобы аналитика воронки не врала),
+ *   • поставить КП в очередь по N лидам сразу (Фаза C: лидген → КП;
+ *     лиды с уже живым КП пропускаются — без дубликатов).
  *
  * Все операции — внутри одной транзакции через FK CASCADE
  * (DELETE leads автоматически чистит lead_reports, lead_notes,
@@ -19,13 +22,14 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/lead-types";
+import { enqueueKp } from "@/lib/kp-queue";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
 interface BodyShape {
   leadIds: string[];
-  action: "delete" | "set-status";
+  action: "delete" | "set-status" | "generate-kp";
   status?: LeadStatus;
   note?: string;
 }
@@ -104,6 +108,49 @@ export async function POST(req: Request) {
       );
 
       return NextResponse.json({ ok: true, updated: idsToUpdate.length, skipped: ids.length - idsToUpdate.length });
+    }
+
+    if (body.action === "generate-kp") {
+      // Cap жёстче общего: каждая генерация — 4-6 минут AI-работы и деньги.
+      const kpIds = ids.slice(0, 50);
+      const leads = await query<{
+        id: string; domain: string; company_name: string | null;
+        contact_email: string | null; contact_phone: string | null;
+      }>(
+        `SELECT id, domain, company_name, contact_email, contact_phone
+           FROM leads WHERE id = ANY($1::text[]) AND domain IS NOT NULL AND domain <> ''`,
+        [kpIds],
+      );
+      // Пропускаем лидов с уже живым КП — bulk не должен плодить дубликаты.
+      const withKp = await query<{ lead_id: string }>(
+        `SELECT DISTINCT lead_id FROM kp_generations
+          WHERE lead_id = ANY($1::text[]) AND status IN ('queued','running','done')`,
+        [leads.map(l => l.id)],
+      );
+      const skipIds = new Set(withKp.map(r => r.lead_id));
+      const toEnqueue = leads.filter(l => !skipIds.has(l.id));
+
+      let enqueued = 0;
+      for (const lead of toEnqueue) {
+        try {
+          await enqueueKp(`https://${lead.domain}`, "ru", {
+            leadId: lead.id,
+            companyName: lead.company_name ?? undefined,
+            clientEmail: lead.contact_email ?? undefined,
+            clientPhone: lead.contact_phone ?? undefined,
+          });
+          enqueued++;
+        } catch (e) {
+          console.error(`bulk generate-kp: enqueue failed for lead ${lead.id}`, e);
+        }
+      }
+      return NextResponse.json({
+        ok: true,
+        enqueued,
+        skippedExisting: skipIds.size,
+        skippedNoDomain: kpIds.length - leads.length,
+        capped: ids.length > 50 ? ids.length - 50 : 0,
+      });
     }
 
     return NextResponse.json({ ok: false, error: "неизвестное действие" }, { status: 400 });

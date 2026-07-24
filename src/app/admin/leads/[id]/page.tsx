@@ -53,6 +53,19 @@ interface HistoryRow {
   created_at: string;
 }
 
+interface KpRow {
+  id: string;
+  status: string;
+  error: string | null;
+  share_token: string | null;
+  share_password: string | null;
+  views: number;
+  kp_sent_at: string | null;
+  kp_sent_to: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
 interface EmailRow {
   id: string;
   subject: string;
@@ -120,6 +133,9 @@ export default function AdminLeadDetailPage() {
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [emails, setEmails] = useState<EmailRow[]>([]);
+  const [kps, setKps] = useState<KpRow[]>([]);
+  const [kpGenerating, setKpGenerating] = useState(false);
+  const [kpError, setKpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -138,6 +154,7 @@ export default function AdminLeadDetailPage() {
         setNotes(d.notes);
         setHistory(d.history);
         setEmails(d.emails ?? []);
+        setKps(d.kps ?? []);
         setDraft({});
       }
     } finally {
@@ -191,6 +208,25 @@ export default function AdminLeadDetailPage() {
       setGenError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function generateKp(force = false) {
+    setKpError(null);
+    setKpGenerating(true);
+    try {
+      const r = await fetch(`/api/admin/leads/${id}/generate-kp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      const d = await r.json();
+      if (!d.ok) setKpError(d.error ?? "Не удалось поставить КП в очередь");
+      else await load();
+    } catch (e) {
+      setKpError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setKpGenerating(false);
     }
   }
 
@@ -339,6 +375,64 @@ export default function AdminLeadDetailPage() {
                   Прошлая попытка упала: {lastReport.error_message}
                 </div>
               )}
+            </div>
+
+            {/* Интерактивный анализ (КП) — связка с генератором /kp-ru (Фаза C) */}
+            <div style={S.card}>
+              <div style={S.cardTitle}>Интерактивный анализ (КП)</div>
+              {(() => {
+                const kp = kps[0];
+                const kpRunning = kpGenerating || kp?.status === "queued" || kp?.status === "running";
+                if (kp?.status === "done" && kp.share_token) {
+                  return (
+                    <div>
+                      <div style={{ fontSize: 13, color: C.fg, marginBottom: 10 }}>
+                        Готово · {fmtDate(kp.completed_at)} ·{" "}
+                        <span style={{ color: kp.views > 0 ? "#4ade80" : C.muted }}>
+                          {kp.views > 0 ? `${kp.views} просмотров` : "клиент ещё не открывал"}
+                        </span>
+                        {kp.kp_sent_at && <span style={{ color: "#4ade80" }}> · отправлено {fmtDate(kp.kp_sent_at)}</span>}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 12 }}>
+                        Ссылка: <code>/kp-share/{kp.share_token}</code> · Пароль: <b style={{ color: C.fg, fontFamily: "monospace" }}>{kp.share_password}</b>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <a href={`/kp-share/${kp.share_token}`} target="_blank" rel="noreferrer" style={S.btn("primary")}>
+                          <ExternalLink size={13} /> Открыть КП
+                        </a>
+                        <a href="/kp-ru" target="_blank" rel="noreferrer" style={S.btn("ghost")}>
+                          <Send size={13} /> Отправить из консоли КП
+                        </a>
+                        <button style={S.btn("ghost")} onClick={() => generateKp(true)} disabled={kpGenerating}>
+                          {kpGenerating ? <><Loader2 size={13} className="spin" /> Ставим…</> : "Перегенерировать"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                if (kpRunning) {
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.muted, fontSize: 13 }}>
+                      <Loader2 size={16} className="spin" /> Генерируем КП (обычно 4-6 мин) — можно уйти со страницы, статус обновится
+                    </div>
+                  );
+                }
+                return (
+                  <div>
+                    <div style={{ fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 1.55 }}>
+                      Полное коммерческое предложение по реальному анализу сайта — то же, что в консоли /kp-ru,
+                      но контакты лида подставятся автоматически. Генерация 4-6 мин.
+                      {kp?.status === "error" && kp.error && (
+                        <div style={{ color: "#ef4444", marginTop: 8 }}>Прошлая попытка упала: {kp.error}</div>
+                      )}
+                    </div>
+                    <button style={S.btn("primary")} onClick={() => generateKp(kp?.status === "error")} disabled={kpGenerating}>
+                      <FileText size={13} /> Сгенерировать КП
+                    </button>
+                  </div>
+                );
+              })()}
+              {kpError && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 10 }}>{kpError}</div>}
             </div>
           </div>
 

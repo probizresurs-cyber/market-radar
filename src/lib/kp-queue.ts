@@ -20,12 +20,23 @@ function makeSharePassword(): string {
   return `${w}${Math.floor(10 + Math.random() * 89)}`; // напр. astro42
 }
 
-export async function enqueueKp(url: string, locale: KpLocale): Promise<string> {
+export async function enqueueKp(
+  url: string,
+  locale: KpLocale,
+  // Фаза C: постановка из карточки лида (/admin/leads) — сразу привязываем
+  // лид и переносим его контакты, чтобы менеджеру в /kp-ru не пришлось
+  // вбивать email руками, а воронка (kp-followups, magic-link) знала клиента.
+  opts?: { leadId?: string; companyName?: string; clientEmail?: string; clientPhone?: string },
+): Promise<string> {
   const id = randomUUID();
   await query(
-    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password)
-     VALUES ($1, $2, $3, 'queued', $4, $5)`,
-    [id, locale, url, randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword()],
+    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone)
+     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9)`,
+    [
+      id, locale, url,
+      randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
+      opts?.leadId ?? null, opts?.companyName ?? null, opts?.clientEmail ?? null, opts?.clientPhone ?? null,
+    ],
   );
   void tick();
   return id;

@@ -442,6 +442,16 @@ export async function initDb() {
   // доступ» в консоли); NULL пока не создан.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS platform_user_id TEXT REFERENCES users(id) ON DELETE SET NULL`);
 
+  // Фаза C воронки: связка лидген-модуля с КП-генератором — «Сгенерировать
+  // КП» из карточки лида в /admin/leads. NULL для КП, созданных из консоли
+  // менеджера напрямую. ON DELETE SET NULL — удаление лида не трогает КП.
+  // ВАЖНО: миграция идёт ПОСЛЕ создания таблицы leads (см. ниже по файлу) —
+  // на свежей БД leads к этому моменту уже существует из прошлых запусков
+  // initDb; для полной идемпотентности колонка без REFERENCES-констрейнта
+  // здесь, FK не критичен (сирота-lead_id просто не найдёт карточку).
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS lead_id TEXT`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_generations_lead_id ON kp_generations(lead_id)`);
+
   // Одноразовые токены входа без пароля — выдаются менеджером из КП (клиент
   // не проходит обычную регистрацию, но факт клика по ссылке = его согласие,
   // consent_accepted_at проставляется в момент редима, не создания).
