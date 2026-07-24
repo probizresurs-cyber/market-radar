@@ -3,6 +3,7 @@ import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData } from "@/lib/enricher";
 import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { checkKpAiVisibility, type KpAiCheckResult } from "@/lib/kp-ai-visibility";
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 
@@ -42,11 +43,13 @@ const PRICE_POLICY: Record<KpLocale, {
     smm: "от 25 000 ₽/мес",
   },
   de: {
+    // Минимум 500 € для Европы — правка владельца 24.07.26 («Анализ Де.docx»):
+    // ab 100/250 € выглядели несерьёзно для немецкого рынка.
     marketer: "1 000 €/Monat",
-    ours: "ab 250 €/Monat",
-    astro: "100 €",
-    seoGeo: "ab 250 €/Monat",
-    smm: "ab 250 €/Monat",
+    ours: "ab 500 €/Monat",
+    astro: "500 €",
+    seoGeo: "ab 500 €/Monat",
+    smm: "ab 500 €/Monat",
   },
 };
 
@@ -64,15 +67,17 @@ function bundleSchemaPrompt(locale: KpLocale): string {
     : "Рынок — Россия: Яндекс+Google, ассистенты Алиса/Яндекс Нейро/ChatGPT/GigaChat.";
   const p = PRICE_POLICY[locale];
   const assistantsExample = locale === "de"
-    ? `[{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"Google Gemini","rewards":"..."},{"name":"Microsoft Copilot","rewards":"..."}]`
-    : `[{"name":"Алиса / Яндекс Нейро","rewards":"..."},{"name":"ChatGPT","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"GigaChat (Сбер)","rewards":"..."}]`;
+    ? `[{"name":"ChatGPT","rewards":"..."},{"name":"Claude","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"Google Gemini","rewards":"..."},{"name":"Microsoft Copilot","rewards":"..."}]`
+    : `[{"name":"Алиса / Яндекс Нейро","rewards":"..."},{"name":"ChatGPT","rewards":"..."},{"name":"Claude","rewards":"..."},{"name":"Perplexity","rewards":"..."},{"name":"GigaChat (Сбер)","rewards":"..."}]`;
   // Остальные примеры-заглушки в схеме ниже — тоже НЕ переводились по locale
   // и рисковали протечь в бандл буквально (модель копирует форму примера).
   const potentialExample = locale === "de" ? "+N Anfragen/Monat" : "+N заявок/мес";
   const monthsExample = locale === "de"
     ? `["Monat 1","Monat 2","Monat 3","Monat 4","Monat 5","Monat 6"]`
     : `["мес 1","мес 2","мес 3","мес 4","мес 5","мес 6"]`;
-  const offerNameExample = locale === "de" ? "Website-Umzug zu Astro" : "Перенос сайта на Astro";
+  // DE: без слова «Astro» и без «Umzug/переезд» — клиента пугает миграция
+  // (правка владельца). Продаём техническую модернизацию с сохранением дизайна.
+  const offerNameExample = locale === "de" ? "Technische Website-Modernisierung" : "Перенос сайта на Astro";
   const offerPriceNoteExample = locale === "de" ? "einmalige Arbeit" : "разовая работа";
   const weekExample = locale === "de" ? "Woche 1" : "Неделя 1";
   const deferToCallExample = locale === "de" ? "klären wir im Erstgespräch" : "уточним на созвоне";
@@ -82,9 +87,10 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 
 ЦЕНЫ — ФИКСИРОВАННАЯ СЕТКА, СВОИ НЕ ПРИДУМЫВАЙ:
 - savings: маркетолог в штате ${p.marketer} → мы ${p.ours}
-- offers[0] «Перенос сайта на Astro»: ${p.astro} (разовая работа)
+- offers[0] «${locale === "de" ? "Technische Website-Modernisierung" : "Перенос сайта на Astro"}»: ${p.astro} (разовая работа)
 - monthly: СЕО+ГЕО ${p.seoGeo}; СММ ${p.smm}
-- unitEconomics.entry: про разовый вход ${p.astro} за перенос на Astro
+- unitEconomics.entry: про разовый вход ${p.astro} за ${locale === "de" ? "техническую модернизацию сайта" : "перенос на Astro"}${locale === "de" ? `
+- DE-ЗАПРЕТ: НЕ используй слова "Astro", "Umzug", "Migration" — клиента пугает «переезд сайта». offers[0].effort («Warum dieser Preis») объясни через ценность: технические проблемы из находок будут исправлены, дизайн останется 1:1, сайт получит чистую техническую основу для SEO и GEO. Никакого фреймворк-жаргона.` : ""}
 
 СОГЛАСОВАННОСТЬ ЦИФР (КП с расходящимися цифрами = брак):
 - hero.potential = "+{totalLow}–{totalHigh} заявок/мес" — ровно те же числа, что forecast.totalLow/totalHigh
@@ -92,6 +98,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 - chart.series — те же каналы, что forecast.scenarios (3-4: SEO+GEO сайт, дистрибуция статей, соцсети, AI-видимость — выбери применимые к нише)
 - unitEconomics.deals — из totalLow..totalHigh × конверсия (конверсию пометь как ОЦЕНКУ в dealsNote)
 - unitEconomics.check — средний чек ТОЛЬКО из реальных данных сайта/ниши; если данных нет, напиши буквально "${deferToCallExample}" (на ${lang} языке, не на русском)
+- МАСШТАБ ПРОГНОЗА = МАСШТАБ КОМПАНИИ. Оцени размер бизнеса по данным (трафик, известность бренда, размер сайта): микробизнес/локальная компания → десятки заявок/мес; средний бизнес → десятки-сотни; крупный бренд или корпорация (например, известный автопроизводитель, федеральная сеть) → сотни-тысячи дополнительных обращений/мес, и слово «заявки» замени на уместное для корпорации («обращения», «квалифицированный трафик»). Прогноз «+18–35 заявок/мес» для всемирно известного бренда — брак, который дискредитирует всё КП.
 
 ЖЁСТКИЕ ПРАВИЛА:
 - Находки (findings) — ТОЛЬКО из переданных данных анализа. Никаких выдуманных цифр, конкурентов, отзывов. Каждая находка: evidence "fact" (проверено анализом) / "estimate" (оценка) / "forecast" (прогноз).
@@ -107,7 +114,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
  "rivals": [{"name":"...","url":"...","strength":"...","weakness":"...","steal":"что у них забрать"}],
  "trump": "...",
  "savings": {"marketerPrice":"из ценовой сетки","ourPrice":"из ценовой сетки","headline":"Столько же работы — в разы дешевле штатного маркетолога","note":"..."},
- "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или '${deferToCallExample}'","checkNote":"средний чек — откуда цифра","entry":"Разовый вход — ... за перенос на Astro: ..."},
+ "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или '${deferToCallExample}'","checkNote":"средний чек — откуда цифра","entry":"${locale === "de" ? "Einmaliger Einstieg — ... für die technische Modernisierung: ..." : "Разовый вход — ... за перенос на Astro: ..."}"},
  "geo": {
    "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
    "whyNow":"почему входить сейчас дешевле",
@@ -131,7 +138,11 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 СТРОГО: geo.assistants/levers — массивы объектов; geo.method — ОБЪЕКТ с массивом questions; geo.forecast — массив объектов {month,evidence,text}. badges — ровно 3 строки. chart: длина values = длине months = 6; сумма серий к 6-му месяцу ≈ forecast.totalHigh. positionDiagnosis — словарь по реальным запросам (ключи строчными). articles — 3 примера статей. Если реальных конкурентов в данных нет — верни "rivals": [].`;
 }
 
-function buildContext(company: AnalysisResult, scraped: Awaited<ReturnType<typeof scrapeWebsite>>): string {
+function buildContext(
+  company: AnalysisResult,
+  scraped: Awaited<ReturnType<typeof scrapeWebsite>>,
+  aiCheck: KpAiCheckResult | null,
+): string {
   const c = company.company;
   const parts: string[] = [];
   parts.push(`Сайт: ${c.url}`);
@@ -139,7 +150,18 @@ function buildContext(company: AnalysisResult, scraped: Awaited<ReturnType<typeo
   if (c.description) parts.push(`Описание: ${c.description}`);
   parts.push(`Общий скор: ${c.score}/100. По категориям: ${(c.categories || []).map(x => `${x.name} ${x.score}`).join(", ")}`);
   if (company.seo) parts.push(`SEO/тех: ${JSON.stringify(company.seo).slice(0, 800)}`);
-  if (company.aiPerception) parts.push(`AI-восприятие бренда: ${JSON.stringify(company.aiPerception).slice(0, 500)}`);
+  if (aiCheck?.checked) {
+    // РЕАЛЬНАЯ проверка приоритетнее симуляции aiPerception — она перекрывает
+    // любые «в ChatGPT вас нет», если бренд там на самом деле есть.
+    parts.push(
+      `РЕАЛЬНАЯ ПРОВЕРКА ChatGPT (не симуляция, живые ответы API): бренд упомянут в ${aiCheck.mentionedIn} из ${aiCheck.total} ответов на честные пользовательские запросы. ` +
+      (aiCheck.mentionedIn > 0
+        ? `ChatGPT ЗНАЕТ компанию — НЕ пиши «в ответах ассистентов вас нет». Фрейминг GEO-оффера: закрепить и усилить присутствие, контролировать ЧТО именно ассистенты говорят о бренде. `
+        : `ChatGPT не упомянул бренд ни в одном ответе — это честная точка роста для GEO. `) +
+      `Пример реального ответа (запрос: «${aiCheck.sampleQuery}»): ${aiCheck.sampleAnswer.slice(0, 700)}`,
+    );
+  }
+  if (company.aiPerception) parts.push(`AI-восприятие бренда (модельная оценка${aiCheck?.checked ? ", ВТОРИЧНА к реальной проверке выше" : ""}): ${JSON.stringify(company.aiPerception).slice(0, 500)}`);
   const rivals = company.spywordsDashboard?.competitors?.yandex ?? company.keysoDashboard?.yandex?.competitors ?? [];
   if (Array.isArray(rivals) && rivals.length) parts.push(`Конкуренты из данных: ${JSON.stringify(rivals).slice(0, 600)}`);
   const kws = company.seo?.keywords;
@@ -157,6 +179,39 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   // 2. Глубокий анализ (настоящий движок платформы)
   const company: AnalysisResult = await analyzeWithClaude(scraped, undefined, locale);
   company.company.url = company.company.url || scraped.url;
+
+  // Employer Branding / Arbeitgebermarke для DE — исключаем из КП: у нас нет
+  // реального анализа HR-бренда для рынков Европы (в РФ хотя бы HH.ru), а
+  // низкий выдуманный балл тянул вниз общий скоринг и порождал «критические»
+  // находки на пустом месте (правка владельца, «Анализ Де.docx»). Общий скор
+  // пересчитываем по оставшимся категориям.
+  if (locale === "de" && Array.isArray(company.company.categories)) {
+    const hrRe = /arbeitgebermarke|employer|hr[\s-]?brand|работодател/i;
+    const kept = company.company.categories.filter((cat) => !hrRe.test(cat.name));
+    if (kept.length > 0 && kept.length < company.company.categories.length) {
+      company.company.categories = kept;
+      company.company.score = Math.round(kept.reduce((s, cat) => s + cat.score, 0) / kept.length);
+    }
+  }
+
+  // РЕАЛЬНАЯ проверка видимости в ChatGPT — параллельно с обогащением ниже
+  // нельзя (нужно имя компании из анализа), но сама по себе быстрая (3 вызова
+  // gpt-4o-mini). Best-effort: без ключа/при ошибке КП строится как раньше.
+  const domainForCheck = (company.company.url || scraped.url).replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+  const aiCheck = await checkKpAiVisibility(
+    company.company.name || scraped.title || domainForCheck,
+    domainForCheck,
+    company.company.description || "",
+    locale,
+  ).catch(() => null);
+
+  // Реальный ответ ChatGPT перезаписывает симулированный sampleAnswer —
+  // клиент, проверяющий КП руками в GPT, должен видеть согласованную картину.
+  if (aiCheck?.checked && company.aiPerception) {
+    company.aiPerception.sampleAnswer = aiCheck.sampleAnswer;
+    company.aiPerception.knowledgePresence =
+      aiCheck.mentionedIn >= 2 ? "strong" : aiCheck.mentionedIn === 1 ? "moderate" : "minimal";
+  }
 
   // 3. Обогащение домена — ТО ЖЕ, что делает /api/analyze, иначе у авто-КП
   //    пустой Тех-аудит и AI-видимость (пилоты берут это из полного анализа
@@ -200,7 +255,7 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
     model: MODEL,
     max_tokens: 16000,
     system: bundleSchemaPrompt(locale),
-    messages: [{ role: "user", content: buildContext(company, scraped) }],
+    messages: [{ role: "user", content: buildContext(company, scraped, aiCheck) }],
     temperature: 0.4,
   });
   if (!text) throw new Error(error || "AI не вернул КП");
@@ -274,7 +329,14 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
     headline: bundle.savings?.headline,
     note: bundle.savings?.note,
   };
-  if (bundle.offers[0]) bundle.offers[0].price = p.astro;
+  if (bundle.offers[0]) {
+    bundle.offers[0].price = p.astro;
+    // DE: страховка кодом от «Astro/Umzug/Migration» в имени оффера — модель
+    // может проигнорировать запрет в промпте (уже видели такое с ценами).
+    if (locale === "de" && /astro|umzug|migration/i.test(bundle.offers[0].name ?? "")) {
+      bundle.offers[0].name = "Technische Website-Modernisierung";
+    }
+  }
   const seoGeoIdx = bundle.monthly.findIndex((m) => /seo|geo/i.test(m.name));
   const smmIdx = bundle.monthly.findIndex((m, i) => i !== seoGeoIdx && /smm|social|соц/i.test(m.name));
   if (bundle.monthly[seoGeoIdx >= 0 ? seoGeoIdx : 0]) bundle.monthly[seoGeoIdx >= 0 ? seoGeoIdx : 0].price = p.seoGeo;

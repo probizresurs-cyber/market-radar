@@ -88,6 +88,7 @@ export interface KpProposalStrings {
   astroSubmitting: string; astroSubmitBtn: string;
   astroRequestError: string; astroTooManyRequests: string;
   astroPhonePlaceholder: string;
+  astroConsentText: string; astroConsentLink: string;
   tgConnectPrompt: string; tgConnectBtn: string;
   finalCtaAstroTitle: string; finalCtaAstroBody: string; finalCtaAstroBtn: string;
   finalCtaGenericTitle: string; finalCtaGenericBody: string; leaveRequestBtn: string;
@@ -187,7 +188,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     unitEconDealsFallback: "договоров в месяц (конверсия 15–25%)", unitEconCheckFallback: "средний чек проекта",
     unitEconCheckValueFallback: "150–500 тыс ₽",
     unitEconEntryFallback: "Разовый вход за перенос сайта на Astro: окупается с первого договора.",
-    astroOfferTitle: "Хотите увидеть сайт быстрее и без потери дизайна?", astroOfferSubtitle: "Соберём рабочую копию на современном движке: тот же вид 1:1, устранены технические проблемы из находок выше",
+    astroOfferTitle: "Техническое обновление сайта — дизайн остаётся вашим", astroOfferSubtitle: "Устраним технические проблемы из находок выше и подготовим сайт к SEO и GEO. Внешний вид не меняется — 1:1",
     astroDone: "Готово — ссылка у вас на почте", astroDoneBody: (email) => `Мы собрали новую версию сайта и отправили ссылку на ${email}. Если письма нет — проверьте папку «Спам» или напишите нам.`,
     astroDoneReady: "Новая версия сайта готова", astroDoneReadyBody: (email) => `Откройте её по кнопке ниже. Копию ссылки мы также отправили на ${email}.`, astroOpenSiteBtn: "Открыть новый сайт",
     astroInProgress: "Собираем новую версию сайта", astroInProgressBody: (email) => `Обычно это занимает около 1 дня. Как только всё будет готово и проверено, пришлём ссылку на ${email}.`,
@@ -196,9 +197,11 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroSubmitting: "Отправляем…", astroSubmitBtn: "Да, интересно",
     astroRequestError: "Не получилось отправить запрос — попробуйте позже", astroTooManyRequests: "Слишком много запросов — попробуйте позже",
     astroPhonePlaceholder: "Телефон (необязательно)",
+    astroConsentText: "Согласен на обработку персональных данных в соответствии с",
+    astroConsentLink: "политикой конфиденциальности",
     tgConnectPrompt: "Не хотите пропустить уведомление? Подключите Telegram — пришлём готовую ссылку туда же.",
     tgConnectBtn: "Подключить Telegram",
-    finalCtaAstroTitle: "Готовы посмотреть новую версию сайта?", finalCtaAstroBody: "Один шаг — оставьте email в блоке «Новая версия сайта» выше, и мы соберём рабочую копию с сохранённым дизайном.", finalCtaAstroBtn: "Собрать новую версию сайта",
+    finalCtaAstroTitle: "Готовы к технически сильному сайту?", finalCtaAstroBody: "Один шаг — оставьте email в блоке «Новая версия сайта» выше. Мы подготовим технически обновлённую версию: дизайн без изменений, проблемы из находок устранены.", finalCtaAstroBtn: "Запросить обновление сайта",
     finalCtaGenericTitle: "Готовы вырасти в выдаче и лидах?", finalCtaGenericBody: "Разберём находки по вашему сайту, подберём пакет под задачи и покажем прогноз результата.", leaveRequestBtn: "Оставить заявку",
     evidenceFact: "ФАКТ", evidenceEstimate: "ОЦЕНКА", evidenceForecast: "ПРОГНОЗ",
     evidenceLegendPrefix: "Как читать отчёт:",
@@ -277,7 +280,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     ourTeamLabel: "MarketRadar — Team + KI", ourNoteFallback: "Wöchentlicher Bericht mit Zahlen, Geld-zurück-Garantie nach einem Monat",
     offerStartTitle: "Womit wir vorschlagen zu beginnen", offerStartSubtitle: "Einmaliger Einstieg zum Festpreis + zwei monatliche Leistungslinien",
     offerIncludes: "Was enthalten ist", offerGets: "Was Sie erhalten", offerWhyPrice: "Warum dieser Preis:",
-    offerMonthlyLabel: "Danach — monatlich", offerTimelineLabel: "Was nach dem Start passiert", offerStartBtn: "Mit der Migration starten",
+    offerMonthlyLabel: "Danach — monatlich", offerTimelineLabel: "Was nach dem Start passiert", offerStartBtn: "Jetzt starten",
     formatTitle: "So wird es aussehen", formatSubtitle: "Format der SEO+GEO-Artikel — zur Veranschaulichung, keine fertigen Veröffentlichungen",
     articlesExampleLabel: "Beispiel für das Artikelformat — zum Lesen klicken", articleCollapse: "Einklappen ↑", articleExpand: "Lesen →",
     articleWhySeo: "Warum das für SEO und GEO funktioniert",
@@ -294,8 +297,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     summaryTitle: "Gesamtprognose zum 6. Monat · Unit-Economics", requestsPerMonth: "Anfragen pro Monat",
     unitEconDealsFallback: "Verträge pro Monat (Konversionsrate 15–25 %)", unitEconCheckFallback: "durchschnittlicher Projektwert",
     unitEconCheckValueFallback: "1.500–5.000 €",
-    unitEconEntryFallback: "Einmaliger Einstieg für die Migration auf Astro: amortisiert sich ab dem ersten Vertrag.",
-    astroOfferTitle: "Möchten Sie die Website schneller sehen — ohne das Design zu verlieren?", astroOfferSubtitle: "Wir erstellen eine Arbeitskopie auf einer modernen Engine: gleiches Erscheinungsbild 1:1, technische Probleme aus den obigen Erkenntnissen behoben",
+    unitEconEntryFallback: "Einmaliger Einstieg für die technische Modernisierung: amortisiert sich ab dem ersten Vertrag.",
+    astroOfferTitle: "Technische Modernisierung — Ihr Design bleibt unverändert", astroOfferSubtitle: "Wir beheben die technischen Probleme aus den obigen Erkenntnissen und bereiten die Website für SEO und GEO vor. Das Erscheinungsbild bleibt 1:1 erhalten",
     astroDone: "Fertig — der Link ist in Ihrem Postfach", astroDoneBody: (email) => `Wir haben die neue Version der Website erstellt und den Link an ${email} gesendet. Falls keine E-Mail ankommt — prüfen Sie den Spam-Ordner oder schreiben Sie uns.`,
     astroDoneReady: "Die neue Version der Website ist fertig", astroDoneReadyBody: (email) => `Öffnen Sie sie über den Button unten. Eine Kopie des Links haben wir auch an ${email} gesendet.`, astroOpenSiteBtn: "Neue Website öffnen",
     astroInProgress: "Wir erstellen die neue Version der Website", astroInProgressBody: (email) => `Das dauert normalerweise etwa 1 Tag. Sobald alles fertig und geprüft ist, senden wir den Link an ${email}.`,
@@ -304,9 +307,11 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroSubmitting: "Wird gesendet…", astroSubmitBtn: "Ja, interessant",
     astroRequestError: "Anfrage konnte nicht gesendet werden — bitte später erneut versuchen", astroTooManyRequests: "Zu viele Anfragen — bitte später erneut versuchen",
     astroPhonePlaceholder: "Telefon (optional)",
+    astroConsentText: "Ich stimme der Verarbeitung meiner personenbezogenen Daten gemäß der",
+    astroConsentLink: "Datenschutzerklärung zu",
     tgConnectPrompt: "Möchten Sie die Benachrichtigung nicht verpassen? Verbinden Sie Telegram — wir senden den fertigen Link auch dorthin.",
     tgConnectBtn: "Telegram verbinden",
-    finalCtaAstroTitle: "Bereit, die neue Website-Version zu sehen?", finalCtaAstroBody: "Ein Schritt — hinterlassen Sie Ihre E-Mail im Block „Neue Website-Version“ oben, und wir erstellen eine Arbeitskopie mit erhaltenem Design.", finalCtaAstroBtn: "Neue Website-Version erstellen",
+    finalCtaAstroTitle: "Bereit für eine technisch stärkere Website?", finalCtaAstroBody: "Ein Schritt — hinterlassen Sie Ihre E-Mail im Block „Neue Website-Version“ oben. Wir bereiten eine technisch optimierte Version vor — das Design bleibt unverändert.", finalCtaAstroBtn: "Technische Optimierung anfragen",
     finalCtaGenericTitle: "Bereit, in Rankings und Leads zu wachsen?", finalCtaGenericBody: "Wir gehen die Erkenntnisse zu Ihrer Website durch, wählen ein passendes Paket und zeigen eine Ergebnisprognose.", leaveRequestBtn: "Anfrage hinterlassen",
     evidenceFact: "FAKT", evidenceEstimate: "SCHÄTZUNG", evidenceForecast: "PROGNOSE",
     evidenceLegendPrefix: "So lesen Sie den Bericht:",

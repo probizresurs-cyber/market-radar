@@ -1058,11 +1058,11 @@ export function KpProposal({
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.geoAssistantRewardsTitle}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, alignItems: "stretch" }}>
               {PD.geo.assistants.map((a, i) => (
-                <Reveal key={i} delay={i * 50}>
+                <Reveal key={i} delay={i * 50} style={{ height: "100%" }}>
                   {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
+                    <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
                         <Bot size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
                         <span style={{ fontSize: 14.5, fontWeight: 800 }}>{a.name}</span>
@@ -1714,7 +1714,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 /** Scroll-reveal обёртка: fade + translateY один раз при появлении во вьюпорте; отдаёт `visible` детям для доп. анимаций (счётчики, ширина баров, дуги диаграмм). */
-function Reveal({ children, delay = 0, y = 16 }: { children: (visible: boolean) => React.ReactNode; delay?: number; y?: number }) {
+function Reveal({ children, delay = 0, y = 16, style }: { children: (visible: boolean) => React.ReactNode; delay?: number; y?: number; style?: React.CSSProperties }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const reduced = usePrefersReducedMotion();
@@ -1737,6 +1737,7 @@ function Reveal({ children, delay = 0, y = 16 }: { children: (visible: boolean) 
       opacity: visible ? 1 : 0,
       transform: visible ? "translateY(0)" : `translateY(${y}px)`,
       transition: `opacity 0.6s var(--ease) ${delay}ms, transform 0.6s var(--ease) ${delay}ms`,
+      ...style,
     }}>
       {children(visible)}
     </div>
@@ -1863,9 +1864,11 @@ function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: P
               {hover != null && (
                 <circle cx={xOf(hover)} cy={yOf(s.values[hover])} r={4} fill={colors[i]} stroke="var(--card)" strokeWidth={2} />
               )}
-              {/* Прямая подпись серии у последней точки (как в эталоне), с разведением коллизий */}
+              {/* Прямая подпись серии у последней точки (как в эталоне), с разведением коллизий.
+                  Имя обрезаем: справа ~140px, длинные названия («Content-Distribution (Artikel)»)
+                  срезались краем viewBox на полуслове. Полное имя есть в легенде и таблице. */}
               <text x={xOf(lastIdx) + 10} y={labelYs[i] + 4} fontSize={11.5} fontWeight={700} fill="var(--foreground)">
-                {s.name} · {fmt(s.values[lastIdx])}
+                {(s.name.length > 15 ? `${s.name.slice(0, 14).trimEnd()}…` : s.name)} · {fmt(s.values[lastIdx])}
               </text>
             </g>
           ))}
@@ -2180,6 +2183,9 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
   const [email, setEmail] = useState(clientEmail ?? "");
   const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState(false);
+  // Согласие на обработку ПД (GDPR / 152-ФЗ) — обязательный чекбокс,
+  // без него форма контактов на публичной странице собирать данные не вправе.
+  const [consent, setConsent] = useState(false);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   // «В работе» — независимо от того, дошло ли уже до ревью менеджера: клиенту
@@ -2269,14 +2275,28 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           }}
         />
         <button
-          onClick={() => { setTouched(true); if (emailValid) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim(), phone.trim() || undefined); } }}
-          disabled={submitting}
+          onClick={() => { setTouched(true); if (emailValid && consent) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim(), phone.trim() || undefined); } }}
+          disabled={submitting || !consent}
           className="ds-btn ds-btn-primary"
-          style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}
+          style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, opacity: consent ? 1 : 0.55, cursor: consent ? "pointer" : "not-allowed" }}
         >
           {submitting ? t.astroSubmitting : t.astroSubmitBtn} {!submitting && <ArrowRight size={16} />}
         </button>
       </div>
+      <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 12, cursor: "pointer", fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          style={{ marginTop: 2, width: 15, height: 15, accentColor: "var(--primary)", flexShrink: 0 }}
+        />
+        <span>
+          {t.astroConsentText}{" "}
+          <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", textDecoration: "underline" }}>
+            {t.astroConsentLink}
+          </a>
+        </span>
+      </label>
       {error && <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10 }}>{error}</div>}
     </div>
   );
