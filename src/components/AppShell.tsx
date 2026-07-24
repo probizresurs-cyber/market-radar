@@ -13,6 +13,7 @@ import type { Review, ReviewAnalysis } from "@/lib/review-types";
 // ─── Shared modules (extracted from this file) ─────────────────────────────────
 import { COLORS, type Theme, type Colors } from "@/lib/colors";
 import { type UserAccount, NICHE_COMPETITORS, syncToServer, loadAllFromServer, authGetCurrentUser, authSetCurrentUser, sendTgNotification, setActiveWorkspaceForSync, setActiveProfileSuffixForSync } from "@/lib/user";
+import { hydrateMirror, startMirrorPush } from "@/lib/mirror-sync";
 import { resolveActiveWorkspace, saveActiveWorkspaceId, type ActiveWorkspaceState } from "@/lib/workspace-client";
 import type { WorkspaceSummary } from "@/lib/workspace";
 import { SOURCES_FREE } from "@/lib/data/sources";
@@ -918,6 +919,15 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         setActiveWorkspaceForSync(ws.isOwnWorkspace ? null : ws.workspaceId);
       } catch (err) {
         console.warn("[workspace] resolve failed, falling back to own:", err);
+      }
+
+      // Mirror-sync (Фаза C.9): гидратируем localStorage-only ключи с сервера
+      // ДО чтения профилей и рендера вьюх — на новом устройстве SWOT, отзывы,
+      // презентации, реестр профилей и т.д. должны уже лежать в localStorage,
+      // когда вьюхи их прочитают. Только для своей workspace.
+      if (!ws || ws.isOwnWorkspace) {
+        await hydrateMirror(user.id).catch(() => {});
+        startMirrorPush(user.id);
       }
 
       // Загружаем профили юзера и активный профиль (только для своей workspace).
@@ -2754,6 +2764,9 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       } catch { /* ignore */ }
 
       setCurrentUser(user);
+      // Mirror-sync до чтения профилей — как в initApp (Фаза C.9).
+      await hydrateMirror(user.id).catch(() => {});
+      startMirrorPush(user.id);
       const userProfiles = getProfiles(user.id);
       setProfiles(userProfiles);
       const pid = getActiveProfileId(user.id);
