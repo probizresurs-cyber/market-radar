@@ -19,13 +19,15 @@
  * Returns: { ok, data: { hookText, ctaText, brollQueries: string[], qcNotes: string[] } }
  */
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import type { BrandBook } from "@/lib/content-types";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 120 сек: промпт вырос (словарь styleSpec + запрет текста), плюс QC-ретрай
+// может удвоить время. На 60 сек живой тест ловил таймаут.
+export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 
@@ -66,22 +68,20 @@ function buildBrandHints(bb: BrandBook | null): string {
   return lines.length ? `\nБРЕНДБУК:\n${lines.join("\n")}\n` : "";
 }
 
-async function callClaude(client: Anthropic, userMessage: string): Promise<{ raw: string; parsed: PlanResult | null }> {
-  const message = await client.messages.create({
+// Стриминг, а не messages.create: между нами и Anthropic стоит Cloudflare
+// Worker (обход гео-блока РФ), и он рубит долгие нестриминговые запросы —
+// после роста промпта (styleSpec + запрет текста) живой тест стабильно
+// ловил «Request timed out». Стрим держит соединение живым. Тот же приём
+// уже используется в kp-generate по той же причине.
+async function callClaude(userMessage: string): Promise<{ raw: string; parsed: PlanResult | null; error?: string }> {
+  const { text, error } = await safeAnthropicStream({
     model: "claude-sonnet-4-5",
-    max_tokens: 800,
+    max_tokens: 1600, // 800 не хватало: к плану добавился styleSpec из 6 групп
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
-  const raw = message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-  const cleaned = raw.replace(/```(?:json)?\s*|\s*```/g, "").trim();
-  try {
-    return { raw, parsed: JSON.parse(cleaned) as PlanResult };
-  } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (!m) return { raw, parsed: null };
-    try { return { raw, parsed: JSON.parse(m[0]) as PlanResult }; } catch { return { raw, parsed: null }; }
-  }
+  if (!text) return { raw: "", parsed: null, error };
+  return { raw: text, parsed: extractJson<PlanResult>(text), error };
 }
 
 /** QC-чек-лист виральности. Возвращает список проблем (пусто = план ок). */
@@ -120,8 +120,6 @@ export async function POST(req: Request) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY не настроен" }, { status: 500 });
 
-    const client = new Anthropic({ apiKey, ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}) });
-
     const companyContext = companyName ? `Компания: ${companyName}${companyNiche ? ` (ниша: ${companyNiche.slice(0, 200)})` : ""}\n` : "";
     const baseMessage = `${companyContext}Название: ${title || "(без названия)"}
 
@@ -133,7 +131,8 @@ ${scenario || "(не указан)"}
 ${buildBrandHints(brandBook)}${stylePrompt ? `\nСтиль от пользователя (ПРИОРИТЕТ для styleSpec): ${stylePrompt}\n` : ""}
 Составь монтажный план по инструкции.`;
 
-    let { raw, parsed } = await callClaude(client, baseMessage);
+    const first = await callClaude(baseMessage);
+    let { raw, parsed } = first;
     let issues = validate(parsed);
 
     // QC: одна попытка исправления с явным перечислением проблем (рефлексия),
@@ -145,7 +144,7 @@ ${buildBrandHints(brandBook)}${stylePrompt ? `\nСтиль от пользова
 ${issues.map(i => `- ${i}`).join("\n")}
 
 Исправь и верни JSON заново, строго по формату.`;
-      const retry = await callClaude(client, fixMessage);
+      const retry = await callClaude(fixMessage);
       if (retry.parsed) {
         const retryIssues = validate(retry.parsed);
         // Берём вторую попытку, если она строго не хуже первой.
@@ -154,7 +153,12 @@ ${issues.map(i => `- ${i}`).join("\n")}
     }
 
     if (!parsed) {
-      return NextResponse.json({ ok: false, error: "AI не вернул валидный план" }, { status: 500 });
+      // Отдаём реальную причину (таймаут прокси, HTML от воркера и т.п.) —
+      // без неё в job-статусе был безликий «plan: failed» без диагностики.
+      return NextResponse.json(
+        { ok: false, error: first.error ? `AI не вернул план: ${first.error}` : "AI не вернул валидный план" },
+        { status: 502 },
+      );
     }
 
     await access.log({

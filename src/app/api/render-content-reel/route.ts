@@ -207,7 +207,15 @@ async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
       child.on("close", (code) => {
         spawnedChild = null;
         if (code === 0) resolve();
-        else reject(new Error(`remotion render exited with code ${code}. stderr: ${stderrBuf.slice(-500)}`));
+        else {
+          // Полный stderr — в лог PM2: обрезанный хвост в job-статусе съедал
+          // НАЧАЛО ошибки (само сообщение), оставляя только стек.
+          console.error(`[render-content-reel] ${jobId} exited ${code}. Full stderr:\n${stderrBuf}`);
+          // В статус отдаём первые 400 (суть ошибки) + хвост стека.
+          const head = stderrBuf.slice(0, 400);
+          const tail = stderrBuf.length > 400 ? ` … ${stderrBuf.slice(-300)}` : "";
+          reject(new Error(`remotion render exited with code ${code}. stderr: ${head}${tail}`));
+        }
       });
     });
   } catch (err) {
