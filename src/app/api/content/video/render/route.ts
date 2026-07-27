@@ -71,6 +71,10 @@ async function callLocal<T = unknown>(
 }
 
 interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; styleSpec?: Record<string, unknown>; qcNotes: string[] }
+
+/** Запрет любых надписей в AI-сгенерированном кадре — см. шаг b-roll ниже. */
+const NO_TEXT_CLAUSE =
+  "No text, no letters, no words, no captions, no subtitles, no signage, no logos, no watermarks, no readable writing anywhere in frame.";
 interface VoiceoverData { url: string }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
@@ -273,9 +277,13 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     let brollUrls: string[] = [];
     if (brollQueries.length > 0) {
       const stepT = Date.now();
+      // NO-TEXT — жёсткое требование: видео-модели рисуют на вывесках,
+      // экранах и бумагах псевдо-буквы, а кириллицу не умеют вовсе. Любой
+      // текст в кадре = мусор, который к тому же конфликтует с нашими
+      // субтитрами. Просим чистый кадр без надписей.
       const prompts = brollQueries
         .slice(0, 4)
-        .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting. ${q}, slow camera movement.`);
+        .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting. ${q}, slow camera movement. ${NO_TEXT_CLAUSE}`);
       const r = await callLocal<StockData>(
         "/api/generate-broll-videos",
         { prompts, jobId: `content-broll-${jobId}` },

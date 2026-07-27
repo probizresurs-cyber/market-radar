@@ -57,14 +57,18 @@ const BROLL_VIDEOS_DIR = "broll-videos";
  */
 function brollVideoPrompts(theme: string): string[] {
   const themeLine = theme ? ` Theme context: ${theme}.` : "";
-  const style = "Cinematic vertical 9:16 shot, photorealistic, dark moody lighting, premium fintech feel.";
+  // Видео-модели рисуют вместо букв нечитаемый мусор (кириллицу — тем более),
+  // поэтому кадр должен быть без надписей: экраны и дашборды показываем
+  // расфокусом/абстрактной графикой, а не текстом.
+  const noText = " No text, no letters, no words, no captions, no signage, no logos, no watermarks, no readable writing anywhere in frame.";
+  const style = "Cinematic vertical 9:16 shot, photorealistic, dark moody lighting, premium fintech feel." + noText;
   return [
-    `${style} Professional marketing analyst at sleek modern workstation, multiple glowing monitors with data dashboards, hands typing focused, slow camera dolly-in.${themeLine}`,
-    `${style} Close-up of person holding smartphone with glowing analytics dashboard, screen light reflects on face, shallow depth of field, slow camera push-in.${themeLine}`,
-    `${style} Dramatic shot of growth arrow chart rising on huge LED screen, data particles flowing upward, slow camera tilt-up.${themeLine}`,
-    `${style} Overhead shot of clean modern desk with laptop showing dashboard, hands typing, coffee, notebook, slow rotation camera.${themeLine}`,
-    `${style} Macro close-up of fingers tapping smartphone screen with notifications appearing one by one, dark background, slow camera dolly.${themeLine}`,
-    `${style} Wide shot of business meeting room, professionals analyzing data on big screen, gestures of insight and discovery, slow tracking shot.${themeLine}`,
+    `${style} Professional marketing analyst at sleek modern workstation, monitors glowing with abstract blurred colour gradients out of focus, hands typing focused, slow camera dolly-in.${themeLine}`,
+    `${style} Close-up of person holding smartphone, soft coloured screen glow reflecting on face, screen content out of focus, shallow depth of field, slow camera push-in.${themeLine}`,
+    `${style} Dramatic shot of abstract glowing upward line and particles flowing up a huge dark LED wall, pure shapes and light, slow camera tilt-up.${themeLine}`,
+    `${style} Overhead shot of clean modern desk, laptop screen showing soft defocused colour glow, hands typing, coffee, notebook, slow rotation camera.${themeLine}`,
+    `${style} Macro close-up of fingers tapping a smartphone, abstract glowing dots pulsing on the screen, dark background, slow camera dolly.${themeLine}`,
+    `${style} Wide shot of business meeting room, professionals gesturing towards a large screen filled with abstract blurred light, insight and discovery, slow tracking shot.${themeLine}`,
     `${style} Abstract data visualization floating in dark space, particles forming charts and graphs, holographic style, slow camera orbit.${themeLine}`,
     `${style} Person walking through modern office at sunset, golden hour light, holding smartphone confidently, cinematic tracking shot.${themeLine}`,
   ];
