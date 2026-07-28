@@ -9,14 +9,15 @@
     "render": "remotion render",
     "upgrade": "remotion upgrade"
   },
+  "_comment_versions": "Remotion требует ТОЧНОГО совпадения версий всех своих пакетов — иначе рендер падает с 'Version mismatch'. Именно это случилось на проде: ядро стояло 4.0.469 (установлено давно), а добавленный @remotion/transitions с диапазоном ^4.0.0 подтянулся свежее. Поэтому версии зафиксированы жёстко. Обновлять только все разом: npx remotion upgrade.",
   "dependencies": {
-    "@remotion/bundler": "^4.0.0",
-    "@remotion/cli": "^4.0.0",
-    "@remotion/renderer": "^4.0.0",
-    "@remotion/transitions": "^4.0.0",
+    "@remotion/bundler": "4.0.469",
+    "@remotion/cli": "4.0.469",
+    "@remotion/renderer": "4.0.469",
+    "@remotion/transitions": "4.0.469",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "^4.0.0",
+    "remotion": "4.0.469",
     "zod": "^4.3.6"
   },
   "devDependencies": {

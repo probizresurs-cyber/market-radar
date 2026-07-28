@@ -211,8 +211,12 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     let styleSpec: Record<string, unknown> | undefined;
     {
       const stepT = Date.now();
+      // 115 сек, а не 55: у plan-роута maxDuration 120, и после перевода
+      // Director'а на стриминг он честно работает дольше минуты (промпт с
+      // словарём стилей + QC-ретрай). Старый лимит рубил его на 55-й секунде
+      // и весь ролик оставался без плана, стиля и запросов на b-roll.
       const r = await callLocal<PlanData>("/api/content/video/plan",
-        { title, scenario, voiceoverScript, companyName, companyNiche, brandBook, stylePrompt: body.stylePrompt }, req, 55_000);
+        { title, scenario, voiceoverScript, companyName, companyNiche, brandBook, stylePrompt: body.stylePrompt }, req, 115_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
         hookText = r.data.hookText || hookText;
