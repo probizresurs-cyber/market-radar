@@ -40,9 +40,18 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 3. brollQueries — 3-4 английские короткие фразы (2-5 слов каждая) — сцены, которыми AI-видеогенератор проиллюстрирует ролик. Конкретные, предметные (например "dentist examining patient", "musician recording session"), НЕ абстрактные ("business success").
    ЗАПРЕТ НА ТЕКСТ В КАДРЕ: не проси сцены, где по смыслу обязана быть надпись — вывески, витрины с названиями, экраны с текстом, документы крупным планом, доски с записями, книги разворотом. Видео-модель рисует вместо букв нечитаемый мусор (а кириллицу не умеет вовсе). Вместо "laptop screen with analytics dashboard" проси "hands typing on laptop, screen out of focus"; вместо "shop signboard" — "storefront at dusk, shallow depth of field".
 4. mood — настроение фоновой музыки, СТРОГО одно из: "upbeat" (энергичное, продающее), "calm" (спокойное, доверительное), "corporate" (нейтрально-деловое), "dramatic" (напряжённое, для проблема→решение), "playful" (лёгкое, с юмором).
-5. styleSpec — ты ещё и АРТ-ДИРЕКТОР: собери под ЭТОТ ролик уникальную визуальную манеру из словаря ниже. Не выбирай шаблон — комбинируй под тему, нишу и аудиторию (клиника ≠ стритвир ≠ финтех). Если задан «Стиль от пользователя» — он ГЛАВНЕЕ твоего вкуса, переведи его пожелание в параметры словаря максимально буквально.
 
-Словарь styleSpec (ТОЛЬКО эти ключи и значения):
+Отвечай СТРОГО валидным JSON без markdown, БЕЗ пояснений:
+{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate"}`;
+
+// Арт-директор — ОТДЕЛЬНЫЙ короткий вызов. Раньше стиль генерился в одном
+// запросе с планом: ответ раздувался, генерация не укладывалась в лимит
+// прокси, и падало ВСЁ — включая критичные brollQueries, без которых ролик
+// остаётся без видеоряда. Теперь провал стиля стоит только дефолтного
+// оформления, а не пустого ролика.
+const STYLE_PROMPT = `Ты — арт-директор коротких вертикальных видео. Собери визуальную манеру под ролик из словаря ниже. Комбинируй под тему и аудиторию (клиника ≠ стритвир ≠ финтех), не бери один и тот же шаблон. Если задан стиль от пользователя — он ГЛАВНЕЕ твоего вкуса, переведи его буквально.
+
+Словарь (ТОЛЬКО эти ключи и значения):
 {
  "typography": {"uppercase": bool, "weight": 700|800|900, "letterSpacing": -3..4, "fontScale": 0.8..1.25},
  "hook": {"wordAnimation": "spring-up"|"blur-in"|"slide-left"|"scale-pop"|"typewriter", "accentTarget": "longest"|"last"|"first"|"none", "underline": bool},
@@ -53,12 +62,11 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 }
 Подсказки: премиум/доверие → blur-in, fade, grain 0-0.2, pill; энергия/продажа → spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed; дерзко/молодёжно → uppercase, slide-left, whip, boxed, grain 0.7-1; ностальгия/тепло → lightLeak true, grain 0.6+; техно/футуризм → typewriter или blur-in, wipe/clock-wipe, letterSpacing 2-4.
 
-Отвечай СТРОГО валидным JSON без markdown:
-{"hookText":"...","ctaText":"...","brollQueries":["...","...","..."],"mood":"corporate","styleSpec":{...}}`;
+Ответ — ТОЛЬКО JSON словаря, без пояснений и markdown.`;
 
 const VALID_MOODS = new Set(["upbeat", "calm", "corporate", "dramatic", "playful"]);
 
-interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; styleSpec?: Record<string, unknown> }
+interface PlanResult { hookText: string; ctaText: string; brollQueries: string[]; mood?: string }
 
 function buildBrandHints(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -69,19 +77,40 @@ function buildBrandHints(bb: BrandBook | null): string {
 }
 
 // Стриминг, а не messages.create: между нами и Anthropic стоит Cloudflare
-// Worker (обход гео-блока РФ), и он рубит долгие нестриминговые запросы —
-// после роста промпта (styleSpec + запрет текста) живой тест стабильно
-// ловил «Request timed out». Стрим держит соединение живым. Тот же приём
-// уже используется в kp-generate по той же причине.
+// Worker (обход гео-блока РФ), и он рубит долгие нестриминговые запросы.
+// Модель — haiku: план короткий и структурный, качества хватает, а скорость
+// решает — на sonnet генерация не укладывалась в лимит прокси и падала с
+// «Request timed out» даже на минимальном входе (проверено живым тестом).
 async function callClaude(userMessage: string): Promise<{ raw: string; parsed: PlanResult | null; error?: string }> {
   const { text, error } = await safeAnthropicStream({
-    model: "claude-sonnet-4-5",
-    max_tokens: 1600, // 800 не хватало: к плану добавился styleSpec из 6 групп
+    model: "claude-haiku-4-5",
+    max_tokens: 700, // только план: hook/cta/broll/mood, стиль отдельным вызовом
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
   if (!text) return { raw: "", parsed: null, error };
   return { raw: text, parsed: extractJson<PlanResult>(text), error };
+}
+
+/**
+ * Стиль — отдельный короткий вызов, best-effort. Возвращает undefined при
+ * любой проблеме: композиция подставит свои дефолты, ролик всё равно
+ * соберётся (см. resolveStyleSpec в remotion/src/style-spec.ts).
+ */
+async function callStyleDirector(context: string): Promise<Record<string, unknown> | undefined> {
+  try {
+    const { text } = await safeAnthropicStream({
+      model: "claude-haiku-4-5",
+      max_tokens: 400,
+      system: STYLE_PROMPT,
+      messages: [{ role: "user", content: context }],
+    });
+    if (!text) return undefined;
+    const parsed = extractJson<Record<string, unknown>>(text);
+    return parsed && typeof parsed === "object" ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** QC-чек-лист виральности. Возвращает список проблем (пусто = план ок). */
@@ -128,16 +157,28 @@ ${voiceoverScript || "(не указан)"}
 
 Сценарий/раскадровка:
 ${scenario || "(не указан)"}
-${buildBrandHints(brandBook)}${stylePrompt ? `\nСтиль от пользователя (ПРИОРИТЕТ для styleSpec): ${stylePrompt}\n` : ""}
+${buildBrandHints(brandBook)}
 Составь монтажный план по инструкции.`;
 
-    const first = await callClaude(baseMessage);
+    // План и стиль — параллельно и независимо: стиль не должен ни тормозить
+    // план, ни ронять его при своём провале.
+    const styleContext = `${companyContext}Тема ролика: ${title || scenario.slice(0, 200)}
+Текст озвучки: ${voiceoverScript.slice(0, 400) || "(не указан)"}
+${stylePrompt ? `\nСТИЛЬ ОТ ПОЛЬЗОВАТЕЛЯ (приоритет): ${stylePrompt}` : ""}`;
+
+    const [first, styleSpec] = await Promise.all([
+      callClaude(baseMessage),
+      callStyleDirector(styleContext),
+    ]);
     let { raw, parsed } = first;
     let issues = validate(parsed);
 
-    // QC: одна попытка исправления с явным перечислением проблем (рефлексия),
-    // а не молчаливый повтор того же промпта — так шанс на исправление выше.
-    if (issues.length > 0) {
+    // QC-ретрай ТОЛЬКО при фатальном (нет плана / нет ни одного brollQuery).
+    // Раньше он срабатывал на любую придирку вроде «hookText длинноват» и
+    // удваивал время — из-за чего весь роут не укладывался в лимит прокси.
+    // Стилистические замечания теперь просто уезжают в qcNotes.
+    const fatal = !parsed || issues.some(i => i.includes("не распарсился") || i.includes("brollQuery"));
+    if (fatal && issues.length > 0) {
       const fixMessage = `${baseMessage}
 
 Твой прошлый ответ не прошёл проверку:
@@ -163,8 +204,8 @@ ${issues.map(i => `- ${i}`).join("\n")}
 
     await access.log({
       endpoint: "content-video-plan",
-      model: "claude-sonnet-4-5",
-      promptTokens: estimateTokens(SYSTEM_PROMPT + baseMessage),
+      model: "claude-haiku-4-5",
+      promptTokens: estimateTokens(SYSTEM_PROMPT + baseMessage + STYLE_PROMPT),
       completionTokens: estimateTokens(raw),
     });
 
@@ -175,10 +216,11 @@ ${issues.map(i => `- ${i}`).join("\n")}
         ctaText: (parsed.ctaText ?? "").trim().slice(0, 90) || "Узнайте подробнее",
         brollQueries: (parsed.brollQueries ?? []).filter(q => q?.trim()).slice(0, 4),
         mood: VALID_MOODS.has(parsed.mood ?? "") ? parsed.mood : "corporate",
-        // styleSpec отдаём как есть — жёсткий санитайз (enum-whitelist, клампы)
-        // делает render-content-reel перед рендером.
-        styleSpec: parsed.styleSpec && typeof parsed.styleSpec === "object" ? parsed.styleSpec : undefined,
-        qcNotes: issues,
+        // styleSpec — из отдельного вызова арт-директора; undefined, если тот
+        // не успел/упал (тогда композиция берёт дефолты). Отдаём как есть —
+        // жёсткий санитайз (enum-whitelist, клампы) делает render-content-reel.
+        styleSpec,
+        qcNotes: styleSpec ? issues : [...issues, "стиль не сгенерирован — дефолтное оформление"],
       },
     });
   } catch (err) {
