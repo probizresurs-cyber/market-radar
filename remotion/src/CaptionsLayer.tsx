@@ -186,7 +186,14 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
             lineHeight: 1.25,
             letterSpacing: -0.5,
             textShadow: light
-              ? "none"
+              // В светлой схеме тень раньше просто отключалась. Для pill это
+              // нормально (текст лежит на плашке), а bare оставался тёмными
+              // буквами на светлом b-roll без единого контрастного контура и
+              // терялся в кадре. Даём светлый ореол — роль та же, что у чёрной
+              // тени в тёмной схеме.
+              ? mode === "bare"
+                ? "0 0 3px rgba(255,255,255,0.95), 0 2px 12px rgba(255,255,255,0.9)"
+                : "none"
               : mode === "bare"
                 ? "0 3px 0 rgba(0,0,0,0.9), 0 6px 24px rgba(0,0,0,0.95)"
                 : "0 4px 16px rgba(0,0,0,0.8)",
