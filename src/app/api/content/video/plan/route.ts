@@ -39,6 +39,7 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 2. ctaText — призыв к действию для ПОСЛЕДНИХ 3-4 секунд. Короткий (до 45 знаков), на языке сценария. Не дублирует hookText по смыслу.
 3. brollQueries — 3-4 английские короткие фразы (2-5 слов каждая) — сцены, которыми AI-видеогенератор проиллюстрирует ролик. Конкретные, предметные (например "dentist examining patient", "musician recording session"), НЕ абстрактные ("business success").
    ЗАПРЕТ НА ТЕКСТ В КАДРЕ: не проси сцены, где по смыслу обязана быть надпись — вывески, витрины с названиями, экраны с текстом, документы крупным планом, доски с записями, книги разворотом. Видео-модель рисует вместо букв нечитаемый мусор (а кириллицу не умеет вовсе). Вместо "laptop screen with analytics dashboard" проси "hands typing on laptop, screen out of focus"; вместо "shop signboard" — "storefront at dusk, shallow depth of field".
+   ФИЗИКА: модель ломается на сложном движении — быстрые действия, спорт, бег, жонглирование предметами, передача вещей из рук в руки, еда во рту, работа инструментом, толпа, животные в движении, отражения и вода в динамике. Пальцы и кисти в активном действии выходят с лишними суставами. Проси МЕДЛЕННЫЕ, простые сцены: человек стоит/сидит и слегка двигается, медленный проезд камеры по интерьеру, макро фактуры (зерно, ткань, пар, металл), предмет в статике с движением камеры вокруг. Один субъект в кадре, не группа. Вместо "barista pouring latte art" проси "steam rising from a cup, macro, slow camera push-in"; вместо "trainer demonstrating exercise" — "empty gym at golden hour, slow dolly".
 4. mood — настроение фоновой музыки, СТРОГО одно из: "upbeat" (энергичное, продающее), "calm" (спокойное, доверительное), "corporate" (нейтрально-деловое), "dramatic" (напряжённое, для проблема→решение), "playful" (лёгкое, с юмором).
 
 Отвечай СТРОГО валидным JSON без markdown, БЕЗ пояснений:
@@ -55,7 +56,7 @@ const STYLE_PROMPT = `Ты — арт-директор коротких верт
 {
  "palette": {"accentIndex": 0..4, "baseIndex": 0..4, "baseTint": 0..1, "light": bool},
  "layout": {"hookPosition": "center"|"top"|"bottom", "hookAlign": "center"|"left", "captionPosition": "low"|"middle"|"high"},
- "voice": {"preset": "female-warm"|"female-energetic"|"male-calm"|"male-bold"|"neutral-narrator", "stability": 0..1, "expressiveness": 0..1},
+ "voice": {"preset": "female-warm"|"female-energetic"|"male-calm"|"male-bold"|"neutral-narrator", "stability": 0.3..0.75, "expressiveness": 0..0.7, "speed": 0.85..1.1},
  "typography": {"uppercase": bool, "weight": 700|800|900, "letterSpacing": -3..4, "fontScale": 0.8..1.25},
  "hook": {"wordAnimation": "spring-up"|"blur-in"|"slide-left"|"scale-pop"|"typewriter", "accentTarget": "longest"|"last"|"first"|"none", "underline": bool},
  "broll": {"transition": "fade"|"slide-left"|"slide-right"|"slide-up"|"wipe"|"flip"|"clock-wipe"|"punch"|"whip", "kenBurns": "subtle"|"strong"|"off"},
@@ -66,11 +67,11 @@ const STYLE_PROMPT = `Ты — арт-директор коротких верт
 
 О цветах: palette.accentIndex / baseIndex — это НОМЕРА цветов в палитре брендбука, которую тебе дали во входных данных (0 — первый цвет). Ты не задаёшь HEX, ты выбираешь, какой из брендовых цветов станет акцентом, а какой — подложкой фона. baseTint — насколько сильно фон окрашен в брендовый цвет (0 — почти чёрный/белый, 1 — насыщенный). light: true — светлая схема (тёмный текст на светлом), false — тёмная.
 
-О голосе: voice.preset — тембр диктора, подбирай под тему и аудиторию. stability ниже (0.2-0.4) = живее и эмоциональнее, выше (0.6-0.8) = ровнее и солиднее. expressiveness выше = ярче интонации.
+О голосе: voice.preset — тембр диктора, подбирай под тему и аудиторию. stability ниже (0.3-0.45) = живее и эмоциональнее, выше (0.6-0.75) = ровнее и солиднее; ещё ниже уже не «живее», а с призвуками. expressiveness выше = ярче интонации, но выше 0.7 звучит наигранно. speed — темп речи: 0.9 для доверительных и объясняющих тем, 1.05-1.1 для акций и энергичных.
 
 Подсказки по связкам:
-- премиум/доверие/B2B: blur-in, fade, grain 0-0.2, pill, male-calm или neutral-narrator, stability 0.6-0.75, baseTint 0.1-0.25, hookPosition center
-- энергия/продажа/акция: spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed, female-energetic или male-bold, stability 0.25-0.4, expressiveness 0.7-0.9, baseTint 0.4-0.7
+- премиум/доверие/B2B: blur-in, fade, grain 0-0.2, pill, male-calm или neutral-narrator, stability 0.65-0.75, baseTint 0.1-0.25, hookPosition center
+- энергия/продажа/акция: spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed, female-energetic или male-bold, stability 0.3-0.4, expressiveness 0.6-0.7, speed 1.05, baseTint 0.4-0.7
 - дерзко/молодёжно: uppercase, slide-left, whip, boxed, hookAlign left, hookPosition bottom, captionPosition middle, male-bold
 - ностальгия/тепло/лайфстайл: lightLeak true, grain 0.6+, female-warm, light true возможен, baseTint 0.5+
 - техно/футуризм: typewriter или blur-in, wipe/clock-wipe, letterSpacing 2-4, neutral-narrator, baseTint 0.15-0.3

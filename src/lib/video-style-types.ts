@@ -15,7 +15,7 @@ export type VoicePresetName = "female-warm" | "female-energetic" | "male-calm" |
 export interface StyleSpecInput {
   palette?: { accentIndex?: number; baseIndex?: number; baseTint?: number; light?: boolean };
   layout?: { hookPosition?: string; hookAlign?: string; captionPosition?: string };
-  voice?: { preset?: string; stability?: number; expressiveness?: number };
+  voice?: { preset?: string; stability?: number; expressiveness?: number; speed?: number };
   typography?: { uppercase?: boolean; weight?: number; letterSpacing?: number; fontScale?: number };
   hook?: { wordAnimation?: string; accentTarget?: string; underline?: boolean };
   broll?: { transition?: string; kenBurns?: string };
@@ -63,6 +63,7 @@ export function sanitizeStyleSpec(raw: unknown): StyleSpecInput | undefined {
       preset: oneOf(r.voice?.preset, VOICE_PRESET_SET),
       stability: num(r.voice?.stability, 0, 1),
       expressiveness: num(r.voice?.expressiveness, 0, 1),
+      speed: num(r.voice?.speed, 0.85, 1.1),
     },
     typography: {
       uppercase: bool(r.typography?.uppercase),

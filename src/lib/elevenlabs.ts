@@ -15,4 +15,16 @@ export const ELEVENLABS_BASE_URL = (
   process.env.ELEVENLABS_BASE_URL ?? "https://api.elevenlabs.io"
 ).replace(/\/+$/, "");
 
-export const ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2";
+/**
+ * Модель озвучки. Вынесена в env, чтобы переезд на более живую модель не
+ * требовал правки кода и деплоя: новые модели ElevenLabs раскатывает не на
+ * все тарифы сразу, и подходящую приходится подбирать на живом аккаунте.
+ * Роут озвучки при 4xx на конкретную модель молча откатывается на
+ * ELEVENLABS_FALLBACK_MODEL, так что неудачное значение в env не может
+ * оставить ролики без голоса.
+ */
+export const ELEVENLABS_DEFAULT_MODEL =
+  process.env.ELEVENLABS_MODEL?.trim() || "eleven_multilingual_v2";
+
+/** Проверенная временем модель — страховка на случай недоступной новой. */
+export const ELEVENLABS_FALLBACK_MODEL = "eleven_multilingual_v2";

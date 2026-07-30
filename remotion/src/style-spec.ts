@@ -41,6 +41,7 @@ export const styleSpecSchema = z.object({
     stability: z.number().optional(),
     /** 0..1 — экспрессия. Выше = ярче игра голосом. */
     expressiveness: z.number().optional(),
+    speed: z.number().optional(),
   }).optional(),
   typography: z.object({
     uppercase: z.boolean().optional(),
@@ -82,7 +83,7 @@ export type StyleSpec = z.infer<typeof styleSpecSchema>;
 export interface ResolvedStyleSpec {
   palette: { accentIndex: number; baseIndex: number | null; baseTint: number; light: boolean };
   layout: { hookPosition: "center" | "top" | "bottom"; hookAlign: "center" | "left"; captionPosition: "low" | "middle" | "high" };
-  voice: { preset: VoicePresetName; stability: number; expressiveness: number };
+  voice: { preset: VoicePresetName; stability: number; expressiveness: number; speed: number };
   typography: { uppercase: boolean; weight: number; letterSpacing: number; fontScale: number };
   hook: { wordAnimation: "spring-up" | "blur-in" | "slide-left" | "scale-pop" | "typewriter"; accentTarget: "longest" | "last" | "first" | "none"; underline: boolean };
   broll: { transition: "fade" | "slide-left" | "slide-right" | "slide-up" | "wipe" | "flip" | "clock-wipe" | "punch" | "whip"; kenBurns: "subtle" | "strong" | "off" };
@@ -116,6 +117,7 @@ export function resolveStyleSpec(raw?: StyleSpec | null): ResolvedStyleSpec {
       preset: VOICE_PRESET_NAMES.includes(s.voice?.preset as VoicePresetName) ? (s.voice!.preset as VoicePresetName) : "female-warm",
       stability: clamp(s.voice?.stability, 0, 1, 0.35),
       expressiveness: clamp(s.voice?.expressiveness, 0, 1, 0.55),
+      speed: clamp(s.voice?.speed, 0.85, 1.1, 1),
     },
     typography: {
       uppercase: s.typography?.uppercase ?? false,

@@ -33,7 +33,7 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
+import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL, ELEVENLABS_DEFAULT_MODEL, ELEVENLABS_FALLBACK_MODEL as FALLBACK_MODEL } from "@/lib/elevenlabs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -83,9 +83,17 @@ export async function POST(req: Request) {
     //  - similarity 0.85 (вместо 0.75) — крепче держится за оригинальный
     //    voice, иначе на низкой stability может «уплыть» в чужой тембр
     // Юзер может переопределить через body.stability/.similarity/.style.
-    const stability = typeof body.stability === "number" ? body.stability : 0.35;
-    const similarity = typeof body.similarity === "number" ? body.similarity : 0.85;
-    const style = typeof body.style === "number" ? body.style : 0.55;
+    //
+    // Клампы, а не сырые значения: настройки теперь приходят от ИИ-арт-
+    // директора, а крайние значения звучат СИНТЕТИЧНЕЕ, а не живее.
+    // stability < 0.3 — тембр «гуляет» и появляются призвуки; style > 0.7 —
+    // наигранная театральность вместо естественной интонации.
+    const clamp = (v: unknown, min: number, max: number, def: number) =>
+      typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : def;
+    const stability = clamp(body.stability, 0.3, 0.75, 0.45);
+    const similarity = clamp(body.similarity, 0.7, 0.95, 0.85);
+    const style = clamp(body.style, 0, 0.7, 0.5);
+    const speed = clamp(body.speed, 0.85, 1.1, 1);
     const speakerBoost = body.speakerBoost !== false; // default true
     const modelId = String(body.elevenModel ?? ELEVENLABS_DEFAULT_MODEL).trim();
 
@@ -102,27 +110,47 @@ export async function POST(req: Request) {
 
     // Дёргаем ElevenLabs напрямую (не через /api/elevenlabs-tts —
     // там лишняя сериализация в base64-JSON и обратно).
-    const res = await fetch(
-      `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": ELEVENLABS_API_KEY,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
-        },
-        body: JSON.stringify({
-          text: script,
-          model_id: modelId,
-          voice_settings: {
-            stability,
-            similarity_boost: similarity,
-            style,
-            use_speaker_boost: speakerBoost,
+    async function synth(model: string) {
+      return fetch(
+        `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
+            Accept: "audio/mpeg",
           },
-        }),
-      },
-    );
+          body: JSON.stringify({
+            text: script,
+            model_id: model,
+            voice_settings: {
+              stability,
+              similarity_boost: similarity,
+              style,
+              use_speaker_boost: speakerBoost,
+              // Темп речи. Реализм страдает от «дикторского» ровного темпа:
+              // лёгкое замедление на доверительных текстах и ускорение на
+              // продающих звучит живее. Диапазон ElevenLabs — 0.7..1.2.
+              speed,
+            },
+          }),
+        },
+      );
+    }
+
+    let res = await synth(modelId);
+
+    // Модель задаётся через ELEVENLABS_MODEL и может оказаться недоступной
+    // тарифу аккаунта (новые модели раскатываются не на все планы). Тогда
+    // ElevenLabs отвечает 4xx на КОНКРЕТНУЮ модель, а не на запрос вообще —
+    // молча откатываемся на проверенную multilingual_v2, чтобы смена модели
+    // в env не могла оставить ролики без голоса. 401/402 (ключ и квота) не
+    // ретраим: там смена модели не поможет.
+    if (!res.ok && res.status >= 400 && res.status < 500
+        && res.status !== 401 && res.status !== 402 && modelId !== FALLBACK_MODEL) {
+      console.warn(`[voiceover] модель ${modelId} отклонена (${res.status}), откат на ${FALLBACK_MODEL}`);
+      res = await synth(FALLBACK_MODEL);
+    }
 
     if (!res.ok) {
       const errorText = await res.text();

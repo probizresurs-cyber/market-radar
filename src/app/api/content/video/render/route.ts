@@ -77,6 +77,16 @@ interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; 
 /** Запрет любых надписей в AI-сгенерированном кадре — см. шаг b-roll ниже. */
 const NO_TEXT_CLAUSE =
   "No text, no letters, no words, no captions, no subtitles, no signage, no logos, no watermarks, no readable writing anywhere in frame.";
+/**
+ * Ограничители физики. Видео-модель разваливается ровно там, где движение
+ * быстрое или сложное: пальцы в действии обзаводятся лишними суставами,
+ * предметы «перетекают» друг в друга, походка плывёт. Единственное, что
+ * реально помогает на стороне промпта, — просить медленный кадр с одним
+ * субъектом и явно перечислить артефакты как нежелательные.
+ */
+const PHYSICS_CLAUSE =
+  "Single subject, calm and slow motion, natural anatomy, correct number of fingers and limbs, stable objects that keep their shape. "
+  + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering.";
 interface VoiceoverData { url: string }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
@@ -268,6 +278,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           voiceId: voice.voiceId,
           stability: spec?.voice?.stability,
           style: spec?.voice?.expressiveness,
+          speed: spec?.voice?.speed,
         }, req, 130_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) { voiceoverUrl = r.data.url; pushStep({ name: "voiceover", status: "ok", ms }); }
@@ -316,7 +327,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // субтитрами. Просим чистый кадр без надписей.
       const prompts = brollQueries
         .slice(0, 4)
-        .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting. ${q}, slow camera movement. ${NO_TEXT_CLAUSE}`);
+        .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting, shallow depth of field. ${q}, slow deliberate camera movement. ${PHYSICS_CLAUSE} ${NO_TEXT_CLAUSE}`);
       const r = await callLocal<StockData>(
         "/api/generate-broll-videos",
         { prompts, jobId: `content-broll-${jobId}` },
