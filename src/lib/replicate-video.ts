@@ -156,30 +156,48 @@ export async function generateVideo(opts: {
   // эндпоинт чтобы не таскать version-хеши (Replicate сам берёт latest).
   let prediction: CreatePredictionResponse;
   try {
-    const submitRes = await fetch(`${REPLICATE_BASE}/models/${model}/predictions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${REPLICATE_API_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=10", // даём 10 сек на быстрое завершение, потом polling
-      },
-      body: JSON.stringify({
-        input: {
-          prompt: opts.prompt,
-          // Параметры модели берутся из MODEL_CONFIGS по имени модели,
-          // переопределяются env-переменной REPLICATE_VIDEO_INPUT,
-          // а финально — per-call через opts.modelInput.
-          ...getModelInput(model),
-          ...(opts.modelInput ?? {}),
+    // Ретрай на 429: b-roll шлётся пачкой по 4 клипа, а параллельные ролики
+    // складываются в burst — Replicate троттлит создание предсказаний, и один
+    // из роликов оставался вообще без b-roll. Ждём Retry-After (или растущую
+    // паузу) и пробуем снова; на общий бюджет это влияет слабо, потому что
+    // сама генерация клипа всё равно занимает минуту.
+    let submitRes: Response | null = null;
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      submitRes = await fetch(`${REPLICATE_BASE}/models/${model}/predictions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${REPLICATE_API_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "wait=10", // даём 10 сек на быстрое завершение, потом polling
         },
-      }),
-    });
+        body: JSON.stringify({
+          input: {
+            prompt: opts.prompt,
+            // Параметры модели берутся из MODEL_CONFIGS по имени модели,
+            // переопределяются env-переменной REPLICATE_VIDEO_INPUT,
+            // а финально — per-call через opts.modelInput.
+            ...getModelInput(model),
+            ...(opts.modelInput ?? {}),
+          },
+        }),
+      });
 
-    if (!submitRes.ok) {
-      const text = await submitRes.text();
+      if (submitRes.status !== 429 || attempt === maxAttempts) break;
+
+      const retryAfter = Number(submitRes.headers.get("retry-after"));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(60_000, retryAfter * 1000)
+        : Math.min(30_000, 5_000 * attempt);
+      console.warn(`[replicate] 429 на submit, попытка ${attempt}/${maxAttempts}, ждём ${Math.round(waitMs / 1000)}с`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    if (!submitRes || !submitRes.ok) {
+      const text = submitRes ? await submitRes.text() : "no response";
       return {
         ok: false,
-        error: `Replicate submit failed ${submitRes.status}: ${text.slice(0, 300)}`,
+        error: `Replicate submit failed ${submitRes?.status ?? 0}: ${text.slice(0, 300)}`,
       };
     }
 

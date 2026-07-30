@@ -26,7 +26,7 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { sanitizeStyleSpec, type StyleSpecInput } from "@/lib/video-style-types";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 900; // 30-сек вертикалка с 4 b-roll на VPS рендерится дольше 5 минут
 
 const REMOTION_PROJECT_DIR =
   process.env.REMOTION_PROJECT_DIR ?? path.join(process.cwd(), "remotion");
@@ -63,6 +63,42 @@ function resolveMediaUrl(raw: string | null | undefined, assetsOrigin: string): 
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
   if (s.startsWith("file://")) return s;
   if (s.startsWith("/")) return `${assetsOrigin}${s}`;
+  return null;
+}
+
+/**
+ * Откуда Remotion берёт медиа: loopback или публичный домен.
+ *
+ * Remotion тянет КАЖДЫЙ кадр каждого b-roll отдельным запросом. Через
+ * публичный HTTPS (nginx + Cloudflare) четыре видео в TransitionSeries не
+ * укладываются в 30-секундный лимит delayRender, и рендер падал с
+ * «Timed out evaluating page function window.remotion_setFrame». Раньше это
+ * не проявлялось: b-roll не было вообще, а озвучка — один мелкий файл.
+ *
+ * Порт loopback'а угадывать нельзя (рядом живёт staging на другом порту),
+ * поэтому проверяем его живым HEAD по РЕАЛЬНОМУ ассету этого же рендера и
+ * молча откатываемся на публичный origin, если не ответил.
+ */
+async function pickAssetsOrigin(publicOrigin: string, probePath: string | null): Promise<string> {
+  if (!probePath) return publicOrigin;
+  const candidate = `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const r = await fetch(`${candidate}${probePath}`, { method: "HEAD", signal: ctrl.signal });
+    if (r.ok) return candidate;
+  } catch { /* порт другой или loopback закрыт — уходим на публичный */ }
+  finally { clearTimeout(timer); }
+  return publicOrigin;
+}
+
+/** Первый относительный медиа-путь из body — им и проверяем loopback. */
+function firstRelativeAsset(body: Record<string, unknown>): string | null {
+  const broll = Array.isArray(body.brollUrls) ? body.brollUrls : [];
+  const candidates = [...broll, body.voiceoverUrl, body.hookBgImageUrl, body.ctaBgImageUrl];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.startsWith("/")) return c;
+  }
   return null;
 }
 
@@ -127,7 +163,14 @@ async function runRemotion(jobId: string, props: RenderProps): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
         "npx",
-        ["remotion", "render", "ContentReel", outputPath, `--props=${propsFile}`],
+        [
+          "remotion", "render", "ContentReel", outputPath, `--props=${propsFile}`,
+          // Дефолтный лимит delayRender — 30 сек на кадр. Кадр с двумя
+          // перекрывающимися b-roll (момент перехода) на слабом VPS в него
+          // не всегда влезает даже по loopback'у, а падение стоит всего
+          // ролика. 120 сек — страховка, а не рабочий режим.
+          "--timeout=120000",
+        ],
         { cwd: REMOTION_PROJECT_DIR, env: childEnv, shell: true, windowsHide: true },
       );
       spawnedChild = child;
@@ -181,7 +224,8 @@ export async function POST(req: Request) {
 
     const explicitOrigin = typeof body.assetsOrigin === "string" ? body.assetsOrigin : null;
     const reqUrl = new URL(req.url);
-    const assetsOrigin = explicitOrigin ?? `${reqUrl.protocol}//${reqUrl.host}`;
+    const assetsOrigin = explicitOrigin
+      ?? await pickAssetsOrigin(`${reqUrl.protocol}//${reqUrl.host}`, firstRelativeAsset(body));
 
     const parsed = parseProps(body, assetsOrigin);
     if ("error" in parsed) {

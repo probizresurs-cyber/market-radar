@@ -363,7 +363,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
       styleSpec: spec,
-    }, req, 310_000);
+    }, req, 880_000); // см. maxDuration=900 у render-content-reel
     const renderMs = Date.now() - stepT;
 
     if (!renderR.ok || !renderR.data) {
