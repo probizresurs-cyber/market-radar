@@ -410,10 +410,14 @@ function BrollMedia({ url, index, durationInFrames, spec, manualTransition }: {
     filter: whipBlur > 0.5 ? `blur(${whipBlur}px)` : undefined,
   };
 
-  // Кросс-фейд краёв только в ручном режиме (TransitionSeries фейдит сам).
-  const fadeFrames = Math.min(12, durationInFrames * 0.15);
-  const opacity = manualTransition
-    ? interpolate(frame, [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames], [0.15, 1, 1, 0.15], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+  // Punch и whip — это РЕЗКИЕ склейки, их выразительность в зуме и смазе, а не
+  // в затемнении. Прежний фейд уводил края сегмента в opacity 0.15, и, так как
+  // за клипом лежит только фон, стык читался как провал в черноту — b-roll на
+  // кадрах вокруг склейки было почти не видно. Punch оставляем без фейда,
+  // whip чуть притемняем — со смазом это выглядит как рывок камеры.
+  const fadeFrames = Math.min(6, durationInFrames * 0.08);
+  const opacity = manualTransition === "whip"
+    ? interpolate(frame, [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames], [0.7, 1, 1, 0.7], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 1;
 
   return (
@@ -557,6 +561,11 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           karaoke={spec.captions.karaoke}
           position={spec.layout.captionPosition}
           light={spec.palette.light}
+          // Только под b-roll. На хук-сцене субтитры дублировали крупный хук
+          // (он и есть начало озвучки), на CTA — перебивали призыв обрывком
+          // фразы: в кадре оказывалось два разных текста одновременно.
+          visibleFrom={hookFrames}
+          visibleUntil={hookFrames + brollFrames}
         />
       ) : null}
 

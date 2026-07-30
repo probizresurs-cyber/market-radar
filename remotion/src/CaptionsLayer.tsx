@@ -42,6 +42,10 @@ interface Props {
   position?: "low" | "middle" | "high";
   /** Светлая схема кадра — тёмный текст на светлой плашке. */
   light?: boolean;
+  /** Окно видимости в АБСОЛЮТНЫХ кадрах композиции. Вне окна слой скрыт, но
+   *  тайминги не сдвигаются (обёртка в Sequence сломала бы синхрон с голосом). */
+  visibleFrom?: number;
+  visibleUntil?: number;
 }
 
 interface TimedWord { word: string; startFrame: number; endFrame: number }
@@ -106,9 +110,15 @@ function buildProportionalChunks(script: string, wordsPerChunk: number, duration
   }));
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode = "pill", karaoke = true, position = "low", light = false }) => {
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode: modeRaw = "pill", karaoke = true, position = "low", light = false, visibleFrom, visibleUntil }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
+
+  // boxed рисует бокс ТОЛЬКО под произносимым словом, а это возможно лишь в
+  // карооке-режиме. Без карооке (или без пословных таймингов) boxed вырождался
+  // в текст вообще без подложки — на светлом b-roll он терялся. Падаем на pill.
+  const karaokePossible = karaoke && Boolean(words?.length);
+  const mode = modeRaw === "boxed" && !karaokePossible ? "pill" : modeRaw;
 
   const chunks: TimedChunk[] = words?.length
     ? buildTimedChunks(words, wordsPerChunk, fps, durationInFrames)
@@ -117,6 +127,8 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
       : [];
 
   if (chunks.length === 0) return null;
+  if (visibleFrom !== undefined && frame < visibleFrom) return null;
+  if (visibleUntil !== undefined && frame >= visibleUntil) return null;
 
   let activeIndex = -1;
   for (let i = 0; i < chunks.length; i++) {
