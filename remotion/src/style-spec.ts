@@ -15,6 +15,33 @@
 import { z } from "zod";
 
 export const styleSpecSchema = z.object({
+  /** Цветовая схема. Палитра приходит из брендбука клиента — арт-директор
+   *  выбирает, КАК её применить, а не придумывает цвета сам. */
+  palette: z.object({
+    /** Индекс акцентного цвета в brandBook.colors (0-4). */
+    accentIndex: z.number().optional(),
+    /** Индекс цвета фоновой базы; если не задан — тёмная нейтраль. */
+    baseIndex: z.number().optional(),
+    /** Насколько ярко фон окрашен брендовым цветом: 0 — почти чёрный, 1 — насыщенный. */
+    baseTint: z.number().optional(),
+    /** Светлая схема (тёмный текст на светлом фоне) вместо тёмной. */
+    light: z.boolean().optional(),
+  }).optional(),
+  /** Композиция кадра — куда и как ставится текст. */
+  layout: z.object({
+    hookPosition: z.enum(["center", "top", "bottom"]).optional(),
+    hookAlign: z.enum(["center", "left"]).optional(),
+    captionPosition: z.enum(["low", "middle", "high"]).optional(),
+  }).optional(),
+  /** Голос за кадром — ElevenLabs. */
+  voice: z.object({
+    /** Готовый пресет тембра (см. VOICE_PRESETS в lib/voice-presets.ts). */
+    preset: z.enum(["female-warm", "female-energetic", "male-calm", "male-bold", "neutral-narrator"]).optional(),
+    /** 0..1 — ровность подачи. Ниже = живее и эмоциональнее. */
+    stability: z.number().optional(),
+    /** 0..1 — экспрессия. Выше = ярче игра голосом. */
+    expressiveness: z.number().optional(),
+  }).optional(),
   typography: z.object({
     uppercase: z.boolean().optional(),
     /** 700 | 800 | 900 */
@@ -53,6 +80,9 @@ export type StyleSpec = z.infer<typeof styleSpecSchema>;
 
 /** Развёрнутый спек со всеми дефолтами — композиция работает только с ним. */
 export interface ResolvedStyleSpec {
+  palette: { accentIndex: number; baseIndex: number | null; baseTint: number; light: boolean };
+  layout: { hookPosition: "center" | "top" | "bottom"; hookAlign: "center" | "left"; captionPosition: "low" | "middle" | "high" };
+  voice: { preset: VoicePresetName; stability: number; expressiveness: number };
   typography: { uppercase: boolean; weight: number; letterSpacing: number; fontScale: number };
   hook: { wordAnimation: "spring-up" | "blur-in" | "slide-left" | "scale-pop" | "typewriter"; accentTarget: "longest" | "last" | "first" | "none"; underline: boolean };
   broll: { transition: "fade" | "slide-left" | "slide-right" | "slide-up" | "wipe" | "flip" | "clock-wipe" | "punch" | "whip"; kenBurns: "subtle" | "strong" | "off" };
@@ -61,12 +91,32 @@ export interface ResolvedStyleSpec {
   progressBar: boolean;
 }
 
+export type VoicePresetName = "female-warm" | "female-energetic" | "male-calm" | "male-bold" | "neutral-narrator";
+
 const clamp = (v: number | undefined, min: number, max: number, dflt: number): number =>
   typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : dflt;
+
+const VOICE_PRESET_NAMES: VoicePresetName[] = ["female-warm", "female-energetic", "male-calm", "male-bold", "neutral-narrator"];
 
 export function resolveStyleSpec(raw?: StyleSpec | null): ResolvedStyleSpec {
   const s = raw ?? {};
   return {
+    palette: {
+      accentIndex: Math.round(clamp(s.palette?.accentIndex, 0, 4, 0)),
+      baseIndex: typeof s.palette?.baseIndex === "number" ? Math.round(clamp(s.palette.baseIndex, 0, 4, 0)) : null,
+      baseTint: clamp(s.palette?.baseTint, 0, 1, 0.25),
+      light: s.palette?.light ?? false,
+    },
+    layout: {
+      hookPosition: s.layout?.hookPosition ?? "center",
+      hookAlign: s.layout?.hookAlign ?? "center",
+      captionPosition: s.layout?.captionPosition ?? "low",
+    },
+    voice: {
+      preset: VOICE_PRESET_NAMES.includes(s.voice?.preset as VoicePresetName) ? (s.voice!.preset as VoicePresetName) : "female-warm",
+      stability: clamp(s.voice?.stability, 0, 1, 0.35),
+      expressiveness: clamp(s.voice?.expressiveness, 0, 1, 0.55),
+    },
     typography: {
       uppercase: s.typography?.uppercase ?? false,
       weight: [700, 800, 900].includes(s.typography?.weight ?? 0) ? (s.typography!.weight as number) : 900,

@@ -153,12 +153,12 @@ function LightLeakSweep({ durationInFrames, fromLeft }: { durationInFrames: numb
   );
 }
 
-function ProgressBar({ accentColor }: { accentColor: string }) {
+function ProgressBar({ accentColor, light }: { accentColor: string; light: boolean }) {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const pct = interpolate(frame, [0, durationInFrames], [0, 100], { extrapolateRight: "clamp" });
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: "rgba(255,255,255,0.12)", zIndex: 30 }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: light ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)", zIndex: 30 }}>
       <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${accentColor}, ${accentColor}cc)`, boxShadow: `0 0 14px ${accentColor}99` }} />
     </div>
   );
@@ -203,15 +203,19 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
       )}
       <AbsoluteFill style={{ background: bgImageUrl ? "linear-gradient(180deg, rgba(8,10,18,0.55) 0%, rgba(8,10,18,0.88) 100%)" : "transparent" }} />
 
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 76 }}>
+      <AbsoluteFill style={{
+        justifyContent: spec.layout.hookPosition === "top" ? "flex-start" : spec.layout.hookPosition === "bottom" ? "flex-end" : "center",
+        alignItems: spec.layout.hookAlign === "left" ? "flex-start" : "center",
+        padding: spec.layout.hookPosition === "center" ? 76 : "180px 76px 320px",
+      }}>
         <div style={{
           opacity: exit,
-          textAlign: "center",
+          textAlign: spec.layout.hookAlign === "left" ? "left" : "center",
           fontFamily: FONT,
           fontWeight: t.weight,
           fontSize: Math.round(112 * t.fontScale),
           lineHeight: 1.08,
-          color: "#fff",
+          color: spec.palette.light ? "#0b0d14" : "#fff",
           letterSpacing: t.uppercase ? Math.max(0, t.letterSpacing) : t.letterSpacing,
           textTransform: t.uppercase ? "uppercase" : "none",
         }}>
@@ -259,10 +263,12 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
               <span key={i} style={{
                 display: "inline-block", position: "relative", marginRight: 26,
                 ...style,
-                color: isAccent ? accentColor : "#fff",
-                textShadow: isAccent
-                  ? `0 0 70px ${accentColor}cc, 0 6px 30px rgba(0,0,0,0.85)`
-                  : "0 6px 30px rgba(0,0,0,0.85)",
+                color: isAccent ? accentColor : (spec.palette.light ? "#0b0d14" : "#fff"),
+                textShadow: spec.palette.light
+                  ? (isAccent ? `0 0 40px ${accentColor}55` : "none")
+                  : (isAccent
+                      ? `0 0 70px ${accentColor}cc, 0 6px 30px rgba(0,0,0,0.85)`
+                      : "0 6px 30px rgba(0,0,0,0.85)"),
               }}>
                 {w}
                 {isAccent && spec.hook.underline && (
@@ -306,19 +312,28 @@ function ContentCtaScene({ text, brandName, accentColor, bgImageUrl, spec }: {
       ) : (
         <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 70%, ${accentColor}30 0%, transparent 60%)` }} />
       )}
-      <AbsoluteFill style={{ background: bgImageUrl ? "linear-gradient(180deg, rgba(8,10,18,0.6) 0%, rgba(8,10,18,0.9) 100%)" : "transparent" }} />
+      <AbsoluteFill style={{
+        background: !bgImageUrl
+          ? "transparent"
+          : spec.palette.light
+            // Светлая схема: затемняющая шторка сделала бы тёмный CTA-текст
+            // нечитаемым — осветляем картинку вместо затемнения.
+            ? "linear-gradient(180deg, rgba(247,248,251,0.7) 0%, rgba(247,248,251,0.92) 100%)"
+            : "linear-gradient(180deg, rgba(8,10,18,0.6) 0%, rgba(8,10,18,0.9) 100%)",
+      }} />
 
       <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 80, opacity: exit }}>
         <div style={{
           opacity: Math.min(1, chipIn),
           translate: `0px ${(1 - chipIn) * -30}px`,
-          background: "rgba(255,255,255,0.1)",
+          background: spec.palette.light ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)",
           border: `2px solid ${accentColor}66`,
           borderRadius: 999,
           padding: "14px 34px",
           marginBottom: 44,
           fontFamily: FONT, fontWeight: 800, fontSize: 34,
-          letterSpacing: 3, textTransform: "uppercase", color: "#fff",
+          letterSpacing: 3, textTransform: "uppercase",
+          color: spec.palette.light ? "#0b0d14" : "#fff",
         }}>
           {brandName}
         </div>
@@ -330,9 +345,11 @@ function ContentCtaScene({ text, brandName, accentColor, bgImageUrl, spec }: {
           fontWeight: spec.typography.weight,
           fontSize: 92,
           lineHeight: 1.12,
-          color: "#fff",
+          color: spec.palette.light ? "#0b0d14" : "#fff",
           letterSpacing: -1.5,
-          textShadow: `0 0 ${60 * glowPulse}px ${accentColor}bb, 0 6px 30px rgba(0,0,0,0.85)`,
+          textShadow: spec.palette.light
+            ? `0 0 ${40 * glowPulse}px ${accentColor}44`
+            : `0 0 ${60 * glowPulse}px ${accentColor}bb, 0 6px 30px rgba(0,0,0,0.85)`,
           maxWidth: 900,
           textTransform: spec.typography.uppercase ? "uppercase" : "none",
         }}>
@@ -529,7 +546,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
       ) : null}
       {spec.decor.vignette > 0.02 ? <Vignette amount={spec.decor.vignette} /> : null}
       {spec.decor.grain > 0.02 ? <GrainOverlay amount={spec.decor.grain} /> : null}
-      {spec.progressBar ? <ProgressBar accentColor={props.accentColor} /> : null}
+      {spec.progressBar ? <ProgressBar accentColor={props.accentColor} light={spec.palette.light} /> : null}
 
       {props.captionsEnabled ? (
         <CaptionsLayer
@@ -538,6 +555,8 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           accentColor={props.accentColor}
           mode={spec.captions.mode}
           karaoke={spec.captions.karaoke}
+          position={spec.layout.captionPosition}
+          light={spec.palette.light}
         />
       ) : null}
 

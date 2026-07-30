@@ -38,6 +38,10 @@ interface Props {
   mode?: "pill" | "bare" | "boxed";
   /** Подсвечивать ли произносимое слово (только точный режим). Default true. */
   karaoke?: boolean;
+  /** Высота зоны субтитров: low — стандарт TikTok, middle/high — выше по кадру. */
+  position?: "low" | "middle" | "high";
+  /** Светлая схема кадра — тёмный текст на светлой плашке. */
+  light?: boolean;
 }
 
 interface TimedWord { word: string; startFrame: number; endFrame: number }
@@ -102,7 +106,7 @@ function buildProportionalChunks(script: string, wordsPerChunk: number, duration
   }));
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode = "pill", karaoke = true }) => {
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode = "pill", karaoke = true, position = "low", light = false }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
@@ -149,7 +153,9 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
           position: "absolute",
           left: 50,
           right: 50,
-          bottom: 220, // ~12% от низа — стандарт TikTok/Reels
+          // low — стандарт TikTok/Reels; middle/high поднимают субтитры,
+          // когда хук стоит внизу или в кадре важен низ картинки.
+          bottom: position === "high" ? 780 : position === "middle" ? 500 : 220,
           textAlign: "center",
           opacity,
           transform: `scale(${scale})`,
@@ -158,8 +164,8 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
         <div
           style={{
             display: "inline-block",
-            background: mode === "pill" ? "rgba(0, 0, 0, 0.78)" : "transparent",
-            color: "#fff",
+            background: mode === "pill" ? (light ? "rgba(255,255,255,0.9)" : "rgba(0, 0, 0, 0.78)") : "transparent",
+            color: light ? "#0b0d14" : "#fff",
             padding: mode === "pill" ? "16px 28px" : "8px 12px",
             borderRadius: 18,
             fontFamily: "Inter, -apple-system, system-ui, sans-serif",
@@ -167,10 +173,12 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
             fontSize: 56,
             lineHeight: 1.25,
             letterSpacing: -0.5,
-            textShadow: mode === "bare"
-              ? "0 3px 0 rgba(0,0,0,0.9), 0 6px 24px rgba(0,0,0,0.95)"
-              : "0 4px 16px rgba(0,0,0,0.8)",
-            boxShadow: mode === "pill" ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
+            textShadow: light
+              ? "none"
+              : mode === "bare"
+                ? "0 3px 0 rgba(0,0,0,0.9), 0 6px 24px rgba(0,0,0,0.95)"
+                : "0 4px 16px rgba(0,0,0,0.8)",
+            boxShadow: mode === "pill" ? (light ? "0 12px 40px rgba(0,0,0,0.18)" : "0 12px 40px rgba(0,0,0,0.5)") : "none",
             maxWidth: "92%",
           }}
         >
@@ -191,7 +199,7 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
                     display: "inline-block",
                     marginRight: 14,
                     scale: String(pop),
-                    color: active ? (boxed ? "#0a0e1a" : accentColor) : "#fff",
+                    color: active ? (boxed ? "#0a0e1a" : accentColor) : (light ? "#0b0d14" : "#fff"),
                     background: active && boxed ? accentColor : "transparent",
                     borderRadius: boxed ? 10 : 0,
                     padding: boxed ? "0px 10px" : 0,

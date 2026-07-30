@@ -44,6 +44,8 @@ import { createJob, updateJob } from "@/lib/promo-jobs";
 import type { PromoStepReport } from "@/lib/promo-jobs";
 import { transcribeWithWhisper } from "@/lib/reel-transcribe";
 import { pickMusicUrl } from "@/lib/music-library";
+import { sanitizeStyleSpec, resolveVideoColors, type StyleSpecInput } from "@/lib/video-style-types";
+import { resolveVoicePreset } from "@/lib/voice-presets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -200,8 +202,13 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     const companyNiche = String(body.companyNiche ?? "").trim();
     const brandBook = body.brandBook ?? null;
     const brandName = String(body.brandName ?? companyName ?? "MarketRadar").trim() || "MarketRadar";
-    const brandColor = String(body.brandColor ?? "#0a0e1a").trim();
-    const accentColor = String(body.accentColor ?? "#22d3ee").trim();
+    // Дефолты — нейтральная тёмная база, НЕ фирменные цвета MarketRadar:
+    // раньше здесь стояли #0a0e1a/#22d3ee, и ролик любого клиента выходил в
+    // наших цветах. Реальные цвета берутся ниже из brandBook.colors по выбору
+    // арт-директора (resolveVideoColors), эти значения — только фолбэк, когда
+    // брендбук не заполнен.
+    const brandColorFallback = String(body.brandColor ?? "#0f1117").trim();
+    const accentColorFallback = String(body.accentColor ?? "#e2e8f0").trim();
 
     // ── Шаг 1: Director + QC ────────────────────────────────────────────
     let hookText = title || "Смотрите до конца";
@@ -230,6 +237,19 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       }
     }
 
+    // Спек стиля санитайзим ОДИН раз здесь: из него берутся и цвета, и голос,
+    // и параметры рендера — важно, чтобы все три шага смотрели на одни и те
+    // же провалидированные значения.
+    const spec: StyleSpecInput | undefined = sanitizeStyleSpec(styleSpec);
+
+    // Цвета — из палитры брендбука по выбору арт-директора. Фолбэк на
+    // нейтраль, если брендбук пуст (см. resolveVideoColors).
+    const { brandColor, accentColor } = resolveVideoColors(
+      (brandBook as { colors?: unknown } | null)?.colors,
+      spec,
+      { brandColor: brandColorFallback, accentColor: accentColorFallback },
+    );
+
     // ── Шаг 2: озвучка (ElevenLabs) — best-effort ───────────────────────
     let voiceoverUrl: string | null = null;
     if (voiceoverScript) {
@@ -238,8 +258,17 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // валидацией, даже когда голос реально идёт по voiceoverScript-override —
       // подстраховываем problemText, чтобы пустой scenario не завалил шаг.
       const problemText = scenario.slice(0, 300) || voiceoverScript.slice(0, 300) || title || "Видео";
+      // Голос — часть стиля: арт-директор выбирает тембр (пресет) и подачу.
+      // Раньше голос был жёстко один на все ролики, из-за чего они звучали
+      // одинаково независимо от темы и стиля.
+      const voice = resolveVoicePreset(spec?.voice?.preset);
       const r = await callLocal<VoiceoverData>("/api/generate-promo-voiceover",
-        { voiceoverScript, hookText, problemText, ctaText }, req, 130_000);
+        {
+          voiceoverScript, hookText, problemText, ctaText,
+          voiceId: voice.voiceId,
+          stability: spec?.voice?.stability,
+          style: spec?.voice?.expressiveness,
+        }, req, 130_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) { voiceoverUrl = r.data.url; pushStep({ name: "voiceover", status: "ok", ms }); }
       else pushStep({ name: "voiceover", status: "failed", ms, error: r.error });
@@ -333,7 +362,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
-      styleSpec,
+      styleSpec: spec,
     }, req, 310_000);
     const renderMs = Date.now() - stepT;
 

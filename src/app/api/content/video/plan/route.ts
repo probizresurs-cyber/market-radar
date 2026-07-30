@@ -53,6 +53,9 @@ const STYLE_PROMPT = `Ты — арт-директор коротких верт
 
 Словарь (ТОЛЬКО эти ключи и значения):
 {
+ "palette": {"accentIndex": 0..4, "baseIndex": 0..4, "baseTint": 0..1, "light": bool},
+ "layout": {"hookPosition": "center"|"top"|"bottom", "hookAlign": "center"|"left", "captionPosition": "low"|"middle"|"high"},
+ "voice": {"preset": "female-warm"|"female-energetic"|"male-calm"|"male-bold"|"neutral-narrator", "stability": 0..1, "expressiveness": 0..1},
  "typography": {"uppercase": bool, "weight": 700|800|900, "letterSpacing": -3..4, "fontScale": 0.8..1.25},
  "hook": {"wordAnimation": "spring-up"|"blur-in"|"slide-left"|"scale-pop"|"typewriter", "accentTarget": "longest"|"last"|"first"|"none", "underline": bool},
  "broll": {"transition": "fade"|"slide-left"|"slide-right"|"slide-up"|"wipe"|"flip"|"clock-wipe"|"punch"|"whip", "kenBurns": "subtle"|"strong"|"off"},
@@ -60,7 +63,20 @@ const STYLE_PROMPT = `Ты — арт-директор коротких верт
  "captions": {"mode": "pill"|"bare"|"boxed", "karaoke": bool},
  "progressBar": bool
 }
-Подсказки: премиум/доверие → blur-in, fade, grain 0-0.2, pill; энергия/продажа → spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed; дерзко/молодёжно → uppercase, slide-left, whip, boxed, grain 0.7-1; ностальгия/тепло → lightLeak true, grain 0.6+; техно/футуризм → typewriter или blur-in, wipe/clock-wipe, letterSpacing 2-4.
+
+О цветах: palette.accentIndex / baseIndex — это НОМЕРА цветов в палитре брендбука, которую тебе дали во входных данных (0 — первый цвет). Ты не задаёшь HEX, ты выбираешь, какой из брендовых цветов станет акцентом, а какой — подложкой фона. baseTint — насколько сильно фон окрашен в брендовый цвет (0 — почти чёрный/белый, 1 — насыщенный). light: true — светлая схема (тёмный текст на светлом), false — тёмная.
+
+О голосе: voice.preset — тембр диктора, подбирай под тему и аудиторию. stability ниже (0.2-0.4) = живее и эмоциональнее, выше (0.6-0.8) = ровнее и солиднее. expressiveness выше = ярче интонации.
+
+Подсказки по связкам:
+- премиум/доверие/B2B: blur-in, fade, grain 0-0.2, pill, male-calm или neutral-narrator, stability 0.6-0.75, baseTint 0.1-0.25, hookPosition center
+- энергия/продажа/акция: spring-up или scale-pop, punch/whip, grain 0.4-0.7, boxed, female-energetic или male-bold, stability 0.25-0.4, expressiveness 0.7-0.9, baseTint 0.4-0.7
+- дерзко/молодёжно: uppercase, slide-left, whip, boxed, hookAlign left, hookPosition bottom, captionPosition middle, male-bold
+- ностальгия/тепло/лайфстайл: lightLeak true, grain 0.6+, female-warm, light true возможен, baseTint 0.5+
+- техно/футуризм: typewriter или blur-in, wipe/clock-wipe, letterSpacing 2-4, neutral-narrator, baseTint 0.15-0.3
+- обучение/инструкция: progressBar true, captionPosition low, neutral-narrator, stability 0.7
+
+Важно: два ролика на одну тему НЕ должны получить одинаковый набор. Меняй хотя бы по одному значению в каждой группе — цвет, положение текста, анимацию, переход, голос.
 
 Ответ — ТОЛЬКО JSON словаря, без пояснений и markdown.`;
 
@@ -101,7 +117,7 @@ async function callStyleDirector(context: string): Promise<Record<string, unknow
   try {
     const { text } = await safeAnthropicStream({
       model: "claude-haiku-4-5",
-      max_tokens: 400,
+      max_tokens: 700, // словарь вырос (palette/layout/voice) — 400 обрезало JSON
       system: STYLE_PROMPT,
       messages: [{ role: "user", content: context }],
     });
@@ -162,9 +178,16 @@ ${buildBrandHints(brandBook)}
 
     // План и стиль — параллельно и независимо: стиль не должен ни тормозить
     // план, ни ронять его при своём провале.
+    // Палитру отдаём с номерами: арт-директор выбирает accentIndex/baseIndex
+    // ИЗ НЕЁ, а не выдумывает HEX. Без этого блока индексы были бы игрой в
+    // угадайку, и цвет ролика не зависел бы от брендбука клиента.
+    const paletteHint = Array.isArray(brandBook?.colors) && brandBook.colors.length
+      ? `\nПАЛИТРА БРЕНДБУКА (индексы для palette.accentIndex/baseIndex):\n${brandBook.colors.slice(0, 5).map((c, i) => `${i}: ${c}`).join("\n")}\n`
+      : "\nПалитра брендбука не задана — цвета возьмутся нейтральные, но palette.light/baseTint всё равно влияют на схему.\n";
+
     const styleContext = `${companyContext}Тема ролика: ${title || scenario.slice(0, 200)}
 Текст озвучки: ${voiceoverScript.slice(0, 400) || "(не указан)"}
-${stylePrompt ? `\nСТИЛЬ ОТ ПОЛЬЗОВАТЕЛЯ (приоритет): ${stylePrompt}` : ""}`;
+${paletteHint}${stylePrompt ? `\nСТИЛЬ ОТ ПОЛЬЗОВАТЕЛЯ (приоритет): ${stylePrompt}` : ""}`;
 
     const [first, styleSpec] = await Promise.all([
       callClaude(baseMessage),
