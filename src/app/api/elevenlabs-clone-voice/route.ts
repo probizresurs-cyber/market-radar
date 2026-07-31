@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ELEVENLABS_API_KEY } from "@/lib/elevenlabs";
+import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL } from "@/lib/elevenlabs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       "Custom voice cloned via MarketRadar content factory",
     );
 
-    const res = await fetch("https://api.elevenlabs.io/v1/voices/add", {
+    const res = await fetch(`${ELEVENLABS_BASE_URL}/v1/voices/add`, {
       method: "POST",
       headers: {
         "xi-api-key": ELEVENLABS_API_KEY,

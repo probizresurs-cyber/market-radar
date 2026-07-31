@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ELEVENLABS_API_KEY, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
+import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
 import { checkAiAccess } from "@/lib/with-ai-security";
 
 export const runtime = "nodejs";
@@ -53,7 +53,10 @@ export async function POST(req: Request) {
     }
 
     const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
+      // Через ELEVENLABS_BASE_URL (Cloudflare Worker): прямой api.elevenlabs.io
+      // с российского IP отдаёт гео-редирект, и роут превращал это в 402 —
+      // выглядело как исчерпанная квота. См. lib/elevenlabs.ts.
+      `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
       {
         method: "POST",
         headers: {
