@@ -72,7 +72,7 @@ async function callLocal<T = unknown>(
   } finally { clearTimeout(timer); }
 }
 
-interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; mood?: string; styleSpec?: Record<string, unknown>; qcNotes: string[] }
+interface PlanData { hookText: string; ctaText: string; brollQueries: string[]; keyPoints?: string[]; mood?: string; styleSpec?: Record<string, unknown>; qcNotes: string[] }
 
 /** Запрет любых надписей в AI-сгенерированном кадре — см. шаг b-roll ниже. */
 const NO_TEXT_CLAUSE =
@@ -224,6 +224,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     let hookText = title || "Смотрите до конца";
     let ctaText = "Узнайте подробнее";
     let brollQueries: string[] = [];
+    let keyPoints: string[] = [];
     let mood: string | undefined;
     let styleSpec: Record<string, unknown> | undefined;
     {
@@ -239,6 +240,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         hookText = r.data.hookText || hookText;
         ctaText = r.data.ctaText || ctaText;
         brollQueries = r.data.brollQueries ?? [];
+        keyPoints = (r.data.keyPoints ?? []).map((k) => String(k).trim()).filter(Boolean).slice(0, 2);
         mood = r.data.mood;
         styleSpec = r.data.styleSpec;
         pushStep({ name: "plan", status: "ok", ms, error: r.data.qcNotes?.length ? `QC: ${r.data.qcNotes.join("; ")}` : undefined });
@@ -407,11 +409,17 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // запросом к модели: карточка должна совпадать с тем, что зритель слышит
     // в этот момент, иначе картинка и голос расходятся. Плюс это ноль
     // дополнительной стоимости и ноль новых точек отказа.
-    const statementCards = (voiceoverScript || scenario)
-      .split(/(?<=[.!?])\s+/)
-      .map((s) => s.trim().replace(/^[«"']|[»"']$/g, ""))
-      .filter((s) => s.length >= 12 && s.length <= 64)
-      .slice(0, 2);
+    // Приоритет — короткие тезисы от режиссёра (keyPoints, 3-6 слов): целое
+    // предложение из озвучки занимало на карточке пол-экрана и не читалось за
+    // три секунды. Нарезка по предложениям осталась фолбэком на случай, если
+    // режиссёр их не вернул, и там же режем слишком длинные.
+    const statementCards = keyPoints.length > 0
+      ? keyPoints
+      : (voiceoverScript || scenario)
+          .split(/(?<=[.!?])\s+/)
+          .map((s) => s.trim().replace(/^[«"']|[»"']$/g, ""))
+          .filter((s) => s.length >= 12 && s.length <= 48)
+          .slice(0, 2);
 
     // ── Шаг 6: финальный рендер (обязательный) ──────────────────────────
     const stepT = Date.now();

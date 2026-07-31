@@ -502,6 +502,34 @@ function buildSegments(urls: string[], cards: string[]): Segment[] {
 
 const TRANSITION_FRAMES = 14;
 
+/** Длительность одного сегмента. Вынесено, чтобы окна карточек считались той
+ *  же формулой, что и сама раскладка — иначе субтитры гасились бы не там. */
+function segmentFrames(count: number, totalFrames: number, manual: boolean): number {
+  return manual
+    ? totalFrames / count
+    : Math.ceil((totalFrames + (count - 1) * TRANSITION_FRAMES) / count);
+}
+
+/**
+ * Окна (в кадрах композиции), где на экране текстовая карточка.
+ *
+ * Нужны субтитрам: карточка показывает ровно ту фразу, которая звучит в этот
+ * момент, поэтому субтитр под ней дублирует её слово в слово — в кадре
+ * оказывается один и тот же текст дважды. Гасим субтитры на этих отрезках.
+ */
+function cardWindows(segments: Segment[], totalFrames: number, manual: boolean, offset: number): Array<[number, number]> {
+  if (segments.length === 0) return [];
+  const seg = segmentFrames(segments.length, totalFrames, manual);
+  const step = manual ? seg : seg - TRANSITION_FRAMES;
+  const out: Array<[number, number]> = [];
+  segments.forEach((s, i) => {
+    if (s.kind !== "card") return;
+    const start = offset + i * step;
+    out.push([start, start + seg]);
+  });
+  return out;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function presentationFor(t: ResolvedStyleSpec["broll"]["transition"], width: number, height: number): TransitionPresentation<any> {
   switch (t) {
@@ -540,7 +568,7 @@ function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }:
   const manual = spec.broll.transition === "punch" || spec.broll.transition === "whip";
 
   if (manual) {
-    const segFrames = totalFrames / segments.length;
+    const segFrames = segmentFrames(segments.length, totalFrames, true);
     return (
       <AbsoluteFill>
         {segments.map((seg, i) => (
@@ -560,7 +588,7 @@ function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }:
   // Официальные переходы: TransitionSeries съедает по TRANSITION_FRAMES на
   // каждый переход — удлиняем сегменты, чтобы блок занял ровно totalFrames.
   const n = segments.length;
-  const segFrames = Math.ceil((totalFrames + (n - 1) * TRANSITION_FRAMES) / n);
+  const segFrames = segmentFrames(n, totalFrames, false);
   const cutPoints = segments.slice(1).map((_, i) => (i + 1) * (segFrames - TRANSITION_FRAMES));
 
   return (
@@ -604,6 +632,13 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
 
   const spec = resolveStyleSpec(props.styleSpec ?? specFromLegacyVariant(props.styleVariant));
 
+  // Раскладку b-roll считаем и здесь — субтитрам нужно знать, когда на экране
+  // текстовая карточка, чтобы не дублировать её текст (карточка показывает ту
+  // же фразу, которая звучит). Формула общая с BrollBlock, см. segmentFrames.
+  const brollSegments = buildSegments(props.brollUrls ?? [], props.statementCards ?? []);
+  const manualTransition = spec.broll.transition === "punch" || spec.broll.transition === "whip";
+  const hiddenCaptionWindows = cardWindows(brollSegments, brollFrames, manualTransition, hookFrames);
+
   return (
     <AbsoluteFill style={{ backgroundColor: props.brandColor }}>
       <Sequence from={0} durationInFrames={hookFrames}>
@@ -643,6 +678,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           // фразы: в кадре оказывалось два разных текста одновременно.
           visibleFrom={hookFrames}
           visibleUntil={hookFrames + brollFrames}
+          hiddenWindows={hiddenCaptionWindows}
         />
       ) : null}
 

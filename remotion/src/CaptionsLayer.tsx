@@ -110,7 +110,7 @@ function buildProportionalChunks(script: string, wordsPerChunk: number, duration
   }));
 }
 
-export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode: modeRaw = "pill", karaoke = true, position = "low", light = false, visibleFrom, visibleUntil }) => {
+export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 4, accentColor = "#22d3ee", mode: modeRaw = "pill", karaoke = true, position = "low", light = false, visibleFrom, visibleUntil, hiddenWindows }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
@@ -129,6 +129,7 @@ export const CaptionsLayer: React.FC<Props> = ({ script, words, wordsPerChunk = 
   if (chunks.length === 0) return null;
   if (visibleFrom !== undefined && frame < visibleFrom) return null;
   if (visibleUntil !== undefined && frame >= visibleUntil) return null;
+  if (hiddenWindows?.some(([a, b]) => frame >= a && frame < b)) return null;
 
   let activeIndex = -1;
   for (let i = 0; i < chunks.length; i++) {
