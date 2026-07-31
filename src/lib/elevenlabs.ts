@@ -1,11 +1,13 @@
-// Shared helpers for ElevenLabs voice cloning & TTS.
-// The API key is read from env first (so it can be rotated without a redeploy),
-// with a hard-coded fallback as a convenience for staging bring-up.
-// TODO: once ELEVENLABS_API_KEY is set in the VPS .env on prod,
-// delete the fallback string below and rotate the key in the ElevenLabs cabinet.
-export const ELEVENLABS_API_KEY =
-  process.env.ELEVENLABS_API_KEY ??
-  "sk_82f8d1f12d3ac27d765d35d87d10a03402e1984395194653";
+// Общие хелперы для клонирования голоса и синтеза речи ElevenLabs.
+//
+// Ключ берётся ТОЛЬКО из env. Раньше здесь лежал запасной хардкод «на время
+// подъёма стейджинга», и это дважды вышло боком: ключ уехал в историю гита, а
+// когда переменная окружения не доезжала до процесса, приложение молча
+// подставляло старый ключ мёртвого аккаунта и отдавало загадочный 402 —
+// выглядело как исчерпанная квота, хотя на настоящем аккаунте было потрачено
+// 6% лимита. Пустое значение честнее: все четыре роута проверяют ключ и
+// возвращают «ELEVENLABS_API_KEY не настроен».
+export const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
 // Base URL — нужен для российского VPS, чтобы обходить Cloudflare bot-challenge
 // на api.elevenlabs.io. Указывается на Cloudflare Worker, который проксирует
