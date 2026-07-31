@@ -32,7 +32,23 @@ export const VOICE_PRESETS: Record<VoicePresetName, VoicePreset> = {
   "neutral-narrator": { voiceId: "EXAVITQu4vr4xnSDxMaL", label: "Нейтральный диктор" },
 };
 
+/**
+ * Клонированный голос бренда. Все пресеты выше — англоязычные премейды
+ * ElevenLabs, русский они лишь «отыгрывают» через multilingual-модель: отсюда
+ * акцент и общая неестественность, из-за которой голос в роликах звучал
+ * неприятно. Клон носителя языка бьёт любой из них, поэтому если он задан —
+ * он и используется, независимо от того, какой пресет выбрал арт-директор.
+ *
+ * Вариативность при этом не теряется полностью: арт-директор продолжает
+ * крутить стабильность, выразительность и темп, а это и есть подача. Меняется
+ * только тембр — но одинаковый узнаваемый голос для бренда скорее плюс.
+ *
+ * Задаётся через ELEVENLABS_BRAND_VOICE_ID; пусто — работают пресеты.
+ */
+const BRAND_VOICE_ID = process.env.ELEVENLABS_BRAND_VOICE_ID?.trim() || "";
+
 export function resolveVoicePreset(name?: string | null): VoicePreset {
+  if (BRAND_VOICE_ID) return { voiceId: BRAND_VOICE_ID, label: "Голос бренда (клон)" };
   if (name && name in VOICE_PRESETS) return VOICE_PRESETS[name as VoicePresetName];
   return VOICE_PRESETS["female-warm"];
 }
