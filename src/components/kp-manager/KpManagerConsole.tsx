@@ -210,10 +210,28 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   const rebuildStatusColor = (s: string) =>
     s === "sent" ? "#059669" : s === "pending_review" ? "#d97706" : s === "error" ? "#dc2626" : s === "rejected" ? "#6b7280" : "#2a78d6";
 
-  const statusLabel = (s: string) =>
-    s === "queued" ? t.statusQueued : s === "running" ? t.statusRunning : s === "done" ? t.statusDone : t.statusError;
-  const statusColor = (s: string) =>
-    s === "done" ? "#059669" : s === "error" ? "#dc2626" : "#d97706";
+  /**
+   * Очередь генерации живёт в памяти процесса, поэтому рестарт приложения
+   * (деплой, падение) убивает задачу, а строка в базе навсегда остаётся в
+   * статусе «генерируется». В истории такие висели неделями и выглядели как
+   * работающая генерация. Считаем задачу прерванной, если она в работе
+   * дольше 20 минут: реальная генерация укладывается в 1-3 минуты.
+   */
+  const STALE_AFTER_MS = 20 * 60_000;
+  const isStale = (item: { status: string; started_at?: string | null; created_at?: string }) => {
+    if (item.status !== "queued" && item.status !== "running") return false;
+    // У задачи, до которой воркер не успел дойти, started_at пустой — иначе
+    // «В очереди» висело бы вечно и вообще не считалось прерванным.
+    const since = item.started_at ?? item.created_at;
+    const ts = since ? Date.parse(since) : NaN;
+    return Number.isFinite(ts) && Date.now() - ts > STALE_AFTER_MS;
+  };
+
+  const statusLabel = (s: string, stale = false) =>
+    stale ? t.statusStale
+    : s === "queued" ? t.statusQueued : s === "running" ? t.statusRunning : s === "done" ? t.statusDone : t.statusError;
+  const statusColor = (s: string, stale = false) =>
+    stale ? "#6b7280" : s === "done" ? "#059669" : s === "error" ? "#dc2626" : "#d97706";
 
   const card: React.CSSProperties = { border: "1px solid #e5e7eb", borderRadius: 14, background: "#fff" };
 
@@ -223,7 +241,7 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   }
   if (!authed) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f7f8", fontFamily: "'Inter',system-ui" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f7f8", color: "#111827", fontFamily: "'Inter',system-ui" }}>
         <div style={{ ...card, padding: 28, width: 360, maxWidth: "90vw" }}>
           <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>{t.title}</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>{t.passwordPrompt}</div>
@@ -250,7 +268,12 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f7f8", fontFamily: "'Inter',system-ui" }}>
+    // color задан ЯВНО: страница рисует собственный светлый фон, а глобальный
+    // цвет текста в globals.css завязан на тему приложения. На телефоне с
+    // системной тёмной темой <html> получает класс .dark, --foreground
+    // становится почти белым — и всё, у чего нет своего color (заголовок,
+    // название компании в карточке), выходило белым по белому.
+    <div style={{ minHeight: "100vh", background: "#f7f7f8", color: "#111827", fontFamily: "'Inter',system-ui" }}>
       {/* Мобильная адаптивка: консоль открывают и с телефона (в т.ч. из
           Telegram-webview, у которого плавающая шапка поверх контента) —
           отсюда запас сверху, скроллящиеся табы и стек карточек. */}
@@ -260,8 +283,17 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
         .kpm-tabs::-webkit-scrollbar { display: none; }
         .kpm-tabs button { white-space: nowrap; flex-shrink: 0; }
         @media (max-width: 640px) {
-          .kpm-wrap { padding: 52px 14px 48px; }
+          /* Низ с запасом и учётом home indicator: у мобильных браузеров
+             (и Telegram-webview) поверх контента висит плавающая панель,
+             и последняя карточка уезжала под неё. */
+          .kpm-wrap { padding: 52px 14px calc(96px + env(safe-area-inset-bottom)); }
           .kpm-title { font-size: 21px !important; }
+          /* Табы переносим на две строки, а не скроллим: немецкие подписи
+             («Umbau-Freigaben») в одну строку не влезают, и третья вкладка
+             обрезалась краем экрана — со стороны выглядело как сломанная
+             вёрстка, потому что горизонтальный скролл ничем не обозначен. */
+          .kpm-tabs { flex-wrap: wrap; width: 100%; overflow-x: visible; }
+          .kpm-tabs button { flex: 1 1 auto; padding: 0 12px; font-size: 13px; }
         }
       `}</style>
       <div className="kpm-wrap">
@@ -326,8 +358,8 @@ export function KpManagerConsole({ locale }: { locale: KpLocale }) {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 999,
-                      background: `color-mix(in srgb, ${statusColor(item.status)} 12%, transparent)`, color: statusColor(item.status) }}>
-                      {statusLabel(item.status)}
+                      background: `color-mix(in srgb, ${statusColor(item.status, isStale(item))} 12%, transparent)`, color: statusColor(item.status, isStale(item)) }}>
+                      {statusLabel(item.status, isStale(item))}
                     </span>
                     {item.status === "done" && item.share_token && (
                       <a href={`/kp-share/${item.share_token}`} target="_blank" rel="noopener noreferrer"

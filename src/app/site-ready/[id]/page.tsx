@@ -229,7 +229,7 @@ export default function SiteReadyPage({ params }: { params: Promise<{ id: string
   const riskColor = (risk?: Risk) => risk === "safe" ? "#059669" : risk === "moderate" ? "#d97706" : "#2a78d6";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f7f8", fontFamily: "'Inter',system-ui", padding: "48px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "#f7f7f8", color: "#111827", fontFamily: "'Inter',system-ui", padding: "48px 20px" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <span style={{ fontSize: 15, fontWeight: 800, color: "#2a78d6" }}>MarketRadar</span>

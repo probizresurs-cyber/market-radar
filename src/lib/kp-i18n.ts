@@ -9,7 +9,7 @@ export interface KpStrings {
   tabCreate: string; tabHistory: string; tabReview: string;
   createHint: string; urlsPlaceholder: string; generate: string; generating: string; queued: string;
   historyEmpty: string; refresh: string;
-  statusQueued: string; statusRunning: string; statusDone: string; statusError: string;
+  statusQueued: string; statusRunning: string; statusDone: string; statusError: string; statusStale: string;
   open: string; shareLabel: string; passwordLabel: string; copy: string; copied: string;
   sendEmailPlaceholder: string; sendBtn: string; sending: string; sendDone: string; sendError: string;
   sentAtLabel: string; viewsLabel: string; notOpenedYet: string; phoneLabel: string;
@@ -47,6 +47,7 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     statusRunning: "Генерируется…",
     statusDone: "Готово",
     statusError: "Ошибка",
+    statusStale: "Прервано",
     open: "Открыть КП",
     shareLabel: "Ссылка для клиента",
     passwordLabel: "Пароль",
@@ -103,6 +104,7 @@ export const KP_I18N: Record<KpLocale, KpStrings> = {
     statusRunning: "Wird generiert…",
     statusDone: "Fertig",
     statusError: "Fehler",
+    statusStale: "Abgebrochen",
     open: "Angebot öffnen",
     shareLabel: "Link für den Kunden",
     passwordLabel: "Passwort",

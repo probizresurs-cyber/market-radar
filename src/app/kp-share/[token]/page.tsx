@@ -159,7 +159,7 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
 
   // gate
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#f7f7f8", fontFamily: "'Inter',system-ui" }}>
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#f7f7f8", color: "#111827", fontFamily: "'Inter',system-ui" }}>
       <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 30, width: 380, maxWidth: "90vw", textAlign: "center" }}>
         <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2a78d6", marginBottom: 10 }}>MarketRadar</div>
         <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>
