@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
-import { fetchWithTimeout } from "@/lib/fetch-timeout";
+import { chatJson } from "@/lib/ai-chat";
 import type { BrandBook, TovCheckResult } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 
@@ -38,11 +38,6 @@ export async function POST(req: Request) {
     }
     if (!brandBook || (!brandBook.toneOfVoice?.length && !brandBook.forbiddenWords?.length && !brandBook.goodPhrases?.length)) {
       return NextResponse.json({ ok: false, error: "Брендбук пустой — заполните хотя бы tone of voice, запрещённые слова или примеры фраз" }, { status: 400 });
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
     }
 
     const brandLines = [
@@ -83,40 +78,22 @@ ${text}
 Если issues пустой — score должен быть 85-100. Если issues есть — score ниже соответственно.
 correctedHook и correctedBody — всегда готовый к публикации текст, полностью в стиле брендбука.`;
 
-    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
-      }),
+    // Claude вместо gpt-4o-mini: api.openai.com стоит за Cloudflare, поэтому
+    // наш воркер для него прокси быть не может (см. lib/ai-chat.ts).
+    const { data: parsedRaw, raw: rawContent, modelUsed, error: aiError } = await chatJson<TovCheckResult>({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      maxTokens: 2000,
+      temperature: 0.3,
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-    }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
-    let parsed: TovCheckResult;
-    try {
-      parsed = JSON.parse(rawContent) as TovCheckResult;
-    } catch {
+    if (!parsedRaw) {
       return NextResponse.json(
-        { ok: false, error: `Не удалось разобрать ответ AI как JSON: ${rawContent.slice(0, 100)}` },
-        { status: 500 },
+        { ok: false, error: aiError ?? `Не удалось разобрать ответ AI как JSON: ${rawContent.slice(0, 100)}` },
+        { status: 502 },
       );
     }
+    const parsed: TovCheckResult = parsedRaw;
 
     // Гарантируем обязательные поля — AI иногда возвращает {} или обрезанный JSON.
     parsed.checkedAt = new Date().toISOString();
@@ -127,14 +104,14 @@ correctedHook и correctedBody — всегда готовый к публика
 
     await access.log({
       endpoint: "check-tov",
-      model: "gpt-4o-mini",
+      model: modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + userPrompt),
       completionTokens: estimateTokens(rawContent),
     });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "check-tov", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "check-tov", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

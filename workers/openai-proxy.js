@@ -55,6 +55,38 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
 
+    // ВРЕМЕННАЯ ДИАГНОСТИКА — удалить, когда причина 403 будет найдена.
+    // Отвечает на два вопроса сразу: живой ли на воркере наш код (по
+    // workerCodeVersion) и каким IP/страной воркер виден снаружи. Ключей не
+    // логирует и ничего не проксирует.
+    if (url.pathname === "/__diag") {
+      const out = { workerCodeVersion: "openai-proxy-2026-07-31" };
+      // Эхо-сервис НЕ на Cloudflare: запрос с Cloudflare на cloudflare.com
+      // может не покидать их сеть и показывает внутренний адрес, а не тот,
+      // которым воркер реально стучится в OpenAI. Первый замер был именно
+      // таким и вывод по нему оказался несостоятельным.
+      try {
+        out.egress_ipify = (await fetch("https://api.ipify.org?format=json").then((r) => r.text())).slice(0, 120);
+      } catch (e) {
+        out.ipifyError = String(e && e.message ? e.message : e);
+      }
+      try {
+        out.egress_icanhazip = (await fetch("https://icanhazip.com").then((r) => r.text())).trim().slice(0, 60);
+      } catch (e) {
+        out.icanhazipError = String(e && e.message ? e.message : e);
+      }
+      try {
+        const r = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: request.headers.get("authorization") || "" },
+        });
+        out.openaiStatus = r.status;
+        out.openaiBody = (await r.text()).slice(0, 200);
+      } catch (e) {
+        out.openaiError = String(e && e.message ? e.message : e);
+      }
+      return json(out, 200);
+    }
+
     if (!url.pathname.startsWith(ALLOWED_PREFIX)) {
       return json(
         { error: { type: "invalid_request_error", message: "Only " + ALLOWED_PREFIX + "* paths are proxied" } },
