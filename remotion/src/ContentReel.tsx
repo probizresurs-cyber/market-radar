@@ -40,6 +40,8 @@ export const contentReelSchema = z.object({
   ctaBgImageUrl: z.string().nullable().optional(),
   /** Fullscreen b-roll — видео (Replicate) и/или картинки вперемешку, в порядке показа. */
   brollUrls: z.array(z.string()).optional(),
+  /** Тезисы для текстовых карточек между клипами — дешёвая замена части AI-видео. */
+  statementCards: z.array(z.string()).optional(),
   videoDurationSec: z.number().optional(),
   captionsEnabled: z.boolean().optional(),
   captionsScript: z.string().optional(),
@@ -430,6 +432,74 @@ function BrollMedia({ url, index, durationInFrames, spec, manualTransition }: {
   );
 }
 
+/**
+ * Текстовая карточка — бесплатная замена части AI-клипов.
+ *
+ * Генерация b-roll на Replicate — 97% себестоимости ролика (~$0.40 за клип),
+ * поэтому вместо четырёх клипов берём два, а промежутки закрываем тезисами
+ * из сценария. Это не «заглушка»: короткий тезис крупным кеглем на брендовом
+ * фоне — приём из обычного монтажа рилсов, он держит внимание не хуже
+ * стокового видео и при этом всегда по теме, в отличие от AI-клипа, который
+ * может промахнуться мимо смысла.
+ */
+function StatementCard({ text, accentColor, brandColor, spec, durationInFrames }: {
+  text: string; accentColor: string; brandColor: string; spec: ResolvedStyleSpec; durationInFrames: number;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const enter = spring({ frame, fps, config: { damping: 16, stiffness: 130 } });
+  const exit = interpolate(frame, [durationInFrames - 8, durationInFrames], [1, 0.94], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const drift = interpolate(frame, [0, durationInFrames], [0, -14]);
+  const light = spec.palette.light;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: brandColor, overflow: "hidden" }}>
+      <AbsoluteFill style={{
+        background: `radial-gradient(circle at 50% 38%, ${accentColor}26 0%, transparent 62%)`,
+      }} />
+      {spec.decor.shapes ? <FloatingShapes accentColor={accentColor} /> : null}
+      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 88px" }}>
+        <div style={{
+          width: 74, height: 5, borderRadius: 3, background: accentColor,
+          marginBottom: 34, scale: String(Math.min(1, enter)),
+        }} />
+        <div style={{
+          textAlign: "center",
+          fontFamily: FONT,
+          fontWeight: spec.typography.weight,
+          fontSize: 76 * spec.typography.fontScale,
+          lineHeight: 1.18,
+          letterSpacing: spec.typography.letterSpacing,
+          textTransform: spec.typography.uppercase ? "uppercase" : "none",
+          color: light ? "#0b0d14" : "#fff",
+          opacity: Math.min(1, enter) * exit,
+          translate: `0px ${(1 - Math.min(1, enter)) * 26 + drift}px`,
+          textShadow: light ? "none" : "0 6px 30px rgba(0,0,0,0.5)",
+        }}>
+          {text}
+        </div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+}
+
+/** Что показываем в очередном сегменте: AI-клип или текстовый тезис. */
+type Segment = { kind: "video"; url: string } | { kind: "card"; text: string };
+
+/**
+ * Чередует клипы и карточки: видео — карточка — видео — карточка. Начинаем с
+ * видео (после хука зритель ждёт картинку, а не ещё один экран с текстом).
+ */
+function buildSegments(urls: string[], cards: string[]): Segment[] {
+  const out: Segment[] = [];
+  const max = Math.max(urls.length, cards.length);
+  for (let i = 0; i < max; i++) {
+    if (urls[i]) out.push({ kind: "video", url: urls[i] });
+    if (cards[i]) out.push({ kind: "card", text: cards[i] });
+  }
+  return out;
+}
+
 const TRANSITION_FRAMES = 14;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -445,13 +515,20 @@ function presentationFor(t: ResolvedStyleSpec["broll"]["transition"], width: num
   }
 }
 
-function BrollBlock({ urls, totalFrames, brandColor, accentColor, spec }: {
-  urls: string[]; totalFrames: number; brandColor: string; accentColor: string; spec: ResolvedStyleSpec;
+function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }: {
+  urls: string[]; cards: string[]; totalFrames: number; brandColor: string; accentColor: string; spec: ResolvedStyleSpec;
 }) {
   const { width, height } = useVideoConfig();
 
-  if (urls.length === 0) {
-    // Честный фолбэк — нет ни одного b-roll ассета. Ровный фон бренда, а не
+  const segments = buildSegments(urls, cards);
+
+  const renderSegment = (seg: Segment, i: number, frames: number, manualTransition: "punch" | "whip" | null) =>
+    seg.kind === "video"
+      ? <BrollMedia url={seg.url} index={i} durationInFrames={frames} spec={spec} manualTransition={manualTransition} />
+      : <StatementCard text={seg.text} accentColor={accentColor} brandColor={brandColor} spec={spec} durationInFrames={frames} />;
+
+  if (segments.length === 0) {
+    // Честный фолбэк — нет ни клипов, ни тезисов. Ровный фон бренда, а не
     // мокап MarketRadar: тексту важнее не соврать про чужой продукт.
     return (
       <AbsoluteFill style={{ backgroundColor: brandColor }}>
@@ -463,15 +540,15 @@ function BrollBlock({ urls, totalFrames, brandColor, accentColor, spec }: {
   const manual = spec.broll.transition === "punch" || spec.broll.transition === "whip";
 
   if (manual) {
-    const segFrames = totalFrames / urls.length;
+    const segFrames = totalFrames / segments.length;
     return (
       <AbsoluteFill>
-        {urls.map((url, i) => (
+        {segments.map((seg, i) => (
           <Sequence key={i} from={Math.round(i * segFrames)} durationInFrames={Math.ceil(segFrames)}>
-            <BrollMedia url={url} index={i} durationInFrames={Math.ceil(segFrames)} spec={spec} manualTransition={spec.broll.transition as "punch" | "whip"} />
+            {renderSegment(seg, i, Math.ceil(segFrames), spec.broll.transition as "punch" | "whip")}
           </Sequence>
         ))}
-        {spec.decor.lightLeak && urls.slice(1).map((_, i) => (
+        {spec.decor.lightLeak && segments.slice(1).map((_, i) => (
           <Sequence key={`leak-${i}`} from={Math.max(0, Math.round((i + 1) * segFrames) - 10)} durationInFrames={20}>
             <LightLeakSweep durationInFrames={20} fromLeft={i % 2 === 0} />
           </Sequence>
@@ -482,17 +559,17 @@ function BrollBlock({ urls, totalFrames, brandColor, accentColor, spec }: {
 
   // Официальные переходы: TransitionSeries съедает по TRANSITION_FRAMES на
   // каждый переход — удлиняем сегменты, чтобы блок занял ровно totalFrames.
-  const n = urls.length;
+  const n = segments.length;
   const segFrames = Math.ceil((totalFrames + (n - 1) * TRANSITION_FRAMES) / n);
-  const cutPoints = urls.slice(1).map((_, i) => (i + 1) * (segFrames - TRANSITION_FRAMES));
+  const cutPoints = segments.slice(1).map((_, i) => (i + 1) * (segFrames - TRANSITION_FRAMES));
 
   return (
     <AbsoluteFill>
       <TransitionSeries>
-        {urls.flatMap((url, i) => {
+        {segments.flatMap((segment, i) => {
           const seg = (
             <TransitionSeries.Sequence key={`seg-${i}`} durationInFrames={segFrames}>
-              <BrollMedia url={url} index={i} durationInFrames={segFrames} spec={spec} manualTransition={null} />
+              {renderSegment(segment, i, segFrames, null)}
             </TransitionSeries.Sequence>
           );
           if (i === 0) return [seg];
@@ -534,7 +611,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
       </Sequence>
 
       <Sequence from={hookFrames} durationInFrames={brollFrames}>
-        <BrollBlock urls={props.brollUrls ?? []} totalFrames={brollFrames} brandColor={props.brandColor} accentColor={props.accentColor} spec={spec} />
+        <BrollBlock urls={props.brollUrls ?? []} cards={props.statementCards ?? []} totalFrames={brollFrames} brandColor={props.brandColor} accentColor={props.accentColor} spec={spec} />
       </Sequence>
 
       <Sequence from={hookFrames + brollFrames} durationInFrames={ctaFrames}>

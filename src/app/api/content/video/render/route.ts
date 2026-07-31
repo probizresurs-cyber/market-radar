@@ -325,8 +325,24 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // экранах и бумагах псевдо-буквы, а кириллицу не умеют вовсе. Любой
       // текст в кадре = мусор, который к тому же конфликтует с нашими
       // субтитрами. Просим чистый кадр без надписей.
+      // Число клипов — главный рычаг себестоимости: генерация видео на
+      // Replicate это ~97% стоимости ролика (~$0.40 за клип), всё остальное
+      // копейки. Четыре клипа на ролик съедали бюджет слишком быстро, поэтому
+      // по умолчанию берём два, а оставшиеся сегменты закрываем текстовыми
+      // карточками с тезисами — они рисуются нами и бесплатны.
+      // Переопределяется per-запрос (brollCount) или глобально через env.
+      const brollCount = Math.max(
+        0,
+        Math.min(4, Number(body.brollCount ?? process.env.CONTENT_BROLL_COUNT ?? 2)),
+      );
+      if (brollCount === 0) {
+        // Важно не звать роут с пустым списком промптов: он в этом случае
+        // подставит свои шаблоны про финтех, и мы получим клипы не по теме
+        // и по полной цене — ровно то, чего избегаем.
+        pushStep({ name: "stock-videos", status: "skipped", ms: 0, error: "brollCount = 0, видеоряд из текстовых карточек" });
+      } else {
       const prompts = brollQueries
-        .slice(0, 4)
+        .slice(0, brollCount)
         .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting, shallow depth of field. ${q}, slow deliberate camera movement. ${PHYSICS_CLAUSE} ${NO_TEXT_CLAUSE}`);
       const r = await callLocal<StockData>(
         "/api/generate-broll-videos",
@@ -338,6 +354,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       const ms = Date.now() - stepT;
       if (brollUrls.length > 0) pushStep({ name: "stock-videos", status: "ok", ms });
       else pushStep({ name: "stock-videos", status: "failed", ms, error: r.error ?? "Replicate не сгенерил ни одного клипа" });
+      }
     } else {
       pushStep({ name: "stock-videos", status: "skipped", ms: 0 });
     }
@@ -365,11 +382,21 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           return Math.max(15, Math.min(60, Math.round(words / 2.7) || 30));
         })();
 
+    // Тезисы для текстовых карточек берём из СЦЕНАРИЯ ОЗВУЧКИ, а не отдельным
+    // запросом к модели: карточка должна совпадать с тем, что зритель слышит
+    // в этот момент, иначе картинка и голос расходятся. Плюс это ноль
+    // дополнительной стоимости и ноль новых точек отказа.
+    const statementCards = (voiceoverScript || scenario)
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim().replace(/^[«"']|[»"']$/g, ""))
+      .filter((s) => s.length >= 12 && s.length <= 64)
+      .slice(0, 2);
+
     // ── Шаг 6: финальный рендер (обязательный) ──────────────────────────
     const stepT = Date.now();
     const renderR = await callLocal<RenderData>("/api/render-content-reel", {
       hookText, ctaText, brandName, brandColor, accentColor,
-      voiceoverUrl, musicUrl, brollUrls, videoDurationSec,
+      voiceoverUrl, musicUrl, brollUrls, statementCards, videoDurationSec,
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,

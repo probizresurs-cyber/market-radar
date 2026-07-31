@@ -46,6 +46,7 @@ interface RenderProps {
   hookBgImageUrl: string | null;
   ctaBgImageUrl: string | null;
   brollUrls: string[];
+  statementCards: string[];
   videoDurationSec: number;
   captionsEnabled: boolean;
   captionsScript: string | null;
@@ -129,6 +130,8 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollUrls,
+    statementCards: (Array.isArray(body.statementCards) ? body.statementCards : [])
+      .map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
     captionsEnabled: Boolean(body.captionsEnabled ?? false),
     captionsScript: body.captionsScript ? String(body.captionsScript) : null,
     captionsWords: Array.isArray(body.captionsWords)
