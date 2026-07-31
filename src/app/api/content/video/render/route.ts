@@ -87,7 +87,7 @@ const NO_TEXT_CLAUSE =
 const PHYSICS_CLAUSE =
   "Single subject, calm and slow motion, natural anatomy, correct number of fingers and limbs, stable objects that keep their shape. "
   + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering.";
-interface VoiceoverData { url: string }
+interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
 interface GenerateReelVideoData { videoId: string }
@@ -262,6 +262,8 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
 
     // ── Шаг 2: озвучка (ElevenLabs) — best-effort ───────────────────────
     let voiceoverUrl: string | null = null;
+    let voiceWords: Array<{ word: string; start: number; end: number }> | undefined;
+    let voiceDurationSec: number | null = null;
     if (voiceoverScript) {
       const stepT = Date.now();
       // hookText/problemText/ctaText обязательны у generate-promo-voiceover
@@ -281,7 +283,14 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           speed: spec?.voice?.speed,
         }, req, 130_000);
       const ms = Date.now() - stepT;
-      if (r.ok && r.data) { voiceoverUrl = r.data.url; pushStep({ name: "voiceover", status: "ok", ms }); }
+      if (r.ok && r.data) {
+        voiceoverUrl = r.data.url;
+        // Тайминги и длительность приходят от самого синтезатора — Whisper
+        // после этого нужен только как запасной вариант.
+        voiceWords = r.data.words?.length ? r.data.words : undefined;
+        voiceDurationSec = typeof r.data.durationSec === "number" ? r.data.durationSec : null;
+        pushStep({ name: "voiceover", status: "ok", ms });
+      }
       else pushStep({ name: "voiceover", status: "failed", ms, error: r.error });
     } else {
       pushStep({ name: "voiceover", status: "skipped", ms: 0 });
@@ -291,9 +300,14 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // длительность. Не оценка по темпу речи, а измерение по факту сгенерённого
     // файла — субтитры идут точно в такт голосу. Best-effort: если Whisper не
     // настроен/упал — откатываемся на оценку по числу слов (как раньше).
-    let captionsWords: Array<{ word: string; start: number; end: number }> | undefined;
-    let measuredDurationSec: number | null = null;
-    if (voiceoverUrl) {
+    let captionsWords: Array<{ word: string; start: number; end: number }> | undefined = voiceWords;
+    let measuredDurationSec: number | null = voiceDurationSec;
+    if (captionsWords?.length) {
+      // Разметку дал сам синтезатор (/with-timestamps) — Whisper не нужен.
+      // Это и точнее (тайминги от того, кто произносил, а не от распознавания),
+      // и не зависит от OpenAI, который наш регион не обслуживает.
+      pushStep({ name: "captions", status: "ok", ms: 0, error: `тайминги из синтеза, слов: ${captionsWords.length}` });
+    } else if (voiceoverUrl) {
       const stepT = Date.now();
       try {
         const origin = new URL(req.url).origin;
@@ -372,14 +386,21 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       }
     }
 
-    // Длительность: приоритет — реально измеренная Whisper'ом длительность
-    // сгенерённой озвучки. Фолбэк — оценка по темпу речи ElevenLabs
-    // (~2.7 слова/сек), если транскрипция не удалась/озвучки нет вовсе.
+    // Длительность ролика. Приоритет — измеренная длительность дорожки (от
+    // синтезатора либо от Whisper). Фолбэк — оценка по темпу речи.
+    //
+    // Округляем ВВЕРХ и добавляем хвост: раньше здесь было Math.round, и при
+    // длительности вроде 18.6 сек ролик обрезался на 19-й секунде вместе с
+    // последним словом озвучки. Хвост нужен ещё и потому, что CTA-сцена
+    // доигрывает после конца речи — без него призыв мелькал и обрывался.
+    const TAIL_SEC = 1.2;
     const videoDurationSec = measuredDurationSec
-      ? Math.max(15, Math.min(60, Math.round(measuredDurationSec)))
+      ? Math.max(15, Math.min(75, Math.ceil(measuredDurationSec + TAIL_SEC)))
       : (() => {
           const words = voiceoverScript.split(/\s+/).filter(Boolean).length;
-          return Math.max(15, Math.min(60, Math.round(words / 2.7) || 30));
+          // Оценка намеренно щедрая (2.4 слова/сек вместо 2.7): недооценка
+          // режет звук, переоценка лишь оставляет паузу в конце.
+          return Math.max(15, Math.min(75, Math.ceil(words / 2.4) || 30));
         })();
 
     // Тезисы для текстовых карточек берём из СЦЕНАРИЯ ОЗВУЧКИ, а не отдельным

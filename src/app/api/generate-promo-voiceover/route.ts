@@ -110,15 +110,22 @@ export async function POST(req: Request) {
 
     // Дёргаем ElevenLabs напрямую (не через /api/elevenlabs-tts —
     // там лишняя сериализация в base64-JSON и обратно).
+    // /with-timestamps вместо обычного эндпоинта: тот же синтез, но вместе с
+    // аудио возвращает посимвольную разметку. Из неё собираются пословные
+    // тайминги для субтитров и ТОЧНАЯ длительность дорожки — раньше и то, и
+    // другое давал Whisper, а он недоступен (OpenAI блокирует наш регион, и
+    // обойти это воркером нельзя — api.openai.com сам за Cloudflare).
+    // Побочно это чинило два бага: субтитры шли быстрее речи, а ролик
+    // обрывался раньше конца озвучки, потому что длительность была оценкой.
     async function synth(model: string) {
       return fetch(
-        `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
+        `${ELEVENLABS_BASE_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`,
         {
           method: "POST",
           headers: {
             "xi-api-key": ELEVENLABS_API_KEY,
             "Content-Type": "application/json",
-            Accept: "audio/mpeg",
+            Accept: "application/json",
           },
           body: JSON.stringify({
             text: script,
@@ -163,7 +170,45 @@ export async function POST(req: Request) {
       );
     }
 
-    const audioBuf = Buffer.from(await res.arrayBuffer());
+    const payload = (await res.json()) as {
+      audio_base64?: string;
+      alignment?: { characters?: string[]; character_start_times_seconds?: number[]; character_end_times_seconds?: number[] };
+      normalized_alignment?: { characters?: string[]; character_start_times_seconds?: number[]; character_end_times_seconds?: number[] };
+    };
+    if (!payload.audio_base64) {
+      return NextResponse.json({ ok: false, error: "ElevenLabs не вернул аудио" }, { status: 502 });
+    }
+    const audioBuf = Buffer.from(payload.audio_base64, "base64");
+
+    // Посимвольную разметку сворачиваем в пословную: слово начинается на
+    // первом непробельном символе и заканчивается на последнем перед пробелом.
+    // Пунктуацию оставляем внутри слова — субтитры показывают её как есть.
+    const al = payload.alignment ?? payload.normalized_alignment;
+    const words: Array<{ word: string; start: number; end: number }> = [];
+    if (al?.characters?.length && al.character_start_times_seconds?.length) {
+      let buf = "";
+      let start = 0;
+      for (let i = 0; i < al.characters.length; i++) {
+        const ch = al.characters[i];
+        if (/\s/.test(ch)) {
+          if (buf) {
+            words.push({ word: buf, start, end: al.character_end_times_seconds?.[i - 1] ?? start });
+            buf = "";
+          }
+          continue;
+        }
+        if (!buf) start = al.character_start_times_seconds[i] ?? 0;
+        buf += ch;
+      }
+      if (buf) {
+        const last = al.characters.length - 1;
+        words.push({ word: buf, start, end: al.character_end_times_seconds?.[last] ?? start });
+      }
+    }
+    // Длительность — конец последнего символа, а не оценка по темпу речи.
+    const durationSec = al?.character_end_times_seconds?.length
+      ? al.character_end_times_seconds[al.character_end_times_seconds.length - 1]
+      : null;
 
     // Сохраняем MP3 на диск, отдаём через /api/static-asset/voiceovers/
     const jobId = `voice-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -186,6 +231,10 @@ export async function POST(req: Request) {
         url: `/api/static-asset/voiceovers/${jobId}.mp3`,
         bytes: audioBuf.byteLength,
         scriptChars: script.length,
+        /** Пословные тайминги от самого синтезатора — точнее Whisper и без OpenAI. */
+        words,
+        /** Точная длительность дорожки: по ней ставится длительность ролика. */
+        durationSec,
         totalMs: Date.now() - t0,
       },
     });
