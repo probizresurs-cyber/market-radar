@@ -59,10 +59,46 @@ type StepReport = PromoStepReport;
 
 interface InternalCallResult<T> { ok: boolean; data?: T; error?: string }
 
+/**
+ * Loopback-адрес процесса вместо публичного домена — тот же диагноз, что уже
+ * чинили для медиа-ассетов в render-content-reel (см. pickAssetsOrigin), но
+ * здесь речь про сами внутренние API-вызовы, а не про файлы.
+ *
+ * Симптом: шаг avatar падал с internal-fetch-failed на границе ~300 сек —
+ * ровно там, где промежуточный прокси (nginx/Cloudflare) обрывает долго
+ * висящее соединение. Быстрые шаги (план, озвучка, b-roll за 70-80 сек) через
+ * публичный домен не успевали упереться в этот порог, поэтому баг не был
+ * виден до первого шага, который реально держит соединение минутами
+ * (HeyGen-поллинг внутри /api/generate-avatar-clip).
+ *
+ * Порт — свойство ПРОЦЕССА, а не конкретного запроса, поэтому успешный проб
+ * кэшируется на весь его жизненный цикл. Неудачный НЕ кэшируется: если
+ * loopback ещё не поднялся (первые секунды после рестарта), следующий вызов
+ * попробует снова, а не застрянет с публичным origin навсегда.
+ */
+let cachedInternalOrigin: string | null = null;
+async function resolveInternalOrigin(publicOrigin: string): Promise<string> {
+  if (cachedInternalOrigin) return cachedInternalOrigin;
+  const candidate = `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2000);
+  try {
+    // HEAD на реальный POST-роут: код ответа не важен (даже 404/405 значит,
+    // что порт живой и это наш процесс) — важен только сам факт соединения.
+    await fetch(`${candidate}/api/content/video/plan`, { method: "HEAD", signal: ctrl.signal });
+    cachedInternalOrigin = candidate;
+    return candidate;
+  } catch {
+    return publicOrigin;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callLocal<T = unknown>(
   pathName: string, body: Record<string, unknown>, originalReq: Request, timeoutMs: number,
 ): Promise<InternalCallResult<T>> {
-  const origin = new URL(originalReq.url).origin;
+  const origin = await resolveInternalOrigin(new URL(originalReq.url).origin);
   const cookie = originalReq.headers.get("cookie") ?? "";
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
