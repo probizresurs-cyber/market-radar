@@ -131,7 +131,8 @@ const PHYSICS_CLAUSE =
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
-interface AvatarClipData { url: string; audioSource: "ours" | "heygen"; durationSec: number | null }
+interface AvatarKickData { videoId: string; audioSource: "ours" | "heygen" }
+interface AvatarStatusData { done: boolean; url?: string; durationSec?: number | null; transientError?: string }
 interface GenerateReelVideoData { videoId: string }
 interface VideoStatusData { status: "processing" | "completed" | "failed"; videoUrl?: string; thumbnailUrl?: string; error?: string }
 
@@ -441,25 +442,50 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         return;
       }
       const stepT = Date.now();
-      const r = await callLocal<AvatarClipData>("/api/generate-avatar-clip", {
+      // Кик — секунды (загрузка аудио + один вызов создания видео). Сам рендер
+      // HeyGen (1-8 минут) ждём СНАРУЖИ короткими опросами status, а не одним
+      // долгим HTTP-запросом — см. шапку generate-avatar-clip про то, почему
+      // блокирующий вариант падал на ~300-й секунде даже по loopback.
+      const kick = await callLocal<AvatarKickData>("/api/generate-avatar-clip", {
         audioUrl: voiceoverUrl,
         // Фон клипа = фон ролика: в полнокадровом сегменте он становится фоном
         // сцены, во врезке виден вокруг лица — в обоих случаях чужой цвет
         // выдал бы «вклеенное» видео.
         bgColor: brandColor,
         avatarId: body.avatarId,
-      }, req, 560_000); // maxDuration роута 600 + запас на HTTP round-trip
-      const ms = Date.now() - stepT;
-      if (r.ok && r.data?.url && r.data.audioSource === "ours") {
-        avatarClipUrl = r.data.url;
-        pushStep({ name: "avatar", status: "ok", ms });
-      } else if (r.ok && r.data?.url) {
-        // Клип есть, но озвучен голосом HeyGen. Взять его нельзя: в ролике
-        // играет наша дорожка, и губы разошлись бы с тем, что слышно.
-        pushStep({ name: "avatar", status: "failed", ms, error: "HeyGen озвучил аватара своим голосом — клип не берём, иначе губы разойдутся с озвучкой" });
-      } else {
-        pushStep({ name: "avatar", status: "failed", ms, error: r.error });
+      }, req, 55_000);
+
+      if (!kick.ok || !kick.data?.videoId) {
+        pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: kick.error ?? "HeyGen не вернул videoId" });
+        return;
       }
+      if (kick.data.audioSource !== "ours") {
+        // Клип создан, но озвучен голосом HeyGen. Взять его нельзя: в ролике
+        // играет наша дорожка, и губы разошлись бы с тем, что слышно.
+        pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: "HeyGen озвучил аватара своим голосом — клип не берём, иначе губы разойдутся с озвучкой" });
+        return;
+      }
+
+      const POLL_DEADLINE_MS = 480_000; // тот же бюджет, что был у внутреннего поллинга
+      const deadline = Date.now() + POLL_DEADLINE_MS;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const poll = await callLocal<AvatarStatusData>(
+          "/api/generate-avatar-clip/status", { videoId: kick.data.videoId }, req, 20_000,
+        );
+        if (!poll.ok) {
+          pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: poll.error ?? "HeyGen не собрал клип" });
+          return;
+        }
+        if (poll.data?.done && poll.data.url) {
+          avatarClipUrl = poll.data.url;
+          pushStep({ name: "avatar", status: "ok", ms: Date.now() - stepT });
+          return;
+        }
+        // done: false (в т.ч. transientError на отдельном опросе) — рендерится
+        // дальше, пробуем на следующем тике.
+      }
+      pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: "HeyGen не отдал клип за 8 минут" });
     };
 
     // Оба шага — внешние рендеры на минуты и друг от друга не зависят.

@@ -20,6 +20,16 @@
  * allowTtsFallback и помечается в ответе audioSource="heygen" — вызывающий
  * обязан решить, что делать со второй звуковой дорожкой.
  *
+ * КИК, А НЕ БЛОКИРУЮЩИЙ ПОЛЛИНГ. Раньше этот роут сам ждал HeyGen внутри
+ * одного запроса (до 8 минут), а оркестратор висел на одном HTTP-вызове всё
+ * это время. На живом тесте это падало на ~300-й секунде ДАЖЕ по loopback —
+ * `next start` без кастомного server.js не соблюдает наш maxDuration (это
+ * чисто верcelская настройка), реальный лимит держит сам Node, и держать
+ * запрос открытым минутами — плохая идея независимо от лимита. Статус теперь
+ * даёт отдельный GET /api/generate-avatar-clip/status?videoId=... — тот же
+ * приём, что уже применялся в runAvatarPipeline для HeyGen v3 (кик + внешний
+ * поллинг короткими запросами вместо одного долгого).
+ *
  * Body:
  *   audioUrl?        — наша озвучка ("/api/static-asset/voiceovers/x.mp3" или https://)
  *   script?          — текст для TTS HeyGen (нужен только для запасного пути)
@@ -30,38 +40,19 @@
  *                      и полнокадровый сегмент не выпадали из палитры
  *   resolution?      — "720p" | "1080p" (default 1080p)
  *
- * Returns: { ok, data: { url, videoId, durationSec, audioSource, engine } }
- *   url — /api/static-asset/avatar-clips/{videoId}.mp4 (локальная копия:
- *   ссылка HeyGen presigned и живёт недолго, а Remotion тянет файл покадрово).
+ * Returns: { ok, data: { videoId, audioSource, engine } } — клип ещё не готов,
+ *   опрашивать /api/generate-avatar-clip/status?videoId=...
  */
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { heygenMessage, MAX_AUDIO_BYTES, type CreatePayload } from "@/lib/heygen-avatar";
 
 export const runtime = "nodejs";
-// HeyGen рендерит говорящую голову ~1-3 минуты (на живом тесте 2 сек речи —
-// 50 сек). Поллим внутри роута, как и остальные наши долгие шаги, чтобы
-// оркестратору не заводить второй механизм ожидания.
-export const maxDuration = 600;
+// Кик — это загрузка аудио + один короткий вызов создания видео, обычно
+// секунды. maxDuration тут не про ожидание рендера (см. шапку файла).
+export const maxDuration = 60;
 
 const HEYGEN_API = "https://api.heygen.com";
-/** Запас на скачивание готового mp4 — поллинг обязан закончиться раньше. */
-const POLL_BUDGET_MS = 480_000;
-/** Лимит HeyGen на загружаемый ассет. */
-const MAX_AUDIO_BYTES = 32 * 1024 * 1024;
-
-interface HeygenError { error?: { code?: string; message?: string } }
-
-function heygenMessage(status: number, text: string): string {
-  try {
-    const parsed = JSON.parse(text) as HeygenError;
-    const code = parsed.error?.code;
-    const msg = parsed.error?.message;
-    if (msg) return code ? `${code}: ${msg}` : msg;
-  } catch { /* не JSON — отдаём как есть */ }
-  return `${status}: ${text.slice(0, 300)}`;
-}
 
 /** Загружает наш mp3 в ассеты HeyGen и возвращает asset_id.
  *
@@ -82,19 +73,6 @@ async function uploadAudio(apiKey: string, bytes: ArrayBuffer, mime: string, nam
   const assetId = (JSON.parse(text) as { data?: { asset_id?: string } })?.data?.asset_id;
   if (!assetId) throw new Error(`HeyGen не вернул asset_id: ${text.slice(0, 200)}`);
   return assetId;
-}
-
-interface CreatePayload {
-  type: "avatar";
-  avatar_id: string;
-  aspect_ratio: string;
-  resolution: string;
-  background: { type: "color"; value: string };
-  title?: string;
-  audio_asset_id?: string;
-  script?: string;
-  voice_id?: string;
-  engine?: { type: string };
 }
 
 async function createVideo(apiKey: string, payload: CreatePayload): Promise<{ videoId: string; engine: string }> {
@@ -122,28 +100,6 @@ async function createVideo(apiKey: string, payload: CreatePayload): Promise<{ vi
   const videoId = (JSON.parse(r.text) as { data?: { video_id?: string } })?.data?.video_id;
   if (!videoId) throw new Error(`HeyGen не вернул video_id: ${r.text.slice(0, 200)}`);
   return { videoId, engine };
-}
-
-interface VideoStatus { status?: string; video_url?: string; duration?: number; failure_message?: string; failure_code?: string }
-
-async function pollVideo(apiKey: string, videoId: string): Promise<VideoStatus> {
-  const deadline = Date.now() + POLL_BUDGET_MS;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 5000));
-    let data: VideoStatus | null = null;
-    try {
-      const res = await fetch(`${HEYGEN_API}/v3/videos/${encodeURIComponent(videoId)}`, {
-        headers: { "X-Api-Key": apiKey, Accept: "application/json" },
-      });
-      if (res.ok) data = (JSON.parse(await res.text()) as { data?: VideoStatus })?.data ?? null;
-    } catch { /* сетевой сбой поллинга — не повод бросать рендер, пробуем снова */ }
-    if (!data) continue;
-    if (data.status === "completed") return data;
-    if (data.status === "failed") {
-      throw new Error(`HeyGen не собрал клип: ${data.failure_message ?? data.failure_code ?? "неизвестная причина"}`);
-    }
-  }
-  throw new Error("HeyGen не отдал клип за 8 минут");
 }
 
 export async function POST(req: Request) {
@@ -220,27 +176,12 @@ export async function POST(req: Request) {
       audioSource = "heygen";
     }
 
-    const done = await pollVideo(apiKey, created.videoId);
-    if (!done.video_url) throw new Error("HeyGen отдал completed без ссылки на видео");
-
-    // Копируем к себе: ссылка HeyGen presigned и протухает, а Remotion тянет
-    // файл десятками range-запросов на протяжении всего рендера.
-    const fileRes = await fetch(done.video_url);
-    if (!fileRes.ok) throw new Error(`Не удалось скачать клип аватара: ${fileRes.status}`);
-    const mp4 = Buffer.from(await fileRes.arrayBuffer());
-    const dir = path.join(process.cwd(), "public", "avatar-clips");
-    await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, `${created.videoId}.mp4`), mp4);
-
     await access.log({ endpoint: "generate-avatar-clip", model: `heygen-${created.engine}`, success: true, durationMs: Date.now() - t0 });
 
     return NextResponse.json({
       ok: true,
       data: {
-        url: `/api/static-asset/avatar-clips/${created.videoId}.mp4`,
         videoId: created.videoId,
-        durationSec: typeof done.duration === "number" ? done.duration : null,
-        sizeBytes: mp4.byteLength,
         /** "ours" — губы синхронны нашей озвучке; "heygen" — голос чужой. */
         audioSource,
         engine: created.engine,
