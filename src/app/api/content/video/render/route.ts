@@ -130,7 +130,8 @@ const PHYSICS_CLAUSE =
   + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering.";
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface StockData { urls: string[] }
-interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
+interface RenderKickData { jobId: string; url: string }
+interface RenderStatusData { done: boolean; url?: string; sizeBytes?: number; durationMs?: number }
 interface AvatarKickData { videoId: string; audioSource: "ours" | "heygen" }
 interface AvatarStatusData { done: boolean; url?: string; durationSec?: number | null; transientError?: string }
 interface GenerateReelVideoData { videoId: string }
@@ -543,27 +544,54 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           .slice(0, 2);
 
     // ── Шаг 6: финальный рендер (обязательный) ──────────────────────────
+    // Кик + внешний поллинг — тот же приём, что у шага avatar выше: Remotion
+    // рендерит 1-8 минут, и держать один HTTP-запрос открытым на это время
+    // падало с internal-fetch-failed на ~300-й секунде даже по loopback
+    // (см. шапку /api/render-content-reel).
     const stepT = Date.now();
-    const renderR = await callLocal<RenderData>("/api/render-content-reel", {
+    const kick = await callLocal<RenderKickData>("/api/render-content-reel", {
       hookText, ctaText, brandName, brandColor, accentColor,
       voiceoverUrl, musicUrl, brollUrls, statementCards, avatarClipUrl, videoDurationSec,
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
       styleSpec: spec,
-    }, req, 880_000); // см. maxDuration=900 у render-content-reel
+    }, req, 55_000);
+
+    if (!kick.ok || !kick.data?.jobId) {
+      const ms = Date.now() - stepT;
+      pushStep({ name: "render", status: "failed", ms, error: kick.error });
+      updateJob(jobId, { status: "failed", error: `Финальный рендер не запустился: ${kick.error ?? "unknown"}` });
+      return;
+    }
+
+    const renderJobId = kick.data.jobId;
+    const RENDER_POLL_DEADLINE_MS = 900_000; // тот же бюджет, что был у maxDuration render-content-reel
+    const deadline = Date.now() + RENDER_POLL_DEADLINE_MS;
+    let renderResult: RenderStatusData | null = null;
+    let renderError: string | undefined;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const poll = await callLocal<RenderStatusData>(
+        "/api/render-content-reel/status", { jobId: renderJobId }, req, 20_000,
+      );
+      if (!poll.ok) { renderError = poll.error ?? "Remotion упал без сообщения"; break; }
+      if (poll.data?.done) { renderResult = poll.data; break; }
+      // done: false — рендерится дальше, пробуем на следующем тике.
+    }
     const renderMs = Date.now() - stepT;
 
-    if (!renderR.ok || !renderR.data) {
-      pushStep({ name: "render", status: "failed", ms: renderMs, error: renderR.error });
-      updateJob(jobId, { status: "failed", error: `Финальный рендер упал: ${renderR.error ?? "unknown"}` });
+    if (!renderResult) {
+      const error = renderError ?? "Таймаут ожидания рендера (15 мин)";
+      pushStep({ name: "render", status: "failed", ms: renderMs, error });
+      updateJob(jobId, { status: "failed", error: `Финальный рендер упал: ${error}` });
       return;
     }
     pushStep({ name: "render", status: "ok", ms: renderMs });
 
     updateJob(jobId, {
       status: "done",
-      result: { url: renderR.data.url, jobId: renderR.data.jobId, sizeBytes: renderR.data.sizeBytes, totalMs: Date.now() - t0 },
+      result: { url: renderResult.url ?? kick.data.url, jobId: renderJobId, sizeBytes: renderResult.sizeBytes ?? 0, totalMs: Date.now() - t0 },
     });
   } catch (e) {
     updateJob(jobId, { status: "failed", error: e instanceof Error ? e.message : String(e) });

@@ -10,12 +10,23 @@
  * уже используемый в проде промо-пайплайн ради рефакторинга. Логика
  * идентична: props через временный файл, npx remotion render, kill on error.
  *
+ * КИК, А НЕ БЛОКИРУЮЩИЙ РЕНДЕР. Раньше POST сам ждал npx remotion render
+ * (1-8 минут) внутри одного запроса, а оркестратор (content/video/render)
+ * висел на этом вызове всё это время. На живом тесте это упало ровно там же,
+ * где раньше падал аватар-шаг: internal-fetch-failed на ~300-й секунде —
+ * `next start` без кастомного server.js не соблюдает наш maxDuration (это
+ * чисто верcelская настройка), реальный лимит держит сам Node. Раньше рендер
+ * без аватара-на-весь-ролик укладывался в 300 сек и баг был не виден.
+ * Тот же приём, что уже применён в generate-avatar-clip: кик запускает
+ * spawn в фоне и возвращается сразу, статус — отдельным GET/POST
+ * /api/render-content-reel/status?jobId=...
+ *
  * Body: { hookText, ctaText, brandName, brandColor?, accentColor?,
  *         voiceoverUrl?, musicUrl?, hookBgImageUrl?, ctaBgImageUrl?,
  *         brollUrls?, videoDurationSec?, captionsEnabled?, captionsScript? }
- * Returns: { ok: true, data: { jobId, url, sizeBytes, durationMs } }
- *   url ведёт на GET /api/promo-reel/{jobId} — тот же стример MP4,
- *   что и у PromoReel (не завязан на композицию, читает по jobId с диска).
+ * Returns: { ok: true, data: { jobId, url } } — файла ещё нет, опрашивать
+ *   /api/render-content-reel/status?jobId=...; url ведёт на
+ *   GET /api/promo-reel/{jobId} и станет рабочим, когда статус вернёт done.
  */
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
@@ -24,13 +35,13 @@ import { stat, mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { sanitizeStyleSpec, type StyleSpecInput } from "@/lib/video-style-types";
+import { writeRenderStatus, REMOTION_PROJECT_DIR, OUTPUT_DIR } from "@/lib/render-content-reel-status";
 
 export const runtime = "nodejs";
-export const maxDuration = 900; // 30-сек вертикалка с 4 b-roll на VPS рендерится дольше 5 минут
+// Кик — парсинг body + один HEAD-проб loopback'а, обычно доли секунды.
+// maxDuration тут не про ожидание рендера (см. шапку файла).
+export const maxDuration = 60;
 
-const REMOTION_PROJECT_DIR =
-  process.env.REMOTION_PROJECT_DIR ?? path.join(process.cwd(), "remotion");
-const OUTPUT_DIR = path.join(REMOTION_PROJECT_DIR, "out");
 const TEMP_DIR = process.env.REMOTION_TEMP_DIR ?? "";
 
 interface CaptionWord { word: string; start: number; end: number }
@@ -239,17 +250,24 @@ export async function POST(req: Request) {
     }
 
     const jobId = `content-reel-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    await runRemotion(jobId, parsed);
 
-    const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
-    const fileStat = await stat(outputPath);
+    // Фон: сам HTTP-ответ уходит клиенту сразу, рендер (1-8 минут) живёт
+    // дальше процессом Node независимо от него — см. шапку файла.
+    void (async () => {
+      try {
+        await runRemotion(jobId, parsed);
+        const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
+        const fileStat = await stat(outputPath);
+        await writeRenderStatus(jobId, { status: "done", sizeBytes: fileStat.size, durationMs: Date.now() - t0 });
+        await access.log({ endpoint: "render-content-reel", model: "remotion-local", durationMs: Date.now() - t0 });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await writeRenderStatus(jobId, { status: "failed", durationMs: Date.now() - t0, error: msg.slice(0, 500) });
+        await access.log({ endpoint: "render-content-reel", model: "remotion-local", durationMs: Date.now() - t0, success: false, errorMessage: msg.slice(0, 500) });
+      }
+    })();
 
-    await access.log({ endpoint: "render-content-reel", model: "remotion-local", durationMs: Date.now() - t0 });
-
-    return NextResponse.json({
-      ok: true,
-      data: { jobId, url: `/api/promo-reel/${jobId}`, sizeBytes: fileStat.size, durationMs: Date.now() - t0 },
-    });
+    return NextResponse.json({ ok: true, data: { jobId, url: `/api/promo-reel/${jobId}` } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     await access.log({ endpoint: "render-content-reel", model: "remotion-local", durationMs: Date.now() - t0, success: false, errorMessage: msg.slice(0, 500) });
