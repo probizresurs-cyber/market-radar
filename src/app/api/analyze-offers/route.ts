@@ -1,3 +1,4 @@
+import { chatJson } from "@/lib/ai-chat";
 import { NextResponse } from "next/server";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
@@ -41,11 +42,6 @@ export async function POST(req: Request) {
 
     if (!companyUrl.trim()) {
       return NextResponse.json({ ok: false, error: "URL компании не передан" }, { status: 400 });
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
     }
 
     // SSRF-защита: разрешаем только публичные веб-URL.
@@ -114,43 +110,27 @@ ${siteContent}
 
 Проанализируй офферы по ФАКТИЧЕСКОМУ тексту сайта. Не выдумывай несуществующие услуги. Если какой-то блок (цены / гарантии / отзывы) не найден на сайте — верни пустой массив или «—», НЕ генерируй гипотетические значения. Верни JSON.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.4,
-        max_tokens: 3000,
-        response_format: { type: "json_object" },
-      }),
+    const { data: __parsed, raw: rawContent, modelUsed: __modelUsed, error: __aiError } = await chatJson<any>({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      maxTokens: 3000,
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
+    if (!__parsed) {
+      return NextResponse.json({ ok: false, error: __aiError ?? "AI не вернул валидный JSON" }, { status: 502 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(rawContent);
+    const parsed = __parsed;
 
     await access.log({
       endpoint: "analyze-offers",
-      model: "gpt-4o-mini",
+      model: __modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + userPrompt),
       completionTokens: estimateTokens(rawContent),
     });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "analyze-offers", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "analyze-offers", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

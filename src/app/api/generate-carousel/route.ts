@@ -1,3 +1,4 @@
+import { chatJson } from "@/lib/ai-chat";
 import { NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { GeneratedCarousel, BrandBook } from "@/lib/content-types";
@@ -103,43 +104,22 @@ export async function POST(req: Request) {
     const brandBook: BrandBook | null = body.brandBook ?? null;
     const taSegment: TASegment | null = body.taSegment ?? null;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     const userMessage = buildCarouselPrompt(
       companyName, platform, slidesCount, goal, brief, pillar, smm, brandBook, taSegment,
     );
 
-    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.8,
-        max_tokens: 3500,
-        response_format: { type: "json_object" },
-      }),
+    const { data: __parsed, raw: rawContent, modelUsed: __modelUsed, error: __aiError } = await chatJson<any>({
+      system: SYSTEM_PROMPT,
+      user: userMessage,
+      maxTokens: 3500,
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
+    if (!__parsed) {
+      return NextResponse.json({ ok: false, error: __aiError ?? "AI не вернул валидный JSON" }, { status: 502 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
     let parsed: { title?: string; caption?: string; hashtags?: string[]; slides?: GeneratedCarousel["slides"] };
     try {
-      parsed = JSON.parse(rawContent);
+      parsed = __parsed as typeof parsed;
     } catch (parseErr) {
       return NextResponse.json(
         { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },

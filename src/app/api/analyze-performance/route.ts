@@ -1,3 +1,4 @@
+import { chatJson } from "@/lib/ai-chat";
 import { NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { GeneratedPost, GeneratedReel } from "@/lib/content-types";
@@ -83,11 +84,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Нет ни одного поста или рилса с метриками. Сначала внесите статистику хотя бы по 3-5 публикациям." }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     const dataDump = [
       ...posts.map(buildPostSummary),
       ...reels.map(buildReelSummary),
@@ -135,46 +131,27 @@ ${dataDump}
 
 Все числа — реальные, посчитанные из данных. ER = (likes+comments+shares+saves)/(reach или views) × 100.`;
 
-    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 3000,
-        response_format: { type: "json_object" },
-      }),
+    const { data: __parsed, raw: rawContent, modelUsed: __modelUsed, error: __aiError } = await chatJson<any>({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      maxTokens: 3000,
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json(
-        { ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` },
-        { status: 500 },
-      );
+    if (!__parsed) {
+      return NextResponse.json({ ok: false, error: __aiError ?? "AI не вернул валидный JSON" }, { status: 502 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(rawContent);
+    const parsed = __parsed;
 
     await access.log({
       endpoint: "analyze-performance",
-      model: "gpt-4o-mini",
+      model: __modelUsed,
       promptTokens: estimateTokens(userPrompt + SYSTEM_PROMPT),
       completionTokens: estimateTokens(rawContent),
     });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "analyze-performance", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "analyze-performance", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
