@@ -55,7 +55,20 @@ interface LogOpts {
   manipulationDetected?: boolean;
 }
 
-export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked> {
+export interface CheckAiAccessOpts {
+  /**
+   * false — не расходовать дневной лимит 100 AI-запросов на этот вызов.
+   * Для статус-роутов (generate-avatar-clip/status, render-content-reel/status,
+   * generate-broll-videos/status), которые оркестратор опрашивает раз в 5 сек
+   * по многу минут — один запущенный ролик легко тратил всю дневную квоту
+   * ТОЛЬКО на опросы своего же статуса, ни разу не дойдя до реального AI-вызова.
+   * Аутентификация и проверка подписки при этом остаются как есть.
+   */
+  countUsage?: boolean;
+}
+
+export async function checkAiAccess(req: Request, opts: CheckAiAccessOpts = {}): Promise<AiAccess | AiBlocked> {
+  const countUsage = opts.countUsage !== false;
   // Identify caller
   const session = await getSessionUser().catch(() => null);
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
@@ -92,8 +105,8 @@ export async function checkAiAccess(req: Request): Promise<AiAccess | AiBlocked>
   // и блокирует всю работу на сутки.
   const isAdmin = session?.role === "admin";
 
-  // Rate limit check (skip для админов)
-  const limit = isAdmin
+  // Rate limit check (skip для админов и для countUsage:false опросов статуса)
+  const limit = isAdmin || !countUsage
     ? { allowed: true as const, remaining: 999, resetAt: Date.now() + 86400000 }
     : checkAiRateLimit(identifier);
   if (!limit.allowed) {

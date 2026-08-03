@@ -46,7 +46,10 @@ export async function GET(req: Request) {
 }
 
 async function handleStatus(req: Request, videoId: string) {
-  const access = await checkAiAccess(req);
+  // countUsage:false — этот роут опрашивается раз в 5 сек несколько минут,
+  // не должен в одиночку сжирать дневной лимит 100 AI-запросов (см. опцию
+  // в with-ai-security.ts).
+  const access = await checkAiAccess(req, { countUsage: false });
   if (!access.allowed) return access.response;
 
   try {

@@ -28,7 +28,9 @@ export async function GET(req: Request) {
 }
 
 async function handleStatus(req: Request, jobId: string) {
-  const access = await checkAiAccess(req);
+  // countUsage:false — опрашивается раз в 5 сек, не должен в одиночку
+  // сжирать дневной лимит 100 AI-запросов (см. with-ai-security.ts).
+  const access = await checkAiAccess(req, { countUsage: false });
   if (!access.allowed) return access.response;
 
   if (!jobId) return NextResponse.json({ ok: false, error: "jobId обязателен" }, { status: 400 });
