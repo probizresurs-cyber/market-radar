@@ -318,11 +318,15 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // Голос — часть стиля: арт-директор выбирает тембр (пресет) и подачу.
       // Раньше голос был жёстко один на все ролики, из-за чего они звучали
       // одинаково независимо от темы и стиля.
-      const voice = resolveVoicePreset(spec?.voice?.preset);
+      // body.voiceId — ручной override поверх пресета/бренд-голоса, ТОЛЬКО для
+      // этого запроса (не трогает env). Нужен, чтобы пробовать новый голос
+      // ElevenLabs на одном тестовом ролике, не переключая его глобально для
+      // всей платформы через ELEVENLABS_BRAND_VOICE_ID.
+      const voiceId = String(body.voiceId ?? "").trim() || resolveVoicePreset(spec?.voice?.preset).voiceId;
       const r = await callLocal<VoiceoverData>("/api/generate-promo-voiceover",
         {
           voiceoverScript, hookText, problemText, ctaText,
-          voiceId: voice.voiceId,
+          voiceId,
           stability: spec?.voice?.stability,
           style: spec?.voice?.expressiveness,
           speed: spec?.voice?.speed,

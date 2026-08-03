@@ -775,15 +775,20 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           </AbsoluteFill>
         </Sequence>
       ) : null}
-      {/* Врезка с аватаром — только над b-roll: на хуке и CTA кадр уже занят
-          крупным текстом, третий смысловой объект там лишний. Ставится ПОСЛЕ
-          FloatingShapes, чтобы блики не размывали лицо, и ДО виньетки с
-          зерном — иначе врезка выпадала бы из общей обработки кадра. */}
+      {/* Врезка с аватаром — на ВЕСЬ ролик, не только над b-roll: это
+          «говорящий ведущий», а не декоративная вставка, и он должен быть
+          виден непрерывно, включая хук и CTA. trimBefore=0 (blockStartFrame)
+          от начала композиции, а не от начала b-roll блока — клип синтезирован
+          HeyGen по ТОМУ ЖЕ voiceoverUrl, что играет <Audio> без обёртки в
+          Sequence, то есть с кадра 0 всей композиции; сдвиг на hookFrames
+          рассинхронизировал бы губы с голосом на пару секунд.
+          Ставится ПОСЛЕ FloatingShapes, чтобы блики не размывали лицо, и ДО
+          виньетки с зерном — иначе врезка выпадала бы из общей обработки кадра. */}
       {avatarPip ? (
-        <Sequence from={hookFrames} durationInFrames={brollFrames}>
+        <Sequence from={0} durationInFrames={hookFrames + brollFrames + ctaFrames}>
           <AvatarBubble
             url={avatarClipUrl!}
-            blockStartFrame={hookFrames}
+            blockStartFrame={0}
             accentColor={props.accentColor}
             lowCaptions={spec.layout.captionPosition !== "high"}
           />
