@@ -12,6 +12,9 @@
 
 export type VoicePresetName = "female-warm" | "female-energetic" | "male-calm" | "male-bold" | "neutral-narrator";
 
+/** Как подан говорящий аватар в НАШЕМ видеоряде (см. avatar в StyleSpecInput). */
+export type AvatarPlacement = "full" | "pip" | "off";
+
 export interface StyleSpecInput {
   palette?: { accentIndex?: number; baseIndex?: number; baseTint?: number; light?: boolean };
   layout?: { hookPosition?: string; hookAlign?: string; captionPosition?: string };
@@ -21,6 +24,10 @@ export interface StyleSpecInput {
   broll?: { transition?: string; kenBurns?: string };
   decor?: { grain?: number; vignette?: number; shapes?: boolean; lightLeak?: boolean };
   captions?: { mode?: string; karaoke?: boolean };
+  /** Говорящий аватар (HeyGen) как слой нашего видеоряда: круглая врезка,
+   *  целый сегмент или выкл. Оркестратор по этому полю решает, звать ли
+   *  HeyGen вообще — "off" не стоит ни секунды рендера и ни копейки. */
+  avatar?: { placement?: string };
   progressBar?: boolean;
 }
 
@@ -33,6 +40,7 @@ const HOOK_POSITIONS = new Set(["center", "top", "bottom"]);
 const HOOK_ALIGNS = new Set(["center", "left"]);
 const CAPTION_POSITIONS = new Set(["low", "middle", "high"]);
 const VOICE_PRESET_SET = new Set<string>(["female-warm", "female-energetic", "male-calm", "male-bold", "neutral-narrator"]);
+const AVATAR_PLACEMENTS = new Set(["full", "pip", "off"]);
 
 function num(v: unknown, min: number, max: number): number | undefined {
   return typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined;
@@ -89,6 +97,9 @@ export function sanitizeStyleSpec(raw: unknown): StyleSpecInput | undefined {
     captions: {
       mode: oneOf(r.captions?.mode, CAPTION_MODES),
       karaoke: bool(r.captions?.karaoke),
+    },
+    avatar: {
+      placement: oneOf(r.avatar?.placement, AVATAR_PLACEMENTS),
     },
     progressBar: bool((raw as Record<string, unknown>).progressBar),
   };

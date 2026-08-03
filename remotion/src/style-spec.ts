@@ -74,6 +74,13 @@ export const styleSpecSchema = z.object({
     mode: z.enum(["pill", "bare", "boxed"]).optional(),
     karaoke: z.boolean().optional(),
   }).optional(),
+  /** Говорящий аватар (HeyGen) — СЛОЙ нашего видеоряда, а не отдельный ролик.
+   *  "off" — без аватара (дефолт: он уместен не везде и стоит денег),
+   *  "pip" — круглая врезка в углу поверх b-roll,
+   *  "full" — аватар занимает целый сегмент видеоряда вместо AI-клипа. */
+  avatar: z.object({
+    placement: z.enum(["full", "pip", "off"]).optional(),
+  }).optional(),
   progressBar: z.boolean().optional(),
 });
 
@@ -89,8 +96,11 @@ export interface ResolvedStyleSpec {
   broll: { transition: "fade" | "slide-left" | "slide-right" | "slide-up" | "wipe" | "flip" | "clock-wipe" | "punch" | "whip"; kenBurns: "subtle" | "strong" | "off" };
   decor: { grain: number; vignette: number; shapes: boolean; lightLeak: boolean };
   captions: { mode: "pill" | "bare" | "boxed"; karaoke: boolean };
+  avatar: { placement: AvatarPlacement };
   progressBar: boolean;
 }
+
+export type AvatarPlacement = "full" | "pip" | "off";
 
 export type VoicePresetName = "female-warm" | "female-energetic" | "male-calm" | "male-bold" | "neutral-narrator";
 
@@ -144,6 +154,9 @@ export function resolveStyleSpec(raw?: StyleSpec | null): ResolvedStyleSpec {
       mode: s.captions?.mode ?? "pill",
       karaoke: s.captions?.karaoke ?? true,
     },
+    // Дефолт "off": аватар — платный внешний рендер, включать его должен
+    // осознанный выбор арт-директора, а не молчаливый дефолт композиции.
+    avatar: { placement: s.avatar?.placement ?? "off" },
     progressBar: s.progressBar ?? true,
   };
 }

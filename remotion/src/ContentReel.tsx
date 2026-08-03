@@ -42,6 +42,16 @@ export const contentReelSchema = z.object({
   brollUrls: z.array(z.string()).optional(),
   /** Тезисы для текстовых карточек между клипами — дешёвая замена части AI-видео. */
   statementCards: z.array(z.string()).optional(),
+  /**
+   * Клип говорящей головы (HeyGen), собранный из НАШЕЙ озвучки.
+   *
+   * Ключевое свойство: его таймлайн совпадает с таймлайном ролика — t=0 клипа
+   * это кадр 0 композиции, потому что аватар синтезирован по тому же самому
+   * mp3, который играет дорожкой voiceoverUrl. Поэтому в любой точке ролика
+   * достаточно взять кадр аватара с тем же номером (trimBefore), и губы будут
+   * попадать в звук. Сам клип всегда идёт muted — звук в ролике один, наш.
+   */
+  avatarClipUrl: z.string().nullable().optional(),
   videoDurationSec: z.number().optional(),
   captionsEnabled: z.boolean().optional(),
   captionsScript: z.string().optional(),
@@ -66,6 +76,7 @@ export const defaultContentReelProps: ContentReelProps = {
   hookBgImageUrl: null,
   ctaBgImageUrl: null,
   brollUrls: [],
+  avatarClipUrl: null,
   videoDurationSec: 30,
   captionsEnabled: true,
 };
@@ -483,15 +494,103 @@ function StatementCard({ text, accentColor, brandColor, spec, durationInFrames }
   );
 }
 
-/** Что показываем в очередном сегменте: AI-клип или текстовый тезис. */
-type Segment = { kind: "video"; url: string } | { kind: "card"; text: string };
+// ── Говорящий аватар ────────────────────────────────────────────────────────
+//
+// HeyGen отдаёт нам ТОЛЬКО говорящую голову на сплошном фоне — без своего
+// монтажа, своего b-roll и своих субтитров. Раньше режим «аватар» был
+// альтернативой нашему движку: HeyGen собирал ролик целиком, и от брендбука,
+// арт-директора и караоке-субтитров не оставалось ничего. Теперь это просто
+// ещё один слой поверх нашего видеоряда.
+//
+// Клип синтезирован по нашему же mp3, поэтому его кадр N соответствует кадру N
+// композиции — отсюда trimBefore={абсолютный кадр} везде ниже. Звук клипа
+// глушим: дорожка в ролике одна (voiceoverUrl), под неё же выставлены субтитры.
+
+/** Аватар во весь кадр — отдельный сегмент видеоряда вместо AI-клипа. */
+function AvatarFullSegment({ url, absStartFrame, brandColor, durationInFrames }: {
+  url: string; absStartFrame: number; brandColor: string; durationInFrames: number;
+}) {
+  const frame = useCurrentFrame();
+  // Медленный наезд — статичная говорящая голова на 4-5 секунд «замирает»
+  // в монтаже рядом с движущимся b-roll и читается как техническая пауза.
+  const zoom = interpolate(frame, [0, durationInFrames], [1.02, 1.09], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ backgroundColor: brandColor, overflow: "hidden" }}>
+      <OffthreadVideo
+        src={url}
+        muted
+        trimBefore={absStartFrame}
+        style={{ width: "100%", height: "100%", objectFit: "cover", scale: String(zoom) }}
+      />
+      {/* Та же затемняющая шторка снизу, что у b-roll: под ней лежат субтитры. */}
+      <AbsoluteFill style={{ background: "linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.55) 100%)" }} />
+    </AbsoluteFill>
+  );
+}
+
+/**
+ * Круглая врезка с аватаром поверх b-roll.
+ *
+ * Кроп смещён вверх (objectPosition) не «на глаз»: HeyGen отдаёт 9:16 кадр,
+ * где голова сидит примерно в верхней трети, а по центру оказывается грудь.
+ * Без сдвига в кружок попадал бы корпус вместо лица.
+ */
+function AvatarBubble({ url, blockStartFrame, accentColor, lowCaptions }: {
+  url: string; blockStartFrame: number; accentColor: string;
+  /** Субтитры внизу — тогда врезка уезжает наверх, чтобы не спорить с ними. */
+  lowCaptions: boolean;
+}) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const enter = spring({ frame, fps, config: { damping: 14, stiffness: 140 } });
+  const SIZE = 360;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div style={{
+        position: "absolute",
+        right: 56,
+        top: lowCaptions ? 150 : undefined,
+        bottom: lowCaptions ? undefined : 300,
+        width: SIZE,
+        height: SIZE,
+        borderRadius: "50%",
+        overflow: "hidden",
+        border: `6px solid ${accentColor}`,
+        boxShadow: `0 0 40px ${accentColor}66, 0 18px 40px rgba(0,0,0,0.55)`,
+        scale: String(Math.min(1, enter)),
+        opacity: Math.min(1, enter * 1.4),
+      }}>
+        <OffthreadVideo
+          src={url}
+          muted
+          trimBefore={blockStartFrame}
+          style={{
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            objectPosition: "50% 20%",
+            // Лёгкий доводочный зум: без него лицо занимает половину кружка
+            // и врезка читается как «человек далеко», а не как собеседник.
+            scale: "1.15",
+          }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+/** Что показываем в очередном сегменте: AI-клип, текстовый тезис или аватар. */
+type Segment = { kind: "video"; url: string } | { kind: "card"; text: string } | { kind: "avatar" };
 
 /**
  * Чередует клипы и карточки: видео — карточка — видео — карточка. Начинаем с
  * видео (после хука зритель ждёт картинку, а не ещё один экран с текстом).
+ *
+ * Аватар (если он подан во весь кадр) идёт ПЕРВЫМ сегментом: сразу после
+ * текстового хука зритель видит, кто с ним говорит, а дальше уже иллюстрации.
  */
-function buildSegments(urls: string[], cards: string[]): Segment[] {
+function buildSegments(urls: string[], cards: string[], avatarFull: boolean): Segment[] {
   const out: Segment[] = [];
+  if (avatarFull) out.push({ kind: "avatar" });
   const max = Math.max(urls.length, cards.length);
   for (let i = 0; i < max; i++) {
     if (urls[i]) out.push({ kind: "video", url: urls[i] });
@@ -543,17 +642,30 @@ function presentationFor(t: ResolvedStyleSpec["broll"]["transition"], width: num
   }
 }
 
-function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }: {
-  urls: string[]; cards: string[]; totalFrames: number; brandColor: string; accentColor: string; spec: ResolvedStyleSpec;
+function BrollBlock({ urls, cards, avatarClipUrl, blockStartFrame, totalFrames, brandColor, accentColor, spec }: {
+  urls: string[]; cards: string[];
+  /** Клип аватара; используется, только когда spec.avatar.placement === "full". */
+  avatarClipUrl: string | null;
+  /** Кадр композиции, с которого начинается блок — по нему считается trimBefore. */
+  blockStartFrame: number;
+  totalFrames: number; brandColor: string; accentColor: string; spec: ResolvedStyleSpec;
 }) {
   const { width, height } = useVideoConfig();
 
-  const segments = buildSegments(urls, cards);
+  const avatarFull = spec.avatar.placement === "full" && Boolean(avatarClipUrl);
+  const segments = buildSegments(urls, cards, avatarFull);
 
-  const renderSegment = (seg: Segment, i: number, frames: number, manualTransition: "punch" | "whip" | null) =>
-    seg.kind === "video"
-      ? <BrollMedia url={seg.url} index={i} durationInFrames={frames} spec={spec} manualTransition={manualTransition} />
-      : <StatementCard text={seg.text} accentColor={accentColor} brandColor={brandColor} spec={spec} durationInFrames={frames} />;
+  /** absStart — кадр КОМПОЗИЦИИ, на котором сегмент появляется: аватару нужен
+   *  именно он, чтобы взять из клипа тот же момент речи, что звучит сейчас. */
+  const renderSegment = (seg: Segment, i: number, frames: number, manualTransition: "punch" | "whip" | null, absStart: number) => {
+    if (seg.kind === "video") {
+      return <BrollMedia url={seg.url} index={i} durationInFrames={frames} spec={spec} manualTransition={manualTransition} />;
+    }
+    if (seg.kind === "avatar") {
+      return <AvatarFullSegment url={avatarClipUrl!} absStartFrame={absStart} brandColor={brandColor} durationInFrames={frames} />;
+    }
+    return <StatementCard text={seg.text} accentColor={accentColor} brandColor={brandColor} spec={spec} durationInFrames={frames} />;
+  };
 
   if (segments.length === 0) {
     // Честный фолбэк — нет ни клипов, ни тезисов. Ровный фон бренда, а не
@@ -573,7 +685,7 @@ function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }:
       <AbsoluteFill>
         {segments.map((seg, i) => (
           <Sequence key={i} from={Math.round(i * segFrames)} durationInFrames={Math.ceil(segFrames)}>
-            {renderSegment(seg, i, Math.ceil(segFrames), spec.broll.transition as "punch" | "whip")}
+            {renderSegment(seg, i, Math.ceil(segFrames), spec.broll.transition as "punch" | "whip", blockStartFrame + Math.round(i * segFrames))}
           </Sequence>
         ))}
         {spec.decor.lightLeak && segments.slice(1).map((_, i) => (
@@ -597,7 +709,7 @@ function BrollBlock({ urls, cards, totalFrames, brandColor, accentColor, spec }:
         {segments.flatMap((segment, i) => {
           const seg = (
             <TransitionSeries.Sequence key={`seg-${i}`} durationInFrames={segFrames}>
-              {renderSegment(segment, i, segFrames, null)}
+              {renderSegment(segment, i, segFrames, null, blockStartFrame + i * (segFrames - TRANSITION_FRAMES))}
             </TransitionSeries.Sequence>
           );
           if (i === 0) return [seg];
@@ -635,7 +747,10 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
   // Раскладку b-roll считаем и здесь — субтитрам нужно знать, когда на экране
   // текстовая карточка, чтобы не дублировать её текст (карточка показывает ту
   // же фразу, которая звучит). Формула общая с BrollBlock, см. segmentFrames.
-  const brollSegments = buildSegments(props.brollUrls ?? [], props.statementCards ?? []);
+  const avatarClipUrl = props.avatarClipUrl ?? null;
+  const avatarFull = spec.avatar.placement === "full" && Boolean(avatarClipUrl);
+  const avatarPip = spec.avatar.placement === "pip" && Boolean(avatarClipUrl);
+  const brollSegments = buildSegments(props.brollUrls ?? [], props.statementCards ?? [], avatarFull);
   const manualTransition = spec.broll.transition === "punch" || spec.broll.transition === "whip";
   const hiddenCaptionWindows = cardWindows(brollSegments, brollFrames, manualTransition, hookFrames);
 
@@ -646,7 +761,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
       </Sequence>
 
       <Sequence from={hookFrames} durationInFrames={brollFrames}>
-        <BrollBlock urls={props.brollUrls ?? []} cards={props.statementCards ?? []} totalFrames={brollFrames} brandColor={props.brandColor} accentColor={props.accentColor} spec={spec} />
+        <BrollBlock urls={props.brollUrls ?? []} cards={props.statementCards ?? []} avatarClipUrl={avatarClipUrl} blockStartFrame={hookFrames} totalFrames={brollFrames} brandColor={props.brandColor} accentColor={props.accentColor} spec={spec} />
       </Sequence>
 
       <Sequence from={hookFrames + brollFrames} durationInFrames={ctaFrames}>
@@ -658,6 +773,20 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           <AbsoluteFill style={{ opacity: 0.5 }}>
             <FloatingShapes accentColor={props.accentColor} />
           </AbsoluteFill>
+        </Sequence>
+      ) : null}
+      {/* Врезка с аватаром — только над b-roll: на хуке и CTA кадр уже занят
+          крупным текстом, третий смысловой объект там лишний. Ставится ПОСЛЕ
+          FloatingShapes, чтобы блики не размывали лицо, и ДО виньетки с
+          зерном — иначе врезка выпадала бы из общей обработки кадра. */}
+      {avatarPip ? (
+        <Sequence from={hookFrames} durationInFrames={brollFrames}>
+          <AvatarBubble
+            url={avatarClipUrl!}
+            blockStartFrame={hookFrames}
+            accentColor={props.accentColor}
+            lowCaptions={spec.layout.captionPosition !== "high"}
+          />
         </Sequence>
       ) : null}
       {spec.decor.vignette > 0.02 ? <Vignette amount={spec.decor.vignette} /> : null}

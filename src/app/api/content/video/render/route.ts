@@ -8,7 +8,9 @@
  *
  * Два режима (body.mode, default "broll"):
  *
- *  "broll" — без говорящего аватара, дешевле и быстрее (~1-2 мин):
+ *  "broll" — наш движок (Remotion + Replicate), дешевле и быстрее (~1-3 мин).
+ *   Аватар необязателен — это слой поверх нашего видеоряда (см. шаг 4б), а не
+ *   отдельный движок, как в режиме "avatar" ниже:
  *   1) /api/content/video/plan       — Director+QC: hookText/ctaText/
  *      brollQueries/mood
  *   2) /api/generate-promo-voiceover — ElevenLabs озвучка voiceoverScript
@@ -16,6 +18,9 @@
  *      для точной синхронизации субтитров (не оценка по числу слов) и
  *      реальной длительности ролика (не прикидка)
  *   4) /api/generate-broll-videos    — AI-видео (Replicate) по brollQueries
+ *   4б) /api/generate-avatar-clip    — говорящая голова HeyGen ПО НАШЕЙ
+ *      озвучке (параллельно с 4); ложится слоем в наш же кадр, если
+ *      арт-директор заказал её в styleSpec.avatar.placement
  *   5) lib/music-library             — фоновая музыка по настроению (mood)
  *   6) /api/render-content-reel      — финальный рендер (ContentReel)
  *
@@ -90,6 +95,7 @@ const PHYSICS_CLAUSE =
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface StockData { urls: string[] }
 interface RenderData { url: string; jobId: string; sizeBytes: number; durationMs: number }
+interface AvatarClipData { url: string; audioSource: "ours" | "heygen"; durationSec: number | null }
 interface GenerateReelVideoData { videoId: string }
 interface VideoStatusData { status: "processing" | "completed" | "failed"; videoUrl?: string; thumbnailUrl?: string; error?: string }
 
@@ -335,6 +341,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // кинематографичная обёртка — чтобы сюжет клипа реально соответствовал
     // теме ролика, а не дефолтным «аналитик за дашбордом».
     let brollUrls: string[] = [];
+    const brollStep = async () => {
     if (brollQueries.length > 0) {
       const stepT = Date.now();
       // NO-TEXT — жёсткое требование: видео-модели рисуют на вывесках,
@@ -374,6 +381,54 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     } else {
       pushStep({ name: "stock-videos", status: "skipped", ms: 0 });
     }
+    };
+
+    // ── Шаг 4б: говорящий аватар (HeyGen) — СЛОЙ нашего видеоряда ───────
+    //
+    // Не альтернативный движок, а ещё один ингредиент: HeyGen отдаёт только
+    // голову на сплошном фоне, а куда её поставить (целый сегмент или круглая
+    // врезка над b-roll) решает спек арт-директора. Клип синтезируется по
+    // НАШЕМУ mp3 — клонированный голос бренда сохраняется, а таймлайн клипа
+    // совпадает с таймлайном озвучки, поэтому композиции достаточно взять
+    // кадр с тем же номером (см. AvatarSegment в ContentReel.tsx).
+    //
+    // Best-effort: без аватара ролик просто собирается как раньше.
+    let avatarClipUrl: string | null = null;
+    const avatarStep = async () => {
+      const placement = spec?.avatar?.placement ?? "off";
+      if (placement === "off") {
+        pushStep({ name: "avatar", status: "skipped", ms: 0, error: "арт-директор не заказал аватара" });
+        return;
+      }
+      if (!voiceoverUrl) {
+        pushStep({ name: "avatar", status: "skipped", ms: 0, error: "нет озвучки — аватару нечего произносить" });
+        return;
+      }
+      const stepT = Date.now();
+      const r = await callLocal<AvatarClipData>("/api/generate-avatar-clip", {
+        audioUrl: voiceoverUrl,
+        // Фон клипа = фон ролика: в полнокадровом сегменте он становится фоном
+        // сцены, во врезке виден вокруг лица — в обоих случаях чужой цвет
+        // выдал бы «вклеенное» видео.
+        bgColor: brandColor,
+        avatarId: body.avatarId,
+      }, req, 560_000); // maxDuration роута 600 + запас на HTTP round-trip
+      const ms = Date.now() - stepT;
+      if (r.ok && r.data?.url && r.data.audioSource === "ours") {
+        avatarClipUrl = r.data.url;
+        pushStep({ name: "avatar", status: "ok", ms });
+      } else if (r.ok && r.data?.url) {
+        // Клип есть, но озвучен голосом HeyGen. Взять его нельзя: в ролике
+        // играет наша дорожка, и губы разошлись бы с тем, что слышно.
+        pushStep({ name: "avatar", status: "failed", ms, error: "HeyGen озвучил аватара своим голосом — клип не берём, иначе губы разойдутся с озвучкой" });
+      } else {
+        pushStep({ name: "avatar", status: "failed", ms, error: r.error });
+      }
+    };
+
+    // Оба шага — внешние рендеры на минуты и друг от друга не зависят.
+    // Последовательно они складывались бы в ожидание, которого ролик не стоит.
+    await Promise.all([brollStep(), avatarStep()]);
 
     // ── Шаг 5: фоновая музыка по настроению — best-effort, null если
     // библиотека пуста (см. public/music/README.md), рендер не страдает.
@@ -425,7 +480,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     const stepT = Date.now();
     const renderR = await callLocal<RenderData>("/api/render-content-reel", {
       hookText, ctaText, brandName, brandColor, accentColor,
-      voiceoverUrl, musicUrl, brollUrls, statementCards, videoDurationSec,
+      voiceoverUrl, musicUrl, brollUrls, statementCards, avatarClipUrl, videoDurationSec,
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,

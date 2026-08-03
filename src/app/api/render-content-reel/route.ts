@@ -47,6 +47,8 @@ interface RenderProps {
   ctaBgImageUrl: string | null;
   brollUrls: string[];
   statementCards: string[];
+  /** Клип говорящей головы (HeyGen), синхронный с voiceoverUrl. */
+  avatarClipUrl: string | null;
   videoDurationSec: number;
   captionsEnabled: boolean;
   captionsScript: string | null;
@@ -96,7 +98,7 @@ async function pickAssetsOrigin(publicOrigin: string, probePath: string | null):
 /** Первый относительный медиа-путь из body — им и проверяем loopback. */
 function firstRelativeAsset(body: Record<string, unknown>): string | null {
   const broll = Array.isArray(body.brollUrls) ? body.brollUrls : [];
-  const candidates = [...broll, body.voiceoverUrl, body.hookBgImageUrl, body.ctaBgImageUrl];
+  const candidates = [...broll, body.avatarClipUrl, body.voiceoverUrl, body.hookBgImageUrl, body.ctaBgImageUrl];
   for (const c of candidates) {
     if (typeof c === "string" && c.startsWith("/")) return c;
   }
@@ -130,6 +132,7 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollUrls,
+    avatarClipUrl: resolveMediaUrl(body.avatarClipUrl as string | null | undefined, assetsOrigin),
     statementCards: (Array.isArray(body.statementCards) ? body.statementCards : [])
       .map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
     captionsEnabled: Boolean(body.captionsEnabled ?? false),

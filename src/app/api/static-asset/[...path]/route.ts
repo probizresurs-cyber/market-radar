@@ -36,6 +36,7 @@ const ALLOWED_DIRS = new Set([
   "music",
   "stock-videos",
   "broll-videos", // AI-сгенерированные video-b-roll через Replicate
+  "avatar-clips", // говорящая голова HeyGen — слой видеоряда, см. generate-avatar-clip
 ]);
 
 const CONTENT_TYPES: Record<string, string> = {
