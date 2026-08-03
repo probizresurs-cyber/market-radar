@@ -13,6 +13,15 @@
  * (стоки часто не подходят под конкретную нишу, а AI-видео генерим под
  * любую тему).
  *
+ * КИК, А НЕ БЛОКИРУЮЩАЯ ГЕНЕРАЦИЯ. Раньше POST сам ждал все клипы Replicate
+ * (до 8 минут на очереди Starter-тарифа) внутри одного запроса — тот же баг,
+ * что чинили для аватара и финального рендера: держать один HTTP-запрос
+ * открытым дольше ~300 сек падает с internal-fetch-failed даже по loopback,
+ * потому что `next start` без кастомного server.js не соблюдает наш
+ * maxDuration (чисто верcelская настройка) — реальный лимит держит сам Node.
+ * Кик запускает генерацию в фоне и возвращается сразу, статус — отдельным
+ * GET/POST /api/generate-broll-videos/status?jobId=...
+ *
  * Body:
  *   query     — английский промпт для модели (одна строка типа сцены)
  *   count     — сколько клипов (1-8). Default 4.
@@ -24,8 +33,8 @@
  *               подходят для контента произвольной ниши клиента). count
  *               в этом случае игнорируется — берём prompts.length.
  *
- * Returns:
- *   { ok, data: { urls: [/api/static-asset/broll-videos/...], generationsMs } }
+ * Returns: { ok, data: { jobId } } — клипы ещё не готовы, опрашивать
+ *   /api/generate-broll-videos/status?jobId=...
  */
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -33,13 +42,13 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { generateVideo, downloadGeneratedVideo } from "@/lib/replicate-video";
+import { writeBrollStatus } from "@/lib/broll-videos-status";
 
 export const runtime = "nodejs";
-// 10 минут — Replicate на бесплатных/Starter планах часто очередит
-// параллельные запросы (1-2 одновременно макс). При 4 параллельных
-// клипах: первый ~1-2 мин, второй +2 мин, третий +2 мин, четвёртый +2 мин
-// = до 8 мин на самый последний. +запас 2 мин.
-export const maxDuration = 600;
+// Кик — парсинг body, обычно доли секунды. maxDuration тут не про ожидание
+// генерации (см. шапку файла) — сама генерация идёт фоном за пределами
+// этого запроса.
+export const maxDuration = 30;
 
 const BROLL_VIDEOS_DIR = "broll-videos";
 
@@ -95,82 +104,83 @@ export async function POST(req: Request) {
     // и одинаковы для любой theme, кроме приписанной в конце строки.
     const prompts = customPrompts.length > 0 ? customPrompts : brollVideoPrompts(theme).slice(0, count);
 
-    // Параллельная генерация. Replicate сам очередит если параллелим больше
-    // чем разрешает аккаунт — просто будет дольше.
     const publicDir = path.join(process.cwd(), "public", BROLL_VIDEOS_DIR);
     await mkdir(publicDir, { recursive: true });
 
-    const results = await Promise.all(
-      prompts.map(async (prompt, i) => {
-        // 8 мин на клип — Replicate очередит параллельные запросы
-        // на низких тарифах, последние ждут предыдущих.
-        const gen = await generateVideo({ prompt, model, timeoutMs: 480_000 });
-        if (!gen.ok) {
-          return { index: i, url: null, error: gen.error };
+    // Фон: сам HTTP-ответ уходит клиенту сразу, генерация (до 8 минут на
+    // очереди Replicate) живёт дальше процессом Node независимо от него —
+    // см. шапку файла.
+    void (async () => {
+      try {
+        // Параллельная генерация. Replicate сам очередит если параллелим
+        // больше чем разрешает аккаунт — просто будет дольше.
+        const results = await Promise.all(
+          prompts.map(async (prompt, i) => {
+            // 8 мин на клип — Replicate очередит параллельные запросы
+            // на низких тарифах, последние ждут предыдущих.
+            const gen = await generateVideo({ prompt, model, timeoutMs: 480_000 });
+            if (!gen.ok) {
+              return { index: i, url: null, error: gen.error };
+            }
+            // Качаем готовый MP4 локально — Replicate CDN не вечный (~1 час)
+            const buf = await downloadGeneratedVideo(gen.video.videoUrl);
+            if (!buf) {
+              return { index: i, url: null, error: "Download failed", predictionId: gen.video.predictionId };
+            }
+            const fileName = `${jobId}-${i + 1}.mp4`;
+            await writeFile(path.join(publicDir, fileName), buf);
+            return {
+              index: i,
+              url: `/api/static-asset/${BROLL_VIDEOS_DIR}/${fileName}`,
+              predictionId: gen.video.predictionId,
+              generationSec: gen.video.generationSec,
+              bytes: buf.byteLength,
+              model: gen.video.model,
+            };
+          }),
+        );
+
+        const successful = results.filter((r) => r.url !== null);
+        const failures = results.filter((r) => r.url === null);
+
+        // Если хоть один упал — добавляем предупреждение в статус, чтобы
+        // оркестратор мог показать, что НЕ всё сгенерилось.
+        const partialFailWarning =
+          failures.length > 0 && successful.length > 0
+            ? `Replicate сгенерил ${successful.length}/${prompts.length}. Не успели: ${failures
+                .map((f) => `#${f.index + 1} (${f.error?.slice(0, 80) ?? "unknown"})`)
+                .join("; ")}`
+            : null;
+
+        if (successful.length === 0) {
+          await writeBrollStatus(jobId, {
+            status: "failed",
+            durationMs: Date.now() - t0,
+            error: `Replicate не сгенерил ни одного видео. Первая ошибка: ${failures[0]?.error ?? "unknown"}`,
+          });
+          return;
         }
-        // Качаем готовый MP4 локально — Replicate CDN не вечный (~1 час)
-        const buf = await downloadGeneratedVideo(gen.video.videoUrl);
-        if (!buf) {
-          return { index: i, url: null, error: "Download failed", predictionId: gen.video.predictionId };
-        }
-        const fileName = `${jobId}-${i + 1}.mp4`;
-        await writeFile(path.join(publicDir, fileName), buf);
-        return {
-          index: i,
-          url: `/api/static-asset/${BROLL_VIDEOS_DIR}/${fileName}`,
-          predictionId: gen.video.predictionId,
-          generationSec: gen.video.generationSec,
-          bytes: buf.byteLength,
-          model: gen.video.model,
-        };
-      }),
-    );
 
-    const successful = results.filter((r) => r.url !== null);
-    const failures = results.filter((r) => r.url === null);
+        await writeBrollStatus(jobId, {
+          status: "done",
+          urls: successful.map((s) => s.url as string),
+          warning: partialFailWarning,
+          durationMs: Date.now() - t0,
+        });
+        await access.log({
+          endpoint: "generate-broll-videos",
+          model: model ?? "bytedance/seedance-1-pro",
+          success: true,
+          durationMs: Date.now() - t0,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        await writeBrollStatus(jobId, { status: "failed", durationMs: Date.now() - t0, error: msg.slice(0, 500) });
+        await access.log({ endpoint: "generate-broll-videos", model: model ?? "bytedance/seedance-1-pro", success: false, durationMs: Date.now() - t0, errorMessage: msg.slice(0, 500) });
+      }
+    })();
 
-    // Если хоть один упал — добавляем предупреждение в ответе, чтобы UI
-    // показал юзеру что НЕ всё сгенерилось (раньше тихо проглатывали).
-    const partialFailWarning =
-      failures.length > 0 && successful.length > 0
-        ? `Replicate сгенерил ${successful.length}/${prompts.length}. Не успели: ${failures
-            .map((f) => `#${f.index + 1} (${f.error?.slice(0, 80) ?? "unknown"})`)
-            .join("; ")}`
-        : null;
-
-    if (successful.length === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Replicate не сгенерил ни одного видео. Первая ошибка: ${
-            failures[0]?.error ?? "unknown"
-          }`,
-          failures,
-        },
-        { status: 502 },
-      );
-    }
-
-    await access.log({
-      endpoint: "generate-broll-videos",
-      model: model ?? "bytedance/seedance-1-pro",
-      success: true,
-      durationMs: Date.now() - t0,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      // Включаем warning при partial success — UI/оркестратор может
-      // показать сообщение про неудавшиеся клипы.
-      warning: partialFailWarning,
-      data: {
-        jobId,
-        urls: successful.map((s) => s.url as string),
-        videos: successful,
-        failures: failures.length ? failures : undefined,
-        totalMs: Date.now() - t0,
-      },
-    });
+    return NextResponse.json({ ok: true, data: { jobId } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(

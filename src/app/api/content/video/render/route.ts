@@ -129,7 +129,8 @@ const PHYSICS_CLAUSE =
   "Single subject, calm and slow motion, natural anatomy, correct number of fingers and limbs, stable objects that keep their shape. "
   + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering.";
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
-interface StockData { urls: string[] }
+interface BrollKickData { jobId: string }
+interface BrollStatusData { done: boolean; urls?: string[]; warning?: string | null; durationMs?: number }
 interface RenderKickData { jobId: string; url: string }
 interface RenderStatusData { done: boolean; url?: string; sizeBytes?: number; durationMs?: number }
 interface AvatarKickData { videoId: string; audioSource: "ours" | "heygen" }
@@ -409,16 +410,39 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       const prompts = brollQueries
         .slice(0, brollCount)
         .map((q) => `Cinematic vertical 9:16 shot, photorealistic, natural lighting, shallow depth of field. ${q}, slow deliberate camera movement. ${PHYSICS_CLAUSE} ${NO_TEXT_CLAUSE}`);
-      const r = await callLocal<StockData>(
+      // Кик + внешний поллинг — тот же приём, что у avatar/render выше: Replicate
+      // может очередить клипы на несколько минут, и держать один HTTP-запрос
+      // открытым на это время падало с internal-fetch-failed на ~300-й секунде
+      // даже по loopback (см. шапку /api/generate-broll-videos).
+      const kick = await callLocal<BrollKickData>(
         "/api/generate-broll-videos",
         { prompts, jobId: `content-broll-${jobId}` },
         req,
-        620_000, // generate-broll-videos.maxDuration = 600 + запас на HTTP round-trip
+        55_000,
       );
-      brollUrls = r.ok && r.data ? r.data.urls : [];
-      const ms = Date.now() - stepT;
-      if (brollUrls.length > 0) pushStep({ name: "stock-videos", status: "ok", ms });
-      else pushStep({ name: "stock-videos", status: "failed", ms, error: r.error ?? "Replicate не сгенерил ни одного клипа" });
+      if (!kick.ok || !kick.data?.jobId) {
+        const ms = Date.now() - stepT;
+        pushStep({ name: "stock-videos", status: "failed", ms, error: kick.error ?? "Replicate не запустился" });
+      } else {
+        const brollJobId = kick.data.jobId;
+        const BROLL_POLL_DEADLINE_MS = 600_000; // тот же бюджет, что был у maxDuration generate-broll-videos
+        const deadline = Date.now() + BROLL_POLL_DEADLINE_MS;
+        let brollResult: BrollStatusData | null = null;
+        let brollError: string | undefined;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 5000));
+          const poll = await callLocal<BrollStatusData>(
+            "/api/generate-broll-videos/status", { jobId: brollJobId }, req, 20_000,
+          );
+          if (!poll.ok) { brollError = poll.error ?? "Replicate не сгенерил ни одного клипа"; break; }
+          if (poll.data?.done) { brollResult = poll.data; break; }
+          // done: false — генерируется дальше, пробуем на следующем тике.
+        }
+        const ms = Date.now() - stepT;
+        brollUrls = brollResult?.urls ?? [];
+        if (brollUrls.length > 0) pushStep({ name: "stock-videos", status: "ok", ms, error: brollResult?.warning ?? undefined });
+        else pushStep({ name: "stock-videos", status: "failed", ms, error: brollError ?? "Таймаут ожидания Replicate (10 мин)" });
+      }
       }
     } else {
       pushStep({ name: "stock-videos", status: "skipped", ms: 0 });
