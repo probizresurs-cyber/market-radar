@@ -52,6 +52,11 @@ export const contentReelSchema = z.object({
    * попадать в звук. Сам клип всегда идёт muted — звук в ролике один, наш.
    */
   avatarClipUrl: z.string().nullable().optional(),
+  /** Фактическая длительность аватар-клипа (сек), если известна. Страховка:
+   *  просить у OffthreadVideo кадр ЗА концом файла — это ошибка компоситора
+   *  «No frame found at position», роняющая весь рендер; врезка живёт не
+   *  дольше клипа. */
+  avatarClipDurationSec: z.number().nullable().optional(),
   videoDurationSec: z.number().optional(),
   captionsEnabled: z.boolean().optional(),
   captionsScript: z.string().optional(),
@@ -785,7 +790,19 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           Ставится ПОСЛЕ FloatingShapes, чтобы блики не размывали лицо, и ДО
           виньетки с зерном — иначе врезка выпадала бы из общей обработки кадра. */}
       {avatarPip ? (
-        <Sequence from={0} durationInFrames={hookFrames + brollFrames + ctaFrames}>
+        <Sequence
+          from={0}
+          // Врезка не живёт дольше самого клипа: запрос кадра за концом файла
+          // роняет рендер целиком («No frame found at position»). Клип обычно
+          // равен озвучке и короче композиции на хвост (~1.2с) — врезка просто
+          // исчезает на последней секунде, это дешевле сорванного рендера.
+          durationInFrames={Math.min(
+            hookFrames + brollFrames + ctaFrames,
+            props.avatarClipDurationSec
+              ? Math.max(fps, Math.floor(props.avatarClipDurationSec * fps) - 1)
+              : hookFrames + brollFrames + ctaFrames,
+          )}
+        >
           <AvatarBubble
             url={avatarClipUrl!}
             blockStartFrame={0}

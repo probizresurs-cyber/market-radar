@@ -474,6 +474,9 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     //
     // Best-effort: без аватара ролик просто собирается как раньше.
     let avatarClipUrl: string | null = null;
+    // Фактическая длительность клипа (сек) — композиция режет врезку по ней,
+    // чтобы не просить у компоситора кадры за концом файла.
+    let avatarClipDurationSec: number | null = null;
     const avatarStep = async () => {
       const placement = spec?.avatar?.placement ?? "off";
       if (placement === "off") {
@@ -529,6 +532,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         }
         if (poll.data?.done && poll.data.url) {
           avatarClipUrl = poll.data.url;
+          avatarClipDurationSec = typeof poll.data.durationSec === "number" ? poll.data.durationSec : null;
           pushStep({ name: "avatar", status: "ok", ms: Date.now() - stepT });
           return;
         }
@@ -596,7 +600,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     const stepT = Date.now();
     const kick = await callLocal<RenderKickData>("/api/render-content-reel", {
       hookText, ctaText, brandName, brandColor, accentColor,
-      voiceoverUrl, musicUrl, brollUrls, statementCards, avatarClipUrl, videoDurationSec,
+      voiceoverUrl, musicUrl, brollUrls, statementCards, avatarClipUrl, avatarClipDurationSec, videoDurationSec,
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,

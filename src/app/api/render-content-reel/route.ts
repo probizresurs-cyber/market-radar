@@ -44,6 +44,9 @@ export const maxDuration = 60;
 
 const TEMP_DIR = process.env.REMOTION_TEMP_DIR ?? "";
 
+// Очередь рендеров процесса: см. комментарий у renderQueue.then() в POST.
+let renderQueue: Promise<void> = Promise.resolve();
+
 interface CaptionWord { word: string; start: number; end: number }
 
 interface RenderProps {
@@ -60,6 +63,8 @@ interface RenderProps {
   statementCards: string[];
   /** Клип говорящей головы (HeyGen), синхронный с voiceoverUrl. */
   avatarClipUrl: string | null;
+  /** Длительность аватар-клипа (сек) — композиция режет врезку по ней. */
+  avatarClipDurationSec: number | null;
   videoDurationSec: number;
   captionsEnabled: boolean;
   captionsScript: string | null;
@@ -144,6 +149,10 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollUrls,
     avatarClipUrl: resolveMediaUrl(body.avatarClipUrl as string | null | undefined, assetsOrigin),
+    avatarClipDurationSec: (() => {
+      const n = Number(body.avatarClipDurationSec);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    })(),
     statementCards: (Array.isArray(body.statementCards) ? body.statementCards : [])
       .map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
     captionsEnabled: Boolean(body.captionsEnabled ?? false),
@@ -253,7 +262,12 @@ export async function POST(req: Request) {
 
     // Фон: сам HTTP-ответ уходит клиенту сразу, рендер (1-8 минут) живёт
     // дальше процессом Node независимо от него — см. шапку файла.
-    void (async () => {
+    // renderQueue: строго ОДИН remotion render за раз. Живой тест двух
+    // параллельных роликов уронил ОБА рендера с «Could not extract frame from
+    // compositor» — два компоситора+хрома душат VPS, кадры не успевают
+    // отдаваться. Очередь в памяти процесса: второй джоб просто ждёт первого
+    // (оркестратор поллит статус до 15 минут — запас на ожидание есть).
+    const runJob = async () => {
       try {
         await runRemotion(jobId, parsed);
         const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
@@ -265,7 +279,8 @@ export async function POST(req: Request) {
         await writeRenderStatus(jobId, { status: "failed", durationMs: Date.now() - t0, error: msg.slice(0, 500) });
         await access.log({ endpoint: "render-content-reel", model: "remotion-local", durationMs: Date.now() - t0, success: false, errorMessage: msg.slice(0, 500) });
       }
-    })();
+    };
+    renderQueue = renderQueue.then(runJob); // runJob не бросает — цепочка не рвётся
 
     return NextResponse.json({ ok: true, data: { jobId, url: `/api/promo-reel/${jobId}` } });
   } catch (err: unknown) {
