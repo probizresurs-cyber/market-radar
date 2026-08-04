@@ -443,7 +443,12 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           const poll = await callLocal<BrollStatusData>(
             "/api/generate-broll-videos/status", { jobId: brollJobId }, req, 20_000,
           );
-          if (!poll.ok) { brollError = poll.error ?? "Replicate не сгенерил ни одного клипа"; break; }
+          // Сбой самого опроса (сеть/таймаут) — не вердикт Replicate, пробуем
+          // на следующем тике. Фатален только явный ok:false от статус-роута.
+          if (!poll.ok) {
+            if ((poll.error ?? "").startsWith("internal-fetch-failed")) continue;
+            brollError = poll.error ?? "Replicate не сгенерил ни одного клипа"; break;
+          }
           if (poll.data?.done) { brollResult = poll.data; break; }
           // done: false — генерируется дальше, пробуем на следующем тике.
         }
@@ -508,10 +513,17 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       const deadline = Date.now() + POLL_DEADLINE_MS;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 5000));
+        // Таймаут 60с, не 20: опрос, на котором HeyGen дорисовал клип, ещё и
+        // СКАЧИВАЕТ mp4 (~20 МБ) внутри статус-роута — под нагрузкой двух
+        // параллельных джобов это не влезало в 20с, обрыв убивал весь шаг.
         const poll = await callLocal<AvatarStatusData>(
-          "/api/generate-avatar-clip/status", { videoId: kick.data.videoId }, req, 20_000,
+          "/api/generate-avatar-clip/status", { videoId: kick.data.videoId }, req, 60_000,
         );
         if (!poll.ok) {
+          // internal-fetch-failed — это сбой/таймаут САМОГО опроса (сеть,
+          // занятый event loop), а не вердикт HeyGen: следующий тик спросит
+          // снова. Фатальны только явные ответы статус-роута (ok:false).
+          if ((poll.error ?? "").startsWith("internal-fetch-failed")) continue;
           pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: poll.error ?? "HeyGen не собрал клип" });
           return;
         }
@@ -608,7 +620,12 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       const poll = await callLocal<RenderStatusData>(
         "/api/render-content-reel/status", { jobId: renderJobId }, req, 20_000,
       );
-      if (!poll.ok) { renderError = poll.error ?? "Remotion упал без сообщения"; break; }
+      // Сбой самого опроса (сеть/таймаут) — не вердикт Remotion, пробуем на
+      // следующем тике. Фатален только явный ok:false от статус-роута.
+      if (!poll.ok) {
+        if ((poll.error ?? "").startsWith("internal-fetch-failed")) continue;
+        renderError = poll.error ?? "Remotion упал без сообщения"; break;
+      }
       if (poll.data?.done) { renderResult = poll.data; break; }
       // done: false — рендерится дальше, пробуем на следующем тике.
     }
