@@ -512,7 +512,10 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         return;
       }
 
-      const POLL_DEADLINE_MS = 480_000; // тот же бюджет, что был у внутреннего поллинга
+      // 12 минут, не 8: соло-клип HeyGen рендерит ~4-7 минут, но два
+      // параллельных джоба замедляют друг друга — живой тест с двумя роликами
+      // упёрся в прежний 8-минутный бюджет (клип пришёл бы на ~9-й минуте).
+      const POLL_DEADLINE_MS = 720_000;
       const deadline = Date.now() + POLL_DEADLINE_MS;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 5000));
