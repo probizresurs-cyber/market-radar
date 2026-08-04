@@ -5,6 +5,7 @@ import type { TASegment } from "@/lib/ta-types";
 import { buildSegmentsSummary } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -30,7 +31,16 @@ const SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 
 ВАЖНО: Ты всегда отвечаешь ТОЛЬКО валидным JSON объектом без markdown-обёрток. Твой ответ должен начинаться с { и заканчиваться }.`;
 
-function buildPrompt(companyName: string, niche: string, smm: SMMResult | null, taSegments: TASegment[] | null = null): string {
+/** Свежие тренды ниши — чтобы план опирался на то, что обсуждают СЕЙЧАС. */
+interface TrendInput { title: string; source?: string; description?: string }
+
+function buildPrompt(
+  companyName: string,
+  niche: string,
+  smm: SMMResult | null,
+  taSegments: TASegment[] | null = null,
+  trends: TrendInput[] = [],
+): string {
   const segmentsBlock = buildSegmentsSummary(taSegments);
   const smmBlock = smm ? `
 СМM-АНАЛИЗ КОМПАНИИ (используй как основу):
@@ -45,11 +55,17 @@ function buildPrompt(companyName: string, niche: string, smm: SMMResult | null, 
 - Платформы: ${smm.platformStrategies.map(p => p.platformLabel).join(", ")}
 ` : "";
 
+  const trendsBlock = trends.length > 0 ? `
+СВЕЖИЕ ТРЕНДЫ НИШИ (собраны из новостей и соцсетей — привяжи к ним часть идей,
+чтобы контент попадал в текущую повестку, а не был вне времени):
+${trends.slice(0, 15).map((t, i) => `${i + 1}. ${t.title}${t.source ? ` [${t.source}]` : ""}${t.description ? ` — ${t.description.slice(0, 120)}` : ""}`).join("\n")}
+` : "";
+
   return `Создай контент-завод для компании.
 
 Компания: ${companyName || "—"}
 Ниша: ${niche || "—"}
-${smmBlock}${segmentsBlock}
+${smmBlock}${segmentsBlock}${trendsBlock}
 
 Сделай контент-план на 30 дней — 12 идей постов и 8 идей видео-рилсов. Каждая идея — конкретная, готовая в работу.
 
@@ -132,61 +148,35 @@ export async function POST(req: Request) {
     const body = await req.json();
     const companyName: string = body.companyName ?? "";
     const niche: string = body.niche ?? "";
+    // SMM-анализ — опциональное обогащение, не обязательный вход: без него
+    // план строится из ниши + трендов + сегментов ЦА.
     const smm: SMMResult | null = body.smmAnalysis ?? null;
     // Сегменты ЦА — рубрики/темы плана привязываются к конкретным аватарам.
     const taSegments: TASegment[] | null = Array.isArray(body.taSegments) ? body.taSegments : null;
+    // Свежие тренды из /api/content/trends — часть идей плана привязывается
+    // к текущей повестке ниши.
+    const trends: TrendInput[] = Array.isArray(body.trends)
+      ? (body.trends as unknown[])
+          .filter((t): t is TrendInput => typeof t === "object" && t !== null && typeof (t as TrendInput).title === "string")
+          .slice(0, 15)
+      : [];
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
+    // Claude вместо OpenAI: gpt-4o-mini не работает с прода (гео-блок на
+    // уровне Cloudflare самого OpenAI, воркером не обходится — см. lib/ai-chat.ts).
+    // Sonnet, не Haiku: план на 30 дней с 20 идеями — большой связный JSON,
+    // Haiku на таком объёме терял поля.
+    const r = await chatJson<Omit<ContentPlan, "generatedAt" | "companyName">>({
+      system: SYSTEM_PROMPT,
+      user: buildPrompt(companyName, niche, smm, taSegments, trends),
+      model: CHAT_MODEL_SMART,
+      temperature: 0.9,
+      // 7000 обрезало JSON при большом числе идей (30 дней × поля).
+      maxTokens: 10000,
+    });
 
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 120_000);
-
-    let raw: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: buildPrompt(companyName, niche, smm, taSegments) },
-          ],
-          temperature: 0.9,
-          // 7000 обрезало JSON при большом числе идей (30 дней × поля).
-          // GPT-4o-mini потолок 16384 — берём запас 10000.
-          max_tokens: 10000,
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        return NextResponse.json(
-          { ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` },
-          { status: 500 },
-        );
-      }
-
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      raw = data.choices[0]?.message?.content ?? "{}";
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    let parsed: Omit<ContentPlan, "generatedAt" | "companyName">;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (parseErr) {
+    if (!r.data) {
       return NextResponse.json(
-        { ok: false, error: `Не удалось распарсить план контента: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { ok: false, error: `Не удалось получить план контента: ${r.error ?? "нет ответа модели"}. Preview: ${r.raw.slice(0, 100)}` },
         { status: 500 },
       );
     }
@@ -194,10 +184,10 @@ export async function POST(req: Request) {
     const result: ContentPlan = {
       generatedAt: new Date().toISOString(),
       companyName,
-      ...parsed,
+      ...r.data,
     };
 
-    await access.log({ endpoint: "generate-content-plan", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "generate-content-plan", model: r.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

@@ -56,8 +56,10 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!smm) {
-      setError("Сначала проведите анализ СММ — контент-завод работает на его основе");
+    // СММ-анализ — рекомендация, а не блокер: без него план строится из
+    // ниши + трендов + сегментов ЦА, но нужна хотя бы ниша.
+    if (!smm && !niche.trim()) {
+      setError("Без СММ-анализа опишите нишу компании — иначе плану не от чего оттолкнуться");
       return;
     }
     setError(null);
@@ -82,12 +84,12 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
           <div style={{ color: "var(--foreground-secondary)", marginTop: 4 }}>{smm.brandIdentity.positioning}</div>
         </div>
       ) : (
-        <div style={{ background: "color-mix(in oklch, var(--destructive) 7%, transparent)", border: `1px solid var(--destructive)30`, borderRadius: 12, padding: "14px 16px", marginBottom: 20, fontSize: 13, color: "var(--destructive)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <span>⚠️ СММ-анализ не найден. Контент-завод работает на его основе.</span>
+        <div style={{ background: "#f59e0b10", border: "1px solid #f59e0b30", borderRadius: 12, padding: "14px 16px", marginBottom: 20, fontSize: 13, color: "var(--foreground-secondary)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span>СММ-анализ не найден — план построим по нише и трендам. С анализом получится точнее: архетип, тон голоса, боли аудитории.</span>
           <a
             href={hrefForNav("smm-new")}
             style={{
-              padding: "7px 16px", borderRadius: 8, background: "var(--destructive)",
+              padding: "7px 16px", borderRadius: 8, background: "#f59e0b",
               color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
               whiteSpace: "nowrap",
             }}
@@ -116,8 +118,8 @@ export function NewContentPlanView({ c, myCompany, smm, isGenerating, onGenerate
 
       <button
         onClick={handleSubmit}
-        disabled={isGenerating || !smm}
-        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating || !smm ? "var(--muted)" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating || !smm ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating || !smm ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
+        disabled={isGenerating}
+        style={{ padding: "13px 32px", borderRadius: 12, border: "none", background: isGenerating ? "var(--muted)" : "linear-gradient(135deg, #f59e0b, #fb923c)", color: isGenerating ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 15, cursor: isGenerating ? "not-allowed" : "pointer", boxShadow: "0 4px 14px #f59e0b40" }}>
         {isGenerating ? "Запускаем завод… (60–90 сек)" : "Сгенерировать контент-план"}
       </button>
     </div>

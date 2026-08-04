@@ -152,6 +152,7 @@ import { ContentCalendarView } from "@/components/views/ContentCalendarView";
 import { AgentHubView } from "@/components/views/AgentHubView";
 import { NewAnalysisWizard } from "@/components/views/NewAnalysisWizard";
 import { ContentTrendsView, type TrendContentIdea } from "@/components/views/ContentTrendsView";
+import { PipelineStepper } from "@/components/ui/PipelineStepper";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { PackageProgressModal, type PackageProgress } from "@/components/ui/PackageProgressModal";
 import { GeneratedPostsView } from "@/components/views/GeneratedPostsView";
@@ -1993,19 +1994,36 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
 
   const handleGenerateContentPlan = async (niche: string) => {
     if (guardReadOnly("Генерация плана контента")) return;
-    if (!smmAnalysis) return;
     setIsGeneratingPlan(true);
     try {
+      // Собранные тренды из таба «Тренды по нише» (если пользователь их
+      // собирал) — план привязывает часть идей к текущей повестке. Читаем
+      // напрямую из localStorage: состояние трендов живёт внутри
+      // ContentTrendsView и наружу в AppShell не поднимается.
+      let trends: Array<{ title: string; source?: string; description?: string }> = [];
+      try {
+        const raw = localStorage.getItem(`mr_trends_${currentUser?.id || "anon"}`);
+        const parsed = raw ? (JSON.parse(raw) as { result?: { items?: Array<{ title?: string; source?: string; description?: string }> } }) : null;
+        trends = (parsed?.result?.items ?? [])
+          .filter((t) => typeof t?.title === "string" && t.title)
+          .slice(0, 15)
+          .map((t) => ({ title: t.title as string, source: t.source, description: t.description }));
+      } catch { /* трендов нет — план строится без них */ }
+
       const res = await fetch("/api/generate-content-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName: myCompany?.company.name ?? smmAnalysis.companyName,
+          companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
           niche,
-          smmAnalysis,
+          // СММ-анализ — опциональное обогащение: без него план строится из
+          // ниши + трендов + сегментов ЦА (раньше без СММ кнопка молча
+          // ничего не делала).
+          smmAnalysis: smmAnalysis ?? null,
           // Сегменты ЦА (если анализ ЦА сделан) — рубрики/темы плана
           // привязываются к конкретным аватарам, а не «для всех сразу».
           taSegments: taAnalysis?.segments ?? null,
+          trends,
         }),
       });
       const json = await jsonOrThrow(res);
@@ -2997,6 +3015,41 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         {activeNav === "ai-visibility" && <AIVisibilityView c={c} myCompany={myCompany} userId={currentUser?.id} autoGenerating={autoAiVisibilityGenerating} />}
         {activeNav === "swot" && <SWOTView c={c} company={myCompany ?? null} competitors={competitors} ta={taAnalysis} smm={smmAnalysis} userId={currentUser?.id} autoGenerating={autoSwotGenerating} />}
         {activeNav === "price-tracking" && <PriceTrackingView />}
+        {/* Степпер конвейера Контент-завода — виден на всех его вкладках,
+            показывает какие шаги пайплайна пройдены и куда идти дальше. */}
+        {["content-style", "content-trends", "content-plan", "content-calendar", "content-posts", "content-stories", "content-carousels", "content-reels", "content-analytics", "content-roi"].includes(activeNav)
+          && featureOn("content-factory") && (
+          <PipelineStepper
+            activeNav={activeNav}
+            onNavigate={setActiveNav}
+            steps={[
+              {
+                navId: "content-style", label: "Стиль", hint: "тон и примеры",
+                done: !!companyStyleState.profile || companyStyleState.docs.length > 0 || !!smmAnalysis,
+              },
+              {
+                navId: "content-trends", label: "Тренды", hint: "что обсуждают",
+                // Состояние трендов живёт внутри ContentTrendsView (localStorage),
+                // наружу не поднимается — читаем его хранилище напрямую.
+                done: (() => {
+                  try {
+                    const raw = localStorage.getItem(`mr_trends_${currentUser?.id || "anon"}`);
+                    return !!raw && !!(JSON.parse(raw) as { result?: { items?: unknown[] } }).result?.items?.length;
+                  } catch { return false; }
+                })(),
+              },
+              { navId: "content-plan", label: "План", hint: "30 дней идей", done: !!contentPlan },
+              {
+                navId: "content-posts", label: "Генерация", hint: "посты и видео",
+                done: generatedPosts.length > 0 || generatedReels.length > 0 || generatedStories.length > 0 || generatedCarousels.length > 0,
+              },
+              {
+                navId: "content-calendar", label: "Календарь", hint: "расписание",
+                done: [...generatedPosts, ...generatedReels, ...generatedStories, ...generatedCarousels].some((x) => !!(x as { scheduledFor?: string }).scheduledFor),
+              },
+            ]}
+          />
+        )}
         {activeNav === "content-style" && (
           <CompanyStyleView
             c={c}
