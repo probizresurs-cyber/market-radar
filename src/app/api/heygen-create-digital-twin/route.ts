@@ -6,7 +6,7 @@
  * asset_id'ы которые фронт получил после upload через
  * /api/heygen-upload-video → /v1/asset.
  *
- * Body: multipart/form-data (от фронта) с полями:
+ * Body: JSON (файлы загружаются ОТДЕЛЬНО через /api/heygen-upload-video):
  *   trainingAssetId / trainingAssetUrl
  *   consentAssetId  / consentAssetUrl
  *   name

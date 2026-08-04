@@ -320,11 +320,20 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // Голос — часть стиля: арт-директор выбирает тембр (пресет) и подачу.
       // Раньше голос был жёстко один на все ролики, из-за чего они звучали
       // одинаково независимо от темы и стиля.
-      // body.voiceId — ручной override поверх пресета/бренд-голоса, ТОЛЬКО для
-      // этого запроса (не трогает env). Нужен, чтобы пробовать новый голос
-      // ElevenLabs на одном тестовом ролике, не переключая его глобально для
-      // всей платформы через ELEVENLABS_BRAND_VOICE_ID.
-      const voiceId = String(body.voiceId ?? "").trim() || resolveVoicePreset(spec?.voice?.preset).voiceId;
+      //
+      // Приоритет override'ов поверх пресета (не трогают env):
+      //  1. body.elevenlabsVoiceId — клонированный голос пользователя из
+      //     настроек аватара. Именно это поле связывает «загрузил свой голос»
+      //     с реальной озвучкой ролика — раньше клон сохранялся, но сюда
+      //     не доезжал, и юзер всегда слышал пресет.
+      //  2. body.voiceId — ручной override для тестов, НО с защитой: фронт
+      //     исторически кладёт сюда HeyGen voice id (32 hex-символа), а это
+      //     поле у нас уходит в ElevenLabs — чужой формат отсеиваем, иначе
+      //     озвучка молча падает и ролик выходит немым.
+      const elevenlabsOverride = String(body.elevenlabsVoiceId ?? "").trim();
+      const rawVoiceId = String(body.voiceId ?? "").trim();
+      const legacyOverride = rawVoiceId && !/^[0-9a-f]{32}$/i.test(rawVoiceId) ? rawVoiceId : "";
+      const voiceId = elevenlabsOverride || legacyOverride || resolveVoicePreset(spec?.voice?.preset).voiceId;
       const r = await callLocal<VoiceoverData>("/api/generate-promo-voiceover",
         {
           voiceoverScript, hookText, problemText, ctaText,

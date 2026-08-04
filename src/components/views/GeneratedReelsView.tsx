@@ -91,10 +91,16 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
           title: reel.title, scenario: reel.scenario, voiceoverScript: reel.voiceoverScript,
           companyName, companyNiche, brandBook,
           stylePrompt: montageStylePrompt.trim() || undefined,
-          // Поля ниже нужны только для mode:"avatar" — оркестратор их
-          // игнорирует в режиме "broll".
+          // Клонированный голос пользователя (ElevenLabs) — озвучка нашего
+          // движка. Раньше клон сохранялся в настройках, но не отправлялся,
+          // и юзер всегда слышал пресет вместо своего голоса.
+          elevenlabsVoiceId:
+            (avatarSettings?.voiceProvider === "elevenlabs" && avatarSettings?.elevenlabsVoiceId) || undefined,
           avatarId: avatarIdToUse,
-          voiceId: avatarSettings?.voiceId || undefined,
+          // HeyGen-голос уместен только в режиме "avatar" (там HeyGen сам
+          // синтезирует речь). В "broll" это поле уходит в ElevenLabs —
+          // HeyGen-id там сломал бы озвучку.
+          voiceId: montageMode === "avatar" ? avatarSettings?.voiceId || undefined : undefined,
           aspect: avatarSettings?.aspect,
           brollScenes: plannedScenes,
           targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
@@ -888,6 +894,26 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
                   }}
                 />
               )}
+              {/* Что реально пойдёт в сборку: без этой строки пользователь,
+                  загрузивший свой аватар/голос, не видел, применились ли они. */}
+              <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.5 }}>
+                {(() => {
+                  const avatarName =
+                    avatarSettings?.customAvatars?.find(a => a.heygenAvatarId === (reel.selectedAvatarId || avatarSettings?.avatarId))?.name
+                    ?? (reel.selectedAvatarId || avatarSettings?.avatarId ? "аватар из настроек" : null);
+                  const voiceLabel = montageMode === "avatar"
+                    ? (avatarSettings?.voiceId ? "голос HeyGen из настроек" : "голос HeyGen по умолчанию")
+                    : (avatarSettings?.voiceProvider === "elevenlabs" && avatarSettings?.elevenlabsVoiceId
+                        ? `ваш клонированный голос${avatarSettings?.customVoices?.find(v => v.elevenlabsVoiceId === avatarSettings.elevenlabsVoiceId)?.name ? ` «${avatarSettings.customVoices.find(v => v.elevenlabsVoiceId === avatarSettings.elevenlabsVoiceId)!.name}»` : ""}`
+                        : "голос подберёт ИИ-режиссёр");
+                  return (
+                    <>
+                      Аватар: <b style={{ color: "var(--foreground-secondary)" }}>{avatarName ?? (montageMode === "avatar" ? "не выбран — задайте в настройках аватара" : "без аватара (решает арт-директор)")}</b>
+                      {" · "}Озвучка: <b style={{ color: "var(--foreground-secondary)" }}>{voiceLabel}</b>
+                    </>
+                  );
+                })()}
+              </div>
               <button
                 onClick={handleAssembleMontage}
                 disabled={busy || montageBusy}
