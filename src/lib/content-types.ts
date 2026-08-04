@@ -368,12 +368,18 @@ export interface GeneratedCarousel {
 
 // ---------- Custom HeyGen assets (user-uploaded) ----------
 
-export type CustomAvatarStatus = "processing" | "ready" | "failed";
+// pending_consent — HeyGen создал аватара, но человек в кадре ещё не записал
+// согласие через хостед-страницу HeyGen (обязательный шаг для digital twin,
+// без него генерация видео с этим аватаром отклоняется).
+export type CustomAvatarStatus = "processing" | "pending_consent" | "ready" | "failed";
 
 export interface CustomAvatar {
   id: string;                     // локальный id
   name: string;                   // как пользователь назвал аватар
-  heygenAvatarId?: string;        // photo_id / talking_photo_id из HeyGen (когда готово)
+  heygenAvatarId?: string;        // photo_id / talking_photo_id / avatar_item.id из HeyGen (когда готово)
+  // id группы аватара в HeyGen — нужен для consent-флоу и проверки статуса
+  // тренировки (GET /v3/avatars/{group_id}). Есть только у digital twin.
+  heygenGroupId?: string;
   status: CustomAvatarStatus;
   previewUrl?: string;            // base64 / url исходного фото для превью
   error?: string;

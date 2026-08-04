@@ -41,14 +41,15 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   const [pendingVoiceName, setPendingVoiceName] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
-  // Digital Twin (video avatar) состоит из ДВУХ видео:
-  //   1. training — основное видео ≥2 мин с лицом и речью
-  //   2. consent — отдельное видео-согласие (политика HeyGen против deepfake)
-  // Юзер загружает оба → нажимает «Создать аватар» → бэк делает POST /v3/avatars.
+  // Digital Twin (video avatar), флоу HeyGen v3:
+  //   1. training-видео ≥2 мин → asset → POST /v3/avatars (только оно!)
+  //   2. согласие — ОТДЕЛЬНЫЙ шаг: POST /v3/avatars/{group}/consent даёт
+  //      ссылку на хостед-страницу HeyGen, где человек записывает согласие
+  //      с вебкамеры (анти-дипфейк). Готовый ролик-согласие принимают
+  //      только enterprise-аккаунты — для остальных это лишь опция с
+  //      автооткатом на ссылку.
   const trainingInputRef = useRef<HTMLInputElement>(null);
   const consentInputRef = useRef<HTMLInputElement>(null);
-  // HeyGen для Digital Twin требует multipart с полем `file` напрямую.
-  // Поэтому держим File-объект тут до момента «Создать аватар».
   type UploadedAsset = { assetId: string; assetUrl?: string; fileName: string; file: File };
   const [trainingAsset, setTrainingAsset] = useState<UploadedAsset | null>(null);
   const [consentAsset, setConsentAsset] = useState<UploadedAsset | null>(null);
@@ -56,6 +57,12 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   const [uploadingConsent, setUploadingConsent] = useState(false);
   const [creatingTwin, setCreatingTwin] = useState(false);
   const [pendingVideoName, setPendingVideoName] = useState("");
+  // Согласие (consent) для digital twin: ссылка на хостед-страницу HeyGen,
+  // где человек записывает согласие с вебкамеры. url пуст, если согласие
+  // ушло заранее записанным роликом (Level 2, enterprise).
+  const [consentInfo, setConsentInfo] = useState<{ groupId: string; url?: string; note?: string } | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [checkingStatusFor, setCheckingStatusFor] = useState<string | null>(null);
 
   const customAvatars = settings.customAvatars ?? [];
   const customVoices = settings.customVoices ?? [];
@@ -166,18 +173,76 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
     }
   };
 
-  // Финальный шаг — оба видео загружены, создаём Digital Twin.
-  // HeyGen ожидает multipart с полем `file` (training) + consent видео,
-  // не JSON с URL'ами. Передаём оригинальные File объекты.
-  const handleCreateDigitalTwin = async () => {
-    if (!trainingAsset || !consentAsset) return;
-    setCreatingTwin(true);
+  // Запрос согласия для группы аватара. Основной путь — Level 1: HeyGen
+  // возвращает ссылку на СВОЮ страницу, где человек записывает согласие с
+  // вебкамеры (доступно всем тарифам, ссылка живёт 24 часа). Если юзер
+  // загрузил заранее записанный ролик — пробуем Level 2 (enterprise-only),
+  // бэк сам откатится на ссылку при отказе HeyGen.
+  const requestConsentLink = async (groupId: string, opts?: { assetId?: string; assetUrl?: string }) => {
+    setConsentBusy(true);
     setUploadError(null);
     try {
+      const res = await fetch("/api/heygen-avatar-consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId, consentAssetId: opts?.assetId, consentAssetUrl: opts?.assetUrl }),
+      });
+      const json = await jsonOrThrow(res) as { ok: boolean; data?: { mode: "webcam" | "video"; consentUrl?: string; consentStatus?: string; note?: string }; error?: string };
+      if (!json.ok || !json.data) throw new Error(json.error ?? "Не удалось запросить согласие");
+      if (json.data.mode === "video") {
+        setConsentInfo({ groupId, note: "Ролик-согласие принят, HeyGen проверяет его. Нажмите «Проверить статус» через пару минут." });
+      } else {
+        setConsentInfo({ groupId, url: json.data.consentUrl, note: json.data.note });
+      }
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setConsentBusy(false);
+    }
+  };
+
+  // «Проверить статус» — тренировка идёт 5-15 минут, согласие пишет живой
+  // человек; поллить бесконечно нет смысла, проверяем по кнопке.
+  const checkAvatarStatus = async (a: CustomAvatar) => {
+    if (!a.heygenGroupId) return;
+    setCheckingStatusFor(a.id);
+    setUploadError(null);
+    try {
+      const res = await fetch(`/api/heygen-avatar-consent?groupId=${encodeURIComponent(a.heygenGroupId)}`);
+      const json = await jsonOrThrow(res) as { ok: boolean; data?: { consentStatus: string | null; trainStatus: string | null }; error?: string };
+      if (!json.ok || !json.data) throw new Error(json.error ?? "Не удалось получить статус");
+      const { consentStatus, trainStatus } = json.data;
+      const status: CustomAvatar["status"] =
+        trainStatus === "completed" ? "ready"
+        : trainStatus === "failed" ? "failed"
+        : trainStatus === "pending_consent" ? "pending_consent"
+        : a.status === "pending_consent" ? "pending_consent"
+        : "processing";
+      update({ customAvatars: customAvatars.map(av => av.id === a.id ? { ...av, status } : av) });
+      setUploadSuccess(
+        status === "ready"
+          ? `«${a.name}» готов — можно записывать видео!`
+          : `«${a.name}»: тренировка — ${trainStatus ?? "в очереди"}, согласие — ${consentStatus ?? "не записано"}.`,
+      );
+      setTimeout(() => setUploadSuccess(null), 8000);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setCheckingStatusFor(null);
+    }
+  };
+
+  // Создание Digital Twin по контракту HeyGen v3: в /v3/avatars уходит
+  // ТОЛЬКО тренировочное видео. Согласие — отдельный шаг после создания
+  // (POST /v3/avatars/{group}/consent), старый вариант «оба видео сразу»
+  // HeyGen никогда не поддерживал — из-за этого создание и ломалось.
+  const handleCreateDigitalTwin = async () => {
+    if (!trainingAsset) return;
+    setCreatingTwin(true);
+    setUploadError(null);
+    setConsentInfo(null);
+    try {
       const name = pendingVideoName.trim() || trainingAsset.fileName.replace(/\.[^.]+$/, "") || "Видео-аватар";
-      // Шлём JSON с asset_id'ами — файлы уже загружены в HeyGen ранее.
-      // Multipart не работает (req.formData() в Next.js падает на больших
-      // запросах). JSON — это что HeyGen и сам ожидает на /v3/avatars.
       const res = await fetch("/api/heygen-create-digital-twin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -185,31 +250,31 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
           name,
           trainingAssetId: trainingAsset.assetId,
           trainingAssetUrl: trainingAsset.assetUrl,
-          consentAssetId: consentAsset.assetId,
-          consentAssetUrl: consentAsset.assetUrl,
         }),
       });
       const rawText = await res.text();
-      let json: { ok: boolean; data?: { heygenAvatarId: string; name: string; status: string }; error?: string; debug?: string };
+      let json: { ok: boolean; data?: { heygenAvatarId: string; groupId: string | null; name: string; status: string; previewUrl?: string | null }; error?: string; debug?: string };
       try { json = JSON.parse(rawText); }
       catch {
         json = { ok: false, error: `HTTP ${res.status}: ${rawText.slice(0, 150)}` };
       }
       if (!json.ok) {
-        // Показываем debug (полный ответ HeyGen) — нужно для диагностики
-        // какое именно field required не передаётся.
         const fullErr = json.debug
           ? `${json.error ?? "Ошибка"} | RAW: ${json.debug.slice(0, 300)}`
           : (json.error ?? "Ошибка создания аватара");
         throw new Error(fullErr);
       }
 
+      const d = json.data!;
       const newAvatar: CustomAvatar = {
         id: `custom-av-${Date.now()}`,
-        name: json.data!.name,
-        heygenAvatarId: json.data!.heygenAvatarId,
-        status: json.data!.status === "completed" || json.data!.status === "ready" ? "ready" : "processing",
-        previewUrl: "",
+        name: d.name,
+        heygenAvatarId: d.heygenAvatarId,
+        heygenGroupId: d.groupId ?? undefined,
+        // Digital twin без согласия HeyGen в видео не пустит — поэтому
+        // дефолтный статус нового аватара «ждёт согласия», а не «готовится».
+        status: d.status === "completed" ? "ready" : d.status === "failed" ? "failed" : "pending_consent",
+        previewUrl: d.previewUrl || "",
         createdAt: new Date().toISOString(),
       };
       update({
@@ -218,10 +283,16 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         avatarType: "preset",
       });
       setTrainingAsset(null);
-      setConsentAsset(null);
       setPendingVideoName("");
-      setUploadSuccess(`Аватар «${newAvatar.name}» отправлен в обработку HeyGen (5-15 минут). После готовности можно записывать видео.`);
+      setUploadSuccess(`Аватар «${newAvatar.name}» создан. Остался шаг согласия — без него HeyGen не разрешит генерацию видео.`);
       setTimeout(() => setUploadSuccess(null), 10000);
+
+      // Сразу запрашиваем согласие: если юзер загрузил ролик — пробуем его,
+      // иначе (и при отказе HeyGen) получаем ссылку на запись с вебкамеры.
+      if (d.groupId) {
+        await requestConsentLink(d.groupId, consentAsset ? { assetId: consentAsset.assetId, assetUrl: consentAsset.assetUrl } : undefined);
+        setConsentAsset(null);
+      }
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -436,7 +507,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "#22c55e", color: "#fff" }}>NEW</span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
-                  Качественный footage-аватар с lip-sync. Нужны два видео: тренировочное и согласие.
+                  Качественный footage-аватар с lip-sync. Три шага: загрузите видео → создайте аватара → запишите согласие по ссылке HeyGen.
                 </div>
                 <div style={{
                   fontSize: 10.5, color: "#22c55e", fontWeight: 700,
@@ -484,65 +555,100 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                   </button>
                 </div>
 
-                {/* Шаг 2: consent video */}
-                <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: consentAsset ? "color-mix(in oklch, #22c55e 8%, var(--background))" : "var(--background)", border: `1px solid ${consentAsset ? "#22c55e60" : "var(--border)"}` }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
-                    2. Видео-согласие {consentAsset && <span style={{ color: "#22c55e", marginLeft: 4 }}>✓</span>}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 6, lineHeight: 1.4 }}>
-                    Короткое видео 10-20 сек. Посмотрите в камеру и произнесите дословно:
-                  </div>
-                  <div style={{ padding: "6px 10px", background: "color-mix(in oklch, var(--primary) 7%, transparent)", border: "1px dashed color-mix(in oklch, var(--primary) 30%, var(--border))", borderRadius: 6, fontSize: 11, fontStyle: "italic", color: "var(--foreground)", marginBottom: 8, lineHeight: 1.4 }}>
-                    «I, [ваше имя], consent to HeyGen using my likeness and voice to create an AI avatar.»
-                  </div>
-                  <input
-                    ref={consentInputRef}
-                    type="file"
-                    accept="video/mp4,video/webm"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadConsentVideo(f); }}
-                    style={{ display: "none" }}
-                  />
-                  <button
-                    onClick={() => consentInputRef.current?.click()}
-                    disabled={uploadingConsent || creatingTwin}
-                    style={{
-                      width: "100%", padding: "8px 12px", borderRadius: 7,
-                      border: "1px solid var(--border)",
-                      background: consentAsset ? "transparent" : "var(--background)",
-                      color: consentAsset ? "#22c55e" : "var(--foreground)",
-                      fontSize: 12, fontWeight: 600,
-                      cursor: (uploadingConsent || creatingTwin) ? "not-allowed" : "pointer",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                      fontFamily: "inherit",
-                    }}>
-                    {uploadingConsent
-                      ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</>
-                      : consentAsset
-                        ? <>📹 {consentAsset.fileName.slice(0, 30)} — заменить</>
-                        : <><Upload size={12} /> Выбрать видео-согласие</>}
-                  </button>
-                </div>
-
-                {/* Шаг 3: создание аватара */}
+                {/* Шаг 2: создание аватара — нужно ТОЛЬКО тренировочное видео.
+                    Согласие — следующий шаг, после создания (контракт HeyGen v3). */}
                 <button
                   onClick={handleCreateDigitalTwin}
-                  disabled={!trainingAsset || !consentAsset || creatingTwin}
+                  disabled={!trainingAsset || creatingTwin}
                   style={{
                     width: "100%", padding: "10px 14px", borderRadius: 8,
                     border: "none",
-                    background: (!trainingAsset || !consentAsset || creatingTwin) ? "var(--muted)" : "#22c55e",
-                    color: (!trainingAsset || !consentAsset || creatingTwin) ? "var(--muted-foreground)" : "#fff",
+                    background: (!trainingAsset || creatingTwin) ? "var(--muted)" : "#22c55e",
+                    color: (!trainingAsset || creatingTwin) ? "var(--muted-foreground)" : "#fff",
                     fontSize: 13, fontWeight: 700,
-                    cursor: (!trainingAsset || !consentAsset || creatingTwin) ? "not-allowed" : "pointer",
+                    cursor: (!trainingAsset || creatingTwin) ? "not-allowed" : "pointer",
                     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
                     fontFamily: "inherit",
                   }}>
                   {creatingTwin
                     ? <><Loader2 size={14} className="mr-spin" /> Создаём аватар…</>
-                    : <><Sparkles size={14} /> Создать видео-аватар</>}
+                    : <><Sparkles size={14} /> 2. Создать видео-аватар</>}
                 </button>
-                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}>
-                  MP4, до 100 МБ каждый · рендер аватара 5-15 мин после создания
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", margin: "6px 0 10px" }}>
+                  MP4, до 100 МБ · тренировка аватара 5-15 мин после создания
+                </div>
+
+                {/* Шаг 3: согласие. Основной путь — ссылка HeyGen: человек в
+                    кадре сам записывает согласие с вебкамеры на их странице.
+                    Загрузка готового ролика (ниже) работает только на
+                    enterprise-тарифах HeyGen — бэк пробует и сам откатывается
+                    на ссылку. */}
+                <div style={{ padding: "10px 12px", borderRadius: 8, background: consentInfo ? "color-mix(in oklch, var(--primary) 6%, var(--background))" : "var(--background)", border: `1px solid ${consentInfo ? "color-mix(in oklch, var(--primary) 40%, var(--border))" : "var(--border)"}` }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+                    3. Согласие на использование внешности
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
+                    Обязательный шаг HeyGen (защита от дипфейков): человек из видео записывает короткое согласие
+                    с вебкамеры на странице HeyGen. Ссылка появится после создания аватара и действует 24 часа.
+                  </div>
+                  {consentInfo?.note && (
+                    <div style={{ fontSize: 10.5, color: "#f59e0b", marginBottom: 8, lineHeight: 1.4 }}>{consentInfo.note}</div>
+                  )}
+                  {consentInfo?.url ? (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <a
+                        href={consentInfo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          flex: "1 1 auto", padding: "9px 12px", borderRadius: 7, border: "none",
+                          background: "var(--primary)", color: "#fff", fontSize: 12, fontWeight: 700,
+                          textAlign: "center", textDecoration: "none",
+                        }}>
+                        Открыть страницу согласия →
+                      </a>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(consentInfo.url!); setUploadSuccess("Ссылка скопирована — отправьте её человеку из видео."); setTimeout(() => setUploadSuccess(null), 5000); }}
+                        style={{
+                          padding: "9px 12px", borderRadius: 7, border: "1px solid var(--border)",
+                          background: "var(--background)", color: "var(--foreground)", fontSize: 12, fontWeight: 600,
+                          cursor: "pointer", fontFamily: "inherit",
+                        }}>
+                        Скопировать
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <input
+                        ref={consentInputRef}
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadConsentVideo(f); }}
+                        style={{ display: "none" }}
+                      />
+                      <button
+                        onClick={() => consentInputRef.current?.click()}
+                        disabled={uploadingConsent || creatingTwin || consentBusy}
+                        title="Работает только на enterprise-тарифах HeyGen; в остальных случаях всё равно понадобится запись по ссылке"
+                        style={{
+                          flex: "1 1 auto", padding: "8px 12px", borderRadius: 7,
+                          border: "1px solid var(--border)",
+                          background: consentAsset ? "transparent" : "var(--background)",
+                          color: consentAsset ? "#22c55e" : "var(--muted-foreground)",
+                          fontSize: 11.5, fontWeight: 600,
+                          cursor: (uploadingConsent || creatingTwin || consentBusy) ? "not-allowed" : "pointer",
+                          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                          fontFamily: "inherit",
+                        }}>
+                        {uploadingConsent
+                          ? <><Loader2 size={12} className="mr-spin" /> Загружаем…</>
+                          : consentAsset
+                            ? <>📹 {consentAsset.fileName.slice(0, 26)} — заменить</>
+                            : <><Upload size={12} /> Есть готовый ролик-согласие (enterprise)</>}
+                      </button>
+                      {consentBusy && <span style={{ alignSelf: "center", fontSize: 11, color: "var(--muted-foreground)", display: "inline-flex", alignItems: "center", gap: 4 }}><Loader2 size={11} className="mr-spin" /> Запрашиваем ссылку…</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -885,7 +991,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
                 {customAvatars.map(a => {
                   const selected = settings.avatarId === a.heygenAvatarId;
-                  const isProcessing = a.status === "processing";
+                  // pending_consent тоже блокирует выбор: HeyGen не пустит такой
+                  // аватар в генерацию видео, пока согласие не записано.
+                  const isProcessing = a.status === "processing" || a.status === "pending_consent";
                   return (
                     <div key={a.id}
                       onClick={() => !isProcessing && selectCustomAvatar(a)}
@@ -928,7 +1036,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                             flexDirection: "column", gap: 4,
                           }}>
                             <Loader2 size={20} className="mr-spin" />
-                            <span>Готовится</span>
+                            <span>{a.status === "pending_consent" ? "Ждёт согласия" : "Готовится"}</span>
                           </div>
                         )}
                         <button
@@ -970,6 +1078,36 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
                         <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>
                           {a.heygenAvatarId?.slice(0, 16)}…
                         </div>
+                        {/* Digital twin в процессе: кнопки дожима — обновить
+                            статус тренировки/согласия и перевыпустить ссылку
+                            на запись согласия (старая живёт 24 часа). */}
+                        {a.heygenGroupId && a.status !== "ready" && (
+                          <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); checkAvatarStatus(a); }}
+                              disabled={checkingStatusFor === a.id}
+                              style={{
+                                flex: 1, padding: "5px 6px", borderRadius: 6, border: "1px solid var(--border)",
+                                background: "var(--background)", color: "var(--foreground)", fontSize: 10, fontWeight: 700,
+                                cursor: checkingStatusFor === a.id ? "default" : "pointer", fontFamily: "inherit",
+                                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3,
+                              }}>
+                              {checkingStatusFor === a.id ? <Loader2 size={10} className="mr-spin" /> : <RefreshCw size={10} />} Статус
+                            </button>
+                            {a.status === "pending_consent" && (
+                              <button
+                                onClick={e => { e.stopPropagation(); requestConsentLink(a.heygenGroupId!); }}
+                                disabled={consentBusy}
+                                style={{
+                                  flex: 1, padding: "5px 6px", borderRadius: 6, border: "none",
+                                  background: "var(--primary)", color: "#fff", fontSize: 10, fontWeight: 700,
+                                  cursor: consentBusy ? "default" : "pointer", fontFamily: "inherit",
+                                }}>
+                                Согласие
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
