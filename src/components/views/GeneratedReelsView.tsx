@@ -33,13 +33,11 @@ export function VideoPreview({ c, src }: { c: Colors; src: string }) {
   );
 }
 
-export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generatingVideoFor, brandBook, alwaysExpanded = false, onRowClick, onRowDelete, companyName, companyNiche, avatarSettings }: {
+export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpanded = false, onRowClick, onRowDelete, companyName, companyNiche, avatarSettings }: {
   c: Colors;
   reel: GeneratedReel;
   onUpdate: (updated: GeneratedReel) => void;
   onDelete: (id: string) => void;
-  onGenerateVideo: (reelId: string) => void;
-  generatingVideoFor: string | null;
   brandBook?: BrandBook;
   alwaysExpanded?: boolean;
   onRowClick?: (reel: GeneratedReel) => void;
@@ -59,7 +57,10 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
   const [hashtagsRaw, setHashtagsRaw] = useState(reel.hashtags.join(" "));
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const busy = generatingVideoFor === reel.id || reel.videoStatus === "generating";
+  // reel.videoStatus === "generating" — «застрявшие» рилсы со старого,
+  // убранного механизма прямого вызова HeyGen-агента; поле оставлено для
+  // обратной совместимости с уже сохранённым в localStorage контентом.
+  const busy = reel.videoStatus === "generating";
 
   // Единый оркестратор /api/content/video/render — сам умеет и b-roll
   // (Remotion), и аватар (HeyGen внутри того же job-статуса), выбор через
@@ -853,21 +854,12 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 
           {reel.videoStatus !== "ready" && (
             <>
-            <button
-              onClick={() => onGenerateVideo(reel.id)}
-              disabled={busy || montageBusy}
-              style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 14, cursor: (busy || montageBusy) ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
-              {reel.videoStatus === "generating"
-                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> HeyGen рендерит видео… (~2-5 мин)</>
-                : busy ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Запускаем HeyGen…</>
-                : reel.videoStatus === "failed" ? "Повторить генерацию"
-                : "Сгенерировать видео с аватаром"}
-            </button>
-            {/* Второй, единый оркестратор (/api/content/video/render) — сам
-                умеет и b-roll (Remotion, дешевле/быстрее), и аватар (тот же
-                HeyGen, что и кнопка выше, но через общий job-статус —
-                один поллинг вместо двух разных механизмов). */}
-            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1.5px solid #8b5cf6", background: "color-mix(in srgb, #8b5cf6 6%, transparent)" }}>
+            {/* Единый оркестратор /api/content/video/render — умеет и b-roll
+                (Remotion, дешевле/быстрее), и аватар (HeyGen), один job-статус
+                на оба режима. Раньше рядом была вторая кнопка, звавшая HeyGen-
+                агента напрямую в обход этого оркестратора — тот же результат,
+                но свой отдельный механизм поллинга; убрана, чтобы не путать. */}
+            <div style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #8b5cf6", background: "color-mix(in srgb, #8b5cf6 6%, transparent)" }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                 {(["broll", "avatar"] as const).map(m => (
                   <button key={m} onClick={() => setMontageMode(m)} disabled={montageBusy}
@@ -945,7 +937,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, onGenerateVideo, generat
 }
 
 export function GeneratedReelsView({
-  c, reels, onGenerateVideo, generatingVideoFor,
+  c, reels,
   avatarSettings, onUpdateAvatarSettings,
   onUpdateReel, onDeleteReel, onboardingState, brandBook,
   // Доп. пропсы — для встроенного блока «Создать видео»:
@@ -957,8 +949,6 @@ export function GeneratedReelsView({
 }: {
   c: Colors;
   reels: GeneratedReel[];
-  onGenerateVideo: (reelId: string) => void;
-  generatingVideoFor: string | null;
   avatarSettings: AvatarSettings;
   onUpdateAvatarSettings: (next: AvatarSettings) => void;
   onUpdateReel: (updated: GeneratedReel) => void;
@@ -1233,8 +1223,6 @@ export function GeneratedReelsView({
                 reel={reel}
                 onUpdate={onUpdateReel}
                 onDelete={onDeleteReel}
-                onGenerateVideo={onGenerateVideo}
-                generatingVideoFor={generatingVideoFor}
                 brandBook={brandBook}
                 onRowClick={() => setOpenReelId(reel.id)}
                 companyName={companyName}
@@ -1255,8 +1243,6 @@ export function GeneratedReelsView({
           onClose={() => setOpenReelId(null)}
           onUpdate={onUpdateReel}
           onDelete={onDeleteReel}
-          onGenerateVideo={onGenerateVideo}
-          generatingVideoFor={generatingVideoFor}
           companyName={companyName}
           companyNiche={companyNiche}
           avatarSettings={avatarSettings}
@@ -1270,7 +1256,7 @@ export function GeneratedReelsView({
 
 // ─── Reel detail modal ─────────────────────────────────────────────────────
 function ReelDetailModal({
-  c, reel, brandBook, onClose, onUpdate, onDelete, onGenerateVideo, generatingVideoFor,
+  c, reel, brandBook, onClose, onUpdate, onDelete,
   companyName, companyNiche, avatarSettings,
 }: {
   c: Colors;
@@ -1279,8 +1265,6 @@ function ReelDetailModal({
   onClose: () => void;
   onUpdate: (updated: GeneratedReel) => void;
   onDelete: (id: string) => void;
-  onGenerateVideo: (reelId: string) => void;
-  generatingVideoFor: string | null;
   companyName?: string;
   companyNiche?: string;
   avatarSettings?: AvatarSettings;
@@ -1393,8 +1377,6 @@ function ReelDetailModal({
             reel={reel}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            onGenerateVideo={onGenerateVideo}
-            generatingVideoFor={generatingVideoFor}
             brandBook={brandBook}
             alwaysExpanded
             companyName={companyName}

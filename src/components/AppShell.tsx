@@ -476,7 +476,6 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
   // Progress пакетной генерации из тренда (4 шага). null = модалка скрыта.
   const [packageProgress, setPackageProgress] = useState<PackageProgress | null>(null);
-  const [generatingVideoFor, setGeneratingVideoFor] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [avatarSettings, setAvatarSettings] = useState<AvatarSettings>({
     avatarId: "",
@@ -2502,118 +2501,6 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     });
   };
 
-  const handleGenerateReelVideo = async (reelId: string) => {
-    if (guardReadOnly("Генерация видео")) return;
-    const reel = generatedReels.find(r => r.id === reelId);
-    if (!reel) return;
-    setGeneratingVideoFor(reelId);
-    try {
-      // Видео-агент HeyGen v3 — единый запрос: аватар + b-roll + сабтитры.
-      // Если есть запланированные b-roll сцены (status='planned') — передаём
-      // их явным списком; иначе агент сам решит.
-      const plannedScenes = (reel.brollClips ?? [])
-        .filter(c => c.status === "planned" && c.prompt?.trim())
-        .map(c => ({
-          prompt: c.prompt,
-          motionHint: c.motionHint,
-          position: c.position,
-          referenceImageUrl: c.referenceImageUrl,
-        }));
-      // Аватар: приоритет — выбранный на конкретном рилсе, иначе глобальный
-      // из avatarSettings. selectedAvatarId хранится прямо в reel (берётся
-      // из библиотеки customAvatars).
-      const avatarIdToUse = reel.selectedAvatarId || avatarSettings.avatarId || undefined;
-      const res = await fetch("/api/generate-reel-video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          script: reel.voiceoverScript,
-          avatarId: avatarIdToUse,
-          voiceId: avatarSettings.voiceId || undefined,
-          aspect: avatarSettings.aspect,
-          title: reel.title,
-          hook: reel.title,
-          companyName: myCompany?.company?.name ?? "",
-          companyNiche: myCompany?.company?.description ?? "",
-          brollScenes: plannedScenes,
-          targetDurationSec: reel.targetDurationSec ?? reel.durationSec ?? 30,
-          subtitles: reel.subtitles !== false,
-          videoMode: reel.videoMode ?? "mixed",
-          // Voice quality knobs из глобальных AvatarSettings — пробрасываем
-          // в HeyGen v3 для разборчивого, эмоционально окрашенного голоса.
-          voiceSpeed: avatarSettings.voiceSpeed,
-          voicePitch: avatarSettings.voicePitch,
-          voiceEmotion: avatarSettings.voiceEmotion,
-        }),
-      });
-      const json = await jsonOrThrow(res);
-      if (!json.ok) throw new Error(json.error ?? "Ошибка HeyGen");
-      const videoId: string = json.data.videoId;
-      setGeneratedReels(prev => {
-        const next = prev.map(r => r.id === reelId
-          ? { ...r, heygenVideoId: videoId, videoStatus: "generating" as const, videoError: undefined }
-          : r);
-        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
-        return next;
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Ошибка";
-      setGeneratedReels(prev => {
-        const next = prev.map(r => r.id === reelId
-          ? { ...r, videoStatus: "failed" as const, videoError: msg }
-          : r);
-        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
-        return next;
-      });
-    } finally {
-      setGeneratingVideoFor(null);
-    }
-  };
-
-  // Стабильный depKey для poll-effect ниже. Без useMemo `.map().join()`
-  // создавался на каждый рендер → setInterval пересоздавался → DDOS API.
-  const reelsPollKey = useMemo(
-    () => generatedReels.map(r => `${r.id}:${r.videoStatus}`).join(","),
-    [generatedReels],
-  );
-
-  // Poll HeyGen for any reels currently generating
-  useEffect(() => {
-    const generating = generatedReels.filter(r => r.videoStatus === "generating" && r.heygenVideoId);
-    if (generating.length === 0) return;
-    const interval = setInterval(async () => {
-      for (const reel of generating) {
-        try {
-          const res = await fetch(`/api/video-status?videoId=${encodeURIComponent(reel.heygenVideoId!)}`);
-          const json = await jsonOrThrow(res);
-          if (!json.ok) continue;
-          const status: string = json.data.status;
-          if (status === "completed" && json.data.videoUrl) {
-            setGeneratedReels(prev => {
-              const next = prev.map(r => r.id === reel.id
-                ? { ...r, videoStatus: "ready" as const, videoUrl: json.data.videoUrl as string }
-                : r);
-              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
-              return next;
-            });
-          } else if (status === "failed") {
-            setGeneratedReels(prev => {
-              const next = prev.map(r => r.id === reel.id
-                ? { ...r, videoStatus: "failed" as const, videoError: json.data.error ?? "HeyGen вернул failed" }
-                : r);
-              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
-              return next;
-            });
-          }
-        } catch { /* keep polling */ }
-      }
-    }, 10_000);
-    return () => clearInterval(interval);
-    // Стабильный ключ — иначе `.map().join()` пересчитывался каждый рендер,
-    // setInterval пересоздавался, /api/video-status DDOS-ился.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reelsPollKey]);
-
   // Onboarding complete: run initial analysis
   const handleOnboardingComplete = async (updatedUser: UserAccount, companyUrl: string, competitorUrls: string[]) => {
     setCurrentUser(updatedUser);
@@ -3172,8 +3059,6 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           <GeneratedReelsView
             c={c}
             reels={generatedReels}
-            onGenerateVideo={handleGenerateReelVideo}
-            generatingVideoFor={generatingVideoFor}
             avatarSettings={avatarSettings}
             onUpdateAvatarSettings={handleUpdateAvatarSettings}
             onUpdateReel={handleUpdateReel}
