@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { GeneratedStory, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { TASegment } from "@/lib/ta-types";
 import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -90,49 +90,24 @@ export async function POST(req: Request) {
     const brandBook: BrandBook | null = body.brandBook ?? null;
     const taSegment: TASegment | null = body.taSegment ?? null;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     const userMessage = buildStoriesPrompt(
       companyName, platform, slidesCount, goal, brief, pillar, smm, brandBook, taSegment,
     );
 
-    const res = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.85,
-        max_tokens: 4500,
-        response_format: { type: "json_object" },
-      }),
+    const aiResult = await chatJson<{ title: string; hashtags: string[]; slides: GeneratedStory["slides"] }>({
+      system: SYSTEM_PROMPT,
+      user: userMessage,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.85,
+      maxTokens: 4500,
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-    }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
-    let parsed: { title: string; hashtags: string[]; slides: GeneratedStory["slides"] };
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch (parseErr) {
+    if (!aiResult.data) {
       return NextResponse.json(
-        { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` },
+        { ok: false, error: `Не удалось получить сторис: ${aiResult.error ?? "нет ответа модели"}` },
         { status: 500 },
       );
     }
+    const parsed = aiResult.data;
 
     const result: GeneratedStory = {
       id: `story-${Date.now()}`,
@@ -147,10 +122,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    // Логируем именно тот model, который реально вызывали (gpt-4o выше в route).
-    // Раньше писалось claude-sonnet-4-6 — это ломало AI-logs графики и atribution
-    // токенов в admin-панели.
-    await access.log({ endpoint: "generate-stories", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "generate-stories", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

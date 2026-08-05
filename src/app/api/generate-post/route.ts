@@ -1,4 +1,3 @@
-import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { NextResponse } from "next/server";
 import type { GeneratedPost, ContentPostIdea, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
@@ -12,6 +11,7 @@ import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
 import { platformImageFormat } from "@/lib/image-aspect";
 import { persistImageDataUri } from "@/lib/image-store";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 function buildStyleBlock(sp: CompanyStyleProfile | null): string {
   if (!sp) return "";
@@ -264,11 +264,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не передана идея поста" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     // 1) Generate text
     // Even if userPrompt is provided, append brandBook + style rules so they aren't ignored
     const brandBlockForCustom = buildBrandBookBlock(brandBook);
@@ -285,43 +280,21 @@ export async function POST(req: Request) {
     const userMessage = userPrompt.trim()
       ? (extraCustomRules ? `${userPrompt.trim()}\n${extraCustomRules}${nicheRule}` : `${userPrompt.trim()}${nicheRule}`)
       : buildPrompt(companyName, effectiveNiche, idea, smm, brandBook, styleProfile, taSegment);
-    const textRes = await fetchWithTimeout(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.9,
-        max_tokens: 3500,
-        response_format: { type: "json_object" },
-      }),
+
+    const textResult = await chatJson<{ hook: string; body: string; hashtags: string[]; imagePrompt: string; imageSuggestionRu?: string }>({
+      system: SYSTEM_PROMPT,
+      user: userMessage,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.9,
+      maxTokens: 3500,
     });
-
-    if (!textRes.ok) {
-      const errBody = await textRes.text();
+    if (!textResult.data) {
       return NextResponse.json(
-        { ok: false, error: `OpenAI text error ${textRes.status}: ${errBody.slice(0, 200)}` },
+        { ok: false, error: `Не удалось получить текст поста: ${textResult.error ?? "нет ответа модели"}. Preview: ${textResult.raw.slice(0, 100)}` },
         { status: 500 },
       );
     }
-
-    const textData = await textRes.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = textData.choices[0]?.message?.content ?? "{}";
-    let parsed: { hook: string; body: string; hashtags: string[]; imagePrompt: string; imageSuggestionRu?: string };
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch (parseErr) {
-      return NextResponse.json(
-        { ok: false, error: `Не удалось распарсить ответ AI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${rawContent.slice(0, 100)}` },
-        { status: 500 },
-      );
-    }
+    const parsed = textResult.data;
 
     // 2) Generate image via OpenAI DALL-E — opt-in, не фейлим пост, если картинка не вышла.
     // Раньше использовали Gemini, но free-tier выгорает за 10-20 картинок в день.
@@ -433,9 +406,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    // Используется gpt-4o (см. payload выше), не claude. Раньше логировалось
-    // ошибочное claude-sonnet-4-6 → admin-аналитика по моделям была кривая.
-    await access.log({ endpoint: "generate-post", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "generate-post", model: textResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

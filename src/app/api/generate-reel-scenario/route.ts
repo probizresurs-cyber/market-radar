@@ -5,6 +5,7 @@ import type { TASegment } from "@/lib/ta-types";
 import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 function buildBrandBookBlock(bb: BrandBook | null): string {
   if (!bb) return "";
@@ -119,43 +120,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не передана идея рилса" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
+    const userMessage = userPrompt.trim()
+      ? (buildBrandBookBlock(brandBook) ? `${userPrompt.trim()}\n${buildBrandBookBlock(brandBook)}` : userPrompt.trim())
+      : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook, taSegment);
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt.trim()
-              ? (buildBrandBookBlock(brandBook) ? `${userPrompt.trim()}\n${buildBrandBookBlock(brandBook)}` : userPrompt.trim())
-              : buildPrompt(companyName, idea, smm, voiceDescription, avatarDescription, brandBook, taSegment) },
-        ],
-        temperature: 0.9,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      }),
+    const aiResult = await chatJson<{ title: string; scenario: string; voiceoverScript: string; hashtags: string[] }>({
+      system: SYSTEM_PROMPT,
+      user: userMessage,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.9,
+      maxTokens: 4096,
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
+    if (!aiResult.data) {
       return NextResponse.json(
-        { ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` },
+        { ok: false, error: `Не удалось получить сценарий: ${aiResult.error ?? "нет ответа модели"}` },
         { status: 500 },
       );
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      title: string; scenario: string; voiceoverScript: string; hashtags: string[];
-    };
+    const parsed = aiResult.data;
 
     const result: GeneratedReel = {
       id: `reel-${Date.now()}`,
@@ -170,7 +152,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "generate-reel-scenario", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "generate-reel-scenario", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
