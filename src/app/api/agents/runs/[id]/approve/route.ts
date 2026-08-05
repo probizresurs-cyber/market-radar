@@ -15,20 +15,10 @@ import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import { publishToTelegram } from "@/lib/publishers/telegram";
 import { publishToVK } from "@/lib/publishers/vk";
-import type { GeneratedPost } from "@/lib/content-types";
+import { buildContent, type DueItem } from "@/lib/agents/auto-publisher";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-function buildText(post: GeneratedPost, platform: "vk" | "telegram"): string {
-  const v = post.platformVariants?.[platform];
-  if (v) {
-    const tags = (v.hashtags ?? []).map(h => h.startsWith("#") ? h : `#${h}`).join(" ");
-    return `${v.hook}\n\n${v.body}${tags ? `\n\n${tags}` : ""}`;
-  }
-  const tags = (post.hashtags ?? []).map(h => h.startsWith("#") ? h : `#${h}`).join(" ");
-  return `${post.hook}\n\n${post.body}${tags ? `\n\n${tags}` : ""}`;
-}
 
 export async function POST(
   req: Request,
@@ -77,12 +67,12 @@ export async function POST(
   // в result — агент кладёт его если требуется автоматическое действие.
 
   const publishOnApprove = rows[0].result?._publishOnApprove as
-    | { post: GeneratedPost; platforms: Array<"vk" | "telegram"> }
+    | { item: DueItem; platforms: Array<"vk" | "telegram"> }
     | undefined;
 
   let publishResult: Record<string, unknown> | null = null;
 
-  if (publishOnApprove && publishOnApprove.post) {
+  if (publishOnApprove && publishOnApprove.item) {
     // Грузим per-user конфиг каналов
     const userRows = await query<{
       telegram_chat_id: string | null;
@@ -93,7 +83,7 @@ export async function POST(
       [session.userId],
     );
     const cfg = userRows[0];
-    const post = publishOnApprove.post;
+    const { kind, payload } = publishOnApprove.item;
     const platforms = publishOnApprove.platforms ?? [];
     const result: Record<string, unknown> = {};
 
@@ -102,10 +92,11 @@ export async function POST(
       if (!target) {
         result.telegram = { ok: false, error: "Telegram канал не подключён" };
       } else {
+        const { text, imageUrl } = buildContent(kind, payload, "telegram");
         const tg = await publishToTelegram({
           chatId: target,
-          text: buildText(post, "telegram"),
-          imageUrl: post.imageUrl && post.imageUrl.startsWith("http") ? post.imageUrl : undefined,
+          text,
+          imageUrl: imageUrl && imageUrl.startsWith("http") ? imageUrl : undefined,
         });
         result.telegram = tg;
       }
@@ -116,9 +107,10 @@ export async function POST(
       if (!groupId && !process.env.VK_GROUP_ID) {
         result.vk = { ok: false, error: "VK сообщество не подключено" };
       } else {
+        const { text, imageUrl } = buildContent(kind, payload, "vk");
         const vk = await publishToVK({
-          text: buildText(post, "vk"),
-          imageUrl: post.imageUrl,
+          text,
+          imageUrl,
           ownerId: groupId || undefined,
         });
         result.vk = vk;

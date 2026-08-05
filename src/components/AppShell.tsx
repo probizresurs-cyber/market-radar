@@ -499,6 +499,14 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   });
   const [generatedStories, setGeneratedStories] = useState<GeneratedStory[]>([]);
   const [generatedCarousels, setGeneratedCarousels] = useState<GeneratedCarousel[]>([]);
+  // Refs — как contentPlanRef/generatedPostsRef/generatedReelsRef выше, но
+  // объявлены здесь (не рядом с теми тремя), потому что useRef(generatedStories)
+  // ссылался бы на const до её объявления (TDZ), если поднять их к тем трём —
+  // generatedStories/generatedCarousels объявлены state-хуками только тут.
+  const generatedStoriesRef = useRef(generatedStories);
+  const generatedCarouselsRef = useRef(generatedCarousels);
+  useEffect(() => { generatedStoriesRef.current = generatedStories; }, [generatedStories]);
+  useEffect(() => { generatedCarouselsRef.current = generatedCarousels; }, [generatedCarousels]);
   const [companyStyleState, setCompanyStyleState] = useState<CompanyStyleState>({
     docs: [],
     profile: null,
@@ -1850,25 +1858,42 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     // прилетит из syncToServer.
     syncToServer("content", { plan, posts, reels });
 
-    // Зеркалим запланированные посты на сервер, чтобы auto-publisher мог
-    // публиковать их по крону без открытого браузера. Шлём только посты с
-    // выставленным scheduledFor; «replace pending set» на стороне сервера
-    // отменит те, что юзер распланировал. Только своя workspace.
+    // Зеркалим запланированные посты/рилсы/сторис/карусели на сервер, чтобы
+    // auto-publisher мог публиковать их по крону без открытого браузера.
+    // Шлём только элементы с выставленным scheduledFor; «replace pending
+    // set» на стороне сервера отменит те, что юзер распланировал. Только
+    // своя workspace. ВАЖНО: все 4 формата идут ОДНИМ запросом — сервер
+    // отменяет pending-строки, которых нет в присланном списке, так что
+    // раздельные запросы по формату взаимно затирали бы друг друга.
     if (currentUser?.id && (!activeWorkspace || activeWorkspace.isOwnWorkspace)) {
-      const scheduled = posts
+      const platformsFromTag = (platform: string | undefined): string[] => {
+        if (!platform) return [];
+        const pl = platform.toLowerCase();
+        const out: string[] = [];
+        if (pl.includes("telegram") || pl === "tg") out.push("telegram");
+        if (pl.includes("vk") || pl.includes("вконтакте")) out.push("vk");
+        return out;
+      };
+      const scheduledPosts = posts
         .filter(p => p.scheduledFor)
         .map(p => {
           // Платформы: из platformVariants, иначе из post.platform (tg/vk).
           const platforms: string[] = [];
           if (p.platformVariants?.telegram) platforms.push("telegram");
           if (p.platformVariants?.vk) platforms.push("vk");
-          if (platforms.length === 0 && p.platform) {
-            const pl = p.platform.toLowerCase();
-            if (pl.includes("telegram") || pl === "tg") platforms.push("telegram");
-            if (pl.includes("vk") || pl.includes("вконтакте")) platforms.push("vk");
-          }
-          return { id: p.id, scheduledFor: p.scheduledFor as string, platforms, payload: p };
+          if (platforms.length === 0) platforms.push(...platformsFromTag(p.platform));
+          return { id: p.id, scheduledFor: p.scheduledFor as string, platforms, payload: p, kind: "post" as const };
         });
+      const scheduledReels = reels
+        .filter(r => r.scheduledFor)
+        .map(r => ({ id: r.id, scheduledFor: r.scheduledFor as string, platforms: [], payload: r, kind: "reel" as const }));
+      const scheduledStories = generatedStoriesRef.current
+        .filter(s => s.scheduledFor)
+        .map(s => ({ id: s.id, scheduledFor: s.scheduledFor as string, platforms: platformsFromTag(s.platform), payload: s, kind: "story" as const }));
+      const scheduledCarousels = generatedCarouselsRef.current
+        .filter(c => c.scheduledFor)
+        .map(c => ({ id: c.id, scheduledFor: c.scheduledFor as string, platforms: platformsFromTag(c.platform), payload: c, kind: "carousel" as const }));
+      const scheduled = [...scheduledPosts, ...scheduledReels, ...scheduledStories, ...scheduledCarousels];
       // fire-and-forget: не блокируем UI, ошибки не критичны (повторится при
       // следующем сохранении).
       fetch("/api/scheduled-posts", {

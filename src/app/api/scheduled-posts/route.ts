@@ -22,6 +22,9 @@ interface IncomingPost {
   scheduledFor: string;        // ISO
   platforms?: string[];        // ['telegram','vk']
   payload: Record<string, unknown>;
+  /** Формат контента — какая форма у payload. Пост по умолчанию (обратная
+   *  совместимость со старыми клиентами, которые kind ещё не шлют). */
+  kind?: "post" | "reel" | "story" | "carousel";
 }
 
 export async function POST(req: Request) {
@@ -54,16 +57,18 @@ export async function POST(req: Request) {
       : [];
     const sched = new Date(p.scheduledFor);
     if (isNaN(sched.getTime())) continue;
+    const kind = p.kind === "reel" || p.kind === "story" || p.kind === "carousel" ? p.kind : "post";
     await query(
-      `INSERT INTO scheduled_posts (id, user_id, profile_suffix, scheduled_for, platforms, payload, status, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'pending', NOW())
+      `INSERT INTO scheduled_posts (id, user_id, profile_suffix, scheduled_for, platforms, payload, kind, status, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, 'pending', NOW())
        ON CONFLICT (id) DO UPDATE
          SET scheduled_for = EXCLUDED.scheduled_for,
              platforms     = EXCLUDED.platforms,
              payload       = EXCLUDED.payload,
+             kind          = EXCLUDED.kind,
              updated_at    = NOW()
        WHERE scheduled_posts.status = 'pending'`,
-      [p.id, session.userId, profileSuffix, sched.toISOString(), platforms, JSON.stringify(p.payload)],
+      [p.id, session.userId, profileSuffix, sched.toISOString(), platforms, JSON.stringify(p.payload), kind],
     );
   }
 
@@ -96,7 +101,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const profileSuffix = url.searchParams.get("profileSuffix") ?? "";
   const rows = await query(
-    `SELECT id, scheduled_for, platforms, status, last_error, published_at
+    `SELECT id, scheduled_for, platforms, kind, status, last_error, published_at
        FROM scheduled_posts
       WHERE user_id = $1 AND profile_suffix = $2
       ORDER BY scheduled_for DESC LIMIT 200`,

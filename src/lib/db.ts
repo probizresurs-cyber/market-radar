@@ -752,6 +752,11 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_due ON scheduled_posts(status, scheduled_for) WHERE status = 'pending'`);
+  // kind различает 4 формата контента, которые расписание умеет планировать —
+  // изначально таблица знала только про посты (payload = GeneratedPost).
+  // Рилсы/сторис/карусели имеют свою форму payload, auto-publisher должен
+  // знать какую, чтобы правильно собрать текст/картинку публикации.
+  await query(`ALTER TABLE scheduled_posts ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'post' CHECK (kind IN ('post','reel','story','carousel'))`);
   await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id, profile_suffix)`);
 
   // ─── Лиды (база сайтов для холодного аутрича) ──────────────────────────────
