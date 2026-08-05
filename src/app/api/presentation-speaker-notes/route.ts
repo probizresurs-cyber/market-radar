@@ -14,8 +14,8 @@
  */
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -47,11 +47,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Нужен хотя бы один слайд" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ ok: false, error: "OPENAI_API_KEY не настроен" }, { status: 500 });
-  }
-
   const companyName = (body.companyName ?? "").trim().slice(0, 120);
   const audience = (body.audience ?? "").trim().slice(0, 200);
 
@@ -68,9 +63,11 @@ export async function POST(req: Request) {
     return parts.join(" / ");
   }).join("\n\n");
 
-  const prompt = `${ANTI_HALLUCINATION_SHORT}
+  const systemPrompt = `${ANTI_HALLUCINATION_SHORT}
 
-Ты — ведущий бренд-презентаций. Напиши speaker notes к ${slides.length} слайдам — то что ведущий говорит ВЖИВУЮ под каждым слайдом.
+Ты — ведущий бренд-презентаций.`;
+
+  const prompt = `Напиши speaker notes к ${slides.length} слайдам — то что ведущий говорит ВЖИВУЮ под каждым слайдом.
 
 ТРЕБОВАНИЯ:
 - 60-90 секунд на слайд (≈ 100-150 слов)
@@ -95,40 +92,22 @@ ${slideSummaries}
 }
 Массив должен содержать РОВНО ${slides.length} строк.`;
 
-  const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com";
-  const res = await fetchWithTimeout(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-      max_tokens: Math.min(6000, slides.length * 320),
-    }),
+  const aiResult = await chatJson<{ notes?: unknown }>({
+    system: systemPrompt,
+    user: prompt,
+    model: CHAT_MODEL_SMART,
+    temperature: 0.7,
+    maxTokens: Math.min(6000, slides.length * 320),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    await access.log({ endpoint: "presentation-speaker-notes", model: "gpt-4o-mini", success: false, errorMessage: text.slice(0, 200) });
-    return NextResponse.json({ ok: false, error: `OpenAI ${res.status}: ${text.slice(0, 200)}` }, { status: 500 });
+  if (!aiResult.data) {
+    await access.log({ endpoint: "presentation-speaker-notes", model: aiResult.modelUsed, success: false, errorMessage: (aiResult.error ?? "").slice(0, 200) });
+    return NextResponse.json({ ok: false, error: aiResult.error ?? "Не удалось получить speaker notes" }, { status: 500 });
   }
 
-  const data = await res.json() as { choices: Array<{ message: { content: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
-  const raw = data.choices[0]?.message?.content ?? "{}";
-
-  let parsed: { notes?: unknown };
-  try { parsed = JSON.parse(raw); }
-  catch {
-    return NextResponse.json({ ok: false, error: "Не удалось распарсить ответ GPT" }, { status: 500 });
-  }
-
-  const rawNotes: unknown[] = Array.isArray(parsed.notes) ? parsed.notes : [];
+  const rawNotes: unknown[] = Array.isArray(aiResult.data.notes) ? aiResult.data.notes : [];
   if (rawNotes.length === 0) {
-    return NextResponse.json({ ok: false, error: "GPT не вернул массив notes" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Модель не вернула массив notes" }, { status: 500 });
   }
   // Нормализуем до slides.length
   const notes: string[] = Array.from({ length: slides.length }, (_, i) =>
@@ -137,9 +116,7 @@ ${slideSummaries}
 
   await access.log({
     endpoint: "presentation-speaker-notes",
-    model: "gpt-4o-mini",
-    promptTokens: data.usage?.prompt_tokens,
-    completionTokens: data.usage?.completion_tokens,
+    model: aiResult.modelUsed,
     success: true,
   });
 

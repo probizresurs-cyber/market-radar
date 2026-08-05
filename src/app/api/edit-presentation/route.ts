@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -10,9 +11,6 @@ export async function POST(req: Request) {
   if (!access.allowed) return access.response;
   try {
     const body = await req.json();
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ ok: false, error: "No API key" }, { status: 500 });
-
     const { slides, wish: wishRaw, style, brandBook, company } = body;
     if (!slides || !wishRaw) {
       return NextResponse.json({ ok: false, error: "slides and wish are required" }, { status: 400 });
@@ -50,43 +48,30 @@ export async function POST(req: Request) {
 
 ${contextParts.length > 0 ? `Контекст:\n${contextParts.join("\n")}` : ""}`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Слайды:\n${JSON.stringify(slides, null, 2)}\n\nПожелание: ${wish}` },
-        ],
-        temperature: 0.5,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      }),
+    const aiResult = await chatJson<{ slides?: unknown[] }>({
+      system: systemPrompt,
+      user: `Слайды:\n${JSON.stringify(slides, null, 2)}\n\nПожелание: ${wish}`,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.5,
+      maxTokens: 4000,
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
+    if (!aiResult.data) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Не удалось получить изменённые слайды" }, { status: 500 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const rawContent = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(rawContent);
     await access.log({
       endpoint: "edit-presentation",
-      model: "gpt-4o-mini",
+      model: aiResult.modelUsed,
       promptTokens: estimateTokens(systemPrompt + JSON.stringify(slides) + wish),
-      completionTokens: estimateTokens(rawContent),
+      completionTokens: estimateTokens(aiResult.raw),
     });
     // КРИТИЧНО: клиент (PresentationView.tsx) ожидает `json.data.slides`,
     // а раньше мы возвращали `json.slides` — wish-edit «успешно» возвращал
     // null/undefined → setSlides(json.data.slides ?? slides) кладёт обратно
     // старые слайды. Юзер думал «AI не понял» и тратил деньги повторно.
-    return NextResponse.json({ ok: true, data: { slides: parsed.slides ?? [] } });
+    return NextResponse.json({ ok: true, data: { slides: aiResult.data.slides ?? [] } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error";
-    await access.log({ endpoint: "edit-presentation", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "edit-presentation", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
