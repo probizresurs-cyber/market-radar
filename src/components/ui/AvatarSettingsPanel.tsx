@@ -32,6 +32,25 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   const [voiceFilter, setVoiceFilter] = useState("ru");
   const [error, setError] = useState<string | null>(null);
 
+  // Пресеты ElevenLabs — голос НАШЕГО видео-движка (broll-режим). Раньше
+  // единственным видимым каталогом голосов в этой панели был список HeyGen,
+  // из-за чего юзер выбирал голос, который на наш рендер не влияет вовсе —
+  // тот слушает elevenlabsVoiceId, а не HeyGen voiceId.
+  const [voicePresets, setVoicePresets] = useState<Record<string, { voiceId: string; label: string; previewUrl: string | null }> | null>(null);
+  const [loadingPresets, setLoadingPresets] = useState(false);
+  useEffect(() => {
+    if (!open || voicePresets || loadingPresets) return;
+    setLoadingPresets(true);
+    fetch("/api/elevenlabs-voice-previews")
+      .then(jsonOrThrow)
+      .then((json: { ok: boolean; data?: Record<string, { voiceId: string; label: string; previewUrl: string | null }> }) => {
+        if (json.ok && json.data) setVoicePresets(json.data);
+      })
+      .catch(() => { /* превью — необязательная опция, тихо пропускаем */ })
+      .finally(() => setLoadingPresets(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Custom avatar / voice upload state
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVoice, setUploadingVoice] = useState(false);
@@ -406,13 +425,13 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         onClick={() => setOpen(!open)}
         style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: open ? `1px solid var(--muted)` : "none" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", display:"inline-flex", alignItems:"center", gap:6 }}><Sparkles size={14}/>Настройки аватара и голоса HeyGen</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", display:"inline-flex", alignItems:"center", gap:6 }}><Sparkles size={14}/>Настройки аватара и голоса</div>
           <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>
             {settings.avatarId || settings.voiceId || settings.elevenlabsVoiceId
               ? `Avatar: ${settings.avatarId || "—"} · Voice: ${
                   settings.voiceProvider === "elevenlabs" && settings.elevenlabsVoiceId
-                    ? `${settings.elevenlabsVoiceId} (ElevenLabs)`
-                    : settings.voiceId || "—"
+                    ? `${voicePresets ? (Object.values(voicePresets).find(p => p.voiceId === settings.elevenlabsVoiceId)?.label ?? settings.elevenlabsVoiceId) : settings.elevenlabsVoiceId} (ElevenLabs)`
+                    : `${settings.voiceId || "—"} (HeyGen, только режим «видео через HeyGen»)`
                 }`
               : "Не настроено — будут использованы значения по умолчанию"}
           </div>
@@ -432,7 +451,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
               <Upload size={15} /> Создать нового аватара
             </div>
             <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 14, lineHeight: 1.5 }}>
-              Введите имя и загрузите фото (быстро) или видео (качественнее, но дольше). Голос выбирается из готовых HeyGen-голосов в настройках ниже.
+              Введите имя и загрузите фото (быстро) или видео (качественнее, но дольше). Голос озвучки выбирается ниже — свой клон или пресет ElevenLabs.
             </div>
 
             {/* Единое поле имени аватара */}
@@ -677,6 +696,45 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
             {/* Библиотека «Мои аватары» переехала в самый низ панели —
                 после всех настроек HeyGen avatar/voice ID и формата. */}
 
+            {/* ────── Голос озвучки (ElevenLabs) — реально звучит в роликах ──────
+                Это ГЛАВНЫЙ выбор голоса для нашего движка. Список HeyGen-голосов
+                ниже (в «HEYGEN VOICE ID» и загружаемом каталоге) относится ТОЛЬКО
+                к легаси-режиму «видео с аватаром через HeyGen-агента» — тот
+                рендер целиком собирает сам HeyGen, включая озвучку. */}
+            <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--card)" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground)", marginBottom: 3, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Mic size={13} /> Голос озвучки (ElevenLabs)
+              </div>
+              <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.4 }}>
+                Этот голос реально звучит в готовых роликах — свой клон сверху или один из пресетов ниже.
+                Список «Голоса» из каталога HeyGen дальше в панели используется только в режиме «видео целиком через HeyGen».
+              </div>
+              {loadingPresets && !voicePresets ? (
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Loader2 size={12} className="mr-spin" /> Загружаем пресеты…
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+                  {Object.values(voicePresets ?? {}).map(p => {
+                    const selected = settings.voiceProvider === "elevenlabs" && settings.elevenlabsVoiceId === p.voiceId;
+                    return (
+                      <div key={p.voiceId}
+                        onClick={() => update({ voiceProvider: "elevenlabs", elevenlabsVoiceId: p.voiceId })}
+                        style={{ cursor: "pointer", border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`, borderRadius: 7, padding: "8px 10px", background: selected ? "color-mix(in oklch, var(--primary) 6%, transparent)" : "var(--background)" }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--foreground)" }}>{p.label}</div>
+                        {p.previewUrl && (
+                          <audio src={p.previewUrl} controls style={{ width: "100%", height: 26, marginTop: 5 }} onClick={e => e.stopPropagation()} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 10 }}>
+                Ничего не выбрано? Арт-директор подберёт голос под тему ролика автоматически (или используется голос бренда, если задан администратором).
+              </div>
+            </div>
+
             {/* My voices */}
             {customVoices.length > 0 && (
               <div style={{ marginTop: 14 }}>
@@ -875,6 +933,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
 
           {showLists && voices.length > 0 && (
             <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 8, lineHeight: 1.4 }}>
+                Этот каталог — голоса HeyGen для режима «видео целиком через HeyGen» (кнопка «Сгенерировать видео с аватаром»). Для обычной сборки видео голос выбирается в блоке «Голос озвучки (ElevenLabs)» выше.
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>ГОЛОСА ({filteredVoices.length} из {voices.length})</div>
                 <input
