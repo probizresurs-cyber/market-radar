@@ -104,7 +104,7 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
       // nginx 413 Payload Too Large) — иначе JSON.parse падает с
       // криптическим «Unexpected token '<'».
       const rawText = await res.text();
-      let json: { ok: boolean; data?: { heygenAvatarId: string; previewUrl: string; name: string }; error?: string };
+      let json: { ok: boolean; data?: { heygenAvatarId: string; previewUrl: string; name: string; status?: string }; error?: string };
       try { json = JSON.parse(rawText); }
       catch {
         const titleMatch = rawText.match(/<title>([^<]+)<\/title>/i);
@@ -119,7 +119,10 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
         id: `custom-av-${Date.now()}`,
         name: json.data!.name,
         heygenAvatarId: json.data!.heygenAvatarId,
-        status: "ready",
+        // Фото-аватары через /v3/avatars обычно готовы сразу (status
+        // "completed" → "ready"), но не гарантированно мгновенно —
+        // отражаем реальный статус, а не жёстко "ready".
+        status: json.data!.status === "ready" ? "ready" : "processing",
         previewUrl: json.data!.previewUrl || URL.createObjectURL(file),
         createdAt: new Date().toISOString(),
       };
@@ -127,7 +130,9 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
       update({
         customAvatars: nextAvatars,
         avatarId: newAvatar.heygenAvatarId!,
-        avatarType: "talking_photo",
+        // id теперь из /v3/avatars (тот же namespace, что digital twin и
+        // готовые HeyGen-аватары), а не легаси talking_photo_id.
+        avatarType: "preset",
       });
       setPendingAvatarName("");
       setUploadSuccess(`Аватар «${newAvatar.name}» добавлен в библиотеку — можно создавать ещё или сразу снимать видео.`);

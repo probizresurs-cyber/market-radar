@@ -265,12 +265,15 @@ export interface PresentationStyle {
 }
 
 export interface AvatarSettings {
-  avatarId: string;            // HeyGen avatar_id (или talking_photo_id если avatarType = talking_photo)
+  avatarId: string;            // HeyGen avatar_id (/v3/avatars avatar_item.id или id из каталога)
   voiceId: string;             // HeyGen voice_id (используется если voiceProvider = heygen или не задан)
   avatarDescription: string;   // как должен выглядеть аватар (для подсказки в визуале)
   voiceDescription: string;    // каким должен быть голос (тон, темп, эмоция)
   aspect: "portrait" | "landscape";
-  // Тип аватара в HeyGen: preset (стандартный каталог) или talking_photo (свой загруженный).
+  // Тип аватара: preset (каталог HeyGen ИЛИ созданный нами через /v3/avatars —
+  // photo/digital_twin, все три дают id одного формата). "talking_photo"
+  // оставлен только для обратной совместимости со старыми записями в
+  // localStorage, созданными до перехода на v3 (legacy talking_photo_id).
   avatarType?: "preset" | "talking_photo";
   // Откуда берём голос: heygen (TTS через HeyGen) или elevenlabs (клон через ElevenLabs → MP3 → HeyGen asset)
   voiceProvider?: VoiceProvider;
