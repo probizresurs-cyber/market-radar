@@ -198,6 +198,23 @@ export function ContentCalendarView({
     }
   };
 
+  // Автораскладка «не запланированного» банка по датам — закрывает разрыв
+  // между 30-дневным планом Контент-завода (просто список тем без реальных
+  // дат) и этим календарём (даты есть, но расставлять их приходилось вручную
+  // одну за другой). По одному элементу в день начиная с завтра, от старых
+  // идей к новым — свежесгенерированный контент не улетает на конец очереди.
+  const handleAutoSchedule = () => {
+    if (unscheduled.length === 0) return;
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    [...unscheduled].reverse().forEach((it, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString();
+      updateScheduledFor(it, iso);
+    });
+  };
+
   const goTo = (it: SchedulableItem) => {
     switch (it.kind) {
       case "post":     onGoToPost?.(it.item.id); break;
@@ -524,6 +541,19 @@ export function ContentCalendarView({
               >
                 {unscheduled.length}
               </span>
+              {unscheduled.length > 0 && (
+                <button
+                  onClick={handleAutoSchedule}
+                  title="Разложить всё не запланированное по ближайшим дням, начиная с завтра — по одному элементу в день, от старых идей к новым"
+                  style={{
+                    marginLeft: "auto", padding: "5px 12px", borderRadius: 8,
+                    border: "1px solid var(--primary)", background: "transparent",
+                    color: "var(--primary)", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  Разложить по датам →
+                </button>
+              )}
             </div>
             {unscheduled.length === 0 ? (
               <div style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "12px 0" }}>

@@ -207,16 +207,23 @@ export function PostIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
   );
 }
 
-export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }: {
+export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate, onGenerateAndAssemble, assemblingId }: {
   c: Colors;
   idea: ContentReelIdea;
   isGenerating: boolean;
   generatingId: string | null;
   onGenerate: (idea: ContentReelIdea, customPrompt?: string) => void;
+  /** Сценарий + сразу сборка видео (broll-режим, дефолтные настройки) одним
+   *  кликом — без промежуточного захода в таб «Готовые рилсы». Опционален:
+   *  там где колбэка нет (например ContentGeneratorBlock в других табах),
+   *  кнопка просто не показывается. */
+  onGenerateAndAssemble?: (idea: ContentReelIdea) => void;
+  assemblingId?: string | null;
 }) {
   const [showPrompt, setShowPrompt] = useState(false);
   const [prompt, setPrompt] = useState("");
   const busy = isGenerating && generatingId === idea.id;
+  const assembling = assemblingId === idea.id;
 
   const handleOpenPrompt = () => {
     if (!prompt) setPrompt(buildReelPrompt(idea));
@@ -236,10 +243,19 @@ export function ReelIdeaCard({ c, idea, isGenerating, generatingId, onGenerate }
 
       <button
         onClick={() => onGenerate(idea, showPrompt && prompt ? prompt : undefined)}
-        disabled={busy || isGenerating}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
+        disabled={busy || isGenerating || assembling}
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: busy ? "var(--muted)" : "linear-gradient(135deg, #ec4899, #f472b6)", color: busy ? "var(--muted-foreground)" : "#fff", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating || assembling ? "not-allowed" : "pointer", opacity: isGenerating && !busy ? 0.5 : 1, marginBottom: 6 }}>
         {busy ? "Пишем сценарий…" : "Создать сценарий рилса"}
       </button>
+      {onGenerateAndAssemble && (
+        <button
+          onClick={() => onGenerateAndAssemble(idea)}
+          disabled={busy || isGenerating || assembling}
+          title="Сценарий + сразу сборка видео (b-roll, дефолтные настройки) — результат в табе «Готовые рилсы»"
+          style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #8b5cf6", background: assembling ? "var(--muted)" : "color-mix(in srgb, #8b5cf6 8%, transparent)", color: assembling ? "var(--muted-foreground)" : "#8b5cf6", fontWeight: 700, fontSize: 11, cursor: busy || isGenerating || assembling ? "not-allowed" : "pointer", marginBottom: 6 }}>
+          {assembling ? "Собираем видео…" : "🎬 Идея → готовое видео"}
+        </button>
+      )}
       <button
         onClick={handleOpenPrompt}
         style={{ width: "100%", padding: "6px 12px", borderRadius: 7, border: `1px solid var(--border)`, background: showPrompt ? "#ec489912" : "transparent", color: "var(--foreground-secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
@@ -777,7 +793,7 @@ export function ContentGeneratorBlock({ c, plan, isGeneratingPost, generatingPos
 
 // ---------- ContentPlanView ----------
 
-export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages, brandBook, onUpdateBrandBook, currentCompanyName, onRegenerateForCurrentCompany }: {
+export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, isGeneratingReel, generatingReelId, onGeneratePost, onGenerateReel, onGenerateReelAndAssemble, assemblingReelId, avatarSettings, onUpdateAvatarSettings, referenceImages, onUpdateReferenceImages, brandBook, onUpdateBrandBook, currentCompanyName, onRegenerateForCurrentCompany }: {
   c: Colors;
   plan: ContentPlan;
   isGeneratingPost: boolean;
@@ -795,6 +811,9 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
     },
   ) => void;
   onGenerateReel: (idea: ContentReelIdea, customPrompt?: string) => void;
+  /** Сценарий + видео одним кликом прямо с карточки идеи плана. */
+  onGenerateReelAndAssemble?: (idea: ContentReelIdea) => void;
+  assemblingReelId?: string | null;
   avatarSettings: AvatarSettings;
   onUpdateAvatarSettings: (next: AvatarSettings) => void;
   referenceImages: ReferenceImage[];
@@ -908,6 +927,8 @@ export function ContentPlanView({ c, plan, isGeneratingPost, generatingPostId, i
             <ReelIdeaCard key={idea.id} c={c} idea={idea}
               isGenerating={isGeneratingReel} generatingId={generatingReelId}
               onGenerate={onGenerateReel}
+              onGenerateAndAssemble={onGenerateReelAndAssemble}
+              assemblingId={assemblingReelId}
             />
           ))}
         </div>

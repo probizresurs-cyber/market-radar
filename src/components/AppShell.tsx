@@ -474,6 +474,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
   const [generatingReelId, setGeneratingReelId] = useState<string | null>(null);
+  const [assemblingReelId, setAssemblingReelId] = useState<string | null>(null);
   // Progress пакетной генерации из тренда (4 шага). null = модалка скрыта.
   const [packageProgress, setPackageProgress] = useState<PackageProgress | null>(null);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
@@ -2437,6 +2438,111 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     }
   };
 
+  // Идея из плана → сразу готовое видео, одним кликом с карточки идеи.
+  // Раньше это было два ручных шага в разных табах: сначала «Создать
+  // сценарий рилса» здесь, потом отдельно зайти в «Готовые рилсы» и нажать
+  // сборку видео. Тут — то же самое одним вызовом: сценарий → сразу кик
+  // рендера (broll-режим, дефолтные настройки из avatarSettings) → фоновый
+  // поллинг статуса, обновляющий тот же reel по мере готовности.
+  const handleGenerateReelAndAssemble = async (idea: ContentReelIdea) => {
+    if (guardReadOnly("Генерация видео")) return;
+    setAssemblingReelId(idea.id);
+    try {
+      const scenarioRes = await fetch("/api/generate-reel-scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: myCompany?.company.name ?? smmAnalysis?.companyName ?? "",
+          idea,
+          smmAnalysis,
+          brandBook,
+          taSegment: contentTaSegment,
+          voiceDescription: avatarSettings.voiceDescription,
+          avatarDescription: avatarSettings.avatarDescription,
+        }),
+      });
+      const scenarioJson = await jsonOrThrow(scenarioRes);
+      if (!scenarioJson.ok) throw new Error(scenarioJson.error ?? "Ошибка генерации сценария");
+      const reel = scenarioJson.data as GeneratedReel;
+      setGeneratedReels(prev => {
+        const next = [reel, ...prev];
+        persistContent(contentPlanRef.current, generatedPostsRef.current, next);
+        return next;
+      });
+      toast({
+        kind: "success",
+        title: "Сценарий готов, собираем видео…",
+        description: "~3-8 минут. Прогресс — в «Готовые рилсы».",
+        action: { label: "Открыть", onClick: () => setActiveNav("content-reels") },
+      });
+
+      const renderRes = await fetch("/api/content/video/render", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "broll",
+          title: reel.title, scenario: reel.scenario, voiceoverScript: reel.voiceoverScript,
+          companyName: myCompany?.company.name ?? "", companyNiche: myCompany?.company.description ?? "",
+          brandBook,
+          elevenlabsVoiceId: (avatarSettings.voiceProvider === "elevenlabs" && avatarSettings.elevenlabsVoiceId) || undefined,
+          avatarId: avatarSettings.avatarId || undefined,
+          aspect: avatarSettings.aspect,
+          targetDurationSec: reel.durationSec ?? 30,
+          subtitles: true,
+        }),
+      });
+      const renderJson = await jsonOrThrow(renderRes);
+      if (!renderJson.ok) throw new Error(renderJson.error ?? "Не получилось запустить сборку видео");
+      const jobId: string = renderJson.data.jobId;
+
+      // Фоновый поллинг — не блокирует остальную работу в кабинете, юзер
+      // уже может уйти на другой таб (тост выше даёт кнопку вернуться).
+      const poll = async () => {
+        try {
+          const sr = await fetch(`/api/promo-job-status/${jobId}`);
+          const sj = await jsonOrThrow(sr);
+          if (!sj.ok) throw new Error(sj.error ?? "Ошибка статуса");
+          const d = sj.data;
+          if (d.status === "done") {
+            const failedSteps: Array<{ name: string; error?: string }> = (d.progress ?? [])
+              .filter((s: { name: string; status: string }) => s.status === "failed" && (s.name === "stock-videos" || s.name === "avatar"));
+            const warning = failedSteps.length > 0
+              ? failedSteps.map((s) => s.name === "stock-videos" ? "AI-видео сцены не сгенерились — вместо них текстовые карточки" : "аватар не собрался — ролик без говорящей головы").join("; ")
+              : undefined;
+            setGeneratedReels(prev => {
+              const next = prev.map(r => r.id === reel.id ? { ...r, videoUrl: d.result.url, videoStatus: "ready" as const, videoWarning: warning } : r);
+              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
+              return next;
+            });
+            toast({
+              kind: warning ? "error" : "success",
+              title: warning ? "Видео готово, но не всё получилось" : "Видео готово!",
+              description: warning ?? reel.title,
+              action: { label: "Смотреть", onClick: () => setActiveNav("content-reels") },
+            });
+            setAssemblingReelId(null);
+          } else if (d.status === "failed") {
+            setGeneratedReels(prev => {
+              const next = prev.map(r => r.id === reel.id ? { ...r, videoStatus: "failed" as const, videoError: d.error } : r);
+              persistContent(contentPlanRef.current, generatedPostsRef.current, next);
+              return next;
+            });
+            toast({ kind: "error", title: "Сборка видео не удалась", description: d.error ?? "Ошибка", action: { label: "Открыть", onClick: () => setActiveNav("content-reels") } });
+            setAssemblingReelId(null);
+          } else {
+            setTimeout(poll, 4000);
+          }
+        } catch (e) {
+          toast({ kind: "error", title: "Сборка видео не удалась", description: e instanceof Error ? e.message : "Ошибка" });
+          setAssemblingReelId(null);
+        }
+      };
+      setTimeout(poll, 3000);
+    } catch (e) {
+      toast({ kind: "error", title: "Не получилось", description: e instanceof Error ? e.message : "Ошибка" });
+      setAssemblingReelId(null);
+    }
+  };
+
   const handleUpdatePost = (updated: GeneratedPost) => {
     setGeneratedPosts(prev => {
       const next = prev.map(p => p.id === updated.id ? updated : p);
@@ -2984,6 +3090,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
                 generatingReelId={generatingReelId}
                 onGeneratePost={handleGeneratePost}
                 onGenerateReel={handleGenerateReelScenario}
+                onGenerateReelAndAssemble={handleGenerateReelAndAssemble}
+                assemblingReelId={assemblingReelId}
                 avatarSettings={avatarSettings}
                 onUpdateAvatarSettings={handleUpdateAvatarSettings}
                 referenceImages={referenceImages}
