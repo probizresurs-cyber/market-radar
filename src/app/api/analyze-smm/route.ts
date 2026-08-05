@@ -4,6 +4,7 @@ import { getRealVKStats, getRealTelegramStats } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -333,11 +334,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     // Fetch real VK + Telegram data in parallel before calling AI
     const [vkReal, tgReal] = await Promise.all([
       socialLinks.vk?.trim() ? getRealVKStats(socialLinks.vk).catch(() => null) : Promise.resolve(null),
@@ -346,55 +342,18 @@ export async function POST(req: Request) {
 
     const realData: RealSocialData = { vk: vkReal, telegram: tgReal };
 
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 120_000);
-
-    let raw: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: isPersonal ? SYSTEM_PROMPT_PERSONAL : SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: isPersonal
-                ? buildPromptPersonal(companyName, niche || websiteContext, socialLinks, websiteContext, realData)
-                : buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext, realData),
-            },
-          ],
-          temperature: 0.85,
-          max_tokens: 7000,
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        return NextResponse.json(
-          { ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` },
-          { status: 500 },
-        );
-      }
-
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      raw = data.choices[0]?.message?.content ?? "{}";
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    let parsed: Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl" | "realStats">;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (parseErr) {
+    const aiResult = await chatJson<Omit<SMMResult, "generatedAt" | "companyName" | "companyUrl" | "realStats">>({
+      system: isPersonal ? SYSTEM_PROMPT_PERSONAL : SYSTEM_PROMPT,
+      user: isPersonal
+        ? buildPromptPersonal(companyName, niche || websiteContext, socialLinks, websiteContext, realData)
+        : buildPrompt(companyName, companyUrl, niche, socialLinks, websiteContext, realData),
+      model: CHAT_MODEL_SMART,
+      temperature: 0.85,
+      maxTokens: 7000,
+    });
+    if (!aiResult.data) {
       return NextResponse.json(
-        { ok: false, error: `Не удалось распарсить СММ-анализ: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { ok: false, error: `Не удалось получить СММ-анализ: ${aiResult.error ?? "нет ответа модели"}. Preview: ${aiResult.raw.slice(0, 100)}` },
         { status: 500 },
       );
     }
@@ -403,7 +362,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
       companyName,
       companyUrl,
-      ...parsed,
+      ...aiResult.data,
       // Store real stats so UI can display them
       realStats: {
         vk: vkReal ?? undefined,
@@ -411,7 +370,7 @@ export async function POST(req: Request) {
       },
     };
 
-    await access.log({ endpoint: isPersonal ? "analyze-smm-personal" : "analyze-smm", model: "gpt-4o-mini" });
+    await access.log({ endpoint: isPersonal ? "analyze-smm-personal" : "analyze-smm", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const { message, status } = friendlyAiError(err);

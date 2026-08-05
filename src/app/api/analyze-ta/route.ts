@@ -3,6 +3,7 @@ import type { TAResult, TAAudienceType } from "@/lib/ta-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 // КРИТИЧНО: gpt-4o-mini с большим system_prompt + max_tokens 16000 может
 // тратить 60-150 секунд. Без явного maxDuration Next.js резал на 60 сек,
@@ -488,14 +489,6 @@ export async function POST(req: Request) {
 
     const audienceType: TAAudienceType = audienceTypeRaw === "b2b" ? "b2b" : "b2c";
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 120_000);
-
     let systemPrompt: string;
     let userPrompt: string;
     if (isPersonal) {
@@ -509,48 +502,16 @@ export async function POST(req: Request) {
       userPrompt = buildPromptB2C(companyName ?? "", companyUrl ?? "", niche, extraContext ?? "");
     }
 
-    let raw: string;
-    try {
-      const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.85,
-          // 8000 даёт baseline на 3 детальных сегмента. Раньше было 16000
-          // но gpt-4o-mini на таком max_tokens может тратить 100-150 сек →
-          // упирался в maxDuration. 8000 → 40-60 сек, влезает в 180 maxDuration
-          // с большим запасом. Если будет обрываться JSON — поднимем до 10000.
-          max_tokens: 8000,
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-      }
-
-      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-      raw = data.choices[0]?.message?.content ?? "{}";
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    let parsed: Omit<TAResult, "generatedAt" | "companyName" | "companyUrl">;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (parseErr) {
+    const aiResult = await chatJson<Omit<TAResult, "generatedAt" | "companyName" | "companyUrl">>({
+      system: systemPrompt,
+      user: userPrompt,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.85,
+      maxTokens: 8000,
+    });
+    if (!aiResult.data) {
       return NextResponse.json(
-        { ok: false, error: `Не удалось распарсить анализ ЦА: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Preview: ${raw.slice(0, 100)}` },
+        { ok: false, error: `Не удалось получить анализ ЦА: ${aiResult.error ?? "нет ответа модели"}. Preview: ${aiResult.raw.slice(0, 100)}` },
         { status: 500 },
       );
     }
@@ -559,11 +520,11 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
       companyName: companyName ?? "",
       companyUrl: companyUrl ?? "",
-      ...parsed,
+      ...aiResult.data,
       audienceType,
     };
 
-    await access.log({ endpoint: isPersonal ? "analyze-ta-personal" : "analyze-ta", model: `gpt-4o-${isPersonal ? "personal" : audienceType}` });
+    await access.log({ endpoint: isPersonal ? "analyze-ta-personal" : "analyze-ta", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const { message, status } = friendlyAiError(err);
