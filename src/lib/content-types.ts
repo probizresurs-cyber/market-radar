@@ -205,6 +205,12 @@ export interface GeneratedReel {
   videoStatus: ReelVideoStatus;
   videoUrl?: string;
   videoError?: string;
+  /** Ролик собрался (videoStatus=ready), но best-effort шаг деградировал —
+   *  например AI b-roll не сгенерился (кончился баланс Replicate) и вместо
+   *  видео-вставок стоят текстовые карточки. Отличает «готово, но не то,
+   *  что заказали» от полного успеха — раньше такая деградация проходила
+   *  молча, юзер не понимал почему в ролике нет обещанных сцен. */
+  videoWarning?: string;
   generatedAt: string;
   metrics?: ReelMetrics;
   /** Запланированная дата публикации (ISO). Используется календарём. */

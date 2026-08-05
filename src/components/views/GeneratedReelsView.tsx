@@ -125,7 +125,19 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
           const lastStep = d.progress?.[d.progress.length - 1];
           if (lastStep) setMontageStep(`Шаг «${lastStep.name}»: ${lastStep.status === "ok" ? "готово" : lastStep.status === "failed" ? "не получилось (продолжаем)" : "работаем…"}`);
           if (d.status === "done") {
-            onUpdate({ ...reel, videoUrl: d.result.url, videoStatus: "ready" });
+            // Шаги b-roll/avatar — best-effort: провал не валит весь job (status
+            // всё равно "done"), но ролик выходит не таким, каким его заказали —
+            // без AI-видео (только карточки) или без говорящей головы. Раньше
+            // это проходило молча; теперь явно показываем, что деградировало.
+            const failedSteps: Array<{ name: string; error?: string }> = (d.progress ?? [])
+              .filter((s: { name: string; status: string }) => s.status === "failed" && (s.name === "stock-videos" || s.name === "avatar"));
+            const warning = failedSteps.length > 0
+              ? failedSteps.map(s => {
+                  const label = s.name === "stock-videos" ? "AI-видео сцены не сгенерились — вместо них текстовые карточки" : "аватар не собрался — ролик без говорящей головы";
+                  return s.error ? `${label} (${s.error.slice(0, 140)})` : label;
+                }).join("; ")
+              : undefined;
+            onUpdate({ ...reel, videoUrl: d.result.url, videoStatus: "ready", videoWarning: warning });
             setMontageBusy(false); setMontageStep(null);
           } else if (d.status === "failed") {
             setMontageError(d.error || "Сборка не удалась"); setMontageBusy(false); setMontageStep(null);
@@ -512,6 +524,14 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
 
           {reel.videoStatus === "failed" && reel.videoError && (
             <div style={{ background: "color-mix(in oklch, var(--destructive) 8%, transparent)", color: "var(--destructive)", padding: "10px 14px", borderRadius: 10, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><X size={14}/> {reel.videoError}</div>
+          )}
+
+          {/* Ролик готов, но best-effort шаг (b-roll/аватар) деградировал —
+              не ошибка сборки, но результат не такой, каким его заказали. */}
+          {reel.videoStatus === "ready" && reel.videoWarning && (
+            <div style={{ background: "color-mix(in oklch, #f59e0b 10%, transparent)", color: "#b45309", padding: "10px 14px", borderRadius: 10, fontSize: 12.5, marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 8, lineHeight: 1.5 }}>
+              <span style={{ flexShrink: 0 }}>⚠</span> {reel.videoWarning}
+            </div>
           )}
 
           {/* ── B-roll: план сцен для video-agent ─────────────────
