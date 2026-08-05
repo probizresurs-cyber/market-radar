@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import type { BrandBook } from "@/lib/content-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { chatText, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,11 +35,6 @@ export async function POST(req: Request) {
     const pillars: Array<{ name: string; description: string; share: string }> = body.pillars ?? [];
     const smmContext: string = body.smmContext ?? ""; // brief SMM summary if available
     const brandBook: BrandBook | null = body.brandBook ?? null;
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
 
     const pillarsText = pillars.map(p => `• ${p.name} (${p.share}): ${p.description}`).join("\n");
 
@@ -95,41 +91,28 @@ export async function POST(req: Request) {
       `Тип: ${type === "post" ? "пост" : "рилс"}`,
     ].filter(Boolean).join("\n\n");
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMsg },
-        ],
-        temperature: 0.75,
-        max_tokens: 900,
-      }),
+    const aiResult = await chatText({
+      system: systemPrompt,
+      user: userMsg,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.75,
+      maxTokens: 900,
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${err.slice(0, 200)}` }, { status: 500 });
+    const prompt = aiResult.text.trim();
+    if (!prompt) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Модель не ответила" }, { status: 500 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const prompt = data.choices[0]?.message?.content?.trim() ?? "";
 
     await access.log({
       endpoint: "expand-prompt",
-      model: "gpt-4o-mini",
+      model: aiResult.modelUsed,
       promptTokens: estimateTokens(systemPrompt + userMsg),
       completionTokens: estimateTokens(prompt),
     });
     return NextResponse.json({ ok: true, prompt });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "expand-prompt", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "expand-prompt", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

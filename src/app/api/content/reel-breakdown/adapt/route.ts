@@ -3,6 +3,7 @@ import type { GeneratedReel, BrandBook, ReelBreakdown } from "@/lib/content-type
 import type { SMMResult } from "@/lib/smm-types";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 /**
  * POST /api/content/reel-breakdown/adapt
@@ -70,11 +71,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не передано название компании" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     const smmBlock = smm ? `\nБренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}\nТон: ${smm.brandIdentity.toneOfVoice.join(", ")}\n` : "";
     const structureBlock = breakdown.structure.map(b => `[${b.timeRange}] ${b.beat} — ${b.description}`).join("\n");
 
@@ -92,29 +88,17 @@ CTA оригинала: ${breakdown.cta || "нет"}
 
 Напиши новый сценарий по инструкции.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.85,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(90000),
+    const aiResult = await chatJson<{ title: string; scenario: string; voiceoverScript: string; hashtags: string[] }>({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.85,
+      maxTokens: 4096,
     });
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
+    if (!aiResult.data) {
+      return NextResponse.json({ ok: false, error: `Не удалось адаптировать сценарий: ${aiResult.error ?? "нет ответа модели"}` }, { status: 500 });
     }
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      title: string; scenario: string; voiceoverScript: string; hashtags: string[];
-    };
+    const parsed = aiResult.data;
 
     const result: GeneratedReel = {
       id: `reel-${Date.now()}`,
@@ -129,7 +113,7 @@ CTA оригинала: ${breakdown.cta || "нет"}
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "reel-breakdown-adapt", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "reel-breakdown-adapt", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

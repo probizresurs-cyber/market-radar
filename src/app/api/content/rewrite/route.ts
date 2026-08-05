@@ -5,6 +5,7 @@ import type { GeneratedPost, BrandBook } from "@/lib/content-types";
 import type { SMMResult } from "@/lib/smm-types";
 import type { TASegment } from "@/lib/ta-types";
 import { buildSegmentBlock } from "@/lib/ta-segment-prompt";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 /**
  * POST /api/content/rewrite — рерайт ЧУЖОГО текста (пост/сценарий/статья
@@ -65,11 +66,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Не передано название компании" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
     const smmBlock = smm ? `\nБренд: ${smm.brandIdentity.archetype} · ${smm.brandIdentity.positioning}\nТон: ${smm.brandIdentity.toneOfVoice.join(", ")}\n` : "";
     const brandLines: string[] = [];
     if (brandBook?.brandName) brandLines.push(`Бренд: ${brandBook.brandName}`);
@@ -88,31 +84,16 @@ ${sourceText.slice(0, 6000)}
 ${smmBlock}${brandBlock}${buildSegmentBlock(taSegment)}
 Напиши новый текст по инструкции.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.85,
-        max_tokens: 3000,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(80000),
+    const aiResult = await chatJson<{ hook?: string; body?: string; hashtags?: string[]; mechanicsNote?: string }>({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.85,
+      maxTokens: 3000,
     });
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-    }
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      hook?: string; body?: string; hashtags?: string[]; mechanicsNote?: string;
-    };
-    if (!parsed.body) {
-      return NextResponse.json({ ok: false, error: "Пустой ответ модели — попробуйте ещё раз" }, { status: 502 });
+    const parsed = aiResult.data;
+    if (!parsed?.body) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Пустой ответ модели — попробуйте ещё раз" }, { status: 502 });
     }
 
     const post: GeneratedPost = {
@@ -127,7 +108,7 @@ ${smmBlock}${brandBlock}${buildSegmentBlock(taSegment)}
       generatedAt: new Date().toISOString(),
     };
 
-    await access.log({ endpoint: "content-rewrite", model: "gpt-4o-mini" });
+    await access.log({ endpoint: "content-rewrite", model: aiResult.modelUsed });
     return NextResponse.json({ ok: true, data: post, mechanicsNote: parsed.mechanicsNote ?? "" });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

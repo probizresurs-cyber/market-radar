@@ -3,6 +3,7 @@ import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { fetchYouTubeTranscript, transcribeWithWhisper, MAX_UPLOAD_BYTES } from "@/lib/reel-transcribe";
 import type { ReelBreakdown } from "@/lib/content-types";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 /**
  * POST /api/content/reel-breakdown
@@ -103,37 +104,22 @@ export async function POST(req: Request) {
     // Грубый защитный кап — очень длинные транскрипты (>1 часа) режем, чтобы не разнести контекст промпта.
     const clipped = transcript.length > 40_000 ? transcript.slice(0, 40_000) : transcript;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
-
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Транскрипт ролика «${sourceTitle}»:\n\n${clipped}` },
-        ],
-        temperature: 0.4,
-        max_tokens: 2500,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(90000),
-    });
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-    }
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const raw = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as {
+    const aiResult = await chatJson<{
       hookText?: string; hookWhy?: string;
       structure?: ReelBreakdown["structure"];
       retentionTricks?: string[]; cta?: string; whyItWorks?: string;
-    };
+    }>({
+      system: SYSTEM_PROMPT,
+      user: `Транскрипт ролика «${sourceTitle}»:\n\n${clipped}`,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.4,
+      maxTokens: 2500,
+    });
+    if (!aiResult.data) {
+      return NextResponse.json({ ok: false, error: `Не удалось разобрать ролик: ${aiResult.error ?? "нет ответа модели"}` }, { status: 500 });
+    }
+    const parsed = aiResult.data;
+    const raw = aiResult.raw;
 
     const breakdown: ReelBreakdown = {
       sourceType, sourceTitle, sourceUrl,
@@ -148,7 +134,7 @@ export async function POST(req: Request) {
 
     await access.log({
       endpoint: "reel-breakdown",
-      model: "gpt-4o-mini" + (sourceType === "upload" ? "+whisper-1" : ""),
+      model: aiResult.modelUsed + (sourceType === "upload" ? "+whisper-1" : ""),
       promptTokens: estimateTokens(SYSTEM_PROMPT + clipped),
       completionTokens: estimateTokens(raw),
     });
@@ -156,7 +142,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, breakdown });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "reel-breakdown", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "reel-breakdown", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
