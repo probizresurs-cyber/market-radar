@@ -88,3 +88,49 @@ export async function chatJson<T>(opts: ChatOpts): Promise<ChatJsonResult<T>> {
     error: parsed ? undefined : "ответ модели не распарсился как JSON",
   };
 }
+
+/** MIME-типы, которые принимает Claude vision (тот же список, что у SDK). */
+export type VisionMimeType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+/**
+ * Ответ в виде JSON по картинке (замена OpenAI `image_url` контента) —
+ * формат сообщения у Claude другой: `{type:"image", source:{type:"base64",...}}`
+ * вместо `{type:"image_url", image_url:{url:"data:..."}}`.
+ */
+export async function chatJsonVision<T>(opts: {
+  system: string;
+  userText: string;
+  imageBase64: string;
+  mimeType: VisionMimeType;
+  maxTokens: number;
+  model?: string;
+  temperature?: number;
+}): Promise<ChatJsonResult<T>> {
+  const system = opts.system.includes("JSON")
+    ? opts.system
+    : `${opts.system}\n\nОтвечай СТРОГО валидным JSON без markdown и без пояснений.`;
+
+  const r = await safeAnthropicCreate({
+    model: opts.model ?? CHAT_MODEL_FAST,
+    max_tokens: opts.maxTokens,
+    system,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: opts.userText },
+        { type: "image", source: { type: "base64", media_type: opts.mimeType, data: opts.imageBase64 } },
+      ],
+    }],
+    ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+  });
+
+  if (!r.text) return { data: null, raw: "", modelUsed: r.modelUsed, error: r.error ?? "модель не ответила" };
+
+  const parsed = extractJson<T>(r.text);
+  return {
+    data: parsed,
+    raw: r.text,
+    modelUsed: r.modelUsed,
+    error: parsed ? undefined : "ответ модели не распарсился как JSON",
+  };
+}

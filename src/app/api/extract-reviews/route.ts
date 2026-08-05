@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Review } from "@/lib/review-types";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { chatJson, chatJsonVision, CHAT_MODEL_SMART, type VisionMimeType } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -36,55 +37,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Нет данных для извлечения" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
+    type ParsedReviews = { platform: string; reviews: Array<{ author: string; rating: number; text: string; date: string; reply?: string }> };
 
-    const messages: Array<{ role: string; content: unknown }> = [
-      { role: "system", content: SYSTEM_PROMPT },
-    ];
-
+    let aiResult: { data: ParsedReviews | null; raw: string; modelUsed: string; error?: string };
     if (screenshot) {
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: "Извлеки все отзывы из этого скриншота. Определи платформу по дизайну." },
-          { type: "image_url", image_url: { url: screenshot, detail: "high" } },
-        ],
+      // screenshot приходит как data URL ("data:image/png;base64,...") — Claude
+      // vision, в отличие от OpenAI image_url, хочет mime и base64 раздельно.
+      const m = screenshot.match(/^data:([^;]+);base64,(.+)$/s);
+      if (!m) {
+        return NextResponse.json({ ok: false, error: "Скриншот должен быть data URL (data:image/...;base64,...)" }, { status: 400 });
+      }
+      const allowedMime: VisionMimeType[] = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      const mimeType = (allowedMime as string[]).includes(m[1]) ? (m[1] as VisionMimeType) : "image/png";
+      aiResult = await chatJsonVision<ParsedReviews>({
+        system: SYSTEM_PROMPT,
+        userText: "Извлеки все отзывы из этого скриншота. Определи платформу по дизайну.",
+        imageBase64: m[2],
+        mimeType,
+        model: CHAT_MODEL_SMART,
+        temperature: 0.2,
+        maxTokens: 4000,
       });
     } else {
-      messages.push({
-        role: "user",
-        content: `Извлеки все отзывы из этого текста. Определи платформу если возможно.\n\n${pastedText}`,
+      aiResult = await chatJson<ParsedReviews>({
+        system: SYSTEM_PROMPT,
+        user: `Извлеки все отзывы из этого текста. Определи платформу если возможно.\n\n${pastedText}`,
+        model: CHAT_MODEL_SMART,
+        temperature: 0.2,
+        maxTokens: 4000,
       });
     }
-
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.2,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
+    if (!aiResult.data) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Не удалось извлечь отзывы" }, { status: 500 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const parsed = JSON.parse(data.choices[0]?.message?.content ?? "{}") as {
-      platform: string;
-      reviews: Array<{ author: string; rating: number; text: string; date: string; reply?: string }>;
-    };
+    const parsed = aiResult.data;
 
     const reviews: Review[] = (parsed.reviews ?? []).map((r, i) => ({
       id: `rev-${Date.now()}-${i}`,
@@ -96,12 +82,11 @@ export async function POST(req: Request) {
       reply: r.reply,
     }));
 
-    const rawContent = data.choices[0]?.message?.content ?? "";
     await access.log({
       endpoint: "extract-reviews",
-      model: "gpt-4o-mini",
+      model: aiResult.modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + (pastedText ?? "")) + (screenshot ? 1000 : 0),
-      completionTokens: estimateTokens(rawContent),
+      completionTokens: estimateTokens(aiResult.raw),
     });
     return NextResponse.json({
       ok: true,
@@ -109,7 +94,7 @@ export async function POST(req: Request) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "extract-reviews", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "extract-reviews", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

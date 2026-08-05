@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess, estimateTokens } from "@/lib/with-ai-security";
+import { chatJsonVision, CHAT_MODEL_SMART, type VisionMimeType } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,11 +33,8 @@ export async function POST(req: Request) {
     if (!imageBase64) {
       return NextResponse.json({ ok: false, error: "Не передан скриншот" }, { status: 400 });
     }
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "OpenAI API key не настроен" }, { status: 500 });
-    }
+    const allowedMime: VisionMimeType[] = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const visionMime = (allowedMime as string[]).includes(mimeType) ? (mimeType as VisionMimeType) : "image/png";
 
     const fieldsHint = contentType === "reel"
       ? `{
@@ -69,41 +67,20 @@ ${fieldsHint}
 
 Включай только те поля, которые реально видны на скрине. Если метрика не видна — НЕ добавляй её. Не выдумывай.`;
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}`, detail: "high" } },
-            ],
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 800,
-        response_format: { type: "json_object" },
-      }),
+    const aiResult = await chatJsonVision<Record<string, unknown>>({
+      system: SYSTEM_PROMPT,
+      userText: userPrompt,
+      imageBase64,
+      mimeType: visionMime,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.1,
+      maxTokens: 800,
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json(
-        { ok: false, error: `OpenAI error ${res.status}: ${errBody.slice(0, 200)}` },
-        { status: 500 },
-      );
+    if (!aiResult.data) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Не удалось распознать метрики" }, { status: 500 });
     }
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    const raw = data.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const parsed = aiResult.data;
+    const raw = aiResult.raw;
 
     // Если модель сказала что нет метрик
     if (parsed.ok === false) {
@@ -127,7 +104,7 @@ ${fieldsHint}
 
     await access.log({
       endpoint: "extract-metrics",
-      model: "gpt-4o-mini",
+      model: aiResult.modelUsed,
       // Vision images are ~1000 tokens regardless of text length
       promptTokens: estimateTokens(userPrompt + SYSTEM_PROMPT) + 1000,
       completionTokens: estimateTokens(raw),
@@ -135,7 +112,7 @@ ${fieldsHint}
     return NextResponse.json({ ok: true, data: result });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    await access.log({ endpoint: "extract-metrics", model: "gpt-4o-mini", success: false, errorMessage: msg.slice(0, 200) });
+    await access.log({ endpoint: "extract-metrics", model: "claude", success: false, errorMessage: msg.slice(0, 200) });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

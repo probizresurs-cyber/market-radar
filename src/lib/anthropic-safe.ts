@@ -59,11 +59,19 @@ const HTML_ERROR_PATTERN = /Unexpected token '?<'?|"<html|is not valid JSON/i;
 
 export type AnthropicModelName = string;
 
+/** Контент-блок сообщения — текст или картинка (vision). */
+export type MessageContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } }
+    >;
+
 interface SafeCreateOpts {
   model: AnthropicModelName;
   max_tokens: number;
   system?: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: Array<{ role: "user" | "assistant"; content: MessageContent }>;
   /** Список fallback-моделей. По умолчанию — Sonnet для Haiku и наоборот. */
   fallbackModels?: AnthropicModelName[];
   /** Опц temperature (по умолчанию SDK-default = 1). */
