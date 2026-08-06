@@ -56,7 +56,38 @@ export function mirrorEntries(uid: string): MirrorEntry[] {
     // результат — второй слот терялся между устройствами.
     { ls: `mr_ta_${uid}_b2c`, server: "m_taB2c" },
     { ls: `mr_ta_${uid}_b2b`, server: "m_taB2b" },
+    // AI-саммари дашбордов (AISummary.tsx) — кэш без userId-суффикса
+    // (компонент его не передаёт), но /api/data и так скопирован по сессии.
+    { ls: "mr_aisum_company", server: "m_aisumCompany" },
+    { ls: "mr_aisum_ta", server: "m_aisumTa" },
+    { ls: "mr_aisum_smm", server: "m_aisumSmm" },
+    { ls: "mr_aisum_reviews", server: "m_aisumReviews" },
+    // Тестовая админка промо-роликов (/admin/promo-reels) — та же сессия
+    // (getSessionUser), ключи без userId-суффикса.
+    { ls: "mr_admin_promo_reel_form", server: "m_adminPromoReelForm" },
+    { ls: "mr_admin_promo_reels", server: "m_adminPromoReels" },
   ];
+}
+
+// Офферы конкурентов (CompetitorProfileView/DashboardView) — ключ
+// mr_offers_<company.url||name> для произвольного числа компаний
+// (своя + N конкурентов), заранее неизвестных. Фиксированный список
+// mirrorEntries() тут не подходит — сканируем localStorage по префиксу.
+const SCAN_PREFIXES = ["mr_offers_"];
+const SCAN_SERVER_PREFIX = "m_scan_";
+
+function scannedLocalEntries(): MirrorEntry[] {
+  if (typeof window === "undefined") return [];
+  const out: MirrorEntry[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const ls = localStorage.key(i);
+      if (ls && SCAN_PREFIXES.some((p) => ls.startsWith(p))) {
+        out.push({ ls, server: SCAN_SERVER_PREFIX + ls });
+      }
+    }
+  } catch { /* ignore */ }
+  return out;
 }
 
 interface Wrapped { t: number; v: string }
@@ -105,41 +136,54 @@ export async function hydrateMirror(uid: string): Promise<void> {
   const meta = readMeta(uid);
   let metaDirty = false;
 
-  for (const entry of mirrorEntries(uid)) {
+  const applyEntry = (entry: MirrorEntry) => {
     const remote = serverData[entry.server];
-    if (!isWrapped(remote)) continue;
+    if (!isWrapped(remote)) return;
     const local = localStorage.getItem(entry.ls);
     const m = meta[entry.server];
 
     if (local === null) {
       // Нового устройства/браузера случай — просто раскладываем.
-      try { localStorage.setItem(entry.ls, remote.v); } catch { continue; }
+      try { localStorage.setItem(entry.ls, remote.v); } catch { return; }
       meta[entry.server] = { h: hash(remote.v), t: remote.t };
       metaDirty = true;
-      continue;
+      return;
     }
 
     const localHash = hash(local);
     if (localHash === hash(remote.v)) {
       if (!m || m.t !== remote.t) { meta[entry.server] = { h: localHash, t: remote.t }; metaDirty = true; }
-      continue;
+      return;
     }
     // Расхождение. Локальные незапушенные правки (hash != последнего синка)
     // побеждают всегда — их подхватит ближайший push-тик.
     const hasUnpushedLocal = !m || m.h !== localHash;
     if (!hasUnpushedLocal && remote.t > (m?.t ?? 0)) {
-      try { localStorage.setItem(entry.ls, remote.v); } catch { continue; }
+      try { localStorage.setItem(entry.ls, remote.v); } catch { return; }
       meta[entry.server] = { h: hash(remote.v), t: remote.t };
       metaDirty = true;
     }
+  };
+
+  for (const entry of mirrorEntries(uid)) applyEntry(entry);
+
+  // Скан-ключи (mr_offers_*): объединяем то, что уже есть локально, с тем,
+  // что сервер знает, но локально ещё не появилось (новое устройство).
+  const scanEntries = new Map(scannedLocalEntries().map((e) => [e.server, e]));
+  for (const serverKey of Object.keys(serverData)) {
+    if (serverKey.startsWith(SCAN_SERVER_PREFIX) && !scanEntries.has(serverKey)) {
+      scanEntries.set(serverKey, { ls: serverKey.slice(SCAN_SERVER_PREFIX.length), server: serverKey });
+    }
   }
+  for (const entry of scanEntries.values()) applyEntry(entry);
+
   if (metaDirty) writeMeta(uid, meta);
 }
 
 async function pushChanged(uid: string): Promise<void> {
   const meta = readMeta(uid);
   let metaDirty = false;
-  for (const entry of mirrorEntries(uid)) {
+  for (const entry of [...mirrorEntries(uid), ...scannedLocalEntries()]) {
     let local: string | null = null;
     try { local = localStorage.getItem(entry.ls); } catch { continue; }
     if (local === null) continue;

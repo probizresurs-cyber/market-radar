@@ -13,7 +13,7 @@ MarketRadar — SaaS-платформа для конкурентного ана
 - генерирует брендбук и бренд-презентацию
 - экспортирует результаты в PDF / PPTX
 
-Все данные хранятся в `localStorage` (мультиаккаунт по `userId`). Бэкенд — только API-routes.
+Данные хранятся в Postgres (таблица `user_data`, key/value JSONB по `userId`) — при загрузке страницы сервер приоритетнее localStorage, который служит write-through кэшем/офлайн-фолбэком, а не источником правды. Мультиаккаунт и шеринг воркспейсов (приглашения, роли editor/viewer) работают поверх этого же слоя. См. раздел «Хранилище данных» ниже — здесь раньше было написано «БД нет», это устарело.
 
 ---
 
@@ -23,13 +23,13 @@ MarketRadar — SaaS-платформа для конкурентного ана
 |---|---|
 | Фреймворк | Next.js 16.2.2 (App Router, `"use client"`) |
 | UI | React 19 + inline styles (no CSS framework) |
-| AI | Claude claude-sonnet-4-6 (основной), GPT-4o (резервный), Gemini (опционально) |
+| AI | Claude (единственный текстовый + vision провайдер во всём контент-пайплайне), Gemini (опционально) |
 | Презентации | `pptxgenjs` (серверный, `runtime = "nodejs"`) |
 | Видео-аватар | HeyGen API |
 | Карты/отзывы | Google Places API, Yandex Maps Search API, 2GIS Catalog API |
 | Уведомления | Telegram Bot API (webhooks) |
 | Деплой | Собственный VPS (Moscow, Node.js + PM2, `.env` файл) |
-| Хранилище | localStorage (client-side, per userId) |
+| Хранилище | PostgreSQL (`user_data` key/value JSONB, per userId) + localStorage как write-through кэш |
 
 ---
 
@@ -159,7 +159,7 @@ src/
 ### Система
 | Модуль | Статус |
 |---|---|
-| Мультиаккаунт (localStorage, без бэкенд-БД) | ✅ Готово |
+| Мультиаккаунт с DB-синком между устройствами + шеринг воркспейсов (editor/viewer) | ✅ Готово |
 | Telegram-уведомления (анализ, конкуренты, дайджест) | ✅ Готово |
 | Светлая / тёмная тема | ✅ Готово |
 | Настройки аккаунта | ✅ Готово |
@@ -167,25 +167,26 @@ src/
 
 ---
 
-## База данных
+## Хранилище данных
 
-**БД нет.** Всё хранится в `localStorage` браузера по ключам:
+**БД есть** (Postgres). Раздел ниже раньше был озаглавлен «БД нет» — это было устаревшим описанием, оставшимся с ранней стадии проекта.
 
-| Ключ | Данные |
-|---|---|
-| `mr_users` | Массив аккаунтов `UserAccount[]` |
-| `mr_current_user` | ID текущего пользователя |
-| `mr_company_${userId}` | Результат анализа компании `AnalysisResult` |
-| `mr_competitors_${userId}` | Массив `AnalysisResult[]` конкурентов |
-| `mr_ta_${userId}` | Результат анализа ЦА `TAResult` |
-| `mr_smm_${userId}` | Результат анализа СММ `SMMResult` |
-| `mr_content_${userId}` | `{ plan, posts, reels }` |
-| `mr_brandbook_${userId}` | `BrandBook` (цвета, шрифты, тон голоса) |
-| `mr_brandsug_${userId}` | AI-рекомендации по брендбуку из ЦА |
-| `mr_stories_${userId}` | `GeneratedStory[]` |
-| `mr_analysis_history_${userId}` | История предыдущих анализов |
-| `mr_avatar_settings_${userId}` | Настройки HeyGen-аватара |
-| `mr_tg_chatid_${userId}` | Telegram Chat ID для уведомлений |
+Основной механизм — generic key/value store, таблица `user_data`:
+
+```sql
+user_data (id, user_id, key TEXT, value JSONB, updated_at, UNIQUE(user_id, key))
+```
+
+- `GET/POST/DELETE /api/data` — читает/пишет по `(userId, key)`.
+- `syncToServer` (`src/lib/user.ts`) и `mirror-sync.ts` — покрывают ~35 типов контента (компания, конкуренты, ЦА, СММ, контент-план, посты/рилсы/сторис/карусели, брендбук, история анализов, настройки аватара и т.д.) — те же ключи, что раньше жили только в `localStorage` (`mr_company_*`, `mr_ta_*`, `mr_content_*`, …).
+- При загрузке страницы приоритет — сервер: `get(key) ?? JSON.parse(localStorage...)`. `localStorage` остаётся write-through кэшем и офлайн-фолбэком, не источником правды.
+- Известные 3 пробела, ещё не заведённые в `user_data` (localStorage-only): `mr_offers_*` (офферы конкурентов), `mr_admin_promo_reel_form`/`mr_admin_promo_reels` (админка промо-роликов), `mr_aisum_*` (AI-саммари дашборда).
+
+Дополнительные таблицы:
+
+- `workspace_members`, `workspace_invites` — шеринг воркспейса между пользователями (роли `editor`/`viewer`, `workspaceId === user.id` владельца); `/api/workspace/{list,invite,accept,members,snapshot}`.
+- `scheduled_posts` (`id, user_id, kind, payload, platforms, scheduled_for, status, ...`) — очередь автопубликации постов/рилсов/сторис/каруселей; `kind IN ('post','reel','story','carousel')`.
+- `agent_runs` — запуски фоновых агентов (автопубликатор и др.), inbox-карточки, approve/dismiss.
 
 ---
 
@@ -232,6 +233,6 @@ DADATA_API_KEY=           # DaData (реквизиты компаний РФ)
 | 2 | Общий дизайн интерфейса требует улучшения (Typography, spacing, visual polish) | 🔧 В работе |
 | 3 | CSS-рендер слайдов презентации — дальнейший полиш дизайна | 🔧 В работе |
 | 4 | `page.tsx` ~9500 строк — нужна декомпозиция на компоненты | 📋 Технический долг |
-| 5 | Нет настоящего бэкенда: данные теряются при смене браузера/устройства | 📋 Технический долг |
+| 5 | 3 типа данных ещё не заведены в `user_data` и теряются при смене браузера/устройства: `mr_offers_*`, `mr_admin_promo_reel_form`/`mr_admin_promo_reels`, `mr_aisum_*` (остальной контент синкается через БД, см. «Хранилище данных») | 🔧 В работе |
 | 6 | HeyGen видео-генерация может занимать 2-5 минут (статус поллинг) | Ограничение API |
 | 7 | Лендинг/сайт из данных анализа — не реализован | 📋 Планируется |

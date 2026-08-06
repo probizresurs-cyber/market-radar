@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import AdminNav from "../components/AdminNav";
+import { hydrateMirror, startMirrorPush } from "@/lib/mirror-sync";
 
 interface ReelHistoryItem {
   id: string;
@@ -379,16 +380,29 @@ export default function PromoReelsAdminPage() {
   const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
   const [voicePreviewScript, setVoicePreviewScript] = useState<string>(""); // итоговый скрипт из превью
 
-  // Восстанавливаем форму и историю из localStorage
+  // Форма и история раньше жили только в localStorage — терялись при смене
+  // браузера/устройства. Гидрируем с сервера (mirror-sync) ДО чтения
+  // localStorage, чтобы подхватить более свежую копию с другого устройства.
   useEffect(() => {
-    try {
-      const savedForm = localStorage.getItem(FORM_KEY);
-      if (savedForm) setForm({ ...DEFAULT_FORM, ...JSON.parse(savedForm) });
-      const savedHistory = localStorage.getItem(HISTORY_KEY);
-      if (savedHistory) setHistory(JSON.parse(savedHistory));
-    } catch {
-      // невалидный JSON в localStorage — игнорируем
-    }
+    (async () => {
+      try {
+        const meRes = await fetch("/api/auth/me", { credentials: "include" });
+        const meJson = await meRes.json();
+        if (meJson.ok && meJson.user?.id) {
+          await hydrateMirror(meJson.user.id).catch(() => {});
+          startMirrorPush(meJson.user.id);
+        }
+      } catch { /* офлайн/ошибка — работаем с тем что есть локально */ }
+
+      try {
+        const savedForm = localStorage.getItem(FORM_KEY);
+        if (savedForm) setForm({ ...DEFAULT_FORM, ...JSON.parse(savedForm) });
+        const savedHistory = localStorage.getItem(HISTORY_KEY);
+        if (savedHistory) setHistory(JSON.parse(savedHistory));
+      } catch {
+        // невалидный JSON в localStorage — игнорируем
+      }
+    })();
   }, []);
 
   // Тикаем elapsed-таймер пока идёт рендер — даём юзеру ощущение что
@@ -782,7 +796,7 @@ export default function PromoReelsAdminPage() {
                 onChange={(e) => saveForm({ ...form, useStockVideos: e.target.checked })}
               />
               <label htmlFor="useStock" style={S.checkboxLabel}>
-                Стоковые видео из Pexels {form.includeBroll ? "(микс 50/50 с b-roll)" : "(заменяет b-roll)"}
+                Стоковые видео из Pexels {(form.includeBrollCorners || form.includeBrollFullscreen) ? "(микс 50/50 с b-roll)" : "(заменяет b-roll)"}
               </label>
             </div>
 
