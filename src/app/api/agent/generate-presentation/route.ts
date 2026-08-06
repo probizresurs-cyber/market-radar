@@ -28,12 +28,22 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { join } from "path";
+import { homedir } from "os";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
 // Absolute path to the helper scripts directory (deployed alongside the app)
 const HELPER_DIR = join(process.cwd(), "agent-helpers");
+
+// Абсолютный путь к скиллу frontend-slides. Раньше промпт писал буквальное
+// «~/.claude/skills/...» — тильда НЕ разворачивается инструментом Read
+// (это shell-синтаксис, а Read работает напрямую с fs), поэтому агент
+// всегда получал «файл не найден» и падал на фолбэк из своих общих знаний,
+// хотя скилл реально стоит на VPS (~/.claude/skills/frontend-slides).
+// os.homedir() в процессе Next.js и в спавненном SDK-агенте — один и тот
+// же пользователь (PM2 под maria), поэтому путь совпадёт.
+const SKILL_DIR = join(homedir(), ".claude", "skills", "frontend-slides");
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
   "premium-dark":
@@ -128,14 +138,16 @@ const DESIGN_SYSTEM_PROMPT = `Ты — frontend-дизайнер презент�
 ## ШАГ 1: Прочитай 3 ключевых файла (не больше!)
 
 \`\`\`
-Read ~/.claude/skills/frontend-slides/SKILL.md
-Read ~/.claude/skills/frontend-slides/html-template.md
-Read ~/.claude/skills/frontend-slides/viewport-base.css
+Read {SKILL_DIR}/SKILL.md
+Read {SKILL_DIR}/html-template.md
+Read {SKILL_DIR}/viewport-base.css
 \`\`\`
 
 frontend-slides — твой ГЛАВНЫЙ инструмент. Не отвлекайся на другие скиллы — они только размывают фокус.
 
-После чтения скажи: \`Прочитал frontend-slides skill\`.
+Если хотя бы один файл не читается (Read вернул ошибку) — не пытайся угадать другой путь, не трать на это больше одной попытки на файл. Скажи \`Skill недоступен, работаю по правилам ниже\` и следуй требованиям из ШАГА 4 напрямую — они покрывают всё необходимое.
+
+После успешного чтения скажи: \`Прочитал frontend-slides skill\`.
 
 ## ШАГ 2: Прочитай данные
 
@@ -386,7 +398,8 @@ ${safeDesignNotes}`
     : "";
 
   const systemPromptResolved = DESIGN_SYSTEM_PROMPT
-    .split("{SLIDES}").join(String(slides));
+    .split("{SLIDES}").join(String(slides))
+    .split("{SKILL_DIR}").join(SKILL_DIR);
 
   const prompt = `Создай ${topic ? `презентацию «${topic}»` : "pitch-презентацию"} для компании "${companyName}"${niche ? ` (ниша: ${niche})` : ""}.${topic ? `\n\n# ТЕМА\nГлавный субъект презентации — «${topic}». Данные компании из data.json — контекст и доказательная база, но рассказывай про тему.` : ""}
 
@@ -403,7 +416,7 @@ ${styleDesc}${customNotesBlock}
 ${STRUCT_BY_TYPE[presentationType]}
 
 # Воркфлоу — следуй системному промпту
-1. Прочитай 3 файла frontend-slides skill (SKILL.md, html-template.md, viewport-base.css)
+1. Прочитай 3 файла frontend-slides skill из ${SKILL_DIR} (SKILL.md, html-template.md, viewport-base.css) — если недоступны, работай по требованиям ШАГА 4 системного промпта
 2. Прочитай data.json${sourceContextFiles.length > 0 ? ", sources/" : ""} и references/
 3. TodoWrite план
 4. Создай \`presentation/index.html\` с ровно ${slides} \`.slide\` блоками
@@ -411,7 +424,7 @@ ${STRUCT_BY_TYPE[presentationType]}
 6. Прочитай все \`slides/slide-*.png\` для visual QA
 7. Если проблемы — исправь HTML и перезапусти render-deck.sh
 
-Начинай с Read frontend-slides/SKILL.md.`;
+Начинай с Read ${SKILL_DIR}/SKILL.md.`;
 
   const contextFiles: ContextFile[] = [
     { name: "data.json", content: JSON.stringify(dataObj, null, 2) },
