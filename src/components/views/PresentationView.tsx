@@ -13,6 +13,7 @@ import {
 import { trackGoal } from "@/lib/metrika";
 import { INDUSTRY_TEMPLATES, getTemplateById, buildTemplatePromptBlock, type IndustryTemplate } from "@/lib/presentation-templates";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { runWithConcurrency } from "@/lib/image-style";
 
 interface PresentationSlide {
   title: string;
@@ -61,6 +62,23 @@ export function buildStyleFromBrandBook(bb: BrandBook): PresentationStyle {
 // Landing Page Generator View
 // ============================================================
 
+// Тип презентации: бренд (дефолт) / услуга / кейс / КП — меняет обязательную
+// структуру слайдов на сервере (см. generate-presentation/route.ts).
+type PresentationContentType = "brand" | "product" | "case" | "offer";
+
+const PRESENTATION_TYPE_OPTIONS: Array<{ id: PresentationContentType; label: string }> = [
+  { id: "brand", label: "О компании (бренд)" },
+  { id: "product", label: "Услуга/продукт" },
+  { id: "case", label: "Кейс/результаты" },
+  { id: "offer", label: "Коммерческое предложение" },
+];
+
+/** Извлечённый текст источника (лендинг / PDF / DOCX / TXT). */
+interface ExtractedSource {
+  name: string;
+  text: string;
+}
+
 interface SavedPresentation {
   id: string;
   title: string;
@@ -68,6 +86,9 @@ interface SavedPresentation {
   slides: PresentationSlide[];
   style: PresentationStyle | null;
   slideCount: number;
+  /** Тип и тема — чтобы при «Открыть» из истории восстановить контекст. */
+  presentationType?: PresentationContentType;
+  topic?: string;
 }
 
 export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandBook, userId }: {
@@ -86,7 +107,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [premiumDesignNotes, setPremiumDesignNotes] = useState("");
   const [premiumSlides, setPremiumSlides] = useState(10);
   const [premiumModel, setPremiumModel] = useState<"claude-sonnet-4-5" | "claude-opus-4-1">("claude-sonnet-4-5");
-  const [premiumStyle, setPremiumStyle] = useState<"premium-dark" | "minimal" | "corporate" | "bold-startup" | "custom">("premium-dark");
+  // "auto" (дефолт) — сервер генерирует индивидуальный design brief под
+  // компанию вместо готового пресета (см. agent/generate-presentation).
+  const [premiumStyle, setPremiumStyle] = useState<"auto" | "premium-dark" | "minimal" | "corporate" | "bold-startup" | "custom">("auto");
   const [premiumRefFiles, setPremiumRefFiles] = useState<File[]>([]);
   const [premiumLogo, setPremiumLogo] = useState<File | null>(null);
   const [premiumJobId, setPremiumJobId] = useState<string | null>(null);
@@ -164,6 +187,17 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     setPremiumJob(null);
     setPremiumJobId(null);
 
+    // Источники (URL/файлы из блока «О чём презентация») доезжают и до
+    // премиума — сервер положит их файлами sources/*.txt рядом с data.json.
+    let sources: ExtractedSource[] = [];
+    try {
+      sources = await ensureSourcesExtracted();
+    } catch (e) {
+      setPremiumError(e instanceof Error ? e.message : "Не удалось извлечь источники");
+      setPremiumSubmitting(false);
+      return;
+    }
+
     const fullData = {
       company: myCompany.company,
       description: myCompany.company.description,
@@ -185,6 +219,11 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     fd.set("customDesignNotes", premiumDesignNotes);
     fd.set("slides", String(premiumSlides));
     fd.set("model", premiumModel);
+    // Тип + тема из блока «О чём презентация» — сервер перестроит структуру
+    // деки и подставит тему как главный субъект.
+    fd.set("presentationType", presentationType);
+    if (topic.trim()) fd.set("topic", topic.trim());
+    if (sources.length > 0) fd.set("sources", JSON.stringify(sources));
     if (premiumLogo) {
       fd.set("logo", premiumLogo);
     } else if (brandBook.logoDataUrl) {
@@ -317,6 +356,53 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   // Custom prompt
   const [customPrompt, setCustomPrompt] = useState("");
 
+  // ── «О чём презентация»: тип + тема + источники данных ──────
+  const [presentationType, setPresentationType] = useState<PresentationContentType>("brand");
+  const [topic, setTopic] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceFiles, setSourceFiles] = useState<File[]>([]);
+  // Кэш извлечённых текстов: null = ещё не извлекали (или инпуты поменялись).
+  const [extractedSources, setExtractedSources] = useState<ExtractedSource[] | null>(null);
+  const [isExtractingSources, setIsExtractingSources] = useState(false);
+  const [sourceWarnings, setSourceWarnings] = useState<string[]>([]);
+
+  /**
+   * Лениво извлекает тексты из URL/файлов через /api/presentation-extract-source.
+   * Кэшируем результат в state — обе генерации (стандарт и премиум) зовут это
+   * перед стартом, а повторный вызов без смены инпутов не должен дёргать сервер.
+   */
+  const ensureSourcesExtracted = async (): Promise<ExtractedSource[]> => {
+    if (extractedSources) return extractedSources;
+    if (sourceFiles.length === 0 && !sourceUrl.trim()) return [];
+    setIsExtractingSources(true);
+    try {
+      const fd = new FormData();
+      if (sourceUrl.trim()) fd.set("url", sourceUrl.trim());
+      sourceFiles.forEach(f => fd.append("files", f));
+      const r = await fetch("/api/presentation-extract-source", { method: "POST", body: fd });
+      const d = await jsonOrThrow(r);
+      if (!d.ok) throw new Error(d.error || "Не удалось извлечь данные из источников");
+      const srcs: ExtractedSource[] = d.sources ?? [];
+      setExtractedSources(srcs);
+      setSourceWarnings(d.warnings ?? []);
+      return srcs;
+    } finally {
+      setIsExtractingSources(false);
+    }
+  };
+
+  const addSourceFiles = (files: FileList | null) => {
+    if (!files) return;
+    const accepted = Array.from(files).filter(f => /\.(pdf|docx|txt|md|html?)$/i.test(f.name));
+    setSourceFiles(prev => [...prev, ...accepted].slice(0, 3));
+    setExtractedSources(null); // инпуты изменились — кэш невалиден
+    setSourceWarnings([]);
+  };
+
+  // ── «Оформить всю презентацию» — авто-иллюстрации пачкой ────
+  const [autoDecor, setAutoDecor] = useState<{ done: number; total: number } | null>(null);
+  const [autoDecorToast, setAutoDecorToast] = useState("");
+
   // Stage 2: generation
   const [genProgress, setGenProgress] = useState(0);
 
@@ -340,7 +426,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     } catch { /* ignore */ }
   }, [userId]);
 
-  const saveToHistory = (newSlides: PresentationSlide[], title: string, style: PresentationStyle | null) => {
+  const saveToHistory = (newSlides: PresentationSlide[], title: string, style: PresentationStyle | null, ptype?: PresentationContentType, ptopic?: string) => {
     if (!userId) return;
     const entry: SavedPresentation = {
       id: Date.now().toString(),
@@ -349,6 +435,8 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       slides: newSlides,
       style,
       slideCount: newSlides.length,
+      presentationType: ptype,
+      topic: ptopic || undefined,
     };
     const updated = [entry, ...history].slice(0, 20);
     setHistory(updated);
@@ -365,6 +453,8 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     setSlides(saved.slides);
     setPresTitle(saved.title);
     setSelectedStyle(saved.style);
+    setPresentationType(saved.presentationType ?? "brand");
+    setTopic(saved.topic ?? "");
     setStage("review");
     setTab("create");
   };
@@ -403,11 +493,21 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   // ── Stage 2 handler ──────────────────────────────────
   const handleGenerate = async () => {
     if (!myCompany || !selectedStyle) { setError("Выберите стиль и убедитесь что анализ проведён"); return; }
+    // Для «услуги/кейса/КП» тема обязательна — без неё AI сделает очередную
+    // бренд-презентацию, просто с другой структурой.
+    if (presentationType !== "brand" && !topic.trim()) {
+      setError("Укажите тему презентации — о какой услуге, кейсе или предложении речь");
+      return;
+    }
     setStage("generating");
     setGenProgress(0);
     setError("");
     const timer = setInterval(() => setGenProgress(p => Math.min(p + 2, 88)), 400);
     try {
+      // Извлекаем тексты источников (URL/файлы) ДО генерации — они попадут
+      // в промпт как «ИСТОЧНИКИ ДАННЫХ» с приоритетом над общими знаниями.
+      const sources = await ensureSourcesExtracted();
+
       // Если выбран отраслевой шаблон — добавляем его focus + обязательные
       // слайды к customPrompt. AI учтёт это в структуре презентации.
       const templateBlock = selectedTemplate ? buildTemplatePromptBlock(selectedTemplate) : "";
@@ -430,6 +530,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           nicheForecast: myCompany.nicheForecast,
           hiring: myCompany.hiring,
           customPrompt: finalCustomPrompt || undefined,
+          presentationType,
+          topic: topic.trim() || undefined,
+          sources: sources.length > 0 ? sources : undefined,
         }),
       });
       const json = await jsonOrThrow(res);
@@ -440,7 +543,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       setPresTitle(newTitle);
       setSlides(newSlides);
       setGenProgress(100);
-      saveToHistory(newSlides, newTitle, selectedStyle);
+      saveToHistory(newSlides, newTitle, selectedStyle, presentationType, topic.trim());
       setTimeout(() => setStage("review"), 600);
     } catch (err: unknown) {
       clearInterval(timer);
@@ -500,6 +603,61 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     } finally {
       setGeneratingImageFor(null);
     }
+  };
+
+  /**
+   * «Оформить всю презентацию» — авто-иллюстрации пачкой. Кандидаты: слайды
+   * с фоновой картинкой в рендере (cover/quote/cta) + первые 1–2 stats/grid,
+   * всего не больше 5. Конкурентность 2 (см. runWithConcurrency — при большей
+   * параллельности image-провайдеры отбивают rate-limit'ом). Ошибка одного
+   * слайда не фатальна — остальные продолжают оформляться.
+   */
+  const handleAutoDecorate = async () => {
+    if (autoDecor) return; // уже идёт
+    const bgTypes = ["cover", "quote", "cta"];
+    const primaryIdx = slides.map((s, i) => bgTypes.includes(s.type) ? i : -1).filter(i => i >= 0);
+    const secondaryIdx = slides
+      .map((s, i) => (s.type === "stats" || s.type === "grid") ? i : -1)
+      .filter(i => i >= 0)
+      .slice(0, 2);
+    const candidates = [...primaryIdx, ...secondaryIdx].slice(0, 5);
+    if (candidates.length === 0) return;
+
+    setError("");
+    setAutoDecorToast("");
+    setAutoDecor({ done: 0, total: candidates.length });
+    let okCount = 0;
+    let failCount = 0;
+    await runWithConcurrency(candidates, 2, async (idx) => {
+      try {
+        const res = await fetch("/api/presentation-slide-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slide: slides[idx],
+            brandBook: {
+              colors: sty.colors,
+              visualStyle: brandBook.visualStyle,
+              mood: sty.mood,
+            },
+          }),
+        });
+        const json = await jsonOrThrow(res);
+        if (!json.ok) throw new Error(json.error || "Ошибка генерации");
+        handleSlideUpdate(idx, { imageUrl: json.data.imageUrl });
+        okCount++;
+      } catch {
+        failCount++; // один упавший слайд не должен ронять всю пачку
+      }
+      setAutoDecor(prev => prev ? { ...prev, done: prev.done + 1 } : prev);
+    });
+    setAutoDecor(null);
+    setAutoDecorToast(
+      failCount === 0
+        ? `Иллюстрации добавлены: ${okCount} из ${candidates.length} слайдов`
+        : `Оформлено ${okCount} из ${candidates.length}, с ошибкой: ${failCount} — можно перегенерировать вручную`,
+    );
+    setTimeout(() => setAutoDecorToast(""), 8000);
   };
 
   // ── Export handlers ──────────────────────────────────
@@ -1086,6 +1244,96 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     );
   };
 
+  // ── Блок «О чём презентация»: тип + тема + источники ────────
+  // Рендерится и в «Стандарт» (перед выбором стиля), и в «Premium AI» —
+  // state общий, поэтому тема/тип/источники доезжают до обоих генераторов.
+  const renderAboutBlock = (variant: "std" | "premium") => (
+    <div style={{ background: "var(--card)", border: `1px solid var(--border)`, borderRadius: 14, padding: "18px 20px", marginBottom: variant === "premium" ? 14 : 22 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>О чём презентация</h3>
+      {/* Тип презентации */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        {PRESENTATION_TYPE_OPTIONS.map(t => {
+          const isSel = presentationType === t.id;
+          return (
+            <button key={t.id} onClick={() => setPresentationType(t.id)}
+              style={{ padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: isSel ? 700 : 500, cursor: "pointer",
+                border: `1.5px solid ${isSel ? "var(--primary)" : "var(--border)"}`,
+                background: isSel ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "var(--card)",
+                color: isSel ? "var(--primary)" : "var(--foreground-secondary)" }}>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* Тема — для бренд-презентации необязательна, для остальных обязательна */}
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 4, letterSpacing: "0.04em" }}>
+          ТЕМА {presentationType === "brand" ? "(НЕОБЯЗАТЕЛЬНО)" : ""}
+        </label>
+        <input value={topic} onChange={e => setTopic(e.target.value)}
+          placeholder={presentationType === "brand"
+            ? "Например: «Итоги года для партнёров» — по умолчанию расскажем о компании"
+            : presentationType === "product" ? "Например: «Строительство складов под ключ»"
+            : presentationType === "case" ? "Например: «Как мы снизили стоимость лида в 3 раза для застройщика»"
+            : "Например: «КП на комплексное СММ-сопровождение для сети клиник»"}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+      </div>
+      {/* URL-источник */}
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 4, letterSpacing: "0.04em" }}>ЛЕНДИНГ ИЛИ СТРАНИЦА-ИСТОЧНИК</label>
+        <input value={sourceUrl}
+          onChange={e => { setSourceUrl(e.target.value); setExtractedSources(null); setSourceWarnings([]); }}
+          placeholder="https://... — спарсим текст страницы и используем как источник фактов"
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--background)", color: "var(--foreground)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+      </div>
+      {/* Файлы-источники */}
+      <div>
+        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", display: "block", marginBottom: 4, letterSpacing: "0.04em" }}>ДОКУМЕНТЫ-ИСТОЧНИКИ (PDF / DOCX / TXT, ДО 3 × 5 MB)</label>
+        {sourceFiles.length < 3 && (
+          <div
+            onClick={() => document.getElementById(`pres-src-input-${variant}`)?.click()}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={e => { e.preventDefault(); e.stopPropagation(); addSourceFiles(e.dataTransfer.files); }}
+            style={{ border: `2px dashed var(--border)`, borderRadius: 10, padding: 10, textAlign: "center", cursor: "pointer",
+              color: "var(--foreground-secondary)", fontSize: 12, background: "var(--background)" }}>
+            Перетащите файлы или нажмите для выбора — описание услуги, кейс, старое КП
+          </div>
+        )}
+        <input id={`pres-src-input-${variant}`} type="file" multiple accept=".pdf,.docx,.txt,.md,.html,.htm" style={{ display: "none" }}
+          onChange={e => { addSourceFiles(e.target.files); e.target.value = ""; }} />
+        {sourceFiles.length > 0 && (
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {sourceFiles.map((f, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8,
+                background: "var(--background)", border: `1px solid var(--border)`, fontSize: 11.5, color: "var(--foreground)" }}>
+                <FileText size={11} /> {f.name}
+                <button onClick={() => { setSourceFiles(prev => prev.filter((_, fi) => fi !== i)); setExtractedSources(null); setSourceWarnings([]); }}
+                  aria-label="Убрать файл"
+                  style={{ background: "transparent", border: "none", color: "var(--destructive)", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        {/* Статус извлечения */}
+        {isExtractingSources && (
+          <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--primary)" }}>Извлекаем текст из источников...</div>
+        )}
+        {extractedSources && extractedSources.length > 0 && !isExtractingSources && (
+          <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--success)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Check size={11} /> Источников: {extractedSources.length}, ~{Math.round(extractedSources.reduce((a, s) => a + s.text.length, 0) / 1000)}k символов — попадут в промпт с приоритетом
+            </span>
+          </div>
+        )}
+        {sourceWarnings.length > 0 && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#f59e0b", lineHeight: 1.5 }}>{sourceWarnings.join(" · ")}</div>
+        )}
+      </div>
+    </div>
+  );
+
   // ── Fullscreen mode ──────────────────────────────────────────
   if (fullscreen && slides.length > 0) {
     return (
@@ -1221,9 +1469,30 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               </div>
             )}
 
-            {/* Style preset */}
+            {/* Тип + тема + источники — общий блок с вкладкой «Стандарт» */}
+            {renderAboutBlock("premium")}
+
+            {/* Style: дефолт — «Авто», индивидуальный дизайн-язык под компанию
+               (сервер генерирует design brief из брендбука+ниши+темы вместо
+               готового пресета). Пресеты остались как опции ниже. */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: "var(--foreground-secondary)", marginBottom: 6, display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Стиль</label>
+              <button onClick={() => setPremiumStyle("auto")}
+                style={{
+                  width: "100%", padding: "10px 14px", borderRadius: 10, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                  border: `1.5px solid ${premiumStyle === "auto" ? "var(--primary)" : "var(--border)"}`,
+                  background: premiumStyle === "auto" ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "var(--card)",
+                  color: premiumStyle === "auto" ? "var(--primary)" : "var(--foreground-secondary)",
+                  textAlign: "left", marginBottom: 8,
+                }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <Sparkles size={13} /> Авто — фирменный стиль под компанию
+                </span>
+                <div style={{ fontSize: 11, fontWeight: 400, marginTop: 3, color: "var(--muted-foreground)" }}>
+                  AI-арт-директор соберёт индивидуальный дизайн-язык из брендбука, ниши и темы — не из пресетов
+                </div>
+              </button>
+              <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 6 }}>или выберите готовый дизайн-язык:</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {([
                   { id: "premium-dark", label: "Premium Dark" },
@@ -1595,6 +1864,11 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             ))}
           </div>
 
+          {/* «О чём презентация»: тип (бренд/услуга/кейс/КП) + тема + источники
+             данных (URL/файлы). Показываем ПЕРЕД выбором стиля — тема и
+             источники влияют на структуру сильнее палитры. */}
+          {renderAboutBlock("std")}
+
           {/* Industry templates — 12 готовых шаблонов с focus + mandatory slides
              пробрасываемыми в AI-промпт. Если ничего не выбрано — стандартная
              структура (как было). */}
@@ -1874,6 +2148,19 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               </span>
             </button>
             <button
+              onClick={handleAutoDecorate}
+              disabled={autoDecor !== null || generatingImageFor !== null}
+              title="AI-иллюстрации для ключевых слайдов (обложка, цитата, CTA + пара контентных) одной кнопкой"
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+                background: autoDecor ? "var(--muted-foreground)" : "#8b5cf6",
+                color: "#fff",
+                cursor: autoDecor ? "wait" : "pointer",
+                fontWeight: 600, fontSize: 12 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <ImageIcon size={12} /> {autoDecor ? `Оформляю ${autoDecor.done}/${autoDecor.total}...` : "Оформить всю"}
+              </span>
+            </button>
+            <button
               onClick={handleGenerateSpeakerNotes}
               disabled={isGeneratingNotes}
               title="AI напишет текст ведущего для каждого слайда (60-90 сек/слайд)"
@@ -1891,6 +2178,20 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} /> Заново</span>
             </button>
           </div>
+
+          {/* Итог авто-оформления (исчезает сам через 8 секунд) */}
+          {autoDecorToast && (
+            <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, fontSize: 13,
+              background: "color-mix(in oklch, var(--success) 8%, var(--card))",
+              border: `1px solid color-mix(in oklch, var(--success) 40%, var(--border))`,
+              color: "var(--foreground)", display: "flex", alignItems: "center", gap: 8 }}>
+              <ImageIcon size={14} style={{ color: "var(--success)", flexShrink: 0 }} /> {autoDecorToast}
+              <button onClick={() => setAutoDecorToast("")}
+                style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "inline-flex" }}>
+                <X size={13} />
+              </button>
+            </div>
+          )}
 
           {/* Brand-check result panel */}
           {brandCheckResult && (

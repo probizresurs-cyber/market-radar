@@ -81,27 +81,35 @@ export async function POST(req: Request) {
   // помогает), а Gemini через свой воркер работает. OpenAI — фолбэк на случай
   // деплоя вне РФ. Результат сохраняем в user_images и отдаём короткий URL —
   // base64 в слайде раздувал бы localStorage-историю презентаций.
-  if (process.env.GEMINI_API_KEY) {
-    const res = await generateGeminiImage({ prompt, referenceImages: [] });
-    if (res.ok && res.imageUrl) {
-      const shortUrl = await persistImageDataUri(res.imageUrl, access.userId);
-      await access.log({ endpoint: "presentation-slide-image", model: "gemini-2.5-flash-image", success: true });
-      return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
-    }
+  //
+  // ВАЖНО: НЕ гейтимся на process.env.GEMINI_API_KEY — lib/gemini.ts имеет
+  // собственный фолбэк-ключ, и на проде переменной может не быть вообще
+  // (из-за этого кнопка «AI-иллюстрация» отвечала «нет провайдера», хотя
+  // генерация сторис через тот же Gemini работала). Пробуем по факту.
+  const errors: string[] = [];
+
+  const gem = await generateGeminiImage({ prompt, referenceImages: [] }).catch((e: unknown) => ({ ok: false as const, imageUrl: null, error: e instanceof Error ? e.message : String(e) }));
+  if (gem.ok && gem.imageUrl) {
+    const shortUrl = await persistImageDataUri(gem.imageUrl, access.userId);
+    await access.log({ endpoint: "presentation-slide-image", model: "gemini-2.5-flash-image", success: true });
+    return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
   }
+  errors.push(`gemini: ${("error" in gem && gem.error) || "пустой ответ"}`);
 
   if (process.env.OPENAI_API_KEY) {
     const res = await generateOpenAIImage({
       prompt,
       format: "landscape", // 16:9 → 1792x1024 (см. pickSize в lib/openai-image.ts)
       quality: "high",
-    });
+    }).catch((e: unknown) => ({ ok: false as const, imageUrl: null, error: e instanceof Error ? e.message : String(e) }));
     if (res.ok && res.imageUrl) {
       const shortUrl = await persistImageDataUri(res.imageUrl, access.userId);
       await access.log({ endpoint: "presentation-slide-image", model: "gpt-image-2", success: true });
       return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
     }
+    errors.push(`openai: ${("error" in res && res.error) || "пустой ответ"}`);
   }
 
-  return NextResponse.json({ ok: false, error: "Нет настроенного image-провайдера (GEMINI_API_KEY или OPENAI_API_KEY)" }, { status: 500 });
+  await access.log({ endpoint: "presentation-slide-image", model: "none", success: false });
+  return NextResponse.json({ ok: false, error: `Генерация не удалась — ${errors.join("; ")}` }, { status: 502 });
 }
