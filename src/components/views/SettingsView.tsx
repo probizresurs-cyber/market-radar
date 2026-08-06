@@ -774,7 +774,7 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
     if (typeof window !== "undefined") sessionStorage.setItem("mr_tg_code", c2);
     return c2;
   });
-  const [botUsername, setBotUsername] = useState<string>("marketraradr_bot");
+  const [botUsername, setBotUsername] = useState<string>("market_radar1_bot");
   const [polling, setPolling] = useState(false);
   const [pollError, setPollError] = useState("");
   const [prefs, setPrefs] = useState({
@@ -787,6 +787,11 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
 
   useEffect(() => {
     fetch("/api/telegram/connect").then(r => r.json()).then(d => { if (d.username) setBotUsername(d.username); }).catch(() => { });
+    // Серверные чекбоксы (users.tg_prefs) приоритетнее локальных — иначе при
+    // смене браузера юзер видит дефолты, а крон-агенты работают по серверным.
+    fetch("/api/telegram/prefs").then(r => r.json()).then(d => {
+      if (d?.ok && d.prefs) setPrefs(d.prefs);
+    }).catch(() => { });
   }, []);
 
   async function handlePoll() {
@@ -814,6 +819,9 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
   }
 
   function handleDisconnect() {
+    // Серверная отвязка обязательна: иначе users.telegram_chat_id остаётся,
+    // и крон-агенты (дайджест, алерты цен) продолжают слать в «отключённый» чат.
+    fetch("/api/telegram/connect", { method: "DELETE" }).catch(() => { });
     const updated = { ...user!, tgChatId: undefined };
     onUpdateUser(updated);
     setStep("idle");
@@ -822,6 +830,13 @@ export function NotificationsTab({ c, user, onUpdateUser }: { c: Colors; user: U
   function handleSavePrefs() {
     const updated = { ...user!, tgNotifyAnalysis: prefs.analysis, tgNotifyCompetitors: prefs.competitors, tgNotifyVacancies: prefs.vacancies, tgNotifyDigest: prefs.digest };
     onUpdateUser(updated);
+    // Дублируем в users.tg_prefs — по ним работают серверные крон-агенты
+    // (report-digest), которым localStorage недоступен.
+    fetch("/api/telegram/prefs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prefs),
+    }).catch(() => { });
     setPrefsSaved(true);
     setTimeout(() => setPrefsSaved(false), 2000);
   }

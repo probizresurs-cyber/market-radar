@@ -17,6 +17,7 @@
 import { registerAgent, type AgentContext, type AgentRunResult } from "./registry";
 import { query } from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
+import { sendTelegramMessage } from "@/lib/tg-send";
 
 interface RunRow {
   agent_name: string;
@@ -56,14 +57,17 @@ registerAgent({
         : 7;
     const sendIfEmpty = ctx.params.sendIfEmpty === true; // по умолчанию пустые письма не шлём
 
-    // 1. Юзер + снимок компании
+    // 1. Юзер + снимок компании + Telegram (chat_id + серверные чекбоксы tg_prefs)
     const users = await query<{
       email: string;
       name: string | null;
       company_name: string | null;
       last_analyzed_company: { name?: string; url?: string; niche?: string } | null;
+      telegram_chat_id: string | null;
+      tg_prefs: { digest?: boolean } | null;
     }>(
-      `SELECT email, name, company_name, last_analyzed_company FROM users WHERE id = $1 AND email LIKE '%@%' LIMIT 1`,
+      `SELECT email, name, company_name, last_analyzed_company, telegram_chat_id, tg_prefs
+         FROM users WHERE id = $1 AND email LIKE '%@%' LIMIT 1`,
       [ctx.userId],
     );
     if (users.length === 0) {
@@ -128,18 +132,43 @@ registerAgent({
       ? `Дайджест MarketRadar: ${byAgent.size} обновлен${byAgent.size === 1 ? "ие" : "ий"} по «${companyName}»`
       : `Дайджест MarketRadar по «${companyName}»`;
 
+    // 3.5. Telegram-дайджест — если юзер привязал бота И включил чекбокс
+    // «Еженедельный дайджест» (users.tg_prefs.digest, см. /api/telegram/prefs).
+    // Дефолт чекбокса на фронте — выключен, поэтому требуем явный true.
+    // Независим от email: падение SMTP не должно лишать юзера TG-версии.
+    let tgSent = false;
+    if (user.telegram_chat_id && user.tg_prefs?.digest === true) {
+      const tgLines = Array.from(byAgent.entries())
+        .map(([name, summary]) => `• <b>${esc(AGENT_LABELS[name] ?? name)}:</b> ${esc(summary)}`)
+        .join("\n");
+      const tgText =
+        `📊 <b>Дайджест MarketRadar</b> по «${esc(companyName)}»${niche ? ` (${esc(niche)})` : ""} за ${periodDays} дн.\n\n` +
+        (byAgent.size > 0 ? tgLines : "За этот период агенты ничего нового не нашли.") +
+        `\n\n🚀 Дашборд: https://marketradar24.ru/?nav=dashboard`;
+      const tgResult = await sendTelegramMessage({ chatId: user.telegram_chat_id, text: tgText });
+      tgSent = tgResult.ok;
+    }
+
     const result = await sendMail({ to: user.email, subject, html, from: "hello" });
 
     if (result.skipped) {
-      return { summary: "Email отключён на сервере (EMAIL_ENABLED=false) — дайджест не отправлен.", skipped: true };
+      return tgSent
+        ? {
+            summary: `Email отключён на сервере (EMAIL_ENABLED=false) — дайджест отправлен только в Telegram (${byAgent.size} раздел(ов)).`,
+            result: { telegram: true, sections: Array.from(byAgent.keys()), periodDays },
+          }
+        : { summary: "Email отключён на сервере (EMAIL_ENABLED=false) — дайджест не отправлен.", skipped: true };
     }
     if (!result.ok) {
-      return { summary: `Не удалось отправить дайджест: ${result.error ?? "ошибка SMTP"}.`, result: { error: result.error } };
+      return {
+        summary: `Не удалось отправить email-дайджест: ${result.error ?? "ошибка SMTP"}.${tgSent ? " В Telegram доставлен." : ""}`,
+        result: { error: result.error, telegram: tgSent },
+      };
     }
 
     return {
-      summary: `Дайджест отправлен на ${user.email}: ${byAgent.size} раздел(ов) за ${periodDays} дн.`,
-      result: { to: user.email, sections: Array.from(byAgent.keys()), periodDays },
+      summary: `Дайджест отправлен на ${user.email}${tgSent ? " и в Telegram" : ""}: ${byAgent.size} раздел(ов) за ${periodDays} дн.`,
+      result: { to: user.email, telegram: tgSent, sections: Array.from(byAgent.keys()), periodDays },
     };
   },
 });

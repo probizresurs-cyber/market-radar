@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
-const TG = `${TG_BASE}/bot${TOKEN}`;
 
 // Command menu shown in the Telegram UI "/" dropdown.
 // Must match the commands handled in ../webhook/route.ts
@@ -18,7 +16,9 @@ const BOT_COMMANDS = [
 ];
 
 async function tgCall(method: string, body: Record<string, unknown>) {
-  const res = await fetch(`${TG}/${method}`, {
+  // Токен читаем при вызове, без non-null assertion — при пустом env роут
+  // отдаст осмысленную ошибку из проверки в GET, а не упадёт на импорте.
+  const res = await fetch(`${TG_BASE}/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
   const session = await getSessionUser();
   if (!session || session.role !== "admin") {
     return NextResponse.json({ error: "Доступ запрещён (admin only)" }, { status: 403 });
+  }
+
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN не настроен в .env" }, { status: 500 });
   }
 
   // URL из env, не из req.headers.host (защита от подмены X-Forwarded-Host)

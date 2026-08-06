@@ -13,15 +13,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
-
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
+import { sendTelegramMessage } from "@/lib/tg-send";
 
 export async function POST(req: NextRequest) {
-  if (!TOKEN) {
-    return NextResponse.json({ ok: false, error: "TELEGRAM_BOT_TOKEN не настроен" }, { status: 500 });
-  }
-
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
@@ -58,15 +52,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const tgRes = await fetch(`${TG_BASE}/bot${TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-  });
-  const tgData = await tgRes.json();
-  if (!tgData.ok) {
+  // Единый отправитель: проверка токена, TG_API_BASE-прокси, разбор ответа
+  const sent = await sendTelegramMessage({ chatId, text });
+  if (!sent.ok) {
     return NextResponse.json(
-      { ok: false, error: tgData.description ?? "Не удалось отправить сообщение" },
+      { ok: false, error: sent.error ?? "Не удалось отправить сообщение" },
       { status: 500 },
     );
   }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { PricingItem } from "@/lib/partner-types";
 import { formatPrice } from "@/lib/partner-types";
+// Единый источник цен — те же константы читает Telegram-бот (/price в webhook)
+import { PRICES, FIRST_MONTH_DISCOUNTS, fmtRub } from "@/lib/pricing-constants";
 
 // ─── T-11: 3-tier product structure ──────────────────────────────────────────
 type ProductType = "express_free" | "express_paid" | "full_month";
@@ -36,13 +38,14 @@ const PRODUCTS: Product[] = [
       "Краткая база конкурентов",
     ],
     cta: "Получить в Telegram",
-    href: "https://t.me/marketradar_bot",
+    // Актуальный бот — @market_radar1_bot (старая ссылка вела на несуществующий @marketradar_bot)
+    href: "https://t.me/market_radar1_bot",
   },
   {
     key: "express_paid",
     name: "Экспресс-отчёт на сайте",
     tagline: "Полный экспресс с сохранением",
-    basePrice: 1,
+    basePrice: PRICES.expressPaid,
     channel: "Сайт",
     accessDays: 0,
     includes: [
@@ -59,8 +62,8 @@ const PRODUCTS: Product[] = [
     key: "full_month",
     name: "Полный отчёт + 30 дней",
     tagline: "Всё для роста в MarketRadar",
-    basePrice: 2900,
-    originalPrice: 4900,
+    basePrice: PRICES.fullReport,
+    originalPrice: PRICES.fullReportOriginal,
     channel: "Платформа",
     accessDays: 30,
     includes: [
@@ -95,24 +98,8 @@ const PROMOS: PromoCodeDef[] = [
 ];
 
 // ─── T-12: 50% first-month discount tiers ────────────────────────────────────
-interface TierDiscount {
-  key: "mini" | "basic" | "pro" | "agency";
-  name: string;
-  original: number;
-  discounted: number;
-  star?: boolean;
-}
-
-const FIRST_MONTH_DISCOUNTS: TierDiscount[] = [
-  { key: "mini", name: "MINI", original: 4900, discounted: 2450 },
-  { key: "basic", name: "БАЗОВЫЙ", original: 9900, discounted: 4950 },
-  { key: "pro", name: "PRO", original: 19900, discounted: 9950, star: true },
-  { key: "agency", name: "AGENCY", original: 39900, discounted: 19950 },
-];
-
-function fmtRub(n: number): string {
-  return n.toLocaleString("ru-RU") + " ₽";
-}
+// FIRST_MONTH_DISCOUNTS и fmtRub переехали в @/lib/pricing-constants —
+// теперь общие с текстами Telegram-бота, чтобы цены не разъезжались.
 
 const GROUP_META: Record<string, { label: string; icon: string; desc: string }> = {
   A: { label: "Лид-магниты",          icon: "gift",    desc: "Бесплатно — попробуйте без оплаты" },

@@ -1,0 +1,7 @@
+# Скрипты, запускаемые в bash на VPS (Ubuntu), должны всегда иметь LF —
+# иначе `bash script.sh` падает на CRLF ("$'\r': command not found") или,
+# как было с agent-helpers/render-deck.sh, ловится агентом как «Windows
+# line endings» в рантайме премиум-генерации презентаций. Это правило не
+# зависит от core.autocrlf на машине разработчика (Windows) — фиксирует
+# перенос строк в самом git-объекте, который увозит `git archive` при деплое.
+*.sh text eol=lf

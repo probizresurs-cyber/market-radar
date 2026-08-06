@@ -27,39 +27,18 @@
  */
 import { registerAgent, type AgentContext, type AgentRunResult } from "./registry";
 import { query, initDb } from "@/lib/db";
+import { sendTelegramToUser } from "@/lib/tg-send";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
 import { randomUUID } from "crypto";
 import * as cheerio from "cheerio";
 
 /**
- * Локальный отправитель generic-сообщения в Telegram-чат юзера.
- * Аналог sendPriceAlert но без price-specific форматирования.
+ * Telegram-alert юзеру через общий хелпер (TG_API_BASE-прокси, проверка
+ * ответа Telegram, логирование ошибок — см. src/lib/tg-send.ts).
  */
 async function sendTelegramAlert(userId: string, htmlText: string): Promise<boolean> {
-  const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  if (!TOKEN) return false;
-  const rows = await query<{ telegram_chat_id: string | null }>(
-    `SELECT telegram_chat_id FROM users WHERE id = $1`,
-    [userId],
-  );
-  const chatId = rows[0]?.telegram_chat_id;
-  if (!chatId) return false;
-  const base = process.env.TG_API_BASE ?? "https://api.telegram.org";
-  try {
-    const res = await fetch(`${base}/bot${TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: htmlText.slice(0, 4000),
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const r = await sendTelegramToUser(userId, htmlText);
+  return r.ok;
 }
 
 interface ChangeDetected {

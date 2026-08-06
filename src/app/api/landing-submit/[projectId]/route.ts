@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { fetchWithTimeout, FAST_TIMEOUT_MS } from "@/lib/fetch-timeout";
+import { sendTelegramMessage, escapeTgHtml } from "@/lib/tg-send";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -43,26 +44,17 @@ interface NotifyConfig {
 }
 
 async function notifyTelegram(chatId: string, projectId: string, payload: Record<string, unknown>): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token || !chatId) return;
+  if (!chatId) return;
+  // Значения — пользовательский ввод с публичной формы: экранируем, иначе
+  // "<" в тексте заявки ломает parse_mode HTML и сообщение не доставляется.
   const lines = Object.entries(payload)
     .filter(([k]) => !k.startsWith("__") && !k.startsWith("utm_"))
-    .map(([k, v]) => `<b>${k}:</b> ${String(v).slice(0, 500)}`)
+    .map(([k, v]) => `<b>${escapeTgHtml(k)}:</b> ${escapeTgHtml(String(v).slice(0, 500))}`)
     .join("\n");
   const text = `🎯 <b>Заявка с лендинга</b>\n<code>${projectId.slice(0, 12)}…</code>\n\n${lines}`;
-  try {
-    await fetchWithTimeout(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-      },
-      FAST_TIMEOUT_MS,
-    );
-  } catch (e) {
-    console.warn("[landing-submit] TG notify failed:", e);
-  }
+  // Единый хелпер: раньше здесь был хардкод api.telegram.org мимо
+  // TG_API_BASE-прокси — с RU-VPS такие уведомления просто не уходили.
+  await sendTelegramMessage({ chatId, text, timeoutMs: FAST_TIMEOUT_MS });
 }
 
 async function notifyWebhook(url: string, projectId: string, payload: Record<string, unknown>): Promise<void> {

@@ -27,6 +27,7 @@
 
 import { registerAgent, type AgentContext, type AgentRunResult } from "./registry";
 import { query } from "@/lib/db";
+import { sendTelegramToUser } from "@/lib/tg-send";
 import { safeAnthropicCreate, extractJson } from "@/lib/anthropic-safe";
 import { randomUUID } from "crypto";
 
@@ -54,26 +55,9 @@ interface VisibilitySnapshot {
 
 const PUBLIC_HOST = (process.env.PUBLIC_HOST?.replace(/\/$/, "") || "http://localhost:3000");
 
-/** Telegram-alert. */
+/** Telegram-alert через общий хелпер (src/lib/tg-send.ts). */
 async function sendTelegram(userId: string, text: string): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
-  const chatRows = await query<{ telegram_chat_id: string | null }>(
-    `SELECT telegram_chat_id FROM users WHERE id = $1`,
-    [userId],
-  );
-  const chatId = chatRows[0]?.telegram_chat_id;
-  if (!chatId) return;
-  try {
-    const base = process.env.TG_API_BASE ?? "https://api.telegram.org";
-    await fetch(`${base}/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-    });
-  } catch (e) {
-    console.warn("[ai-vis-monitor] TG send failed:", e);
-  }
+  await sendTelegramToUser(userId, text);
 }
 
 /** Через Haiku генерируем 5 реалистичных запросов из ниши.

@@ -219,6 +219,24 @@ export async function initDb() {
   // знает куда слать алерты.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT`);
 
+  // Настройки TG-уведомлений (analysis/competitors/vacancies/digest).
+  // Раньше tgNotify*-флаги жили только в localStorage → серверные крон-агенты
+  // (report-digest) не видели, включил ли юзер дайджест. NULL = юзер ничего
+  // не сохранял, действуют дефолты фронта.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_prefs JSONB`);
+
+  // Коды привязки MR-XXXXXX (Настройки → Уведомления → Telegram).
+  // Раньше in-memory Map (tgStore) — коды пропадали при pm2 restart между
+  // «отправил код боту» и «нажал Проверить подключение». TTL 10 минут —
+  // чисткой по created_at при каждом чтении (см. src/lib/tgStore.ts).
+  await query(`
+    CREATE TABLE IF NOT EXISTS tg_connect_codes (
+      code TEXT PRIMARY KEY,
+      chat_id BIGINT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   // Production-канал Telegram, куда уходят посты из «Контент-завода».
   // Может быть @channel_name, числовой -100xxxxxx, или числовой chat_id.
   // Если не задан — публикация падает с понятной ошибкой.

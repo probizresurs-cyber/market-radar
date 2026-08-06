@@ -1,39 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { saveChatId } from "@/lib/tgStore";
 import { canScan, recordScan, formatNextAllowed } from "@/lib/tg-scan-limiter";
 import { query, initDb } from "@/lib/db";
+import { sendTelegramMessage, escapeTgHtml, type TgInlineButton } from "@/lib/tg-send";
+import { scrapeWebsite } from "@/lib/scraper";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
+import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { estimateTokens } from "@/lib/with-ai-security";
+import { PRICES, FIRST_MONTH_DISCOUNTS, fmtRub } from "@/lib/pricing-constants";
 import {
   sendKpInboundAck, forwardToKpManager, extractClientChatId, sendKpTgMessage, kpShareUrl,
   sendKpConnected, sendKpCodeInvalid,
   type KpFunnelCtx, type KpTgLocale,
 } from "@/lib/kp-tg-funnel";
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const TG_BASE = process.env.TG_API_BASE ?? "https://api.telegram.org";
-const TG = `${TG_BASE}/bot${TOKEN}`;
 const SITE = "https://marketradar24.ru";
 
-type InlineButton = { text: string; url?: string; callback_data?: string };
-
-async function sendMessage(
-  chatId: number,
-  text: string,
-  keyboard?: InlineButton[][],
-) {
-  const body: Record<string, unknown> = {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-  };
-  if (keyboard) {
-    body.reply_markup = { inline_keyboard: keyboard };
-  }
-  await fetch(`${TG}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+async function sendMessage(chatId: number, text: string, keyboard?: TgInlineButton[][]) {
+  // Вся отправка — через общий хелпер (TG_API_BASE-прокси, проверка ответа,
+  // логирование ошибок). Ошибку не пробрасываем: webhook должен ответить 200.
+  await sendTelegramMessage({ chatId, text, inlineKeyboard: keyboard });
 }
 
 // ─── Message templates ──────────────────────────────────────────────────────
@@ -42,12 +29,12 @@ const WELCOME = (name: string) =>
   `👋 Привет, ${name}!\n\n` +
   `Это <b>MarketRadar</b> — ИИ-анализ конкурентов и бренд-стратегия для российского рынка.\n\n` +
   `<b>Что умеет:</b>\n` +
-  `• Экспресс-аудит сайта за 2 минуты — прямо здесь, в боте\n` +
+  `• Экспресс-аудит сайта прямо здесь, в боте: пришлите ссылку — верну разбор через 1–2 минуты\n` +
   `• Полный анализ: SEO, соцсети, вакансии, отзывы, карты, ЦА, CJM, брендбук\n` +
   `• Сравнение с 7+ конкурентами + Battle Cards для отдела продаж\n` +
   `• Контент-завод: посты, рилсы, сторис, SEO-статьи, лендинги\n\n` +
   `<b>Команды:</b>\n` +
-  `/express — получить бесплатный экспресс в Telegram\n` +
+  `/express — бесплатный экспресс-аудит в Telegram\n` +
   `/price — тарифы и продукты\n` +
   `/partners — партнёрская программа (до 50%)\n` +
   `/connect — подключить уведомления по коду MR-XXXXXX\n` +
@@ -57,13 +44,13 @@ const WELCOME = (name: string) =>
 const HELP =
   `<b>Доступные команды:</b>\n\n` +
   `/express — бесплатный экспресс-аудит сайта в Telegram\n` +
-  `/price — тарифы и продукты (экспресс 1 ₽ · полный 2 900 ₽)\n` +
+  `/price — тарифы и продукты (экспресс ${fmtRub(PRICES.expressPaid)} · полный ${fmtRub(PRICES.fullReport)})\n` +
   `/partners — партнёрская программа (20–50% комиссии)\n` +
   `/about — что такое MarketRadar\n` +
   `/connect — подключить уведомления из кабинета (код MR-XXXXXX)\n` +
   `/site — открыть сайт\n` +
   `/help — эта справка\n\n` +
-  `💡 Можно просто отправить ссылку на сайт (https://example.ru) — пришлю, куда отправиться за экспрессом.`;
+  `💡 Можно просто отправить ссылку на сайт (https://example.ru) — сделаю экспресс-аудит прямо здесь. Бесплатно, 1 раз в месяц.`;
 
 const ABOUT =
   `<b>MarketRadar</b> — SaaS-платформа для бизнеса и агентств в России.\n\n` +
@@ -74,24 +61,24 @@ const ABOUT =
   `• отзывы и рейтинги (Google, Яндекс, 2ГИС)\n` +
   `• целевую аудиторию, CJM, брендбук\n` +
   `• до 10 конкурентов в одном дашборде\n\n` +
-  `Работает на Claude (Anthropic) + GPT-4o.\n` +
+  `Работает на Claude (Anthropic).\n` +
   `Мониторинг обновляется каждые 30 дней.`;
 
 const PRICE =
   `<b>💰 Тарифы MarketRadar</b>\n\n` +
-  `<b>🎁 Бесплатный экспресс в Telegram — 0 ₽</b>\n` +
-  `Отчёт по сайту за 2 минуты: score, инсайты, 5 категорий, база конкурентов.\n` +
+  `<b>🎁 Бесплатный экспресс в Telegram — ${fmtRub(PRICES.expressFree)}</b>\n` +
+  `Мини-аудит сайта прямо в боте: что за бизнес, сильные и слабые места, следующий шаг.\n` +
   `→ команда /express\n\n` +
-  `<b>💎 Экспресс-отчёт на сайте — 1 ₽ по промокоду START</b>\n` +
+  `<b>💎 Экспресс-отчёт на сайте — ${fmtRub(PRICES.expressPaid)} по промокоду START</b>\n` +
   `Полный экспресс с сохранением на email + готовый PDF.\n` +
   `→ ${SITE}/express-report\n\n` +
-  `<b>🚀 Полный отчёт + 30 дней в платформе — 2 900 ₽</b> <i>(вместо 4 900 ₽)</i>\n` +
+  `<b>🚀 Полный отчёт + 30 дней в платформе — ${fmtRub(PRICES.fullReport)}</b> <i>(вместо ${fmtRub(PRICES.fullReportOriginal)})</i>\n` +
   `• Все 15 решений и рекомендаций\n` +
   `• Портрет ЦА, CJM, брендбук\n` +
   `• Battle Cards для отдела продаж\n` +
   `• Мониторинг 24/7\n\n` +
   `⭐ <b>Скидка 50% на первый месяц</b> любого тарифа после покупки полного отчёта:\n` +
-  `MINI 2 450 ₽ · БАЗОВЫЙ 4 950 ₽ · PRO 9 950 ₽ · AGENCY 19 950 ₽`;
+  FIRST_MONTH_DISCOUNTS.map(t => `${t.name} ${fmtRub(t.discounted)}`).join(" · ");
 
 const PARTNERS =
   `<b>🤝 Партнёрская программа MarketRadar</b>\n\n` +
@@ -109,8 +96,8 @@ const PARTNERS =
 const EXPRESS_PROMPT =
   `<b>🔍 Бесплатный экспресс-аудит</b>\n\n` +
   `Отправьте мне ссылку на ваш сайт — например <code>https://example.ru</code>.\n\n` +
-  `Через пару минут вернусь с отчётом: общий score, 5 категорий (SEO, скорость, UX, доверие, контент), топ-инсайты и краткая база конкурентов.\n\n` +
-  `💡 Хотите сразу полный экспресс с сохранением на email и PDF? Перейдите на сайт с промокодом <b>START</b> — отдадим за 1 ₽:\n` +
+  `Через 1–2 минуты верну мини-аудит прямо сюда: что за бизнес, 3 сильных стороны, 3 слабых места сайта и самое важное следующее действие.\n\n` +
+  `💡 Хотите полный экспресс с сохранением на email и PDF? Перейдите на сайт с промокодом <b>START</b> — отдадим за ${fmtRub(PRICES.expressPaid)}:\n` +
   `${SITE}/express-report`;
 
 const CONNECT_PROMPT =
@@ -120,44 +107,195 @@ const CONNECT_PROMPT =
   `3. Отправьте его сюда\n\n` +
   `После этого сюда будут приходить: готовые анализы, изменения у конкурентов, дайджест раз в неделю.`;
 
-const URL_RECEIVED = (url: string) =>
-  `📥 Принял ссылку: <code>${url}</code>\n\n` +
-  `⏳ Экспресс-аудит из Telegram сейчас в процессе раскатки — пока быстрее всего запустить его на сайте:\n\n` +
-  `🎁 <b>Бесплатно</b> → ${SITE}/?url=${encodeURIComponent(url)}\n` +
-  `💎 <b>За 1 ₽ по промокоду START</b> → ${SITE}/express-report?url=${encodeURIComponent(url)}\n\n` +
-  `Результат откроется в браузере за 1–2 минуты.`;
+const SCANNING = (url: string) =>
+  `📥 Принял ссылку: <code>${escapeTgHtml(url)}</code>\n\n` +
+  `🔍 Сканирую сайт и готовлю экспресс-аудит — обычно занимает 1–2 минуты. Результат пришлю сюда.`;
+
+const AUDIT_FAILED = (url: string) =>
+  `😔 Не удалось просканировать <code>${escapeTgHtml(url)}</code> — сайт не ответил или закрыт от роботов.\n\n` +
+  `Бесплатная попытка этого месяца <b>не потрачена</b> — можно прислать другую ссылку.\n\n` +
+  `Либо запустите полный экспресс на сайте:\n` +
+  `💎 За ${fmtRub(PRICES.expressPaid)} по промокоду START → ${SITE}/express-report?url=${encodeURIComponent(url)}`;
 
 const SCAN_LIMIT_REACHED = (nextDate: string) =>
   `⏳ <b>Лимит на месяц исчерпан</b>\n\n` +
   `Бесплатный экспресс-аудит — 1 раз в месяц с одного аккаунта. ` +
   `Следующее сканирование будет доступно с <b>${nextDate}</b>.\n\n` +
-  `Если нужен полный отчёт прямо сейчас — оформите экспресс на сайте за <b>1 ₽</b> по промокоду <code>START</code>:\n` +
+  `Если нужен полный отчёт прямо сейчас — оформите экспресс на сайте за <b>${fmtRub(PRICES.expressPaid)}</b> по промокоду <code>START</code>:\n` +
   `${SITE}/express-report\n\n` +
-  `Или полный анализ + 30 дней в платформе за 2 900 ₽:\n` +
+  `Или полный анализ + 30 дней в платформе за ${fmtRub(PRICES.fullReport)}:\n` +
   `${SITE}/pricing`;
 
-const SITE_BUTTONS: InlineButton[][] = [
+const SITE_BUTTONS: TgInlineButton[][] = [
   [{ text: "🚀 Открыть MarketRadar", url: SITE }],
   [
-    { text: "💎 Экспресс за 1 ₽", url: `${SITE}/express-report` },
+    { text: `💎 Экспресс за ${fmtRub(PRICES.expressPaid)}`, url: `${SITE}/express-report` },
     { text: "📊 Тарифы", url: `${SITE}/pricing` },
   ],
   [{ text: "🤝 Партнёрам", url: `${SITE}/partners` }],
 ];
 
-const EXPRESS_BUTTONS: InlineButton[][] = [
-  [{ text: "💎 Полный экспресс за 1 ₽ (START)", url: `${SITE}/express-report` }],
+const EXPRESS_BUTTONS: TgInlineButton[][] = [
+  [{ text: `💎 Полный экспресс за ${fmtRub(PRICES.expressPaid)} (START)`, url: `${SITE}/express-report` }],
   [{ text: "🚀 Перейти на сайт", url: SITE }],
 ];
 
-const PRICE_BUTTONS: InlineButton[][] = [
+const PRICE_BUTTONS: TgInlineButton[][] = [
   [{ text: "📊 Все тарифы на сайте", url: `${SITE}/pricing` }],
-  [{ text: "💎 Экспресс за 1 ₽ (START)", url: `${SITE}/express-report` }],
+  [{ text: `💎 Экспресс за ${fmtRub(PRICES.expressPaid)} (START)`, url: `${SITE}/express-report` }],
 ];
 
-const PARTNERS_BUTTONS: InlineButton[][] = [
+const PARTNERS_BUTTONS: TgInlineButton[][] = [
   [{ text: "🤝 Стать партнёром", url: `${SITE}/partners` }],
 ];
+
+// ─── Экспресс-аудит в боте ──────────────────────────────────────────────────
+
+interface TgExpressAudit {
+  business: string;
+  strengths: string[];
+  weaknesses: string[];
+  nextStep: string;
+}
+
+function formatAudit(url: string, a: TgExpressAudit): string {
+  const li = (items: string[]) => items.slice(0, 3).map(s => `• ${escapeTgHtml(s)}`).join("\n");
+  return (
+    `📋 <b>Экспресс-аудит</b> <code>${escapeTgHtml(url)}</code>\n\n` +
+    `<b>Что за бизнес:</b> ${escapeTgHtml(a.business)}\n\n` +
+    `💪 <b>Сильные стороны сайта:</b>\n${li(a.strengths)}\n\n` +
+    `⚠️ <b>Слабые места:</b>\n${li(a.weaknesses)}\n\n` +
+    `🎯 <b>Следующий шаг:</b> ${escapeTgHtml(a.nextStep)}\n\n` +
+    `Полный отчёт со score, 5 категориями и базой конкурентов — по кнопке ниже.`
+  );
+}
+
+/**
+ * Учёт AI-расхода бота в ai_logs. checkAiAccess здесь неприменим — у
+ * Telegram-чата нет auth-сессии. user_id — владелец chatId, если он привязал
+ * бота в настройках; иначе NULL (FK на users(id) не позволяет служебное
+ * значение вроде "tg-anon" — анонимные вызовы находятся по endpoint'у).
+ */
+async function logAuditToAiLogs(opts: {
+  chatId: number;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  durationMs: number;
+  success: boolean;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const owner = await query<{ id: string }>(
+      `SELECT id FROM users WHERE telegram_chat_id = $1 LIMIT 1`,
+      [opts.chatId],
+    );
+    await query(
+      `INSERT INTO ai_logs
+         (id, user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens,
+          duration_ms, success, error_message)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        randomUUID(),
+        owner[0]?.id ?? null,
+        "telegram/express-audit",
+        opts.model,
+        opts.promptTokens || null,
+        opts.completionTokens || null,
+        (opts.promptTokens + opts.completionTokens) || null,
+        opts.durationMs,
+        opts.success,
+        opts.errorMessage ?? null,
+      ],
+    );
+  } catch (e) {
+    console.error("[tg webhook] ai_logs insert failed:", e);
+  }
+}
+
+/**
+ * Настоящий экспресс-аудит: скрейп главной (cheerio, таймаут ~10с внутри
+ * scrapeWebsite) → Claude Sonnet → структурированный мини-отчёт в чат.
+ * Запускается fire-and-forget ПОСЛЕ ответа Telegram'у (см. POST).
+ * Лимит 1/мес списывается ТОЛЬКО при успешно доставленном аудите.
+ */
+async function runExpressAudit(chatId: number, url: string): Promise<void> {
+  const startedAt = Date.now();
+  let system = "";
+  let siteSummary = "";
+  try {
+    const site = await scrapeWebsite(url);
+    siteSummary = [
+      `URL: ${site.url}`,
+      `Title: ${site.title || "(пусто)"}`,
+      `Meta description: ${site.metaDescription || "(пусто)"}`,
+      site.h1.length ? `H1: ${site.h1.slice(0, 3).join(" | ")}` : "H1: отсутствует",
+      site.h2.length ? `H2: ${site.h2.join(" | ")}` : "",
+      `HTTPS: ${site.isHttps}; viewport: ${site.hasViewport}; schema.org: ${site.hasSchemaMarkup}; canonical: ${site.hasCanonical}`,
+      `robots.txt: ${site.hasRobotsTxt}; sitemap.xml: ${site.hasSitemap}`,
+      `Картинок: ${site.imageCount}, из них с alt: ${site.imagesWithAlt}`,
+      `Ссылки на соцсети: ${Object.keys(site.socialLinks).join(", ") || "не найдены"}`,
+      `Технологии: ${site.techStack.join(", ") || "не определены"}`,
+      site.jsHeavy ? "ВНИМАНИЕ: контент рендерится JS — текст страницы почти не виден без браузера." : "",
+      `Текст страницы (фрагмент): ${site.rawTextSample.slice(0, 2500)}`,
+    ].filter(Boolean).join("\n");
+
+    system =
+      `${ANTI_HALLUCINATION_SHORT}\n\n` +
+      `Ты — аудитор сайтов платформы MarketRadar. По данным главной страницы составь краткий ` +
+      `экспресс-аудит для владельца бизнеса. Пиши по-русски, конкретно, без воды и без обращений. ` +
+      `Опирайся ТОЛЬКО на переданные данные.\n` +
+      `Ответь СТРОГО валидным JSON без markdown:\n` +
+      `{"business": "что это за бизнес, 1-2 предложения", ` +
+      `"strengths": ["ровно 3 сильных стороны сайта"], ` +
+      `"weaknesses": ["ровно 3 слабых места сайта"], ` +
+      `"nextStep": "одно самое важное следующее действие"}`;
+
+    const r = await chatJson<TgExpressAudit>({
+      system,
+      user: siteSummary,
+      maxTokens: 1200,
+      model: CHAT_MODEL_SMART,
+    });
+    if (!r.data?.business || !Array.isArray(r.data.strengths) || !Array.isArray(r.data.weaknesses)) {
+      throw new Error(r.error ?? "модель вернула неполный аудит");
+    }
+
+    // Сначала доставляем результат, потом списываем лимит — если отправка
+    // упала (бот заблокирован и т.п.), бесплатная попытка не сгорает.
+    const sent = await sendTelegramMessage({
+      chatId,
+      text: formatAudit(url, r.data),
+      inlineKeyboard: [
+        [{ text: `💎 Полный отчёт за ${fmtRub(PRICES.expressPaid)} (START)`, url: `${SITE}/express-report?url=${encodeURIComponent(url)}` }],
+        [{ text: "🚀 Открыть MarketRadar", url: SITE }],
+      ],
+    });
+    if (!sent.ok) throw new Error(`не доставлено в чат: ${sent.error}`);
+
+    await recordScan(chatId, url);
+    await logAuditToAiLogs({
+      chatId,
+      model: r.modelUsed,
+      promptTokens: estimateTokens(system + siteSummary),
+      completionTokens: estimateTokens(r.raw),
+      durationMs: Date.now() - startedAt,
+      success: true,
+    });
+  } catch (err) {
+    console.error("[tg webhook] express audit failed:", err);
+    await sendMessage(chatId, AUDIT_FAILED(url), EXPRESS_BUTTONS);
+    await logAuditToAiLogs({
+      chatId,
+      model: CHAT_MODEL_SMART,
+      promptTokens: estimateTokens(system + siteSummary),
+      completionTokens: 0,
+      durationMs: Date.now() - startedAt,
+      success: false,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 // ─── Router ─────────────────────────────────────────────────────────────────
 
@@ -289,7 +427,7 @@ export async function POST(req: NextRequest) {
       await sendMessage(chatId, CONNECT_PROMPT);
     } else if (/^MR-[A-Z0-9]{6}$/i.test(text)) {
       // Save code → chatId so the connect endpoint can find it
-      saveChatId(text, chatId);
+      await saveChatId(text, chatId);
       await sendMessage(
         chatId,
         `✅ <b>Готово!</b>\n\n` +
@@ -310,8 +448,11 @@ export async function POST(req: NextRequest) {
           : "следующего месяца";
         await sendMessage(chatId, SCAN_LIMIT_REACHED(nextDate), PRICE_BUTTONS);
       } else {
-        await recordScan(chatId, url);
-        await sendMessage(chatId, URL_RECEIVED(url), EXPRESS_BUTTONS);
+        await sendMessage(chatId, SCANNING(url));
+        // Fire-and-forget: Telegram должен получить 200 сразу (иначе ретраи
+        // того же update), а скрейп + Claude занимают до минуты. Лимит
+        // спишется внутри runExpressAudit и только при успехе.
+        void runExpressAudit(chatId, url);
       }
     } else if (text.startsWith("/")) {
       // Unknown command
@@ -322,7 +463,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false });
+  } catch (err) {
+    // 200 даже при ошибке — иначе Telegram будет бесконечно ретраить тот же
+    // update, и мы зациклимся на падающем сообщении.
+    console.error("[tg webhook]", err);
+    return NextResponse.json({ ok: true });
   }
 }
