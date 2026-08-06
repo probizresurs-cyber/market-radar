@@ -16,12 +16,24 @@ function esc(s: unknown): string {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Stat  { value: string; label: string }
+interface GridItem { title: string; description?: string }
 interface Slide {
   title: string; subtitle?: string;
-  type: "cover" | "bullets" | "stats" | "quote" | "two-column" | "cta";
+  type: "cover" | "bullets" | "stats" | "quote" | "two-column" | "grid" | "cta";
   content?: string; bullets?: string[]; stats?: Stat[];
   quote?: string; note?: string;
   leftContent?: string; rightContent?: string;
+  items?: GridItem[];
+  /** AI-иллюстрация (короткий /api/image/... или абсолютный URL). */
+  imageUrl?: string;
+}
+
+/** Лого допускаем только как data:image или http(s) — иное отбрасываем. */
+function safeLogoUrl(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (/^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,/i.test(s)) return s;
+  if (/^https?:\/\//i.test(s)) return s;
+  return "";
 }
 interface Style {
   id?: string; name?: string; mood?: string;
@@ -68,14 +80,24 @@ function mermaidChart(stats: Stat[]): string {
 }
 
 // ─── Slide HTML ───────────────────────────────────────────────────────────────
-function slideHtml(slide: Slide): string {
+function slideHtml(slide: Slide, logoUrl?: string): string {
   const bullets = (slide.bullets ?? []).filter(Boolean);
+  // Марка бренда: на обложке — крупно над заголовком, на остальных слайдах —
+  // маленькая в верхнем правом углу.
+  const cornerLogo = logoUrl ? `<img class="brand-mark" src="${esc(logoUrl)}" alt="">` : "";
+  // Фоновая AI-иллюстрация для тёмных слайдов (cover/quote/cta): картинка +
+  // плотный фирменный градиент сверху, чтобы текст оставался читабельным.
+  const bgImage = slide.imageUrl
+    ? `<img class="slide-bg" src="${esc(slide.imageUrl)}"><div class="slide-bg-overlay"></div>`
+    : "";
 
   switch (slide.type) {
     case "cover":
       return `
         <section class="slide cover">
+          ${bgImage}
           <div class="cover-inner">
+            ${logoUrl ? `<img class="cover-logo" src="${esc(logoUrl)}" alt="">` : ""}
             <div class="cover-badge">${esc(slide.subtitle)}</div>
             <h1>${esc(slide.title)}</h1>
             ${slide.content ? `<p class="cover-sub">${esc(slide.content)}</p>` : ""}
@@ -85,6 +107,7 @@ function slideHtml(slide: Slide): string {
     case "bullets":
       return `
         <section class="slide bullets-slide">
+          ${cornerLogo}
           <div class="slide-header">
             <h2>${esc(slide.title)}</h2>
             ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
@@ -98,6 +121,7 @@ function slideHtml(slide: Slide): string {
     case "stats":
       return `
         <section class="slide stats-slide">
+          ${cornerLogo}
           <div class="slide-header">
             <h2>${esc(slide.title)}</h2>
             ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
@@ -119,6 +143,8 @@ function slideHtml(slide: Slide): string {
     case "quote":
       return `
         <section class="slide quote-slide">
+          ${bgImage}
+          ${cornerLogo}
           <div class="quote-inner">
             <div class="quote-mark">&ldquo;</div>
             <blockquote>${esc(slide.quote || slide.content)}</blockquote>
@@ -130,6 +156,7 @@ function slideHtml(slide: Slide): string {
     case "two-column":
       return `
         <section class="slide two-col-slide">
+          ${cornerLogo}
           <div class="slide-header">
             <h2>${esc(slide.title)}</h2>
             ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
@@ -145,9 +172,33 @@ function slideHtml(slide: Slide): string {
           </div>
         </section>`;
 
+    case "grid":
+      return `
+        <section class="slide grid-slide">
+          ${cornerLogo}
+          <div class="slide-header">
+            <h2>${esc(slide.title)}</h2>
+            ${slide.subtitle ? `<p class="subtitle">${esc(slide.subtitle)}</p>` : ""}
+          </div>
+          <div class="slide-body">
+            ${slide.content ? `<p class="lead">${esc(slide.content)}</p>` : ""}
+            ${(slide.items?.length ?? 0) > 0
+              ? `<div class="grid-cards">
+                   ${(slide.items ?? []).slice(0, 6).map(it => `
+                     <div class="grid-card">
+                       <div class="grid-card-title">${esc(it.title)}</div>
+                       ${it.description ? `<div class="grid-card-desc">${esc(it.description)}</div>` : ""}
+                     </div>`).join("")}
+                 </div>`
+              : bullets.length ? `<ul>${bullets.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>` : ""}
+          </div>
+        </section>`;
+
     case "cta":
       return `
         <section class="slide cta-slide">
+          ${bgImage}
+          ${cornerLogo}
           <div class="cta-inner">
             <h2>${esc(slide.title)}</h2>
             ${slide.subtitle ? `<p class="cta-sub">${esc(slide.subtitle)}</p>` : ""}
@@ -161,6 +212,7 @@ function slideHtml(slide: Slide): string {
     default:
       return `
         <section class="slide bullets-slide">
+          ${cornerLogo}
           <div class="slide-header"><h2>${esc(slide.title)}</h2></div>
           <div class="slide-body"><p>${esc(slide.content)}</p></div>
         </section>`;
@@ -168,7 +220,7 @@ function slideHtml(slide: Slide): string {
 }
 
 // ─── Full HTML document ───────────────────────────────────────────────────────
-function buildHtml(slides: Slide[], style?: Style, title?: string): string {
+function buildHtml(slides: Slide[], style?: Style, title?: string, logoUrl?: string): string {
   const fonts = [style?.fontHeader, style?.fontBody, "Inter"]
     .filter(Boolean)
     .map(f => f!.replace(/ /g, "+"))
@@ -190,7 +242,7 @@ ${themeVars(style)}
 
 body {
   background: #333;
-  font-family: "var(--font-b)";
+  font-family: var(--font-b);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -199,8 +251,8 @@ body {
 .slide {
   width: 297mm;
   height: 210mm;
-  background: "var(--bg)";
-  color: "var(--text)";
+  background: var(--bg);
+  color: var(--text);
   position: relative;
   overflow: hidden;
   page-break-after: always;
@@ -249,7 +301,7 @@ body {
   text-transform: uppercase;
 }
 .cover h1 {
-  font-family: "var(--font-h)";
+  font-family: var(--font-h);
   font-size: 48px;
   font-weight: 700;
   line-height: 1.15;
@@ -271,10 +323,10 @@ body {
   flex-shrink: 0;
 }
 .slide-header h2 {
-  font-family: "var(--font-h)";
+  font-family: var(--font-h);
   font-size: 28px;
   font-weight: 700;
-  color: "var(--primary)";
+  color: var(--primary);
   line-height: 1.2;
 }
 .subtitle {
@@ -316,7 +368,7 @@ li::before {
   left: 0; top: 9px;
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: "var(--accent)";
+  background: var(--accent);
 }
 
 /* ── Stats ── */
@@ -335,10 +387,10 @@ li::before {
   text-align: center;
 }
 .stat-value {
-  font-family: "var(--font-h)";
+  font-family: var(--font-h);
   font-size: 32px;
   font-weight: 700;
-  color: "var(--accent)";
+  color: var(--accent);
   line-height: 1;
 }
 .stat-label {
@@ -371,7 +423,7 @@ svg { max-width: 100%; }
   margin-bottom: 24px;
 }
 blockquote {
-  font-family: "var(--font-h)";
+  font-family: var(--font-h);
   font-size: 24px;
   font-weight: 600;
   line-height: 1.5;
@@ -411,7 +463,7 @@ cite {
 
 /* ── CTA ── */
 .cta-slide {
-  background: "var(--primary)";
+  background: var(--primary);
   color: #fff;
   justify-content: center;
   align-items: center;
@@ -422,7 +474,7 @@ cite {
   max-width: 85%;
 }
 .cta-inner h2 {
-  font-family: "var(--font-h)";
+  font-family: var(--font-h);
   font-size: 40px;
   font-weight: 700;
   color: #fff;
@@ -453,6 +505,75 @@ cite {
   font-size: 13px;
 }
 
+/* ── Grid cards ── */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  flex: 1;
+  align-content: start;
+}
+.grid-card {
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.grid-card-title {
+  font-family: var(--font-h);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+.grid-card-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--text) 75%, transparent);
+}
+
+/* ── AI-иллюстрация как фон тёмных слайдов ── */
+.slide-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.slide-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--primary) 92%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 82%, transparent) 100%);
+}
+.cover-inner, .quote-inner, .cta-inner { position: relative; z-index: 1; }
+
+/* ── Brand mark (логотип в углу каждого слайда) ── */
+.brand-mark {
+  position: absolute;
+  top: 20px; right: 24px;
+  width: 34px; height: 34px;
+  object-fit: contain;
+  opacity: 0.9;
+  z-index: 5;
+}
+.quote-slide .brand-mark, .cta-slide .brand-mark {
+  background: rgba(255,255,255,0.14);
+  border-radius: 8px;
+  padding: 4px;
+}
+.cover-logo {
+  width: 56px; height: 56px;
+  object-fit: contain;
+  margin: 0 auto 18px;
+  display: block;
+  background: rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 6px;
+}
+
 /* ── Print ── */
 @media print {
   body { background: none; }
@@ -461,7 +582,7 @@ cite {
 </style>
 </head>
 <body>
-${slides.map(s => slideHtml(s)).join("\n")}
+${slides.map(s => slideHtml(s, logoUrl)).join("\n")}
 <script>
   mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'strict' });
 </script>
@@ -478,17 +599,27 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { slides, style, title } = await req.json() as {
+    const { slides, style, title, logoUrl } = await req.json() as {
       slides: Slide[];
       style?: Style;
       title?: string;
+      logoUrl?: string;
     };
 
     if (!slides?.length) {
       return NextResponse.json({ ok: false, error: "No slides" }, { status: 400 });
     }
 
-    const html = buildHtml(slides, style, title);
+    // Иллюстрации приходят короткими путями (/api/image/...), а HTML грузится
+    // в Puppeteer через setContent — без base URL относительные пути не
+    // резолвятся. Достраиваем до абсолютных через origin этого же запроса
+    // (Puppeteer крутится на том же сервере и ходит на localhost свободно).
+    const origin = new URL(req.url).origin;
+    const resolvedSlides = slides.map(s =>
+      s.imageUrl && s.imageUrl.startsWith("/") ? { ...s, imageUrl: origin + s.imageUrl } : s,
+    );
+
+    const html = buildHtml(resolvedSlides, style, title, safeLogoUrl(logoUrl) || undefined);
 
     // Dynamic import so it doesn't break edge/build-time
     const chromium = (await import("@sparticuz/chromium")).default;

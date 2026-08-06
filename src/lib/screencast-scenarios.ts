@@ -51,6 +51,53 @@ const SCENARIOS: Record<string, ScreencastScenario> = {
   },
 
   /**
+   * Tour по платформе с авторизацией.
+   * Показывает дашборд, конкурентов, ЦА, контент — реальный продукт.
+   * Требует SCREENCAST_EMAIL + SCREENCAST_PASSWORD в .env.
+   * ~22 сек: login (4) → dashboard (5) → конкуренты (5) → контент (5) → выход (3)
+   */
+  "app-dashboard-tour": async ({ page, baseUrl, wait }) => {
+    const email = process.env.SCREENCAST_EMAIL ?? "";
+    const password = process.env.SCREENCAST_PASSWORD ?? "";
+
+    // Логин
+    await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded", timeout: 15000 });
+    await wait(1000);
+    const emailInput = await page.$('input[type="email"], input[name="email"], input[placeholder*="mail" i]');
+    const passInput = await page.$('input[type="password"]');
+    if (emailInput && passInput) {
+      await emailInput.fill(email);
+      await passInput.fill(password);
+      await wait(500);
+      const btn = await page.$('button[type="submit"], button:has-text("Войти"), button:has-text("Sign in")');
+      if (btn) await btn.click();
+      await wait(3000);
+    }
+
+    // Дашборд — скролл по карточкам
+    await page.evaluate(() => window.scrollTo({ top: 300, behavior: "smooth" }));
+    await wait(2500);
+    await page.evaluate(() => window.scrollTo({ top: 700, behavior: "smooth" }));
+    await wait(2000);
+
+    // Попытка перейти в конкурентов
+    const compLink = await page.$('a[href*="competitor"], a[href*="конкурент"]');
+    if (compLink) {
+      await compLink.click();
+      await wait(3000);
+      await page.evaluate(() => window.scrollTo({ top: 400, behavior: "smooth" }));
+      await wait(2000);
+    }
+
+    // Контент
+    const contentLink = await page.$('a[href*="content"], a[href*="контент"]');
+    if (contentLink) {
+      await contentLink.click();
+      await wait(3000);
+    }
+  },
+
+  /**
    * Tour по express-report — публичный лид-магнит с формой ввода URL.
    * Показывает «введи сайт → получи отчёт» — это центральная промо-фишка.
    * Не заполняем форму до конца (отчёт генерится 30-60 сек, не уложимся),

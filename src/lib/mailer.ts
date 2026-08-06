@@ -36,7 +36,13 @@
 // установлен — например, ENOSPC на диске разработчика) не падал.
 // На VPS пакет установится через npm install и dynamic-import отработает.
 type NodemailerModule = typeof import("nodemailer");
-type NMTransporter = ReturnType<NodemailerModule["createTransport"]>;
+// Не ReturnType<createTransport>: у createTransport перегрузки, и ReturnType
+// берёт последнюю (SMTP transport), а мы создаём pooled transport — типы
+// SentMessageInfo у них расходятся. Нам от транспортёра нужны 2 метода.
+interface NMTransporter {
+  sendMail(message: object): Promise<{ messageId?: string; accepted?: unknown[]; rejected?: unknown[] }>;
+  verify(): Promise<unknown>;
+}
 // SendMailOptions описывает параметры одного письма.
 // Дублируем минимально нужный subset, чтобы не зависеть от установки types.
 interface NMSendMailOptions {

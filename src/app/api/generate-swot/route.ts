@@ -62,7 +62,8 @@ export async function POST(req: Request) {
 
     // Можно перекрыть отдельные поля из body.overrides — например цели и feedback
     if (body.overrides && typeof body.overrides === "object") {
-      ctx = { ...ctx, ...body.overrides };
+      // Каст к Partial: спред any «размывал» narrowing ctx обратно в null-union.
+      ctx = { ...ctx, ...(body.overrides as Partial<CompanyContext>) };
     }
 
     const report = await generateSwotReport(ctx);

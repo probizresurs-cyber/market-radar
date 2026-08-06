@@ -161,6 +161,8 @@ export interface AnalysisResult {
     top10: number;
     categories: CategoryScore[];
     description?: string;
+    /** Ниша компании (заполняется онбордингом/анализом не всегда). */
+    niche?: string;
   };
   recommendations: Recommendation[];
   insights: Insight[];

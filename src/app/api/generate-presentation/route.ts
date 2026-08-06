@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
+import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 120;
 
 const BASE_SYSTEM_PROMPT = `${ANTI_HALLUCINATION_SHORT}
 
-Ты — топ-презентационный дизайнер уровня Pitch.com / Beautiful.ai. Создаёшь структуру бренд-презентации компании.
+Ты — топ-презентационный дизайнер уровня Pitch.com / Beautiful.ai / Linear. Создаёшь структуру бренд-презентации компании, которую движок отрендерит в фирменных цветах и шрифтах бренда.
 
-ТРЕБОВАНИЯ К КАЧЕСТВУ:
-- 11–14 слайдов, НЕ однообразных — чередуй типы: cover → bullets → stats → two-column → grid → quote → bullets → stats → cta
-- Каждый слайд должен ВИЗУАЛЬНО ОТЛИЧАТЬСЯ от соседних по типу
-- Контент должен быть конкретным и насыщенным: реальные цифры, факты, сильные тезисы
-- НЕ пиши банальности типа "Мы лучшие". Пиши конкретику.
+АРТ-ДИРЕКШН (обязательно):
+- 11–14 слайдов. Два соседних слайда НИКОГДА не совпадают по типу — чередуй лейауты.
+- Плотность текста: заголовок ≤ 8 слов; пункт списка — законченная мысль на 8–15 слов; content на слайде ≤ 220 символов. Лучше меньше текста и сильнее формулировка, чем «простыня».
+- Каждый stats-слайд — это акцентные ЦИФРЫ, а не проза: value строго число/число+единица ("87%", "2 400", "×3", "24/7"). Никаких value вида "много" или "высокий".
+- Не пиши банальности ("Мы лучшие", "Индивидуальный подход", "Команда профессионалов"). Только конкретика: цифры, названия, факты из данных.
+- Заголовки слайдов — как в хорошем питч-деке: тезис, а не рубрика. Не «Наши услуги», а «6 направлений, закрывающих задачу под ключ».
+- Тон и лексика — строго по тону бренда и его палитре настроения (см. блок БРЕНД). Тёмная строгая палитра → сдержанный уверенный язык; яркая → энергичный.
 
 ТИПЫ СЛАЙДОВ:
 - cover: обложка. bullets: [] нет, stats: [] нет. Заполни subtitle (категория/позиционирование) и content (короткое УТП).
-- bullets: список 4–7 конкретных пунктов. Каждый пункт — законченная мысль, 8–15 слов.
-- stats: ОБЯЗАТЕЛЬНО 3–4 числовых показателя. Поле value ВСЕГДА число или число+единица (например "87%", "2 400", "×3"). Поле label — что это за показатель.
+- bullets: список 4–6 конкретных пунктов.
+- stats: ОБЯЗАТЕЛЬНО 3–4 числовых показателя {value, label}.
 - quote: сильная цитата или инсайт (поле quote). content — автор/контекст.
 - two-column: два блока. Заполни bullets (6–8 пунктов) — они поровну разделятся на колонки. Или leftContent + rightContent.
-- grid: карточки услуг/преимуществ/возможностей. Заполни items: [{title, description}] — 3–6 карточек с конкретными названиями и описаниями.
+- grid: карточки услуг/преимуществ/возможностей. items: [{title, description}] — 3–6 карточек с конкретными названиями и описаниями.
 - cta: финальный призыв. bullets — 2–4 контактных/следующих шага.
 
 ОБЯЗАТЕЛЬНАЯ СТРУКТУРА (в таком порядке):
@@ -51,8 +54,6 @@ export async function POST(req: Request) {
   if (!access.allowed) return access.response;
   try {
     const body = await req.json();
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ ok: false, error: "No API key" }, { status: 500 });
     const sections: string[] = [];
     if (body.company) {
       const c = body.company;
@@ -60,7 +61,19 @@ export async function POST(req: Request) {
     }
     if (body.brandBook) {
       const b = body.brandBook;
-      sections.push(`БРЕНД: Слоган: ${b.tagline}, Миссия: ${b.mission}, Тон: ${(b.toneOfVoice ?? []).join(", ")}`);
+      const brandLines = [
+        b.brandName && `Имя бренда: ${b.brandName}`,
+        b.tagline && `Слоган: ${b.tagline}`,
+        b.mission && `Миссия: ${b.mission}`,
+        (b.toneOfVoice ?? []).length > 0 && `Тон: ${(b.toneOfVoice ?? []).join(", ")}`,
+        (b.colors ?? []).length > 0 && `Фирменная палитра (hex): ${(b.colors ?? []).join(", ")} — презентация будет отрендерена в этих цветах, пиши тексты под это настроение`,
+        b.fontHeader && `Шрифты: заголовки ${b.fontHeader}, текст ${b.fontBody || "—"}`,
+        b.visualStyle && `Визуальный стиль бренда: ${b.visualStyle}`,
+        (b.forbiddenWords ?? []).length > 0 && `ЗАПРЕЩЁННЫЕ слова (не использовать): ${(b.forbiddenWords ?? []).join(", ")}`,
+        (b.goodPhrases ?? []).length > 0 && `Примеры фирменных формулировок: ${(b.goodPhrases ?? []).slice(0, 5).join("; ")}`,
+        b.logoDataUrl && `У бренда есть логотип — он будет размещён на слайдах автоматически, не упоминай его в текстах`,
+      ].filter(Boolean);
+      if (brandLines.length > 0) sections.push(`БРЕНД:\n${brandLines.join("\n")}`);
     }
     if (body.taData?.segments) {
       sections.push(`ЦА: ${body.taData.segments.map((s: { segmentName: string; demographics: { age: string; income: string }; mainProblems: string[] }) => `${s.segmentName} (${s.demographics.age}, ${s.demographics.income})`).join("; ")}`);
@@ -77,12 +90,13 @@ export async function POST(req: Request) {
     let systemPrompt = BASE_SYSTEM_PROMPT;
     if (body.style) {
       const s = body.style;
-      systemPrompt += `\n\nСТИЛЬ ПРЕЗЕНТАЦИИ:
+      systemPrompt += `\n\nВЫБРАННЫЙ СТИЛЬ ПРЕЗЕНТАЦИИ:
 Название стиля: ${s.name}
 Настроение: ${s.mood}
+Палитра рендера (hex): ${(s.colors ?? []).join(", ")}
 Шрифт заголовков: ${s.fontHeader}
 Шрифт текста: ${s.fontBody}
-Учитывай стиль "${s.mood}" при написании текстов — подбирай лексику и тон соответственно.`;
+Учитывай настроение "${s.mood}" при написании текстов — подбирай лексику и тон соответственно.`;
     }
     // КРИТИЧНО: customPrompt — user-input, нельзя сливать в system promt
     // без санитизации. Раньше юзер мог написать «Игнорируй предыдущие
@@ -101,40 +115,26 @@ export async function POST(req: Request) {
     };
     const userExtraNotes = body.customPrompt ? sanitizeUserPrompt(body.customPrompt) : "";
 
-    const res = await fetch(`${process.env.OPENAI_BASE_URL ?? "https://api.openai.com"}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          // Кастомные пожелания пользователя — в user-сообщение, не в system.
-          // Это снижает риск переопределения JSON-формата и обхода правил.
-          { role: "user", content: `Создай бренд-презентацию:\n\n${sections.join("\n\n")}${userExtraNotes ? `\n\nПОЖЕЛАНИЯ ПОЛЬЗОВАТЕЛЯ (учти если не противоречат формату):\n${userExtraNotes}` : ""}` },
-        ],
-        temperature: 0.6, max_tokens: 4000, response_format: { type: "json_object" },
-      }),
+    const aiResult = await chatJson<{ title?: string; slides?: unknown[] }>({
+      system: systemPrompt,
+      // Кастомные пожелания пользователя — в user-сообщение, не в system.
+      // Это снижает риск переопределения JSON-формата и обхода правил.
+      user: `Создай бренд-презентацию:\n\n${sections.join("\n\n")}${userExtraNotes ? `\n\nПОЖЕЛАНИЯ ПОЛЬЗОВАТЕЛЯ (учти если не противоречат формату):\n${userExtraNotes}` : ""}`,
+      model: CHAT_MODEL_SMART,
+      temperature: 0.6,
+      maxTokens: 6000,
     });
-    if (!res.ok) {
-      const errBody = await res.text();
-      return NextResponse.json({ ok: false, error: `OpenAI ${res.status}: ${errBody.slice(0, 200)}` }, { status: 500 });
-    }
-    // Раньше: модель в логе была "claude-sonnet-4-6" (legacy с момента,
-    // когда роут реально вызывал Claude), а usage не передавался вообще
-    // — расход GPT-4o не списывался с подписки + admin-аналитика по
-    // моделям была кривая. Чиним.
-    const data = await res.json() as {
-      choices: Array<{ message: { content: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
+
     await access.log({
       endpoint: "generate-presentation",
-      model: "gpt-4o-mini",
-      promptTokens: data.usage?.prompt_tokens,
-      completionTokens: data.usage?.completion_tokens,
-      success: true,
+      model: aiResult.modelUsed,
+      success: Boolean(aiResult.data),
     });
-    return NextResponse.json({ ok: true, data: JSON.parse(data.choices[0]?.message?.content ?? "{}") });
+
+    if (!aiResult.data || !Array.isArray(aiResult.data.slides) || aiResult.data.slides.length === 0) {
+      return NextResponse.json({ ok: false, error: aiResult.error ?? "Модель вернула пустую структуру презентации" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, data: aiResult.data });
   } catch (err: unknown) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Error" }, { status: 500 });
   }

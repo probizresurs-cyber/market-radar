@@ -236,8 +236,8 @@ export function SMMDashboardView({ c, data }: { c: Colors; data: SMMResult }) {
           contentPillars: platform?.contentPillars,
           quickWins: data.quickWins?.slice(0, 5),
           realStats: data.realStats ? {
-            vk: data.realStats.vk ? { subs: data.realStats.vk.subscribers, posts: data.realStats.vk.recentPosts } : null,
-            tg: data.realStats.telegram ? { subs: data.realStats.telegram.subscribers, posts: data.realStats.telegram.recentPosts } : null,
+            vk: data.realStats.vk ? { subs: data.realStats.vk.subscribers, posts: data.realStats.vk.posts30d } : null,
+            tg: data.realStats.telegram ? { subs: data.realStats.telegram.subscribers, posts: data.realStats.telegram.posts30d } : null,
           } : null,
         }}
       />

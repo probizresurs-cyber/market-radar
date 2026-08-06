@@ -23,7 +23,9 @@ export async function GET() {
 
   const access: Record<string, boolean> = {};
   for (const product of PRODUCT_LIST) {
-    if (product === "core") { access[product] = true; continue; }
+    // Админ видит все продукты всегда — вне зависимости от фичефлагов и
+    // подписок (иначе владелец не может проверить выключенный продукт).
+    if (product === "core" || session.role === "admin") { access[product] = true; continue; }
     const flags = PRODUCT_BY_SCOPE[product as ProductScope].featureFlags;
     const openToAll = flags.some(f => flagOn.get(f) !== false); // нет записи флага = считаем включённым
     access[product] = openToAll || await hasProductAccess(session.userId, product as ProductScope);

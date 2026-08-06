@@ -196,7 +196,7 @@ function IdeaCard({ idea, onCreate, creating, onCreatePackage, creatingPackage }
   );
 }
 
-export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreatePackage }: {
+export function ContentTrendsView({ analysis, userId, onCreateFromIdea, onCreatePackage, smmAnalysis, brandBook, onSendReelToLibrary, onSendPostToLibrary }: {
   analysis: AnalysisResult | null;
   /** Per-user скоуп localStorage. */
   userId?: string;

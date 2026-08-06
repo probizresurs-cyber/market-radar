@@ -8,7 +8,7 @@ import type { SMMResult } from "@/lib/smm-types";
 import type { BrandBook, PresentationStyle } from "@/lib/content-types";
 import {
   X, Sparkles, Folder, ClipboardList, Trash2, Check, Palette,
-  MessageCircle, Brain, FileText, RefreshCw, Pencil, Mic,
+  MessageCircle, Brain, FileText, RefreshCw, Pencil, Mic, Image as ImageIcon,
 } from "lucide-react";
 import { trackGoal } from "@/lib/metrika";
 import { INDUSTRY_TEMPLATES, getTemplateById, buildTemplatePromptBlock, type IndustryTemplate } from "@/lib/presentation-templates";
@@ -27,6 +27,8 @@ interface PresentationSlide {
   leftContent?: string;
   rightContent?: string;
   isEdited?: boolean;
+  /** AI-иллюстрация слайда (короткий URL /api/image/... или data URL). */
+  imageUrl?: string;
 }
 
 const PRESET_STYLES: PresentationStyle[] = [
@@ -183,7 +185,24 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     fd.set("customDesignNotes", premiumDesignNotes);
     fd.set("slides", String(premiumSlides));
     fd.set("model", premiumModel);
-    if (premiumLogo) fd.set("logo", premiumLogo);
+    if (premiumLogo) {
+      fd.set("logo", premiumLogo);
+    } else if (brandBook.logoDataUrl) {
+      // Автолого из брендбука: пользователь один раз загрузил лого в брендбук —
+      // не заставляем грузить его второй раз для премиум-презентации.
+      try {
+        // Без флага /s: tsconfig target ниже es2018, а перенос строк в
+        // data URL от FileReader.readAsDataURL не встречается.
+        const m = brandBook.logoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (m) {
+          const bin = atob(m[2]);
+          const bytes = new Uint8Array(bin.length);
+          for (let bi = 0; bi < bin.length; bi++) bytes[bi] = bin.charCodeAt(bi);
+          const ext = m[1].includes("png") ? "png" : m[1].includes("svg") ? "svg" : "jpg";
+          fd.set("logo", new File([bytes], `logo.${ext}`, { type: m[1] }));
+        }
+      } catch { /* битый data URL — премиум просто пойдёт без лого, как раньше */ }
+    }
     premiumRefFiles.forEach(f => fd.append("references", f));
 
     const r = await fetch("/api/agent/generate-presentation", { method: "POST", body: fd });
@@ -215,7 +234,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [selectedTemplate, setSelectedTemplate] = useState<IndustryTemplate | null>(null);
   // Brand-check результат и состояние загрузки
   interface BrandCheckIssue {
-    category: "color" | "font" | "tone" | "forbidden-word" | "consistency";
+    // Синхронизировано с серверным списком категорий brand-check
+    // ("consistency" сервер никогда не отдавал).
+    category: "color" | "font" | "tone" | "forbidden-word" | "tagline" | "logo" | "other";
     severity: "high" | "medium" | "low";
     slideIndex: number;
     issue: string;
@@ -235,6 +256,13 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         body: JSON.stringify({
           slides,
           brandBook,
+          // Фактические настройки текущей презентации — без них серверный
+          // блок «ТЕКУЩИЕ НАСТРОЙКИ» оставался пустым и расхождения по
+          // цвету/шрифту в принципе не находились.
+          primary,
+          secondary,
+          fontH: sty.fontHeader || brandBook.fontHeader,
+          fontB: sty.fontBody || brandBook.fontBody,
         }),
       });
       const json = await jsonOrThrow(res);
@@ -301,6 +329,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
   const [isExportingSlidev, setIsExportingSlidev] = useState(false);
+  const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
 
   // Load history from localStorage
   useEffect(() => {
@@ -445,6 +474,34 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     }
   };
 
+  // AI-иллюстрация слайда: роут строит промпт из контекста слайда + палитры
+  // выбранного стиля и возвращает короткий URL (/api/image/...).
+  const handleGenerateSlideImage = async (idx: number) => {
+    setGeneratingImageFor(idx);
+    setError("");
+    try {
+      const res = await fetch("/api/presentation-slide-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slide: slides[idx],
+          brandBook: {
+            colors: sty.colors,
+            visualStyle: brandBook.visualStyle,
+            mood: sty.mood,
+          },
+        }),
+      });
+      const json = await jsonOrThrow(res);
+      if (!json.ok) throw new Error(json.error || "Ошибка генерации иллюстрации");
+      handleSlideUpdate(idx, { imageUrl: json.data.imageUrl });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка генерации иллюстрации");
+    } finally {
+      setGeneratingImageFor(null);
+    }
+  };
+
   // ── Export handlers ──────────────────────────────────
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
@@ -452,7 +509,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       const res = await fetch("/api/export-slides-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides, style: selectedStyle, title: presTitle }),
+        body: JSON.stringify({ slides, style: selectedStyle, title: presTitle, logoUrl: brandBook.logoDataUrl || undefined }),
       });
       if (!res.ok) {
         const err = await jsonOrThrow(res).catch(() => ({ error: "Ошибка PDF" }));
@@ -559,12 +616,30 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       backgroundSize: `${size ?? 24}px ${size ?? 24}px`,
     });
 
-    // Slide counter
-    const pg = (light: boolean) => (
-      <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 10,
-        fontWeight: 700, letterSpacing: 2, color: light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.14)" }}>
-        {String(idx+1).padStart(2,"0")} / {String(total).padStart(2,"0")}
+    // Фоновая AI-иллюстрация слайда: картинка + плотный фирменный градиент
+    // поверх, чтобы текст оставался читабельным на любом изображении.
+    const bgImg = (overlay: string) => slide.imageUrl ? (
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+        <img src={slide.imageUrl} alt="" style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+        <div style={{ position:"absolute", inset:0, background: overlay }} />
       </div>
+    ) : null;
+
+    // Slide counter + фирменная марка. Лого рисуем на каждом слайде кроме
+    // обложки (там оно уже крупно в шапке) — маленькая марка в верхнем углу,
+    // на тёмных слайдах с подложкой, чтобы тёмное лого не растворялось.
+    const pg = (light: boolean) => (
+      <>
+        {brandBook.logoDataUrl && type !== "cover" && (
+          <img src={brandBook.logoDataUrl} alt="" style={{ position: "absolute", top: 14, right: 18,
+            width: 26, height: 26, objectFit: "contain", borderRadius: 6, zIndex: 3, opacity: 0.9,
+            background: light ? "rgba(255,255,255,0.14)" : "transparent", padding: light ? 3 : 0 }} />
+        )}
+        <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 10,
+          fontWeight: 700, letterSpacing: 2, color: light ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.14)" }}>
+          {String(idx+1).padStart(2,"0")} / {String(total).padStart(2,"0")}
+        </div>
+      </>
     );
 
     // ── COVER ─────────────────────────────────────────────────────────────
@@ -573,6 +648,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         <div key={idx} style={{ ...base,
           background: `linear-gradient(135deg, ${dp} 0%, ${primary} 58%, ${lighten(primary,0.14)} 100%)`,
           display: "flex" }}>
+          {bgImg(`linear-gradient(135deg, ${rgba(dp,0.93)} 0%, ${rgba(primary,0.86)} 58%, ${rgba(lighten(primary,0.14),0.82)} 100%)`)}
           {/* Ambient orbs */}
           <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
             <div style={{ position:"absolute", top:"-35%", right:"-8%", width:"58%", paddingBottom:"58%",
@@ -655,6 +731,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         <div key={idx} style={{ ...base,
           background:`linear-gradient(140deg,${dp} 0%,${primary} 55%,${lighten(primary,0.1)} 100%)`,
           display:"flex", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
+          {bgImg(`linear-gradient(140deg,${rgba(dp,0.93)} 0%,${rgba(primary,0.87)} 55%,${rgba(lighten(primary,0.1),0.84)} 100%)`)}
           <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
             <div style={{ position:"absolute", top:"-30%", left:"-10%", width:"60%", paddingBottom:"60%",
               borderRadius:"50%", background:rgba(secondary,0.12), filter:"blur(70px)" }} />
@@ -755,6 +832,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         <div key={idx} style={{ ...base,
           background:`linear-gradient(148deg,${dp} 0%,${darken(primary,0.14)} 100%)`,
           display:"flex", alignItems:"center" }}>
+          {bgImg(`linear-gradient(148deg,${rgba(dp,0.94)} 0%,${rgba(darken(primary,0.14),0.9)} 100%)`)}
           <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
             <div style={{ position:"absolute", top:"-20%", right:"-5%", width:"45%", paddingBottom:"45%",
               borderRadius:"50%", background:rgba(secondary,0.12), filter:"blur(55px)" }} />
@@ -860,6 +938,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
             background:`linear-gradient(162deg,${primary} 0%,${dp} 100%)`,
             display:"flex", flexDirection:"column", justifyContent:"space-between",
             padding:"30px 28px 24px", position:"relative", overflow:"hidden" }}>
+            {bgImg(`linear-gradient(162deg,${rgba(primary,0.88)} 0%,${rgba(dp,0.94)} 100%)`)}
             <div style={{ position:"absolute", bottom:"-25%", right:"-20%", width:"80%",
               paddingBottom:"80%", borderRadius:"50%", background:"rgba(255,255,255,0.04)" }} />
             <div style={dotGridStyle(0.04, 20)} />
@@ -927,6 +1006,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
           background:`linear-gradient(175deg,${primary} 0%,${darken(primary,0.26)} 100%)`,
           display:"flex", flexDirection:"column", justifyContent:"space-between",
           padding:"28px 22px 20px", position:"relative", overflow:"hidden" }}>
+          {bgImg(`linear-gradient(175deg,${rgba(primary,0.88)} 0%,${rgba(darken(primary,0.26),0.94)} 100%)`)}
           <div style={dotGridStyle(0.04, 20)} />
           <div style={{ position:"absolute", bottom:"-22%", left:"-22%", width:"90%",
             paddingBottom:"90%", borderRadius:"50%", background:"rgba(255,255,255,0.03)" }} />
@@ -1533,7 +1613,17 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setSelectedTemplate(isSel ? null : t)}
+                      onClick={() => {
+                        const next = isSel ? null : t;
+                        setSelectedTemplate(next);
+                        // Авто-палитра: применяем рекомендованный стиль шаблона,
+                        // пока пользователь не выбрал палитру вручную
+                        // (recommendedStyle раньше вообще никем не читался).
+                        if (next && !selectedStyle) {
+                          const rec = PRESET_STYLES.find(p => p.id === next.recommendedStyle);
+                          if (rec) setSelectedStyle(rec);
+                        }
+                      }}
                       title={t.description}
                       style={{
                         padding: "10px 12px",
@@ -1573,6 +1663,9 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                   lineHeight: 1.5,
                 }}>
                   <b style={{ color: "var(--primary)" }}>Шаблон «{selectedTemplate.name}»:</b> {selectedTemplate.focus}
+                  {selectedStyle && PRESET_STYLES.some(p => p.id === selectedTemplate.recommendedStyle && p.id === selectedStyle.id) && (
+                    <span> · Применён рекомендованный стиль «{selectedStyle.name}» — можно сменить ниже.</span>
+                  )}
                 </div>
               )}
             </div>
@@ -1905,8 +1998,25 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Mic size={11} /> <b>Заметка:</b> {slide.note}</span>
                       </div>
                     )}
-                    <button onClick={() => setEditingSlide(null)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`,
-                      background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Закрыть</button>
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <button onClick={() => handleGenerateSlideImage(i)} disabled={generatingImageFor !== null}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none",
+                          background: generatingImageFor === i ? "var(--muted-foreground)" : "var(--primary)",
+                          color: "#fff", cursor: generatingImageFor !== null ? "wait" : "pointer", fontSize: 12, fontWeight: 600,
+                          display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <ImageIcon size={13} />
+                        {generatingImageFor === i ? "Генерирую иллюстрацию..." : slide.imageUrl ? "Перегенерировать иллюстрацию" : "AI-иллюстрация"}
+                      </button>
+                      {slide.imageUrl && (
+                        <button onClick={() => handleSlideUpdate(i, { imageUrl: undefined })}
+                          style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+                            background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                          Убрать иллюстрацию
+                        </button>
+                      )}
+                      <button onClick={() => setEditingSlide(null)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+                        background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Закрыть</button>
+                    </div>
                   </div>
                 )}
               </div>

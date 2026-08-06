@@ -101,7 +101,6 @@ ${recommendations.map((r, i) => `${i}. [${r.category}] ${r.text}\n   Ожида�
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
-    void modelUsed; // (для будущего логирования; access.log здесь не вызывается отдельно)
 
     if (!text) {
       return NextResponse.json(
@@ -152,9 +151,9 @@ ${recommendations.map((r, i) => `${i}. [${r.category}] ${r.text}\n   Ожида�
 
     await access.log({
       endpoint: "prioritize-recommendations",
-      model,
+      model: modelUsed,
       promptTokens: estimateTokens(SYSTEM_PROMPT + userMessage),
-      completionTokens: estimateTokens(raw),
+      completionTokens: estimateTokens(text),
     });
 
     return NextResponse.json({ ok: true, prioritized });

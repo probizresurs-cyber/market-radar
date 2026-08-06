@@ -40,6 +40,15 @@ interface Slide {
   stats?: Array<{ value: string; label: string }>;
   quote?: string;
   note?: string;
+  items?: Array<{ title: string; description?: string }>;
+  /** AI-иллюстрация (короткий /api/image/... или абсолютный URL). */
+  imageUrl?: string;
+}
+
+interface StyleInput {
+  colors?: string[]; // [primary, secondary, accent, bg, text]
+  fontHeader?: string;
+  fontBody?: string;
 }
 
 interface BrandBook {
@@ -61,16 +70,49 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const slides: Slide[] = body.slides ?? [];
-    const presTitle: string = body.title ?? "Презентация";
+    // Клиент шлёт presTitle; body.title — легаси-фолбэк. Раньше роут читал
+    // только body.title, и каждый экспорт назывался «Презентация».
+    const presTitle: string = body.presTitle ?? body.title ?? "Презентация";
     const brandBook: BrandBook = body.brandBook ?? {};
+    const style: StyleInput = body.style ?? {};
 
-    // Brand colors
-    const primary = hex(brandBook.colors?.[0] || "#6366f1");
-    const secondary = hex(brandBook.colors?.[1] || "#10b981");
+    // Цвета/шрифты: приоритет — выбранный пользователем стиль презентации,
+    // фолбэк — брендбук. Раньше style игнорировался и PPTX всегда выходил
+    // в сырых цветах брендбука (или в дефолтных indigo/green).
+    const styleColors = Array.isArray(style.colors) ? style.colors : [];
+    const primary = hex(styleColors[0] || brandBook.colors?.[0] || "#6366f1");
+    const secondary = hex(styleColors[1] || brandBook.colors?.[1] || "#10b981");
     const darkPrimary = darken(primary, 0.3);
     const lightPrimary = lighten(primary, 0.88);
-    const headerFont = brandBook.fontHeader || "Calibri";
-    const bodyFont = brandBook.fontBody || "Calibri";
+    const headerFont = style.fontHeader || brandBook.fontHeader || "Calibri";
+    const bodyFont = style.fontBody || brandBook.fontBody || "Calibri";
+
+    // Лого готовим один раз: большое — на тёмных слайдах (cover/cta/last),
+    // маленькая марка в верхнем правом углу — на всех остальных.
+    let logoData: string | null = null;
+    if (brandBook.logoDataUrl && brandBook.logoDataUrl.includes("base64,")) {
+      const b64 = brandBook.logoDataUrl.split("base64,")[1];
+      const ext = brandBook.logoDataUrl.includes("png") ? "png" : "jpg";
+      logoData = `image/${ext};base64,${b64}`;
+    }
+
+    // AI-иллюстрации слайдов: pptxgenjs в Node принимает только base64-data,
+    // поэтому короткие /api/image/... скачиваем заранее с этого же сервера.
+    const origin = new URL(req.url).origin;
+    const slideBg: Array<string | null> = await Promise.all(slides.map(async (sl) => {
+      if (!sl.imageUrl) return null;
+      const abs = sl.imageUrl.startsWith("/") ? origin + sl.imageUrl : sl.imageUrl;
+      if (!/^https?:\/\//i.test(abs)) return null;
+      try {
+        const r = await fetch(abs);
+        if (!r.ok) return null;
+        const mime = r.headers.get("content-type") || "image/png";
+        if (!mime.startsWith("image/")) return null;
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (buf.length > 8_000_000) return null; // не раздуваем pptx
+        return `${mime};base64,${buf.toString("base64")}`;
+      } catch { return null; }
+    }));
 
     // Dynamic import (server-side only)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -88,7 +130,19 @@ export async function POST(req: Request) {
 
       if (isCover || isCTA || isLast) {
         // ── DARK SLIDE (cover / cta / last) ──────────────────────────────
-        s.background = { color: darkPrimary };
+        // С иллюстрацией: картинка фоном + полупрозрачная фирменная подложка,
+        // чтобы белый текст оставался читабельным.
+        const bgData = slideBg[i];
+        if (bgData) {
+          try { s.background = { data: bgData }; } catch { s.background = { color: darkPrimary }; }
+          s.addShape(pres.shapes.RECTANGLE, {
+            x: 0, y: 0, w: 10, h: 5.625,
+            fill: { color: darkPrimary, transparency: 18 },
+            line: { color: darkPrimary, transparency: 18 },
+          });
+        } else {
+          s.background = { color: darkPrimary };
+        }
 
         // Decorative circles (top-right, bottom-left)
         s.addShape(pres.shapes.OVAL, {
@@ -101,11 +155,9 @@ export async function POST(req: Request) {
         });
 
         // Logo (if provided and valid base64)
-        if (brandBook.logoDataUrl && brandBook.logoDataUrl.includes("base64,")) {
-          const b64 = brandBook.logoDataUrl.split("base64,")[1];
-          const ext = brandBook.logoDataUrl.includes("png") ? "png" : "jpg";
+        if (logoData) {
           try {
-            s.addImage({ data: `image/${ext};base64,${b64}`, x: 0.5, y: 0.4, w: 0.9, h: 0.9 });
+            s.addImage({ data: logoData, x: 0.5, y: 0.4, w: 0.9, h: 0.9 });
           } catch { /* ignore */ }
         }
 
@@ -253,6 +305,60 @@ export async function POST(req: Request) {
           });
         }
 
+      } else if (slide.type === "grid" && (slide.items ?? []).length > 0) {
+        // ── GRID SLIDE (карточки услуг/преимуществ) ────────────────────────
+        // Раньше grid-слайды падали в bullets-ветку и items терялись целиком.
+        s.background = { color: "FFFFFF" };
+
+        s.addShape(pres.shapes.RECTANGLE, {
+          x: 0, y: 0, w: 0.15, h: 5.625,
+          fill: { color: primary }, line: { color: primary },
+        });
+        s.addText(slide.title, {
+          x: 0.4, y: 0.35, w: 9.2, h: 0.8,
+          fontSize: 26, fontFace: headerFont, bold: true, color: darkPrimary,
+        });
+        if (slide.subtitle) {
+          s.addText(slide.subtitle, {
+            x: 0.4, y: 1.1, w: 9.2, h: 0.4,
+            fontSize: 13, fontFace: bodyFont, color: "64748B",
+          });
+        }
+
+        const items = (slide.items ?? []).slice(0, 6);
+        const cols = items.length <= 4 ? 2 : 3;
+        const rows = Math.ceil(items.length / cols);
+        const areaX = 0.5, areaY = slide.subtitle ? 1.6 : 1.35, areaW = 9.0;
+        const areaH = 5.1 - areaY;
+        const gap = 0.25;
+        const cw = (areaW - gap * (cols - 1)) / cols;
+        const ch = (areaH - gap * (rows - 1)) / rows;
+
+        items.forEach((it, ii) => {
+          const cx = areaX + (ii % cols) * (cw + gap);
+          const cy = areaY + Math.floor(ii / cols) * (ch + gap);
+          s.addShape(pres.shapes.RECTANGLE, {
+            x: cx, y: cy, w: cw, h: ch,
+            fill: { color: "F8FAFC" }, line: { color: "E2E8F0" },
+            shadow: makeShadow(),
+          });
+          s.addShape(pres.shapes.RECTANGLE, {
+            x: cx, y: cy, w: 0.06, h: ch,
+            fill: { color: ii % 2 === 0 ? primary : secondary },
+            line: { color: ii % 2 === 0 ? primary : secondary },
+          });
+          s.addText(it.title, {
+            x: cx + 0.18, y: cy + 0.1, w: cw - 0.32, h: 0.5,
+            fontSize: 14, fontFace: headerFont, bold: true, color: darkPrimary,
+          });
+          if (it.description) {
+            s.addText(it.description, {
+              x: cx + 0.18, y: cy + 0.58, w: cw - 0.32, h: Math.max(0.4, ch - 0.72),
+              fontSize: 10.5, fontFace: bodyFont, color: "475569", lineSpacingMultiple: 1.15,
+            });
+          }
+        });
+
       } else if (slide.type === "two-column" && (slide.bullets ?? []).length > 0) {
         // ── TWO-COLUMN SLIDE ───────────────────────────────────────────────
         s.background = { color: "FFFFFF" };
@@ -378,6 +484,14 @@ export async function POST(req: Request) {
             x: 0.6, y: contentY + 0.12, w: 8.9, h: bulletH - 0.2,
           });
         }
+      }
+
+      // Маленькая марка лого в верхнем правом углу светлых слайдов
+      // (на тёмных cover/cta/last уже стоит большое лого).
+      if (logoData && !(isCover || isCTA || isLast)) {
+        try {
+          s.addImage({ data: logoData, x: 9.35, y: 0.18, w: 0.45, h: 0.45 });
+        } catch { /* ignore */ }
       }
 
       // Footer on all non-cover slides

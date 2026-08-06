@@ -2076,7 +2076,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
           id: idea.id,
           pillar: "Тренды",
           hook: idea.hook,
-          format: idea.format,
+          // Русские форматы трендов → формат генератора постов
+          format: idea.format === "карусель" ? "carousel" : "single",
           angle: idea.topic,
           goal: "вовлечение",
           cta: "Что думаете? Поделитесь в комментариях.",
@@ -2231,7 +2232,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       id: `${idea.id}-pkg`,
       pillar: "Тренды",
       hook: idea.hook,
-      format: "пост",
+      format: "single",
       angle: idea.topic,
       goal: "вовлечение",
       cta: "Что думаете? Поделитесь в комментариях.",

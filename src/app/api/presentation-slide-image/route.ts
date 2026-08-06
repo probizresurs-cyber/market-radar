@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { generateOpenAIImage } from "@/lib/openai-image";
 import { generateGeminiImage } from "@/lib/gemini";
+import { persistImageDataUri } from "@/lib/image-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -76,7 +77,19 @@ export async function POST(req: Request) {
     "Aspect ratio 16:9, no text overlay, clean composition with room for layout, high quality.",
   ].filter(Boolean).join(" ");
 
-  // OpenAI gpt-image-2 priority (лучшее качество), fallback на Gemini.
+  // Gemini первым: с RU-VPS OpenAI недостижим (сам за Cloudflare, воркер не
+  // помогает), а Gemini через свой воркер работает. OpenAI — фолбэк на случай
+  // деплоя вне РФ. Результат сохраняем в user_images и отдаём короткий URL —
+  // base64 в слайде раздувал бы localStorage-историю презентаций.
+  if (process.env.GEMINI_API_KEY) {
+    const res = await generateGeminiImage({ prompt, referenceImages: [] });
+    if (res.ok && res.imageUrl) {
+      const shortUrl = await persistImageDataUri(res.imageUrl, access.userId);
+      await access.log({ endpoint: "presentation-slide-image", model: "gemini-2.5-flash-image", success: true });
+      return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
+    }
+  }
+
   if (process.env.OPENAI_API_KEY) {
     const res = await generateOpenAIImage({
       prompt,
@@ -84,18 +97,11 @@ export async function POST(req: Request) {
       quality: "high",
     });
     if (res.ok && res.imageUrl) {
+      const shortUrl = await persistImageDataUri(res.imageUrl, access.userId);
       await access.log({ endpoint: "presentation-slide-image", model: "gpt-image-2", success: true });
-      return NextResponse.json({ ok: true, data: { imageUrl: res.imageUrl, prompt } });
+      return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
     }
   }
 
-  if (process.env.GEMINI_API_KEY) {
-    const res = await generateGeminiImage({ prompt, referenceImages: [] });
-    if (res.ok && res.imageUrl) {
-      await access.log({ endpoint: "presentation-slide-image", model: "gemini-2.5-flash-image", success: true });
-      return NextResponse.json({ ok: true, data: { imageUrl: res.imageUrl, prompt } });
-    }
-  }
-
-  return NextResponse.json({ ok: false, error: "Нет настроенного image-провайдера (OPENAI_API_KEY или GEMINI_API_KEY)" }, { status: 500 });
+  return NextResponse.json({ ok: false, error: "Нет настроенного image-провайдера (GEMINI_API_KEY или OPENAI_API_KEY)" }, { status: 500 });
 }

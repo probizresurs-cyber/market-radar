@@ -30,8 +30,15 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
-  const access = await checkAiAccess(req);
-  if (!access.allowed) return access.response;
+  // Bypass auth для внутренних вызовов (build-пайплайн, CI) через CRON_SECRET
+  const cronSecret = process.env.CRON_SECRET;
+  const reqSecret = req.headers.get("x-cron-secret") ?? new URL(req.url).searchParams.get("secret");
+  const isTrustedInternal = cronSecret && reqSecret === cronSecret;
+
+  if (!isTrustedInternal) {
+    const access = await checkAiAccess(req);
+    if (!access.allowed) return access.response;
+  }
 
   const t0 = Date.now();
   try {

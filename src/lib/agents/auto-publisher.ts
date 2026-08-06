@@ -276,13 +276,13 @@ registerAgent({
     const failed = results.filter(r => (r.telegram && !r.telegram.ok) || (r.vk && !r.vk.ok)).length;
 
     const summary =
-      `Опубликовано ${duePosts.length} пост(а): TG ✓${okTg}, VK ✓${okVk}` +
+      `Опубликовано ${dueItems.length} шт.: TG ✓${okTg}, VK ✓${okVk}` +
       (failed > 0 ? `, ошибок ${failed}` : "");
 
     return {
       summary,
       result: {
-        publishedCount: duePosts.length,
+        publishedCount: dueItems.length,
         telegramOk: okTg,
         vkOk: okVk,
         failedCount: failed,
