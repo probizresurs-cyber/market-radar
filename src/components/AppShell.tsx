@@ -19,6 +19,7 @@ import type { WorkspaceSummary } from "@/lib/workspace";
 import { SOURCES_FREE } from "@/lib/data/sources";
 import { trackGoal } from "@/lib/metrika";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { analyzeCompanyKickPoll } from "@/lib/analyze-client";
 import {
   DEFAULT_PROFILE_ID, type Profile,
   getProfiles, getActiveProfileId, setActiveProfileId as persistActiveProfile,
@@ -984,25 +985,12 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
       body.position = personalBrand.position;
       if (personalBrand.parentCompanyContext) body.parentCompanyContext = personalBrand.parentCompanyContext;
     }
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    // Защита от HTML-ответов nginx (502/504 при таймауте) — не падаем на JSON.parse,
-    // а отдаём понятную ошибку «сервер не успел ответить».
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) {
-      const text = await res.text().catch(() => "");
-      console.error("[analyze] non-JSON response", res.status, text.slice(0, 200));
-      throw new Error(res.status === 504 || res.status === 502
-        ? "Сервер не успел проанализировать сайт (timeout). Попробуйте ещё раз — иногда внешние API медленно отвечают."
-        : `Ошибка сервера (${res.status})`);
-    }
-    const json = await jsonOrThrow(res);
-    if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
-    trackGoal("analyze_complete", { score: json.data?.company?.score });
-    return json.data;
+    // kick+poll вместо одного долгого запроса — nginx на VPS обрывает долгие
+    // проксируемые запросы, синхронный /api/analyze падал 502 на медленных
+    // сайтах (см. src/lib/analyze-client.ts и src/app/api/analyze/route.ts).
+    const data = await analyzeCompanyKickPoll<AnalysisResult>(body);
+    trackGoal("analyze_complete", { score: data?.company?.score });
+    return data;
   };
 
   // Save company to localStorage and state

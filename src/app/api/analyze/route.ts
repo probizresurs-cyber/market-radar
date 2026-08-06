@@ -4,13 +4,22 @@ import { analyzeWithClaude, analyzePersonalBrand } from "@/lib/analyzer";
 import { enrichDomainData, enrichCompanyData } from "@/lib/enricher";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { friendlyAiError } from "@/lib/ai-error";
-import { getSessionUser } from "@/lib/auth";
 import { query, initDb } from "@/lib/db";
 import type { BusinessType } from "@/lib/business-types";
+import { randomUUID } from "crypto";
+import { writeAnalyzeStatus } from "@/lib/analyze-status";
 
 export const runtime = "nodejs";
-// 90s — Claude analysis ~30s + scraping ~10s + SpyWords enrichment ~25s + others.
-// При 60s упирались в timeout когда SpyWords ходил за конкурентами.
+// 90s — вроде бы с запасом даже для personal-brand ветки (единственная,
+// что теперь реально ждёт этот HTTP-запрос целиком: Claude ~30с + опциональный
+// скрап личного сайта ~10с). Company-ветка ниже — kick+poll (см. её комментарий
+// и src/lib/analyze-status.ts): POST только кикает фон и возвращает jobId,
+// сам пайплайн (Claude + DaData/HH/SpyWords/Keys.so/PageSpeed/Wayback/
+// Rusprofile/Yandex/2GIS) живёт в фоне независимо от этого запроса —
+// self-hosted `next start` без кастомного server.js не соблюдает
+// Next.js maxDuration, а nginx перед ним обрывает долгие проксируемые
+// запросы ещё раньше (живой репро: 502 на orlink.ru при первом прогоне,
+// повтор прошёл за ~40с — то же самое, что чинили для видео-рендера).
 export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
@@ -156,7 +165,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
+  const jobId = `analyze-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const t0 = Date.now();
+  await writeAnalyzeStatus(jobId, { status: "running", startedAt: t0 });
+
+  // Фон: сам HTTP-ответ уходит клиенту сразу ниже (jobId), пайплайн живёт
+  // дальше процессом Node независимо от этого запроса — см. комментарий про
+  // maxDuration выше. runAnalyzeJob не бросает — все ошибки ловятся внутри
+  // и уходят в analyze-status, а не в необработанный rejection.
+  const runAnalyzeJob = async () => {
+    try {
     const scraped = await scrapeWebsite(url);
 
     // 1. Запускаем сбор данных по домену параллельно с AI, так как они не зависят от названия компании
@@ -355,9 +373,12 @@ export async function POST(request: NextRequest) {
     // серверных агентов (Yandex Reviews, Site Change Detector).
     // Это даёт «текущая активная компания юзера» которую агент видит
     // когда крутится по cron без доступа к localStorage.
+    // access.userId вместо повторного getSessionUser(): этот код теперь
+    // выполняется в detached async после того, как HTTP-ответ на кик уже
+    // ушёл клиенту — cookies()/getSessionUser() в этой точке ненадёжны,
+    // а userId уже был снят с запроса внутри checkAiAccess() выше.
     try {
-      const session = await getSessionUser();
-      if (session?.userId) {
+      if (access.userId) {
         await initDb();
         await query(
           `UPDATE users SET last_analyzed_company = $1::jsonb WHERE id = $2`,
@@ -368,36 +389,35 @@ export async function POST(request: NextRequest) {
               niche: result.company.niche ?? result.company.description?.slice(0, 200) ?? "",
               updatedAt: new Date().toISOString(),
             }),
-            session.userId,
+            access.userId,
           ],
         );
       }
     } catch { /* best-effort: не валим anaslyze */ }
 
-    return NextResponse.json({ ok: true, data: result });
-  } catch (err) {
-    console.error("[analyze] error:", err);
+    await writeAnalyzeStatus(jobId, { status: "done", data: result, startedAt: t0 });
+    } catch (err) {
+      console.error("[analyze] error:", err);
 
-    const message = err instanceof Error ? err.message : "Unknown error";
+      const message = err instanceof Error ? err.message : "Unknown error";
 
-    await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", success: false, errorMessage: message.slice(0, 200) });
+      await access.log({ endpoint: "analyze", model: "claude-sonnet-4-6", success: false, errorMessage: message.slice(0, 200) });
 
-    // Особый случай — не дотянулись до сайта (Playwright / DNS). Это не AI-ошибка.
-    if (
-      message.includes("fetch") ||
-      message.includes("ENOTFOUND") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("abort") ||
-      message.includes("network")
-    ) {
-      return NextResponse.json(
-        { ok: false, error: "Не удалось загрузить сайт. Проверьте URL и попробуйте снова." },
-        { status: 422 }
-      );
+      // Особый случай — не дотянулись до сайта (Playwright / DNS). Это не AI-ошибка.
+      const friendly =
+        message.includes("fetch") ||
+        message.includes("ENOTFOUND") ||
+        message.includes("ECONNREFUSED") ||
+        message.includes("abort") ||
+        message.includes("network")
+          ? "Не удалось загрузить сайт. Проверьте URL и попробуйте снова."
+          // Все AI-ошибки (Cloudflare 403, Anthropic 401/429/HTML) — через общий хелпер.
+          : friendlyAiError(err).message;
+
+      await writeAnalyzeStatus(jobId, { status: "failed", error: friendly, startedAt: t0 });
     }
+  };
+  void runAnalyzeJob();
 
-    // Все AI-ошибки (Cloudflare 403, Anthropic 401/429/HTML) — через общий хелпер.
-    const { message: friendly, status } = friendlyAiError(err);
-    return NextResponse.json({ ok: false, error: friendly }, { status });
-  }
+  return NextResponse.json({ ok: true, jobId });
 }

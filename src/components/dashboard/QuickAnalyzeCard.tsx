@@ -14,7 +14,7 @@
 
 import React, { useState } from "react";
 import { Search, Loader2, ExternalLink, TrendingUp, AlertTriangle } from "lucide-react";
-import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { analyzeCompanyKickPoll } from "@/lib/analyze-client";
 
 interface QuickAnalysis {
   name: string;
@@ -68,14 +68,11 @@ export function QuickAnalyzeCard({
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: normalized }),
-      });
-      const json = await jsonOrThrow(res);
-      if (!json.ok) throw new Error(json.error ?? "Ошибка анализа");
-      const data = json.data;
+      // kick+poll вместо одного долгого запроса — см. src/lib/analyze-client.ts
+      // и шапку src/app/api/analyze/route.ts (nginx обрывал долгие запросы,
+      // синхронный /api/analyze падал 502 на медленных сайтах).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await analyzeCompanyKickPoll<any>({ url: normalized });
       const topRec =
         Array.isArray(data?.recommendations) && data.recommendations.length > 0
           ? typeof data.recommendations[0] === "string"
