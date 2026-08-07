@@ -14,8 +14,14 @@
  * лезет в get_screen, где screenId обязателен. Пустой screenId → ровно та
  * ошибка, которую мы ловили.
  *
- * Запуск на сервере (ключ берётся из .env приложения):
- *   node scripts/stitch-probe.mjs "ascii-only prompt"
+ * Запуск на сервере. Ключ лежит в .env.local (он приоритетнее .env), поэтому
+ * подгружать надо оба:
+ *   set -a; . ./.env 2>/dev/null; . ./.env.local 2>/dev/null; set +a
+ *   node scripts/stitch-probe.mjs ["промпт"] [MODEL_ID]
+ *
+ * Второй аргумент — модель, чтобы можно было сравнить рабочую с отключённой
+ * (GEMINI_3_PRO снята Google и отвечает «invalid argument» на самом
+ * generate_screen_from_text).
  */
 import { StitchToolClient, Stitch } from "@google/stitch-sdk";
 
@@ -35,8 +41,12 @@ Base requirements:
 - Mobile-responsive layout
 - All text content in Russian language`;
 
+// GEMINI_3_PRO помечена в манифесте SDK как deprecated и отключена на стороне
+// Google — именно она давала «invalid argument» на generate_screen_from_text.
+const modelId = process.argv[3] || "GEMINI_3_1_PRO";
+
 const nonAscii = (prompt.match(/[^\x00-\x7F]/g) ?? []).length;
-console.log(`prompt: ${prompt.length} символов, не-ASCII: ${nonAscii}`);
+console.log(`prompt: ${prompt.length} символов, не-ASCII: ${nonAscii}, модель: ${modelId}`);
 
 const client = new StitchToolClient({ apiKey });
 const stitch = new Stitch(client);
@@ -51,7 +61,7 @@ try {
     projectId: project.id,
     prompt,
     deviceType: "DESKTOP",
-    modelId: "GEMINI_3_PRO",
+    modelId,
   });
 
   const comps = raw?.outputComponents ?? [];

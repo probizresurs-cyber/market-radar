@@ -8,6 +8,23 @@ import { resolveScreenUrls } from "@/lib/stitch-screen";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+/**
+ * Модель генерации Stitch.
+ *
+ * Раньше здесь была GEMINI_3_PRO — Google пометил её deprecated и отключил,
+ * из-за чего generate_screen_from_text стал отвечать «Request contains an
+ * invalid argument», то есть генерация лендингов не работала ВООБЩЕ, а не
+ * только на кириллице. Флаг устаревания видно прямо в манифесте SDK:
+ *   modelId.x-google-enum-deprecated = [false, true, false, false]
+ *   («Deprecated: Gemini 3 Pro is deprecated. Use GEMINI_3_1_PRO or
+ *     GEMINI_3_FLASH instead»)
+ *
+ * Проверять этот список стоит при каждом обновлении @google/stitch-sdk:
+ * отключение модели выглядит как «непонятная ошибка аргумента», а не как
+ * внятное «модель снята».
+ */
+const STITCH_MODEL = "GEMINI_3_1_PRO" as const;
+
 export async function POST(req: Request) {
   // Stitch (Gemini 3 Pro) платный — раньше открыт для всех.
   const access = await checkAiAccess(req);
@@ -181,7 +198,7 @@ export async function POST(req: Request) {
     }
 
     // Generate the screen
-    const screen = await project.generate(prompt, "DESKTOP", "GEMINI_3_PRO");
+    const screen = await project.generate(prompt, "DESKTOP", STITCH_MODEL);
 
     // Ссылки достаём через resolveScreenUrls, а не через screen.getHtml()
     // напрямую: SDK при отсутствии id всё равно зовёт get_screen и получает
