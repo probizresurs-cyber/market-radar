@@ -63,6 +63,12 @@ export const contentReelSchema = z.object({
   /** Точные пословные тайминги (Whisper) — если заданы, субтитры идут в такт голосу. */
   captionsWords: z.array(captionWordSchema).optional(),
   /**
+   * Показывать ли субтитры поверх текстовых карточек. По умолчанию да:
+   * иначе субтитры пропадают на половине ролика (карточек обычно столько же,
+   * сколько AI-клипов). false возвращает прежнее поведение.
+   */
+  captionsOverCards: z.boolean().optional(),
+  /**
    * Логотип бренда. Показывается дважды: небольшим знаком в углу на всём
    * ролике (фирменная метка, не мешающая кадру) и крупно на финальном
    * CTA-кадре вместо текстовой плашки с названием.
@@ -321,9 +327,10 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
 /**
  * Фирменный знак в углу кадра — присутствует весь ролик.
  *
- * Верхний правый угол выбран не случайно: слева вверху обычно идёт заголовок
- * хука, внизу — субтитры и врезка с аватаром. Правый верх — единственная зона,
- * свободная во всех трёх сценах.
+ * Угол — ЛЕВЫЙ верхний. Изначально знак стоял справа, но там же живёт круглая
+ * врезка с аватаром (AvatarBubble: right 56, top 150, диаметр 360) — логотип
+ * упирался бы в неё вплотную или перекрывался. Слева вверху свободно во всех
+ * трёх сценах.
  *
  * Логотипы приходят и светлые, и тёмные, поэтому знак лежит на полупрозрачной
  * подложке: без неё белый логотип пропадал бы на светлом b-roll.
@@ -342,7 +349,7 @@ function LogoWatermark({ url }: { url: string }) {
       <div style={{
         position: "absolute",
         top: 56,
-        right: 56,
+        left: 56,
         opacity: appear * 0.92,
         padding: "14px 18px",
         borderRadius: 16,
@@ -817,7 +824,21 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
   const avatarPip = spec.avatar.placement === "pip" && Boolean(avatarClipUrl);
   const brollSegments = buildSegments(props.brollUrls ?? [], props.statementCards ?? [], avatarFull);
   const manualTransition = spec.broll.transition === "punch" || spec.broll.transition === "whip";
-  const hiddenCaptionWindows = cardWindows(brollSegments, brollFrames, manualTransition, hookFrames);
+  /**
+   * Субтитры поверх текстовых карточек.
+   *
+   * Раньше на время карточки субтитры ГАСЛИСЬ, чтобы не дублировать её текст.
+   * На практике это выглядело как «субтитров нет на половине ролика»: по
+   * умолчанию генерируется всего 2 AI-клипа, а остальные сегменты — как раз
+   * карточки, то есть половина хронометража шла без субтитров.
+   *
+   * Карточка показывает короткий тезис (3-6 слов), субтитр — то, что реально
+   * звучит, так что полного дублирования нет. Непрерывные субтитры важнее:
+   * ролики смотрят без звука, и провал на полминуты рвёт восприятие.
+   */
+  const hiddenCaptionWindows = props.captionsOverCards === false
+    ? cardWindows(brollSegments, brollFrames, manualTransition, hookFrames)
+    : [];
 
   return (
     <AbsoluteFill style={{ backgroundColor: props.brandColor }}>

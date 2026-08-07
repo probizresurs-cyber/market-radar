@@ -57,6 +57,12 @@ export const maxDuration = 60;
 
 type StepReport = PromoStepReport;
 
+/** Число из тела запроса или undefined — чтобы 0 не терялся как falsy. */
+function num(v: unknown): number | undefined {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 interface InternalCallResult<T> { ok: boolean; data?: T; error?: string }
 
 /**
@@ -313,10 +319,17 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // placement назначает Director по своему усмотрению. Из-за этого запрос
     // «сделай ролик с вот этим аватаром» мог тихо собраться БЕЗ аватара —
     // с пометкой «арт-директор не заказал аватара» в отчёте по шагам.
-    // Если avatarId пришёл явно, ставим врезку принудительно: пользователь
-    // уже принял решение, переголосовывать его моделью неправильно.
-    if (spec && String(body.avatarId ?? "").trim() && (spec.avatar?.placement ?? "off") === "off") {
-      spec.avatar = { ...(spec.avatar ?? {}), placement: "pip" };
+    //
+    // Ставим именно "pip" (круглая врезка), а не просто «включаем»: при
+    // placement="full" аватар занимает целые сегменты вместо видеоряда, и
+    // маленького кружка в кадре нет — на живом ролике это выглядело как
+    // «аватара не добавили». Кружок — то, что подразумевают под «ведущим в
+    // углу», и именно его ждут, когда передают avatarId.
+    // Переопределяется явным body.avatarPlacement.
+    if (spec && String(body.avatarId ?? "").trim()) {
+      const wanted = String(body.avatarPlacement ?? "").trim();
+      const placement = wanted === "full" || wanted === "off" ? wanted : "pip";
+      spec.avatar = { ...(spec.avatar ?? {}), placement };
     }
 
     // Цвета — из палитры брендбука по выбору арт-директора. Фолбэк на
@@ -358,9 +371,17 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         {
           voiceoverScript, hookText, problemText, ctaText,
           voiceId,
-          stability: spec?.voice?.stability,
-          style: spec?.voice?.expressiveness,
-          speed: spec?.voice?.speed,
+          // Подача голоса: ручной override сильнее решения арт-директора.
+          // Пресеты звучали ровно и суховато — «дикторски», а не живо. Эти
+          // три ручки и отвечают за «быстрее и эмоциональнее»:
+          //   speed      — темп речи,
+          //   style      — эмоциональная окраска (выше = живее),
+          //   stability  — НИЖЕ значит БОЛЬШЕ модуляций (не «стабильнее лучше»).
+          // Диапазоны клампятся в generate-promo-voiceover: за их пределами
+          // тембр начинает «уплывать» в чужой голос.
+          stability: num(body.voiceStability) ?? spec?.voice?.stability,
+          style: num(body.voiceStyle) ?? spec?.voice?.expressiveness,
+          speed: num(body.voiceSpeed) ?? spec?.voice?.speed,
         }, req, 130_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {
@@ -627,6 +648,9 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsEnabled: true,
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
+      // Субтитры не гаснут на текстовых карточках: иначе их нет на половине
+      // ролика (карточек примерно столько же, сколько AI-клипов).
+      captionsOverCards: body.captionsOverCards !== false,
       styleSpec: spec,
       logoUrl,
     }, req, 55_000);

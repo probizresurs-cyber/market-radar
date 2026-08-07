@@ -70,6 +70,8 @@ interface RenderProps {
   videoDurationSec: number;
   captionsEnabled: boolean;
   captionsScript: string | null;
+  /** Показывать субтитры поверх текстовых карточек (иначе провал на полролика). */
+  captionsOverCards: boolean;
   captionsWords?: CaptionWord[];
   /** Генеративная спецификация стиля (v3) — приоритетнее styleVariant. */
   styleSpec?: StyleSpecInput;
@@ -180,6 +182,7 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
       .map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
     captionsEnabled: Boolean(body.captionsEnabled ?? false),
     captionsScript: body.captionsScript ? String(body.captionsScript) : null,
+    captionsOverCards: body.captionsOverCards !== false,
     captionsWords: Array.isArray(body.captionsWords)
       ? (body.captionsWords as unknown[]).filter(
           (w): w is CaptionWord => typeof w === "object" && w !== null && "word" in w && "start" in w && "end" in w,
