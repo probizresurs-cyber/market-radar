@@ -576,7 +576,18 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         }
         if (poll.data?.done && poll.data.url) {
           avatarClipUrl = poll.data.url;
-          avatarClipDurationSec = typeof poll.data.durationSec === "number" ? poll.data.durationSec : null;
+          // Длительность клипа: HeyGen сообщает её не всегда. Раньше в этом
+          // случае оставался null, композиция считала врезку «на весь ролик»
+          // и просила у компоситора кадр за концом файла:
+          //   «No frame found at position … time=30.23» при длине ролика 29.0
+          // — врезка падала целиком, и кружка с ведущим в кадре не было.
+          //
+          // Фолбэк на длительность озвучки корректен: клип синтезирован HeyGen
+          // ровно по этому же mp3, его таймлайн совпадает с ним по построению.
+          avatarClipDurationSec =
+            typeof poll.data.durationSec === "number"
+              ? poll.data.durationSec
+              : voiceDurationSec;
           pushStep({ name: "avatar", status: "ok", ms: Date.now() - stepT });
           return;
         }

@@ -60,7 +60,10 @@ try {
   // ровно этот контракт возвращает /api/promo-job-status (см. его шапку).
   // Раньше скрипт искал steps/videoUrl на верхнем уровне и печатал пустоту
   // даже при успешной сборке.
-  const steps = d?.progress?.steps ?? d?.steps ?? [];
+  // progress — это САМ массив шагов, а не объект со steps внутри (проверено
+  // на живом ответе). Прошлая версия скрипта искала progress.steps и молча
+  // печатала пустоту, из-за чего провал шага avatar пришлось искать в логах.
+  const steps = Array.isArray(d?.progress) ? d.progress : (d?.progress?.steps ?? d?.steps ?? []);
   for (const s of steps) {
     const secs = s.ms ? ` ${(s.ms / 1000).toFixed(1)}с` : "";
     const mark = s.status === "ok" ? "✓" : s.status === "skipped" ? "–" : s.status === "in_progress" ? "…" : "✗";

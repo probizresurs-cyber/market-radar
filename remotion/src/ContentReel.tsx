@@ -877,10 +877,15 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           // роняет рендер целиком («No frame found at position»). Клип обычно
           // равен озвучке и короче композиции на хвост (~1.2с) — врезка просто
           // исчезает на последней секунде, это дешевле сорванного рендера.
+          // Запас — треть секунды, а не один кадр: компоситор запрашивает
+          // кадр с округлением по времени и на границе промахивался за конец
+          // файла («No frame found at position … time=30.23» при клипе 29.0с),
+          // роняя врезку целиком. Треть секунды на глаз незаметна, а
+          // пропавший ведущий заметен сразу.
           durationInFrames={Math.min(
             hookFrames + brollFrames + ctaFrames,
             props.avatarClipDurationSec
-              ? Math.max(fps, Math.floor(props.avatarClipDurationSec * fps) - 1)
+              ? Math.max(fps, Math.floor(props.avatarClipDurationSec * fps) - Math.ceil(fps / 3))
               : hookFrames + brollFrames + ctaFrames,
           )}
         >
