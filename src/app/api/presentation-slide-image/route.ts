@@ -1,21 +1,25 @@
 /**
  * POST /api/presentation-slide-image
  *
- * Генерация иллюстрации для конкретного слайда презентации. AI пишет
- * prompt из контекста слайда (title + content + bullets) + brandBook
- * (colors, mood), потом gpt-image-2 / Gemini рендерит.
+ * Генерация иллюстрации для конкретного слайда презентации — теперь тем
+ * же пайплайном, что и картинки для постов/сторис/каруселей
+ * (/api/generate-image-anthropic): Claude Haiku пишет детальный
+ * англоязычный промпт из контекста слайда + брендбука, дальше общий
+ * провайдер-чейн (src/lib/image-gen.ts) — Gemini → OpenAI → Gemini-фолбэк
+ * → Pollinations.ai. Раньше здесь были только Gemini/OpenAI напрямую без
+ * Pollinations — если у Gemini кончалась бесплатная квота (частый случай
+ * на shared-ключе), а OpenAI недоступен с российского VPS («Country,
+ * region, or territory not supported»), кнопка «AI-иллюстрация» падала
+ * целиком, хотя ровно то же самое сочетание сбоев в постах/сторис уже
+ * умело фолбэчиться на Pollinations.
  *
  * Body: { slide: PresentationSlide, brandBook?, style? }
  * Returns: { ok, data: { imageUrl, prompt } }
- *
- * Картинку юзер вставит как фон/иллюстрацию в слайде (поле slide.imageUrl —
- * добавим на клиенте).
  */
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
-import { generateOpenAIImage } from "@/lib/openai-image";
-import { generateGeminiImage } from "@/lib/gemini";
-import { persistImageDataUri } from "@/lib/image-store";
+import { safeAnthropicCreate } from "@/lib/anthropic-safe";
+import { generateImageWithFallback } from "@/lib/image-gen";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -48,8 +52,6 @@ export async function POST(req: Request) {
   }
   const brand = body.brandBook ?? {};
 
-  // Построим prompt из контекста слайда. Без AI-вызова (быстро + дёшево).
-  // Это просто умная конкатенация — gpt-image-2 сам поймёт.
   const styleHints: string[] = [];
   if (brand.visualStyle) styleHints.push(brand.visualStyle);
   if (brand.mood) styleHints.push(brand.mood);
@@ -65,51 +67,59 @@ export async function POST(req: Request) {
   if (slide.content) contextParts.push(slide.content.slice(0, 200));
   if (slide.bullets?.length) contextParts.push(slide.bullets.slice(0, 3).join(". "));
 
-  const palette = brand.colors?.length
-    ? `Brand palette: ${brand.colors.slice(0, 4).join(", ")}.`
-    : "";
+  const palette = brand.colors?.length ? brand.colors.slice(0, 4).join(", ") : "";
 
-  const prompt = [
+  // Fallback-промпт без AI-вызова — используется если Claude не ответил.
+  const fallbackPrompt = [
     `Editorial illustration for a business presentation slide.`,
     `Topic: ${contextParts.join(" — ").slice(0, 400)}`,
-    palette,
+    palette && `Brand palette: ${palette}.`,
     styleHints.join(", "),
     "Aspect ratio 16:9, no text overlay, clean composition with room for layout, high quality.",
   ].filter(Boolean).join(" ");
 
-  // Gemini первым: с RU-VPS OpenAI недостижим (сам за Cloudflare, воркер не
-  // помогает), а Gemini через свой воркер работает. OpenAI — фолбэк на случай
-  // деплоя вне РФ. Результат сохраняем в user_images и отдаём короткий URL —
-  // base64 в слайде раздувал бы localStorage-историю презентаций.
-  //
-  // ВАЖНО: НЕ гейтимся на process.env.GEMINI_API_KEY — lib/gemini.ts имеет
-  // собственный фолбэк-ключ, и на проде переменной может не быть вообще
-  // (из-за этого кнопка «AI-иллюстрация» отвечала «нет провайдера», хотя
-  // генерация сторис через тот же Gemini работала). Пробуем по факту.
-  const errors: string[] = [];
+  // Тот же арт-директорский промпт, что и в generate-image-anthropic для
+  // постов — просто с контекстом слайда вместо контекста поста.
+  const claudePrompt = `Ты арт-директор и prompt-инженер для AI-генерации изображений.
 
-  const gem = await generateGeminiImage({ prompt, referenceImages: [] }).catch((e: unknown) => ({ ok: false as const, imageUrl: null, error: e instanceof Error ? e.message : String(e) }));
-  if (gem.ok && gem.imageUrl) {
-    const shortUrl = await persistImageDataUri(gem.imageUrl, access.userId);
-    await access.log({ endpoint: "presentation-slide-image", model: "gemini-2.5-flash-image", success: true });
-    return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
-  }
-  errors.push(`gemini: ${("error" in gem && gem.error) || "пустой ответ"}`);
+Создай детальный промпт на английском языке для иллюстрации к слайду презентации:
 
-  if (process.env.OPENAI_API_KEY) {
-    const res = await generateOpenAIImage({
-      prompt,
-      format: "landscape", // 16:9 → 1792x1024 (см. pickSize в lib/openai-image.ts)
-      quality: "high",
-    }).catch((e: unknown) => ({ ok: false as const, imageUrl: null, error: e instanceof Error ? e.message : String(e) }));
-    if (res.ok && res.imageUrl) {
-      const shortUrl = await persistImageDataUri(res.imageUrl, access.userId);
-      await access.log({ endpoint: "presentation-slide-image", model: "gpt-image-2", success: true });
-      return NextResponse.json({ ok: true, data: { imageUrl: shortUrl, prompt } });
-    }
-    errors.push(`openai: ${("error" in res && res.error) || "пустой ответ"}`);
+Заголовок слайда: ${slide.title}
+${slide.subtitle ? `Подзаголовок: ${slide.subtitle}\n` : ""}${contextParts.length > 1 ? `Контекст: ${contextParts.slice(1).join(" — ").slice(0, 300)}\n` : ""}${palette ? `Цвета бренда: ${palette}\n` : ""}${styleHints.length ? `Визуальный стиль: ${styleHints.join(", ")}\n` : ""}
+Правила:
+- Опиши конкретную визуальную сцену или метафору, усиливающую смысл слайда
+- Укажи художественный стиль, освещение, цветовую палитру, композицию
+- Ориентация: horizontal 16:9 (landscape), оставь место под текст поверх картинки
+- НЕ включай в изображение текст, надписи, буквы, логотипы, цифры, watermarks
+- Длина промпта: 2-4 предложения, конкретные детали
+
+Ответь ТОЛЬКО промптом на английском, без пояснений или префикса.`;
+
+  let usedPrompt = fallbackPrompt;
+  try {
+    const { text } = await safeAnthropicCreate({
+      model: "claude-haiku-4-5",
+      max_tokens: 300,
+      messages: [{ role: "user", content: claudePrompt }],
+    });
+    if (text?.trim()) usedPrompt = text.trim();
+  } catch { /* Claude недоступен — едем на fallbackPrompt */ }
+
+  if (!/no text|without text|no letters/i.test(usedPrompt)) {
+    usedPrompt += " No text, letters, words, or watermarks in the image.";
   }
 
-  await access.log({ endpoint: "presentation-slide-image", model: "none", success: false });
-  return NextResponse.json({ ok: false, error: `Генерация не удалась — ${errors.join("; ")}` }, { status: 502 });
+  const result = await generateImageWithFallback({
+    prompt: usedPrompt,
+    format: "landscape", // 16:9
+    userId: access.userId,
+  });
+
+  if (!result.ok) {
+    await access.log({ endpoint: "presentation-slide-image", model: "none", success: false });
+    return NextResponse.json({ ok: false, error: `Генерация не удалась — ${result.error}` }, { status: 502 });
+  }
+
+  await access.log({ endpoint: "presentation-slide-image", model: result.provider ?? "unknown", success: true });
+  return NextResponse.json({ ok: true, data: { imageUrl: result.imageUrl, prompt: usedPrompt } });
 }

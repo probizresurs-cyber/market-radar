@@ -19,11 +19,10 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { fetchStitchHtml } from "@/lib/stitch-fetch";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 function sanitizeFilename(name: string): string {
   return name
@@ -66,29 +65,12 @@ export async function GET(req: Request): Promise<Response> {
     if (!session) {
       return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
     }
-    // SSRF whitelist
-    if (!/^https:\/\/[a-z0-9.-]+\.(stitch\.tech|vercel\.app|marketradar\.ai)\//i.test(htmlUrl)) {
-      return NextResponse.json({ ok: false, error: "Допустимы только URL со Stitch/Vercel/marketradar.ai" }, { status: 400 });
+    // SSRF-защита, реальные хосты Stitch, X-Goog-Api-Key и лимит размера — в lib/stitch-fetch.
+    const fetched = await fetchStitchHtml(htmlUrl);
+    if (!fetched.ok) {
+      return NextResponse.json({ ok: false, error: fetched.error }, { status: fetched.status });
     }
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 25000);
-      const res = await fetch(htmlUrl, { signal: ctrl.signal });
-      clearTimeout(timer);
-      if (!res.ok) {
-        return NextResponse.json(
-          { ok: false, error: `Не удалось скачать HTML (HTTP ${res.status}). Возможно, ссылка истекла.` },
-          { status: 502 },
-        );
-      }
-      html = await res.text();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return NextResponse.json({ ok: false, error: `Ошибка скачивания: ${msg}` }, { status: 502 });
-    }
-    if (html.length > MAX_HTML_BYTES) {
-      return NextResponse.json({ ok: false, error: "HTML слишком большой" }, { status: 413 });
-    }
+    html = fetched.html;
   } else {
     return NextResponse.json({ ok: false, error: "Укажите slug или htmlUrl" }, { status: 400 });
   }

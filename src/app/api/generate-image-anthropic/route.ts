@@ -34,11 +34,8 @@
 import { NextResponse } from "next/server";
 import { checkAiAccess } from "@/lib/with-ai-security";
 import { safeAnthropicCreate } from "@/lib/anthropic-safe";
-import { generateOpenAIImage } from "@/lib/openai-image";
-import { GEMINI_API_KEY, generateGeminiImage } from "@/lib/gemini";
-import { generatePollinationsImage } from "@/lib/pollinations-image";
 import { platformImageFormat } from "@/lib/image-aspect";
-import { persistImageDataUri } from "@/lib/image-store";
+import { generateImageWithFallback } from "@/lib/image-gen";
 
 export const runtime = "nodejs";
 // 180s — даём время на: Claude Haiku промпт (5-10с) + OpenAI gpt-image-2
@@ -168,149 +165,25 @@ ${contextBlock}
       usedPrompt += " No text, letters, words, or watermarks in the image.";
     }
 
-    // — Step 2: Provider routing —
-    // OPTIMIZATION: gpt-image-2 нужен ТОЛЬКО когда есть embedText (типографика
-    // в картинке). Для обычных фонов Gemini в 3-5 раз быстрее и почти такого же
-    // качества. Раньше всегда ходили в OpenAI → ждали 10-30s → потом в fallback.
-    // Теперь если embedText пустой — пропускаем OpenAI и сразу идём в Gemini.
-    const aspectHintEarly = imageFormat === "portrait"
-      ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
-      : imageFormat === "landscape"
-      ? " Render in horizontal 16:9 aspect ratio (landscape orientation)."
-      : " Render in square 1:1 aspect ratio.";
-
-    if (!embedText && GEMINI_API_KEY) {
-      const gemFast = await generateGeminiImage({
-        prompt: usedPrompt + aspectHintEarly + " No text, letters, words, or watermarks in the image.",
-      });
-      if (gemFast.ok) {
-        const safeUrl = await persistImageDataUri(gemFast.imageUrl, access.userId);
-        return NextResponse.json({
-          ok: true,
-          data: { imageUrl: safeUrl },
-          usedPrompt,
-          provider: "gemini-fast",
-        });
-      }
-      // Gemini упал — продолжаем в обычный fallback chain
-    }
-
-    // Если есть embedText — нужен OpenAI gpt-image-2 (единственный кто
-    // нормально рисует русский текст). Quality=medium — high занимает 90-120с
-    // и упирается в таймаут Cloudflare-воркера-прокси (~100s). Medium даёт
-    // ~30-50с и нормальное качество для типографики.
-    let imgResult = await generateOpenAIImage({
+    // — Step 2: Provider routing — вынесен в общий src/lib/image-gen.ts,
+    // тем же путём (включая Pollinations-фолбэк) теперь пользуется и
+    // /api/presentation-slide-image.
+    const result = await generateImageWithFallback({
       prompt: usedPrompt,
       format: imageFormat,
       embedText: embedText || undefined,
-      quality: embedText ? "medium" : undefined,
+      userId: access.userId,
     });
 
-    // RETRY: если упали по таймауту/сети — пробуем ещё раз с quality=low.
-    // Часто работает: gpt-image-2 на low отрабатывает за 15-25с, гарантированно
-    // укладывается в 70с таймаут. Качество хуже, но фон лучше чем пустой
-    // слайд. Делаем только ОДИН retry, чтобы не зацикливаться.
-    if (!imgResult.ok && embedText) {
-      const errMsg = imgResult.error ?? "";
-      const isTimeout = /timeout|fetch failed|ETIMEDOUT|ECONNRESET|workers\.dev|524/i.test(errMsg);
-      if (isTimeout) {
-        console.warn(`[gen-image] retry с quality=low после таймаута: ${errMsg.slice(0, 80)}`);
-        imgResult = await generateOpenAIImage({
-          prompt: usedPrompt,
-          format: imageFormat,
-          embedText: embedText || undefined,
-          quality: "low",
-        });
-      }
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error, usedPrompt }, { status: 502 });
     }
-
-    // Если OpenAI отказал — пробуем Gemini/Pollinations как fallback.
-    // Раньше fallback срабатывал только на quota/billing, но НЕ на timeout/
-    // network — а у нас на российском VPS чаще ложится именно таймаут
-    // через Cloudflare-прокси. Теперь fallback тоже триггерится на:
-    //   • timeout (Request timeout, ECONNRESET, ETIMEDOUT)
-    //   • network (fetch failed, ENOTFOUND, ECONNREFUSED)
-    //   • 5xx от прокси (502/503/504)
-    if (!imgResult.ok) {
-      const errMsg = imgResult.error ?? "";
-      const isQuotaIssue =
-        /Лимит OpenAI|квота OpenAI|rate.?limit|billing/i.test(errMsg);
-      const isInfraIssue =
-        /timeout|fetch failed|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|502|503|504|workers\.dev/i.test(errMsg);
-
-      if (isQuotaIssue || isInfraIssue) {
-        // Цепочка fallback: Gemini → Pollinations (free, no key)
-        const aspectHint = imageFormat === "portrait"
-          ? " Render in vertical 9:16 aspect ratio (portrait orientation)."
-          : imageFormat === "landscape"
-          ? " Render in horizontal 16:9 aspect ratio (landscape orientation)."
-          : " Render in square 1:1 aspect ratio.";
-        // Если просили текст в картинке — НЕ запрещаем буквы фолбэкам,
-        // наоборот добавляем сам текст в промпт (best-effort, Gemini/Pollinations
-        // справляются хуже gpt-image-2, но что-то отрисуют).
-        const noTextHint = embedText
-          ? ` Render this text directly on the image as clean typography (preserve language and spelling): "${embedText}".`
-          : " No text, letters, words, or watermarks in the image.";
-
-        // Try Gemini if available
-        if (GEMINI_API_KEY) {
-          const gem = await generateGeminiImage({
-            prompt: usedPrompt + aspectHint + noTextHint,
-          });
-          if (gem.ok) {
-            const safeUrl = await persistImageDataUri(gem.imageUrl, access.userId);
-            return NextResponse.json({
-              ok: true,
-              data: { imageUrl: safeUrl },
-              usedPrompt,
-              provider: "gemini",
-              fallbackReason: "openai-quota",
-            });
-          }
-          // Gemini тоже упал — пробуем pollinations
-        }
-
-        // Pollinations.ai — free, no API key. Последний резервный вариант.
-        const poll = await generatePollinationsImage({
-          prompt: usedPrompt + noTextHint,
-          format: imageFormat,
-          model: "flux",
-        });
-        if (poll.ok) {
-          const safeUrl = await persistImageDataUri(poll.imageUrl, access.userId);
-          return NextResponse.json({
-            ok: true,
-            data: { imageUrl: safeUrl },
-            usedPrompt,
-            provider: "pollinations",
-            fallbackReason: "openai-quota",
-          });
-        }
-
-        // Все 3 провайдера упали
-        const why = isQuotaIssue ? "квота/билинг OpenAI" : "OpenAI прокси не отвечает (timeout/network)";
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `${why}: ${imgResult.error}. Резервные генераторы тоже недоступны (Pollinations: ${poll.error}).`,
-            usedPrompt,
-          },
-          { status: 502 },
-        );
-      }
-
-      return NextResponse.json(
-        { ok: false, error: imgResult.error, usedPrompt },
-        { status: imgResult.status ?? 500 },
-      );
-    }
-
-    const safeUrl = await persistImageDataUri(imgResult.imageUrl, access.userId);
     return NextResponse.json({
       ok: true,
-      data: { imageUrl: safeUrl },
+      data: { imageUrl: result.imageUrl },
       usedPrompt,
-      provider: "openai",
+      provider: result.provider,
+      ...(result.fallbackReason ? { fallbackReason: result.fallbackReason } : {}),
     });
   } catch (err) {
     return NextResponse.json(

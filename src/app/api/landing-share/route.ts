@@ -14,11 +14,10 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { randomBytes } from "crypto";
+import { fetchStitchHtml } from "@/lib/stitch-fetch";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MAX_HTML_BYTES = 5 * 1024 * 1024; // 5MB — Stitch-лендинги обычно 200-800KB
 
 interface ShareRow {
   slug: string;
@@ -46,10 +45,6 @@ export async function POST(req: Request) {
   if (!htmlUrl) {
     return NextResponse.json({ ok: false, error: "htmlUrl обязателен" }, { status: 400 });
   }
-  // SSRF-защита: разрешаем только Stitch-CDN и Vercel
-  if (!/^https:\/\/[a-z0-9.-]+\.(stitch\.tech|vercel\.app|marketradar\.ai)\//i.test(htmlUrl)) {
-    return NextResponse.json({ ok: false, error: "Допустимы только URL со Stitch/Vercel/marketradar.ai" }, { status: 400 });
-  }
 
   // Если передан projectId — проверяем ownership (юзер не может шарить
   // чужой лендинг даже зная projectId)
@@ -65,39 +60,12 @@ export async function POST(req: Request) {
 
   // Тянем HTML со Stitch (server-side, юзер не отдаёт нам htmlContent в body
   // чтобы не было XSS-инжекта произвольного HTML в чужие шары).
-  let htmlContent: string;
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 25000);
-    const res = await fetch(htmlUrl, { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (!res.ok) {
-      return NextResponse.json(
-        { ok: false, error: `Не удалось скачать HTML лендинга (HTTP ${res.status}). Возможно, ссылка истекла.` },
-        { status: 502 },
-      );
-    }
-    htmlContent = await res.text();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { ok: false, error: `Не удалось скачать HTML лендинга: ${msg}` },
-      { status: 502 },
-    );
+  // SSRF-защита, реальный список хостов Stitch и X-Goog-Api-Key — в lib/stitch-fetch.
+  const fetched = await fetchStitchHtml(htmlUrl);
+  if (!fetched.ok) {
+    return NextResponse.json({ ok: false, error: fetched.error }, { status: fetched.status });
   }
-
-  if (htmlContent.length > MAX_HTML_BYTES) {
-    return NextResponse.json(
-      { ok: false, error: `HTML слишком большой (${(htmlContent.length / 1024 / 1024).toFixed(1)}МБ, максимум 5МБ)` },
-      { status: 413 },
-    );
-  }
-  if (htmlContent.length < 100) {
-    return NextResponse.json(
-      { ok: false, error: "Скачали пустой/слишком короткий HTML — возможно, ссылка уже не работает" },
-      { status: 502 },
-    );
-  }
+  const htmlContent = fetched.html;
 
   // Генерим случайный 8-байт slug (16 hex chars, шанс коллизии ничтожный).
   // На всякий случай ретраим до 3 раз при unique-conflict.

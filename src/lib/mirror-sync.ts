@@ -90,6 +90,63 @@ function scannedLocalEntries(): MirrorEntry[] {
   return out;
 }
 
+/**
+ * Профильные варианты зеркальных ключей.
+ *
+ * Вьюхи получают `userId` из AppShell как `workspaceLsId`, а он равен
+ * `<owner|user>.id + profileSuffix` (см. AppShell: `baseLsId + profileSuffix`).
+ * То есть при активном не-default профиле ключ выглядит как
+ * `mr_presentations_<uid>__p_<profileId>`, тогда как mirrorEntries() знает
+ * только `mr_presentations_<uid>`. Из-за этого история презентаций, премиум-дек
+ * и лендингов в любом профиле кроме «Основного» НИКОГДА не уезжала на сервер:
+ * локально всё было, а на другом устройстве/после чистки кэша — пусто.
+ *
+ * Чиним симметрично уже принятой в проекте схеме серверных суффиксов
+ * (profileServerSuffix из lib/profiles): `m_presentations::p_<profileId>`.
+ *
+ * Направления разные, поэтому источников тоже два:
+ *  - push: профили находим сканированием localStorage (что есть в браузере);
+ *  - hydrate: сканированием ключей, пришедших с сервера (что есть в аккаунте).
+ */
+function profileVariants(uid: string, serverKeys: string[]): MirrorEntry[] {
+  const out: MirrorEntry[] = [];
+  const seen = new Set<string>();
+  const add = (ls: string, server: string) => {
+    if (seen.has(ls)) return;
+    seen.add(ls);
+    out.push({ ls, server });
+  };
+
+  for (const base of mirrorEntries(uid)) {
+    // Профильный суффикс дописывается к uid, поэтому фиксированные ключи
+    // без uid (mr_aisum_*, mr_admin_*) профилей не имеют — пропускаем.
+    if (!base.ls.includes(uid)) continue;
+
+    // 1) Что лежит в localStorage прямо сейчас (для push).
+    if (typeof window !== "undefined") {
+      const lsPrefix = `${base.ls}__p_`;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(lsPrefix)) {
+            add(k, `${base.server}::p_${k.slice(lsPrefix.length)}`);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // 2) Что уже есть на сервере (для hydrate на новом устройстве, где
+    //    в localStorage ещё пусто и сканировать нечего).
+    const srvPrefix = `${base.server}::p_`;
+    for (const sk of serverKeys) {
+      if (sk.startsWith(srvPrefix)) {
+        add(`${base.ls}__p_${sk.slice(srvPrefix.length)}`, sk);
+      }
+    }
+  }
+  return out;
+}
+
 interface Wrapped { t: number; v: string }
 interface MetaMap { [serverKey: string]: { h: string; t: number } }
 
@@ -167,6 +224,10 @@ export async function hydrateMirror(uid: string): Promise<void> {
 
   for (const entry of mirrorEntries(uid)) applyEntry(entry);
 
+  // Профильные варианты (mr_presentations_<uid>__p_<id> и т.п.) — источником
+  // служат ключи с сервера, потому что на новом устройстве локально их ещё нет.
+  for (const entry of profileVariants(uid, Object.keys(serverData))) applyEntry(entry);
+
   // Скан-ключи (mr_offers_*): объединяем то, что уже есть локально, с тем,
   // что сервер знает, но локально ещё не появилось (новое устройство).
   const scanEntries = new Map(scannedLocalEntries().map((e) => [e.server, e]));
@@ -183,11 +244,18 @@ export async function hydrateMirror(uid: string): Promise<void> {
 async function pushChanged(uid: string): Promise<void> {
   const meta = readMeta(uid);
   let metaDirty = false;
-  for (const entry of [...mirrorEntries(uid), ...scannedLocalEntries()]) {
+  // profileVariants здесь берёт профили из localStorage (serverKeys не нужны —
+  // пушим ровно то, что лежит в браузере).
+  for (const entry of [...mirrorEntries(uid), ...profileVariants(uid, []), ...scannedLocalEntries()]) {
     let local: string | null = null;
     try { local = localStorage.getItem(entry.ls); } catch { continue; }
     if (local === null) continue;
-    if (local.length > MAX_VALUE_BYTES) continue;
+    if (local.length > MAX_VALUE_BYTES) {
+      // Молчаливый пропуск был отдельным источником «данные исчезли»:
+      // история презентаций с инлайн-картинками легко перевешивает лимит.
+      console.warn(`[mirror-sync] ${entry.ls} — ${(local.length / 1024 / 1024).toFixed(1)}МБ, больше лимита ${MAX_VALUE_BYTES / 1024 / 1024}МБ. Не синкается на сервер.`);
+      continue;
+    }
     const h = hash(local);
     if (meta[entry.server]?.h === h) continue;
 

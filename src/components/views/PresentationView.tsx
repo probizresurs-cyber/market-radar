@@ -283,7 +283,44 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   }
   const [brandCheckResult, setBrandCheckResult] = useState<{ score: number; summary: string; issues: BrandCheckIssue[] } | null>(null);
   const [isBrandChecking, setIsBrandChecking] = useState(false);
+  // Публичная ссылка на презентацию
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharePassword, setSharePassword] = useState("");
+  const [showShareBox, setShowShareBox] = useState(false);
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+
+  /**
+   * Публичная ссылка на презентацию. Слайды копируются в БД
+   * (shared_presentations), поэтому ссылка живёт независимо от localStorage
+   * автора и открывается без авторизации — на /pres/<slug>.
+   */
+  const handleShare = async () => {
+    if (slides.length === 0) return;
+    setIsSharing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/presentation-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: presTitle || "Презентация",
+          slides,
+          style: selectedStyle,
+          password: sharePassword.trim() || undefined,
+        }),
+      });
+      const json = await jsonOrThrow(res);
+      if (!json.ok) throw new Error(json.error || "Не удалось создать ссылку");
+      const url = `${window.location.origin}${json.data.url}`;
+      setShareUrl(url);
+      try { await navigator.clipboard.writeText(url); } catch { /* буфер недоступен — ссылка всё равно на экране */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка создания ссылки");
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const handleBrandCheck = async () => {
     if (!brandBook.colors?.length) return;
@@ -416,37 +453,64 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   const [isExportingPptx, setIsExportingPptx] = useState(false);
   const [isExportingSlidev, setIsExportingSlidev] = useState(false);
   const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
+  // Какая запись истории соответствует тому, что сейчас на экране. Нужна,
+  // чтобы автосохранение правило именно её, а не всегда самую свежую —
+  // иначе редактирование презентации, открытой из «Истории», затирало бы
+  // последнюю сгенерированную.
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
 
   // Load history from localStorage
   useEffect(() => {
     if (!userId) return;
     try {
       const saved = localStorage.getItem(`mr_presentations_${userId}`);
-      if (saved) setHistory(JSON.parse(saved));
-    } catch { /* ignore */ }
+      // ВАЖЕН else: userId включает суффикс профиля, и при переключении на
+      // профиль без истории state должен обнулиться. Иначе ближайшее
+      // сохранение припишет чужие презентации в ключ нового профиля.
+      setHistory(saved ? JSON.parse(saved) : []);
+    } catch { setHistory([]); }
   }, [userId]);
+
+  /**
+   * Инлайн-картинки (data:) выкидываем из истории. persistImageDataUri
+   * возвращает base64 как есть, если запись в user_images не удалась —
+   * пара таких слайдов и вся история (до 20 презентаций) перестаёт влезать
+   * в квоту localStorage. Раньше это ловилось пустым catch: state
+   * обновлялся, UI показывал «История (3)», а после reload было пусто.
+   */
+  const stripInlineImages = (arr: PresentationSlide[]): PresentationSlide[] =>
+    arr.map(s => (s.imageUrl?.startsWith("data:") ? { ...s, imageUrl: undefined } : s));
+
+  const persistHistory = (updated: SavedPresentation[]) => {
+    setHistory(updated);
+    try {
+      localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated));
+    } catch {
+      // Квота кончилась даже после чистки картинок — говорим прямо, а не молчим.
+      setError("Не удалось сохранить в историю: закончилось место в браузере. Удалите старые презентации во вкладке «История».");
+    }
+  };
 
   const saveToHistory = (newSlides: PresentationSlide[], title: string, style: PresentationStyle | null, ptype?: PresentationContentType, ptopic?: string) => {
     if (!userId) return;
+    const id = Date.now().toString();
+    setCurrentHistoryId(id);
     const entry: SavedPresentation = {
-      id: Date.now().toString(),
+      id,
       title: title || `Презентация ${new Date().toLocaleDateString("ru")}`,
       createdAt: new Date().toISOString(),
-      slides: newSlides,
+      slides: stripInlineImages(newSlides),
       style,
       slideCount: newSlides.length,
       presentationType: ptype,
       topic: ptopic || undefined,
     };
-    const updated = [entry, ...history].slice(0, 20);
-    setHistory(updated);
-    try { localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+    persistHistory([entry, ...history].slice(0, 20));
   };
 
   const deleteFromHistory = (id: string) => {
-    const updated = history.filter(h => h.id !== id);
-    setHistory(updated);
-    try { localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+    persistHistory(history.filter(h => h.id !== id));
+    if (currentHistoryId === id) setCurrentHistoryId(null);
   };
 
   const loadFromHistory = (saved: SavedPresentation) => {
@@ -455,9 +519,38 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
     setSelectedStyle(saved.style);
     setPresentationType(saved.presentationType ?? "brand");
     setTopic(saved.topic ?? "");
+    setCurrentHistoryId(saved.id);
     setStage("review");
     setTab("create");
   };
+
+  /**
+   * Автосохранение открытой презентации в её запись истории.
+   *
+   * До этого saveToHistory вызывался ровно один раз — сразу после генерации.
+   * Всё, что юзер делал потом (правки слайдов, «Обновить по пожеланию»,
+   * AI-иллюстрации, «Оформить всю», speaker notes), в историю не попадало:
+   * вернувшись из «Истории», он получал сырую первую версию и считал, что
+   * работа пропала. Дебаунс — чтобы не писать в localStorage на каждый
+   * символ при ручном редактировании текста слайда.
+   */
+  useEffect(() => {
+    if (!userId || !currentHistoryId || stage !== "review" || slides.length === 0) return;
+    const t = setTimeout(() => {
+      setHistory(prev => {
+        const idx = prev.findIndex(h => h.id === currentHistoryId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], slides: stripInlineImages(slides), slideCount: slides.length };
+        try { localStorage.setItem(`mr_presentations_${userId}`, JSON.stringify(updated)); } catch { /* квота — сообщим при явном сохранении */ }
+        return updated;
+      });
+    }, 1200);
+    return () => clearTimeout(t);
+    // stripInlineImages стабильна по смыслу (чистая функция от аргумента),
+    // в deps не нужна — иначе эффект пересоздавался бы на каждый рендер.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides, currentHistoryId, userId, stage]);
 
   // Derived colors from selected style
   const sty = selectedStyle || buildStyleFromBrandBook(brandBook);
@@ -491,8 +584,13 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
   };
 
   // ── Stage 2 handler ──────────────────────────────────
-  const handleGenerate = async () => {
-    if (!myCompany || !selectedStyle) { setError("Выберите стиль и убедитесь что анализ проведён"); return; }
+  // styleOverride — для «Создать за 30 секунд»: там стиль выставляется
+  // и генерация запускается в одном обработчике, а setState к следующей
+  // строке ещё не применился (замыкание видит старый selectedStyle → был
+  // ложный «Выберите стиль» на первом клике и генерация старым стилем на втором).
+  const handleGenerate = async (styleOverride?: PresentationStyle) => {
+    const styleToUse = styleOverride ?? selectedStyle;
+    if (!myCompany || !styleToUse) { setError("Выберите стиль и убедитесь что анализ проведён"); return; }
     // Для «услуги/кейса/КП» тема обязательна — без неё AI сделает очередную
     // бренд-презентацию, просто с другой структурой.
     if (presentationType !== "brand" && !topic.trim()) {
@@ -521,7 +619,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
         body: JSON.stringify({
           company: myCompany.company,
           brandBook,
-          style: selectedStyle,
+          style: styleToUse,
           taData: taAnalysis,
           smmData: smmAnalysis,
           social: myCompany.social,
@@ -543,7 +641,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       setPresTitle(newTitle);
       setSlides(newSlides);
       setGenProgress(100);
-      saveToHistory(newSlides, newTitle, selectedStyle, presentationType, topic.trim());
+      saveToHistory(newSlides, newTitle, styleToUse, presentationType, topic.trim());
       setTimeout(() => setStage("review"), 600);
     } catch (err: unknown) {
       clearInterval(timer);
@@ -568,7 +666,17 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
       });
       const json = await jsonOrThrow(res);
       if (!json.ok) throw new Error(json.error);
-      setSlides(json.data.slides ?? slides);
+      // ?? не спасает от пустого массива: [] — не nullish, и презентация
+      // обнулялась (stage review рендерится только при slides.length > 0),
+      // экран становился пустым без единого сообщения об ошибке.
+      const next: PresentationSlide[] = Array.isArray(json.data?.slides) ? json.data.slides : [];
+      if (next.length === 0) {
+        throw new Error("Модель вернула пустой набор слайдов — презентация не изменена. Попробуйте переформулировать пожелание.");
+      }
+      // Модель не возвращает imageUrl (его нет в её контракте) — переносим
+      // уже сгенерированные иллюстрации с прежних слайдов по позиции.
+      const merged = next.map((s, i) => (s.imageUrl ? s : { ...s, imageUrl: slides[i]?.imageUrl }));
+      setSlides(merged);
       setWishText("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка обновления");
@@ -1972,18 +2080,16 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               </div>
               <button
                 onClick={() => {
-                  // Brief-mode: брендбук → handleGenerate сразу
-                  if (brandBook.colors.length > 0) {
-                    const built = buildStyleFromBrandBook(brandBook);
-                    setSelectedStyle(built);
-                  } else {
-                    // Дефолтный «Минимализм» — он работает для любой ниши.
-                    setSelectedStyle(PRESET_STYLES[0]);
-                  }
+                  // Brief-mode: брендбук → handleGenerate сразу.
+                  // Дефолтный «Минимализм» — он работает для любой ниши.
+                  const built = brandBook.colors.length > 0
+                    ? buildStyleFromBrandBook(brandBook)
+                    : PRESET_STYLES[0];
+                  setSelectedStyle(built);
                   setCustomPrompt(""); // Без свободного текста
-                  // handleGenerate вызовется через useEffect когда setSelectedStyle применится.
-                  // Чтобы не делать useEffect-зависимость, дожидаемся следующего тика и зовём явно.
-                  setTimeout(() => { void handleGenerate(); }, 0);
+                  // Передаём стиль аргументом: setState к этому моменту ещё
+                  // не применился, и handleGenerate() без него видел бы null.
+                  void handleGenerate(built);
                 }}
                 disabled={!myCompany}
                 style={{
@@ -2084,7 +2190,7 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                       style={{ width: "100%", borderRadius: 10, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", padding: "10px 14px", fontSize: 13, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
                     />
                   </div>
-                  <button onClick={handleGenerate} disabled={!myCompany} style={{ alignSelf: "flex-start", padding: "14px 36px", borderRadius: 10, border: "none",
+                  <button onClick={() => { void handleGenerate(); }} disabled={!myCompany} style={{ alignSelf: "flex-start", padding: "14px 36px", borderRadius: 10, border: "none",
                     background: !myCompany ? "var(--muted-foreground)" : "var(--primary)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !myCompany ? "default" : "pointer" }}>
                     Создать презентацию в стиле «{selectedStyle.name}»
                   </button>
@@ -2134,6 +2240,13 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Sparkles size={12} /> {isExportingSlidev ? "Экспорт..." : "Slidev .md"}</span>
             </button>
             <button
+              onClick={() => setShowShareBox(v => !v)}
+              title="Публичная ссылка — открывается без входа в аккаунт, можно закрыть паролем"
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none",
+                background: "#0ea5e9", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+              🔗 Поделиться
+            </button>
+            <button
               onClick={handleBrandCheck}
               disabled={isBrandChecking || (brandBook.colors?.length ?? 0) === 0}
               title={(brandBook.colors?.length ?? 0) === 0 ? "Заполните брендбук чтобы проверить соответствие" : "Проверить соответствие слайдов брендбуку"}
@@ -2173,11 +2286,77 @@ export function PresentationView({ c, myCompany, taAnalysis, smmAnalysis, brandB
                 <Mic size={12} /> {isGeneratingNotes ? "Пишу..." : "Speaker notes"}
               </span>
             </button>
-            <button onClick={() => { setStage("style"); setSlides([]); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`,
+            <button onClick={() => { setStage("style"); setSlides([]); setCurrentHistoryId(null); setShareUrl(null); setShowShareBox(false); }} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid var(--border)`,
               background: "var(--card)", color: "var(--foreground)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} /> Заново</span>
             </button>
           </div>
+
+          {/* Панель публичной ссылки */}
+          {showShareBox && (
+            <div style={{
+              marginBottom: 16, padding: "14px 16px", borderRadius: 10,
+              background: "color-mix(in oklch, #0ea5e9 6%, var(--card))",
+              border: `1px solid color-mix(in oklch, #0ea5e9 30%, var(--border))`,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)", marginBottom: 6 }}>
+                Публичная ссылка на презентацию
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, marginBottom: 10 }}>
+                Слайды копируются на сервер — ссылка открывается без входа в аккаунт и не зависит от вашего браузера.
+              </div>
+              {shareUrl ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    style={{
+                      flex: "1 1 320px", minWidth: 0, padding: "8px 10px", borderRadius: 7,
+                      border: `1px solid var(--border)`, background: "var(--background)",
+                      color: "var(--foreground)", fontSize: 12.5, fontFamily: "ui-monospace, monospace",
+                    }}
+                  />
+                  <button
+                    onClick={() => { void navigator.clipboard.writeText(shareUrl); }}
+                    style={{ padding: "8px 14px", borderRadius: 7, border: "none", background: "#0ea5e9", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >Копировать</button>
+                  <a
+                    href={shareUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+                  >Открыть →</a>
+                  <button
+                    onClick={() => { setShareUrl(null); setSharePassword(""); }}
+                    style={{ padding: "8px 12px", borderRadius: 7, border: `1px solid var(--border)`, background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer" }}
+                  >Создать ещё</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    type="text"
+                    value={sharePassword}
+                    onChange={(e) => setSharePassword(e.target.value)}
+                    placeholder="Пароль (необязательно)"
+                    style={{
+                      flex: "1 1 220px", minWidth: 0, padding: "8px 10px", borderRadius: 7,
+                      border: `1px solid var(--border)`, background: "var(--background)",
+                      color: "var(--foreground)", fontSize: 12.5,
+                    }}
+                  />
+                  <button
+                    onClick={handleShare}
+                    disabled={isSharing}
+                    style={{
+                      padding: "8px 16px", borderRadius: 7, border: "none",
+                      background: isSharing ? "var(--muted-foreground)" : "#0ea5e9",
+                      color: "#fff", fontSize: 12, fontWeight: 600,
+                      cursor: isSharing ? "wait" : "pointer",
+                    }}
+                  >{isSharing ? "Создаю..." : "Создать ссылку"}</button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Итог авто-оформления (исчезает сам через 8 секунд) */}
           {autoDecorToast && (

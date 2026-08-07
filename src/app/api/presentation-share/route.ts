@@ -6,11 +6,16 @@
  * GET /api/presentation-share?slug=<slug>&password=<opt>
  *   → { ok, data: { title, slides, style } } или 403/401 если требуется пароль
  *
- * Презентация хранится в БД и доступна по публичному /r/<slug>.
+ * DELETE /api/presentation-share?slug=<slug> — отозвать ссылку (только владелец)
+ *
+ * Презентация хранится в БД и доступна по публичному /pres/<slug>.
+ * ВАЖНО: раньше POST возвращал `/r/<slug>` — этот путь занят лид-ген
+ * отчётом (src/app/r/[slug]/page.tsx ищет slug в таблице leads), поэтому
+ * любая выданная ссылка гарантированно отдавала 404.
  */
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { query } from "@/lib/db";
+import { query, initDb } from "@/lib/db";
 import { randomBytes, createHash } from "crypto";
 
 export const runtime = "nodejs";
@@ -33,6 +38,8 @@ function hashPassword(p: string): string {
 export async function POST(req: Request) {
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  // На свежем инстансе таблицы может ещё не быть — initDb идемпотентный.
+  await initDb();
 
   let body: { title?: string; slides?: unknown; style?: unknown; expiresInDays?: number; password?: string };
   try { body = await req.json(); }
@@ -66,11 +73,12 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    data: { slug, url: `/r/${slug}` },
+    data: { slug, url: `/pres/${slug}` },
   });
 }
 
 export async function GET(req: Request) {
+  await initDb();
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
   const password = searchParams.get("password") ?? "";
@@ -107,4 +115,26 @@ export async function GET(req: Request) {
       style: r.style_json,
     },
   });
+}
+
+/** Отзыв выданной ссылки. Без этого поделившийся терял контроль навсегда. */
+export async function DELETE(req: Request) {
+  const session = await getSessionUser();
+  if (!session) return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 });
+  await initDb();
+
+  const slug = new URL(req.url).searchParams.get("slug");
+  if (!slug) return NextResponse.json({ ok: false, error: "slug required" }, { status: 400 });
+
+  const rows = await query<{ user_id: string }>(
+    "SELECT user_id FROM shared_presentations WHERE slug = $1",
+    [slug],
+  );
+  if (rows.length === 0) return NextResponse.json({ ok: false, error: "Ссылка не найдена" }, { status: 404 });
+  if (rows[0].user_id !== session.userId) {
+    return NextResponse.json({ ok: false, error: "Нет доступа" }, { status: 403 });
+  }
+
+  await query("DELETE FROM shared_presentations WHERE slug = $1", [slug]);
+  return NextResponse.json({ ok: true });
 }
