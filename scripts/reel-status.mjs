@@ -1,0 +1,68 @@
+/**
+ * Статус сборки ролика по jobId.
+ *
+ * Отдельным скриптом, потому что /api/promo-job-status требует сессионную
+ * куку: гонять админский токен через переписку и переменные окружения — и
+ * неудобно, и небезопасно. Здесь он подписывается на месте тем же секретом,
+ * что и в приложении, живёт 5 минут и никуда не печатается.
+ *
+ * Запуск:
+ *   set -a; . ./.env 2>/dev/null; . ./.env.local 2>/dev/null; set +a
+ *   node scripts/reel-status.mjs <jobId> [email]
+ */
+import pg from "pg";
+import { SignJWT } from "jose";
+
+const jobId = process.argv[2];
+const ownerEmail = process.argv[3] || "admin@company24.pro";
+if (!jobId) {
+  console.error("Укажите jobId: node scripts/reel-status.mjs pjob-...");
+  process.exit(1);
+}
+
+const PORTS = [process.env.PORT, "3001", "3000", "3002"].filter(Boolean);
+async function resolveBase() {
+  for (const p of PORTS) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 1500);
+      await fetch(`http://127.0.0.1:${p}/api/content/video/plan`, { method: "HEAD", signal: ctrl.signal });
+      clearTimeout(t);
+      return `http://127.0.0.1:${p}`;
+    } catch { /* следующий */ }
+  }
+  throw new Error(`Приложение не отвечает на портах ${PORTS.join(", ")}`);
+}
+
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+try {
+  const base = await resolveBase();
+  const u = await db.query("SELECT id, role FROM users WHERE email = $1", [ownerEmail]);
+  if (u.rows.length === 0) throw new Error(`Пользователь ${ownerEmail} не найден`);
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("Нет JWT_SECRET в окружении");
+  const token = await new SignJWT({ userId: u.rows[0].id, email: ownerEmail, role: u.rows[0].role ?? "user" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(new TextEncoder().encode(secret));
+
+  const res = await fetch(`${base}/api/promo-job-status/${jobId}`, {
+    headers: { cookie: `mr_token=${token}` },
+  });
+  const j = await res.json().catch(() => ({}));
+  const d = j?.data ?? j;
+
+  console.log(`Статус: ${d?.status ?? "?"}${d?.error ? ` — ${d.error}` : ""}`);
+  for (const s of d?.steps ?? []) {
+    const secs = s.ms ? ` ${(s.ms / 1000).toFixed(1)}с` : "";
+    console.log(`  ${s.status === "ok" ? "✓" : s.status === "skipped" ? "–" : "✗"} ${s.name}${secs}${s.error ? ` — ${s.error}` : ""}`);
+  }
+  if (d?.videoUrl || d?.url) console.log(`\nВидео: ${d.videoUrl ?? d.url}`);
+} catch (e) {
+  console.error("ОШИБКА:", e?.message ?? e);
+  process.exitCode = 1;
+} finally {
+  await db.end().catch(() => {});
+}
