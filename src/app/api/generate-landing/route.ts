@@ -113,8 +113,24 @@ export async function POST(req: Request) {
     const client = new StitchToolClient({ apiKey });
     const stitchInstance = new Stitch(client);
 
-    // Create project
-    const project = await stitchInstance.createProject(`${companyName} — Landing`);
+    // Create project.
+    // Имя проекта чистим до ASCII: Stitch отвечает «Tool Call Failed
+    // [create_project]: Request contains an invalid argument» на кириллицу
+    // и длинное тире — то есть у русских компаний генерация падала всегда,
+    // ещё до промпта. Имя проекта техническое, пользователь его не видит,
+    // поэтому безопасный фолбэк по домену/дате ничего не ломает.
+    const asciiName = companyName
+      .replace(/[^\x20-\x7E]+/g, " ")   // не-ASCII → пробел
+      .replace(/[^A-Za-z0-9 ._-]/g, "") // спецсимволы, которые Stitch тоже не любит
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60);
+    const domainFallback = String(company?.url ?? "")
+      .replace(/^https?:\/\//i, "")
+      .replace(/[^A-Za-z0-9.-]/g, "")
+      .slice(0, 40);
+    const projectName = `${asciiName || domainFallback || "MarketRadar"} Landing`;
+    const project = await stitchInstance.createProject(projectName);
     const projectId = project.id;
 
     // Set design system
