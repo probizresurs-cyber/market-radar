@@ -3,6 +3,7 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sanitizeUserPrompt } from "@/lib/prompt-sanitize";
+import { resolveScreenUrls } from "@/lib/stitch-screen";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -181,45 +182,37 @@ export async function POST(req: Request) {
 
     // Generate the screen
     const screen = await project.generate(prompt, "DESKTOP", "GEMINI_3_PRO");
-    const screenId = screen.id;
 
-    // Диагностика: раньше «Tool Call Failed [get_screen]: invalid argument»
-    // прилетало как немая ошибка, и понять, что именно Stitch не принял,
-    // можно было только методом бинарного поиска по телу запроса.
-    // Логируем ровно то, что нужно для разбора: длину промпта, есть ли в нём
-    // не-ASCII (кириллица — главный подозреваемый) и получили ли мы screenId.
+    // Ссылки достаём через resolveScreenUrls, а не через screen.getHtml()
+    // напрямую: SDK при отсутствии id всё равно зовёт get_screen и получает
+    // немое «Request contains an invalid argument». Подробности — в
+    // src/lib/stitch-screen.ts.
+    const resolved = await resolveScreenUrls(project, screen);
+
+    // Диагностика в лог: длина промпта и число не-ASCII символов остаются
+    // полезными (Stitch чувствителен к кодировке в других полях), плюс то,
+    // каким путём добыли HTML и с какой попытки.
     const nonAsciiCount = (prompt.match(/[^\x00-\x7F]/g) ?? []).length;
-    console.log(
-      `[generate-landing] project=${projectId} screen=${screenId || "(пусто!)"} ` +
-      `prompt=${prompt.length}ch nonAscii=${nonAsciiCount}`,
-    );
-    if (!screenId) {
+    if (!resolved.ok) {
+      console.error(
+        `[generate-landing] project=${projectId} prompt=${prompt.length}ch ` +
+        `nonAscii=${nonAsciiCount} FAILED: ${resolved.diag}`,
+      );
+      await client.close().catch(() => {});
       await access.log({ endpoint: "generate-landing", model: "stitch-gemini-3-pro", success: false });
-      return NextResponse.json({
-        ok: false,
-        error: "Stitch не вернул идентификатор экрана — генерация не состоялась. Попробуйте ещё раз или упростите описание компании.",
-      }, { status: 502 });
+      return NextResponse.json({ ok: false, error: resolved.error, diag: resolved.diag }, { status: 502 });
     }
 
-    // Get HTML and screenshot URLs
-    const [htmlUrl, imageUrl] = await Promise.all([
-      screen.getHtml(),
-      screen.getImage(),
-    ]);
+    // screenId берём из резолвера: если экран восстанавливался через
+    // list_screens, рабочий id отличается от пришедшего из generate — а
+    // именно он уходит клиенту и потом в edit-landing.
+    const { htmlUrl, imageUrl, screenId, via, attempts } = resolved.urls;
+    console.log(
+      `[generate-landing] project=${projectId} screen=${screenId || "(без id)"} ` +
+      `prompt=${prompt.length}ch nonAscii=${nonAsciiCount} via=${via} attempts=${attempts}`,
+    );
 
     await client.close();
-
-    // Stitch иногда отдаёт превью-картинку (getImage), но пустой HTML
-    // (getHtml) — без ошибки. Признак, что на аккаунте Stitch закончился
-    // план/квота на экспорт HTML. Не сохраняем «битый» лендинг из одной
-    // картинки, а возвращаем понятную причину.
-    if (!htmlUrl || !htmlUrl.trim()) {
-      await access.log({ endpoint: "generate-landing", model: "stitch-gemini-3-pro", success: false });
-      return NextResponse.json({
-        ok: false,
-        error: "Stitch вернул только превью без HTML-страницы — вероятно, на аккаунте Stitch закончился план или квота на экспорт HTML. Проверьте аккаунт и ключ GOOGLE_STITCH_API_KEY.",
-      }, { status: 502 });
-    }
 
     // Записываем projectId↔userId, чтобы edit-landing мог проверить владение.
     // Без этого был IDOR (см. P0 от аудит-агента 25.05). workspace_id = id

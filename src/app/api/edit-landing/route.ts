@@ -3,6 +3,7 @@ import { checkAiAccess } from "@/lib/with-ai-security";
 import { getSessionUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sanitizeUserPrompt } from "@/lib/prompt-sanitize";
+import { resolveScreenUrls } from "@/lib/stitch-screen";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -65,17 +66,20 @@ export async function POST(req: Request) {
     // ── Action: edit ──────────────────────────────────────────
     if (action === "edit" && safeEditPrompt) {
       const edited = await screen.edit(safeEditPrompt, "DESKTOP");
-      const [htmlUrl, imageUrl] = await Promise.all([
-        edited.getHtml(),
-        edited.getImage(),
-      ]);
+      const resolved = await resolveScreenUrls(project, edited);
+      if (!resolved.ok) {
+        console.error(`[edit-landing] edit failed: ${resolved.diag}`);
+        await client.close().catch(() => {});
+        await access.log({ endpoint: "edit-landing", model: "stitch-edit", success: false });
+        return NextResponse.json({ ok: false, error: resolved.error, diag: resolved.diag }, { status: 502 });
+      }
       await client.close();
       await access.log({ endpoint: "edit-landing", model: "stitch-edit", success: true });
       return NextResponse.json({
         ok: true,
-        screenId: edited.id,
-        htmlUrl,
-        imageUrl,
+        screenId: resolved.urls.screenId,
+        htmlUrl: resolved.urls.htmlUrl,
+        imageUrl: resolved.urls.imageUrl,
       });
     }
 
@@ -86,14 +90,28 @@ export async function POST(req: Request) {
         { variantCount: 3, creativeRange: "EXPLORE", aspects: ["LAYOUT", "COLOR_SCHEME"] },
         "DESKTOP"
       );
-      const results = await Promise.all(
-        variants.map(async (v) => ({
-          screenId: v.id,
-          htmlUrl: await v.getHtml(),
-          imageUrl: await v.getImage(),
-        }))
+      // Вариант, у которого не добылся HTML, отбрасываем, а не отдаём с
+      // пустым htmlUrl: иначе в UI появляется «мёртвая» карточка варианта.
+      const settled = await Promise.all(
+        variants.map(async (v) => resolveScreenUrls(project, v))
       );
+      const results = settled
+        .filter((r): r is Extract<typeof r, { ok: true }> => r.ok)
+        .map((r) => ({
+          screenId: r.urls.screenId,
+          htmlUrl: r.urls.htmlUrl,
+          imageUrl: r.urls.imageUrl,
+        }));
       await client.close();
+      if (results.length === 0) {
+        const diag = settled.map((r) => (r.ok ? "" : r.diag)).filter(Boolean).join(" | ");
+        console.error(`[edit-landing] variants failed: ${diag}`);
+        await access.log({ endpoint: "edit-landing", model: "stitch-variants", success: false });
+        return NextResponse.json(
+          { ok: false, error: "Stitch не отдал ни одного варианта — попробуйте ещё раз.", diag },
+          { status: 502 },
+        );
+      }
       await access.log({ endpoint: "edit-landing", model: "stitch-variants", success: true });
       return NextResponse.json({ ok: true, variants: results });
     }
@@ -104,28 +122,36 @@ export async function POST(req: Request) {
         safeEditPrompt || "Optimize this design for mobile. Stack elements vertically, increase touch targets, make text larger.",
         "MOBILE"
       );
-      const [htmlUrl, imageUrl] = await Promise.all([
-        mobile.getHtml(),
-        mobile.getImage(),
-      ]);
+      const resolved = await resolveScreenUrls(project, mobile);
+      if (!resolved.ok) {
+        console.error(`[edit-landing] mobile failed: ${resolved.diag}`);
+        await client.close().catch(() => {});
+        await access.log({ endpoint: "edit-landing", model: "stitch-mobile", success: false });
+        return NextResponse.json({ ok: false, error: resolved.error, diag: resolved.diag }, { status: 502 });
+      }
       await client.close();
       await access.log({ endpoint: "edit-landing", model: "stitch-mobile", success: true });
       return NextResponse.json({
         ok: true,
-        screenId: mobile.id,
-        htmlUrl,
-        imageUrl,
+        screenId: resolved.urls.screenId,
+        htmlUrl: resolved.urls.htmlUrl,
+        imageUrl: resolved.urls.imageUrl,
         device: "mobile",
       });
     }
 
     // ── Default: get current HTML/image ─────────────────────
-    const [htmlUrl, imageUrl] = await Promise.all([
-      screen.getHtml(),
-      screen.getImage(),
-    ]);
+    const current = await resolveScreenUrls(project, screen);
     await client.close();
-    return NextResponse.json({ ok: true, htmlUrl, imageUrl });
+    if (!current.ok) {
+      console.error(`[edit-landing] refresh failed: ${current.diag}`);
+      return NextResponse.json({ ok: false, error: current.error, diag: current.diag }, { status: 502 });
+    }
+    return NextResponse.json({
+      ok: true,
+      htmlUrl: current.urls.htmlUrl,
+      imageUrl: current.urls.imageUrl,
+    });
 
   } catch (err: unknown) {
     console.error("edit-landing error:", err);
