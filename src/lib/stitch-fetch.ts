@@ -25,11 +25,16 @@ import { checkSafeUrl } from "@/lib/url-guard";
  * vercel.app — наш собственный деплой через landing-deploy-vercel.
  */
 export const STITCH_ALLOWED_HOSTS = [
+  // Фактический хост, с которого Stitch отдаёт HTML (проверено на живой
+  // генерации): contribution.usercontent.google.com. Именно его не было
+  // ни в старом regex'е (stitch.tech — такого домена не существует), ни в
+  // первой версии этого списка, собранной по догадкам из proxy-landing.
+  "usercontent.google.com",
+  "googleusercontent.com",
   "storage.googleapis.com",
   "firebasestorage.googleapis.com",
   "stitch.googleapis.com",
   "stitch-pa.googleapis.com",
-  "googleusercontent.com",
   "vercel.app",
 ];
 
