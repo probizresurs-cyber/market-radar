@@ -19,7 +19,33 @@ import pg from "pg";
 import { SignJWT } from "jose";
 
 const ownerEmail = process.argv[2] || "admin@company24.pro";
-const BASE = process.env.REEL_BASE_URL || `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+/**
+ * Порт приложения. PORT в .env не задан (его выставляет PM2), поэтому
+ * дефолт 3000 дал «fetch failed» — процесс слушает другой порт. Пробуем
+ * несколько кандидатов и берём тот, который отвечает.
+ */
+const PORT_CANDIDATES = [process.env.PORT, "3000", "3001", "3002", "3100", "3200", "8080"]
+  .filter(Boolean);
+
+async function resolveBase() {
+  if (process.env.REEL_BASE_URL) return process.env.REEL_BASE_URL;
+  for (const p of PORT_CANDIDATES) {
+    const url = `http://127.0.0.1:${p}`;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 1500);
+      // Код ответа не важен — важен сам факт соединения с нашим процессом.
+      await fetch(`${url}/api/content/video/plan`, { method: "HEAD", signal: ctrl.signal });
+      clearTimeout(t);
+      console.log(`Приложение отвечает на порту ${p}`);
+      return url;
+    } catch { /* пробуем следующий */ }
+  }
+  throw new Error(
+    `Приложение не отвечает ни на одном из портов: ${PORT_CANDIDATES.join(", ")}. ` +
+    "Посмотрите реальный порт: pm2 env 4 | grep -i port",
+  );
+}
 
 const AVATAR_ID = "3e74b8e8b04c4007bd32cc4f21c9f9d1";
 const VOICE_ID = "rYBvDw8ISDqxmPyq2HAn";
@@ -33,6 +59,7 @@ const VOICEOVER = `Здание начинается не с бетона. Он�
 Девятого августа — День строителя. Праздник тех, чьими руками и расчётом всё это поднимается.
 С праздником, коллеги.`;
 
+const BASE = await resolveBase();
 const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 try {
@@ -41,16 +68,31 @@ try {
   const userId = u.rows[0].id;
   const role = u.rows[0].role ?? "user";
 
-  // Логотип берём из брендбука пользователя — тот же источник, что и в
-  // кабинете, чтобы ролик не отличался от того, что получит клиент.
-  const bb = await db.query(
-    "SELECT value FROM user_data WHERE user_id = $1 AND key LIKE 'm_brandbook%' ORDER BY updated_at DESC LIMIT 1",
+  console.log(`Владелец: ${ownerEmail}`);
+
+  // Ключ брендбука ищем по содержимому, а не по угаданному имени: в user_data
+  // он лежит под ключом, который зависит от профиля (суффикс ::p_<id>), и
+  // жёсткий LIKE 'm_brandbook%' уже дал ложное «брендбук НЕ найден».
+  // Признак настоящего брендбука — палитра colors или логотип, а не имя ключа.
+  const all = await db.query(
+    "SELECT key, value FROM user_data WHERE user_id = $1 ORDER BY updated_at DESC",
     [userId],
   );
-  const brandBook = bb.rows[0]?.value ?? null;
+  console.log(`Ключей в user_data: ${all.rows.length}`);
+  const brandRow = all.rows.find((r) => {
+    const v = r.value;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+    return Boolean(v.logoDataUrl) || Array.isArray(v.colors);
+  });
+  const brandBook = brandRow?.value ?? null;
   const logoUrl = brandBook?.logoDataUrl ?? null;
-  console.log(`Владелец: ${ownerEmail}`);
-  console.log(`Брендбук: ${brandBook ? "найден" : "НЕ найден"}, логотип: ${logoUrl ? "есть" : "НЕТ"}`);
+  console.log(
+    `Брендбук: ${brandBook ? `найден (ключ ${brandRow.key})` : "НЕ найден"}, ` +
+    `логотип: ${logoUrl ? `есть, ${Math.round(String(logoUrl).length / 1024)} КБ` : "НЕТ"}`,
+  );
+  if (!logoUrl) {
+    console.log("  ⚠ Без логотипа ролик соберётся с текстовым названием на финальном кадре.");
+  }
 
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("Нет JWT_SECRET в окружении");
