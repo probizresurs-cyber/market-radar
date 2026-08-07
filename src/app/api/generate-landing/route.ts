@@ -22,8 +22,12 @@ export const maxDuration = 120;
  * Проверять этот список стоит при каждом обновлении @google/stitch-sdk:
  * отключение модели выглядит как «непонятная ошибка аргумента», а не как
  * внятное «модель снята».
+ *
+ * Моделей две, потому что доступность зависит от плана аккаунта Stitch:
+ * если основная недоступна, ошибка будет ровно такой же безликой. Поэтому
+ * при отказе пробуем следующую, а не падаем.
  */
-const STITCH_MODEL = "GEMINI_3_1_PRO" as const;
+const STITCH_MODELS = ["GEMINI_3_1_PRO", "GEMINI_3_FLASH"] as const;
 
 export async function POST(req: Request) {
   // Stitch (Gemini 3 Pro) платный — раньше открыт для всех.
@@ -197,8 +201,35 @@ export async function POST(req: Request) {
       }
     }
 
-    // Generate the screen
-    const screen = await project.generate(prompt, "DESKTOP", STITCH_MODEL);
+    // Generate the screen.
+    // Перебираем модели по очереди: недоступная на плане аккаунта модель даёт
+    // такое же безликое «invalid argument», как и снятая с поддержки, поэтому
+    // отличить одно от другого можно только попыткой.
+    let screen: Awaited<ReturnType<typeof project.generate>> | null = null;
+    let usedModel = "";
+    const modelErrors: string[] = [];
+    for (const model of STITCH_MODELS) {
+      try {
+        screen = await project.generate(prompt, "DESKTOP", model);
+        usedModel = model;
+        break;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        modelErrors.push(`${model}: ${msg}`);
+        console.warn(`[generate-landing] модель ${model} не сработала — ${msg}`);
+      }
+    }
+    if (!screen) {
+      await client.close().catch(() => {});
+      await access.log({ endpoint: "generate-landing", model: "stitch", success: false });
+      return NextResponse.json({
+        ok: false,
+        error:
+          "Stitch отклонил генерацию на всех доступных моделях. Обычно это значит, что " +
+          "модель снята с поддержки или недоступна на текущем плане аккаунта Stitch.",
+        diag: modelErrors.join(" | "),
+      }, { status: 502 });
+    }
 
     // Ссылки достаём через resolveScreenUrls, а не через screen.getHtml()
     // напрямую: SDK при отсутствии id всё равно зовёт get_screen и получает
@@ -226,7 +257,8 @@ export async function POST(req: Request) {
     const { htmlUrl, imageUrl, screenId, via, attempts } = resolved.urls;
     console.log(
       `[generate-landing] project=${projectId} screen=${screenId || "(без id)"} ` +
-      `prompt=${prompt.length}ch nonAscii=${nonAsciiCount} via=${via} attempts=${attempts}`,
+      `prompt=${prompt.length}ch nonAscii=${nonAsciiCount} model=${usedModel} ` +
+      `via=${via} attempts=${attempts}`,
     );
 
     await client.close();
