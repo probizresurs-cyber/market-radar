@@ -73,6 +73,10 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
 
   // Состояние для шары и скачивания
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Какая запись истории соответствует текущему результату — чтобы правки
+  // обновляли именно её, а не всегда самую свежую.
+  const [currentLandingId, setCurrentLandingId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -116,14 +120,28 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
     if (!userId) return;
     try {
       const saved = localStorage.getItem(`mr_landings_${userId}`);
-      if (saved) setLandingHistory(JSON.parse(saved));
-    } catch { /* ignore */ }
+      // else обязателен: userId включает суффикс профиля, и при переключении
+      // на профиль без истории state должен обнуляться, иначе следующее
+      // сохранение припишет чужие лендинги в ключ нового профиля.
+      setLandingHistory(saved ? JSON.parse(saved) : []);
+    } catch { setLandingHistory([]); }
   }, [userId]);
+
+  const persistLandings = (updated: SavedLanding[]) => {
+    setLandingHistory(updated);
+    try {
+      localStorage.setItem(`mr_landings_${userId}`, JSON.stringify(updated));
+    } catch {
+      setError("Не удалось сохранить в историю: закончилось место в браузере. Удалите старые лендинги во вкладке «История».");
+    }
+  };
 
   const saveLanding = (r: LandingResult, type: string, preset: string) => {
     if (!userId) return;
+    const id = Date.now().toString();
+    setCurrentLandingId(id);
     const entry: SavedLanding = {
-      id: Date.now().toString(),
+      id,
       title: `${myCompany?.company.name ?? "Лендинг"} — ${landingTypes.find(l => l.id === type)?.label ?? type}`,
       createdAt: new Date().toISOString(),
       projectId: r.projectId,
@@ -133,22 +151,81 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
       landingType: type,
       stylePreset: preset,
     };
-    const updated = [entry, ...landingHistory].slice(0, 20);
-    setLandingHistory(updated);
-    try { localStorage.setItem(`mr_landings_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+    persistLandings([entry, ...landingHistory].slice(0, 20));
+  };
+
+  /**
+   * Обновляет запись истории после правки/варианта/мобильной версии.
+   *
+   * Без этого saveLanding вызывался ровно один раз — при генерации, — и всё,
+   * что юзер делал дальше (правки по пожеланию, выбор варианта, мобильная
+   * версия), в историю не попадало: после перезагрузки он возвращался к
+   * первой, неотредактированной версии, а screenId правок терялся навсегда
+   * (Stitch без него их не отдаст).
+   */
+  const updateCurrentLanding = (r: LandingResult) => {
+    if (!userId || !currentLandingId) return;
+    const idx = landingHistory.findIndex(h => h.id === currentLandingId);
+    if (idx === -1) return;
+    const updated = [...landingHistory];
+    updated[idx] = {
+      ...updated[idx],
+      screenId: r.screenId,
+      htmlUrl: r.htmlUrl,
+      imageUrl: r.imageUrl,
+    };
+    persistLandings(updated);
   };
 
   const deleteLanding = (id: string) => {
-    const updated = landingHistory.filter(h => h.id !== id);
-    setLandingHistory(updated);
-    try { localStorage.setItem(`mr_landings_${userId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+    persistLandings(landingHistory.filter(h => h.id !== id));
+    if (currentLandingId === id) setCurrentLandingId(null);
   };
 
   const loadLanding = (h: SavedLanding) => {
     setResult({ projectId: h.projectId, screenId: h.screenId, htmlUrl: h.htmlUrl, imageUrl: h.imageUrl });
     setLandingType(h.landingType);
     setStylePreset(h.stylePreset);
+    setCurrentLandingId(h.id);
+    setShareUrl(null);
     setTab("create");
+  };
+
+  /**
+   * Обновление протухшей ссылки Stitch — бесплатно, без новой генерации.
+   *
+   * Stitch-CDN отдаёт htmlUrl/imageUrl на 1-7 дней. Раньше UI в этом случае
+   * советовал «регенерируйте лендинг», то есть заплатить за Gemini 3 Pro и
+   * получить ДРУГОЙ дизайн. При этом ветка по умолчанию /api/edit-landing
+   * (без action) просто перезапрашивает свежие URL по projectId+screenId —
+   * тот же самый лендинг, бесплатно. Она просто не была подключена к UI.
+   */
+  const handleRefreshLinks = async () => {
+    if (!result) return;
+    setIsRefreshing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/edit-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: result.projectId, screenId: result.screenId }),
+      });
+      const json = await jsonOrThrow(res);
+      if (!json.ok) throw new Error(json.error || "Не удалось обновить ссылку");
+      const next: LandingResult = {
+        projectId: result.projectId,
+        screenId: json.screenId ?? result.screenId,
+        htmlUrl: json.htmlUrl,
+        imageUrl: json.imageUrl,
+      };
+      setResult(next);
+      updateCurrentLanding(next);
+      setExpiryStatus(prev => currentLandingId ? { ...prev, [currentLandingId]: "alive" } : prev);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка обновления ссылки");
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const landingTypes = [
@@ -241,7 +318,16 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
       });
       const data = await jsonOrThrow(res);
       if (!data.ok) throw new Error(data.error || "Ошибка редактирования");
-      setResult(prev => prev ? { ...prev, screenId: data.screenId, htmlUrl: data.htmlUrl, imageUrl: data.imageUrl } : null);
+      const edited: LandingResult = {
+        projectId: result.projectId,
+        screenId: data.screenId,
+        htmlUrl: data.htmlUrl,
+        imageUrl: data.imageUrl,
+      };
+      setResult(edited);
+      // Правка обязана попасть в историю: без этого после reload юзер
+      // возвращался к исходной версии, а screenId правки терялся навсегда.
+      updateCurrentLanding(edited);
       setEditPrompt("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -616,6 +702,13 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
                 fontWeight: 600, fontSize: 12, cursor: isDownloading ? "wait" : "pointer" }}>
               {isDownloading ? "Скачивание..." : "⬇ Скачать HTML"}
             </button>
+            <button onClick={handleRefreshLinks} disabled={isRefreshing}
+              title="Ссылки Stitch живут 1-7 дней. Обновит их для ЭТОГО лендинга бесплатно — без новой генерации и без смены дизайна."
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`,
+                background: isRefreshing ? "var(--muted)" : "var(--card)", color: "var(--foreground)",
+                fontWeight: 600, fontSize: 12, cursor: isRefreshing ? "wait" : "pointer" }}>
+              {isRefreshing ? "Обновляю..." : "🔄 Обновить ссылку"}
+            </button>
             <button onClick={handleShare} disabled={isSharing}
               title="Получить публичную ссылку на marketradar24.ru/l/... для отправки клиенту"
               style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid var(--border)`,
@@ -803,7 +896,14 @@ export function LandingGeneratorView({ c, myCompany, taAnalysis, smmAnalysis, br
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
                 {variants.map((v, vi) => (
                   <div key={vi} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid var(--border)`, cursor: "pointer", transition: "all 0.15s" }}
-                    onClick={() => setResult(prev => prev ? { ...prev, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl } : null)}>
+                    onClick={() => {
+                      if (!result) return;
+                      const picked = { projectId: result.projectId, screenId: v.screenId, htmlUrl: v.htmlUrl, imageUrl: v.imageUrl };
+                      setResult(picked);
+                      // Выбранный вариант — тоже правка: без записи в историю
+                      // после reload вернулся бы исходный лендинг.
+                      updateCurrentLanding(picked);
+                    }}>
                     <img src={v.imageUrl} alt={`Variant ${vi + 1}`} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "contain", background: "#f8f8f8" }} />
                     <div style={{ padding: "8px 12px", background: "var(--card)", fontSize: 12, fontWeight: 600, color: "var(--foreground)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>Вариант {vi + 1}</span>
