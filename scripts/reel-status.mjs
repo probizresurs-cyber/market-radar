@@ -55,11 +55,25 @@ try {
   const d = j?.data ?? j;
 
   console.log(`Статус: ${d?.status ?? "?"}${d?.error ? ` — ${d.error}` : ""}`);
-  for (const s of d?.steps ?? []) {
+
+  // Отчёт по шагам лежит в progress.steps, а ссылка на файл — в result.url:
+  // ровно этот контракт возвращает /api/promo-job-status (см. его шапку).
+  // Раньше скрипт искал steps/videoUrl на верхнем уровне и печатал пустоту
+  // даже при успешной сборке.
+  const steps = d?.progress?.steps ?? d?.steps ?? [];
+  for (const s of steps) {
     const secs = s.ms ? ` ${(s.ms / 1000).toFixed(1)}с` : "";
-    console.log(`  ${s.status === "ok" ? "✓" : s.status === "skipped" ? "–" : "✗"} ${s.name}${secs}${s.error ? ` — ${s.error}` : ""}`);
+    const mark = s.status === "ok" ? "✓" : s.status === "skipped" ? "–" : s.status === "in_progress" ? "…" : "✗";
+    console.log(`  ${mark} ${s.name}${secs}${s.error ? ` — ${s.error}` : ""}`);
   }
-  if (d?.videoUrl || d?.url) console.log(`\nВидео: ${d.videoUrl ?? d.url}`);
+  if (d?.progress?.stage) console.log(`Этап: ${d.progress.stage}`);
+
+  const r = d?.result;
+  if (r?.url) {
+    const mb = r.sizeBytes ? ` (${(r.sizeBytes / 1024 / 1024).toFixed(1)} МБ)` : "";
+    const mins = r.totalMs ? `, собран за ${(r.totalMs / 60000).toFixed(1)} мин` : "";
+    console.log(`\nВидео: https://marketradar24.ru${r.url}${mb}${mins}`);
+  }
 } catch (e) {
   console.error("ОШИБКА:", e?.message ?? e);
   process.exitCode = 1;
