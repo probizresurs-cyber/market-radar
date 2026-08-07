@@ -183,6 +183,24 @@ export async function POST(req: Request) {
     const screen = await project.generate(prompt, "DESKTOP", "GEMINI_3_PRO");
     const screenId = screen.id;
 
+    // Диагностика: раньше «Tool Call Failed [get_screen]: invalid argument»
+    // прилетало как немая ошибка, и понять, что именно Stitch не принял,
+    // можно было только методом бинарного поиска по телу запроса.
+    // Логируем ровно то, что нужно для разбора: длину промпта, есть ли в нём
+    // не-ASCII (кириллица — главный подозреваемый) и получили ли мы screenId.
+    const nonAsciiCount = (prompt.match(/[^\x00-\x7F]/g) ?? []).length;
+    console.log(
+      `[generate-landing] project=${projectId} screen=${screenId || "(пусто!)"} ` +
+      `prompt=${prompt.length}ch nonAscii=${nonAsciiCount}`,
+    );
+    if (!screenId) {
+      await access.log({ endpoint: "generate-landing", model: "stitch-gemini-3-pro", success: false });
+      return NextResponse.json({
+        ok: false,
+        error: "Stitch не вернул идентификатор экрана — генерация не состоялась. Попробуйте ещё раз или упростите описание компании.",
+      }, { status: 502 });
+    }
+
     // Get HTML and screenshot URLs
     const [htmlUrl, imageUrl] = await Promise.all([
       screen.getHtml(),
