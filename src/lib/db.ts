@@ -1015,6 +1015,10 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_shared_presentations_user ON shared_presentations(user_id, created_at DESC)`);
+  // Логотип и имя бренда для публичной страницы: без них /pres/<slug>
+  // рисовал слайды без фирменной марки, хотя в кабинете она была.
+  await query(`ALTER TABLE shared_presentations ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+  await query(`ALTER TABLE shared_presentations ADD COLUMN IF NOT EXISTS brand_name TEXT`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS presentation_views (

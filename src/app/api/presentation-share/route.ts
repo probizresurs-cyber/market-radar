@@ -29,6 +29,8 @@ interface ShareRow {
   expires_at: Date | null;
   password_hash: string | null;
   view_count: number;
+  logo_url: string | null;
+  brand_name: string | null;
 }
 
 function hashPassword(p: string): string {
@@ -41,7 +43,11 @@ export async function POST(req: Request) {
   // На свежем инстансе таблицы может ещё не быть — initDb идемпотентный.
   await initDb();
 
-  let body: { title?: string; slides?: unknown; style?: unknown; expiresInDays?: number; password?: string };
+  let body: {
+    title?: string; slides?: unknown; style?: unknown;
+    expiresInDays?: number; password?: string;
+    logoUrl?: string; brandName?: string;
+  };
   try { body = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 }); }
 
@@ -56,10 +62,15 @@ export async function POST(req: Request) {
     : null;
   const passHash = body.password ? hashPassword(body.password) : null;
 
+  // Логотип может быть жирным data:-URL (base64 PNG) — ограничиваем, чтобы
+  // одна шара не раздула таблицу.
+  const rawLogo = (body.logoUrl ?? "").trim();
+  const logoUrl = rawLogo.length > 0 && rawLogo.length <= 400_000 ? rawLogo : null;
+
   await query(
     `INSERT INTO shared_presentations
-      (slug, user_id, title, slides_json, style_json, expires_at, password_hash)
-     VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)`,
+      (slug, user_id, title, slides_json, style_json, expires_at, password_hash, logo_url, brand_name)
+     VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9)`,
     [
       slug,
       session.userId,
@@ -68,6 +79,8 @@ export async function POST(req: Request) {
       JSON.stringify(body.style ?? null),
       expiresAt,
       passHash,
+      logoUrl,
+      (body.brandName ?? "").slice(0, 120) || null,
     ],
   );
 
@@ -113,6 +126,8 @@ export async function GET(req: Request) {
       title: r.title,
       slides: r.slides_json,
       style: r.style_json,
+      logoUrl: r.logo_url,
+      brandName: r.brand_name,
     },
   });
 }
