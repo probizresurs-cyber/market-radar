@@ -27,6 +27,24 @@ export async function POST(req: Request) {
       font?: string;
       customPrompt?: string;
     }
+    // Stitch принимает шрифт только как enum из своего фиксированного списка,
+    // а у нас в брендбуке лежит человекочитаемое имя ("Montserrat", "Inter").
+    // Всё, чего в списке нет, отдаём как FONT_UNSPECIFIED — Stitch подберёт
+    // сам, вместо того чтобы уронить весь вызов create_design_system.
+    const STITCH_FONTS = new Set([
+      "BE_VIETNAM_PRO", "EPILOGUE", "INTER", "LEXEND", "MANROPE", "NEWSREADER",
+      "NOTO_SERIF", "PLUS_JAKARTA_SANS", "PUBLIC_SANS", "SPACE_GROTESK",
+      "SPLINE_SANS", "WORK_SANS", "DOMINE", "LIBRE_CASLON_TEXT", "EB_GARAMOND",
+      "LITERATA", "SOURCE_SERIF_FOUR", "MONTSERRAT", "METROPOLIS",
+      "SOURCE_SANS_THREE", "NUNITO_SANS", "ARIMO", "HANKEN_GROTESK", "RUBIK",
+      "GEIST", "DM_SANS", "IBM_PLEX_SANS", "SORA",
+    ]);
+    const toStitchFont = (name?: string): string => {
+      if (!name) return "FONT_UNSPECIFIED";
+      const key = name.trim().toUpperCase().replace(/[\s-]+/g, "_");
+      return STITCH_FONTS.has(key) ? key : "FONT_UNSPECIFIED";
+    };
+
     const sc: StyleConfig = styleConfig || { source: "brandbook" };
     const resolvedColors: string[] = sc.colors?.length
       ? sc.colors
@@ -133,14 +151,28 @@ export async function POST(req: Request) {
     const project = await stitchInstance.createProject(projectName);
     const projectId = project.id;
 
-    // Set design system
+    // Set design system.
+    //
+    // Раньше сюда уходил объект {customColor, font, colorMode, roundness:"MEDIUM"},
+    // которого в API вообще нет: create_design_system требует
+    // { displayName, theme: {colorMode, headlineFont, bodyFont, roundness, customColor} },
+    // где шрифты и roundness — строгие enum'ы ("MONTSERRAT", "ROUND_EIGHT"),
+    // а не свободные строки. Из-за этого вызов падал на КАЖДОЙ генерации
+    // («Tool Call Failed [create_design_system]: Request contains an invalid
+    // argument»), а мы глушили ошибку как non-critical — брендовые цвета и
+    // шрифт до Stitch не доезжали никогда, лендинг рисовался дефолтным.
     if (resolvedColors.length || resolvedFont) {
       try {
         await project.createDesignSystem({
-          customColor: resolvedColors[0] || undefined,
-          font: resolvedFont || undefined,
-          colorMode,
-          roundness: "MEDIUM",
+          displayName: `${asciiName || "MarketRadar"} brand`,
+          theme: {
+            colorMode,
+            headlineFont: toStitchFont(resolvedFont),
+            bodyFont: toStitchFont(brandBook?.fontBody ?? resolvedFont),
+            roundness: "ROUND_EIGHT",
+            // Stitch ждёт hex-строку основного цвета бренда.
+            customColor: resolvedColors[0] || "#6366F1",
+          },
         });
       } catch (e) {
         console.warn("Design system creation failed (non-critical):", e);
