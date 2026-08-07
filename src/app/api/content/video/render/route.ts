@@ -265,6 +265,14 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     const brandColorFallback = String(body.brandColor ?? "#0f1117").trim();
     const accentColorFallback = String(body.accentColor ?? "#e2e8f0").trim();
 
+    // Логотип берём из брендбука автоматически — так же, как цвета и шрифты.
+    // Отдельное поле body.logoUrl оставлено для ручного override (тесты,
+    // разовые ролики без заполненного брендбука).
+    const logoUrl =
+      String(body.logoUrl ?? "").trim() ||
+      String((brandBook as { logoDataUrl?: string } | null)?.logoDataUrl ?? "").trim() ||
+      null;
+
     // ── Шаг 1: Director + QC ────────────────────────────────────────────
     let hookText = title || "Смотрите до конца";
     let ctaText = "Узнайте подробнее";
@@ -298,6 +306,18 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // и параметры рендера — важно, чтобы все три шага смотрели на одни и те
     // же провалидированные значения.
     const spec: StyleSpecInput | undefined = sanitizeStyleSpec(styleSpec);
+
+    // Явно выбранный аватар сильнее решения арт-директора.
+    //
+    // Шаг avatar работает только при spec.avatar.placement != "off", а
+    // placement назначает Director по своему усмотрению. Из-за этого запрос
+    // «сделай ролик с вот этим аватаром» мог тихо собраться БЕЗ аватара —
+    // с пометкой «арт-директор не заказал аватара» в отчёте по шагам.
+    // Если avatarId пришёл явно, ставим врезку принудительно: пользователь
+    // уже принял решение, переголосовывать его моделью неправильно.
+    if (spec && String(body.avatarId ?? "").trim() && (spec.avatar?.placement ?? "off") === "off") {
+      spec.avatar = { ...(spec.avatar ?? {}), placement: "pip" };
+    }
 
     // Цвета — из палитры брендбука по выбору арт-директора. Фолбэк на
     // нейтраль, если брендбук пуст (см. resolveVideoColors).
@@ -608,6 +628,7 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       captionsScript: voiceoverScript || `${hookText}. ${ctaText}`,
       captionsWords,
       styleSpec: spec,
+      logoUrl,
     }, req, 55_000);
 
     if (!kick.ok || !kick.data?.jobId) {

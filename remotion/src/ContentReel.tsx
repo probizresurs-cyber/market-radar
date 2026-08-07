@@ -62,6 +62,15 @@ export const contentReelSchema = z.object({
   captionsScript: z.string().optional(),
   /** Точные пословные тайминги (Whisper) — если заданы, субтитры идут в такт голосу. */
   captionsWords: z.array(captionWordSchema).optional(),
+  /**
+   * Логотип бренда. Показывается дважды: небольшим знаком в углу на всём
+   * ролике (фирменная метка, не мешающая кадру) и крупно на финальном
+   * CTA-кадре вместо текстовой плашки с названием.
+   *
+   * Пустая строка/отсутствие — ролик рендерится как раньше, с текстовым
+   * названием бренда: логотип есть далеко не у каждого клиента.
+   */
+  logoUrl: z.string().nullable().optional(),
   /** Генеративная спецификация стиля. Приоритетнее styleVariant. */
   styleSpec: styleSpecSchema.optional(),
   /** Легаси: три старых пресета. Используется только если styleSpec не задан. */
@@ -82,6 +91,7 @@ export const defaultContentReelProps: ContentReelProps = {
   ctaBgImageUrl: null,
   brollUrls: [],
   avatarClipUrl: null,
+  logoUrl: null,
   videoDurationSec: 30,
   captionsEnabled: true,
 };
@@ -308,8 +318,46 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
 
 // ── CTA-сцена ───────────────────────────────────────────────────────────────
 
-function ContentCtaScene({ text, brandName, accentColor, bgImageUrl, spec }: {
-  text: string; brandName: string; accentColor: string; bgImageUrl: string | null; spec: ResolvedStyleSpec;
+/**
+ * Фирменный знак в углу кадра — присутствует весь ролик.
+ *
+ * Верхний правый угол выбран не случайно: слева вверху обычно идёт заголовок
+ * хука, внизу — субтитры и врезка с аватаром. Правый верх — единственная зона,
+ * свободная во всех трёх сценах.
+ *
+ * Логотипы приходят и светлые, и тёмные, поэтому знак лежит на полупрозрачной
+ * подложке: без неё белый логотип пропадал бы на светлом b-roll.
+ */
+function LogoWatermark({ url }: { url: string }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  // Мягкое появление за полсекунды — резкий «выпрыгивающий» логотип с первого
+  // кадра читается как баг, а не как фирменный элемент.
+  const appear = interpolate(frame, [0, Math.round(fps * 0.5)], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div style={{
+        position: "absolute",
+        top: 56,
+        right: 56,
+        opacity: appear * 0.92,
+        padding: "14px 18px",
+        borderRadius: 16,
+        background: "rgba(0,0,0,0.28)",
+        backdropFilter: "blur(6px)",
+      }}>
+        <Img src={url} style={{ height: 72, width: "auto", objectFit: "contain", display: "block" }} />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function ContentCtaScene({ text, brandName, accentColor, bgImageUrl, spec, logoUrl }: {
+  text: string; brandName: string; accentColor: string; bgImageUrl: string | null;
+  spec: ResolvedStyleSpec; logoUrl: string | null;
 }) {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -341,20 +389,32 @@ function ContentCtaScene({ text, brandName, accentColor, bgImageUrl, spec }: {
       }} />
 
       <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 80, opacity: exit }}>
-        <div style={{
-          opacity: Math.min(1, chipIn),
-          translate: `0px ${(1 - chipIn) * -30}px`,
-          background: spec.palette.light ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)",
-          border: `2px solid ${accentColor}66`,
-          borderRadius: 999,
-          padding: "14px 34px",
-          marginBottom: 44,
-          fontFamily: FONT, fontWeight: 800, fontSize: 34,
-          letterSpacing: 3, textTransform: "uppercase",
-          color: spec.palette.light ? "#0b0d14" : "#fff",
-        }}>
-          {brandName}
-        </div>
+        {/* На финальном кадре логотип заменяет текстовую плашку с названием:
+            дублировать бренд дважды — и знаком, и словом — визуальный шум. */}
+        {logoUrl ? (
+          <div style={{
+            opacity: Math.min(1, chipIn),
+            translate: `0px ${(1 - chipIn) * -30}px`,
+            marginBottom: 48,
+          }}>
+            <Img src={logoUrl} style={{ height: 190, width: "auto", objectFit: "contain", display: "block" }} />
+          </div>
+        ) : (
+          <div style={{
+            opacity: Math.min(1, chipIn),
+            translate: `0px ${(1 - chipIn) * -30}px`,
+            background: spec.palette.light ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)",
+            border: `2px solid ${accentColor}66`,
+            borderRadius: 999,
+            padding: "14px 34px",
+            marginBottom: 44,
+            fontFamily: FONT, fontWeight: 800, fontSize: 34,
+            letterSpacing: 3, textTransform: "uppercase",
+            color: spec.palette.light ? "#0b0d14" : "#fff",
+          }}>
+            {brandName}
+          </div>
+        )}
 
         <div style={{
           scale: String(enter * pulse),
@@ -770,7 +830,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
       </Sequence>
 
       <Sequence from={hookFrames + brollFrames} durationInFrames={ctaFrames}>
-        <ContentCtaScene text={props.ctaText} brandName={props.brandName} accentColor={props.accentColor} bgImageUrl={props.ctaBgImageUrl ?? null} spec={spec} />
+        <ContentCtaScene text={props.ctaText} brandName={props.brandName} accentColor={props.accentColor} bgImageUrl={props.ctaBgImageUrl ?? null} spec={spec} logoUrl={props.logoUrl ?? null} />
       </Sequence>
 
       {spec.decor.shapes ? (
@@ -809,6 +869,15 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
             accentColor={props.accentColor}
             lowCaptions={spec.layout.captionPosition !== "high"}
           />
+        </Sequence>
+      ) : null}
+      {/* Знак в углу — поверх врезки с аватаром и декора, но ДО виньетки и
+          зерна: логотип должен оставаться чистым, а не притемняться вместе с
+          кадром. На финальном CTA-кадре его не рисуем — там логотип уже стоит
+          крупно, два знака в одном кадре выглядят ошибкой. */}
+      {props.logoUrl ? (
+        <Sequence from={0} durationInFrames={hookFrames + brollFrames}>
+          <LogoWatermark url={props.logoUrl} />
         </Sequence>
       ) : null}
       {spec.decor.vignette > 0.02 ? <Vignette amount={spec.decor.vignette} /> : null}

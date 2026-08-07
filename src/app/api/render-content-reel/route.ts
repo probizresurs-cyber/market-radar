@@ -61,6 +61,8 @@ interface RenderProps {
   ctaBgImageUrl: string | null;
   brollUrls: string[];
   statementCards: string[];
+  /** Логотип бренда: знак в углу кадра + крупно на финальном кадре. */
+  logoUrl: string | null;
   /** Клип говорящей головы (HeyGen), синхронный с voiceoverUrl. */
   avatarClipUrl: string | null;
   /** Длительность аватар-клипа (сек) — композиция режет врезку по ней. */
@@ -111,6 +113,26 @@ async function pickAssetsOrigin(publicOrigin: string, probePath: string | null):
   return publicOrigin;
 }
 
+/**
+ * Логотип — единственное медиа, которое ходит и как data:-URL.
+ *
+ * В брендбуке он лежит в logoDataUrl (base64 PNG, юзер загружает файлом), и
+ * общий resolveMediaUrl такие строки отбрасывает — он рассчитан на пути и
+ * http(s). Remotion же рисует data: без проблем, поэтому для логотипа делаем
+ * отдельный разбор, а не ослабляем общий (иначе data:-URL пролез бы в b-roll
+ * и voiceover, где он не нужен и раздувает props-файл).
+ */
+function resolveLogoUrl(raw: unknown, assetsOrigin: string): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return null;
+  if (s.startsWith("data:image/")) {
+    // 2 МБ base64 — потолок: props уезжают во временный файл, и гигантский
+    // логотип раздувает его на каждый рендер без пользы для картинки.
+    return s.length <= 2_000_000 ? s : null;
+  }
+  return resolveMediaUrl(s, assetsOrigin);
+}
+
 /** Первый относительный медиа-путь из body — им и проверяем loopback. */
 function firstRelativeAsset(body: Record<string, unknown>): string | null {
   const broll = Array.isArray(body.brollUrls) ? body.brollUrls : [];
@@ -148,6 +170,7 @@ function parseProps(body: Record<string, unknown>, assetsOrigin: string): Render
     hookBgImageUrl: resolveMediaUrl(body.hookBgImageUrl as string | null | undefined, assetsOrigin),
     ctaBgImageUrl: resolveMediaUrl(body.ctaBgImageUrl as string | null | undefined, assetsOrigin),
     brollUrls,
+    logoUrl: resolveLogoUrl(body.logoUrl, assetsOrigin),
     avatarClipUrl: resolveMediaUrl(body.avatarClipUrl as string | null | undefined, assetsOrigin),
     avatarClipDurationSec: (() => {
       const n = Number(body.avatarClipDurationSec);
