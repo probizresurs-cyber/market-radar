@@ -634,6 +634,20 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         avatarClipUrl = reusedAvatar;
         const n = Number(body.avatarClipDurationSec);
         avatarClipDurationSec = Number.isFinite(n) && n > 0 ? n : voiceDurationSec;
+
+        // У голосов HeyGen звук ролика рождается ВМЕСТЕ с клипом, и пропуск
+        // шага оставил бы ролик немым. Дорожку кладём рядом с клипом по
+        // фиксированному правилу имён (avatar-<id>.m4a) — берём её же.
+        if (voiceProvider === "heygen" && !voiceoverUrl) {
+          const id = reusedAvatar.split("/").pop()?.replace(/\.mp4$/i, "") ?? "";
+          if (!id) {
+            pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: "не разобрать имя клипа — нечем восстановить дорожку" });
+            return;
+          }
+          voiceoverUrl = `/api/static-asset/voiceovers/avatar-${id}.m4a`;
+          voiceDurationSec = avatarClipDurationSec;
+        }
+
         pushStep({
           name: "avatar",
           status: "ok",

@@ -14,5 +14,7 @@
   "durationSec": 30,
   "stylePrompt": "Сдержанный документальный тон, репортаж со стройплощадки. Без пафоса и рекламных клише. Кадры: металлокаркас, кровля, инженерные сети, бетонный пол, монтаж. Говорящий ведущий круглой врезкой в кадре.",
   "voiceProvider": "heygen",
-  "heygenVoiceId": "5f99970adadb42398bf1aeb963a3888b"
+  "heygenVoiceId": "5f99970adadb42398bf1aeb963a3888b",
+  "avatarClipUrl": "/api/static-asset/avatar-clips/d71434cea1654f4dbb18900a5b402918.mp4",
+  "avatarClipDurationSec": 29
 }
