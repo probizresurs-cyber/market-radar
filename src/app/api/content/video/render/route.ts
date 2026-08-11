@@ -434,7 +434,37 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // кинематографичная обёртка — чтобы сюжет клипа реально соответствовал
     // теме ролика, а не дефолтным «аналитик за дашбордом».
     let brollUrls: string[] = [];
+
+    /**
+     * Свои фото/видео в кадре вместо AI-генерации.
+     *
+     * Зачем: для стройки, производства, объектов реальный снимок с площадки
+     * всегда убедительнее сгенерированного клипа — и бесплатен. Раньше
+     * подложить их было нечем: видеоряд собирался ТОЛЬКО из Replicate.
+     *
+     * Принимаем пути к уже загруженным файлам (/api/static-asset/promo-images/…)
+     * или полные http(s)-ссылки. Композиция показывает картинки и видео
+     * вперемешку, в порядке передачи, поэтому порядок = раскадровка.
+     *
+     * Если свои материалы есть, AI-клипы не заказываем совсем: смешивать
+     * настоящий объект с синтетикой — заметно и выглядит дёшево.
+     */
+    const ownAssets: string[] = (Array.isArray(body.brollAssets) ? body.brollAssets : [])
+      .map((u: unknown) => String(u ?? "").trim())
+      .filter((u: string) => u.startsWith("/") || u.startsWith("http://") || u.startsWith("https://"))
+      .slice(0, 10);
+
     const brollStep = async () => {
+    if (ownAssets.length > 0) {
+      brollUrls = ownAssets;
+      pushStep({
+        name: "stock-videos",
+        status: "ok",
+        ms: 0,
+        error: `свои материалы: ${ownAssets.length} шт., AI-генерация не нужна`,
+      });
+      return;
+    }
     if (brollQueries.length > 0) {
       const stepT = Date.now();
       // NO-TEXT — жёсткое требование: видео-модели рисуют на вывесках,
