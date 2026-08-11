@@ -144,12 +144,30 @@ const NO_TEXT_CLAUSE =
  * даётся контакт тела с конструкцией — она честно рисует человека, но забывает
  * приделать его к опоре.
  */
+/**
+ * Правила физики для видео-модели.
+ *
+ * Людей в кадре НЕТ ВООБЩЕ — и это не перестраховка, а вывод из двух заходов.
+ * Сперва просили «естественную анатомию и медленное движение»: получили
+ * рабочего, висящего в воздухе у металлокаркаса. Тогда я добавил прямой
+ * запрет на людей в воздухе, на лазание и работу на высоте — следующая же
+ * генерация выдала человека на балках и человека БЕЗ ГОЛОВЫ, которому
+ * кровельная панель прошла сквозь шею.
+ *
+ * Вывод: модель не умеет надёжно связывать тело с конструкцией и обрезает
+ * анатомию за объектами переднего плана. Запретами это не лечится — каждая
+ * новая формулировка ловит один сценарий и пропускает следующий. Пустой
+ * кадр с материалами и конструкциями выглядит достойно и ломаться там
+ * нечему.
+ *
+ * Если человек в кадре нужен — для этого есть врезка с аватаром: он
+ * синтезируется отдельным движком, который на людях как раз специализируется.
+ */
 const PHYSICS_CLAUSE =
-  "Single subject, calm and slow motion, natural anatomy, correct number of fingers and limbs, stable objects that keep their shape. "
-  + "If a person is visible: they must stand firmly ON THE GROUND with both feet on a visible solid surface, at ground level, in a relaxed natural pose. "
-  + "NEVER show a person floating, hovering, suspended in mid-air, climbing, hanging from or standing on beams, scaffolding, ladders or any elevated structure. "
-  + "No jumping, no lifting, no working at height, no body contact with machinery or structures. "
-  + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering. "
+  "IMPORTANT: absolutely NO people, NO humans, NO human figures, NO body parts, NO hands, NO faces, NO silhouettes anywhere in the frame. The scene must be completely empty of people. "
+  + "Show only materials, structures, machinery, interiors, textures and landscapes. "
+  + "Calm and slow motion, stable objects that keep their shape. "
+  + "Avoid fast action, avoid morphing or warping, avoid objects passing through each other, avoid flickering. "
   + "The scene must look like real documentary footage: plausible lighting, real materials, nothing physically impossible.";
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface BrollKickData { jobId: string }
