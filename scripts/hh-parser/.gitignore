@@ -1,0 +1,8 @@
+# Прогресс парсинга (локальный, не коммитим)
+state.json
+# Ключ сервисного аккаунта Google — НИКОГДА не коммитить
+service-account*.json
+*.key.json
+# OAuth-клиент и токен — НИКОГДА не коммитить
+oauth-client.json
+token.json
