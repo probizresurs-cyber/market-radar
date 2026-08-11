@@ -91,6 +91,18 @@ async function createVideo(apiKey: string, payload: CreatePayload): Promise<{ vi
   // сразу нельзя: тогда новые аватары не получат актуальный движок.
   let r = await post(payload);
   let engine = "default";
+
+  // expressiveness/motion_prompt поддерживаются не всеми связками движка и
+  // типа аватара (мимика — только фото-аватары на Avatar IV, жесты для
+  // видео-аватаров — только на Avatar V). Если HeyGen ругается именно на них,
+  // повторяем без них: лучше клип с дефолтной мимикой, чем провал шага.
+  if (!r.ok && /expressiveness|motion_prompt/i.test(r.text)) {
+    const { expressiveness: _e, motion_prompt: _m, ...plain } = payload;
+    console.warn(`[avatar-clip] HeyGen отклонил параметры выразительности — повтор без них: ${r.text.slice(0, 160)}`);
+    r = await post(plain as CreatePayload);
+    engine = "default-plain";
+  }
+
   if (!r.ok && /avatar iv/i.test(r.text)) {
     r = await post({ ...payload, engine: { type: "avatar_iii" } });
     engine = "avatar_iii";
@@ -140,6 +152,20 @@ export async function POST(req: Request) {
       // фоном сцены, во врезке — виден вокруг лица внутри кружка.
       background: { type: "color", value: bgColor },
       title: `mr-avatar-${Date.now()}`,
+      // Мимика. По документации HeyGen дефолт — "low", и мы его никогда не
+      // переопределяли: аватар говорил почти неподвижным лицом, что и читалось
+      // как «дешёвая версия». Поле работает для фото-аватаров на Avatar IV
+      // (движок по умолчанию); на несовместимой связке createVideo повторит
+      // запрос без него.
+      expressiveness: ["high", "medium", "low"].includes(String(body.expressiveness))
+        ? String(body.expressiveness)
+        : "high",
+      // Жесты словами — опционально, по умолчанию не шлём: для видео-аватаров
+      // поле принимается только на Avatar V, и лишний параметр приводил бы к
+      // повторному запросу на каждой генерации.
+      ...(String(body.motionPrompt ?? "").trim()
+        ? { motion_prompt: String(body.motionPrompt).trim().slice(0, 500) }
+        : {}),
     };
 
     let audioSource: "ours" | "heygen" = "ours";
