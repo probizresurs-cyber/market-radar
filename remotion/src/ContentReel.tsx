@@ -200,8 +200,15 @@ function ProgressBar({ accentColor, light }: { accentColor: string; light: boole
 
 // ── Хук-сцена: 5 анимаций слов по спеку ────────────────────────────────────
 
-function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
+function ContentHookScene({ text, accentColor, bgImageUrl, spec, reserveTopRight }: {
   text: string; accentColor: string; bgImageUrl: string | null; spec: ResolvedStyleSpec;
+  /**
+   * Врезка с ведущим стоит в правом верхнем углу и на живом ролике наезжала
+   * на заголовок хука — «Металлока…» обрывалось прямо под кружком.
+   * Когда врезка есть, поджимаем текстовый блок сверху и справа, чтобы он
+   * встал ПОД ней, а не за ней.
+   */
+  reserveTopRight: boolean;
 }) {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -240,7 +247,13 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec }: {
       <AbsoluteFill style={{
         justifyContent: spec.layout.hookPosition === "top" ? "flex-start" : spec.layout.hookPosition === "bottom" ? "flex-end" : "center",
         alignItems: spec.layout.hookAlign === "left" ? "flex-start" : "center",
-        padding: spec.layout.hookPosition === "center" ? 76 : "180px 76px 320px",
+        // Кружок ведущего занимает верхние ~570px справа (top 150 + диаметр
+        // 360 + запас). Отступ сверху отодвигает заголовок ниже него целиком:
+        // поджимать только справа мало — при длинном заголовке строка всё
+        // равно доходила бы до врезки.
+        padding: reserveTopRight
+          ? "600px 76px 320px"
+          : spec.layout.hookPosition === "center" ? 76 : "180px 76px 320px",
       }}>
         <div style={{
           opacity: exit,
@@ -843,7 +856,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
   return (
     <AbsoluteFill style={{ backgroundColor: props.brandColor }}>
       <Sequence from={0} durationInFrames={hookFrames}>
-        <ContentHookScene text={props.hookText} accentColor={props.accentColor} bgImageUrl={props.hookBgImageUrl ?? null} spec={spec} />
+        <ContentHookScene text={props.hookText} accentColor={props.accentColor} bgImageUrl={props.hookBgImageUrl ?? null} spec={spec} reserveTopRight={avatarPip} />
       </Sequence>
 
       <Sequence from={hookFrames} durationInFrames={brollFrames}>
