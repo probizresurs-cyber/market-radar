@@ -245,15 +245,17 @@ function ContentHookScene({ text, accentColor, bgImageUrl, spec, reserveTopRight
       <AbsoluteFill style={{ background: bgImageUrl ? "linear-gradient(180deg, rgba(8,10,18,0.55) 0%, rgba(8,10,18,0.88) 100%)" : "transparent" }} />
 
       <AbsoluteFill style={{
-        justifyContent: spec.layout.hookPosition === "top" ? "flex-start" : spec.layout.hookPosition === "bottom" ? "flex-end" : "center",
+        // При врезке с ведущим заголовок ВСЕГДА по центру кадра, что бы ни
+        // выбрал арт-директор. Кружок занимает верхние ~510px справа, и
+        // «сверху» текст с ним сталкивается: сперва он уходил под врезку, потом
+        // я отодвинул его отступом в 600px — и заголовок повис в верхней трети,
+        // оторванный от кадра. Центр решает обе задачи разом: до кружка далеко,
+        // и композиция не выглядит съехавшей.
+        justifyContent: reserveTopRight
+          ? "center"
+          : spec.layout.hookPosition === "top" ? "flex-start" : spec.layout.hookPosition === "bottom" ? "flex-end" : "center",
         alignItems: spec.layout.hookAlign === "left" ? "flex-start" : "center",
-        // Кружок ведущего занимает верхние ~570px справа (top 150 + диаметр
-        // 360 + запас). Отступ сверху отодвигает заголовок ниже него целиком:
-        // поджимать только справа мало — при длинном заголовке строка всё
-        // равно доходила бы до врезки.
-        padding: reserveTopRight
-          ? "600px 76px 320px"
-          : spec.layout.hookPosition === "center" ? 76 : "180px 76px 320px",
+        padding: reserveTopRight || spec.layout.hookPosition === "center" ? 76 : "180px 76px 320px",
       }}>
         <div style={{
           opacity: exit,

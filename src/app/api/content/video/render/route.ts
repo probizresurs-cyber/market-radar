@@ -131,9 +131,26 @@ const NO_TEXT_CLAUSE =
  * реально помогает на стороне промпта, — просить медленный кадр с одним
  * субъектом и явно перечислить артефакты как нежелательные.
  */
+/**
+ * Правила физики для видео-модели.
+ *
+ * Прежняя версия просила «естественную анатомию и медленное движение», и
+ * этого не хватило: на живом ролике рабочий висел В ВОЗДУХЕ у металлокаркаса,
+ * ни на что не опираясь. Такой кадр обесценивает весь ролик — зритель видит
+ * не стройку, а подделку.
+ *
+ * Поэтому теперь явно: человек стоит НА ЗЕМЛЕ или на видимой опоре, обе ноги
+ * на поверхности, никакого подъёма, лазания и работы на высоте. Модели плохо
+ * даётся контакт тела с конструкцией — она честно рисует человека, но забывает
+ * приделать его к опоре.
+ */
 const PHYSICS_CLAUSE =
   "Single subject, calm and slow motion, natural anatomy, correct number of fingers and limbs, stable objects that keep their shape. "
-  + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering.";
+  + "If a person is visible: they must stand firmly ON THE GROUND with both feet on a visible solid surface, at ground level, in a relaxed natural pose. "
+  + "NEVER show a person floating, hovering, suspended in mid-air, climbing, hanging from or standing on beams, scaffolding, ladders or any elevated structure. "
+  + "No jumping, no lifting, no working at height, no body contact with machinery or structures. "
+  + "Avoid fast action, avoid morphing or warping, avoid extra limbs or distorted hands, avoid objects passing through each other, avoid flickering. "
+  + "The scene must look like real documentary footage: plausible lighting, real materials, nothing physically impossible.";
 interface VoiceoverData { url: string; words?: Array<{ word: string; start: number; end: number }>; durationSec?: number | null }
 interface BrollKickData { jobId: string }
 interface BrollStatusData { done: boolean; urls?: string[]; warning?: string | null; durationMs?: number }
