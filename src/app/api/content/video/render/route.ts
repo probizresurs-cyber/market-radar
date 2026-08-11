@@ -615,7 +615,33 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // Фактическая длительность клипа (сек) — композиция режет врезку по ней,
     // чтобы не просить у компоситора кадры за концом файла.
     let avatarClipDurationSec: number | null = null;
+    /**
+     * Готовый клип аватара вместо новой генерации.
+     *
+     * Клип HeyGen стоит кредитов и 2-3 минуты, а правки кадра (размер врезки,
+     * кроп, положение текста) требуют ТОЛЬКО пересборки композиции — сам клип
+     * при этом не меняется. Пять пересборок подряд ради вёрстки сожгли кредиты
+     * и оставили два ролика без ведущего.
+     *
+     * Путь берётся как есть (/api/static-asset/avatar-clips/…): файл уже лежит
+     * у нас, длительность меряется ffprobe'ом на месте.
+     */
+    const reusedAvatar = String(body.avatarClipUrl ?? "").trim();
+
     const avatarStep = async () => {
+      if (reusedAvatar) {
+        const stepT = Date.now();
+        avatarClipUrl = reusedAvatar;
+        const n = Number(body.avatarClipDurationSec);
+        avatarClipDurationSec = Number.isFinite(n) && n > 0 ? n : voiceDurationSec;
+        pushStep({
+          name: "avatar",
+          status: "ok",
+          ms: Date.now() - stepT,
+          error: "готовый клип переиспользован, кредиты HeyGen не тратятся",
+        });
+        return;
+      }
       const placement = spec?.avatar?.placement ?? "off";
       if (placement === "off") {
         pushStep({ name: "avatar", status: "skipped", ms: 0, error: "арт-директор не заказал аватара" });

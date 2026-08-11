@@ -653,11 +653,31 @@ function AvatarBubble({ url, blockStartFrame, accentColor, brandColor, lowCaptio
         scale: String(Math.min(1, enter)),
         opacity: Math.min(1, enter * 1.4),
       }}>
+        {/* Подложка: тот же клип, увеличенный и размытый.
+            Уменьшение головы (scale ниже) оставляет по краям поля, и на живом
+            ролике в кружке проступал ПРЯМОУГОЛЬНИК клипа — врезка читалась как
+            вклеенное фото. Заливка ровным цветом не спасала: у клипа свой фон
+            (размытая площадка), и стык всё равно был виден. Размытая копия
+            закрывает поля тем же кадром — границы нет вовсе. */}
         <OffthreadVideo
           src={url}
           muted
           trimBefore={blockStartFrame}
           style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            objectPosition: "50% 16%",
+            filter: "blur(18px) brightness(0.75)",
+            scale: "1.25",
+          }}
+        />
+        <OffthreadVideo
+          src={url}
+          muted
+          trimBefore={blockStartFrame}
+          style={{
+            position: "absolute", inset: 0,
             width: "100%", height: "100%",
             objectFit: "cover",
             // Смещение подобрано по реальному кадру HeyGen (1080×1920):

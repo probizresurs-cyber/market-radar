@@ -141,6 +141,10 @@ try {
       logoUrl,
       brollAssets: brief.assets ?? [],
       avatarId: brief.avatarId,
+      // Готовый клип вместо новой генерации: правки вёрстки не должны стоить
+      // кредитов HeyGen — сам клип от них не зависит.
+      avatarClipUrl: brief.avatarClipUrl,
+      avatarClipDurationSec: brief.avatarClipDurationSec,
       avatarPlacement: "pip",
       // voiceProvider="heygen" — речь синтезирует HeyGen вместе с клипом
       // аватара, ElevenLabs не участвует. heygenVoiceId берётся из их
