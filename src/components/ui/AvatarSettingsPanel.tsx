@@ -1216,6 +1216,15 @@ function VoiceDeliveryBlock({ settings, update }: {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  // Превью: короткий синтез текущими настройками ДО сборки ролика.
+  // Без него подача проверялась только полным рендером — 6-15 минут и
+  // расход кредитов на клип аватара и видеоряд ради того, чтобы услышать
+  // голос.
+  const [previewText, setPreviewText] = useState(
+    "Показываем площадку как есть: металлокаркас собран, кровля смонтирована.",
+  );
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewBusy, setPreviewBusy] = useState(false);
 
   const stability = settings.voiceStability ?? 0.45;
   const style = settings.voiceStyle ?? 0.5;
@@ -1244,6 +1253,34 @@ function VoiceDeliveryBlock({ settings, update }: {
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const playPreview = async () => {
+    const t = previewText.trim();
+    if (!t || previewBusy) return;
+    setPreviewBusy(true); setError(""); setPreviewUrl("");
+    try {
+      const r = await fetch("/api/elevenlabs-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Пустой voiceId — сервер возьмёт тот же голос, которым озвучиваются
+          // ролики. Настройки шлём те же, что уйдут в сборку, иначе превью
+          // обещало бы одно, а ролик звучал иначе.
+          voiceId: settings.elevenlabsVoiceId || undefined,
+          text: t.slice(0, 300),
+          stability, style, speed,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Не удалось синтезировать превью");
+      // Роут отдаёт data:-URL (dataUrl) — его и скармливаем <audio>.
+      setPreviewUrl(j.data?.dataUrl || j.dataUrl || "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPreviewBusy(false);
     }
   };
 
@@ -1316,6 +1353,40 @@ function VoiceDeliveryBlock({ settings, update }: {
         </div>
         {note && <div style={{ fontSize: 11, color: "var(--primary)", marginTop: 7 }}>{note}</div>}
         {error && <div style={{ fontSize: 11, color: "var(--destructive, #dc2626)", marginTop: 7 }}>{error}</div>}
+      </div>
+
+      {/* Превью до сборки.
+          Раньше подача проверялась ТОЛЬКО полным рендером: 6-15 минут и
+          расход кредитов на клип аватара и видеоряд ради того, чтобы просто
+          услышать голос. Здесь синтезируется одна фраза текущими настройками
+          и тем же голосом, что уйдёт в ролик. */}
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid var(--border)` }}>
+        <label style={{ ...lbl, display: "block", marginBottom: 6 }}>
+          Послушать перед генерацией:
+        </label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            value={previewText}
+            onChange={e => setPreviewText(e.target.value)}
+            placeholder="Фраза для пробы"
+            style={{ flex: "1 1 320px", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12.5, fontFamily: "inherit", outline: "none" }}
+          />
+          <button
+            onClick={() => void playPreview()}
+            disabled={previewBusy || !previewText.trim()}
+            style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12.5, fontWeight: 700, cursor: previewBusy ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            {previewBusy ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Mic size={14} />}
+            {previewBusy ? "Синтезирую…" : "Прослушать"}
+          </button>
+        </div>
+        {previewUrl && (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <audio src={previewUrl} controls autoPlay style={{ width: "100%", marginTop: 10, height: 36 }} />
+        )}
+        <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginTop: 7, lineHeight: 1.45 }}>
+          Синтез идёт тем же голосом и с теми же настройками, что уйдут в ролик — включая темп. Стоит несколько центов против полного рендера.
+        </div>
       </div>
     </div>
   );

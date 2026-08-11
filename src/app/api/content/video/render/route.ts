@@ -402,6 +402,33 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       });
     } else if (voiceoverScript) {
       const stepT = Date.now();
+
+      // Описание голоса словами («спокойно и солидно») переводим в параметры
+      // тем же агентом, что работает в кабинете, — чтобы одно и то же
+      // пожелание давало одинаковый результат и там, и здесь.
+      // Приоритет: пожелание > явные числа > выбор арт-директора.
+      let tuned: { stability?: number; style?: number; speed?: number } | null = null;
+      const voicePrompt = String(body.voicePrompt ?? "").trim();
+      if (voicePrompt) {
+        const vt = await callLocal<{ stability: number; style: number; speed: number }>(
+          "/api/voice-tune",
+          {
+            prompt: voicePrompt,
+            current: {
+              stability: num(body.voiceStability) ?? spec?.voice?.stability,
+              style: num(body.voiceStyle) ?? spec?.voice?.expressiveness,
+              speed: num(body.voiceSpeed) ?? spec?.voice?.speed,
+            },
+          },
+          req,
+          25_000,
+        );
+        // Провал агента не должен ронять озвучку: без него просто останутся
+        // прежние значения, а не отсутствие голоса.
+        if (vt.ok && vt.data) tuned = vt.data;
+        else console.warn(`[video/render] подача по описанию не подобралась: ${vt.error ?? "нет данных"}`);
+      }
+
       // hookText/problemText/ctaText обязательны у generate-promo-voiceover
       // валидацией, даже когда голос реально идёт по voiceoverScript-override —
       // подстраховываем problemText, чтобы пустой scenario не завалил шаг.
@@ -435,9 +462,9 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
           //   stability  — НИЖЕ значит БОЛЬШЕ модуляций (не «стабильнее лучше»).
           // Диапазоны клампятся в generate-promo-voiceover: за их пределами
           // тембр начинает «уплывать» в чужой голос.
-          stability: num(body.voiceStability) ?? spec?.voice?.stability,
-          style: num(body.voiceStyle) ?? spec?.voice?.expressiveness,
-          speed: num(body.voiceSpeed) ?? spec?.voice?.speed,
+          stability: tuned?.stability ?? num(body.voiceStability) ?? spec?.voice?.stability,
+          style: tuned?.style ?? num(body.voiceStyle) ?? spec?.voice?.expressiveness,
+          speed: tuned?.speed ?? num(body.voiceSpeed) ?? spec?.voice?.speed,
         }, req, 130_000);
       const ms = Date.now() - stepT;
       if (r.ok && r.data) {

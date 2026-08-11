@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ELEVENLABS_API_KEY, ELEVENLABS_BASE_URL, ELEVENLABS_DEFAULT_MODEL } from "@/lib/elevenlabs";
 import { checkAiAccess } from "@/lib/with-ai-security";
+import { resolveVoicePreset } from "@/lib/voice-presets";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -27,15 +28,22 @@ export async function POST(req: Request) {
       stability?: number;
       similarity?: number;
       style?: number;
+      /**
+       * Темп речи. Без него превью звучало НЕ так, как итоговый ролик:
+       * конвейер темп передаёт, а этот роут — нет, и «послушать перед
+       * генерацией» вводило бы в заблуждение.
+       */
+      speed?: number;
     };
 
-    const voiceId = (body.voiceId ?? "").trim();
+    // Пустой voiceId — берём тот же голос, которым озвучиваются ролики
+    // (бренд-голос из env либо пресет). Так «послушать» работает сразу, до
+    // выбора голоса, и звучит ровно как итоговый ролик, а не как случайный
+    // премейд.
+    const voiceId = (body.voiceId ?? "").trim() || resolveVoicePreset(null).voiceId;
     const text = (body.text ?? "").trim();
     const modelId = body.modelId ?? ELEVENLABS_DEFAULT_MODEL;
 
-    if (!voiceId) {
-      return NextResponse.json({ ok: false, error: "voiceId обязателен" }, { status: 400 });
-    }
     if (!text) {
       return NextResponse.json({ ok: false, error: "Пустой текст для озвучки" }, { status: 400 });
     }
@@ -72,6 +80,12 @@ export async function POST(req: Request) {
             similarity_boost: body.similarity ?? 0.75,
             style: body.style ?? 0,
             use_speaker_boost: true,
+            // Клампы те же, что в generate-promo-voiceover: за их пределами
+            // ElevenLabs искажает тембр. Иначе превью и ролик звучали бы
+            // по-разному при одном и том же значении ползунка.
+            ...(typeof body.speed === "number"
+              ? { speed: Math.min(1.1, Math.max(0.85, body.speed)) }
+              : {}),
           },
         }),
       },

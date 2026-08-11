@@ -72,6 +72,9 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
   const [montageStep, setMontageStep] = useState<string | null>(null);
   // Стиль ролика словами — ИИ-арт-директор переведёт в параметры монтажа.
   const [montageStylePrompt, setMontageStylePrompt] = useState("");
+  // Описание голоса под конкретный ролик — переводится агентом в параметры
+  // ElevenLabs на сервере (см. voicePrompt в оркестраторе).
+  const [montageVoicePrompt, setMontageVoicePrompt] = useState("");
   const montagePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (montagePollRef.current) clearTimeout(montagePollRef.current); }, []);
@@ -113,6 +116,7 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
           // Подача голоса в ElevenLabs — из настроек кабинета. Без этих двух
           // полей ползунки «живость» и «эмоция» были бы декорацией: сервер
           // брал бы значения арт-директора, а пользователь думал, что настроил.
+          voicePrompt: montageVoicePrompt.trim() || undefined,
           voiceStability: avatarSettings?.voiceStability,
           voiceStyle: avatarSettings?.voiceStyle,
         }),
@@ -903,6 +907,26 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
                   onChange={e => setMontageStylePrompt(e.target.value)}
                   disabled={montageBusy}
                   placeholder="Стиль (необязательно): «неон и глитч», «мягкий пастель», «дерзкий уличный»…"
+                  maxLength={300}
+                  style={{
+                    width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "8px 11px",
+                    borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)",
+                    color: "var(--foreground)", fontSize: 12.5, fontFamily: "inherit", outline: "none",
+                  }}
+                />
+              )}
+              {/* Голос словами — отдельно от стиля картинки.
+                  Раньше подача задавалась ТОЛЬКО ползунками в настройках
+                  аватара, то есть одинаково для всех роликов. Здесь — под
+                  конкретный ролик: агент переводит описание в параметры
+                  ElevenLabs, ползунки остаются запасным ручным путём. */}
+              {montageMode === "broll" && (
+                <input
+                  type="text"
+                  value={montageVoicePrompt}
+                  onChange={e => setMontageVoicePrompt(e.target.value)}
+                  disabled={montageBusy}
+                  placeholder="Голос (необязательно): «спокойно и солидно», «бодро, как репортаж со стройки»…"
                   maxLength={300}
                   style={{
                     width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "8px 11px",
