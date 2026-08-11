@@ -289,6 +289,20 @@ export interface AvatarSettings {
   voicePitch?: number;
   // Эмоция голоса: friendly (default) / professional / happy / serious / excited / calm.
   voiceEmotion?: "friendly" | "professional" | "happy" | "serious" | "excited" | "calm";
+  // ─── Подача голоса в ElevenLabs (наш b-roll-конвейер) ───
+  // Эти три ручки и определяют «живой или робот». Раньше их выставлял только
+  // арт-директор внутри styleSpec, и повлиять из кабинета было нельзя.
+  //
+  // ВНИМАНИЕ на stability: НИЖЕ значит БОЛЬШЕ модуляций, то есть живее.
+  // Название вводит в заблуждение, поэтому в UI подписано словами.
+  // Диапазоны клампятся на сервере (generate-promo-voiceover): за их
+  // пределами тембр «уплывает» в чужой голос и появляются призвуки.
+  /** 0.3-0.75, меньше = живее. Дефолт 0.45. */
+  voiceStability?: number;
+  /** 0-0.7, больше = эмоциональнее. Дефолт 0.5. */
+  voiceStyle?: number;
+  /** Промпт подачи от пользователя — им агент подбирает три значения выше. */
+  voiceTunePrompt?: string;
 }
 
 export interface ContentFactoryState {

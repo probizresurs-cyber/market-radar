@@ -110,6 +110,11 @@ export function ReelCard({ c, reel, onUpdate, onDelete, brandBook, alwaysExpande
           voiceSpeed: avatarSettings?.voiceSpeed,
           voicePitch: avatarSettings?.voicePitch,
           voiceEmotion: avatarSettings?.voiceEmotion,
+          // Подача голоса в ElevenLabs — из настроек кабинета. Без этих двух
+          // полей ползунки «живость» и «эмоция» были бы декорацией: сервер
+          // брал бы значения арт-директора, а пользователь думал, что настроил.
+          voiceStability: avatarSettings?.voiceStability,
+          voiceStyle: avatarSettings?.voiceStyle,
         }),
       });
       const j = await r.json();

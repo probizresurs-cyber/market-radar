@@ -902,6 +902,16 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
             </div>
           </div>
 
+          {/* ─── Подача голоса в контент-роликах (ElevenLabs) ───
+             Блок выше управляет HeyGen-озвучкой в режиме «говорящий аватар».
+             Контент-ролики озвучивает ElevenLabs, и там за «живой или робот»
+             отвечают ДРУГИЕ три параметра — раньше их задавал только
+             арт-директор внутри styleSpec, повлиять из кабинета было нельзя.
+
+             Отдельный блок, а не общий: смешать их в один набор ползунков
+             нельзя, у сервисов разные шкалы и разный смысл значений. */}
+          <VoiceDeliveryBlock settings={settings} update={update} />
+
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
             <button
               onClick={loadLists}
@@ -1185,3 +1195,128 @@ export function AvatarSettingsPanel({ c, settings, onChange, defaultOpen }: {
   );
 }
 
+
+/**
+ * Подача голоса в контент-роликах (ElevenLabs).
+ *
+ * Отдельный компонент, потому что тут своя логика: три параметра, один из
+ * которых читается наоборот (stability НИЖЕ = живее), плюс агент, который
+ * переводит пожелание словами в конкретные значения.
+ *
+ * Почему агент вообще нужен: просить пользователя угадать, что «живее» — это
+ * stability 0.3, а не 0.7, значит гарантированно получать «робота» у тех, кто
+ * не читал документацию ElevenLabs. Ползунки при этом остаются: агент их
+ * заполняет, а не подменяет, и результат всегда видно числами.
+ */
+function VoiceDeliveryBlock({ settings, update }: {
+  settings: AvatarSettings;
+  update: (patch: Partial<AvatarSettings>) => void;
+}) {
+  const [prompt, setPrompt] = useState(settings.voiceTunePrompt ?? "");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+
+  const stability = settings.voiceStability ?? 0.45;
+  const style = settings.voiceStyle ?? 0.5;
+  const speed = settings.voiceSpeed ?? 1;
+
+  const applyPrompt = async () => {
+    const p = prompt.trim();
+    if (!p || busy) return;
+    setBusy(true); setError(""); setNote("");
+    try {
+      const r = await fetch("/api/voice-tune", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: p, current: { stability, style, speed } }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Не удалось подобрать настройки");
+      update({
+        voiceStability: j.data.stability,
+        voiceStyle: j.data.style,
+        voiceSpeed: j.data.speed,
+        voiceTunePrompt: p,
+      });
+      setNote(j.data.rationale || "Настройки обновлены");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const row = { display: "flex", alignItems: "center", gap: 8 } as const;
+  const lbl = { fontSize: 11, fontWeight: 600, color: "var(--foreground-secondary)" } as const;
+  const val = { color: "var(--primary)", fontWeight: 700 } as const;
+
+  return (
+    <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 10, border: `1px solid var(--border)`, background: "color-mix(in oklch, var(--primary) 3%, var(--background))" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", letterSpacing: "0.05em", marginBottom: 4 }}>
+        ПОДАЧА ГОЛОСА В РОЛИКАХ (ElevenLabs)
+      </div>
+      <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 10, lineHeight: 1.45 }}>
+        Эти три параметра и отвечают за «живой или робот» в контент-роликах. Настройки выше относятся к говорящему аватару HeyGen и сюда не влияют.
+      </div>
+
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={row}>
+          <label style={lbl}>Живость: <span style={val}>{(0.75 - stability + 0.3).toFixed(2)}</span></label>
+          {/* Показываем ИНВЕРТИРОВАННО: пользователь двигает вправо — голос
+              живее. Внутрь уходит stability, где меньше = живее. Иначе
+              ползунок работал бы «наоборот» и это ловушка. */}
+          <input
+            type="range" min="0.3" max="0.75" step="0.05"
+            value={0.75 - stability + 0.3}
+            onChange={e => update({ voiceStability: Number((0.75 - Number(e.target.value) + 0.3).toFixed(2)) })}
+            style={{ width: 110 }}
+          />
+        </div>
+        <div style={row}>
+          <label style={lbl}>Эмоция: <span style={val}>{style.toFixed(2)}</span></label>
+          <input
+            type="range" min="0" max="0.7" step="0.05"
+            value={style}
+            onChange={e => update({ voiceStyle: Number(e.target.value) })}
+            style={{ width: 110 }}
+          />
+        </div>
+        <div style={row}>
+          <label style={lbl}>Темп: <span style={val}>{speed.toFixed(2)}x</span></label>
+          <input
+            type="range" min="0.85" max="1.1" step="0.01"
+            value={speed}
+            onChange={e => update({ voiceSpeed: Number(e.target.value) })}
+            style={{ width: 110 }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <label style={{ ...lbl, display: "block", marginBottom: 6 }}>
+          Или опишите словами — агент подберёт значения:
+        </label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") void applyPrompt(); }}
+            placeholder="Например: бодрее и энергичнее, как ведущий репортажа со стройки"
+            style={{ flex: "1 1 320px", padding: "9px 12px", borderRadius: 8, border: `1px solid var(--border)`, background: "var(--card)", color: "var(--foreground)", fontSize: 12.5, fontFamily: "inherit", outline: "none" }}
+          />
+          <button
+            onClick={() => void applyPrompt()}
+            disabled={busy || !prompt.trim()}
+            style={{ padding: "9px 16px", borderRadius: 8, border: "none", background: busy || !prompt.trim() ? "var(--muted)" : "var(--primary)", color: busy || !prompt.trim() ? "var(--muted-foreground)" : "#fff", fontSize: 12.5, fontWeight: 700, cursor: busy || !prompt.trim() ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            {busy ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={14} />}
+            {busy ? "Подбираю…" : "Применить"}
+          </button>
+        </div>
+        {note && <div style={{ fontSize: 11, color: "var(--primary)", marginTop: 7 }}>{note}</div>}
+        {error && <div style={{ fontSize: 11, color: "var(--destructive, #dc2626)", marginTop: 7 }}>{error}</div>}
+      </div>
+    </div>
+  );
+}
