@@ -894,15 +894,19 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
           // роняет рендер целиком («No frame found at position»). Клип обычно
           // равен озвучке и короче композиции на хвост (~1.2с) — врезка просто
           // исчезает на последней секунде, это дешевле сорванного рендера.
-          // Запас — треть секунды, а не один кадр: компоситор запрашивает
-          // кадр с округлением по времени и на границе промахивался за конец
-          // файла («No frame found at position … time=30.23» при клипе 29.0с),
-          // роняя врезку целиком. Треть секунды на глаз незаметна, а
-          // пропавший ведущий заметен сразу.
+          // Запас — целая секунда до конца клипа.
+          //
+          // История: сначала был один кадр, потом треть секунды — и оба раза
+          // рендер падал с «No frame found at position», потому что HeyGen
+          // сообщал длительность БОЛЬШЕ фактической, и запас съедался этим
+          // расхождением. Теперь длительность меряется ffprobe'ом по самому
+          // файлу (см. generate-avatar-clip/status), но запас оставлен
+          // щедрым: цена ошибки несимметрична — лишняя секунда без врезки
+          // почти незаметна, а промах за конец файла роняет ВЕСЬ рендер.
           durationInFrames={Math.min(
             hookFrames + brollFrames + ctaFrames,
             props.avatarClipDurationSec
-              ? Math.max(fps, Math.floor(props.avatarClipDurationSec * fps) - Math.ceil(fps / 3))
+              ? Math.max(fps, Math.floor(props.avatarClipDurationSec * fps) - fps)
               : hookFrames + brollFrames + ctaFrames,
           )}
         >

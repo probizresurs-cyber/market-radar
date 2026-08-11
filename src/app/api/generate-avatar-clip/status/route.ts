@@ -22,7 +22,35 @@
 import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { checkAiAccess } from "@/lib/with-ai-security";
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Фактическая длительность скачанного клипа.
+ *
+ * HeyGen сообщает свою (data.duration), и она РАСХОДИТСЯ с файлом: композиция
+ * считала по ней длину врезки, просила у компоситора кадр за концом видео и
+ * рендер падал целиком —
+ *   «Compositor error: No frame found at position … for source … .mp4»
+ * Файл лежит у нас локально, поэтому меряем его сами; ответ HeyGen остаётся
+ * фолбэком на случай, если ffprobe недоступен.
+ */
+async function probeDurationSec(file: string): Promise<number | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
+      { timeout: 10_000 },
+    );
+    const n = Number(String(stdout).trim());
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -89,7 +117,17 @@ async function handleStatus(req: Request, videoId: string) {
     const mp4 = Buffer.from(await fileRes.arrayBuffer());
     const dir = path.join(process.cwd(), "public", "avatar-clips");
     await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, `${videoId}.mp4`), mp4);
+    const filePath = path.join(dir, `${videoId}.mp4`);
+    await writeFile(filePath, mp4);
+
+    // Меряем сами: длительность от HeyGen оказалась больше фактической, и
+    // композиция из-за этого просила несуществующий кадр (см. probeDurationSec).
+    const probed = await probeDurationSec(filePath);
+    if (probed && typeof data.duration === "number" && Math.abs(probed - data.duration) > 0.2) {
+      console.warn(
+        `[avatar-clip] длительность HeyGen ${data.duration}с ≠ фактической ${probed.toFixed(2)}с — берём фактическую`,
+      );
+    }
 
     await access.log({ endpoint: "generate-avatar-clip-status", model: "heygen", success: true });
 
@@ -98,7 +136,7 @@ async function handleStatus(req: Request, videoId: string) {
       data: {
         done: true,
         url: `/api/static-asset/avatar-clips/${videoId}.mp4`,
-        durationSec: typeof data.duration === "number" ? data.duration : null,
+        durationSec: probed ?? (typeof data.duration === "number" ? data.duration : null),
         sizeBytes: mp4.byteLength,
       },
     });
