@@ -142,6 +142,11 @@ try {
       brollAssets: brief.assets ?? [],
       avatarId: brief.avatarId,
       avatarPlacement: "pip",
+      // voiceProvider="heygen" — речь синтезирует HeyGen вместе с клипом
+      // аватара, ElevenLabs не участвует. heygenVoiceId берётся из их
+      // каталога русских голосов (Dmitry, Andrei, Oleg…).
+      voiceProvider: brief.voiceProvider ?? "elevenlabs",
+      heygenVoiceId: brief.heygenVoiceId,
       elevenlabsVoiceId: brief.voiceId,
       voiceId: brief.voiceId,
       subtitles: true,

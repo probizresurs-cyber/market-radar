@@ -7,7 +7,10 @@
   "brandColor": "#111111",
   "accentColor": "#F5A623",
   "avatarId": "19686ae7c5a1410793b6a70de8404ac5",
-  "assets": [],
+  "assets": [
+    "/api/static-asset/promo-images/orlink-site-1.jpg",
+    "/api/static-asset/promo-images/orlink-site-2.jpg"
+  ],
   "durationSec": 30,
   "voiceStyle": 0.7,
   "voiceStability": 0.3,

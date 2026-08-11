@@ -175,7 +175,14 @@ interface BrollStatusData { done: boolean; urls?: string[]; warning?: string | n
 interface RenderKickData { jobId: string; url: string }
 interface RenderStatusData { done: boolean; url?: string; sizeBytes?: number; durationMs?: number }
 interface AvatarKickData { videoId: string; audioSource: "ours" | "heygen" }
-interface AvatarStatusData { done: boolean; url?: string; durationSec?: number | null; transientError?: string }
+interface AvatarStatusData {
+  done: boolean;
+  url?: string;
+  durationSec?: number | null;
+  /** Звуковая дорожка клипа отдельным файлом — нужна для голосов HeyGen. */
+  audioUrl?: string | null;
+  transientError?: string;
+}
 interface GenerateReelVideoData { videoId: string }
 interface VideoStatusData { status: "processing" | "completed" | "failed"; videoUrl?: string; thumbnailUrl?: string; error?: string }
 
@@ -375,11 +382,25 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       { brandColor: brandColorFallback, accentColor: accentColorFallback },
     );
 
-    // ── Шаг 2: озвучка (ElevenLabs) — best-effort ───────────────────────
+    // ── Шаг 2: озвучка — ElevenLabs или голоса самого HeyGen ────────────
+    //
+    // voiceProvider="heygen" означает: речь синтезирует HeyGen вместе с
+    // клипом аватара, а мы вытаскиваем из клипа звуковую дорожку и кладём её
+    // в ролик. Раньше такой возможности не было вовсе — озвучка всегда шла
+    // через ElevenLabs, и голоса HeyGen были доступны только в отдельном
+    // режиме «просто говорящая голова», без нашего видеоряда и вёрстки.
+    const voiceProvider = String(body.voiceProvider ?? "").trim() === "heygen" ? "heygen" : "elevenlabs";
     let voiceoverUrl: string | null = null;
     let voiceWords: Array<{ word: string; start: number; end: number }> | undefined;
     let voiceDurationSec: number | null = null;
-    if (voiceoverScript) {
+    if (voiceProvider === "heygen") {
+      pushStep({
+        name: "voiceover",
+        status: "skipped",
+        ms: 0,
+        error: "голос HeyGen — дорожка придёт вместе с клипом аватара",
+      });
+    } else if (voiceoverScript) {
       const stepT = Date.now();
       // hookText/problemText/ctaText обязательны у generate-promo-voiceover
       // валидацией, даже когда голос реально идёт по voiceoverScript-override —
@@ -438,6 +459,14 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // настроен/упал — откатываемся на оценку по числу слов (как раньше).
     let captionsWords: Array<{ word: string; start: number; end: number }> | undefined = voiceWords;
     let measuredDurationSec: number | null = voiceDurationSec;
+
+    /**
+     * Субтитры вынесены в функцию, потому что момент вызова зависит от того,
+     * КТО озвучивает ролик. У ElevenLabs дорожка готова сразу — считаем здесь.
+     * У голосов HeyGen она появляется только вместе с клипом аватара, то есть
+     * после шага 4б, и вызывать надо оттуда.
+     */
+    const captionsStep = async () => {
     if (captionsWords?.length) {
       // Разметку дал сам синтезатор (/with-timestamps) — Whisper не нужен.
       // Это и точнее (тайминги от того, кто произносил, а не от распознавания),
@@ -460,6 +489,9 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     } else {
       pushStep({ name: "captions", status: "skipped", ms: 0 });
     }
+    };
+    // При голосе HeyGen дорожки ещё нет — субтитры считаем после шага аватара.
+    if (voiceProvider !== "heygen") await captionsStep();
 
     // ── Шаг 4: AI-видео b-roll через Replicate (Seedance), не Pexels —
     // PEXELS_API_KEY на проде невалиден/не настроен (401), и это уже
@@ -589,7 +621,8 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         pushStep({ name: "avatar", status: "skipped", ms: 0, error: "арт-директор не заказал аватара" });
         return;
       }
-      if (!voiceoverUrl) {
+      // При голосе HeyGen дорожки ещё нет — она и родится на этом шаге.
+      if (!voiceoverUrl && voiceProvider !== "heygen") {
         pushStep({ name: "avatar", status: "skipped", ms: 0, error: "нет озвучки — аватару нечего произносить" });
         return;
       }
@@ -599,7 +632,16 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       // долгим HTTP-запросом — см. шапку generate-avatar-clip про то, почему
       // блокирующий вариант падал на ~300-й секунде даже по loopback.
       const kick = await callLocal<AvatarKickData>("/api/generate-avatar-clip", {
-        audioUrl: voiceoverUrl,
+        // Голос HeyGen: отдаём ТЕКСТ и id их голоса, аудио они синтезируют
+        // сами. allowTtsFallback снимает защиту «не подменять голос бренда» —
+        // здесь подмена и есть цель, а не аварийный откат.
+        ...(voiceProvider === "heygen"
+          ? {
+              script: voiceoverScript,
+              voiceId: String(body.heygenVoiceId ?? "").trim() || undefined,
+              allowTtsFallback: true,
+            }
+          : { audioUrl: voiceoverUrl }),
         // Фон клипа = фон ролика: в полнокадровом сегменте он становится фоном
         // сцены, во врезке виден вокруг лица — в обоих случаях чужой цвет
         // выдал бы «вклеенное» видео.
@@ -611,9 +653,11 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
         pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: kick.error ?? "HeyGen не вернул videoId" });
         return;
       }
-      if (kick.data.audioSource !== "ours") {
-        // Клип создан, но озвучен голосом HeyGen. Взять его нельзя: в ролике
-        // играет наша дорожка, и губы разошлись бы с тем, что слышно.
+      if (kick.data.audioSource !== "ours" && voiceProvider !== "heygen") {
+        // Клип создан, но озвучен голосом HeyGen, хотя мы просили нашу
+        // дорожку. Брать нельзя: в ролике играет наш звук, и губы разошлись
+        // бы с тем, что слышно. При voiceProvider="heygen" это, наоборот,
+        // ожидаемый результат — там их звук и станет дорожкой ролика.
         pushStep({ name: "avatar", status: "failed", ms: Date.now() - stepT, error: "HeyGen озвучил аватара своим голосом — клип не берём, иначе губы разойдутся с озвучкой" });
         return;
       }
@@ -653,6 +697,22 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
             typeof poll.data.durationSec === "number"
               ? poll.data.durationSec
               : voiceDurationSec;
+          // Голос HeyGen: их звуковая дорожка становится дорожкой ролика.
+          // Без этого клип шёл бы немым поверх тишины — озвучки-то нет.
+          if (voiceProvider === "heygen") {
+            if (poll.data.audioUrl) {
+              voiceoverUrl = poll.data.audioUrl;
+              voiceDurationSec = avatarClipDurationSec;
+            } else {
+              pushStep({
+                name: "avatar",
+                status: "failed",
+                ms: Date.now() - stepT,
+                error: "клип готов, но звуковую дорожку извлечь не удалось — ролик остался бы немым",
+              });
+              return;
+            }
+          }
           pushStep({ name: "avatar", status: "ok", ms: Date.now() - stepT });
           return;
         }
@@ -665,6 +725,10 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
     // Оба шага — внешние рендеры на минуты и друг от друга не зависят.
     // Последовательно они складывались бы в ожидание, которого ролик не стоит.
     await Promise.all([brollStep(), avatarStep()]);
+
+    // Голос HeyGen: дорожка появилась только сейчас — считаем по ней субтитры
+    // и реальную длительность (у ElevenLabs это сделано выше, до b-roll).
+    if (voiceProvider === "heygen") await captionsStep();
 
     // ── Шаг 5: фоновая музыка по настроению — best-effort, null если
     // библиотека пуста (см. public/music/README.md), рендер не страдает.

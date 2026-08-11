@@ -12,9 +12,9 @@
     "/api/static-asset/promo-images/orlink-site-2.jpg"
   ],
   "durationSec": 30,
-  "voiceStyle": 0.7,
-  "voiceStability": 0.3,
-  "voiceSpeed": 1.06,
+  "voiceStyle": 0.35,
+  "voiceStability": 0.45,
+  "voiceSpeed": 1,
   "stylePrompt": "Сдержанный документальный тон, репортаж со стройплощадки. Без пафоса и рекламных клише. Кадры: металлокаркас, кровля, инженерные сети, бетонный пол, монтаж. Говорящий ведущий круглой врезкой в кадре.",
-  "voiceId": "hRJPpkSVdR2btkZBUz26"
+  "voiceId": "6YjFofyVXU1ASguf2hTJ"
 }

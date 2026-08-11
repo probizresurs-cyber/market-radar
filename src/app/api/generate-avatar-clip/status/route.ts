@@ -123,6 +123,24 @@ async function handleStatus(req: Request, videoId: string) {
     // Меряем сами: длительность от HeyGen оказалась больше фактической, и
     // композиция из-за этого просила несуществующий кадр (см. probeDurationSec).
     const probed = await probeDurationSec(filePath);
+
+    // Звуковая дорожка клипа отдельным файлом.
+    //
+    // Нужна, когда речь синтезирует САМ HeyGen (его голоса вместо ElevenLabs):
+    // ролику нужен тот же звук отдельной дорожкой — по нему считаются субтитры
+    // и длительность, а клип в кадре идёт немым. Извлекаем без перекодирования
+    // (-c copy), это доли секунды.
+    let audioUrl: string | null = null;
+    try {
+      const audioDir = path.join(process.cwd(), "public", "voiceovers");
+      await mkdir(audioDir, { recursive: true });
+      const audioPath = path.join(audioDir, `avatar-${videoId}.m4a`);
+      await execFileAsync("ffmpeg", ["-v", "error", "-y", "-i", filePath, "-vn", "-c", "copy", audioPath], { timeout: 30_000 });
+      audioUrl = `/api/static-asset/voiceovers/avatar-${videoId}.m4a`;
+    } catch (e) {
+      // Не критично: без дорожки ролик просто соберётся с озвучкой ElevenLabs.
+      console.warn(`[avatar-clip] не удалось извлечь аудио: ${e instanceof Error ? e.message : e}`);
+    }
     if (probed && typeof data.duration === "number" && Math.abs(probed - data.duration) > 0.2) {
       console.warn(
         `[avatar-clip] длительность HeyGen ${data.duration}с ≠ фактической ${probed.toFixed(2)}с — берём фактическую`,
@@ -137,6 +155,7 @@ async function handleStatus(req: Request, videoId: string) {
         done: true,
         url: `/api/static-asset/avatar-clips/${videoId}.mp4`,
         durationSec: probed ?? (typeof data.duration === "number" ? data.duration : null),
+        audioUrl,
         sizeBytes: mp4.byteLength,
       },
     });
