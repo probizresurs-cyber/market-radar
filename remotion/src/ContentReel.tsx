@@ -622,8 +622,10 @@ function AvatarFullSegment({ url, absStartFrame, brandColor, durationInFrames }:
  * где голова сидит примерно в верхней трети, а по центру оказывается грудь.
  * Без сдвига в кружок попадал бы корпус вместо лица.
  */
-function AvatarBubble({ url, blockStartFrame, accentColor, lowCaptions }: {
+function AvatarBubble({ url, blockStartFrame, accentColor, brandColor, lowCaptions }: {
   url: string; blockStartFrame: number; accentColor: string;
+  /** Цвет заливки клипа — им закрываем поля, появившиеся от уменьшения. */
+  brandColor: string;
   /** Субтитры внизу — тогда врезка уезжает наверх, чтобы не спорить с ними. */
   lowCaptions: boolean;
 }) {

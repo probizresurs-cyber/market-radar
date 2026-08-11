@@ -46,6 +46,14 @@ interface Props {
    *  тайминги не сдвигаются (обёртка в Sequence сломала бы синхрон с голосом). */
   visibleFrom?: number;
   visibleUntil?: number;
+  /**
+   * Отрезки кадров, на которых субтитры скрыты (пары [начало, конец)).
+   * Использовалось для текстовых карточек, чтобы субтитр не дублировал их
+   * текст. Поле передавалось и читалось, но в Props его не было: типы этой
+   * папки не проверялись вовсе (см. exclude в tsconfig + отсутствие
+   * зависимостей), и расхождение жило незамеченным.
+   */
+  hiddenWindows?: Array<[number, number]>;
 }
 
 interface TimedWord { word: string; startFrame: number; endFrame: number }

@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "deploy": "node scripts/deploy.mjs",
+    "check": "tsc --noEmit && npm run check:remotion",
+    "check:remotion": "tsc --noEmit -p remotion/tsconfig.json",
     "hh:auth": "node --env-file=.env scripts/hh-parser/authorize.mjs",
     "hh:parse": "node --env-file=.env scripts/hh-parser/run.mjs",
     "hh:reset": "node --env-file=.env scripts/hh-parser/run.mjs --reset"
