@@ -7,7 +7,10 @@
   "brandColor": "#111111",
   "accentColor": "#F5A623",
   "avatarId": "19686ae7c5a1410793b6a70de8404ac5",
-  "assets": [],
+  "assets": [
+    "/api/static-asset/broll-videos/content-broll-pjob-1786452031356-k79ub3gv-1.mp4",
+    "/api/static-asset/broll-videos/content-broll-pjob-1786452031356-k79ub3gv-2.mp4"
+  ],
   "durationSec": 30,
   "voiceStyle": 0.7,
   "voiceStability": 0.3,

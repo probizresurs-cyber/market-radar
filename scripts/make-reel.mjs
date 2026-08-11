@@ -42,6 +42,40 @@ if (!briefPath) {
 }
 const brief = JSON.parse(readFileSync(briefPath, "utf8"));
 
+/**
+ * Переиспользование b-roll от предыдущей сборки (флаг --reuse-broll).
+ *
+ * AI-видео на Replicate — ~97% себестоимости ролика (~$0.40 за клип), и при
+ * каждой пересборке из-за правки вёрстки или голоса они генерировались
+ * заново, хотя сюжет и промпты не менялись. Флаг подставляет клипы последней
+ * генерации в assets: шаг stock-videos тогда пропускается целиком.
+ *
+ * Ищем по каталогу public/broll-videos, берём самую свежую пачку по общему
+ * jobId в имени файла (content-broll-<jobId>-N.mp4).
+ */
+if (process.argv.includes("--reuse-broll") && (brief.assets ?? []).length === 0) {
+  const { readdirSync, statSync } = await import("fs");
+  const dir = "public/broll-videos";
+  try {
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".mp4"))
+      .map((f) => ({ f, t: statSync(`${dir}/${f}`).mtimeMs }))
+      .sort((a, b) => b.t - a.t);
+    const newestJob = /content-broll-(.+)-\d+\.mp4$/.exec(files[0]?.f ?? "")?.[1];
+    if (newestJob) {
+      brief.assets = files
+        .filter((x) => x.f.includes(newestJob))
+        .sort((a, b) => a.f.localeCompare(b.f))
+        .map((x) => `/api/static-asset/broll-videos/${x.f}`);
+      console.log(`Переиспользую b-roll от ${newestJob}: ${brief.assets.length} шт. (Replicate не вызывается)`);
+    } else {
+      console.log("--reuse-broll: готовых клипов не нашлось, генерируем заново");
+    }
+  } catch {
+    console.log("--reuse-broll: каталог broll-videos недоступен, генерируем заново");
+  }
+}
+
 const PORTS = [process.env.PORT, "3001", "3000", "3002"].filter(Boolean);
 async function resolveBase() {
   if (process.env.REEL_BASE_URL) return process.env.REEL_BASE_URL;
