@@ -643,6 +643,10 @@ function AvatarBubble({ url, blockStartFrame, accentColor, lowCaptions }: {
         borderRadius: "50%",
         overflow: "hidden",
         border: `6px solid ${accentColor}`,
+        // Фон кружка = фон клипа (мы просим у HeyGen сплошную заливку под цвет
+        // ролика). Нужен из-за уменьшения ниже: по бокам появляются поля, и
+        // без совпадения цвета они читались бы рамкой внутри рамки.
+        background: brandColor,
         boxShadow: `0 0 40px ${accentColor}66, 0 18px 40px rgba(0,0,0,0.55)`,
         scale: String(Math.min(1, enter)),
         opacity: Math.min(1, enter * 1.4),
@@ -658,10 +662,16 @@ function AvatarBubble({ url, blockStartFrame, accentColor, lowCaptions }: {
             // голова занимает примерно 0.10-0.62 высоты, поэтому кружок
             // показывает диапазон 0.075-0.64 — лицо по центру, каска целиком.
             objectPosition: "50% 16%",
-            // Зум убран. Он был 1.15 и сужал видимую область до 0.124-0.613,
-            // то есть срезал верх каски — на живом ролике голова выглядела
-            // обрубленной. Лицо и без него занимает кружок целиком: клип
-            // вертикальный, при cover в квадрат кадр и так увеличивается.
+            // Голова УМЕНЬШЕНА до 0.8. Даже без прежнего зума 1.15 она
+            // занимала кружок почти целиком (при cover в квадрат клип
+            // увеличивается сам: 1080 → 360 по ширине, голова выходит ~333px
+            // в окне 360px) и упиралась в рамку. Здесь она ~266px — вокруг
+            // остаётся воздух, и врезка читается как портрет, а не как
+            // «лицо, втиснутое в круг».
+            //
+            // По бокам от этого появляются поля ~40px: их закрывает фон
+            // кружка того же цвета, что и заливка клипа.
+            scale: "0.8",
           }}
         />
       </div>
@@ -916,6 +926,7 @@ export const ContentReel: React.FC<ContentReelProps> = (props) => {
             url={avatarClipUrl!}
             blockStartFrame={0}
             accentColor={props.accentColor}
+            brandColor={props.brandColor}
             lowCaptions={spec.layout.captionPosition !== "high"}
           />
         </Sequence>
