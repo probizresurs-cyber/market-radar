@@ -116,6 +116,53 @@ export async function POST(req: Request) {
       if (brandParts.length) promptParts.push(`Brand: ${brandParts.join(". ")}`);
     }
 
+    // Банк фактов — единственный источник цифр. Прошлый лендинг ушёл с
+    // выдуманными «15+ лет» и «500+ объектов»: модель охотно сочиняет
+    // правдоподобную статистику, а клиент видит враньё о своей же компании.
+    {
+      const f = brandBook?.facts ?? {};
+      const factLines = [
+        f.foundedYear && `Founded: ${f.foundedYear}`,
+        f.completedProjects && `Completed projects: ${f.completedProjects}`,
+        f.capacity && `Team/capacity: ${f.capacity}`,
+        f.geography && `Geography: ${f.geography}`,
+        f.clients && `Notable clients: ${f.clients}`,
+        f.certifications && `Certifications: ${f.certifications}`,
+        f.cases && `Real cases:\n${f.cases}`,
+        f.extra && `Other verified numbers: ${f.extra}`,
+      ].filter(Boolean);
+      promptParts.push(
+        factLines.length > 0
+          ? `VERIFIED COMPANY FACTS — the ONLY allowed source of numbers:\n${factLines.join("\n")}\nHARD RULE: every number about the company must come from this list. If a section needs a number that is not here, write the claim without a number. NEVER invent years, project counts, percentages or team sizes.`
+          : `NO VERIFIED FACTS PROVIDED. Do NOT invent any numbers about the company (years, project counts, percentages, team size). Write qualitative claims only.`,
+      );
+    }
+
+    // Фотобанк: реальные снимки в галерею/кейсы. Полные URL — Stitch вставит
+    // их как <img>, и лендинг покажет настоящие объекты вместо стока.
+    {
+      const origin = "https://marketradar24.ru";
+      const photos: string[] = (brandBook?.photos ?? [])
+        .filter((p: unknown): p is string => typeof p === "string" && p.startsWith("/"))
+        .slice(0, 8)
+        .map((p: string) => `${origin}${p}`);
+      if (photos.length > 0) {
+        promptParts.push(
+          `REAL COMPANY PHOTOS — use these EXACT image URLs in the page (hero background or gallery/portfolio section):\n${photos.join("\n")}\nDo not invent other image URLs; these are the only real photos.`,
+        );
+      }
+    }
+
+    // Арт-дирекция против «аккуратно и просто»: первый выстрел Stitch без
+    // этих требований стабильно давал визитку — один экран пользы, рубрики
+    // вместо заголовков, ни одного доказательства.
+    promptParts.push(`ART DIRECTION — avoid generic template look:
+- Section headlines must be claims, not labels: not "Our services" but a statement that sells.
+- Strong typographic hierarchy: oversized hero headline, generous whitespace, clear rhythm between sections.
+- Include a lead capture form section (name + phone) with a strong CTA — this page must collect requests, not just inform.
+- Include a cases/portfolio section and a trust section (facts, certifications) using ONLY the verified facts above.
+- Dominant brand colour with sharp accent beats evenly-distributed timid palettes.`);
+
     // Target audience
     if (taData?.segments?.length) {
       const segs = taData.segments.slice(0, 3).map((s: { segmentName: string; demographics?: { age?: string } }) =>

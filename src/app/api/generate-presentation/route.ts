@@ -93,8 +93,10 @@ JSON-формат (строго):
   "title":"...","subtitle":"...","type":"cover|bullets|stats|quote|two-column|grid|cta",
   "content":"...","bullets":[],"stats":[{"value":"...","label":"..."}],
   "quote":"","items":[{"title":"...","description":"..."}],
-  "leftContent":"","rightContent":"","note":""
-}]}`;
+  "leftContent":"","rightContent":"","note":"",
+  "imageUrl":""
+}]}
+imageUrl — ТОЛЬКО точный URL из блока «ФОТО КОМПАНИИ» (если он передан), иначе пустая строка. Выдумывать URL запрещено.`;
 
 export async function POST(req: Request) {
   const access = await checkAiAccess(req);
@@ -121,6 +123,41 @@ export async function POST(req: Request) {
         b.logoDataUrl && `У бренда есть логотип — он будет размещён на слайдах автоматически, не упоминай его в текстах`,
       ].filter(Boolean);
       if (brandLines.length > 0) sections.push(`БРЕНД:\n${brandLines.join("\n")}`);
+
+      // Банк фактов — единственный легальный источник цифр. Без него модель
+      // сочиняла «3 завода» и «с 2014 года», и презентация с фальшивыми
+      // фактами о собственной компании уходила клиенту.
+      const f = b.facts ?? {};
+      const factLines = [
+        f.foundedYear && `Год основания: ${f.foundedYear}`,
+        f.completedProjects && `Реализованные объекты: ${f.completedProjects}`,
+        f.capacity && `Команда/мощности: ${f.capacity}`,
+        f.geography && `География: ${f.geography}`,
+        f.clients && `Клиенты: ${f.clients}`,
+        f.certifications && `Сертификаты/допуски: ${f.certifications}`,
+        f.cases && `Кейсы:\n${f.cases}`,
+        f.extra && `Прочие цифры: ${f.extra}`,
+      ].filter(Boolean);
+      if (factLines.length > 0) {
+        sections.push(
+          `ПРОВЕРЕННЫЕ ФАКТЫ (единственный источник цифр о компании):\n${factLines.join("\n")}\n` +
+          `ЖЁСТКОЕ ПРАВИЛО: любое число о компании — только из этого блока. Нет факта — формулируй без числа или ставь «[уточнить]». Выдуманная цифра = брак всей презентации.`,
+        );
+      } else {
+        sections.push(
+          `ФАКТОВ О КОМПАНИИ НЕ ПЕРЕДАНО. Запрещено выдумывать любые цифры (годы, объекты, проценты, мощности). Где по структуре нужна цифра — ставь «[уточнить]».`,
+        );
+      }
+
+      // Фотобанк: реальные снимки на слайды. Модель лишь РАССТАВЛЯЕТ готовые
+      // URL — выдумывать или изменять их нельзя, битая ссылка = пустой слайд.
+      const photos: string[] = Array.isArray(b.photos) ? b.photos.filter((p: unknown) => typeof p === "string" && p.startsWith("/")).slice(0, 12) : [];
+      if (photos.length > 0) {
+        sections.push(
+          `ФОТО КОМПАНИИ (реальные снимки, использовать ТОЧНЫЕ URL как imageUrl слайда):\n${photos.join("\n")}\n` +
+          `Поставь фото на обложку и на 2-4 смысловых слайда (кейсы, производство, результаты). Каждый URL — не больше одного раза. Слайды stats и quote оставляй без фото.`,
+        );
+      }
     }
     if (body.taData?.segments) {
       sections.push(`ЦА: ${body.taData.segments.map((s: { segmentName: string; demographics: { age: string; income: string }; mainProblems: string[] }) => `${s.segmentName} (${s.demographics.age}, ${s.demographics.income})`).join("; ")}`);

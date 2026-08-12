@@ -331,8 +331,152 @@ export function BrandBookPanel({ c, brandBook, onChange }: {
               )}
             </div>
           </div>
+
+          <FactsSection brandBook={brandBook} update={update} labelStyle={labelStyle} inputStyle={inputStyle} taStyle={taStyle} />
+          <PhotoBankSection brandBook={brandBook} update={update} labelStyle={labelStyle} />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Банк проверенных фактов.
+ *
+ * Единственный источник цифр для презентаций, лендингов и постов. Появился
+ * после того, как презентация ушла клиенту с выдуманными «3 завода» и
+ * «с 2014 года»: модель охотно сочиняет правдоподобную конкретику, и
+ * запретами в промпте это лечится лишь наполовину — нужен источник правды.
+ */
+function FactsSection({ brandBook, update, labelStyle, inputStyle, taStyle }: {
+  brandBook: BrandBook;
+  update: (patch: Partial<BrandBook>) => void;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+  taStyle: React.CSSProperties;
+}) {
+  const facts = brandBook.facts ?? {};
+  const setFact = (key: string, value: string) =>
+    update({ facts: { ...facts, [key]: value } });
+
+  const fields: Array<[keyof typeof facts & string, string, string]> = [
+    ["foundedYear", "ГОД ОСНОВАНИЯ", "например: 2014"],
+    ["completedProjects", "РЕАЛИЗОВАННЫЕ ОБЪЕКТЫ", "например: 120+ объектов"],
+    ["capacity", "КОМАНДА / МОЩНОСТИ", "например: 3 цеха, 85 сотрудников"],
+    ["geography", "ГЕОГРАФИЯ", "например: Москва и ЦФО"],
+    ["clients", "ИЗВЕСТНЫЕ КЛИЕНТЫ", "через запятую"],
+    ["certifications", "СЕРТИФИКАТЫ / ДОПУСКИ", "СРО, ISO, ГОСТ…"],
+  ];
+
+  return (
+    <div style={{ marginTop: 18, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "color-mix(in oklch, var(--primary) 3%, var(--background))" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 4 }}>
+        Проверенные факты — источник цифр
+      </div>
+      <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.5 }}>
+        Презентации и лендинги берут цифры ТОЛЬКО отсюда. Пустое поле — в тексте будет плейсхолдер «[уточнить]», а не выдуманное число. Пишите только то, за что готовы отвечать перед клиентом.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        {fields.map(([key, label, ph]) => (
+          <div key={key}>
+            <label style={labelStyle}>{label}</label>
+            <input type="text" value={facts[key] ?? ""} onChange={e => setFact(key, e.target.value)} placeholder={ph} style={inputStyle} />
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>РЕАЛЬНЫЕ КЕЙСЫ С ЦИФРАМИ</label>
+        <textarea value={facts.cases ?? ""} onChange={e => setFact("cases", e.target.value)} rows={3}
+          placeholder={"Один кейс на строку: объект — задача — результат в цифрах.\nНапример: СК «Новая Москва», 1800 м², каркас+кровля за 4 месяца"}
+          style={taStyle} />
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <label style={labelStyle}>ПРОЧИЕ ПРОВЕРЕННЫЕ ЦИФРЫ</label>
+        <textarea value={facts.extra ?? ""} onChange={e => setFact("extra", e.target.value)} rows={2}
+          placeholder="например: 10 000 тонн металла в год, гарантия 5 лет" style={taStyle} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Фотобанк: реальные снимки объектов и производства.
+ *
+ * Файлы уходят на сервер (/api/brand-photos), в брендбуке остаются URL —
+ * base64 на десяток фото раздул бы синхронизацию до мегабайт. Снимки
+ * автоматически используют презентации (фон слайдов), лендинги (галерея)
+ * и ролики (видеоряд вместо платной AI-генерации).
+ */
+function PhotoBankSection({ brandBook, update, labelStyle }: {
+  brandBook: BrandBook;
+  update: (patch: Partial<BrandBook>) => void;
+  labelStyle: React.CSSProperties;
+}) {
+  const photos = brandBook.photos ?? [];
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const upload = async (files: FileList | null) => {
+    if (!files?.length || busy) return;
+    setBusy(true); setErr("");
+    const added: string[] = [];
+    for (const f of Array.from(files).slice(0, 20)) {
+      try {
+        const fd = new FormData();
+        fd.append("file", f);
+        const r = await fetch("/api/brand-photos", { method: "POST", body: fd });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "не загрузилось");
+        added.push(j.data.url);
+      } catch (e) {
+        setErr(`${f.name}: ${e instanceof Error ? e.message : "ошибка"}`);
+      }
+    }
+    if (added.length) update({ photos: [...photos, ...added] });
+    setBusy(false);
+  };
+
+  const remove = async (url: string) => {
+    update({ photos: photos.filter(p => p !== url) });
+    // Файл на сервере чистим best-effort: даже если запрос упал, из
+    // брендбука фото уже убрано и в генерацию не попадёт.
+    void fetch(`/api/brand-photos?url=${encodeURIComponent(url)}`, { method: "DELETE" }).catch(() => {});
+  };
+
+  return (
+    <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)" }}>Фотобанк ({photos.length})</div>
+          <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginTop: 2, lineHeight: 1.5 }}>
+            Реальные фото объектов и производства. Идут в слайды, лендинг и видеоряд роликов автоматически.
+          </div>
+        </div>
+        <label style={{ padding: "8px 14px", borderRadius: 8, background: busy ? "var(--muted)" : "var(--primary)", color: busy ? "var(--muted-foreground)" : "#fff", fontSize: 12, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+          {busy ? "Загружаю…" : "Добавить фото"}
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy}
+            onChange={e => { void upload(e.target.files); e.target.value = ""; }}
+            style={{ display: "none" }} />
+        </label>
+      </div>
+      {err && <div style={{ fontSize: 11, color: "var(--destructive, #dc2626)", marginTop: 8 }}>{err}</div>}
+      {photos.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8, marginTop: 12 }}>
+          {photos.map(url => (
+            <div key={url} style={{ position: "relative", borderRadius: 8, overflow: "hidden", aspectRatio: "1", border: "1px solid var(--border)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <button onClick={() => void remove(url)} title="Удалить"
+                style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 12, lineHeight: 1, cursor: "pointer" }}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginTop: 10, ...labelStyle, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
+        Совет: 10-15 фото — объекты целиком, процесс работы, детали. Вертикальные лучше для роликов.
+      </div>
     </div>
   );
 }

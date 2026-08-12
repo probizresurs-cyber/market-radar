@@ -37,6 +37,7 @@ const ALLOWED_DIRS = new Set([
   "stock-videos",
   "broll-videos", // AI-сгенерированные video-b-roll через Replicate
   "avatar-clips", // говорящая голова HeyGen — слой видеоряда, см. generate-avatar-clip
+  "brand-photos", // фотобанк бренда (/api/brand-photos): подкаталог = userId
 ]);
 
 const CONTENT_TYPES: Record<string, string> = {

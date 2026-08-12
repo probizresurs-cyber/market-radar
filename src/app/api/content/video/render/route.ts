@@ -548,14 +548,29 @@ async function runBrollPipeline(jobId: string, body: Record<string, unknown>, re
       .filter((u: string) => u.startsWith("/") || u.startsWith("http://") || u.startsWith("https://"))
       .slice(0, 10);
 
+    // Фотобанк бренда — видеоряд по умолчанию, когда явных материалов нет.
+    // Реальные снимки объектов убедительнее синтетики, бесплатны и не
+    // страдают болезнью AI-видео с людьми (висящие в воздухе рабочие, тела
+    // без головы — оба случая были на живых роликах). AI-генерация остаётся
+    // только для тех, у кого фотобанк пуст.
+    const bankPhotos: string[] = (Array.isArray((brandBook as { photos?: unknown[] } | null)?.photos)
+      ? ((brandBook as { photos: unknown[] }).photos)
+      : [])
+      .map((u) => String(u ?? "").trim())
+      .filter((u) => u.startsWith("/api/static-asset/brand-photos/"))
+      .slice(0, 8);
+
     const brollStep = async () => {
-    if (ownAssets.length > 0) {
-      brollUrls = ownAssets;
+    if (ownAssets.length > 0 || bankPhotos.length >= 2) {
+      const fromBank = ownAssets.length === 0;
+      brollUrls = fromBank ? bankPhotos : ownAssets;
       pushStep({
         name: "stock-videos",
         status: "ok",
         ms: 0,
-        error: `свои материалы: ${ownAssets.length} шт., AI-генерация не нужна`,
+        error: fromBank
+          ? `фотобанк бренда: ${brollUrls.length} шт., AI-генерация не нужна`
+          : `свои материалы: ${brollUrls.length} шт., AI-генерация не нужна`,
       });
       return;
     }
