@@ -20,8 +20,26 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createReadStream } from "fs";
+import { Readable } from "stream";
 import { stat } from "fs/promises";
 import path from "path";
+
+/**
+ * Node-стрим → веб-ReadableStream ТОЛЬКО через Readable.toWeb.
+ *
+ * Раньше стрим отдавался голым кастом `as unknown as ReadableStream`, и при
+ * обрыве клиента (браузерный аудио/видео-плеер рвёт range-запросы постоянно —
+ * это его нормальная работа) push шёл в уже закрытый поток:
+ *   uncaughtException: ReadableStream is already closed
+ * — падал ВЕСЬ процесс, PM2 рестартовал его каждую минуту, и весь сайт
+ * отвечал 502 просто потому, что кто-то открыл mp3.
+ *
+ * Readable.toWeb — штатная pull-конверсия: отмена корректно закрывает
+ * источник, писать после закрытия физически некуда.
+ */
+function toWeb(stream: import("fs").ReadStream): ReadableStream {
+  return Readable.toWeb(stream) as unknown as ReadableStream;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic"; // на всякий — отключаем любое кеширование
@@ -123,7 +141,7 @@ export async function GET(
       }
       const chunkSize = end - start + 1;
       const stream = createReadStream(filePath, { start, end });
-      return new Response(stream as unknown as ReadableStream, {
+      return new Response(toWeb(stream), {
         status: 206,
         headers: {
           "Content-Range": `bytes ${start}-${end}/${total}`,
@@ -138,7 +156,7 @@ export async function GET(
 
   // Полный файл
   const stream = createReadStream(filePath);
-  return new Response(stream as unknown as ReadableStream, {
+  return new Response(toWeb(stream), {
     status: 200,
     headers: {
       "Content-Length": String(total),

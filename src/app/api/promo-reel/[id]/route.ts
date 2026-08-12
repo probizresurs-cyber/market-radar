@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createReadStream } from "fs";
+import { Readable } from "stream";
 import { stat } from "fs/promises";
 import path from "path";
 
@@ -53,15 +54,13 @@ export async function GET(
       const chunkSize = end - start + 1;
 
       const stream = createReadStream(filePath, { start, end });
-      // ReadableStream wrap для Next Response
-      const webStream = new ReadableStream({
-        start(controller) {
-          stream.on("data", (c) => controller.enqueue(new Uint8Array(c as Buffer)));
-          stream.on("end", () => controller.close());
-          stream.on("error", (e) => controller.error(e));
-        },
-        cancel() { stream.destroy(); },
-      });
+      // Readable.toWeb, а не ручная обёртка: у прежней push-обёртки уже
+      // выпущенные data-события успевали вызвать enqueue ПОСЛЕ закрытия
+      // контроллера (обрыв клиента → cancel → destroy асинхронный), и
+      // «ReadableStream is already closed» валил весь процесс — сайт отвечал
+      // 502, пока PM2 его перезапускал. toWeb — pull-модель, там писать в
+      // закрытый поток физически нельзя.
+      const webStream = Readable.toWeb(stream) as unknown as ReadableStream;
 
       return new NextResponse(webStream, {
         status: 206,
@@ -76,16 +75,9 @@ export async function GET(
     }
   }
 
-  // Полная отдача
+  // Полная отдача — тот же toWeb, причина выше.
   const stream = createReadStream(filePath);
-  const webStream = new ReadableStream({
-    start(controller) {
-      stream.on("data", (c) => controller.enqueue(new Uint8Array(c as Buffer)));
-      stream.on("end", () => controller.close());
-      stream.on("error", (e) => controller.error(e));
-    },
-    cancel() { stream.destroy(); },
-  });
+  const webStream = Readable.toWeb(stream) as unknown as ReadableStream;
 
   return new NextResponse(webStream, {
     status: 200,
