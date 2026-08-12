@@ -359,6 +359,49 @@ function FactsSection({ brandBook, update, labelStyle, inputStyle, taStyle }: {
   const setFact = (key: string, value: string) =>
     update({ facts: { ...facts, [key]: value } });
 
+  const [siteUrl, setSiteUrl] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseNote, setParseNote] = useState("");
+
+  /**
+   * Автозаполнение с сайта. Слияние — ТОЛЬКО в пустые поля: заполненное
+   * вручную сильнее спарсенного, потому что за факты отвечает человек, а
+   * парсер лишь экономит время. Затирать ручной ввод роботом нельзя.
+   */
+  const parseFromSite = async () => {
+    const u = siteUrl.trim();
+    if (!u || parsing) return;
+    setParsing(true); setParseNote("");
+    try {
+      const r = await fetch("/api/brand-facts-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: u }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "не удалось");
+      const found = j.data.facts as Record<string, string>;
+      const merged = { ...facts };
+      const filled: string[] = [];
+      for (const [k, v] of Object.entries(found)) {
+        if (!(merged as Record<string, string | undefined>)[k]?.trim()) {
+          (merged as Record<string, string>)[k] = v;
+          filled.push(k);
+        }
+      }
+      if (filled.length) update({ facts: merged });
+      setParseNote(
+        filled.length
+          ? `Заполнено с сайта: ${filled.length} полей. Проверьте их — вы отвечаете за эти цифры перед клиентом.`
+          : j.data.sourceNote || "Новых фактов не нашлось (заполненные вручную поля не трогаются).",
+      );
+    } catch (e) {
+      setParseNote(`Ошибка: ${e instanceof Error ? e.message : "не удалось"}`);
+    } finally {
+      setParsing(false);
+    }
+  };
+
   const fields: Array<[keyof typeof facts & string, string, string]> = [
     ["foundedYear", "ГОД ОСНОВАНИЯ", "например: 2014"],
     ["completedProjects", "РЕАЛИЗОВАННЫЕ ОБЪЕКТЫ", "например: 120+ объектов"],
@@ -374,8 +417,28 @@ function FactsSection({ brandBook, update, labelStyle, inputStyle, taStyle }: {
         Проверенные факты — источник цифр
       </div>
       <div style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginBottom: 12, lineHeight: 1.5 }}>
-        Презентации и лендинги берут цифры ТОЛЬКО отсюда. Пустое поле — в тексте будет плейсхолдер «[уточнить]», а не выдуманное число. Пишите только то, за что готовы отвечать перед клиентом.
+        Презентации, лендинги и ролики берут цифры ТОЛЬКО отсюда. Пустое поле — в тексте будет плейсхолдер «[уточнить]», а не выдуманное число. Пишите только то, за что готовы отвечать перед клиентом.
       </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        <input
+          type="text"
+          value={siteUrl}
+          onChange={e => setSiteUrl(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") void parseFromSite(); }}
+          placeholder="Сайт компании, например orlink.ru"
+          style={{ ...inputStyle, flex: "1 1 240px", width: "auto" }}
+        />
+        <button
+          onClick={() => void parseFromSite()}
+          disabled={parsing || !siteUrl.trim()}
+          style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: parsing || !siteUrl.trim() ? "var(--muted)" : "var(--primary)", color: parsing || !siteUrl.trim() ? "var(--muted-foreground)" : "#fff", fontSize: 12, fontWeight: 700, cursor: parsing ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          {parsing ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
+          {parsing ? "Читаю сайт…" : "Заполнить с сайта"}
+        </button>
+      </div>
+      {parseNote && <div style={{ fontSize: 11, color: "var(--primary)", marginBottom: 10, lineHeight: 1.5 }}>{parseNote}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         {fields.map(([key, label, ph]) => (
           <div key={key}>

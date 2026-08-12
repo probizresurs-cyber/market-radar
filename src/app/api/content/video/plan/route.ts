@@ -113,6 +113,25 @@ function buildBrandHints(bb: BrandBook | null): string {
   const lines: string[] = [];
   if (bb.toneOfVoice?.length) lines.push(`Тон: ${bb.toneOfVoice.join(", ")}`);
   if (bb.forbiddenWords?.length) lines.push(`НЕ использовать: ${bb.forbiddenWords.join(", ")}`);
+
+  // Банк фактов: разрешает режиссёру РЕАЛЬНУЮ конкретику в hookText и
+  // keyPoints. Без него действовал только запрет на цифры — и хук неизбежно
+  // выходил абстрактным («реальный этап»). С банком «120+ объектов с 2014
+  // года» — легальный и сильный крючок. Правило прежнее: цифры не из этого
+  // списка по-прежнему запрещены.
+  const f = bb.facts ?? {};
+  const factLines = [
+    f.foundedYear && `год основания ${f.foundedYear}`,
+    f.completedProjects && `объекты: ${f.completedProjects}`,
+    f.capacity && `мощности: ${f.capacity}`,
+    f.geography && `география: ${f.geography}`,
+    f.certifications && `допуски: ${f.certifications}`,
+    f.extra && `цифры: ${f.extra}`,
+  ].filter(Boolean);
+  if (factLines.length) {
+    lines.push(`ПРОВЕРЕННЫЕ ФАКТЫ (только эти цифры можно использовать в hookText/ctaText/keyPoints): ${factLines.join("; ")}`);
+  }
+
   return lines.length ? `\nБРЕНДБУК:\n${lines.join("\n")}\n` : "";
 }
 
