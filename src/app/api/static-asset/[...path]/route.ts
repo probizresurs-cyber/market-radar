@@ -110,9 +110,14 @@ export async function GET(
   try {
     fileStat = await stat(filePath);
   } catch {
+    // no-store обязателен именно на 404. Адреса тут оканчиваются на .mp4/.mp3,
+    // а Cloudflare считает такие пути статикой и кэширует ответ по расширению
+    // — включая отрицательный. Один промах (запрос пришёл раньше, чем файл
+    // дописался) залипал на границе, и уже загруженный файл продолжал отдавать
+    // «File not found» мимо нашего сервера.
     return NextResponse.json(
       { ok: false, error: "File not found", path: `${type}/${filename}` },
-      { status: 404 },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
     );
   }
 
