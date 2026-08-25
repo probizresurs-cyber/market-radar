@@ -259,6 +259,21 @@ export function KpProposal({
     "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
   /**
+   * Дизайн-тема КП: ?design=paper | earth.
+   *
+   * Весь КП построен на токенах дизайн-системы (--primary, --card, --border
+   * и т.д.) — 96 обращений к одному только --muted-foreground. Поэтому смена
+   * облика делается переопределением токенов и шрифтов, без единой правки
+   * разметки: одна и та же вёрстка, два совершенно разных документа.
+   */
+  const [designTheme, setDesignTheme] = useState<"paper" | "earth" | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const d = new URLSearchParams(window.location.search).get("design");
+    setDesignTheme(d === "paper" || d === "earth" ? d : null);
+  }, []);
+
+  /**
    * Номер главы = позиция среди РЕАЛЬНО отрисованных секций.
    *
    * Считать по списку навигации нельзя: он шире фактического рендера —
@@ -464,7 +479,12 @@ export function KpProposal({
   const primaryCtaId = astroRebuild ? "astro-offer" : "cta";
 
   return (
-    <div ref={rootRef} style={{ background: "var(--background)", color: "var(--foreground)", minHeight: "100vh", fontFamily: "var(--font-sans, system-ui, sans-serif)", position: "relative" }}>
+    <div
+      ref={rootRef}
+      className={designTheme ? `kp-design kp-design--${designTheme}` : undefined}
+      style={{ background: "var(--background)", color: "var(--foreground)", minHeight: "100vh", fontFamily: "var(--font-sans, system-ui, sans-serif)", position: "relative" }}
+    >
+      {designTheme && <DesignThemeFonts theme={designTheme} />}
       <DotGridBackdrop />
 
       {/* Прогресс-бар */}
@@ -2500,9 +2520,99 @@ function KpEmpty() {
   );
 }
 
+/**
+ * Шрифты дизайн-темы. Грузятся ТОЛЬКО когда тема выбрана — обычное КП
+ * остаётся на системном стеке и не платит за внешний запрос.
+ */
+function DesignThemeFonts({ theme }: { theme: "paper" | "earth" }) {
+  const href = theme === "paper"
+    ? "https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    : "https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap";
+  return <link rel="stylesheet" href={href} />;
+}
+
 function ResponsiveCss() {
   return <style>{`
     .kp-navscroll::-webkit-scrollbar { display: none; }
+
+    /* ═══ ДИЗАЙН-ТЕМЫ КП ═══════════════════════════════════════════════
+       Обе темы меняют ТОЛЬКО токены и шрифты. Разметка, сетка и логика
+       общие — поэтому оба варианта КП гарантированно одинаковы по смыслу
+       и расходятся исключительно обликом. */
+
+    /* «Бумага» — издательский разворот: тёплая бумага, оранжевый сигнал,
+       узкий гротеск в заголовках. Ощущение печатного аналитического
+       отчёта, а не веб-дашборда. */
+    .kp-design--paper {
+      --background: #F5F2EC;
+      --card: #FBF9F5;
+      --muted: #EBE7DF;
+      --foreground: #131110;
+      --muted-foreground: #5C5651;
+      --border: #DAD4C8;
+      --primary: #FF4D00;
+      --primary-foreground: #131110;
+      --success: #1F6B3F;
+      --warning: #B87200;
+      --destructive: #C03300;
+      --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    }
+    .kp-design--paper h1, .kp-design--paper h2 {
+      font-family: 'Fira Sans Extra Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+      letter-spacing: -0.005em !important;
+      text-transform: uppercase;
+    }
+    .kp-design--paper .kp-section-band::before {
+      background: #EBE7DF;
+      border-top: 2px solid #131110;
+      border-bottom: 1px solid #DAD4C8;
+    }
+    .kp-design--paper .ds-card {
+      border-radius: 2px !important;
+      box-shadow: none !important;
+      border-color: #DAD4C8;
+    }
+    .kp-design--paper .ds-card:hover { border-color: #FF4D00; }
+
+    /* «Земля» — инженерный документ: землистая подложка, плотный
+       геометрический дисплей, приглушённые сигнальные цвета. */
+    .kp-design--earth {
+      --background: #D8D3C9;
+      --card: #F2EFE9;
+      --muted: #E8E4DC;
+      --foreground: #171310;
+      --muted-foreground: #4F473E;
+      --border: rgba(23,19,16,.22);
+      --primary: #B3350A;
+      --primary-foreground: #F2EFE9;
+      --success: #14563A;
+      --warning: #8A5A0B;
+      --destructive: #B3350A;
+      --font-sans: 'Onest', system-ui, sans-serif;
+    }
+    .kp-design--earth h1, .kp-design--earth h2 {
+      font-family: 'Unbounded', 'Onest', system-ui, sans-serif;
+      font-weight: 800 !important;
+      letter-spacing: -0.03em !important;
+    }
+    .kp-design--earth .kp-section-band::before {
+      background: #CFC9BE;
+      border-top: 1px solid rgba(23,19,16,.22);
+      border-bottom: 1px solid rgba(23,19,16,.22);
+    }
+    .kp-design--earth .ds-card {
+      border-radius: 4px !important;
+      box-shadow: none !important;
+    }
+    /* Моноширинный — для цифр и формул в обеих темах: числа перестают
+       «плясать» и читаются как данные, а не как текст. */
+    .kp-design [style*="tabular-nums"], .kp-design .kp-mono {
+      font-family: var(--font-mono, ui-monospace, monospace);
+    }
+    .kp-design--paper { --font-mono: 'IBM Plex Mono', ui-monospace, monospace; }
+    .kp-design--earth { --font-mono: 'JetBrains Mono', ui-monospace, monospace; }
+    /* Точечная сетка — примета веб-дашборда, в печатных темах лишняя. */
+    .kp-design .kp-page-dotgrid { display: none; }
 
     /* ── Ритм документа ──────────────────────────────────────────────
        КП — это 15 000px в одну ленту с одинаковым отступом 64px у всех
