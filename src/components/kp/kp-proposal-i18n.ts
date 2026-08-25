@@ -55,6 +55,8 @@ export interface KpProposalStrings {
   aiSampleAnswerLabel: string;
   geoTitle: string; geoSubtitle: string;
   socialTitle: string; socialSubtitle: string; navSocial: string;
+  showMoreFindings: (n: number) => string; collapseFindings: string;
+  showMoreQuestions: (n: number) => string; collapseQuestions: string;
   geoAssistantRewardsTitle: string;
   geoLeversTitle: string;
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
@@ -161,6 +163,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     aiSampleAnswerLabel: "Что нейросеть отвечает о вас сейчас",
     geoTitle: "GEO: видимость в ответах нейросетей", geoSubtitle: "Отдельный, растущий канал — как попасть в ответы AI-ассистентов, когда клиент ищет решение",
     navSocial: "Соцсети",
+    showMoreFindings: (n) => `Показать ещё ${n} ${n % 10 === 1 && n % 100 !== 11 ? "находку" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "находки" : "находок"}`,
+    collapseFindings: "Свернуть находки",
+    showMoreQuestions: (n) => `Показать все ${n} контрольных вопросов`,
+    collapseQuestions: "Свернуть вопросы",
     socialTitle: "Соцсети: что есть сейчас", socialSubtitle: "Разбор каналов бренда по реальным данным — подписчики, активность и что с этим делать",
     geoAssistantRewardsTitle: "Что вознаграждает каждый ассистент",
     geoLeversTitle: "Чем мы поднимаем цитируемость",
@@ -273,6 +279,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     aiSampleAnswerLabel: "Was die KI aktuell über Sie antwortet",
     geoTitle: "GEO: Sichtbarkeit in KI-Antworten", geoSubtitle: "Ein separater, wachsender Kanal — wie man in die Antworten von KI-Assistenten gelangt, wenn ein Kunde nach einer Lösung sucht",
     navSocial: "Social Media",
+    showMoreFindings: (n) => `Weitere ${n} Befunde anzeigen`,
+    collapseFindings: "Befunde einklappen",
+    showMoreQuestions: (n) => `Alle ${n} Kontrollfragen anzeigen`,
+    collapseQuestions: "Fragen einklappen",
     socialTitle: "Social Media: der aktuelle Stand", socialSubtitle: "Analyse der Markenkanäle anhand realer Daten — Abonnenten, Aktivität und die nächsten Schritte",
     geoAssistantRewardsTitle: "Was jeder Assistent belohnt",
     geoLeversTitle: "Womit wir die Zitierhäufigkeit steigern",

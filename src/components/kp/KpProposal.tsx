@@ -475,14 +475,14 @@ export function KpProposal({
           borderTop: "1px solid var(--border)",
         }}>
           <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
-            <div style={{ fontSize: 13.5, minWidth: 0 }}>
+            <div style={{ fontSize: 14, minWidth: 0 }}>
               <b>{PD.offers[0].name} — {PD.offers[0].price}</b>
               <span style={{ color: "var(--muted-foreground)" }}> · {PD.offers[0].priceNote} · {t.stickyFixedPrice}</span>
             </div>
             <button
               onClick={() => { trackKpEvent("click", "sticky-offer-cta"); scrollTo("pilot-offer"); }}
               className="ds-btn ds-btn-primary"
-              style={{ height: 38, padding: "0 18px", fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+              style={{ height: 38, padding: "0 18px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
             >
               {t.stickyStartBtn} <ArrowRight size={14} />
             </button>
@@ -503,7 +503,7 @@ export function KpProposal({
               style={{
                 display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8,
                 border: "1px solid var(--primary)", background: "var(--background)", color: "var(--primary)",
-                fontSize: 13, fontWeight: 600, cursor: sharing ? "wait" : "pointer", flexShrink: 0,
+                fontSize: 12.5, fontWeight: 600, cursor: sharing ? "wait" : "pointer", flexShrink: 0,
               }}
             >
               <Link2 size={14} /> {sharing ? "Создаём…" : "Поделиться ссылкой"}
@@ -512,14 +512,14 @@ export function KpProposal({
           {shareLink && (
             <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 12px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 2 }}>
                   Публичная ссылка {shareCopied && <span style={{ color: "var(--success)" }}>· скопировано ✓</span>}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", wordBreak: "break-all" }}>{shareLink}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--foreground)", wordBreak: "break-all" }}>{shareLink}</div>
               </div>
               <button
                 onClick={onCopyShareLink}
-                style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#fff", background: "var(--primary)", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}
+                style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, color: "#fff", background: "var(--primary)", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}
               >
                 Копировать
               </button>
@@ -539,7 +539,7 @@ export function KpProposal({
         backdropFilter: "blur(10px)", borderBottom: "1px solid var(--border)",
       }}>
         <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 16, flexShrink: 0 }}>
             <span style={{ color: "var(--primary)" }}>MarketRadar</span>
             <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· {t.brandSuffix}</span>
           </div>
@@ -555,7 +555,7 @@ export function KpProposal({
                 onClick={() => scrollTo(s.id)}
                 style={{
                   position: "relative", zIndex: 1, padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                  fontSize: 13, fontWeight: 600, background: "transparent",
+                  fontSize: 12.5, fontWeight: 600, background: "transparent",
                   color: active === s.id ? "var(--primary-foreground)" : "var(--muted-foreground)",
                   transition: "color 0.2s var(--ease)",
                 }}
@@ -589,22 +589,22 @@ export function KpProposal({
               <Reveal>
                 {(v) => (
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
                       {t.heroKicker}
                     </div>
                     <h1 style={{ fontSize: 40, fontWeight: 850, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>{c.name}</h1>
-                    {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 15, textDecoration: "none" }}>{c.url}</a>}
+                    {c.url && <a href={c.url.startsWith("http") ? c.url : `https://${c.url}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", fontSize: 16, textDecoration: "none" }}>{c.url}</a>}
                     {pilotOffer ? (
                       /* Пилотный hero: строгая иерархия — 1 вердикт-строка,
                          1 главный акцент (потенциал), чипы-факты со stagger,
                          пульсирующий дедлайн, 2 кнопки. Автокарточки скрыты:
                          «0 конкурентов» рядом с «3 разобраны вручную» врало. */
                       <>
-                        <p style={{ fontSize: 17, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PD.hero.verdict}</p>
+                        <p style={{ fontSize: 16, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PD.hero.verdict}</p>
                         <div className="kp-hero-pop" style={{ marginTop: 20 }}>
                           {/* Связка «боль → выгода»: label-мост, чтобы вердикт и цифра
                               читались одной мыслью, а не двумя обрывками (мобильный фидбек) */}
-                          <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
                             {t.heroPotentialLabel}
                           </div>
                           {/* Главная цифра КП. Была clamp(30,44) — на документе
@@ -620,7 +620,7 @@ export function KpProposal({
                           }}>
                             {PD.hero.potential}
                           </div>
-                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 6 }}>{PD.hero.potentialSub}</div>
+                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 6 }}>{PD.hero.potentialSub}</div>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
                           {PD.hero.badges.map((b, bi) => (
@@ -635,11 +635,11 @@ export function KpProposal({
                           ))}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
-                          <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ height: 46, padding: "0 22px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
                             {t.heroDiscussBtn} <ArrowRight size={17} />
                           </button>
                           <button onClick={() => { trackKpEvent("click", "hero-offer"); scrollTo("pilot-offer"); }} style={{
-                            height: 46, padding: "0 20px", fontSize: 14.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 8,
+                            height: 46, padding: "0 20px", fontSize: 14, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 8,
                             borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer",
                           }}>
                             {t.heroOfferBtnPrefix} {PD.offers[0].price}
@@ -655,7 +655,7 @@ export function KpProposal({
                           <Badge icon={<ListChecks size={15} />} label="Рекомендаций" value={recs.length} active={v} />
                           {myRank > 0 && <Badge icon={<Gauge size={15} />} label="Позиция среди конкурентов" value={myRank} prefix="#" active={v} />}
                         </div>
-                        <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <button onClick={() => { trackKpEvent("click", "hero-discuss"); scrollTo(primaryCtaId); }} className="ds-btn ds-btn-primary kp-cta-glow" style={{ marginTop: 26, height: 46, padding: "0 22px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
                           Обсудить проект <ArrowRight size={17} />
                         </button>
                       </>
@@ -674,7 +674,7 @@ export function KpProposal({
                 <Reveal delay={80}>
                   {(v) => (
                     <div className="ds-card" style={{ padding: "18px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", alignSelf: "flex-start" }}>
                         <RadarIcon size={13} /> {t.profileByCategories}
                       </div>
                       <RadarChart categories={categories.map((cat) => ({ name: cat.name, score: cat.score }))} active={v} />
@@ -690,12 +690,12 @@ export function KpProposal({
                       <Reveal delay={i * 60}>
                         {(v) => (
                           <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
-                            <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{cat.name}</div>
+                            <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 6 }}>{cat.name}</div>
                             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                               <span style={{ fontSize: 24, fontWeight: 800, color: scoreColor(cat.score), fontVariantNumeric: "tabular-nums" }}>
                                 <CountUp target={cat.score} active={v} />
                               </span>
-                              <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>/100</span>
+                              <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>/100</span>
                               {cat.delta !== 0 && <DeltaChip delta={cat.delta} />}
                             </div>
                             <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", marginTop: 8, overflow: "hidden" }}>
@@ -724,14 +724,14 @@ export function KpProposal({
                   ? <TrendingDown size={22} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
                   : <TrendingUp size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />}
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--primary)", marginBottom: 8 }}>
                     {t.whyImportant}
                   </div>
-                  <p style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.4, margin: "0 0 8px" }}>
+                  <p style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.4, margin: "0 0 8px" }}>
                     {nicheGap > 3 ? t.whyBehindBy(nicheGap) : nicheGap < -3 ? t.whyAheadBy(-nicheGap) : t.whyAtAverage}
                     {aheadCount > 0 && t.whyCompetitorsAhead(aheadCount)}
                   </p>
-                  <p style={{ fontSize: 14.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
+                  <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
                     {t.whyBody(sevCounts.critical, opportunityCount)}
                   </p>
                   <button onClick={() => scrollTo(pilotOffer ? primaryCtaId : "plan")} style={{
@@ -751,7 +751,7 @@ export function KpProposal({
           <Section id="pilot-strengths" index={sectionNo["pilot-strengths"]} title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
             {/* Легенда достоверности — как читать весь отчёт */}
             <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
               {([
                 ["fact", t.evidenceLegendFact], ["estimate", t.evidenceLegendEstimate], ["forecast", t.evidenceLegendForecast],
               ] as Array<[Evidence, string]>).map(([level, desc]) => (
@@ -771,7 +771,7 @@ export function KpProposal({
                         <EvidenceBadge level={s.evidence} locale={locale} />
                       </div>
                       <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
-                      <div style={{ fontSize: 13.5, lineHeight: 1.5, display: "flex", gap: 8 }}>
+                      <div style={{ fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8 }}>
                         <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
                         <span><b style={{ color: "var(--success)" }}>{t.weRelyOnThis}</b> {s.leverage}</span>
                       </div>
@@ -787,33 +787,55 @@ export function KpProposal({
         {pilotOffer && (
           <Section id="findings" index={sectionNo["findings"]} band title={t.findingsTitle} subtitle={t.findingsSubtitle}>
             <div style={{ display: "grid", gap: 14 }}>
-              {PD.findings.map((f, i) => (
+              {(() => {
+                // Порядок находок задаёт генерация («сначала критичные»), поэтому
+                // видимыми оставляем первые — они же самые весомые.
+                const VISIBLE = 4;
+                const head = PD.findings.slice(0, VISIBLE);
+                const tail = PD.findings.slice(VISIBLE);
+                const renderFinding = (f: typeof PD.findings[number], i: number) => (
                 <Reveal key={i} delay={Math.min(i, 6) * 50}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: `4px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}` }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-                        <div style={{ fontSize: 16.5, fontWeight: 800, lineHeight: 1.3, flex: 1, minWidth: 220 }}>{f.title}</div>
-                        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: f.severity === "critical" ? "var(--destructive)" : "var(--warning)", border: `1px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}`, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3, flex: 1, minWidth: 220 }}>{f.title}</div>
+                        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: f.severity === "critical" ? "var(--destructive)" : "var(--warning)", border: `1px solid ${f.severity === "critical" ? "var(--destructive)" : "var(--warning)"}`, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap" }}>
                           {f.severity === "critical" ? t.severityCritical : t.severityWarning}
                         </span>
                         <EvidenceBadge level={f.evidence} locale={locale} />
                       </div>
-                      <div style={{ fontSize: 13.5, lineHeight: 1.55, padding: "10px 14px", background: "var(--muted)", borderRadius: 8, marginBottom: 10 }}>{f.fact}</div>
-                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 12px" }}>{f.why}</p>
+                      <div style={{ fontSize: 14, lineHeight: 1.55, padding: "10px 14px", background: "var(--muted)", borderRadius: 8, marginBottom: 10 }}>{f.fact}</div>
+                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 12px" }}>{f.why}</p>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
                         <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
-                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--primary)", marginBottom: 4 }}>{t.whatToDo}</div>
-                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.action}</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--primary)", marginBottom: 4 }}>{t.whatToDo}</div>
+                          <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{f.action}</div>
                         </div>
                         <div style={{ borderRadius: 8, padding: "10px 14px", background: "color-mix(in srgb, var(--success) 8%, transparent)" }}>
-                          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>{t.whatItGives} <span style={{ fontWeight: 600, opacity: 0.8 }}>· {t.forecastSuffix}</span></div>
-                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>{f.effect}</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", marginBottom: 4 }}>{t.whatItGives} <span style={{ fontWeight: 600, opacity: 0.8 }}>· {t.forecastSuffix}</span></div>
+                          <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{f.effect}</div>
                         </div>
                       </div>
                     </div>
                   )}
                 </Reveal>
-              ))}
+                );
+                return (
+                  <>
+                    {head.map(renderFinding)}
+                    {tail.length > 0 && (
+                      <MoreItems
+                        label={t.showMoreFindings(tail.length)}
+                        collapseLabel={t.collapseFindings}
+                      >
+                        <div style={{ display: "grid", gap: 14 }}>
+                          {tail.map((f, i) => renderFinding(f, i + VISIBLE))}
+                        </div>
+                      </MoreItems>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </Section>
         )}
@@ -823,7 +845,7 @@ export function KpProposal({
           <Section id="findings" index={sectionNo["findings"]} band title="Где вы теряете клиентов" subtitle="Проблемы по трём каналам — сайт, соцсети и видимость в нейросетях — и как мы их закрываем">
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
               <ProportionBar critical={sevCounts.critical} warning={sevCounts.warning} ok={sevCounts.ok} />
-              <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+              <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>
                 Всего нашли <b style={{ color: "var(--foreground)" }}>{findings.length}</b> {ruPlural(findings.length, "точку роста", "точки роста", "точек роста")}
                 {sevCounts.critical > 0 && <>, из них <b style={{ color: "var(--destructive)" }}>{sevCounts.critical}</b> критичных</>}
               </div>
@@ -836,8 +858,8 @@ export function KpProposal({
                 <div key={ch} style={{ marginTop: 26 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
                     <meta.icon size={17} style={{ color: "var(--primary)" }} />
-                    <span style={{ fontSize: 15, fontWeight: 800 }}>{meta.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", background: "var(--muted)", borderRadius: 999, padding: "2px 9px" }}>{group.length}</span>
+                    <span style={{ fontSize: 16, fontWeight: 800 }}>{meta.label}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", background: "var(--muted)", borderRadius: 999, padding: "2px 9px" }}>{group.length}</span>
                   </div>
                   <div style={{ display: "grid", gap: 12 }}>
                     {group.map((f, i) => (
@@ -859,7 +881,7 @@ export function KpProposal({
               <div style={{ display: "inline-flex", gap: 4, padding: 4, background: "var(--muted)", borderRadius: 10, marginBottom: 18 }}>
                 {(["mobile", "desktop"] as const).map((tab) => (
                   <button key={tab} onClick={() => setTechTab(tab)} style={{
-                    padding: "6px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    padding: "6px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600,
                     background: techTab === tab ? "var(--card)" : "transparent", color: techTab === tab ? "var(--foreground)" : "var(--muted-foreground)",
                     transition: "background 0.2s var(--ease), color 0.2s var(--ease)",
                   }}>{tab === "mobile" ? t.tabMobile : t.tabDesktop}</button>
@@ -887,7 +909,7 @@ export function KpProposal({
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                       <div style={{
                         width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                        fontWeight: 800, fontSize: 13,
+                        fontWeight: 800, fontSize: 12.5,
                         background: i < 3 ? "color-mix(in srgb, var(--primary) 16%, transparent)" : "transparent",
                         color: i < 3 ? "var(--primary)" : "var(--muted-foreground)",
                       }}>{i + 1}</div>
@@ -934,21 +956,21 @@ export function KpProposal({
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                         <Swords size={18} style={{ color: "var(--primary)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 16.5, fontWeight: 800 }}>{r.name}</span>
+                        <span style={{ fontSize: 16, fontWeight: 800 }}>{r.name}</span>
                         <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{r.url}</span>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.strongIn}</div>
-                          <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.strength}</div>
+                          <div style={{ fontSize: 14, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.strength}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.weakSpot}</div>
-                          <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.weakness}</div>
+                          <div style={{ fontSize: 14, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{r.weakness}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 5 }}>{t.whatWeTake}</div>
-                          <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{r.steal}</div>
+                          <div style={{ fontSize: 14, lineHeight: 1.5 }}>{r.steal}</div>
                         </div>
                       </div>
                     </div>
@@ -958,7 +980,7 @@ export function KpProposal({
             </div>
             <div className="ds-card" style={{ padding: "18px 20px", marginTop: 14, borderLeft: "4px solid var(--success)", display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>{PD.trump}</p>
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>{PD.trump}</p>
             </div>
           </Section>
         )}
@@ -977,7 +999,7 @@ export function KpProposal({
                       {(v) => (
                         <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                           <Ring value={score} size={64} stroke={6} active={v} />
-                          <div style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", marginTop: 4 }}>{LLM_LABELS[llm]}</div>
+                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", textAlign: "center", marginTop: 4 }}>{LLM_LABELS[llm]}</div>
                         </div>
                       )}
                     </Reveal>
@@ -992,8 +1014,8 @@ export function KpProposal({
                       <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--primary)" }}>
                         <Bot size={18} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.title}</div>
-                          <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 4 }}>{r.description}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{r.title}</div>
+                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 4 }}>{r.description}</div>
                         </div>
                       </div>
                     )}
@@ -1010,7 +1032,7 @@ export function KpProposal({
             <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
               <Bot size={22} style={{ color: aiPresenceColor(aiPerc.knowledgePresence), flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>{t.aiPresenceLabel}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 4 }}>{t.aiPresenceLabel}</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: aiPresenceColor(aiPerc.knowledgePresence) }}>
                   {aiPerc.knowledgePresence === "strong" ? t.aiPresenceStrong
                     : aiPerc.knowledgePresence === "moderate" ? t.aiPresenceModerate
@@ -1021,14 +1043,14 @@ export function KpProposal({
               {aiMentions != null && (
                 <div style={{ textAlign: "center", paddingLeft: 18, borderLeft: "1px solid var(--border)" }}>
                   <div style={{ fontSize: 40, fontWeight: 850, lineHeight: 1, color: aiMentions === 0 ? "var(--destructive)" : "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>{aiMentions}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 4, maxWidth: 150 }}>{t.aiMentionsSuffix}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4, maxWidth: 150 }}>{t.aiMentionsSuffix}</div>
                 </div>
               )}
             </div>
             {aiMentions === 0 && (
               <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 18, display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--destructive)" }}>
                 <AlertTriangle size={18} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
-                <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>
+                <p style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
                   {t.aiZeroMentionsWarning}
                 </p>
               </div>
@@ -1045,7 +1067,7 @@ export function KpProposal({
                   {(v) => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                       <Ring value={s ?? 0} size={64} stroke={6} active={v} />
-                      <div style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>{label}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", textAlign: "center" }}>{label}</div>
                     </div>
                   )}
                 </Reveal>
@@ -1053,7 +1075,7 @@ export function KpProposal({
             </div>
             {aiPerc.sampleAnswer && (
               <div className="ds-card" style={{ padding: "16px 18px", marginBottom: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>{t.aiSampleAnswerLabel}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 8 }}>{t.aiSampleAnswerLabel}</div>
                 <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, fontStyle: "italic", color: "var(--foreground)" }}>{locale === "de" ? `„${aiPerc.sampleAnswer}"` : `«${aiPerc.sampleAnswer}»`}</p>
               </div>
             )}
@@ -1081,14 +1103,14 @@ export function KpProposal({
           <Section id="pilot-social" index={sectionNo["pilot-social"]} band title={t.socialTitle} subtitle={t.socialSubtitle}>
             {PD.socialAudit.intro && (
               <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
-                <div style={{ fontSize: 15, lineHeight: 1.6 }}>{PD.socialAudit.intro}</div>
+                <div style={{ fontSize: 16, lineHeight: 1.6 }}>{PD.socialAudit.intro}</div>
               </div>
             )}
             <div style={{ display: "grid", gap: 12 }}>
               {PD.socialAudit.networks.map((n, i) => (
                 <div key={i} className="ds-card" style={{ padding: "18px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                    <span style={{ fontSize: 16.5, fontWeight: 800 }}>{n.name}</span>
+                    <span style={{ fontSize: 16, fontWeight: 800 }}>{n.name}</span>
                     <EvidenceBadge level={n.evidence} locale={locale} />
                     {n.url && (
                       <a href={n.url} target="_blank" rel="noopener noreferrer"
@@ -1097,10 +1119,10 @@ export function KpProposal({
                       </a>
                     )}
                   </div>
-                  <div style={{ fontSize: 14.5, fontWeight: 650, marginBottom: 6 }}>{n.stats}</div>
-                  {n.verdict && <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--muted-foreground)", marginBottom: 6 }}>{n.verdict}</div>}
+                  <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 6 }}>{n.stats}</div>
+                  {n.verdict && <div style={{ fontSize: 14, lineHeight: 1.6, color: "var(--muted-foreground)", marginBottom: 6 }}>{n.verdict}</div>}
                   {n.action && (
-                    <div style={{ fontSize: 14.5, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 14, lineHeight: 1.6 }}>
                       <strong>→ </strong>{n.action}
                     </div>
                   )}
@@ -1109,7 +1131,7 @@ export function KpProposal({
             </div>
             {PD.socialAudit.summary && (
               <div className="ds-card" style={{ padding: "18px 22px", marginTop: 14, background: "color-mix(in srgb, var(--primary) 7%, transparent)" }}>
-                <div style={{ fontSize: 15, lineHeight: 1.6 }}>{PD.socialAudit.summary}</div>
+                <div style={{ fontSize: 16, lineHeight: 1.6 }}>{PD.socialAudit.summary}</div>
               </div>
             )}
           </Section>
@@ -1122,14 +1144,14 @@ export function KpProposal({
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <BrainCircuit size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 10px" }}>{PD.geo.intro}</p>
-                  <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PD.geo.whyNow}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 10px" }}>{PD.geo.intro}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PD.geo.whyNow}</p>
                 </div>
               </div>
             </div>
 
             {/* Что вознаграждает каждый ассистент */}
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.geoAssistantRewardsTitle}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, alignItems: "stretch" }}>
@@ -1139,9 +1161,9 @@ export function KpProposal({
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
                         <Bot size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 14.5, fontWeight: 800 }}>{a.name}</span>
+                        <span style={{ fontSize: 14, fontWeight: 800 }}>{a.name}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.rewards}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.rewards}</div>
                     </div>
                   )}
                 </Reveal>
@@ -1149,7 +1171,7 @@ export function KpProposal({
             </div>
 
             {/* Рычаги цитируемости */}
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.geoLeversTitle}
             </div>
             <div style={{ display: "grid", gap: 10 }}>
@@ -1157,10 +1179,10 @@ export function KpProposal({
                 <Reveal key={i} delay={i * 40}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 999, background: "color-mix(in srgb, var(--primary) 15%, transparent)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                      <div style={{ width: 24, height: 24, borderRadius: 999, background: "color-mix(in srgb, var(--primary) 15%, transparent)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12.5, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                       <div>
-                        <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 3 }}>{l.title}</div>
-                        <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{l.detail}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3 }}>{l.title}</div>
+                        <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{l.detail}</div>
                       </div>
                     </div>
                   )}
@@ -1172,20 +1194,33 @@ export function KpProposal({
             <div className="ds-card" style={{ padding: "18px 20px", marginTop: 24, borderLeft: "4px solid var(--success)" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
                 <LineChart size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
-                <span style={{ fontSize: 15, fontWeight: 800 }}>{t.geoMethodTitle}</span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{t.geoMethodTitle}</span>
               </div>
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{PD.geo.method.intro}</p>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PD.geo.method.metric}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{t.geoMethodQuestionsLabel}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {PD.geo.method.questions.map((q, i) => (
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--success)", margin: "0 0 10px" }}>{PD.geo.method.metric}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{t.geoMethodQuestionsLabel}</div>
+              {/* Контрольных вопросов 6-8, и все они — методическая деталь:
+                  важна сама методика, а полный список нужен въедливому
+                  читателю. Три показываем, остальное по кнопке. */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {PD.geo.method.questions.slice(0, 3).map((q, i) => (
                   <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>{locale === "de" ? `„${q}"` : `«${q}»`}</span>
                 ))}
+                {PD.geo.method.questions.length > 3 && (
+                  <MoreItems
+                    label={t.showMoreQuestions(PD.geo.method.questions.length)}
+                    collapseLabel={t.collapseQuestions}
+                  >
+                    {PD.geo.method.questions.slice(3).map((q, i) => (
+                      <span key={i} style={{ fontSize: 12.5, background: "var(--muted)", borderRadius: 999, padding: "5px 12px", color: "var(--foreground)" }}>{locale === "de" ? `„${q}"` : `«${q}»`}</span>
+                    ))}
+                  </MoreItems>
+                )}
               </div>
             </div>
 
             {/* Прогноз GEO по месяцам */}
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.geoForecastTitle}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
@@ -1197,7 +1232,7 @@ export function KpProposal({
                         <span style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{f.month}</span>
                         <EvidenceBadge level={f.evidence} locale={locale} />
                       </div>
-                      <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{f.text}</div>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted-foreground)" }}>{f.text}</div>
                     </div>
                   )}
                 </Reveal>
@@ -1223,7 +1258,7 @@ export function KpProposal({
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 18px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 14.5 }}>{r.keyword}</span>
+                        <span style={{ fontSize: 14 }}>{r.keyword}</span>
                         {r.status === "done" && r.position != null ? (
                           <span style={{ fontWeight: 800, fontSize: 18, color: r.position <= 3 ? "var(--success)" : r.position <= 10 ? "var(--warning)" : "var(--destructive)", fontVariantNumeric: "tabular-nums" }}>
                             #{r.position}
@@ -1258,7 +1293,7 @@ export function KpProposal({
                     {() => (
                       <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start", borderLeft: "4px solid var(--success)" }}>
                         <Rocket size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-                        <span style={{ fontSize: 15, lineHeight: 1.45 }}>{o}</span>
+                        <span style={{ fontSize: 16, lineHeight: 1.45 }}>{o}</span>
                       </div>
                     )}
                   </Reveal>
@@ -1288,7 +1323,7 @@ export function KpProposal({
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", display: "flex", gap: 16, position: "relative", zIndex: 1 }}>
                       <div style={{ width: 38, height: 38, borderRadius: 999, background: "var(--primary)", color: "var(--primary-foreground)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0, boxShadow: "0 0 0 4px var(--background)" }}>{i + 1}</div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{ph.title}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>{ph.title}</div>
                         <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 5 }}>
                           {ph.items.map((it, j) => <li key={j} style={{ fontSize: 14, lineHeight: 1.45, color: "var(--foreground)" }}>{it}</li>)}
                         </ul>
@@ -1317,7 +1352,7 @@ export function KpProposal({
                         <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "rgba(255,255,255,0.12)" }}>
                           <div style={{ fontSize: 12.5, opacity: 0.85, marginBottom: 6 }}>{t.marketerInStaff}</div>
                           <div style={{ fontSize: 26, fontWeight: 850, textDecoration: "line-through", textDecorationThickness: 2, opacity: 0.9 }}>{sv.marketerPrice}</div>
-                          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>{t.marketerNote}</div>
+                          <div style={{ fontSize: 12.5, opacity: 0.8, marginTop: 6 }}>{t.marketerNote}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           <ArrowRight size={24} style={{ opacity: 0.75 }} />
@@ -1325,7 +1360,7 @@ export function KpProposal({
                         <div style={{ flex: 1, minWidth: 200, padding: "16px 18px", borderRadius: 14, background: "#fff", color: "var(--primary)" }}>
                           <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 6, fontWeight: 700 }}>{t.ourTeamLabel}</div>
                           <div style={{ fontSize: 30, fontWeight: 850 }}>{sv.ourPrice}</div>
-                          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>{sv.note || t.ourNoteFallback}</div>
+                          <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 6 }}>{sv.note || t.ourNoteFallback}</div>
                         </div>
                       </div>
                     </div>
@@ -1345,7 +1380,7 @@ export function KpProposal({
                   {() => (
                     <div className="ds-card" style={{ padding: "22px 24px", border: "2px solid var(--primary)", boxShadow: "0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent)" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 999, background: "var(--primary)", color: "var(--primary-foreground)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>{o.n}</div>
+                        <div style={{ width: 34, height: 34, borderRadius: 999, background: "var(--primary)", color: "var(--primary-foreground)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flexShrink: 0 }}>{o.n}</div>
                         <div style={{ flex: 1, minWidth: 200 }}>
                           <div style={{ fontSize: 19, fontWeight: 850, lineHeight: 1.25 }}>{o.name}</div>
                           <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 2 }}>{o.priceNote}</div>
@@ -1356,14 +1391,14 @@ export function KpProposal({
                         <div style={{ display: "flex", gap: 18, alignItems: "center", justifyContent: "center", marginBottom: 16, flexWrap: "wrap", padding: "14px 10px", borderRadius: 12, background: "var(--muted)" }}>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <Ring value={43} size={104} stroke={10} active />
-                            <div style={{ fontSize: 12, fontWeight: 700 }}>{o.before.label}</div>
-                            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{o.before.value}</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 700 }}>{o.before.label}</div>
+                            <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{o.before.value}</div>
                           </div>
                           <ArrowRight size={26} style={{ color: "var(--primary)", flexShrink: 0 }} />
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <Ring value={92} size={104} stroke={10} active />
-                            <div style={{ fontSize: 12, fontWeight: 700 }}>{o.after.label}</div>
-                            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{o.after.value}</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 700 }}>{o.after.label}</div>
+                            <div style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{o.after.value}</div>
                           </div>
                         </div>
                       )}
@@ -1372,7 +1407,7 @@ export function KpProposal({
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 8 }}>{t.offerIncludes}</div>
                           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                             {o.what.map((w, j) => (
-                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45 }}>
                                 <Wrench size={13} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {w}
                               </li>
                             ))}
@@ -1382,7 +1417,7 @@ export function KpProposal({
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", color: "var(--success)", textTransform: "uppercase", marginBottom: 8 }}>{t.offerGets}</div>
                           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                             {o.gets.map((g, j) => (
-                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45 }}>
                                 <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {g}
                               </li>
                             ))}
@@ -1398,7 +1433,7 @@ export function KpProposal({
               ))}
             </div>
             {/* Месячные направления — цены партнёра; он-пейдж оптимизация входит в СЕО+ГЕО */}
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.offerMonthlyLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
@@ -1406,11 +1441,11 @@ export function KpProposal({
                 <Reveal key={m.name} delay={i * 70}>
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>{m.name}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>{m.name}</div>
                       <div style={{ fontSize: 23, fontWeight: 850, marginBottom: 12 }}>{m.price}</div>
                       <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
                         {m.items.map((it, j) => (
-                          <li key={j} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                          <li key={j} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
                             <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {it}
                           </li>
                         ))}
@@ -1422,7 +1457,7 @@ export function KpProposal({
             </div>
 
             {/* Что происходит по неделям после старта — снимает страх «заплачу и тишина» */}
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {t.offerTimelineLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
@@ -1431,7 +1466,7 @@ export function KpProposal({
                   {() => (
                     <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px" }}>
                       <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--primary)", marginBottom: 6 }}>{t.week}</div>
-                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>{t.text}</div>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{t.text}</div>
                     </div>
                   )}
                 </Reveal>
@@ -1455,7 +1490,7 @@ export function KpProposal({
         {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
         {pilotOffer && (
           <Section id="seo-preview" index={sectionNo["seo-preview"]} band title={t.formatTitle} subtitle={t.formatSubtitle}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
               {t.articlesExampleLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 16, alignItems: "start" }}>
@@ -1473,19 +1508,19 @@ export function KpProposal({
                           <FileText size={18} style={{ color: "var(--primary)", marginBottom: 10, flexShrink: 0 }} />
                           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{isOpen ? t.articleCollapse : t.articleExpand}</span>
                         </div>
-                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
-                        <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{a.title}</div>
+                        <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{a.excerpt}</div>
                         {isOpen && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                             {a.body.split("\n\n").map((para, pi) => (
-                              <p key={pi} style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--foreground)", margin: pi === 0 ? "0 0 10px" : "0 0 10px" }}>{para}</p>
+                              <p key={pi} style={{ fontSize: 14, lineHeight: 1.6, color: "var(--foreground)", margin: pi === 0 ? "0 0 10px" : "0 0 10px" }}>{para}</p>
                             ))}
                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "14px 0 8px" }}>
                               {t.articleWhySeo}
                             </div>
                             <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
                               {a.geoNotes.map((note, ni) => (
-                                <li key={ni} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                                <li key={ni} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
                                   <Sparkles size={13} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} /> {note}
                                 </li>
                               ))}
@@ -1500,19 +1535,19 @@ export function KpProposal({
             </div>
 
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 32, borderLeft: "4px solid var(--success)" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
                 {t.articleMechanicsLabel}
               </div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
                 {PD.articleMechanics.map((m, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 14, lineHeight: 1.5 }}>
                     <CheckCircle2 size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {m}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
               {t.month1Label}
             </div>
             <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 32 }}>
@@ -1525,12 +1560,12 @@ export function KpProposal({
               </ul>
             </div>
 
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
               {t.socialFactoryLabel}
             </div>
             <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Rocket size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, margin: 0 }}>
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>
                 {t.socialFactoryText}
               </p>
             </div>
@@ -1543,16 +1578,16 @@ export function KpProposal({
           <Section id="pilot-forecast" index={sectionNo["pilot-forecast"]} title={t.forecastTitle} subtitle={t.forecastSubtitle}>
             {/* Формула + допущения */}
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{t.howWeCalculate}</div>
-              <div style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PD.forecast.formula}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{t.howWeCalculate}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PD.forecast.formula}</div>
               <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
                 {PD.forecast.assumptions.map((a, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
                     <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
                   </li>
                 ))}
               </ul>
-              <div style={{ fontSize: 13, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
+              <div style={{ fontSize: 12.5, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
                 <b>{t.exampleCalc}</b> {PD.forecast.example}
               </div>
             </div>
@@ -1565,14 +1600,14 @@ export function KpProposal({
                     <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
                         <LineChart size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 3 }} />
-                        <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3, flex: 1 }}>{s.name}</div>
                         <EvidenceBadge level="forecast" locale={locale} />
                       </div>
-                      <p style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
+                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 12px" }}>{s.desc}</p>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                         {[{ m: t.month1Short, v: s.m1 }, { m: t.month3Short, v: s.m3 }, { m: t.month6Short, v: s.m6 }].map((c, j) => (
                           <div key={j} style={{ background: "var(--muted)", borderRadius: 8, padding: "10px 12px" }}>
-                            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", marginBottom: 4 }}>{c.m}</div>
                             <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{c.v}</div>
                           </div>
                         ))}
@@ -1597,7 +1632,7 @@ export function KpProposal({
               return (
                 <div className="kp-cta-panel" style={{ marginTop: 16, padding: "26px 28px", borderRadius: "var(--radius-xl, 20px)", color: "var(--primary-foreground)", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "relative" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>{t.summaryTitle}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9, marginBottom: 14 }}>{t.summaryTitle}</div>
                     <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
                       <div>
                         <div style={{ fontSize: 32, fontWeight: 850, lineHeight: 1.1 }}>+{PD.forecast.totalLow}–{PD.forecast.totalHigh}</div>
@@ -1614,7 +1649,7 @@ export function KpProposal({
                         <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4 }}>{ue.checkNote}</div>
                       </div>
                     </div>
-                    <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>{ue.entry}</p>
+                    <p style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5, margin: 0 }}>{ue.entry}</p>
                   </div>
                 </div>
               );
@@ -1637,11 +1672,11 @@ export function KpProposal({
               {() => (
                 <div className="ds-card" style={{ padding: "40px 32px", textAlign: "center" }}>
                   <Lock size={28} style={{ color: "var(--muted-foreground)", marginBottom: 14 }} />
-                  <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Цены открываются по запросу</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Цены открываются по запросу</div>
                   <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 20, maxWidth: 420, marginInline: "auto", lineHeight: 1.5 }}>
                     Нажмите кнопку — покажем пакеты услуг и стоимость под ваши задачи.
                   </div>
-                  <button onClick={() => { trackKpEvent("click", "reveal-pricing"); revealPricing(); }} className="ds-btn ds-btn-primary" style={{ height: 46, padding: "0 24px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => { trackKpEvent("click", "reveal-pricing"); revealPricing(); }} className="ds-btn ds-btn-primary" style={{ height: 46, padding: "0 24px", fontSize: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
                     <Eye size={17} /> Получить коммерческое предложение
                   </button>
                 </div>
@@ -1670,7 +1705,7 @@ export function KpProposal({
                           <div style={{ fontSize: 24, fontWeight: 850, margin: "6px 0 14px" }}>{t.price}</div>
                           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
                             {t.items.map((it, j) => (
-                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 13.5, lineHeight: 1.4 }}>
+                              <li key={j} style={{ display: "flex", gap: 8, fontSize: 14, lineHeight: 1.4 }}>
                                 <CheckCircle2 size={16} style={{ color: pkg.accent, flexShrink: 0, marginTop: 1 }} /> {it}
                               </li>
                             ))}
@@ -1696,7 +1731,7 @@ export function KpProposal({
                   {astroRebuild ? (
                     <>
                       <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaAstroTitle}</h2>
-                      <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
+                      <p style={{ fontSize: 16, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
                         {t.finalCtaAstroBody}
                       </p>
                       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
@@ -1711,7 +1746,7 @@ export function KpProposal({
                   ) : (
                     <>
                       <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaGenericTitle}</h2>
-                      <p style={{ fontSize: 17, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
+                      <p style={{ fontSize: 16, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
                         {t.finalCtaGenericBody}
                       </p>
                       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
@@ -1726,7 +1761,7 @@ export function KpProposal({
                     </>
                   )}
                   {pilotOffer && (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13.5, opacity: 0.95 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 14, opacity: 0.95 }}>
                       <ShieldCheck size={16} style={{ flexShrink: 0 }} /> {PD.guarantee}
                     </div>
                   )}
@@ -1759,7 +1794,7 @@ export function KpProposal({
           </Reveal>
           )}
 
-          <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12, marginTop: 24 }}>
+          <div style={{ textAlign: "center", color: "var(--muted-foreground)", fontSize: 12.5, marginTop: 24 }}>
             {pilotClient
               ? "Аудит выполнен вручную командой MarketRadar · данные проверены 15–16 июля 2026 · прогнозы — расчётная модель, помечены как ПРОГНОЗ"
               : pilotOffer
@@ -1857,7 +1892,7 @@ function EvidenceBadge({ level, locale = "ru" }: { level: Evidence; locale?: KpP
   const s = { label, color: EVIDENCE_COLOR[level] };
   return (
     <span style={{
-      display: "inline-block", fontSize: 10.5, fontWeight: 800, letterSpacing: "0.05em",
+      display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em",
       color: s.color, border: `1px solid ${s.color}`, borderRadius: 999, padding: "1px 8px",
       background: `color-mix(in srgb, ${s.color} 10%, transparent)`, whiteSpace: "nowrap",
     }}>{s.label}</span>
@@ -1903,7 +1938,7 @@ function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: P
   return (
     <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-        <div style={{ fontSize: 15, fontWeight: 800 }}>{t.chartTitle}</div>
+        <div style={{ fontSize: 16, fontWeight: 800 }}>{t.chartTitle}</div>
         <EvidenceBadge level="forecast" locale={locale} />
       </div>
       <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 12 }}>{t.chartSubtitle}</div>
@@ -1959,9 +1994,9 @@ function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: P
         {/* Тултип разбивки по наведённому месяцу */}
         {hover != null && (
           <div style={{ position: "absolute", top: 6, right: 6, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", pointerEvents: "none", minWidth: 170 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{months[hover]} · всего ≈ {fmt(totals[hover])}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>{months[hover]} · всего ≈ {fmt(totals[hover])}</div>
             {series.map((s, i) => (
-              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 2 }}>
+              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, marginTop: 2 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: colors[i], flexShrink: 0 }} />
                 <span style={{ color: "var(--muted-foreground)", flex: 1 }}>{s.name}</span>
                 <b style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(s.values[hover])}</b>
@@ -1998,6 +2033,37 @@ function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: P
         </div>
       </details>
     </div>
+  );
+}
+
+/**
+ * Хвост длинного списка под кнопкой.
+ *
+ * Замер живого КП: находки 2 348px, прогноз 2 119px, GEO 1 856px против
+ * 500-800px у остальных секций. Читатель вязнет ровно там, где должен
+ * принимать решение. Первые пункты показываем всегда (в находках они идут
+ * «сначала критичные»), остальное — по запросу.
+ *
+ * Свёрнутое НЕ рендерится вовсе, а не прячется стилями: спрятанное стилями
+ * оставило бы высоту документа прежней, то есть не решило бы задачу.
+ */
+function MoreItems({ label, collapseLabel, children }: { label: string; collapseLabel: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {open && children}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          marginTop: 4, height: 40, padding: "0 18px", fontSize: 14, fontWeight: 700,
+          borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)",
+          color: "var(--foreground)", cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        {open ? collapseLabel : label}
+      </button>
+    </>
   );
 }
 
@@ -2070,7 +2136,7 @@ function DeltaChip({ delta }: { delta: number }) {
   const up = delta > 0;
   const Icon = up ? TrendingUp : delta < 0 ? TrendingDown : Minus;
   const col = up ? "var(--success)" : delta < 0 ? "var(--destructive)" : "var(--muted-foreground)";
-  return <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 12, fontWeight: 700, color: col, marginLeft: 4 }}><Icon size={13} />{Math.abs(delta)}</span>;
+  return <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 12.5, fontWeight: 700, color: col, marginLeft: 4 }}><Icon size={13} />{Math.abs(delta)}</span>;
 }
 
 /** Кольцевой gauge общего назначения (hero-балл, тех-аудит) — параметризованный размер. */
@@ -2092,7 +2158,7 @@ function Ring({ value, size, stroke, color, active, sublabel }: { value: number;
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <div style={{ fontSize: size * 0.25, fontWeight: 850, lineHeight: 1, color: col, fontVariantNumeric: "tabular-nums" }}>{shown}</div>
-          {sublabel && <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4 }}>{sublabel}</div>}
+          {sublabel && <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4 }}>{sublabel}</div>}
         </div>
       </div>
     </div>
@@ -2105,8 +2171,8 @@ function RingTile({ label, value, hint }: { label: string; value: number; hint?:
       {(v) => (
         <div className="ds-card ds-card-interactive" style={{ padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Ring value={value} size={84} stroke={8} active={v} />
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textAlign: "center" }}>{label}</div>
-          {hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", textAlign: "center", lineHeight: 1.4, marginTop: 2 }}>{hint}</div>}
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--foreground)", textAlign: "center" }}>{label}</div>
+          {hint && <div style={{ fontSize: 11, color: "var(--muted-foreground)", textAlign: "center", lineHeight: 1.4, marginTop: 2 }}>{hint}</div>}
         </div>
       )}
     </Reveal>
@@ -2180,7 +2246,7 @@ function ProportionBar({ critical, warning, ok }: { critical: number; warning: n
               </>
             )}
           </div>
-          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{total} находок</span>
+          <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{total} находок</span>
         </div>
       )}
     </Reveal>
@@ -2209,7 +2275,7 @@ function FindingCard({ f, visible }: { f: Finding; visible: boolean }) {
         {f.fix && (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "color-mix(in srgb, var(--success) 10%, transparent)" }}>
             <Wrench size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-            <span style={{ fontSize: 13, lineHeight: 1.4 }}>
+            <span style={{ fontSize: 12.5, lineHeight: 1.4 }}>
               <b style={{ color: "var(--success)" }}>Как исправим:</b> <span style={{ color: "var(--foreground)" }}>{f.fix}</span>
             </span>
           </div>
@@ -2226,19 +2292,19 @@ function TechTile({ label, value, suffix, text, pct, hint }: { label: string; va
     <Reveal>
       {(v) => (
         <div className="ds-card ds-card-interactive" style={{ padding: "16px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--foreground)", marginBottom: 8 }}>{label}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
             <span style={{ fontSize: 26, fontWeight: 800, color: col, fontVariantNumeric: "tabular-nums" }}>
               {text ?? (value != null ? <CountUp target={value} active={v} /> : "—")}
             </span>
-            {suffix && <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{suffix}</span>}
+            {suffix && <span style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>{suffix}</span>}
           </div>
           {pct != null && (
             <div style={{ height: 4, borderRadius: 999, background: "var(--muted)", marginTop: 10, overflow: "hidden" }}>
               <div style={{ width: v ? `${Math.max(3, Math.min(100, pct))}%` : "0%", height: "100%", background: col, borderRadius: 999, transition: "width 0.8s var(--ease)" }} />
             </div>
           )}
-          {hint && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", lineHeight: 1.4, marginTop: 10 }}>{hint}</div>}
+          {hint && <div style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.4, marginTop: 10 }}>{hint}</div>}
         </div>
       )}
     </Reveal>
@@ -2250,15 +2316,15 @@ function MatrixCol({ title, hint, color, recs }: { title: string; hint: string; 
     <div className="ds-card ds-card-interactive" style={{ padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <Zap size={16} style={{ color }} />
-        <span style={{ fontSize: 15, fontWeight: 800 }}>{title}</span>
+        <span style={{ fontSize: 16, fontWeight: 800 }}>{title}</span>
       </div>
-      <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 12 }}>{hint}</div>
+      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginBottom: 12 }}>{hint}</div>
       {recs.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>—</div>
+        <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>—</div>
       ) : (
         <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 10 }}>
           {recs.slice(0, 5).map((r, i) => (
-            <li key={i} style={{ fontSize: 13.5, lineHeight: 1.4, display: "flex", gap: 8 }}>
+            <li key={i} style={{ fontSize: 14, lineHeight: 1.4, display: "flex", gap: 8 }}>
               <span style={{ color, fontWeight: 800, flexShrink: 0 }}>→</span>
               <span>{r.text}</span>
             </li>
@@ -2318,7 +2384,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
             <a href={siteReadyUrl} target="_blank" rel="noopener noreferrer"
               onClick={() => trackKpEvent("click", "astro-open-site")}
               className="ds-btn ds-btn-primary"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 44, padding: "0 20px", fontSize: 14.5, marginTop: 14, textDecoration: "none" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 44, padding: "0 20px", fontSize: 14, marginTop: 14, textDecoration: "none" }}>
               {t.astroOpenSiteBtn} <ArrowRight size={16} />
             </a>
           )}
@@ -2338,9 +2404,9 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           </p>
           {tgConnectUrl && (
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 10px" }}>{t.tgConnectPrompt}</p>
+              <p style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 10px" }}>{t.tgConnectPrompt}</p>
               <a href={tgConnectUrl} target="_blank" rel="noopener noreferrer"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 38, padding: "0 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontWeight: 600, fontSize: 13.5, textDecoration: "none" }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 38, padding: "0 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontWeight: 600, fontSize: 14, textDecoration: "none" }}>
                 {t.tgConnectBtn}
               </a>
             </div>
@@ -2352,7 +2418,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
 
   return (
     <div className="ds-card" style={{ padding: "24px 26px" }}>
-      <p style={{ fontSize: 14.5, lineHeight: 1.6, margin: "0 0 18px", color: "var(--foreground)" }}>
+      <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 18px", color: "var(--foreground)" }}>
         {t.astroPitch}
       </p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -2364,13 +2430,13 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
             onBlur={() => setTouched(true)}
             placeholder={t.astroEmailPlaceholder}
             style={{
-              width: "100%", height: 46, padding: "0 14px", fontSize: 14.5,
+              width: "100%", height: 46, padding: "0 14px", fontSize: 14,
               border: `1px solid ${touched && !emailValid ? "var(--destructive)" : "var(--border)"}`,
               borderRadius: 10, background: "var(--background)", color: "var(--foreground)",
             }}
           />
           {touched && !emailValid && (
-            <div style={{ fontSize: 12, color: "var(--destructive)", marginTop: 6 }}>{t.astroEmailInvalid}</div>
+            <div style={{ fontSize: 12.5, color: "var(--destructive)", marginTop: 6 }}>{t.astroEmailInvalid}</div>
           )}
         </div>
         <input
@@ -2379,7 +2445,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           onChange={(e) => setPhone(e.target.value)}
           placeholder={t.astroPhonePlaceholder}
           style={{
-            flex: "1 1 180px", minWidth: 160, height: 46, padding: "0 14px", fontSize: 14.5,
+            flex: "1 1 180px", minWidth: 160, height: 46, padding: "0 14px", fontSize: 14,
             border: "1px solid var(--border)", borderRadius: 10, background: "var(--background)", color: "var(--foreground)",
           }}
         />
@@ -2387,7 +2453,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           onClick={() => { setTouched(true); if (emailValid && consent) { trackKpEvent("click", "astro-offer-request"); onRequest(email.trim(), phone.trim() || undefined); } }}
           disabled={submitting || !consent}
           className="ds-btn ds-btn-primary"
-          style={{ height: 46, padding: "0 22px", fontSize: 14.5, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, opacity: consent ? 1 : 0.55, cursor: consent ? "pointer" : "not-allowed" }}
+          style={{ height: 46, padding: "0 22px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, opacity: consent ? 1 : 0.55, cursor: consent ? "pointer" : "not-allowed" }}
         >
           {submitting ? t.astroSubmitting : t.astroSubmitBtn} {!submitting && <ArrowRight size={16} />}
         </button>
@@ -2406,7 +2472,7 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           </a>
         </span>
       </label>
-      {error && <div style={{ fontSize: 13, color: "var(--destructive)", marginTop: 10 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12.5, color: "var(--destructive)", marginTop: 10 }}>{error}</div>}
     </div>
   );
 }
@@ -2416,7 +2482,7 @@ function KpEmpty() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--background)", color: "var(--foreground)", padding: 40, textAlign: "center", fontFamily: "system-ui" }}>
       <div>
         <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Нет данных анализа</div>
-        <div style={{ fontSize: 15, color: "var(--muted-foreground)", marginBottom: 24 }}>Запустите анализ компании на платформе — и интерактивный анализ соберётся автоматически.</div>
+        <div style={{ fontSize: 16, color: "var(--muted-foreground)", marginBottom: 24 }}>Запустите анализ компании на платформе — и интерактивный анализ соберётся автоматически.</div>
         <a href="/" className="ds-btn ds-btn-primary" style={{ display: "inline-flex", height: 44, padding: "0 22px", alignItems: "center" }}>На платформу →</a>
       </div>
     </div>
