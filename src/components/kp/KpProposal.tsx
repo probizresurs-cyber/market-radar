@@ -249,6 +249,13 @@ export function KpProposal({
     "pilot-social": t.navSocial, "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
     "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
+  // Номер главы = позиция среди видимых секций. overview и cta — обложка и
+  // финал, они вне нумерации.
+  const sectionNo = useMemo(() => {
+    const m: Record<string, number> = {};
+    SECTIONS.filter((s) => s.id !== "overview" && s.id !== "cta").forEach((s, i) => { m[s.id] = i + 1; });
+    return m;
+  }, [SECTIONS]);
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   // Тарифы скрыты за кнопкой «Получить анализ» — раньше цены висели открыто
@@ -582,8 +589,14 @@ export function KpProposal({
                           <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
                             {t.heroPotentialLabel}
                           </div>
+                          {/* Главная цифра КП. Была clamp(30,44) — на документе
+                              высотой 15 000px и среди 83 карточек она не читалась
+                              как кульминация, хотя это единственное число, ради
+                              которого КП открывают. Display-масштаб + табличные
+                              цифры (чтобы «25–45» не «плясало» при анимации). */}
                           <div style={{
-                            fontSize: "clamp(30px, 7vw, 44px)", fontWeight: 850, lineHeight: 1.05, letterSpacing: "-0.02em",
+                            fontSize: "clamp(40px, 8.2vw, 68px)", fontWeight: 850, lineHeight: 1.0, letterSpacing: "-0.035em",
+                            fontVariantNumeric: "tabular-nums",
                             background: "linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, var(--primary)))",
                             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
                           }}>
@@ -717,7 +730,7 @@ export function KpProposal({
 
         {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) — доверие до боли ─── */}
         {pilotOffer && (
-          <Section id="pilot-strengths" title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
+          <Section id="pilot-strengths" index={sectionNo["pilot-strengths"]} title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
             {/* Легенда достоверности — как читать весь отчёт */}
             <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
@@ -754,7 +767,7 @@ export function KpProposal({
 
         {/* ─── НАХОДКИ: пилот — ручные кейсы «факт → важно → делать → даст» ─── */}
         {pilotOffer && (
-          <Section id="findings" title={t.findingsTitle} subtitle={t.findingsSubtitle}>
+          <Section id="findings" index={sectionNo["findings"]} band title={t.findingsTitle} subtitle={t.findingsSubtitle}>
             <div style={{ display: "grid", gap: 14 }}>
               {PD.findings.map((f, i) => (
                 <Reveal key={i} delay={Math.min(i, 6) * 50}>
@@ -789,7 +802,7 @@ export function KpProposal({
 
         {/* ─── НАХОДКИ (дыры по каналам: сайт / соцсети / ИИ) — не-пилот ─── */}
         {!pilotOffer && findings.length > 0 && (
-          <Section id="findings" title="Где вы теряете клиентов" subtitle="Проблемы по трём каналам — сайт, соцсети и видимость в нейросетях — и как мы их закрываем">
+          <Section id="findings" index={sectionNo["findings"]} band title="Где вы теряете клиентов" subtitle="Проблемы по трём каналам — сайт, соцсети и видимость в нейросетях — и как мы их закрываем">
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
               <ProportionBar critical={sevCounts.critical} warning={sevCounts.warning} ok={sevCounts.ok} />
               <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
@@ -823,7 +836,7 @@ export function KpProposal({
 
         {/* ─── ТЕХ-АУДИТ ─── */}
         {hasTech && (
-          <Section id="tech" title={t.techTitle} subtitle={t.techSubtitle}>
+          <Section id="tech" index={sectionNo["tech"]} title={t.techTitle} subtitle={t.techSubtitle}>
             {lh?.desktop && (
               <div style={{ display: "inline-flex", gap: 4, padding: 4, background: "var(--muted)", borderRadius: 10, marginBottom: 18 }}>
                 {(["mobile", "desktop"] as const).map((tab) => (
@@ -848,7 +861,7 @@ export function KpProposal({
 
         {/* ─── КОНКУРЕНТЫ ─── */}
         {ranking.length > 1 && (
-          <Section id="competitors" title={t.competitorsTitle} subtitle={t.competitorsSubtitle}>
+          <Section id="competitors" index={sectionNo["competitors"]} band title={t.competitorsTitle} subtitle={t.competitorsSubtitle}>
             <div style={{ display: "grid", gap: 10 }}>
               {ranking.map((r, i) => (
                 <Reveal key={i} delay={Math.min(i, 8) * 55}>
@@ -895,7 +908,7 @@ export function KpProposal({
         {/* ─── ЛИДЕРЫ НИШИ — разбор конкурентов вручную; скрыт, если для этого
             клиента ручной разбор ещё не проводился (rivals пуст) ─── */}
         {pilotOffer && PD.rivals.length > 0 && (
-          <Section id="pilot-rivals" title={t.rivalsTitle} subtitle={t.rivalsSubtitle}>
+          <Section id="pilot-rivals" index={sectionNo["pilot-rivals"]} band title={t.rivalsTitle} subtitle={t.rivalsSubtitle}>
             <div style={{ display: "grid", gap: 14 }}>
               {PD.rivals.map((r, i) => (
                 <Reveal key={i} delay={i * 80}>
@@ -935,7 +948,7 @@ export function KpProposal({
         {/* ─── AI-ВИДИМОСТЬ ─── */}
         {/* Полный аудит (отдельный прогон) — если он есть, показываем богатую версию. */}
         {aiVisibility && aiVisibility.status === "done" && aiVisibility.totalScore != null ? (
-          <Section id="ai-visibility" title={t.aiVisibilityTitleFull} subtitle={t.aiVisibilitySubtitleFull}>
+          <Section id="ai-visibility" index={sectionNo["ai-visibility"]} title={t.aiVisibilityTitleFull} subtitle={t.aiVisibilitySubtitleFull}>
             <div className="kp-hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,220px) 1fr", gap: 28, alignItems: "center" }}>
               <Reveal>{(v) => <Ring value={aiVisibility.totalScore ?? 0} size={150} stroke={12} active={v} sublabel={t.aiVisibilityRingLabel} />}</Reveal>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
@@ -975,7 +988,7 @@ export function KpProposal({
           // Fallback: отдельного аудита нет, но в основном анализе всегда есть
           // aiPerception (как нейросети воспринимают бренд) — показываем его,
           // чтобы блок AI-видимости не пропадал. Все данные реальные (из анализа).
-          <Section id="ai-visibility" title={t.aiVisibilityTitleFallback} subtitle={t.aiVisibilitySubtitleFallback}>
+          <Section id="ai-visibility" index={sectionNo["ai-visibility"]} title={t.aiVisibilityTitleFallback} subtitle={t.aiVisibilitySubtitleFallback}>
             <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 18, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", borderLeft: `4px solid ${aiPresenceColor(aiPerc.knowledgePresence)}` }}>
               <Bot size={22} style={{ color: aiPresenceColor(aiPerc.knowledgePresence), flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -1047,7 +1060,7 @@ export function KpProposal({
             Секция появляется только если генерация вернула socialAudit:
             у ручных пилотов его нет, и рисовать пустой блок незачем. */}
         {pilotOffer && PD.socialAudit && (PD.socialAudit.networks.length > 0 || PD.socialAudit.intro) && (
-          <Section id="pilot-social" title={t.socialTitle} subtitle={t.socialSubtitle}>
+          <Section id="pilot-social" index={sectionNo["pilot-social"]} band title={t.socialTitle} subtitle={t.socialSubtitle}>
             {PD.socialAudit.intro && (
               <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
                 <div style={{ fontSize: 15, lineHeight: 1.6 }}>{PD.socialAudit.intro}</div>
@@ -1086,7 +1099,7 @@ export function KpProposal({
 
         {/* ─── GEO-ВИДИМОСТЬ — глубокий разбор (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-geo" title={t.geoTitle} subtitle={t.geoSubtitle}>
+          <Section id="pilot-geo" index={sectionNo["pilot-geo"]} title={t.geoTitle} subtitle={t.geoSubtitle}>
             <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <BrainCircuit size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
@@ -1217,7 +1230,7 @@ export function KpProposal({
 
         {/* ─── ТОЧКИ РОСТА ─── */}
         {!pilotOffer && (niche?.opportunities?.length || recs.length > 0) && (
-          <Section id="growth" title="Точки роста" subtitle="Возможности ниши и приоритизация задач по эффекту и усилиям">
+          <Section id="growth" index={sectionNo["growth"]} title="Точки роста" subtitle="Возможности ниши и приоритизация задач по эффекту и усилиям">
             {niche?.opportunities?.length > 0 && (
               <div style={{ display: "grid", gap: 10, marginBottom: 28 }}>
                 {niche.opportunities.slice(0, 4).map((o, i) => (
@@ -1244,7 +1257,7 @@ export function KpProposal({
 
         {/* ─── ПЛАН ─── */}
         {!pilotOffer && plan.length > 0 && (
-          <Section id="plan" title="План работ" subtitle="Как мы предлагаем двигаться — поэтапно, от быстрых результатов к росту">
+          <Section id="plan" index={sectionNo["plan"]} band title="План работ" subtitle="Как мы предлагаем двигаться — поэтапно, от быстрых результатов к росту">
             <div style={{ display: "grid", gap: 14, position: "relative" }}>
               {plan.length > 1 && (
                 <div style={{ position: "absolute", left: 19, top: 38, bottom: 38, width: 2, background: "var(--border)", zIndex: 0 }} />
@@ -1305,7 +1318,7 @@ export function KpProposal({
 
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-offer" title={t.offerStartTitle} subtitle={t.offerStartSubtitle}>
+          <Section id="pilot-offer" index={sectionNo["pilot-offer"]} title={t.offerStartTitle} subtitle={t.offerStartSubtitle}>
             <div style={{ display: "grid", gap: 16 }}>
               {PD.offers.map((o) => (
                 <Reveal key={o.n} delay={o.n * 80}>
@@ -1421,7 +1434,7 @@ export function KpProposal({
 
         {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="seo-preview" title={t.formatTitle} subtitle={t.formatSubtitle}>
+          <Section id="seo-preview" index={sectionNo["seo-preview"]} band title={t.formatTitle} subtitle={t.formatSubtitle}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
               {t.articlesExampleLabel}
             </div>
@@ -1507,7 +1520,7 @@ export function KpProposal({
         {/* ─── ПРОГНОЗ РОСТА — расчётная модель (только pilotOffer). Идёт после
             «Формата работ»: пик выгоды подводит прямо к условиям и заявке. ─── */}
         {pilotOffer && (
-          <Section id="pilot-forecast" title={t.forecastTitle} subtitle={t.forecastSubtitle}>
+          <Section id="pilot-forecast" index={sectionNo["pilot-forecast"]} title={t.forecastTitle} subtitle={t.forecastSubtitle}>
             {/* Формула + допущения */}
             <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{t.howWeCalculate}</div>
@@ -1591,14 +1604,14 @@ export function KpProposal({
 
         {/* ─── НОВАЯ ВЕРСИЯ САЙТА (Astro) — Фаза 3, только когда прокинут astroRebuild ─── */}
         {pilotOffer && astroRebuild && (
-          <Section id="astro-offer" title={t.astroOfferTitle} subtitle={t.astroOfferSubtitle}>
+          <Section id="astro-offer" index={sectionNo["astro-offer"]} band title={t.astroOfferTitle} subtitle={t.astroOfferSubtitle}>
             <AstroOfferPanel astroRebuild={astroRebuild} locale={locale} />
           </Section>
         )}
 
         {/* ─── ТАРИФЫ — скрыты на пилоте: цены уже даны в «С чего предлагаем начать» ─── */}
         {!pilotOffer && (
-        <Section id="pricing" title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
+        <Section id="pricing" index={sectionNo["pricing"]} title="Что мы предлагаем" subtitle="Пакеты услуг MarketRadar — можно взять по отдельности или связкой">
           {!pricingRevealed ? (
             <Reveal>
               {() => (
@@ -1968,15 +1981,48 @@ function PilotForecastChart({ isDark, data, locale }: { isDark: boolean; data: P
   );
 }
 
-function Section({ id, title, subtitle, children }: { id: string; title?: string; subtitle?: string; children: React.ReactNode }) {
+/**
+ * Секция КП. Раньше все 14 секций рисовались одинаково: paddingTop 64 и
+ * заголовок 28px. На документе высотой 15 000px это читалось как бесконечная
+ * лента — глазу не за что зацепиться, «где я и сколько осталось» непонятно.
+ *
+ * Что добавлено:
+ *  - порядковый номер секции (01, 02, …) — редакционная структура, дающая
+ *    ощущение прохождения документа;
+ *  - тонкая линия над заголовком — визуальная «глава»;
+ *  - чередующаяся полноширинная подложка (band) — разбивает ленту на блоки,
+ *    не трогая ширину контента;
+ *  - заголовок стал жидким (clamp) и крупнее: 28px терялись среди 83 карточек.
+ */
+function Section({
+  id, title, subtitle, index, band, children,
+}: { id: string; title?: string; subtitle?: string; index?: number; band?: boolean; children: React.ReactNode }) {
   return (
-    <section id={`kp-${id}`} style={{ paddingTop: 64, scrollMarginTop: 76 }}>
+    <section id={`kp-${id}`} className={band ? "kp-section kp-section-band" : "kp-section"} style={{ scrollMarginTop: 76 }}>
       {(title || subtitle) && (
         <Reveal>
           {() => (
             <>
-              {title && <h2 style={{ fontSize: 28, fontWeight: 850, margin: "0 0 6px", letterSpacing: "-0.02em" }}>{title}</h2>}
-              {subtitle && <p style={{ fontSize: 15.5, color: "var(--muted-foreground)", margin: "0 0 24px", maxWidth: 720, lineHeight: 1.5 }}>{subtitle}</p>}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                {typeof index === "number" && (
+                  <span style={{
+                    fontSize: 12.5, fontWeight: 800, letterSpacing: "0.12em",
+                    color: "var(--primary)", fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {String(index).padStart(2, "0")}
+                  </span>
+                )}
+                <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              </div>
+              {title && (
+                <h2 style={{
+                  fontSize: "clamp(28px, 3.4vw, 38px)", fontWeight: 850,
+                  margin: "0 0 8px", letterSpacing: "-0.025em", lineHeight: 1.12,
+                }}>
+                  {title}
+                </h2>
+              )}
+              {subtitle && <p style={{ fontSize: 16, color: "var(--muted-foreground)", margin: "0 0 26px", maxWidth: 720, lineHeight: 1.55 }}>{subtitle}</p>}
             </>
           )}
         </Reveal>
@@ -2360,6 +2406,41 @@ function KpEmpty() {
 function ResponsiveCss() {
   return <style>{`
     .kp-navscroll::-webkit-scrollbar { display: none; }
+
+    /* ── Ритм документа ──────────────────────────────────────────────
+       КП — это 15 000px в одну ленту с одинаковым отступом 64px у всех
+       14 секций. Читалось как бесконечный скролл без ориентиров. Полоса
+       через одну секцию разбивает ленту на главы, не меняя ширину
+       контента: подложка уходит на всю ширину окна через псевдоэлемент,
+       поэтому сетку и максимальную ширину трогать не пришлось. */
+    .kp-section { padding-top: 72px; padding-bottom: 8px; position: relative; }
+    .kp-section-band { padding-top: 72px; padding-bottom: 64px; }
+    .kp-section-band::before {
+      content: ""; position: absolute; z-index: -1;
+      top: 0; bottom: 0; left: 50%; width: 100vw; margin-left: -50vw;
+      background: color-mix(in srgb, var(--primary) 3.5%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    }
+
+    /* ── Карточки ────────────────────────────────────────────────────
+       83 карточки с одинаковым радиусом 8px и плоской границей читались
+       как «дашборд», а не как коммерческий документ. Мягче радиус, тень
+       вместо жёсткой рамки, отклик на курсор — цена та же (это класс,
+       инлайновые padding не задеты). */
+    .kp-section .ds-card, .kp-hero {
+      border-radius: 14px;
+      border-color: color-mix(in srgb, var(--border) 65%, transparent);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 20px -12px rgba(15, 23, 42, 0.14);
+      transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), border-color 0.18s var(--ease);
+    }
+    .kp-section .ds-card:hover {
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 32px -14px rgba(15, 23, 42, 0.22);
+      border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+    }
+    .dark .kp-section .ds-card {
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px -12px rgba(0, 0, 0, 0.5);
+    }
 
     .kp-page-dotgrid {
       position: fixed; inset: 0; z-index: 0; pointer-events: none;
