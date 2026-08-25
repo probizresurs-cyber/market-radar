@@ -54,6 +54,7 @@ export interface KpProposalStrings {
   eeatExpertise: string; eeatAuthority: string; eeatTrust: string; eeatExperience: string;
   aiSampleAnswerLabel: string;
   geoTitle: string; geoSubtitle: string;
+  socialTitle: string; socialSubtitle: string; navSocial: string;
   geoAssistantRewardsTitle: string;
   geoLeversTitle: string;
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
@@ -159,6 +160,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     eeatExpertise: "Экспертность", eeatAuthority: "Авторитет", eeatTrust: "Доверие", eeatExperience: "Опыт",
     aiSampleAnswerLabel: "Что нейросеть отвечает о вас сейчас",
     geoTitle: "GEO: видимость в ответах нейросетей", geoSubtitle: "Отдельный, растущий канал — как попасть в ответы AI-ассистентов, когда клиент ищет решение",
+    navSocial: "Соцсети",
+    socialTitle: "Соцсети: что есть сейчас", socialSubtitle: "Разбор каналов бренда по реальным данным — подписчики, активность и что с этим делать",
     geoAssistantRewardsTitle: "Что вознаграждает каждый ассистент",
     geoLeversTitle: "Чем мы поднимаем цитируемость",
     geoMethodTitle: "Как честно замеряем результат", geoMethodQuestionsLabel: "Примеры контрольных вопросов",
@@ -269,6 +272,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     eeatExpertise: "Expertise", eeatAuthority: "Autorität", eeatTrust: "Vertrauen", eeatExperience: "Erfahrung",
     aiSampleAnswerLabel: "Was die KI aktuell über Sie antwortet",
     geoTitle: "GEO: Sichtbarkeit in KI-Antworten", geoSubtitle: "Ein separater, wachsender Kanal — wie man in die Antworten von KI-Assistenten gelangt, wenn ein Kunde nach einer Lösung sucht",
+    navSocial: "Social Media",
+    socialTitle: "Social Media: der aktuelle Stand", socialSubtitle: "Analyse der Markenkanäle anhand realer Daten — Abonnenten, Aktivität und die nächsten Schritte",
     geoAssistantRewardsTitle: "Was jeder Assistent belohnt",
     geoLeversTitle: "Womit wir die Zitierhäufigkeit steigern",
     geoMethodTitle: "So messen wir das Ergebnis ehrlich", geoMethodQuestionsLabel: "Beispiele für Testfragen",

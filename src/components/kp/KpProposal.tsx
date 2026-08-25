@@ -158,6 +158,7 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "competitors", label: "Конкуренты" },
   { id: "pilot-rivals", label: "Лидеры ниши", pilotOnly: true },
   { id: "ai-visibility", label: "AI-видимость" },
+  { id: "pilot-social", label: "Соцсети", pilotOnly: true },
   { id: "pilot-geo", label: "GEO-видимость", pilotOnly: true },
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста", hideOnPilot: true },
@@ -232,6 +233,7 @@ export function KpProposal({
         && (!s.pilotOnly || pilotOffer)
         && (!s.hideOnPilot || !pilotOffer)
         && (s.id !== "pilot-rivals" || PD.rivals.length > 0)
+        && (s.id !== "pilot-social" || Boolean(PD.socialAudit))
         && (s.id !== "ai-visibility" || hasAiViz)
         && (s.id !== "astro-offer" || !!astroRebuild)
     ),
@@ -244,7 +246,7 @@ export function KpProposal({
   const NAV_LABELS: Record<string, string> = {
     overview: t.navOverview, "pilot-strengths": t.navStrengths, findings: t.navFindings, tech: t.navTech,
     competitors: t.navCompetitors, "pilot-rivals": t.navRivals, "ai-visibility": t.navAiVisibility,
-    "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
+    "pilot-social": t.navSocial, "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
     "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
   const [active, setActive] = useState<string>("overview");
@@ -1040,6 +1042,47 @@ export function KpProposal({
             )}
           </Section>
         ) : null}
+
+        {/* ─── СОЦСЕТИ — разбор по реальным метрикам энричера ───
+            Секция появляется только если генерация вернула socialAudit:
+            у ручных пилотов его нет, и рисовать пустой блок незачем. */}
+        {pilotOffer && PD.socialAudit && (PD.socialAudit.networks.length > 0 || PD.socialAudit.intro) && (
+          <Section id="pilot-social" title={t.socialTitle} subtitle={t.socialSubtitle}>
+            {PD.socialAudit.intro && (
+              <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
+                <div style={{ fontSize: 15, lineHeight: 1.6 }}>{PD.socialAudit.intro}</div>
+              </div>
+            )}
+            <div style={{ display: "grid", gap: 12 }}>
+              {PD.socialAudit.networks.map((n, i) => (
+                <div key={i} className="ds-card" style={{ padding: "18px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                    <span style={{ fontSize: 16.5, fontWeight: 800 }}>{n.name}</span>
+                    <EvidenceBadge level={n.evidence} locale={locale} />
+                    {n.url && (
+                      <a href={n.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 12.5, color: "var(--muted-foreground)", textDecoration: "none" }}>
+                        {n.url.replace(/^https?:\/\//, "").slice(0, 46)}
+                      </a>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 14.5, fontWeight: 650, marginBottom: 6 }}>{n.stats}</div>
+                  {n.verdict && <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--muted-foreground)", marginBottom: 6 }}>{n.verdict}</div>}
+                  {n.action && (
+                    <div style={{ fontSize: 14.5, lineHeight: 1.6 }}>
+                      <strong>→ </strong>{n.action}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {PD.socialAudit.summary && (
+              <div className="ds-card" style={{ padding: "18px 22px", marginTop: 14, background: "color-mix(in srgb, var(--primary) 7%, transparent)" }}>
+                <div style={{ fontSize: 15, lineHeight: 1.6 }}>{PD.socialAudit.summary}</div>
+              </div>
+            )}
+          </Section>
+        )}
 
         {/* ─── GEO-ВИДИМОСТЬ — глубокий разбор (только pilotOffer) ─── */}
         {pilotOffer && (

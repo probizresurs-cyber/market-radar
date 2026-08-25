@@ -104,6 +104,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 - Находки (findings) — ТОЛЬКО из переданных данных анализа. Никаких выдуманных цифр, конкурентов, отзывов. Каждая находка: evidence "fact" (проверено анализом) / "estimate" (оценка) / "forecast" (прогноз).
 - Прогнозы (forecast, chart, hero.potential) — расчётная модель, честно помеченная. Не выдавай за факт.
 - rivals (конкуренты): заполняй ТОЛЬКО если в данных есть реальные конкуренты с метриками. Если нет — верни пустой массив [] (секция скроется).
+- socialAudit: по КАЖДОЙ сети из блока «Соцсети компании». stats — ДОСЛОВНО переданные метрики (evidence "fact"); если метрик нет — stats "метрики недоступны" (evidence "estimate"), цифры НЕ выдумывать. Если соцсетей нет вообще — networks: [], а intro честно фиксирует отсутствие соц-присутствия (и добавь находку об этом в findings). summary подводит к СММ-тарифу из ценовой сетки.
 - guarantee — гарантия возврата за месяц при невыполнении объёма.
 
 ФОРМАТ — СТРОГО валидный JSON PilotBundle без markdown. Соблюдай ФОРМУ вложенных объектов ТОЧНО (иначе КП сломается):
@@ -115,6 +116,7 @@ function bundleSchemaPrompt(locale: KpLocale): string {
  "trump": "...",
  "savings": {"marketerPrice":"из ценовой сетки","ourPrice":"из ценовой сетки","headline":"Столько же работы — в разы дешевле штатного маркетолога","note":"..."},
  "unitEconomics": {"deals":"N–M","dealsNote":"договоров в месяц (конверсия X–Y% — ОЦЕНКА)","check":"... или '${deferToCallExample}'","checkNote":"средний чек — откуда цифра","entry":"${locale === "de" ? "Einmaliger Einstieg — ... für die technische Modernisierung: ..." : "Разовый вход — ... за перенос на Astro: ..."}"},
+ "socialAudit": {"intro":"1-2 предложения о текущем соц-присутствии бренда","networks":[{"name":"Telegram","url":"...","stats":"N подписчиков, M постов за 30 дней","evidence":"fact","verdict":"короткий диагноз канала","action":"что сделать"}],"summary":"общий вывод, мостик к СММ-тарифу из сетки"},
  "geo": {
    "intro":"что такое GEO и почему в ответах ассистентов сейчас конкуренты, а не клиент",
    "whyNow":"почему входить сейчас дешевле",
@@ -138,10 +140,37 @@ function bundleSchemaPrompt(locale: KpLocale): string {
 СТРОГО: geo.assistants/levers — массивы объектов; geo.method — ОБЪЕКТ с массивом questions; geo.forecast — массив объектов {month,evidence,text}. badges — ровно 3 строки. chart: длина values = длине months = 6; сумма серий к 6-му месяцу ≈ forecast.totalHigh. positionDiagnosis — словарь по реальным запросам (ключи строчными). articles — 3 примера статей. Если реальных конкурентов в данных нет — верни "rivals": [].`;
 }
 
+/**
+ * Реальные соц-метрики для контекста КП. Раньше сюда попадал только список
+ * имён сетей («Соцсети: vk, telegram») — энричер при этом честно собирал
+ * подписчиков и активность, но данные выбрасывались, и модель писала про
+ * соцсети общими словами. Теперь: у Telegram/VK — живые цифры, у остальных
+ * найденных сетей — честное «есть ссылка, метрики недоступны».
+ */
+function describeSocials(
+  socialLinks: Record<string, string>,
+  social: { telegram?: { subscribers: number; posts30d: number } | null; vk?: { subscribers: number; posts30d: number; engagement: string; trend: string } | null },
+): string {
+  const found = Object.entries(socialLinks || {});
+  if (found.length === 0) return "Соцсети: на сайте НЕ найдено ни одной ссылки на соцсети (это находка для socialAudit).";
+  const lines: string[] = [];
+  for (const [net, url] of found) {
+    if (net === "telegram" && social.telegram) {
+      lines.push(`- Telegram ${url}: ${social.telegram.subscribers} подписчиков, ${social.telegram.posts30d} постов за 30 дней (РЕАЛЬНЫЕ данные, evidence fact)`);
+    } else if (net === "vk" && social.vk) {
+      lines.push(`- VK ${url}: ${social.vk.subscribers} подписчиков, ${social.vk.posts30d} постов за 30 дней, вовлечённость ${social.vk.engagement}, тренд ${social.vk.trend} (РЕАЛЬНЫЕ данные, evidence fact)`);
+    } else {
+      lines.push(`- ${net} ${url}: ссылка есть, метрики API недоступны (evidence estimate, цифры НЕ выдумывать)`);
+    }
+  }
+  return `Соцсети компании (для socialAudit):\n${lines.join("\n")}`;
+}
+
 function buildContext(
   company: AnalysisResult,
   scraped: Awaited<ReturnType<typeof scrapeWebsite>>,
   aiCheck: KpAiCheckResult | null,
+  socialsBlock: string,
 ): string {
   const c = company.company;
   const parts: string[] = [];
@@ -166,7 +195,7 @@ function buildContext(
   if (Array.isArray(rivals) && rivals.length) parts.push(`Конкуренты из данных: ${JSON.stringify(rivals).slice(0, 600)}`);
   const kws = company.seo?.keywords;
   if (Array.isArray(kws) && kws.length) parts.push(`Ключевые запросы ниши (для positionDiagnosis, ключи строчными): ${kws.slice(0, 12).map(k => typeof k === "string" ? k : (k as { keyword?: string }).keyword).filter(Boolean).join(", ")}`);
-  parts.push(`Соцсети: ${Object.keys(scraped.socialLinks || {}).join(", ") || "нет"}`);
+  parts.push(socialsBlock);
   parts.push(`Стек: ${(scraped.techStack || []).join(", ") || "н/д"}`);
   parts.push(`Контент (выдержка): ${(scraped.rawTextSample || "").slice(0, 2500)}`);
   return parts.join("\n");
@@ -216,10 +245,12 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   // 3. Обогащение домена — ТО ЖЕ, что делает /api/analyze, иначе у авто-КП
   //    пустой Тех-аудит и AI-видимость (пилоты берут это из полного анализа
   //    платформы). Маппинг зеркалит src/app/api/analyze/route.ts.
+  let socialStats: { telegram?: { subscribers: number; posts30d: number } | null; vk?: { subscribers: number; posts30d: number; engagement: string; trend: string } | null } = {};
   try {
     const domain = (company.company.url || scraped.url).replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
     const real = await enrichDomainData(domain, scraped.socialLinks || {});
     if (real) {
+      socialStats = { telegram: real.telegram, vk: real.vk };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const seo = company.seo as any;
       if (real.spywords) {
@@ -255,7 +286,7 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
     model: MODEL,
     max_tokens: 16000,
     system: bundleSchemaPrompt(locale),
-    messages: [{ role: "user", content: buildContext(company, scraped, aiCheck) }],
+    messages: [{ role: "user", content: buildContext(company, scraped, aiCheck, describeSocials(scraped.socialLinks || {}, socialStats)) }],
     temperature: 0.4,
   });
   if (!text) throw new Error(error || "AI не вернул КП");
@@ -315,6 +346,55 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   fc.scenarios = arr(fc.scenarios);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bundle.forecast = fc;
+
+  // socialAudit — та же защита формы, что у geo: рендер делает .map по networks.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sa = (bundle.socialAudit ?? null) as any;
+  bundle.socialAudit = sa && typeof sa === "object"
+    ? {
+        intro: typeof sa.intro === "string" ? sa.intro : "",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        networks: arr<any>(sa.networks)
+          .filter((n) => n && typeof n.name === "string")
+          .map((n) => ({
+            name: n.name,
+            url: typeof n.url === "string" ? n.url : undefined,
+            stats: typeof n.stats === "string" ? n.stats : "метрики недоступны",
+            evidence: n.evidence === "fact" ? "fact" as const : "estimate" as const,
+            verdict: typeof n.verdict === "string" ? n.verdict : "",
+            action: typeof n.action === "string" ? n.action : "",
+          })),
+        summary: typeof sa.summary === "string" ? sa.summary : "",
+      }
+    : undefined;
+
+  // ── Согласованность цифр — КОДОМ, а не просьбой в промпте ───────────────
+  // Промпт требует «hero.potential = forecast.totalLow–totalHigh, сумма серий
+  // графика ≈ totalHigh», но модель такие требования нарушает (проверено на
+  // ценах DE). Расходящиеся цифры в КП — брак, который клиент замечает первым,
+  // поэтому после генерации прогоняем инварианты принудительно.
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const f = bundle.forecast as any;
+    const low = Number(f?.totalLow), high = Number(f?.totalHigh);
+    if (isFinite(low) && isFinite(high) && high > 0) {
+      // 1. Шапка всегда повторяет прогноз — та же пара чисел, что в forecast.
+      const heroUnit = locale === "de" ? "Anfragen/Monat" : "заявок/мес";
+      const m = /^\+?\d[\d\s]*–[\d\s]*\d\s*(.+)$/.exec(bundle.hero?.potential ?? "");
+      bundle.hero.potential = `+${low}–${high} ${m?.[1]?.trim() || heroUnit}`;
+
+      // 2. График сходится к totalHigh: если сумма 6-х значений серий ушла от
+      //    прогноза дальше 15%, серии масштабируются пропорционально. Кривые
+      //    по форме остаются авторскими, финальная точка — честной.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const series = (bundle.chart as any).series as Array<{ name: string; values: number[] }>;
+      const last = series.reduce((s, x) => s + (x.values[5] ?? 0), 0);
+      if (last > 0 && Math.abs(last - high) / high > 0.15) {
+        const k = high / last;
+        for (const s of series) s.values = s.values.map((v) => Math.round(v * k));
+      }
+    }
+  }
 
   // Цены — принудительно перезаписываем из фиксированной сетки кодом, а не
   // доверяем модели их дословно перенести из промпта. Увидено на живом тесте:

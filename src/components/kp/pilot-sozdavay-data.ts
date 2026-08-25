@@ -453,6 +453,25 @@ export interface PilotBundle {
    * показывались бы sozdavay-цифры (= выдумка).
    */
   unitEconomics?: { deals: string; dealsNote: string; check: string; checkNote: string; entry: string };
+  /**
+   * Обзор соцсетей (август 2026). Заполняется ТОЛЬКО из реальных метрик
+   * (Telegram/VK-статистика энричера) — сети, у которых нашлась лишь ссылка,
+   * идут с evidence "estimate" и без выдуманных цифр. У ручных пилотов не
+   * задан — секция просто не рендерится.
+   */
+  socialAudit?: {
+    intro: string;
+    networks: Array<{
+      name: string;
+      url?: string;
+      /** Реальные метрики строкой («1 240 подписчиков, 12 постов за 30 дней») либо честное «метрики недоступны». */
+      stats: string;
+      evidence: "fact" | "estimate";
+      verdict: string;
+      action: string;
+    }>;
+    summary: string;
+  };
 }
 
 export const SOZDAVAY_PILOT: PilotBundle = {
