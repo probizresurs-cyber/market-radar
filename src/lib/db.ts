@@ -449,7 +449,7 @@ export async function initDb() {
   // посетительские КП от менеджерских — публичный статус-роут отдаёт ТОЛЬКО
   // source=public, иначе перебором id можно было бы вытянуть чужие пароли
   // шеринга. client_ip — суточный лимит на посетителя.
-  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT manager`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manager'`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_ip TEXT`);
   // Дожим-воронка в TG после отправки нового сайта (cron/kp-followups):
   // 0 — ничего не слали, 1 — day-1 отправлен, 2 — day-3 отправлен (конец серии).
