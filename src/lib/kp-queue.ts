@@ -26,16 +26,17 @@ export async function enqueueKp(
   // Фаза C: постановка из карточки лида (/admin/leads) — сразу привязываем
   // лид и переносим его контакты, чтобы менеджеру в /kp-ru не пришлось
   // вбивать email руками, а воронка (kp-followups, magic-link) знала клиента.
-  opts?: { leadId?: string; companyName?: string; clientEmail?: string; clientPhone?: string },
+  opts?: { leadId?: string; companyName?: string; clientEmail?: string; clientPhone?: string; source?: "manager" | "public"; clientIp?: string },
 ): Promise<string> {
   const id = randomUUID();
   await query(
-    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone)
-     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9)`,
+    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone, source, client_ip)
+     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9, $10, $11)`,
     [
       id, locale, url,
       randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
       opts?.leadId ?? null, opts?.companyName ?? null, opts?.clientEmail ?? null, opts?.clientPhone ?? null,
+      opts?.source ?? "manager", opts?.clientIp ?? null,
     ],
   );
   void tick();

@@ -618,6 +618,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 <ArrowRight size={16} />
               </button>
             </div>
+            {/* КП генерируется там же, на /express-report — публичный конвейер
+                /api/kp-public стартует сразу по вводу ссылки. */}
+            <div style={{ fontSize: 13, color: muted, marginTop: 10 }}>
+              Бесплатно вместе с отчётом: персональное <strong style={{ color: fg }}>коммерческое предложение</strong> по вашему сайту — план, прогноз и цены за пару минут.
+            </div>
           </div>
 
           {/* Price pill — prominent, readable */}

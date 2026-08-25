@@ -46,7 +46,13 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
   const [phase, setPhase] = useState<"loading" | "gate" | "ok" | "error">("loading");
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [gateLocale, setGateLocale] = useState<KpProposalLocale>("ru");
-  const [password, setPassword] = useState("");
+  // ?p= — предзаполнение пароля для публичной самогенерации с лендинга:
+  // посетитель получает ссылку сразу с паролем и открывает КП в один клик,
+  // при этом сам гейт (и защита от перебора на сервере) никуда не девается.
+  const [password, setPassword] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("p") ?? "";
+  });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [data, setData] = useState<Loaded | null>(null);

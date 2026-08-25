@@ -111,6 +111,73 @@ function ExpressReportInner() {
   const [stage, setStage] = useState<number>(0); // 0..STAGES.length means "done"
   const [report, setReport] = useState<ExpressReport | null>(null);
 
+  // ── КП: настоящая генерация, стартует сразу по вводу ссылки ─────────────
+  // В отличие от экспресс-отчёта (мок для витрины) это реальный конвейер
+  // /api/kp-public → kp-queue → Claude, поэтому статус честный: 1-3 минуты
+  // и осмысленные ошибки лимитов. id генерации переживает перезагрузку через
+  // localStorage — иначе каждый F5 ставил бы новую генерацию и сжигал лимит.
+  const [kpStatus, setKpStatus] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [kpShareUrl, setKpShareUrl] = useState<string | null>(null);
+  const [kpCompany, setKpCompany] = useState<string | null>(null);
+  const [kpError, setKpError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!urlSubmitted || typeof window === "undefined") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const lsKey = `mr_kp_pub_${analysisUrl}`;
+
+    const poll = async (kpId: string) => {
+      if (cancelled) return;
+      try {
+        const r = await fetch(`/api/kp-public/${kpId}`);
+        const j = await r.json();
+        if (cancelled) return;
+        if (!j.ok) throw new Error(j.error || "Генерация не найдена");
+        if (j.data.status === "done") {
+          setKpStatus("done");
+          setKpShareUrl(j.data.shareUrl);
+          setKpCompany(j.data.companyName);
+          return;
+        }
+        if (j.data.status === "error") throw new Error(j.data.error || "Ошибка генерации");
+        timer = setTimeout(() => void poll(kpId), 5000);
+      } catch (e) {
+        if (cancelled) return;
+        try { localStorage.removeItem(lsKey); } catch { /* ignore */ }
+        setKpStatus("error");
+        setKpError(e instanceof Error ? e.message : "Не удалось сгенерировать КП");
+      }
+    };
+
+    const start = async () => {
+      setKpStatus("working");
+      const existing = (() => {
+        try { return localStorage.getItem(lsKey); } catch { return null; }
+      })();
+      if (existing) { void poll(existing); return; }
+      try {
+        const r = await fetch("/api/kp-public", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: analysisUrl }),
+        });
+        const j = await r.json();
+        if (cancelled) return;
+        if (!j.ok) throw new Error(j.error || "Не удалось поставить генерацию");
+        try { localStorage.setItem(lsKey, j.id); } catch { /* ignore */ }
+        void poll(j.id);
+      } catch (e) {
+        if (cancelled) return;
+        setKpStatus("error");
+        setKpError(e instanceof Error ? e.message : "Не удалось сгенерировать КП");
+      }
+    };
+
+    void start();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [urlSubmitted, analysisUrl]);
+
   // Try to pick up a real report persisted by the landing form; fall back to mock.
   useEffect(() => {
     if (!urlSubmitted) return;
@@ -402,6 +469,50 @@ function ExpressReportInner() {
                   ))}
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* КП: реальная генерация, идёт параллельно с отчётом */}
+          <section style={{ maxWidth: 1180, margin: "0 auto", padding: "20px 32px 0" }}>
+            <div style={{
+              background: card, border: `1px solid ${kpStatus === "done" ? neonGreen + "66" : border}`,
+              borderRadius: 18, padding: "26px 30px",
+              display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap",
+            }}>
+              <div style={{ flex: "1 1 320px" }}>
+                <div style={{ fontSize: 12, color: muted, letterSpacing: 2, textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>
+                  Коммерческое предложение
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>
+                  {kpStatus === "done"
+                    ? `КП для «${kpCompany ?? analysisUrl}» готово`
+                    : kpStatus === "error"
+                      ? "КП не сгенерировалось"
+                      : "Готовим персональное КП по вашему сайту"}
+                </div>
+                <div style={{ fontSize: 13.5, color: muted, lineHeight: 1.5 }}>
+                  {kpStatus === "done"
+                    ? "План продвижения, прогноз и цены — уже с данными вашего сайта."
+                    : kpStatus === "error"
+                      ? (kpError ?? "Попробуйте позже")
+                      : "Анализируем сайт и соцсети, считаем прогноз. Обычно 1-3 минуты — страницу можно не закрывать, кнопка появится здесь."}
+                </div>
+              </div>
+              {kpStatus === "done" && kpShareUrl ? (
+                <a href={kpShareUrl} target="_blank" rel="noopener noreferrer" style={{
+                  background: `linear-gradient(90deg, ${neonCyan}, ${neonMagenta})`, color: "#0a0b0f",
+                  padding: "13px 26px", borderRadius: 12, fontWeight: 800, fontSize: 15,
+                  textDecoration: "none", whiteSpace: "nowrap",
+                }}>
+                  Открыть КП →
+                </a>
+              ) : kpStatus !== "error" ? (
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%", flex: "0 0 auto",
+                  border: `3px solid ${border}`, borderTopColor: neonCyan,
+                  animation: "mr-spin 0.9s linear infinite",
+                }} />
+              ) : null}
             </div>
           </section>
 
