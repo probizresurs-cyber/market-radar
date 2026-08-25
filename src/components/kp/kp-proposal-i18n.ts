@@ -57,6 +57,7 @@ export interface KpProposalStrings {
   socialTitle: string; socialSubtitle: string; navSocial: string;
   showMoreFindings: (n: number) => string; collapseFindings: string;
   showMoreQuestions: (n: number) => string; collapseQuestions: string;
+  showAssumptions: string; collapseAssumptions: string;
   geoAssistantRewardsTitle: string;
   geoLeversTitle: string;
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
@@ -167,6 +168,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     collapseFindings: "Свернуть находки",
     showMoreQuestions: (n) => `Показать все ${n} контрольных вопросов`,
     collapseQuestions: "Свернуть вопросы",
+    showAssumptions: "Допущения и пример расчёта",
+    collapseAssumptions: "Свернуть допущения",
     socialTitle: "Соцсети: что есть сейчас", socialSubtitle: "Разбор каналов бренда по реальным данным — подписчики, активность и что с этим делать",
     geoAssistantRewardsTitle: "Что вознаграждает каждый ассистент",
     geoLeversTitle: "Чем мы поднимаем цитируемость",
@@ -283,6 +286,8 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     collapseFindings: "Befunde einklappen",
     showMoreQuestions: (n) => `Alle ${n} Kontrollfragen anzeigen`,
     collapseQuestions: "Fragen einklappen",
+    showAssumptions: "Annahmen und Rechenbeispiel",
+    collapseAssumptions: "Annahmen einklappen",
     socialTitle: "Social Media: der aktuelle Stand", socialSubtitle: "Analyse der Markenkanäle anhand realer Daten — Abonnenten, Aktivität und die nächsten Schritte",
     geoAssistantRewardsTitle: "Was jeder Assistent belohnt",
     geoLeversTitle: "Womit wir die Zitierhäufigkeit steigern",

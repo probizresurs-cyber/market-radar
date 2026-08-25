@@ -226,9 +226,17 @@ export function KpProposal({
       : (aiPerc && (aiPerc.knowledgePresence === "minimal" || aiPerc.knowledgePresence === "weak"))
         ? 0
         : null;
+  // Живая проверка позиций (см. /admin/position-checker). Объявлена здесь, а
+  // не рядом со своим useEffect: список секций ниже прячет пункт «Позиции»,
+  // когда проверок нет, и обратиться к состоянию до объявления нельзя.
+  const [positionCheck, setPositionCheck] = useState<{
+    engine: "yandex" | "google"; checkedAt: string;
+    results: Array<{ keyword: string; position: number | null; status: "done" | "not_found" | "failed" }>;
+  } | null>(null);
+
   const SECTIONS = useMemo(
     () => BASE_SECTIONS.filter(
-      (s) => (s.id !== "positions" || POSITION_CHECK_ENABLED)
+      (s) => (s.id !== "positions" || (POSITION_CHECK_ENABLED && !!positionCheck && positionCheck.results.length > 0))
         && (s.id !== "seo-preview" || pilotOffer)
         && (!s.pilotOnly || pilotOffer)
         && (!s.hideOnPilot || !pilotOffer)
@@ -238,7 +246,7 @@ export function KpProposal({
         && (s.id !== "ai-visibility" || hasAiViz)
         && (s.id !== "astro-offer" || !!astroRebuild)
     ),
-    [pilotOffer, hasAiViz, PD, astroRebuild, competitors.length],
+    [pilotOffer, hasAiViz, PD, astroRebuild, competitors.length, positionCheck],
   );
   // Лейблы навигации — переведены только для секций, которые реально
   // показываются на pilotOffer/DE-пути; growth/plan/pricing — только для
@@ -305,10 +313,6 @@ export function KpProposal({
   // ─── Позиции в поиске — реальная живая проверка (см. /admin/position-checker,
   // /api/check-positions), не выдумка AI. Раздел показывается только если для
   // этого домена реально проводилась проверка — иначе просто не рендерится. ──
-  const [positionCheck, setPositionCheck] = useState<{
-    engine: "yandex" | "google"; checkedAt: string;
-    results: Array<{ keyword: string; position: number | null; status: "done" | "not_found" | "failed" }>;
-  } | null>(null);
   useEffect(() => {
     if (!POSITION_CHECK_ENABLED) return;
     const domain = company?.company.url;
@@ -1576,20 +1580,27 @@ export function KpProposal({
             «Формата работ»: пик выгоды подводит прямо к условиям и заявке. ─── */}
         {pilotOffer && (
           <Section id="pilot-forecast" index={sectionNo["pilot-forecast"]} title={t.forecastTitle} subtitle={t.forecastSubtitle}>
-            {/* Формула + допущения */}
-            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16 }}>
+            {/* Формула + допущения.
+                Блок занимал 328px в самой длинной секции документа, при этом
+                отвечает на вопрос «откуда цифры» — важный, но второй по
+                очереди: сначала читателя интересуют сами цифры. Формулу
+                оставляем на виду (она короткая и снимает недоверие), а
+                допущения с примером расчёта — под кнопкой. */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginBottom: 16, display: "grid", justifyItems: "start" }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{t.howWeCalculate}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5 }}>{PD.forecast.formula}</div>
-              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                {PD.forecast.assumptions.map((a, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
-                    <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
-                  </li>
-                ))}
-              </ul>
-              <div style={{ fontSize: 12.5, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
-                <b>{t.exampleCalc}</b> {PD.forecast.example}
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono, ui-monospace, monospace)", background: "var(--muted)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, lineHeight: 1.5, width: "100%", boxSizing: "border-box" }}>{PD.forecast.formula}</div>
+              <MoreItems label={t.showAssumptions} collapseLabel={t.collapseAssumptions}>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                  {PD.forecast.assumptions.map((a, i) => (
+                    <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                      <Minus size={14} style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 3 }} /> {a}
+                    </li>
+                  ))}
+                </ul>
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--primary) 7%, transparent)", borderRadius: 8 }}>
+                  <b>{t.exampleCalc}</b> {PD.forecast.example}
+                </div>
+              </MoreItems>
             </div>
 
             {/* Сценарии по каналам */}
