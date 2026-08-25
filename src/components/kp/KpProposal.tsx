@@ -234,10 +234,11 @@ export function KpProposal({
         && (!s.hideOnPilot || !pilotOffer)
         && (s.id !== "pilot-rivals" || PD.rivals.length > 0)
         && (s.id !== "pilot-social" || Boolean(PD.socialAudit))
+        && (s.id !== "competitors" || competitors.length > 0)
         && (s.id !== "ai-visibility" || hasAiViz)
         && (s.id !== "astro-offer" || !!astroRebuild)
     ),
-    [pilotOffer, hasAiViz, PD, astroRebuild],
+    [pilotOffer, hasAiViz, PD, astroRebuild, competitors.length],
   );
   // Лейблы навигации — переведены только для секций, которые реально
   // показываются на pilotOffer/DE-пути; growth/plan/pricing — только для
@@ -249,13 +250,30 @@ export function KpProposal({
     "pilot-social": t.navSocial, "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
     "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
-  // Номер главы = позиция среди видимых секций. overview и cta — обложка и
-  // финал, они вне нумерации.
-  const sectionNo = useMemo(() => {
-    const m: Record<string, number> = {};
-    SECTIONS.filter((s) => s.id !== "overview" && s.id !== "cta").forEach((s, i) => { m[s.id] = i + 1; });
-    return m;
-  }, [SECTIONS]);
+  /**
+   * Номер главы = позиция среди РЕАЛЬНО отрисованных секций.
+   *
+   * Считать по списку навигации нельзя: он шире фактического рендера —
+   * секции с пустыми данными (нет конкурентов, нет позиций) в DOM не
+   * попадают, и в нумерации появлялись дыры «01, 02, 03, 05…», которые
+   * читаются как баг вёрстки. Плюс часть секций вызывает <Section> с
+   * переносом строки и вовсе оставалась без номера.
+   *
+   * useLayoutEffect (а не useEffect) — номер проставляется до отрисовки
+   * кадра, поэтому читатель не видит скачка нумерации.
+   */
+  const [sectionNo, setSectionNo] = useState<Record<string, number>>({});
+  useLayoutEffect(() => {
+    const ids = [...document.querySelectorAll<HTMLElement>("section[data-chapter]")]
+      .map((el) => el.id.replace(/^kp-/, ""));
+    setSectionNo((prev) => {
+      const same = ids.length === Object.keys(prev).length && ids.every((id, i) => prev[id] === i + 1);
+      if (same) return prev;
+      const next: Record<string, number> = {};
+      ids.forEach((id, i) => { next[id] = i + 1; });
+      return next;
+    });
+  });
   const [active, setActive] = useState<string>("overview");
   const [progress, setProgress] = useState(0);
   // Тарифы скрыты за кнопкой «Получить анализ» — раньше цены висели открыто
@@ -1192,6 +1210,8 @@ export function KpProposal({
         {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
           <Section
             id="positions"
+            index={sectionNo["positions"]}
+            band
             title={t.positionsTitleEngine(positionCheck.engine === "yandex" ? "Yandex" : "Google")}
             subtitle={new Date(positionCheck.checkedAt).toLocaleDateString(locale === "de" ? "de-DE" : "ru-RU", { day: "2-digit", month: "long", year: "numeric" })}
           >
@@ -1998,7 +2018,7 @@ function Section({
   id, title, subtitle, index, band, children,
 }: { id: string; title?: string; subtitle?: string; index?: number; band?: boolean; children: React.ReactNode }) {
   return (
-    <section id={`kp-${id}`} className={band ? "kp-section kp-section-band" : "kp-section"} style={{ scrollMarginTop: 76 }}>
+    <section id={`kp-${id}`} data-chapter={title ? "" : undefined} className={band ? "kp-section kp-section-band" : "kp-section"} style={{ scrollMarginTop: 76 }}>
       {(title || subtitle) && (
         <Reveal>
           {() => (
