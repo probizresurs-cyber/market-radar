@@ -160,12 +160,15 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "ai-visibility", label: "AI-видимость" },
   { id: "pilot-social", label: "Соцсети", pilotOnly: true },
   { id: "pilot-geo", label: "GEO-видимость", pilotOnly: true },
+  { id: "pilot-pr", label: "Внешний контур", pilotOnly: true },
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста", hideOnPilot: true },
   { id: "plan", label: "План", hideOnPilot: true },
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
+  { id: "pilot-market", label: "Мы и рынок", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
+  { id: "pilot-terms", label: "Условия", pilotOnly: true },
   { id: "astro-offer", label: "Новая версия сайта", pilotOnly: true },
   { id: "pricing", label: "Тарифы", hideOnPilot: true },
   { id: "cta", label: "Заявка" },
@@ -245,6 +248,12 @@ export function KpProposal({
         && (s.id !== "competitors" || competitors.length > 0)
         && (s.id !== "ai-visibility" || hasAiViz)
         && (s.id !== "astro-offer" || !!astroRebuild)
+        // Внешний контур / рынок / условия задаются только у пилотов, где эти
+        // данные реально есть (см. PilotBundle.pr|market|terms). Без этих
+        // проверок у biglife в навигации висели бы три мёртвых пункта.
+        && (s.id !== "pilot-pr" || Boolean(PD.pr))
+        && (s.id !== "pilot-market" || Boolean(PD.market))
+        && (s.id !== "pilot-terms" || Boolean(PD.terms))
     ),
     [pilotOffer, hasAiViz, PD, astroRebuild, competitors.length, positionCheck],
   );
@@ -255,8 +264,9 @@ export function KpProposal({
   const NAV_LABELS: Record<string, string> = {
     overview: t.navOverview, "pilot-strengths": t.navStrengths, findings: t.navFindings, tech: t.navTech,
     competitors: t.navCompetitors, "pilot-rivals": t.navRivals, "ai-visibility": t.navAiVisibility,
-    "pilot-social": t.navSocial, "pilot-geo": t.navGeo, positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
-    "pilot-forecast": t.navForecast, "astro-offer": t.navAstroOffer, cta: t.navCta,
+    "pilot-social": t.navSocial, "pilot-geo": t.navGeo, "pilot-pr": t.navPr,
+    positions: t.navPositions, "pilot-offer": t.navOffer, "pilot-market": t.navMarket, "seo-preview": t.navFormat,
+    "pilot-forecast": t.navForecast, "pilot-terms": t.navTerms, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
   /**
    * Дизайн-тема КП: ?design=paper | earth.
@@ -1265,6 +1275,94 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── ВНЕШНИЙ КОНТУР: УПОМИНАНИЯ, DIGITAL PR, РЕПУТАЦИЯ ─── */}
+        {/* Третий и четвёртый слои GEO. Идёт сразу после GEO-секции: там мы
+            объяснили, что читает ассистент на самом сайте, здесь — что он
+            читает вовне. Разделение платно/входит показано явно, потому что
+            скрытая доплата за Digital PR — типовая претензия к рынку. */}
+        {pilotOffer && PD.pr && (
+          <Section id="pilot-pr" index={sectionNo["pilot-pr"]} band title={t.prTitle} subtitle={t.prSubtitle}>
+            <div className="ds-card" style={{ padding: "20px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <Share2 size={20} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 10px" }}>{PD.pr.intro}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.55, margin: 0, color: "var(--muted-foreground)" }}>{PD.pr.why}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Покрытие ассистентов — «только ChatGPT» рынок считает красным флагом */}
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              {t.prCoverageLabel}
+            </div>
+            <div className="ds-card" style={{ padding: "14px 18px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <Globe size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>{PD.pr.coverage}</div>
+            </div>
+
+            {/* Площадки: у каждой явно помечено, входит она в тариф или платная */}
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              {t.prPlatformsLabel}
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {PD.pr.platforms.map((p, i) => {
+                const paid = p.paid;
+                return (
+                  <Reveal key={i} delay={i * 40}>
+                    {() => (
+                      <div className="ds-card ds-card-interactive" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <Link2 size={16} style={{ color: paid ? "var(--warning)" : "var(--success)", flexShrink: 0, marginTop: 3 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 3 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</span>
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 9px", whiteSpace: "nowrap",
+                              background: paid ? "color-mix(in srgb, var(--warning) 16%, transparent)" : "color-mix(in srgb, var(--success) 16%, transparent)",
+                              color: paid ? "var(--warning)" : "var(--success)",
+                            }}>{p.kind}</span>
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{p.why}</div>
+                        </div>
+                      </div>
+                    )}
+                  </Reveal>
+                );
+              })}
+            </div>
+
+            {/* Что входит / что сверх — рядом, чтобы граница читалась с одного взгляда */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 24 }}>
+              <div className="ds-card" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10 }}>{t.prIncludedLabel}</div>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                  {PD.pr.included.map((it, i) => (
+                    <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45 }}>
+                      <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {it}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="ds-card" style={{ padding: "18px 20px", borderLeft: "4px solid var(--warning)" }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10 }}>{t.prExtraLabel}</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <AlertTriangle size={14} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 3 }} />
+                  <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{PD.pr.paidExtra}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Репутация — тот же контур: тональность отзывов влияет на попадание в ответ */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 14, borderLeft: "4px solid var(--primary)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
+                <ShieldCheck size={18} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{PD.pr.reputation.title}</span>
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>{PD.pr.reputation.body}</p>
+            </div>
+          </Section>
+        )}
+
         {/* ─── ПОЗИЦИИ В ПОИСКЕ ─── */}
         {POSITION_CHECK_ENABLED && positionCheck && positionCheck.results.length > 0 && (
           <Section
@@ -1511,6 +1609,85 @@ export function KpProposal({
           </Section>
         )}
 
+        {/* ─── МЫ И РЫНОК: ПОЧЕМУ ЦЕНА ТАКАЯ ─── */}
+        {/* Идёт сразу после цены — там, где у читателя и возникает вопрос
+            «почему так дёшево». Ценник ниже вилки агентств читается как
+            «тариф-галочка», если разницу не объяснить; блок honest[] обязателен,
+            иначе раздел превращается в хвастовство. */}
+        {pilotOffer && PD.market && (
+          <Section id="pilot-market" index={sectionNo["pilot-market"]} band title={t.marketTitle} subtitle={t.marketSubtitle}>
+            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0 }}>{PD.market.intro}</p>
+            </div>
+
+            {/* Сравнительная таблица. На узких экранах уезжает в горизонтальный
+                скролл, а не ломает страницу — см. .kp-scroll-x в ResponsiveCss. */}
+            <div className="kp-scroll-x">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
+                <thead>
+                  <tr>
+                    {[t.marketColWhat, t.marketColMarket, t.marketColOurs].map((h, i) => (
+                      <th key={i} style={{
+                        textAlign: "left", padding: "10px 12px", fontSize: 11.5, fontWeight: 700,
+                        textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)",
+                        borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {PD.market.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top" }}>
+                        <div style={{ fontWeight: 700 }}>{r.what}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 3 }}>{r.note}</div>
+                      </td>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{r.market}</td>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top", fontWeight: 800, color: "var(--primary)", whiteSpace: "nowrap" }}>{r.ours}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 8 }}>{PD.market.sources}</div>
+
+            {/* За счёт чего дешевле */}
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
+              {PD.market.whyTitle}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
+              {PD.market.why.map((w, i) => (
+                <Reveal key={i} delay={i * 60} style={{ height: "100%" }}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "16px 18px", height: "100%" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                        <Zap size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>{w.title}</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{w.detail}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* Чего не будет — без этого блока раздел читается как реклама */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, borderLeft: "4px solid var(--warning)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <AlertTriangle size={18} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{PD.market.honestTitle}</span>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                {PD.market.honest.map((h, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                    <Minus size={14} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 2 }} /> {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Section>
+        )}
+
         {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
         {pilotOffer && (
           <Section id="seo-preview" index={sectionNo["seo-preview"]} band title={t.formatTitle} subtitle={t.formatSubtitle}>
@@ -1685,6 +1862,53 @@ export function KpProposal({
                 </div>
               );
             })()}
+          </Section>
+        )}
+
+        {/* ─── УСЛОВИЯ И ЧЕСТНЫЕ ОГРАНИЧЕНИЯ ─── */}
+        {/* Сразу после прогноза: там вилка и «не гарантия», здесь — что именно
+            мы обещаем и при каких условиях не берёмся. Блок limits намеренно
+            отсеивает клиентов, с которыми результата не будет. */}
+        {pilotOffer && PD.terms && (
+          <Section id="pilot-terms" index={sectionNo["pilot-terms"]} title={t.termsTitle} subtitle={t.termsSubtitle}>
+            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--success)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <ListChecks size={19} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+                <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0 }}>{PD.terms.intro}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {PD.terms.items.map((it, i) => (
+                <Reveal key={i} delay={i * 45}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "16px 18px" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 7 }}>
+                        <ShieldCheck size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.35 }}>{it.q}</div>
+                      </div>
+                      <div style={{ fontSize: 13, lineHeight: 1.55, color: "var(--muted-foreground)", paddingLeft: 26 }}>{it.a}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {/* Когда не окупится */}
+            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 20, borderLeft: "4px solid var(--warning)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
+                <AlertTriangle size={18} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{PD.terms.limitsTitle}</span>
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: "0 0 10px" }}>{PD.terms.limitsIntro}</p>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                {PD.terms.limits.map((l, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                    <Minus size={14} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 2 }} /> {l}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </Section>
         )}
 
@@ -2534,6 +2758,10 @@ function DesignThemeFonts({ theme }: { theme: "paper" | "earth" }) {
 function ResponsiveCss() {
   return <style>{`
     .kp-navscroll::-webkit-scrollbar { display: none; }
+
+    /* Широкий контент (сравнительная таблица «мы и рынок») скроллится внутри
+       своего контейнера — иначе на телефоне горизонтально едет вся страница. */
+    .kp-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     /* ═══ ДИЗАЙН-ТЕМЫ КП ═══════════════════════════════════════════════
        Обе темы меняют ТОЛЬКО токены и шрифты. Разметка, сетка и логика

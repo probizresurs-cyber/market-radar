@@ -6,6 +6,7 @@ import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { checkKpAiVisibility, type KpAiCheckResult } from "@/lib/kp-ai-visibility";
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
+import { kpStaticBlocks } from "@/lib/kp-static-blocks";
 
 /**
  * Генерация полного КП по одной ссылке — без предварительного анализа на
@@ -382,6 +383,19 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
         summary: typeof sa.summary === "string" ? sa.summary : "",
       }
     : undefined;
+
+  // ── Внешний контур, сравнение с рынком и условия — НЕ из генерации ──────
+  // Эти три главы описывают наши обязательства (возврат, права на материалы,
+  // граница «входит / сверх»), а не данные клиента. Отданные модели, они
+  // превращаются в выдуманные гарантии, поэтому берутся фиксированным
+  // шаблоном по локали. Присваиваются ПОСЛЕ разбора ответа — даже если модель
+  // вернула свои варианты этих полей, они затираются.
+  {
+    const staticBlocks = kpStaticBlocks(locale, PRICE_POLICY[locale].seoGeo);
+    bundle.pr = staticBlocks.pr;
+    bundle.market = staticBlocks.market;
+    bundle.terms = staticBlocks.terms;
+  }
 
   // ── Согласованность цифр — КОДОМ, а не просьбой в промпте ───────────────
   // Промпт требует «hero.potential = forecast.totalLow–totalHigh, сумма серий

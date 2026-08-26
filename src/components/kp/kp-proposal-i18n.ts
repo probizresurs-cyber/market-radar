@@ -62,6 +62,12 @@ export interface KpProposalStrings {
   geoLeversTitle: string;
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
   geoForecastTitle: string;
+  navPr: string; navMarket: string; navTerms: string;
+  prTitle: string; prSubtitle: string;
+  prCoverageLabel: string; prPlatformsLabel: string; prIncludedLabel: string; prExtraLabel: string;
+  marketTitle: string; marketSubtitle: string;
+  marketColWhat: string; marketColMarket: string; marketColOurs: string;
+  termsTitle: string; termsSubtitle: string;
   positionsTitleEngine: (engine: string) => string;
   positionsOutOfTop30: string; positionsCheckFailed: string; positionsDiagnosisLabel: string;
   savingsHeadlineFallback: string;
@@ -175,6 +181,18 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     geoLeversTitle: "Чем мы поднимаем цитируемость",
     geoMethodTitle: "Как честно замеряем результат", geoMethodQuestionsLabel: "Примеры контрольных вопросов",
     geoForecastTitle: "Прогноз по GEO-каналу",
+    navPr: "Внешний контур", navMarket: "Мы и рынок", navTerms: "Условия",
+    prTitle: "Внешний контур: упоминания, PR и репутация",
+    prSubtitle: "Третий и четвёртый слои GEO — то, что о бренде пишут вовне. Сайт даёт право быть найденным, внешний контур — право быть рекомендованным",
+    prCoverageLabel: "Покрытие ассистентов",
+    prPlatformsLabel: "Площадки и что с ними делаем",
+    prIncludedLabel: "Что входит в месячный тариф",
+    prExtraLabel: "Что оплачивается сверх",
+    marketTitle: "Мы и рынок: почему цена такая",
+    marketSubtitle: "Наш ценник ниже вилки GEO-агентств — объясняем разницу прямо, вместе с тем, чего за эти деньги не будет",
+    marketColWhat: "Что", marketColMarket: "По рынку", marketColOurs: "У нас",
+    termsTitle: "Условия и честные ограничения",
+    termsSubtitle: "Вопросы, которые отраслевые чек-листы советуют задать GEO-подрядчику до подписания — вместе с тем, когда работа не окупится",
     positionsTitleEngine: (engine) => `Позиции в поиске — живая проверка в ${engine}`,
     positionsOutOfTop30: "вне топ-30", positionsCheckFailed: "не удалось проверить", positionsDiagnosisLabel: "Диагноз:",
     savingsHeadlineFallback: "Столько же работы — в разы дешевле штатного маркетолога",
@@ -293,6 +311,18 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     geoLeversTitle: "Womit wir die Zitierhäufigkeit steigern",
     geoMethodTitle: "So messen wir das Ergebnis ehrlich", geoMethodQuestionsLabel: "Beispiele für Testfragen",
     geoForecastTitle: "Prognose für den GEO-Kanal",
+    navPr: "Externes Umfeld", navMarket: "Wir und der Markt", navTerms: "Konditionen",
+    prTitle: "Externes Umfeld: Erwähnungen, PR und Reputation",
+    prSubtitle: "Die dritte und vierte Ebene von GEO — das, was extern über die Marke geschrieben wird. Die Website verschafft das Recht, gefunden zu werden; das externe Umfeld das Recht, empfohlen zu werden",
+    prCoverageLabel: "Abgedeckte Assistenten",
+    prPlatformsLabel: "Plattformen und was wir dort tun",
+    prIncludedLabel: "Im Monatstarif enthalten",
+    prExtraLabel: "Was zusätzlich berechnet wird",
+    marketTitle: "Wir und der Markt: warum der Preis so ist",
+    marketSubtitle: "Unser Preis liegt unter der Spanne der GEO-Agenturen — wir erklären den Unterschied offen, samt dem, was es für dieses Geld nicht geben wird",
+    marketColWhat: "Leistung", marketColMarket: "Marktüblich", marketColOurs: "Bei uns",
+    termsTitle: "Konditionen und ehrliche Grenzen",
+    termsSubtitle: "Fragen, die Branchen-Checklisten vor der Unterzeichnung an einen GEO-Dienstleister empfehlen — samt der Frage, wann sich die Arbeit nicht rechnet",
     positionsTitleEngine: (engine) => `Suchpositionen — Live-Prüfung bei ${engine}`,
     positionsOutOfTop30: "außerhalb Top 30", positionsCheckFailed: "Prüfung fehlgeschlagen", positionsDiagnosisLabel: "Diagnose:",
     savingsHeadlineFallback: "Gleiche Arbeit — ein Bruchteil der Kosten eines Inhouse-Marketers",
