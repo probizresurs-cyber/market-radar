@@ -240,8 +240,28 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   const [authChecked, setAuthChecked] = useState(false);
   // Доступ к текущему продукту (Этап 2 enforcement). null = ещё проверяем /
   // core (всегда доступ). false = нет подписки и продукт в режиме «по подписке».
-  const [productAccess, setProductAccess] = useState<boolean | null>(scope === "core" ? true : null);
+  /**
+   * Дашборд «по подписке» — за флагом NEXT_PUBLIC_CORE_REQUIRES_SUBSCRIPTION.
+   *
+   * Флаг, а не сразу включённое поведение, потому что это платёжный гейт на
+   * живых пользователях: в момент деплоя все, у кого триал уже истёк, теряют
+   * доступ к своим данным. Момент такого перехода выбирает владелец, а не
+   * выкатка. Включается переменной окружения без правки кода.
+   *
+   * Триал остаётся входом: hasAccess=true все 7 дней, гейт ловит только тех,
+   * у кого он кончился. КП вне этого — оно бесплатное и живёт на /kp-share.
+   */
+  const CORE_PAID = process.env.NEXT_PUBLIC_CORE_REQUIRES_SUBSCRIPTION === "true";
+  const [productAccess, setProductAccess] = useState<boolean | null>(
+    scope === "core" ? (CORE_PAID ? null : true) : null,
+  );
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  /**
+   * Ссылка на КП, собранное при первом входе. Держим в состоянии, чтобы
+   * показать баннер над дашбордом: человек пришёл за предложением, и оно не
+   * должно потеряться, когда его перекинуло на дашборд.
+   */
+  const [kpOnboardingUrl, setKpOnboardingUrl] = useState<string | null>(null);
 
   // ─── Workspace state ───────────────────────────────────────────────────
   // activeWorkspace.isOwnWorkspace=true для собственной workspace юзера
@@ -361,19 +381,30 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, currentUser, scope]);
 
-  // Проверка доступа к продукту (enforcement). Только для не-core и залогиненного.
+  // Проверка доступа к продукту (enforcement).
+  // Не-core — по матрице продуктов (/api/me/products).
+  // core — по подписке (/api/subscription), и только когда включён CORE_PAID:
+  // у дашборда нет отдельного «продукта» в матрице, его доступ — это и есть
+  // подписка или действующий триал.
   useEffect(() => {
-    if (scope === "core" || !currentUser) return;
+    if (!currentUser) return;
+    if (scope === "core" && !CORE_PAID) return;
     let cancelled = false;
     (async () => {
       try {
+        if (scope === "core") {
+          const r = await fetch("/api/subscription", { cache: "no-store", credentials: "include" });
+          const j = await r.json();
+          if (!cancelled) setProductAccess(j?.ok === false ? true : Boolean(j?.hasAccess));
+          return;
+        }
         const r = await fetch("/api/me/products", { credentials: "include" });
         const j = await r.json();
         if (!cancelled) setProductAccess(j.ok ? Boolean(j.access?.[scope]) : true);
       } catch { if (!cancelled) setProductAccess(true); } // при сбое не блокируем
     })();
     return () => { cancelled = true; };
-  }, [scope, currentUser]);
+  }, [scope, currentUser, CORE_PAID]);
 
   const handleNavClick = React.useCallback((id: string) => {
     if (id === "owner-dashboard") {
@@ -860,6 +891,52 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
     if (wasActive) void handleSwitchProfile(DEFAULT_PROFILE_ID);
   }, [currentUser, profiles, activeProfileId, handleSwitchProfile]);
 
+  /**
+   * Первый вход: ставим генерацию КП и ждём её, вместо запуска /api/analyze.
+   *
+   * Опрос раз в 5 секунд — генерация занимает 1–3 минуты (скрап + Claude),
+   * чаще дёргать бессмысленно. Потолок в 60 попыток (~5 минут) нужен, чтобы
+   * зависшая очередь не крутила поллинг вечно: по нему честно уводим человека
+   * на ручной ввод, а не оставляем на экране загрузки навсегда.
+   *
+   * Анализ в user_data кладёт СЕРВЕР (GET /api/kp-onboarding → kp-handoff),
+   * поэтому здесь достаточно перечитать данные аккаунта.
+   */
+  const startKpOnboarding = React.useCallback(async (url: string, userId: string) => {
+    setStatus("loading");
+    try {
+      const r = await fetch("/api/kp-onboarding", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.error || "Не удалось запустить сборку");
+
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise(res => setTimeout(res, 5000));
+        const s = await fetch("/api/kp-onboarding", { cache: "no-store", credentials: "include" })
+          .then(x => x.json())
+          .catch(() => null);
+        if (!s?.ok) continue;
+        if (s.status === "error") throw new Error(s.error || "Сборка не удалась");
+        if (s.status === "done") {
+          if (s.kpUrl) setKpOnboardingUrl(s.kpUrl as string);
+          // Анализ уже перенесён сервером — просто подхватываем его.
+          await loadAndApplyUserData(userId, getActiveProfileId(userId));
+          setActiveNav("dashboard");
+          return;
+        }
+      }
+      throw new Error("Сборка затянулась");
+    } catch {
+      // Любой сбой — не тупик: даём ввести сайт руками.
+      setActiveNav("new-analysis");
+    } finally {
+      setStatus("done");
+    }
+  }, [loadAndApplyUserData]);
+
   // Check for existing session + restore saved data on mount
   useEffect(() => {
     const initApp = async () => {
@@ -957,24 +1034,22 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
 
       setAppScreen(user.onboardingDone ? "app" : "onboarding");
 
-      // Auto-trigger analysis if user has companyUrl but no analysis yet
+      // Первый запуск: собираем КП, а не сразу дашборд.
+      //
+      // Раньше здесь стоял analyzeUrl() → /api/analyze. Замена не «облегчает»
+      // вход: конвейер КП внутри прогоняет тот же analyzeWithClaude. Смысл в
+      // другом — человек первым делом получает предложение, которое можно
+      // читать без подписки, а готовый AnalysisResult к этому моменту уже
+      // посчитан и сервер сам кладёт его в user_data (см. kp-handoff).
+      // Поэтому дашборд открывается мгновенно и без повторного анализа.
       if (!hasCompany && user.onboardingDone) {
         const storedUser = authGetCurrentUser();
         const url = storedUser?.companyUrl || user.companyUrl;
-        if (url) {
-          setStatus("loading");
-          analyzeUrl(url)
-            .then(result => {
-              saveMyCompany(result, user.id);
-              setActiveNav("dashboard");
-            })
-            .catch(() => setActiveNav("new-analysis"))
-            .finally(() => setStatus("done"));
-        }
+        if (url) void startKpOnboarding(url, user.id);
       }
     };
     initApp();
-  }, [loadAndApplyUserData]);
+  }, [loadAndApplyUserData, startKpOnboarding]);
 
   const analyzeUrl = async (url: string, personalBrand?: { name: string; position: string; parentCompanyContext?: string }): Promise<AnalysisResult> => {
     trackGoal("analyze_start", { url: personalBrand ? `personal:${personalBrand.name}` : url });
@@ -2806,7 +2881,8 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
   }
 
   // Enforcement: продукт в режиме «по подписке», а у юзера её нет.
-  if (scope !== "core" && currentUser && productAccess === false) {
+  // core попадает сюда только при включённом NEXT_PUBLIC_CORE_REQUIRES_SUBSCRIPTION.
+  if ((scope !== "core" || CORE_PAID) && currentUser && productAccess === false) {
     const prod = PRODUCT_BY_SCOPE[scope];
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "var(--background)", color: "var(--foreground)", padding: "40px 24px", textAlign: "center", fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -2942,6 +3018,37 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         onSwitchWorkspace={handleSwitchWorkspace} {...profileSidebarProps} />
       <main className="ds-mobile-page-padding" style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <TrialBanner userId={currentUser?.id} />
+        {/* КП, собранное на входе. Человек пришёл за предложением — и оно не
+            должно потеряться от того, что его перекинуло на дашборд. */}
+        {kpOnboardingUrl && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+            padding: "14px 18px", marginBottom: 16, borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+          }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700 }}>Ваше предложение готово</div>
+              <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>
+                Разбор сайта, находки и план работ — по вашему сайту, без общих слов.
+              </div>
+            </div>
+            <a href={kpOnboardingUrl} target="_blank" rel="noopener noreferrer"
+              style={{
+                padding: "9px 18px", borderRadius: 10, background: "var(--primary)",
+                color: "var(--primary-foreground)", textDecoration: "none", fontWeight: 700, fontSize: 13.5,
+              }}>
+              Открыть КП
+            </a>
+            <button onClick={() => setKpOnboardingUrl(null)} aria-label="Скрыть"
+              style={{
+                border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted-foreground)",
+                borderRadius: 10, padding: "9px 14px", cursor: "pointer", fontSize: 13.5,
+              }}>
+              Скрыть
+            </button>
+          </div>
+        )}
         <PaywallGuard />
         {/* Баннер «вы смотрите чужой workspace» — для editor'а и viewer'а */}
         {activeWorkspace && !activeWorkspace.isOwnWorkspace && (

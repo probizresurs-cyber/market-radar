@@ -26,17 +26,21 @@ export async function enqueueKp(
   // Фаза C: постановка из карточки лида (/admin/leads) — сразу привязываем
   // лид и переносим его контакты, чтобы менеджеру в /kp-ru не пришлось
   // вбивать email руками, а воронка (kp-followups, magic-link) знала клиента.
-  opts?: { leadId?: string; companyName?: string; clientEmail?: string; clientPhone?: string; source?: "manager" | "public"; clientIp?: string },
+  // source='user' — онбординг: человек зарегистрировался и КП генерируется
+  // ему самому. Отличается от 'public' тем, что сразу привязано к аккаунту
+  // (platformUserId), поэтому по готовности анализ уезжает в его дашборд без
+  // участия менеджера. Публичный статус-роут такие генерации не отдаёт.
+  opts?: { leadId?: string; companyName?: string; clientEmail?: string; clientPhone?: string; source?: "manager" | "public" | "user"; clientIp?: string; platformUserId?: string },
 ): Promise<string> {
   const id = randomUUID();
   await query(
-    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone, source, client_ip)
-     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9, $10, $11)`,
+    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone, source, client_ip, platform_user_id)
+     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [
       id, locale, url,
       randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
       opts?.leadId ?? null, opts?.companyName ?? null, opts?.clientEmail ?? null, opts?.clientPhone ?? null,
-      opts?.source ?? "manager", opts?.clientIp ?? null,
+      opts?.source ?? "manager", opts?.clientIp ?? null, opts?.platformUserId ?? null,
     ],
   );
   void tick();

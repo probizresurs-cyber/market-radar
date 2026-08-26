@@ -25,6 +25,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { query, initDb } from "@/lib/db";
 import { isKpManager } from "@/lib/kp-manager-auth";
 import { createMagicLink } from "@/lib/magic-link";
+import { seedCompanyFromKp } from "@/lib/kp-handoff";
 import { sendMail } from "@/lib/mailer";
 import { TRIAL_TOKEN_LIMIT, TRIAL_DAYS } from "@/lib/subscription";
 import type { AnalysisResult } from "@/lib/types";
@@ -100,20 +101,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   // ── Перенести анализ, только если у аккаунта своих данных ещё нет ───────
-  const hasCompanyData = await query<{ id: string }>(
-    `SELECT id FROM user_data WHERE user_id = $1 AND key = 'company'`,
-    [userId],
-  );
-  if (hasCompanyData.length === 0) {
-    const seeded: AnalysisResult = { ...r.company, analyzedAt: new Date().toISOString() };
-    await query(
-      `INSERT INTO user_data (id, user_id, key, value) VALUES ($1, $2, 'company', $3)
-       ON CONFLICT (user_id, key) DO NOTHING`,
-      [randomUUID(), userId, JSON.stringify(seeded)],
-    );
-  }
-
-  await query(`UPDATE kp_generations SET platform_user_id = $2 WHERE id = $1`, [id, userId]);
+  // Тот же шаг делает онбординг после самогенерации КП — общий код в
+  // kp-handoff, чтобы правило «не затирать чужой анализ» не разъехалось.
+  await seedCompanyFromKp(userId, id, r.company);
 
   // ── Ссылка + письмо ──────────────────────────────────────────────────────
   const token = await createMagicLink(userId, id);
