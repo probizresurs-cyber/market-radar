@@ -69,9 +69,16 @@ export async function GET(
   void query("UPDATE shared_landings SET view_count = view_count + 1 WHERE slug = $1", [slug])
     .catch(e => console.warn("[/l/[slug]] view count update failed:", e));
 
-  // Отдаём HTML напрямую. Лендинг — self-contained документ от
-  // generate-landing, со встроенными стилями и (опционально) формами.
-  return new Response(r.html_content, {
+  // Инжектим инлайн-редактор: кнопка «Редактировать» в углу, вход по паролю,
+  // правка текста и картинок прямо на странице. Скрипт лёгкий и отдельным
+  // тегом — самодостаточный HTML лендинга остаётся нетронутым. Кэш при этом
+  // короткий (ниже), чтобы правки было видно почти сразу.
+  const editorTag = `\n<script src="/landing-editor.js" data-slug="${slug}"></script>\n`;
+  const html = /<\/body>/i.test(r.html_content)
+    ? r.html_content.replace(/<\/body>/i, editorTag + "</body>")
+    : r.html_content + editorTag;
+
+  return new Response(html, {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
