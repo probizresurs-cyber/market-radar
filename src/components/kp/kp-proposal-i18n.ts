@@ -99,7 +99,15 @@ export interface KpProposalStrings {
   astroSubmitting: string; astroSubmitBtn: string;
   astroRequestError: string; astroTooManyRequests: string;
   astroPhonePlaceholder: string;
-  astroConsentText: string; astroConsentLink: string;
+  /**
+   * Согласие на обработку ПД — четыре куска по инструкции юриста:
+   * «Даю [согласие] на обработку … в соответствии с [Политикой …]», где
+   * ОБА выделенных слова — гиперссылки: согласие → /legal/consent-pd,
+   * Политика → /legal/privacy. Раньше ссылка была одна (на политику) —
+   * этого по инструкции недостаточно.
+   */
+  astroConsentP1: string; astroConsentLink1: string;
+  astroConsentP2: string; astroConsentLink2: string;
   tgConnectPrompt: string; tgConnectBtn: string;
   finalCtaAstroTitle: string; finalCtaAstroBody: string; finalCtaAstroBtn: string;
   finalCtaGenericTitle: string; finalCtaGenericBody: string; leaveRequestBtn: string;
@@ -231,8 +239,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroSubmitting: "Отправляем…", astroSubmitBtn: "Да, интересно",
     astroRequestError: "Не получилось отправить запрос — попробуйте позже", astroTooManyRequests: "Слишком много запросов — попробуйте позже",
     astroPhonePlaceholder: "Телефон (необязательно)",
-    astroConsentText: "Согласен на обработку персональных данных в соответствии с",
-    astroConsentLink: "политикой конфиденциальности",
+    astroConsentP1: "Даю",
+    astroConsentLink1: "согласие",
+    astroConsentP2: "на обработку персональных данных в соответствии с",
+    astroConsentLink2: "Политикой обработки персональных данных",
     tgConnectPrompt: "Не хотите пропустить уведомление? Подключите Telegram — пришлём готовую ссылку туда же.",
     tgConnectBtn: "Подключить Telegram",
     finalCtaAstroTitle: "Готовы к технически сильному сайту?", finalCtaAstroBody: "Один шаг — оставьте email в блоке «Новая версия сайта» выше. Мы подготовим технически обновлённую версию: дизайн без изменений, проблемы из находок устранены.", finalCtaAstroBtn: "Запросить обновление сайта",
@@ -364,8 +374,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     astroSubmitting: "Wird gesendet…", astroSubmitBtn: "Ja, interessant",
     astroRequestError: "Anfrage konnte nicht gesendet werden — bitte später erneut versuchen", astroTooManyRequests: "Zu viele Anfragen — bitte später erneut versuchen",
     astroPhonePlaceholder: "Telefon (optional)",
-    astroConsentText: "Ich stimme der Verarbeitung meiner personenbezogenen Daten gemäß der",
-    astroConsentLink: "Datenschutzerklärung zu",
+    astroConsentP1: "Ich gebe meine",
+    astroConsentLink1: "Einwilligung",
+    astroConsentP2: "zur Verarbeitung personenbezogener Daten gemäß der",
+    astroConsentLink2: "Datenschutzerklärung",
     tgConnectPrompt: "Möchten Sie die Benachrichtigung nicht verpassen? Verbinden Sie Telegram — wir senden den fertigen Link auch dorthin.",
     tgConnectBtn: "Telegram verbinden",
     finalCtaAstroTitle: "Bereit für eine technisch stärkere Website?", finalCtaAstroBody: "Ein Schritt — hinterlassen Sie Ihre E-Mail im Block „Neue Website-Version“ oben. Wir bereiten eine technisch optimierte Version vor — das Design bleibt unverändert.", finalCtaAstroBtn: "Technische Optimierung anfragen",

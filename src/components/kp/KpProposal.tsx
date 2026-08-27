@@ -2746,10 +2746,17 @@ function AstroOfferPanel({ astroRebuild, locale }: { astroRebuild: AstroRebuildP
           onChange={(e) => setConsent(e.target.checked)}
           style={{ marginTop: 2, width: 15, height: 15, accentColor: "var(--primary)", flexShrink: 0 }}
         />
+        {/* Обе ссылки — требование инструкции по ПД: «согласие» ведёт на текст
+            согласия, «Политика» на политику. Чекбокс по умолчанию снят и
+            блокирует отправку — проставлять заранее запрещено той же инструкцией. */}
         <span>
-          {t.astroConsentText}{" "}
+          {t.astroConsentP1}{" "}
+          <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", textDecoration: "underline" }}>
+            {t.astroConsentLink1}
+          </a>{" "}
+          {t.astroConsentP2}{" "}
           <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", textDecoration: "underline" }}>
-            {t.astroConsentLink}
+            {t.astroConsentLink2}
           </a>
         </span>
       </label>

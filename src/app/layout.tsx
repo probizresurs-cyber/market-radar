@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { DeploymentRefresher } from "@/components/DeploymentRefresher";
 import { FetchPatcher } from "@/components/FetchPatcher";
+import { CookieConsent } from "@/components/CookieConsent";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -385,6 +386,8 @@ export default function RootLayout({
         <DeploymentRefresher />
         <FetchPatcher />
         {children}
+        {/* Куки-баннер обязателен: Метрика выше грузится на всех страницах */}
+        <CookieConsent />
       </body>
     </html>
   );
