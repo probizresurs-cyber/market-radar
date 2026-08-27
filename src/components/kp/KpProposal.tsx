@@ -173,6 +173,7 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "pilot-terms", label: "Условия", pilotOnly: true },
+  { id: "pilot-more", label: "Что ещё умеем", pilotOnly: true },
   { id: "astro-offer", label: "Новая версия сайта", pilotOnly: true },
   { id: "pricing", label: "Тарифы", hideOnPilot: true },
   { id: "cta", label: "Заявка" },
@@ -270,7 +271,7 @@ export function KpProposal({
     competitors: t.navCompetitors, "pilot-rivals": t.navRivals, "ai-visibility": t.navAiVisibility,
     "pilot-social": t.navSocial, "pilot-geo": t.navGeo, "pilot-pr": t.navPr,
     positions: t.navPositions, "pilot-offer": t.navOffer, "pilot-market": t.navMarket, "seo-preview": t.navFormat,
-    "pilot-forecast": t.navForecast, "pilot-terms": t.navTerms, "astro-offer": t.navAstroOffer, cta: t.navCta,
+    "pilot-forecast": t.navForecast, "pilot-terms": t.navTerms, "pilot-more": t.navMore, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
   /**
    * Дизайн-тема КП: ?design=paper | earth.
@@ -2059,6 +2060,50 @@ export function KpProposal({
           </div>
           )}
         </Section>
+        )}
+
+        {/* ─── ЧТО ЕЩЁ УМЕЕМ + КОНСУЛЬТАЦИЯ ─────────────────────────────
+            Слой после КП: человек дочитал документ, аргумент сработал — и
+            только здесь уместно показать остальные продукты. Раньше КП
+            заканчивалось одним предложением по SEO/GEO, и клиент не узнавал,
+            что платформа умеет ещё пять вещей.
+
+            Второй выход — консультация: часть покупателей не берёт услугу с
+            листа, им нужен разговор. Без этой двери они просто уходят. */}
+        {pilotOffer && (
+          <Section id="pilot-more" index={sectionNo["pilot-more"]} band title={t.moreTitle} subtitle={t.moreSubtitle}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+              {t.moreItems.map((m, i) => (
+                <Reveal key={m.t} delay={i * 55} style={{ height: "100%" }}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", height: "100%" }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6, lineHeight: 1.3 }}>{m.t}</div>
+                      <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{m.d}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            <div style={{
+              display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap",
+              marginTop: 18, padding: "20px 22px", borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "color-mix(in srgb, var(--primary) 7%, transparent)",
+            }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 800, marginBottom: 4 }}>{t.consultTitle}</div>
+                <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{t.consultBody}</div>
+              </div>
+              <button
+                onClick={() => { trackKpEvent("click", "consult"); scrollTo(primaryCtaId); }}
+                className="ds-btn ds-btn-primary"
+                style={{ height: 44, padding: "0 22px", fontSize: 14, flexShrink: 0 }}
+              >
+                {t.consultBtn}
+              </button>
+            </div>
+          </Section>
         )}
 
         {/* ─── CTA ─── */}

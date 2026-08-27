@@ -64,7 +64,10 @@ export interface KpProposalStrings {
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
   geoForecastTitle: string;
   rivalGapLabel: string; rivalGapPerMonth: string; rivalGapNote: string;
-  navPr: string; navMarket: string; navTerms: string;
+  navPr: string; navMarket: string; navTerms: string; navMore: string;
+  moreTitle: string; moreSubtitle: string;
+  moreItems: { t: string; d: string }[];
+  consultTitle: string; consultBody: string; consultBtn: string;
   prTitle: string; prSubtitle: string;
   prCoverageLabel: string; prPlatformsLabel: string; prIncludedLabel: string; prExtraLabel: string;
   marketTitle: string; marketSubtitle: string;
@@ -197,6 +200,20 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     rivalGapLabel: "Спрос, который забирает конкурент",
     rivalGapPerMonth: "показов/мес",
     rivalGapNote: "Запросы, по которым конкурент в выдаче есть, а вас нет. Частотность — Букварикс, позиция конкурента на момент замера.",
+    navMore: "Что ещё умеем",
+    moreTitle: "Что ещё умеет платформа",
+    moreSubtitle: "Предложение выше — про поиск и нейросети. Это не всё, что можно закрыть одним подрядчиком",
+    moreItems: [
+      { t: "Видео-ролики с аватаром", d: "Говорящий аватар, озвучка клонированным голосом бренда, видеоряд, субтитры, фирменные цвета из брендбука." },
+      { t: "Соцсети под ключ", d: "Посты, сторис, карусели и публикация по расписанию. Контент снимаете вы — упаковка и план наши." },
+      { t: "Портрет аудитории", d: "Сегменты, страхи, мотивы и возражения ваших покупателей — основа для текстов, которые попадают." },
+      { t: "Брендбук и презентации", d: "Банк проверенных фактов о компании и фотобанк: генерация опирается на ваши данные, а не на выдумку." },
+      { t: "Анализ отзывов", d: "Что пишут о вас на картах и отзовиках, темы претензий и шаблоны ответов. Тональность влияет на ответ ассистента." },
+      { t: "Мониторинг конкурентов", d: "Их офферы, цены и структура сайтов. Видно, когда сосед по нише меняет условия." },
+    ],
+    consultTitle: "Не готовы решать с листа?",
+    consultBody: "Разберём документ вместе: что делать первым, что подождёт, и во что это встанет именно у вас. Без обязательств.",
+    consultBtn: "Запросить консультацию",
     navPr: "Внешний контур", navMarket: "Мы и рынок", navTerms: "Условия",
     prTitle: "Внешний контур: упоминания, PR и репутация",
     prSubtitle: "Третий и четвёртый слои GEO — то, что о бренде пишут вовне. Сайт даёт право быть найденным, внешний контур — право быть рекомендованным",
@@ -336,6 +353,20 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     rivalGapLabel: "Nachfrage, die der Wettbewerber abschöpft",
     rivalGapPerMonth: "Abfragen/Monat",
     rivalGapNote: "Suchanfragen, bei denen der Wettbewerber in den Ergebnissen steht und Sie nicht. Häufigkeit laut Bukvarix, Position des Wettbewerbers zum Messzeitpunkt.",
+    navMore: "Weitere Leistungen",
+    moreTitle: "Was die Plattform außerdem kann",
+    moreSubtitle: "Das Angebot oben betrifft Suche und KI-Antworten. Das ist nicht alles, was sich über einen Dienstleister abdecken lässt",
+    moreItems: [
+      { t: "Videos mit Avatar", d: "Sprechender Avatar, Vertonung mit geklonter Markenstimme, Bildmaterial, Untertitel, Markenfarben aus dem Brandbook." },
+      { t: "Social Media komplett", d: "Posts, Stories, Karussells und Veröffentlichung nach Plan. Das Material drehen Sie — Aufbereitung und Redaktionsplan kommen von uns." },
+      { t: "Zielgruppenprofil", d: "Segmente, Ängste, Motive und Einwände Ihrer Kundschaft — die Grundlage für Texte, die treffen." },
+      { t: "Brandbook und Präsentationen", d: "Faktenbank und Bildarchiv Ihres Unternehmens: die Generierung stützt sich auf Ihre Daten, nicht auf Erfundenes." },
+      { t: "Bewertungsanalyse", d: "Was auf Karten und Bewertungsportalen über Sie steht, wiederkehrende Beschwerdethemen und Antwortvorlagen." },
+      { t: "Wettbewerbsbeobachtung", d: "Angebote, Preise und Seitenstruktur der Mitbewerber. Sichtbar, wenn jemand seine Konditionen ändert." },
+    ],
+    consultTitle: "Nicht bereit, direkt zu entscheiden?",
+    consultBody: "Wir gehen das Dokument gemeinsam durch: was zuerst, was warten kann und was es bei Ihnen konkret kostet. Unverbindlich.",
+    consultBtn: "Beratung anfragen",
     navPr: "Externes Umfeld", navMarket: "Wir und der Markt", navTerms: "Konditionen",
     prTitle: "Externes Umfeld: Erwähnungen, PR und Reputation",
     prSubtitle: "Die dritte und vierte Ebene von GEO — das, was extern über die Marke geschrieben wird. Die Website verschafft das Recht, gefunden zu werden; das externe Umfeld das Recht, empfohlen zu werden",
