@@ -152,7 +152,10 @@ const POSITION_CHECK_ENABLED = true;
 // с ценой → выгода → условия → заявка.
 const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPilot?: boolean }[] = [
   { id: "overview", label: "Обзор" },
-  { id: "pilot-strengths", label: "Сильные стороны", pilotOnly: true },
+  // «Сильные стороны» стоят НЕ сразу после обзора, а перед предложением:
+  // КП продаёт через диагноз потерь, и комплимент второй секцией глушит
+  // боль раньше, чем читатель её почувствовал. Перед офером тот же блок
+  // работает правильно — «вот на что обопрёмся, это не сломаем».
   { id: "findings", label: "Находки" },
   { id: "tech", label: "Тех-аудит" },
   { id: "competitors", label: "Конкуренты" },
@@ -164,6 +167,7 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "positions", label: "Позиции" },
   { id: "growth", label: "Точки роста", hideOnPilot: true },
   { id: "plan", label: "План", hideOnPilot: true },
+  { id: "pilot-strengths", label: "Сильные стороны", pilotOnly: true },
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
   { id: "pilot-market", label: "Мы и рынок", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
@@ -780,41 +784,21 @@ export function KpProposal({
           </Reveal>
         )}
 
-        {/* ─── СИЛЬНЫЕ СТОРОНЫ + ЛЕГЕНДА (только pilotOffer) — доверие до боли ─── */}
+        {/* Легенда достоверности — вне секций: находки идут первыми и бейджи
+            fact/estimate/forecast должны быть объяснены ДО первого появления.
+            Сами «Сильные стороны» переехали вниз, к предложению — комплимент
+            второй секцией глушил боль диагноза (см. BASE_SECTIONS). */}
         {pilotOffer && (
-          <Section id="pilot-strengths" index={sectionNo["pilot-strengths"]} title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
-            {/* Легенда достоверности — как читать весь отчёт */}
-            <div className="ds-card" style={{ padding: "14px 18px", marginBottom: 20, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
-              {([
-                ["fact", t.evidenceLegendFact], ["estimate", t.evidenceLegendEstimate], ["forecast", t.evidenceLegendForecast],
-              ] as Array<[Evidence, string]>).map(([level, desc]) => (
-                <span key={level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
-                  <EvidenceBadge level={level} locale={locale} /> {desc}
-                </span>
-              ))}
-            </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              {PD.strengths.map((s, i) => (
-                <Reveal key={i} delay={i * 70}>
-                  {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-                        <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
-                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
-                        <EvidenceBadge level={s.evidence} locale={locale} />
-                      </div>
-                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
-                      <div style={{ fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8 }}>
-                        <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
-                        <span><b style={{ color: "var(--success)" }}>{t.weRelyOnThis}</b> {s.leverage}</span>
-                      </div>
-                    </div>
-                  )}
-                </Reveal>
-              ))}
-            </div>
-          </Section>
+          <div className="ds-card" style={{ padding: "14px 18px", margin: "0 0 28px", display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t.howToReadReport}</span>
+            {([
+              ["fact", t.evidenceLegendFact], ["estimate", t.evidenceLegendEstimate], ["forecast", t.evidenceLegendForecast],
+            ] as Array<[Evidence, string]>).map(([level, desc]) => (
+              <span key={level} style={{ display: "inline-flex", gap: 7, alignItems: "flex-start", fontSize: 12.5, color: "var(--muted-foreground)", flex: "1 1 220px", minWidth: 200, lineHeight: 1.4 }}>
+                <EvidenceBadge level={level} locale={locale} /> {desc}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* ─── НАХОДКИ: пилот — ручные кейсы «факт → важно → делать → даст» ─── */}
@@ -1518,6 +1502,34 @@ export function KpProposal({
             </Section>
           );
         })()}
+
+        {/* ─── СИЛЬНЫЕ СТОРОНЫ — прямо перед предложением: «на это обопрёмся,
+            это не сломаем». Выше по документу они стояли бы против логики
+            продажи — комплимент до боли обесценивает диагноз. ─── */}
+        {pilotOffer && (
+          <Section id="pilot-strengths" index={sectionNo["pilot-strengths"]} title={t.strengthsTitle} subtitle={t.strengthsSubtitle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {PD.strengths.map((s, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px", borderLeft: "4px solid var(--success)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                        <Trophy size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, flex: 1 }}>{s.title}</div>
+                        <EvidenceBadge level={s.evidence} locale={locale} />
+                      </div>
+                      <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 8px" }}>{s.body}</p>
+                      <div style={{ fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8 }}>
+                        <ArrowRight size={15} style={{ color: "var(--success)", flexShrink: 0, marginTop: 3 }} />
+                        <span><b style={{ color: "var(--success)" }}>{t.weRelyOnThis}</b> {s.leverage}</span>
+                      </div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
