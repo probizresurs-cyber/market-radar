@@ -220,6 +220,27 @@ export default function CheckPage() {
 
       <main>
       <div className="mrc-wrap">
+        {/* ─── Маршрут: что будет после проверки ───────────────────────────
+            Человек с рекламы не знает, чем всё закончится, и это тормозит
+            ввод адреса. Показываем три шага сразу: бесплатный замер →
+            разбор на этой же странице → полное предложение по email.
+            Текущий шаг подсвечивается, пройденный гаснет. */}
+        {!checkId && (
+          <ol className="mrc-route" aria-label="Как это работает">
+            {[
+              ["Замер", "Вводите адрес — считаем три показателя по вашему сайту. Бесплатно, без регистрации."],
+              ["Разбор", "Показываем, где теряются заявки и кто забирает спрос ниши. Прямо здесь, на странице."],
+              ["Предложение", "По желанию — полное КП с находками, конкурентами, прогнозом и ценами."],
+            ].map(([t, d], i) => (
+              <li key={t} className={`mrc-route-step${i === 0 ? " is-now" : ""}`}>
+                <span className="mrc-route-dot" aria-hidden="true" />
+                <span className="mrc-route-t">{t}</span>
+                <span className="mrc-route-d">{d}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+
         {/* ─── Что замеряем — лист приборов, пока проверка не запущена ─── */}
         {!checkId && (
           <section className="mrc-sec" data-reveal>
@@ -371,7 +392,6 @@ export default function CheckPage() {
             {CHAIN.map((c, i) => (
               <li key={c.n} className={`mrc-chain-node${i === CHAIN.length - 1 ? " is-loss" : ""}`}>
                 <span className="mrc-chain-tick" aria-hidden="true" />
-                <span className="mrc-mono mrc-chain-n">{c.n}</span>
                 <span className="mrc-chain-ico" aria-hidden="true"><Icon name={c.icon} /></span>
                 <span className="mrc-chain-t">{c.t}</span>
                 <span className="mrc-chain-d">{c.d}</span>
@@ -394,7 +414,7 @@ export default function CheckPage() {
               как человек увидел, куда уходят его заявки. */}
           <div className="mrc-midcta">
             <div>
-              <div className="mrc-midcta-t">Проверим, где теряются ваши</div>
+              <div className="mrc-midcta-t">Проверим, где теряются ваши заявки</div>
               <div className="mrc-midcta-d">Три замера по вашему сайту — бесплатно, без звонка, результат на этой же странице.</div>
             </div>
             <button
@@ -1936,47 +1956,6 @@ const CSS = AI_ROW_CSS + `
   .mrc-scan > span { width: 100%; }
   .mrc-caret { opacity: 1; }
 }
-/* Цепочка потерь: были пять тесных колонок с 13px текстом — читалось как
-   сноска. Теперь карточки: на широком по три в ряд, каждая со своей
-   цветной кромкой и крупным номером. Последняя — потеря, красная. */
-.mrc-chain {
-  list-style: none; margin: 0; padding: 0; position: relative;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
-}
-.mrc-chain::before { display: none; }
-.mrc-chain-node {
-  position: relative; padding: 22px 22px 24px; overflow: hidden;
-  background: var(--mrc-ink-soft); border: 1px solid var(--rule);
-  border-radius: var(--mrc-r-lg);
-  box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 12px 28px -20px rgba(15,23,42,.28);
-}
-.mrc-chain-node::after {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
-  background: linear-gradient(90deg, var(--mrc-indigo), var(--mrc-cyan) 70%, transparent);
-}
-.mrc-chain-node.is-loss::after { background: linear-gradient(90deg, var(--mrc-red), transparent 80%); }
-.mrc-chain-tick { display: none; }
-.mrc-chain-n {
-  color: var(--mrc-indigo); display: block; margin-bottom: 14px;
-  font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
-}
-.mrc-chain-node.is-loss .mrc-chain-n { color: var(--mrc-red); }
-.mrc-chain-ico {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 42px; height: 42px; border-radius: 12px; margin-bottom: 14px;
-  color: var(--mrc-indigo);
-  border: 1px solid color-mix(in srgb, var(--mrc-indigo) 34%, transparent);
-  background: color-mix(in srgb, var(--mrc-indigo) 9%, transparent);
-}
-.mrc-chain-node.is-loss .mrc-chain-ico {
-  color: var(--mrc-red);
-  border-color: color-mix(in srgb, var(--mrc-red) 38%, transparent);
-  background: color-mix(in srgb, var(--mrc-red) 9%, transparent);
-}
-.mrc-chain-t { display: block; font-size: 19px; font-weight: 750; letter-spacing: -0.02em; margin-bottom: 9px; }
-.mrc-chain-d { display: block; font-size: 15.5px; line-height: 1.55; color: var(--mrc-fg-mid); }
-@media (max-width: 1000px) { .mrc-chain { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px)  { .mrc-chain { grid-template-columns: minmax(0, 1fr); } }
 
 /* Строки замеров: тоже были сноской — поднимаем до карточек с номером */
 .mrc-instr-row {
@@ -2012,5 +1991,93 @@ const CSS = AI_ROW_CSS + `
 .mrc-midcta-t { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 5px; }
 .mrc-midcta-d { font-size: 15.5px; line-height: 1.5; color: var(--mrc-fg-mid); max-width: 56ch; }
 @media (max-width: 700px) { .mrc-midcta { padding: 20px; } .mrc-midcta .mrc-btn { width: 100%; } }
+
+/* ── Цепочка потерь: нить, а не карточки ──────────────────────────────
+   Карточка с градиентной кромкой и иконкой в квадратике — типовой набор,
+   которым выглядит любой сгенерированный лендинг. Здесь работает сама
+   линия: шаги нанизаны на неё, а на последнем она рвётся и уходит из
+   кадра пунктиром со стрелкой. Это и есть «заявка ушла» — рисунком,
+   а не подписью. Номера убраны: порядок задаёт линия. */
+.mrc-chain {
+  list-style: none; margin: 0; padding: 0; position: relative;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 20px;
+}
+/* Сама нить */
+.mrc-chain::before {
+  content: ''; position: absolute; left: 8px; right: 12%; top: 9px; height: 2px;
+  background: linear-gradient(90deg, var(--mrc-indigo), var(--mrc-cyan) 55%, var(--mrc-red));
+  border-radius: 2px;
+}
+/* Обрыв: пунктир уходит вправо за край с наклоном */
+.mrc-chain::after {
+  content: ''; position: absolute; right: -8px; top: 9px; width: 14%; height: 2px;
+  background: repeating-linear-gradient(90deg, var(--mrc-red) 0 7px, transparent 7px 14px);
+  transform-origin: left center; transform: rotate(11deg);
+}
+.mrc-chain-node { position: relative; padding: 26px 0 0; background: none; border: 0; box-shadow: none; }
+.mrc-chain-node::after { display: none; }
+/* Узел на нити */
+.mrc-chain-tick {
+  display: block; position: absolute; top: 3px; left: 4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--mrc-indigo); border: 0;
+  box-shadow: 0 0 0 4px var(--mrc-ink);
+}
+.mrc-chain-node.is-loss .mrc-chain-tick {
+  background: var(--mrc-ink); border: 2.5px solid var(--mrc-red);
+}
+/* Иконка — без плитки, просто знак нужного цвета */
+.mrc-chain-ico {
+  display: block; width: auto; height: auto; margin: 0 0 14px;
+  border: 0; background: none; color: var(--mrc-indigo);
+}
+.mrc-chain-node.is-loss .mrc-chain-ico { color: var(--mrc-red); }
+.mrc-chain-t {
+  display: block; font-size: 20px; font-weight: 800; letter-spacing: -0.025em;
+  line-height: 1.2; margin-bottom: 10px;
+}
+.mrc-chain-node.is-loss .mrc-chain-t { color: var(--mrc-red); }
+.mrc-chain-d { display: block; font-size: 15.5px; line-height: 1.55; color: var(--mrc-fg-mid); }
+
+@media (max-width: 1100px) {
+  /* На узком нить горизонтально не живёт — разворачиваем в вертикальную */
+  .mrc-chain { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .mrc-chain::before { left: 9px; right: auto; top: 10px; bottom: 42px; width: 2px; height: auto;
+    background: linear-gradient(180deg, var(--mrc-indigo), var(--mrc-cyan) 55%, var(--mrc-red)); }
+  .mrc-chain::after { right: auto; left: 9px; bottom: 12px; top: auto; width: 2px; height: 30px;
+    background: repeating-linear-gradient(180deg, var(--mrc-red) 0 7px, transparent 7px 14px);
+    transform: rotate(0deg); }
+  .mrc-chain-node { padding: 0 0 30px 40px; }
+  .mrc-chain-tick { top: 4px; left: 3px; }
+  .mrc-chain-ico { margin-bottom: 10px; }
+}
+
+/* ── Маршрут воронки: замер → разбор → предложение ── */
+.mrc-route {
+  list-style: none; margin: 40px 0 8px; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
+}
+.mrc-route-step { position: relative; padding-top: 22px; opacity: .62; }
+.mrc-route-step.is-now { opacity: 1; }
+.mrc-route-step::before {
+  content: ''; position: absolute; top: 6px; left: 0; right: -20px; height: 2px;
+  background: color-mix(in srgb, var(--mrc-fg-soft) 30%, transparent);
+}
+.mrc-route-step:last-child::before { right: 0; }
+.mrc-route-step.is-now::before { background: linear-gradient(90deg, var(--mrc-indigo), var(--mrc-cyan)); }
+.mrc-route-dot {
+  position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--mrc-ink); border: 2.5px solid color-mix(in srgb, var(--mrc-fg-soft) 55%, transparent);
+}
+.mrc-route-step.is-now .mrc-route-dot { border-color: var(--mrc-indigo); background: var(--mrc-indigo); }
+.mrc-route-t { display: block; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 7px; }
+.mrc-route-d { display: block; font-size: 15px; line-height: 1.55; color: var(--mrc-fg-mid); }
+@media (max-width: 820px) {
+  .mrc-route { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .mrc-route-step { padding: 0 0 24px 34px; }
+  .mrc-route-step::before { top: 8px; left: 6px; right: auto; bottom: 0; width: 2px; height: auto; }
+  .mrc-route-step:last-child::before { display: none; }
+  .mrc-route-dot { top: 2px; }
+}
 
 ` + SERP_COLLAGE_CSS;
