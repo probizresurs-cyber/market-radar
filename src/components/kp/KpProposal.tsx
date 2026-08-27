@@ -416,6 +416,15 @@ export function KpProposal({
   const lh = company?.seo.lighthouseScores;
   const lhSet = techTab === "desktop" ? lh?.desktop : lh;
   const hasTech = !!lh && (!!lhSet?.performance || !!lhSet?.seo);
+  /**
+   * Показывать ли разовый оффер (ускорение сайта).
+   *
+   * Владельцу быстрого сайта он не нужен, и главным предложением выглядит
+   * шаблоном — «продают одно и то же всем подряд». Порог 60 по мобильному
+   * PageSpeed: граница, ниже которой скорость реально отнимает заявки.
+   * Замера нет — показываем: отсутствие данных не повод прятать предложение.
+   */
+  const showEntryOffer = !hasTech || (lh?.performance ?? 0) < 60;
 
   // ─── Видимость (Keys.so) ──
   const vis = company?.keysoDashboard?.yandex ?? company?.keysoDashboard?.google;
@@ -659,6 +668,26 @@ export function KpProposal({
                             {PD.hero.potential}
                           </div>
                           <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 6 }}>{PD.hero.potentialSub}</div>
+                          {/* Рамка потери. Та же вилка прогноза, повёрнутая
+                              стороной, которая мотивирует: потеря ощущается
+                              сильнее равной по величине выгоды, а КП продаёт
+                              через диагноз. Цифра НЕ новая и не пересчитывается —
+                              вытаскивается из уже посчитанного hero.potential,
+                              иначе документ начал бы противоречить сам себе. */}
+                          {(() => {
+                            const range = /\+?\s*([\d\s]+–[\d\s]+)/.exec(PD.hero.potential ?? "");
+                            if (!range) return null;
+                            return (
+                              <div style={{
+                                marginTop: 12, padding: "10px 14px", borderRadius: 10,
+                                borderLeft: "3px solid var(--destructive)",
+                                background: "color-mix(in srgb, var(--destructive) 8%, transparent)",
+                                fontSize: 13.5, lineHeight: 1.5, maxWidth: 460,
+                              }}>
+                                {t.heroLossFrame(range[1].trim())}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
                           {PD.hero.badges.map((b, bi) => (
@@ -1533,9 +1562,22 @@ export function KpProposal({
 
         {/* ─── ПРЕДЛОЖЕНИЕ: два фиксированных оффера (только pilotOffer) ─── */}
         {pilotOffer && (
-          <Section id="pilot-offer" index={sectionNo["pilot-offer"]} title={t.offerStartTitle} subtitle={t.offerStartSubtitle}>
+          <Section
+            id="pilot-offer"
+            index={sectionNo["pilot-offer"]}
+            title={t.offerStartTitle}
+            // Подзаголовок обещает «разовый вход + месячные направления». Если
+            // разовый оффер скрыт (быстрый сайт), обещание врёт — подменяем.
+            subtitle={showEntryOffer ? t.offerStartSubtitle : t.offerStartSubtitleMonthlyOnly}
+          >
+            {/* Разовый оффер — ускорение сайта — показываем не всем.
+                Владельцу быстрого сайта он не нужен, и главным предложением
+                выглядит шаблоном: «продают одно и то же всем подряд». Порог 60
+                по мобильному PageSpeed — граница, ниже которой скорость реально
+                отнимает заявки. Данных нет (тех-аудит не отработал) — оставляем
+                как было, отсутствие замера не повод прятать предложение. */}
             <div style={{ display: "grid", gap: 16 }}>
-              {PD.offers.map((o) => (
+              {(showEntryOffer ? PD.offers : []).map((o) => (
                 <Reveal key={o.n} delay={o.n * 80}>
                   {() => (
                     <div className="ds-card" style={{ padding: "22px 24px", border: "2px solid var(--primary)", boxShadow: "0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent)" }}>
@@ -1594,7 +1636,7 @@ export function KpProposal({
             </div>
             {/* Месячные направления — цены партнёра; он-пейдж оптимизация входит в СЕО+ГЕО */}
             <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              {t.offerMonthlyLabel}
+              {showEntryOffer ? t.offerMonthlyLabel : t.offerMonthlyLabelAlone}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
               {PD.monthly.map((m, i) => (
@@ -1635,7 +1677,11 @@ export function KpProposal({
 
             <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 16, padding: "16px 20px", borderRadius: 12, background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 14, lineHeight: 1.5 }}>{PD.offersTotal}</div>
+                {/* offersTotal описывает связку «разовый вход + помесячно».
+                    Без разового оффера этот итог противоречит секции выше. */}
+                <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+                  {showEntryOffer ? PD.offersTotal : t.offerTotalMonthlyOnly}
+                </div>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 8, fontSize: 12.5, color: "var(--success)", fontWeight: 600 }}>
                   <ShieldCheck size={15} style={{ flexShrink: 0 }} /> {PD.guarantee}
                 </div>

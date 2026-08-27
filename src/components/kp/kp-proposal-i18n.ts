@@ -15,6 +15,7 @@ export interface KpProposalStrings {
   navAstroOffer: string; navCta: string;
   themeLight: string; themeDark: string;
   brandSuffix: string;
+  heroLossFrame: (range: string) => string;
   heroKicker: string; heroPotentialLabel: string; heroDiscussBtn: string; heroOfferBtnPrefix: string;
   stickyFixedPrice: string; stickyStartBtn: string;
   ringScoreLabel: string;
@@ -76,6 +77,8 @@ export interface KpProposalStrings {
   offerStartTitle: string; offerStartSubtitle: string;
   offerIncludes: string; offerGets: string; offerWhyPrice: string;
   offerMonthlyLabel: string; offerTimelineLabel: string; offerStartBtn: string;
+  /** Варианты копирайта, когда разовый оффер скрыт (быстрый сайт). */
+  offerStartSubtitleMonthlyOnly: string; offerMonthlyLabelAlone: string; offerTotalMonthlyOnly: string;
   formatTitle: string; formatSubtitle: string;
   articlesExampleLabel: string; articleCollapse: string; articleExpand: string;
   articleWhySeo: string;
@@ -125,6 +128,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     navAstroOffer: "Новая версия сайта", navCta: "Заявка",
     themeLight: "Светлая тема", themeDark: "Тёмная тема",
     brandSuffix: "Анализ",
+    heroLossFrame: (r) => `Пока этого нет — те же ${r} заявок в месяц получают конкуренты. Каждый месяц ожидания стоит вам этой разницы.`,
     heroKicker: "Интерактивный анализ сайта", heroPotentialLabel: "Потенциал после устранения находок",
     heroDiscussBtn: "Обсудить проект", heroOfferBtnPrefix: "Предложение — от",
     stickyFixedPrice: "фиксированная цена", stickyStartBtn: "Начать",
@@ -212,7 +216,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     ourTeamLabel: "MarketRadar — команда + AI", ourNoteFallback: "Отчёт с цифрами каждую неделю, гарантия возврата за месяц",
     offerStartTitle: "С чего предлагаем начать", offerStartSubtitle: "Разовый вход с фиксированной ценой + два месячных направления",
     offerIncludes: "Что входит", offerGets: "Что получите", offerWhyPrice: "Почему такая цена:",
-    offerMonthlyLabel: "Дальше — помесячно", offerTimelineLabel: "Что происходит после старта", offerStartBtn: "Начать с переноса",
+    offerStartSubtitleMonthlyOnly: "Два месячных направления — без разовых работ: техническая база сайта в порядке",
+    offerMonthlyLabelAlone: "Месячные направления",
+    offerTotalMonthlyOnly: "Работаем помесячно, по результату. Разовых работ по сайту не требуется — техническая база в порядке.",
+    offerMonthlyLabel: "Дальше — помесячно", offerTimelineLabel: "Что происходит после старта", offerStartBtn: "Обсудить старт",
     formatTitle: "Как это будет выглядеть", formatSubtitle: "Формат SEO+GEO статей — иллюстрация, не готовые публикации",
     articlesExampleLabel: "Пример формата статей — нажмите, чтобы прочитать", articleCollapse: "Свернуть ↑", articleExpand: "Читать →",
     articleWhySeo: "Почему это работает на SEO и GEO",
@@ -229,12 +236,12 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     summaryTitle: "Сводный прогноз к 6-му месяцу · юнит-экономика", requestsPerMonth: "заявок в месяц",
     unitEconDealsFallback: "договоров в месяц (конверсия 15–25%)", unitEconCheckFallback: "средний чек проекта",
     unitEconCheckValueFallback: "150–500 тыс ₽",
-    unitEconEntryFallback: "Разовый вход за перенос сайта на Astro: окупается с первого договора.",
+    unitEconEntryFallback: "Разовый вход за ускорение сайта: окупается с первого договора.",
     astroOfferTitle: "Техническое обновление сайта — дизайн остаётся вашим", astroOfferSubtitle: "Устраним технические проблемы из находок выше и подготовим сайт к SEO и GEO. Внешний вид не меняется — 1:1",
     astroDone: "Готово — ссылка у вас на почте", astroDoneBody: (email) => `Мы собрали новую версию сайта и отправили ссылку на ${email}. Если письма нет — проверьте папку «Спам» или напишите нам.`,
     astroDoneReady: "Новая версия сайта готова", astroDoneReadyBody: (email) => `Откройте её по кнопке ниже. Копию ссылки мы также отправили на ${email}.`, astroOpenSiteBtn: "Открыть новый сайт",
     astroInProgress: "Собираем новую версию сайта", astroInProgressBody: (email) => `Обычно это занимает около 1 дня. Как только всё будет готово и проверено, пришлём ссылку на ${email}.`,
-    astroPitch: "Дизайн останется точно таким же — переносим только «внутряк»: устраняем технические проблемы из находок выше и готовим сайт к SEO и GEO. Оставьте email — пришлём ссылку на готовую версию, как только менеджер её проверит.",
+    astroPitch: "Дизайн останется точно таким же — меняется только «внутряк»: устраняем технические проблемы из находок выше и готовим сайт к SEO и GEO. Оставьте email — пришлём ссылку на готовую версию, как только менеджер её проверит.",
     astroEmailPlaceholder: "you@company.ru", astroEmailInvalid: "Укажите корректный email",
     astroSubmitting: "Отправляем…", astroSubmitBtn: "Да, интересно",
     astroRequestError: "Не получилось отправить запрос — попробуйте позже", astroTooManyRequests: "Слишком много запросов — попробуйте позже",
@@ -259,6 +266,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     navAstroOffer: "Neue Website-Version", navCta: "Anfrage",
     themeLight: "Heller Modus", themeDark: "Dunkler Modus",
     brandSuffix: "Analyse",
+    heroLossFrame: (r) => `Solange das nicht behoben ist, gehen dieselben ${r} Anfragen pro Monat an Wettbewerber. Jeder Monat Wartezeit kostet Sie genau diese Differenz.`,
     heroKicker: "Interaktive Website-Analyse", heroPotentialLabel: "Potenzial nach Behebung der Erkenntnisse",
     heroDiscussBtn: "Projekt besprechen", heroOfferBtnPrefix: "Angebot — ab",
     stickyFixedPrice: "Festpreis", stickyStartBtn: "Starten",
@@ -347,6 +355,9 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     ourTeamLabel: "MarketRadar — Team + KI", ourNoteFallback: "Wöchentlicher Bericht mit Zahlen, Geld-zurück-Garantie nach einem Monat",
     offerStartTitle: "Womit wir vorschlagen zu beginnen", offerStartSubtitle: "Einmaliger Einstieg zum Festpreis + zwei monatliche Leistungslinien",
     offerIncludes: "Was enthalten ist", offerGets: "Was Sie erhalten", offerWhyPrice: "Warum dieser Preis:",
+    offerStartSubtitleMonthlyOnly: "Zwei monatliche Leistungslinien — ohne einmalige Arbeiten: die technische Basis der Website ist in Ordnung",
+    offerMonthlyLabelAlone: "Monatliche Leistungslinien",
+    offerTotalMonthlyOnly: "Wir arbeiten monatlich, ergebnisorientiert. Einmalige Arbeiten an der Website sind nicht nötig — die technische Basis stimmt.",
     offerMonthlyLabel: "Danach — monatlich", offerTimelineLabel: "Was nach dem Start passiert", offerStartBtn: "Jetzt starten",
     formatTitle: "So wird es aussehen", formatSubtitle: "Format der SEO+GEO-Artikel — zur Veranschaulichung, keine fertigen Veröffentlichungen",
     articlesExampleLabel: "Beispiel für das Artikelformat — zum Lesen klicken", articleCollapse: "Einklappen ↑", articleExpand: "Lesen →",
