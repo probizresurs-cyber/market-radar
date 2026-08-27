@@ -783,6 +783,28 @@ export async function initDb() {
   await query(`ALTER TABLE scheduled_posts ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'post' CHECK (kind IN ('post','reel','story','carousel'))`);
   await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id, profile_suffix)`);
 
+  // ─── Мини-проверки сайта (/check — верх воронки Директа) ──────────────────
+  // Бесплатный мгновенный диагноз БЕЗ Claude: Букварикс + PageSpeed + лёгкий
+  // скрапер. result наполняется по мере готовности проб (страница поллит и
+  // дорисовывает блоки), email появляется когда посетитель запросил полный
+  // разбор, kp_id связывает с запущенной генерацией полного КП.
+  await query(`
+    CREATE TABLE IF NOT EXISTS mini_checks (
+      id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','error')),
+      result JSONB NOT NULL DEFAULT '{}',
+      client_ip TEXT,
+      email TEXT,
+      kp_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_domain ON mini_checks(domain, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_ip ON mini_checks(client_ip, created_at DESC)`);
+
   // ─── Лиды (база сайтов для холодного аутрича) ──────────────────────────────
   // Из админки админ грузит CSV с 100-10000 доменами, на каждый домен
   // создаётся запись lead + (опционально) генерируется экспресс-отчёт.
