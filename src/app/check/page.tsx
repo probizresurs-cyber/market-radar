@@ -43,7 +43,7 @@
  * Названия компаний в мокапах условные: чужие бренды в свою рекламу не ставим.
  */
 import { AiRow, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
-import { SerpCollage, SERP_COLLAGE_CSS, type SerpCard } from "@/components/landing/SerpCollage";
+import { SerpCollage, SERP_COLLAGE_CSS } from "@/components/landing/SerpCollage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
 
@@ -203,7 +203,7 @@ export default function CheckPage() {
             </div>
 
             <div className="mrc-hero-scene">
-              <SerpCollage cards={COLLAGE_CHECK} slot="ваш сайт" />
+              <SerpCollage slot="ваш сайт" kinds={["alice","ya","chatgpt"]} />
             </div>
 
             <div className="mrc-hero-form">
@@ -556,26 +556,6 @@ const DEMO_QUESTIONS = [
 const DEMO_ASKERS: AiKey[] = ["alice", "chatgpt", "claude", "perplexity", "gigachat"];
 
 
-/* Выдача по темам ниши: два движка, разные запросы. Названия условные —
-   чужие марки в свою рекламу не ставим. */
-const COLLAGE_CHECK: SerpCard[] = [
-  { engine: "Яндекс", query: "заказать — цены и сроки",
-    rows: [
-      { pos: "1", title: "", mark: "Конкурент А", tail: " — услуги и цены, работаем с 2014", url: "konkurent-a.ru › ceny", rate: "4,8" },
-      { pos: "2", title: "Заказать у ", mark: "Конкурента Б", tail: ": стоимость и отзывы", url: "konkurent-b.ru › zakazat", rate: "4,6" },
-      { pos: "3", title: "Сколько это стоит в 2026 году — разбор", url: "konkurent-v.ru › blog" },
-    ], gap: "на первой странице вас нет" },
-  { engine: "Google", query: "кто делает — отзывы",
-    rows: [
-      { pos: "1", title: "", mark: "Конкурент Б", tail: ": портфолио и отзывы клиентов", url: "konkurent-b.ru › otzyvy", rate: "4,6" },
-      { pos: "2", title: "Топ-5 исполнителей: сравнение цен", url: "katalog.ru › top" },
-    ], gap: "в подборках не упомянуты" },
-  { engine: "Яндекс Карты", query: "рядом со мной",
-    rows: [
-      { pos: "1", title: "", mark: "Конкурент А", tail: " — 62 отзыва, фото, прайс", url: "карточка заполнена", rate: "4,8" },
-      { pos: "2", title: "", mark: "Конкурент В", tail: " — 41 отзыв, часы работы", url: "карточка заполнена", rate: "4,5" },
-    ], gap: "карточка не заполнена" },
-];
 
 function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
   const [qi, setQi] = useState(0);
@@ -1182,27 +1162,27 @@ const CSS = AI_ROW_CSS + `
      indigo — основное действие; cyan — служебный акцент и логотип;
      green — статус «готово»; red/pink — потеря и предупреждение;
      magenta→violet→cyan — градиент заголовка первого экрана. */
-  --mrc-ink: #111318;
-  --mrc-ink-deep: #0c0e13;
-  --mrc-ink-soft: #171a21;
-  --mrc-fg: #f1f5f9;
-  --mrc-fg-mid: #dde5ee;
-  --mrc-fg-soft: #b6c4d4; /* было #94a3b8 (slate-400) — читалось блёкло на графите */
+  --mrc-ink: #f4f6f9;      /* светлая земля страницы */
+  --mrc-ink-deep: #ffffff; /* плита ярче земли — первый экран */
+  --mrc-ink-soft: #ffffff; /* карточки */
+  --mrc-fg: #0f172a;
+  --mrc-fg-mid: #35404f; /* было #3d4859 — 4.40 при норме AA 4.5 */
+  --mrc-fg-soft: #566275; /* slate-500 давал ровно 4.40 при норме 4.5 */
 
   --mrc-indigo: #4f46e5; /* indigo-600: с белым текстом 5.6:1, у #6366f1 было 4.47 — ниже AA */
   --mrc-indigo-lift: #818cf8;
-  --mrc-indigo-fg: #a5b4fc;
-  --mrc-cyan: #00d4ff;
-  --mrc-green: #69ff47;
-  --mrc-amber: #ffb547;
-  --mrc-pink: #ff5ea8;
-  --mrc-violet: #b06bff;
-  --mrc-magenta: #d500f9;
-  --mrc-red: #ff5252;
-  --mrc-logo-ring: #1a3f5c;
+  --mrc-indigo-fg: #4338ca;
+  --mrc-cyan: #0e7490;   /* неон #00d4ff на белом не читается */
+  --mrc-green: #166534;  /* на светлой подложке #15803d давал 3.41 */
+  --mrc-amber: #b45309;
+  --mrc-pink: #be185d;
+  --mrc-violet: #7c3aed;
+  --mrc-magenta: #a21caf;
+  --mrc-red: #dc2626;
+  --mrc-logo-ring: #94a3b8;
   /* Выдача поиска: синий тайтл и зелёный путь, поднятые до читаемых на графите */
-  --mrc-serp-link: #8ab4ff;
-  --mrc-serp-url: #7bd88f;
+  --mrc-serp-link: #0b57d0; /* цвета выдачи под светлый фон, как в реальном поиске */
+  --mrc-serp-url: #05713a;
 
   --mrc-r: 10px;      /* радиус кнопок продакшена */
   --mrc-r-lg: 14px;   /* радиус панелей и карточек */
@@ -1222,7 +1202,7 @@ const CSS = AI_ROW_CSS + `
 }
 /* Тёмная тема платформы — тот же графит на полтона глубже: страница остаётся
    собой, но не спорит с окружением кабинета. */
-:root.dark .mrc-root { --mrc-ink: #0e1015; --mrc-ink-deep: #090b0f; --mrc-ink-soft: #14171d; }
+:root.dark .mrc-root { --mrc-ink: #f4f6f9; } /* лендинг светлый в любой теме приложения */
 
 /* Акценты карточек — приём с дашборда продакшена, где у каждой возможности
    своя кромка и свой цвет иконки. */
