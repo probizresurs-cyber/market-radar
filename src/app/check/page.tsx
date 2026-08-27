@@ -230,7 +230,7 @@ export default function CheckPage() {
             />
             <ol className="mrc-instr-list">
               {[
-                ["01", "Видимость в Яндексе", "По скольким запросам вас вообще находят — и какой спрос ниши достаётся конкурентам."],
+                ["01", "Видимость в поиске", "По скольким запросам вас находят в Яндексе и Google — и какой спрос ниши достаётся конкурентам."],
                 ["02", "Скорость на телефоне", "Медленный сайт теряет мобильные заявки до того, как человек увидел цены."],
                 ["03", "Читаемость для нейросетей", "Могут ли Алиса и ChatGPT прочитать ваши услуги — или рекомендуют других."],
               ].map(([n, t, d]) => (
@@ -258,7 +258,7 @@ export default function CheckPage() {
             <div className="mrc-probes">
               <ProbeCard
                 idx="01"
-                title="Видимость в Яндексе"
+                title="Видимость в поиске"
                 probe={sem?.status}
                 tone={sem?.status === "done" ? semTone(sem.visibleCount ?? 0) : undefined}
                 render={() => sem?.status === "done" ? <SemanticsVerdict s={sem} /> : <ProbeFail what="видимость" />}
@@ -388,6 +388,23 @@ export default function CheckPage() {
           <p className="mrc-note">
             Сайт при этом может быть отличным. Его просто не показали.
           </p>
+
+          {/* Точка действия в середине страницы: до нижнего CTA долистывают
+              не все, а решение часто созревает именно здесь — после того,
+              как человек увидел, куда уходят его заявки. */}
+          <div className="mrc-midcta">
+            <div>
+              <div className="mrc-midcta-t">Проверим, где теряются ваши</div>
+              <div className="mrc-midcta-d">Три замера по вашему сайту — бесплатно, без звонка, результат на этой же странице.</div>
+            </div>
+            <button
+              type="button"
+              className="mrc-btn mrc-btn-primary"
+              onClick={() => document.querySelector<HTMLInputElement>("input[inputmode=url]")?.focus()}
+            >
+              Проверить сайт
+            </button>
+          </div>
         </section>
       </div>
 
@@ -1919,4 +1936,81 @@ const CSS = AI_ROW_CSS + `
   .mrc-scan > span { width: 100%; }
   .mrc-caret { opacity: 1; }
 }
+/* Цепочка потерь: были пять тесных колонок с 13px текстом — читалось как
+   сноска. Теперь карточки: на широком по три в ряд, каждая со своей
+   цветной кромкой и крупным номером. Последняя — потеря, красная. */
+.mrc-chain {
+  list-style: none; margin: 0; padding: 0; position: relative;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+}
+.mrc-chain::before { display: none; }
+.mrc-chain-node {
+  position: relative; padding: 22px 22px 24px; overflow: hidden;
+  background: var(--mrc-ink-soft); border: 1px solid var(--rule);
+  border-radius: var(--mrc-r-lg);
+  box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 12px 28px -20px rgba(15,23,42,.28);
+}
+.mrc-chain-node::after {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: linear-gradient(90deg, var(--mrc-indigo), var(--mrc-cyan) 70%, transparent);
+}
+.mrc-chain-node.is-loss::after { background: linear-gradient(90deg, var(--mrc-red), transparent 80%); }
+.mrc-chain-tick { display: none; }
+.mrc-chain-n {
+  color: var(--mrc-indigo); display: block; margin-bottom: 14px;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+}
+.mrc-chain-node.is-loss .mrc-chain-n { color: var(--mrc-red); }
+.mrc-chain-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 12px; margin-bottom: 14px;
+  color: var(--mrc-indigo);
+  border: 1px solid color-mix(in srgb, var(--mrc-indigo) 34%, transparent);
+  background: color-mix(in srgb, var(--mrc-indigo) 9%, transparent);
+}
+.mrc-chain-node.is-loss .mrc-chain-ico {
+  color: var(--mrc-red);
+  border-color: color-mix(in srgb, var(--mrc-red) 38%, transparent);
+  background: color-mix(in srgb, var(--mrc-red) 9%, transparent);
+}
+.mrc-chain-t { display: block; font-size: 19px; font-weight: 750; letter-spacing: -0.02em; margin-bottom: 9px; }
+.mrc-chain-d { display: block; font-size: 15.5px; line-height: 1.55; color: var(--mrc-fg-mid); }
+@media (max-width: 1000px) { .mrc-chain { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .mrc-chain { grid-template-columns: minmax(0, 1fr); } }
+
+/* Строки замеров: тоже были сноской — поднимаем до карточек с номером */
+.mrc-instr-row {
+  display: grid; grid-template-columns: 64px minmax(0, 300px) minmax(0, 1fr);
+  gap: 0 22px; align-items: center;
+  padding: 22px 20px; margin-bottom: 12px;
+  background: var(--mrc-ink-soft); border: 1px solid var(--rule);
+  border-radius: var(--mrc-r-lg); border-bottom: 1px solid var(--rule);
+  transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease);
+}
+.mrc-instr-row:hover {
+  background: var(--mrc-ink-soft);
+  border-color: color-mix(in srgb, var(--mrc-indigo) 45%, transparent);
+  transform: translateY(-2px);
+}
+.mrc-instr-n { color: var(--mrc-indigo); font-size: 18px; font-weight: 800; }
+.mrc-instr-t { font-size: 19px; font-weight: 750; letter-spacing: -0.02em; }
+.mrc-instr-d { font-size: 15.5px; line-height: 1.55; color: var(--mrc-fg-mid); }
+@media (max-width: 780px) {
+  .mrc-instr-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
+
+/* Промежуточная точка действия между разделами */
+.mrc-midcta {
+  display: flex; align-items: center; justify-content: space-between; gap: 22px;
+  flex-wrap: wrap; margin-top: 30px; padding: 24px 26px;
+  border-radius: var(--mrc-r-lg);
+  background: linear-gradient(96deg,
+    color-mix(in srgb, var(--mrc-indigo) 10%, var(--mrc-ink-soft)),
+    color-mix(in srgb, var(--mrc-cyan) 9%, var(--mrc-ink-soft)));
+  border: 1px solid color-mix(in srgb, var(--mrc-indigo) 26%, transparent);
+}
+.mrc-midcta-t { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 5px; }
+.mrc-midcta-d { font-size: 15.5px; line-height: 1.5; color: var(--mrc-fg-mid); max-width: 56ch; }
+@media (max-width: 700px) { .mrc-midcta { padding: 20px; } .mrc-midcta .mrc-btn { width: 100%; } }
+
 ` + SERP_COLLAGE_CSS;

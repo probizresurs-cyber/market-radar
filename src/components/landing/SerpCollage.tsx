@@ -238,7 +238,10 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
   useEffect(() => { setIdx(Math.floor(Math.random() * NICHES.length)); }, []);
 
   const n = NICHES[idx];
-  const order: CollageKind[] = kinds ?? ["alice", "ya", "chatgpt"];
+  const base: CollageKind[] = kinds ?? ["alice", "ya", "chatgpt"];
+  // Порядок стопки — состояние: клик по карточке проматывает её вперёд.
+  const [order, setOrder] = useState<CollageKind[]>(base);
+  const advance = () => setOrder(o => [...o.slice(1), o[0]]);
   const render = (k: CollageKind) =>
     k === "ya" ? <YandexSerp n={n} slot={slot} />
     : k === "google" ? <GoogleSerp n={n} slot={slot} />
@@ -246,9 +249,26 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
     : k === "claude" ? <ChatAnswer n={n} slot={slot} brand="claude" />
     : <AliceAnswer n={n} slot={slot} />;
 
+  const label: Record<CollageKind, string> = {
+    ya: "выдача Яндекса", alice: "ответ Алисы", google: "выдача Google",
+    chatgpt: "ответ ChatGPT", claude: "ответ Claude",
+  };
+
   return (
-    <div className="mrc-collage" aria-hidden="true">
-      {order.map((k, i) => <div key={k} className={`mrc-collage-card is-${i}`}>{render(k)}</div>)}
+    <div className="mrc-collage">
+      {order.map((k, i) => (
+        <button
+          key={k}
+          type="button"
+          className={`mrc-collage-card is-${i}`}
+          onClick={advance}
+          aria-label={`Показать следующий пример: ${label[order[(i + 1) % order.length]]}`}
+        >
+          <span className="mrc-collage-tag">{label[k]}</span>
+          <span aria-hidden="true">{render(k)}</span>
+        </button>
+      ))}
+      <p className="mrc-collage-hint">Нажмите на карточку — покажем следующий источник</p>
     </div>
   );
 }
@@ -347,4 +367,33 @@ export const SERP_COLLAGE_CSS = `
   .mrc-collage-card.is-1, .mrc-collage-card.is-2 { display: none; }
   .mrc-ui-alice-grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Карточки кликабельны: клик проматывает стопку. Кнопка, а не div —
+   чтобы работало с клавиатуры и читалось скринридером. */
+.mrc-collage-card {
+  appearance: none; border: 0; padding: 0; background: none; text-align: left;
+  cursor: pointer; font: inherit; color: inherit;
+  transition: transform .42s cubic-bezier(.22,.61,.36,1), opacity .42s ease, box-shadow .3s ease;
+}
+.mrc-collage-card:hover { box-shadow: 0 30px 64px -18px rgba(15,23,42,.46); }
+.mrc-collage-card.is-0:hover { transform: rotate(-1.6deg) translateY(-4px); }
+.mrc-collage-card:focus-visible { outline: 3px solid var(--mrc-indigo); outline-offset: 4px; }
+.mrc-collage-tag {
+  position: absolute; top: 10px; right: 12px; z-index: 4;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em;
+  background: #0f172a; color: #fff; border-radius: 999px; padding: 4px 11px;
+  opacity: 0; transition: opacity .25s ease;
+}
+.mrc-collage-card.is-0 .mrc-collage-tag { opacity: 1; }
+.mrc-collage-hint {
+  position: absolute; left: 0; bottom: 2px; margin: 0;
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: .04em;
+  color: var(--mrc-fg-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mrc-collage-card { transition: none; }
+}
+@media (max-width: 900px) {
+  .mrc-collage-hint { position: static; margin-top: 12px; }
+}
+
 `;
