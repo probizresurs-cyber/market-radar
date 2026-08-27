@@ -18,12 +18,21 @@
  * поллинг, блоки дорисовываются по мере готовности проб → email за полный
  * разбор (это уже настоящее КП через kp-public).
  *
- * Арт-дирекшн — «измерительный прибор»: страница читается как лист замеров,
- * а не как рекламный буклет. Signature-приём — рейка с засечкой: каждый
- * раздел, каждая карточка и каждый узел схемы начинается с волосяной линейки
- * и жирной засечки, номера и подписи набраны моноширинным. Ниша (Zenlink,
- * Head Promo) сидит на белом фоне, кислотных кнопках-пилюлях и радиусе 35–74px —
- * отсюда осознанный уход: плотная сетка, острые радиусы токена, мономаркировка.
+ * ── Арт-дирекшн: «редакционный разбор» ────────────────────────────────────
+ * Страница читается как разворот делового журнала, по которому прошёлся
+ * редактор: тёплая бумага, чернильный графит на ключевых сценах, антиква
+ * Playfair 900 в заголовках, Inter в прозе, Geist Mono на служебных подписях,
+ * Merriweather — в теле «ответа ассистента», чтобы он выглядел документом,
+ * а не элементом интерфейса. Акцент один — терракота (карандаш правки),
+ * максимум на кнопке, подчёркиваниях имён и пропуске.
+ *
+ * Signature-приём — ОТВЕТ С ПРОПУСКОМ: блок ответа нейросети, где чужие бренды
+ * подчёркнуты, а на месте посетителя — пустая пунктирная рамка с пометкой на
+ * полях. Он открывает страницу, повторяется в цепочке потери заявки и
+ * закрывает страницу, подставляя туда уже введённый посетителем домен.
+ * Ниша (Head Promo — чёрный + кислотный жёлтый, Zenlink — чёрный + зелёный,
+ * Digital Geeks — фиолетовый + мятный) сидит на кислоте по тёмному; отсюда
+ * осознанный уход в бумагу, антикву и терракоту.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
@@ -62,7 +71,7 @@ const semTone = (n: number): Tone => (n < 50 ? "bad" : n < 300 ? "warn" : "ok");
 const spdTone = (p: number): Tone => (p < 50 ? "bad" : p < 90 ? "warn" : "ok");
 const rdTone = (passed: number): Tone => (passed <= 3 ? "bad" : passed <= 5 ? "warn" : "ok");
 const toneColor = (t?: Tone) =>
-  t === "bad" ? "var(--destructive)" : t === "warn" ? "var(--warning)" : t === "ok" ? "var(--success)" : "var(--primary)";
+  t === "bad" ? "var(--destructive)" : t === "warn" ? "var(--warning)" : t === "ok" ? "var(--success)" : "var(--flare-use)";
 
 export default function CheckPage() {
   const [url, setUrl] = useState("");
@@ -152,39 +161,50 @@ export default function CheckPage() {
     <div className="mrc-root">
       <style>{CSS}</style>
 
-      <header className="mrc-topbar">
-        <a href="/" className="mrc-wordmark">
-          <span className="mrc-logo-tick" aria-hidden="true" />
-          MarketRadar
-        </a>
-        <span className="mrc-mono mrc-topbar-tag">диагностика сайта · 0 ₽</span>
-      </header>
+      {/* ─── Первый экран: чернильная плита, вопрос-боль и живой пример ─── */}
+      <section className="mrc-slab mrc-hero">
+        <div className="mrc-wrap">
+          <header className="mrc-topbar">
+            <a href="/" className="mrc-wordmark">
+              <span className="mrc-logo-tick" aria-hidden="true" />
+              MarketRadar
+            </a>
+            <span className="mrc-mono mrc-topbar-tag">диагностика сайта · 0 ₽</span>
+          </header>
 
-      <main>
-      {/* ─── 00 · Первый экран: вопрос-боль + одно поле ─── */}
-      <section className="mrc-hero">
-        <div className="mrc-wrap mrc-hero-inner">
-          <div className="mrc-mono mrc-eyebrow">
-            <span className="mrc-dot" aria-hidden="true" />
-            бесплатно · без звонков · результат на экране
+          <div className="mrc-hero-grid">
+            <div className="mrc-hero-head">
+              <div className="mrc-mono mrc-eyebrow">
+                <span className="mrc-dot" aria-hidden="true" />
+                бесплатно · без звонков · результат на экране
+              </div>
+              <h1 className="mrc-h1">
+                Почему ваш сайт<br />не приносит заявки?
+              </h1>
+              <p className="mrc-lead mrc-hero-lead">
+                Клиент спрашивает совета у нейросети и получает два-три имени. Снимем три замера
+                и покажем, почему в этот ответ не попадаете вы — без регистрации и разговора
+                с менеджером.
+              </p>
+            </div>
+
+            <div className="mrc-hero-scene">
+              <AnswerScene slot="ваш сайт" />
+            </div>
+
+            <div className="mrc-hero-form">
+              <UrlForm
+                id="hero"
+                url={url} setUrl={setUrl} starting={starting} onStart={start}
+                error={startErr}
+                note="Нужен только адрес сайта — ни почты, ни телефона на этом шаге."
+              />
+            </div>
           </div>
-          <h1 className="mrc-h1">
-            Почему ваш сайт<br />не приносит заявки?
-          </h1>
-          <p className="mrc-lead mrc-hero-lead">
-            Снимем три замера и покажем, на каком из них теряются обращения. Без регистрации
-            и разговора с менеджером — диагноз появится прямо здесь, на этой странице.
-          </p>
-
-          <UrlForm
-            id="hero"
-            url={url} setUrl={setUrl} starting={starting} onStart={start}
-            error={startErr}
-            note="Нужен только адрес сайта — ни почты, ни телефона на этом шаге."
-          />
         </div>
       </section>
 
+      <main>
       <div className="mrc-wrap">
         {/* ─── Что замеряем — лист приборов, пока проверка не запущена ─── */}
         {!checkId && (
@@ -249,15 +269,14 @@ export default function CheckPage() {
             {/* ─── CTA: полный разбор за email ─── */}
             {readyProbes >= 2 && (
               <div className="mrc-lead-card">
-                <span className="mrc-tick mrc-tick-primary" aria-hidden="true" />
                 {kpState === "idle" && (
                   <>
                     <div className="mrc-mono mrc-kicker">следующий шаг</div>
-                    <div className="mrc-h3">Это экспресс-диагноз. Полный разбор — тоже бесплатно</div>
+                    <div className="mrc-h3 mrc-h3-lg">Это экспресс-диагноз. Полный разбор — тоже бесплатно</div>
                     <p className="mrc-body mrc-lead-card-text">
                       Внутри: находки с доказательствами по вашему сайту, конкуренты поимённо — с запросами,
                       по которым они забирают ваших клиентов, прогноз заявок по каналам и план работ с ценами.
-                      Разбор собирается 2–3{" "}минуты и открывается по ссылке.
+                      Разбор собирается 2–3{" "}минуты и открывается по ссылке.
                     </p>
                     <div className="mrc-form-row">
                       <input
@@ -293,7 +312,7 @@ export default function CheckPage() {
                 {kpState === "queued" && (
                   <>
                     <div className="mrc-mono mrc-kicker">сборка разбора</div>
-                    <div className="mrc-h3">Собираем полный разбор — 2–3{" "}минуты</div>
+                    <div className="mrc-h3 mrc-h3-lg">Собираем полный разбор — 2–3{" "}минуты</div>
                     <p className="mrc-body mrc-lead-card-text">
                       Анализируем сайт, конкурентов и видимость в нейросетях. Страницу можно не закрывать —
                       ссылка появится здесь.
@@ -305,7 +324,7 @@ export default function CheckPage() {
                   <>
                     <div className="mrc-mono mrc-kicker">готово</div>
                     <div className="mrc-done-row">
-                      <div className="mrc-h3" style={{ margin: 0 }}>Полный разбор готов</div>
+                      <div className="mrc-h3 mrc-h3-lg" style={{ margin: 0 }}>Полный разбор готов</div>
                       <a href={kpUrl} target="_blank" rel="noopener noreferrer" className="mrc-btn mrc-btn-primary">
                         Открыть разбор
                       </a>
@@ -315,7 +334,7 @@ export default function CheckPage() {
                 {kpState === "error" && (
                   <>
                     <div className="mrc-mono mrc-kicker">ручная сборка</div>
-                    <div className="mrc-h3">Разбор готовим вручную</div>
+                    <div className="mrc-h3 mrc-h3-lg">Разбор готовим вручную</div>
                     <p className="mrc-body mrc-lead-card-text">
                       Автоматическая сборка не прошла — специалист соберёт разбор и пришлёт
                       на {email || "вашу почту"} в течение рабочего дня.
@@ -349,9 +368,11 @@ export default function CheckPage() {
             Сайт при этом может быть отличным. Его просто не показали.
           </p>
         </section>
+      </div>
 
-        {/* ─── 02 · SEO и GEO ─── */}
-        <section className="mrc-sec" data-reveal>
+      {/* ─── 02 · SEO и GEO — чернильный разворот ─── */}
+      <section className="mrc-slab mrc-slab-sec" data-reveal>
+        <div className="mrc-wrap">
           <SecHead
             idx="02"
             title="Два пути к одному клиенту"
@@ -372,15 +393,16 @@ export default function CheckPage() {
             ))}
           </div>
           <div className="mrc-conclusion">
-            <span className="mrc-tick mrc-tick-primary" aria-hidden="true" />
             <p className="mrc-body" style={{ margin: 0 }}>
               <b>SEO даёт право быть найденным. GEO — право быть рекомендованным.</b>{" "}
               Второе надстраивается над первым, а не заменяет его: если сайт плохо читается поиском,
               нейросеть его тоже не увидит — она берёт данные оттуда же.
             </p>
           </div>
-        </section>
+        </div>
+      </section>
 
+      <div className="mrc-wrap">
         {/* ─── 03 · Что мы делаем ─── */}
         <section className="mrc-sec" data-reveal>
           <SecHead
@@ -391,7 +413,6 @@ export default function CheckPage() {
           <div className="mrc-layers">
             {LAYERS.map(l => (
               <article key={l.n} className="mrc-layer">
-                <span className="mrc-tick" aria-hidden="true" />
                 <div className="mrc-layer-top">
                   <span className="mrc-mono mrc-layer-n">{l.n}</span>
                   <span className="mrc-layer-ico" aria-hidden="true"><Icon name={l.icon} /></span>
@@ -413,7 +434,6 @@ export default function CheckPage() {
           <div className="mrc-deliver">
             {DELIVER.map(d => (
               <article key={d.t} className="mrc-deliver-item">
-                <span className="mrc-tick" aria-hidden="true" />
                 <h3 className="mrc-h3">{d.t}</h3>
                 <p className="mrc-body">{d.d}</p>
                 <ul className="mrc-ul">
@@ -446,24 +466,30 @@ export default function CheckPage() {
             ))}
           </div>
         </section>
+      </div>
 
-        {/* ─── Финальный CTA ─── */}
-        <section className="mrc-final" data-reveal>
-          <span className="mrc-tick mrc-tick-primary" aria-hidden="true" />
-          <div className="mrc-mono mrc-kicker">проверка сайта</div>
-          <h2 className="mrc-h2">Начните с замера, а не с договора</h2>
-          <p className="mrc-lead">
-            Введите адрес — и через минуту увидите, что именно мешает сайту приносить обращения.
-            Дальше решите сами, нужны мы вам или нет.
-          </p>
-          <UrlForm
-            id="final"
-            url={url} setUrl={setUrl} starting={starting} onStart={start}
-            error={startErr}
-            note="Бесплатно, без регистрации и без звонка менеджера."
-          />
-        </section>
+      {/* ─── Финальный CTA: тот же ответ, но пропуск подписан вашим доменом ─── */}
+      <section className="mrc-slab mrc-final" data-reveal>
+        <div className="mrc-wrap mrc-final-grid">
+          <div>
+            <div className="mrc-mono mrc-kicker">проверка сайта</div>
+            <h2 className="mrc-h2">Начните с замера,<br />а не с договора</h2>
+            <p className="mrc-lead">
+              Введите адрес — и через минуту увидите, что именно мешает сайту приносить обращения.
+              Дальше решите сами, нужны мы вам или нет.
+            </p>
+            <UrlForm
+              id="final"
+              url={url} setUrl={setUrl} starting={starting} onStart={start}
+              error={startErr}
+              note="Бесплатно, без регистрации и без звонка менеджера."
+            />
+          </div>
+          <div className="mrc-final-scene">
+            <AnswerScene slot={url.trim() || "ваш сайт"} compact />
+          </div>
         </div>
+      </section>
       </main>
 
       <footer className="mrc-footer">
@@ -477,6 +503,68 @@ export default function CheckPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/* ─── Signature-приём: ответ ассистента с пропуском ─────────────────────────
+   Пример, а не реальные данные, — это подписано в самой сцене. Названия
+   условные: выдумывать конкурентов посетителя мы не имеем права, а механику
+   показать надо. Реальные имена и запросы приходят в полном разборе. */
+
+const DEMO_QUESTIONS = [
+  "посоветуй, к кому обратиться — и сколько это стоит",
+  "какие компании делают это в Москве — назови несколько",
+  "подбери подрядчика: кому из них можно доверять",
+];
+
+const DEMO_ASKERS = ["Алиса", "ChatGPT", "Яндекс Нейро", "Perplexity", "GigaChat"];
+
+function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
+  const [qi, setQi] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setQi(i => (i + 1) % DEMO_QUESTIONS.length), 4200);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <figure className={`mrc-ans${compact ? " is-compact" : ""}`}>
+      <figcaption className="mrc-mono mrc-ans-cap">
+        <span className="mrc-ans-live" aria-hidden="true" />
+        пример ответа ассистента · названия условные
+      </figcaption>
+
+      <div className="mrc-ans-q">
+        <span className="mrc-mono mrc-ans-qlabel">вопрос клиента</span>
+        <p className="mrc-ans-qtext" key={qi}>
+          «{DEMO_QUESTIONS[qi]}»<i className="mrc-caret" aria-hidden="true" />
+        </p>
+      </div>
+
+      <div className="mrc-ans-body">
+        <p className="mrc-ans-text">
+          Из подрядчиков в этой нише чаще всего упоминают{" "}
+          <mark className="mrc-name">Конкурента&nbsp;А</mark> и{" "}
+          <mark className="mrc-name mrc-name-2">Конкурента&nbsp;Б</mark>. У них описаны услуги,
+          указаны цены и есть отзывы на картах — ассистенту есть на что сослаться.
+        </p>
+        <div className="mrc-slot">
+          <span className="mrc-slot-box" title={slot}>{slot}</span>
+          <span className="mrc-mono mrc-slot-note">в ответе не назван</span>
+        </div>
+      </div>
+
+      {!compact && (
+        <div className="mrc-ans-foot">
+          <span className="mrc-mono mrc-ans-footlabel">спрашивают у</span>
+          <ul className="mrc-chips">
+            {DEMO_ASKERS.map(a => <li key={a} className="mrc-mono">{a}</li>)}
+          </ul>
+        </div>
+      )}
+    </figure>
   );
 }
 
@@ -548,7 +636,7 @@ const HONEST: { claim: string; truth: string }[] = [
 function SecHead({ idx, title, sub }: { idx: string; title: string; sub: string }) {
   return (
     <header className="mrc-sec-head">
-      <span className="mrc-mono mrc-sec-idx">{idx}</span>
+      <span className="mrc-num" aria-hidden="true">{idx}</span>
       <div className="mrc-sec-text">
         <h2 className="mrc-h2">{title}</h2>
         <p className="mrc-lead">{sub}</p>
@@ -608,15 +696,15 @@ function ProbeCard({ idx, title, probe, tone, pendingNote, render }: {
   const pending = !probe || probe === "pending";
   const status = pending ? "замер…" : probe === "done" ? "готово" : "нет данных";
   // Пробы без результата не красим в бренд: серый = «данных нет», а не «всё хорошо».
-  const accent = pending ? "var(--border)" : probe === "failed" ? "var(--muted-foreground)" : toneColor(tone);
+  const accent = pending ? "var(--rule)" : probe === "failed" ? "var(--soft)" : toneColor(tone);
   return (
     <article className="mrc-probe">
-      <span className="mrc-tick" style={{ background: accent }} aria-hidden="true" />
+      <span className="mrc-probe-rail" style={{ background: accent }} aria-hidden="true" />
       <div className="mrc-probe-head">
         <span className="mrc-mono mrc-probe-n">{idx}</span>
         <h3 className="mrc-probe-t">{title}</h3>
         <span className={`mrc-mono mrc-status${pending ? " is-pending" : ""}`}>
-          <span className="mrc-status-dot" style={{ background: pending ? "var(--muted-foreground)" : accent }} aria-hidden="true" />
+          <span className="mrc-status-dot" style={{ background: pending ? "var(--soft)" : accent }} aria-hidden="true" />
           {status}
         </span>
       </div>
@@ -680,7 +768,7 @@ function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
   return (
     <Verdict tone={tone} headline={headline} details={
       <div className="mrc-verdict-body">
-        {s.lcpDisplay && <>Главный контент появляется за {s.lcpDisplay} (норма Google — до 2,5{" "}с). </>}
+        {s.lcpDisplay && <>Главный контент появляется за {s.lcpDisplay} (норма Google — до 2,5{" "}с). </>}
         {p < 90 && <>Пока страница грузится, мобильный посетитель уходит к тем, у кого уже открылось.</>}
       </div>
     } />
@@ -764,26 +852,72 @@ function useReveal() {
 }
 
 /* ─── Стили страницы ───────────────────────────────────────────────────────
-   Только токены дизайн-системы; оттенки — через color-mix от токенов, чтобы
-   светлая и тёмная темы жили без правок. Своя таблица нужна из-за медиа-
-   запросов, hover/focus и анимаций, которых inline-стили не умеют. */
+   Роли цвета заданы четырьмя переменными — --rule, --soft, --surface,
+   --flare-use. Они переопределяются внутри чернильной плиты (.mrc-slab), и
+   один и тот же компонент живёт на бумаге и на графите без дублей стилей.
+   Глобальный globals.css душит h1/h2 на мобильном через !important — поэтому
+   размеры заголовков здесь тоже помечены !important. */
 
 const CSS = `
+/* Акцент дублируем на :root: куки-баннер живёт в layout, СНАРУЖИ .mrc-root,
+   и без этого красился синим примари платформы — чужим элементом на
+   терракотовой странице. Правило действует только пока страница смонтирована. */
+:root { --mrc-flare-ink: oklch(0.52 0.16 42); }
+:root.dark { --mrc-flare-ink: oklch(0.78 0.15 48); }
+
 .mrc-root {
-  --mrc-rule: color-mix(in oklch, var(--border) 100%, transparent);
-  --mrc-tint: color-mix(in oklch, var(--primary) 6%, transparent);
+  --f-display: var(--font-playfair), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --f-text: var(--font-inter), Inter, system-ui, sans-serif;
+  --f-doc: var(--font-merriweather), Georgia, 'Times New Roman', serif;
+  --f-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --mrc-ink: oklch(0.175 0.042 265);
+  --mrc-ink-fg: oklch(0.965 0.008 85);
+  --mrc-flare: oklch(0.76 0.155 48);
+  --mrc-flare-ink: oklch(0.52 0.16 42);
+
+  --rule: var(--border);
+  --soft: var(--muted-foreground);
+  --surface: var(--card);
+  --flare-use: var(--mrc-flare-ink);
+  --field-bg: var(--input-bg);
+
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+  font-family: var(--f-text);
   overflow-x: hidden;
 }
-.mrc-wrap { max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+:root.dark .mrc-root { --mrc-ink: oklch(0.13 0.032 265); --mrc-flare-ink: oklch(0.78 0.15 48); }
+:root.warm .mrc-root { --mrc-ink: oklch(0.185 0.038 60); }
+
+.mrc-wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+/* Чернильная плита: внутри неё роли цвета инвертируются */
+.mrc-slab {
+  position: relative;
+  background: var(--mrc-ink);
+  color: var(--mrc-ink-fg);
+  --rule: color-mix(in oklch, var(--mrc-ink-fg) 18%, transparent);
+  --soft: color-mix(in oklch, var(--mrc-ink-fg) 66%, transparent);
+  --surface: color-mix(in oklch, var(--mrc-ink-fg) 5%, transparent);
+  --flare-use: var(--mrc-flare);
+  --field-bg: color-mix(in oklch, var(--mrc-ink-fg) 8%, transparent);
+}
+.mrc-slab::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(90deg,
+    color-mix(in oklch, var(--mrc-ink-fg) 5%, transparent) 0 1px, transparent 1px 116px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000, transparent 78%);
+}
+.mrc-slab > * { position: relative; }
+.mrc-slab-sec { padding: 54px 0 60px; }
 
 .mrc-mono {
-  font-family: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-family: var(--f-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
@@ -791,336 +925,454 @@ const CSS = `
 /* ── Верхняя планка ── */
 .mrc-topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  max-width: 1060px; margin: 0 auto; padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: 20px 0 34px;
 }
 .mrc-wordmark {
-  display: inline-flex; align-items: center; gap: 9px;
-  font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
-  color: var(--foreground); text-decoration: none;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--f-display); font-size: 20px; font-weight: 700; letter-spacing: 0.005em;
+  color: inherit; text-decoration: none;
 }
-.mrc-logo-tick { width: 14px; height: 3px; background: var(--primary); display: inline-block; }
-.mrc-topbar-tag { color: var(--muted-foreground); }
+.mrc-logo-tick { width: 16px; height: 4px; background: var(--mrc-flare); display: inline-block; }
+.mrc-topbar-tag { color: var(--soft); }
 
 /* ── Типографика ── */
 .mrc-h1 {
-  font-size: clamp(28px, 6.2vw, 56px);
-  font-weight: 800; line-height: 1.06; letter-spacing: -0.03em;
-  margin: 0 0 16px; text-wrap: balance;
+  font-family: var(--f-display);
+  font-size: clamp(38px, 4.3vw, 54px) !important;
+  font-weight: 900; line-height: 0.99; letter-spacing: -0.022em;
+  margin: 0 0 20px;
 }
 .mrc-h2 {
-  font-size: clamp(21px, 3.2vw, 30px);
-  font-weight: 750; line-height: 1.18; letter-spacing: -0.02em; margin: 0 0 8px;
+  font-family: var(--f-display);
+  font-size: clamp(26px, 3.4vw, 42px) !important;
+  font-weight: 900; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 12px;
 }
 .mrc-h3 { font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 8px; }
-.mrc-lead { font-size: 15px; line-height: 1.6; color: var(--muted-foreground); margin: 0; max-width: 62ch; }
-.mrc-body { font-size: 14px; line-height: 1.62; color: var(--muted-foreground); margin: 0; }
-.mrc-note { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
+.mrc-h3-lg { font-family: var(--f-display); font-size: 24px; font-weight: 700; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 10px; }
+.mrc-lead { font-size: 15.5px; line-height: 1.62; color: var(--soft); margin: 0; max-width: 60ch; }
+.mrc-body { font-size: 14px; line-height: 1.62; color: var(--soft); margin: 0; }
+.mrc-note { font-size: 13px; line-height: 1.55; color: var(--soft); }
 .mrc-err { color: var(--destructive); font-size: 13.5px; margin-top: 10px; }
-.mrc-kicker { color: var(--primary); margin-bottom: 8px; }
-.mrc-ul { margin: 10px 0 0; padding-left: 0; list-style: none; }
+.mrc-slab .mrc-err { color: var(--mrc-flare); }
+.mrc-kicker { color: var(--flare-use); margin-bottom: 10px; }
+.mrc-ul { margin: 12px 0 0; padding-left: 0; list-style: none; }
 .mrc-ul li {
-  position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.55;
-  color: var(--muted-foreground); margin-bottom: 5px;
+  position: relative; padding-left: 17px; font-size: 13.5px; line-height: 1.55;
+  color: var(--soft); margin-bottom: 6px;
 }
 .mrc-ul li::before {
   content: ''; position: absolute; left: 0; top: 0.62em;
-  width: 7px; height: 1px; background: var(--muted-foreground); opacity: 0.7;
+  width: 8px; height: 1px; background: var(--flare-use);
 }
-
-/* Засечка на рейке — signature-приём страницы */
-.mrc-tick {
-  position: absolute; top: -1px; left: -1px;
-  width: 26px; height: 3px; background: var(--border);
-}
-.mrc-tick-primary { background: var(--primary); }
 
 /* ── Первый экран ── */
-.mrc-hero { position: relative; border-bottom: 1px solid var(--border); overflow: hidden; }
-.mrc-hero::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(to right, color-mix(in oklch, var(--border) 60%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--border) 60%, transparent) 1px, transparent 1px);
-  background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(130% 90% at 50% 0%, #000 0%, transparent 72%);
-  mask-image: radial-gradient(130% 90% at 50% 0%, #000 0%, transparent 72%);
+.mrc-hero { padding-bottom: 62px; }
+/* Сцена занимает правую колонку целиком, текст и форма — левую сверху вниз.
+   На мобильном порядок меняется: сначала обещание, потом доказательство,
+   потом поле — чтобы «показывает» попало в первый экран раньше формы. */
+.mrc-hero-grid {
+  display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  grid-template-areas: "head scene" "form scene";
+  grid-template-rows: auto 1fr;
+  gap: 30px 46px; align-items: start;
 }
-.mrc-hero-inner { position: relative; z-index: 1; padding-top: 34px; padding-bottom: 40px; }
+.mrc-hero-head { grid-area: head; padding-top: 6px; }
+.mrc-hero-form { grid-area: form; }
+.mrc-hero-scene { grid-area: scene; }
 .mrc-eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  color: var(--muted-foreground); margin-bottom: 18px;
-  border: 1px solid var(--border); background: var(--card);
-  padding: 6px 11px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; gap: 9px;
+  color: var(--soft); margin-bottom: 22px;
+  border: 1px solid var(--rule); padding: 7px 12px;
 }
 .mrc-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--success);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--success) 22%, transparent);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--mrc-flare);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--mrc-flare) 25%, transparent);
 }
-.mrc-hero-lead { font-size: 16px; margin-bottom: 24px; max-width: 56ch; }
+.mrc-hero-lead { font-size: 17px; margin-bottom: 0; max-width: 46ch; }
+
+/* ── Сцена «ответ с пропуском» — signature ── */
+.mrc-ans {
+  margin: 0; padding: 22px 24px 20px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--flare-use);
+}
+.mrc-ans-cap {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--soft); margin-bottom: 18px;
+}
+.mrc-ans-live {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--flare-use);
+  animation: mrc-blink 2.2s var(--ease) infinite;
+}
+.mrc-ans-qlabel { display: block; color: var(--flare-use); margin-bottom: 8px; }
+.mrc-ans-qtext {
+  margin: 0 0 20px; font-size: 17px; line-height: 1.45; font-weight: 500;
+  letter-spacing: -0.01em; color: inherit;
+  animation: mrc-qin 460ms var(--ease) both;
+}
+.mrc-caret {
+  display: inline-block; width: 2px; height: 1.05em; margin-left: 4px;
+  background: var(--flare-use); vertical-align: -0.15em;
+  animation: mrc-blink 1s steps(1, end) infinite;
+}
+.mrc-ans-body { border-top: 1px solid var(--rule); padding-top: 18px; }
+.mrc-ans-text {
+  font-family: var(--f-doc);
+  font-size: 15.5px; line-height: 1.72; margin: 0 0 20px; color: inherit;
+}
+/* Маркер редактора: подсветка ведётся background-size, поэтому лежит под
+   глиссадой текста и не требует отдельного слоя со z-index. */
+.mrc-name {
+  background-color: transparent; color: inherit; font-weight: 700;
+  padding: 0 2px 4px; white-space: nowrap;
+  background-image: linear-gradient(color-mix(in oklch, var(--flare-use) 45%, transparent),
+                                    color-mix(in oklch, var(--flare-use) 45%, transparent));
+  background-repeat: no-repeat; background-position: 0 100%;
+  background-size: 0% 7px;
+  animation: mrc-mark 640ms var(--ease) 420ms both;
+}
+.mrc-name-2 { animation-delay: 940ms; }
+.mrc-slot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mrc-slot-box {
+  display: inline-flex; align-items: center; min-height: 42px; padding: 0 18px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 2px dashed color-mix(in oklch, var(--flare-use) 70%, transparent);
+  color: var(--flare-use);
+  font-family: var(--f-mono); font-size: 12.5px; letter-spacing: 0.06em;
+  animation: mrc-slotpulse 2.8s var(--ease) infinite;
+}
+.mrc-slot-note { color: var(--soft); }
+.mrc-ans-foot {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--rule);
+}
+.mrc-ans-footlabel { color: var(--soft); }
+.mrc-chips { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
+.mrc-chips li {
+  border: 1px solid var(--rule); padding: 5px 9px; font-size: 10.5px;
+  letter-spacing: 0.06em; color: var(--soft); text-transform: none;
+}
+.mrc-ans.is-compact { padding: 18px 20px 16px; }
+.mrc-ans.is-compact .mrc-ans-qtext { font-size: 15.5px; margin-bottom: 16px; }
+.mrc-ans.is-compact .mrc-ans-text { font-size: 14.5px; margin-bottom: 16px; }
+
+@keyframes mrc-mark { from { background-size: 0% 7px; } to { background-size: 100% 7px; } }
+@keyframes mrc-qin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mrc-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes mrc-slotpulse {
+  0%, 100% { border-color: color-mix(in oklch, var(--flare-use) 40%, transparent); }
+  50% { border-color: color-mix(in oklch, var(--flare-use) 95%, transparent); }
+}
 
 /* ── Форма ── */
 .mrc-urlform { max-width: 560px; }
-.mrc-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mrc-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .mrc-input {
-  flex: 1 1 240px; min-width: 0; height: 48px; padding: 0 14px;
+  flex: 1 1 240px; min-width: 0; height: 52px; padding: 0 16px;
   font-family: inherit; font-size: 15px;
-  border-radius: var(--radius); border: 1px solid var(--input);
-  background: var(--input-bg); color: var(--foreground); outline: none;
+  border-radius: 0; border: 1px solid var(--rule);
+  background: var(--field-bg);
+  color: inherit; outline: none;
   transition: border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
 }
-.mrc-input::placeholder { color: var(--muted-foreground); }
+.mrc-input::placeholder { color: var(--soft); }
 .mrc-input:focus {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent);
+  border-color: var(--flare-use);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--flare-use) 22%, transparent);
 }
 .mrc-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  height: 48px; min-height: 48px; padding: 0 22px;
-  font-family: inherit; font-size: 15px; font-weight: 650; letter-spacing: -0.01em;
-  border: 1px solid transparent; border-radius: var(--radius);
+  height: 52px; min-height: 52px; padding: 0 26px;
+  font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: -0.005em;
+  border: 1px solid transparent; border-radius: 0;
   cursor: pointer; white-space: nowrap; text-decoration: none;
-  transition: filter var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease);
+  transition: filter var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease),
+              transform var(--motion-fast) var(--ease);
 }
-.mrc-btn-primary { background: var(--primary); color: var(--primary-foreground); }
-.mrc-btn-primary:hover:not(:disabled) { filter: brightness(0.92); }
-.mrc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mrc-btn-primary { background: var(--mrc-flare); color: oklch(0.17 0.04 265); }
+.mrc-btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.mrc-btn-primary:active:not(:disabled) { transform: translateY(1px); }
+.mrc-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Заливка акцентом в неактивном состоянии мутнеет в грязный кирпич —
+   поэтому неактивная кнопка становится контурной, а не полупрозрачной. */
+.mrc-btn-primary:disabled {
+  opacity: 1; background: transparent; color: var(--soft); border-color: var(--rule);
+}
 .mrc-btn:focus-visible, .mrc-input:focus-visible, .mrc-root a:focus-visible, .mrc-checkbox:focus-visible {
-  outline: 2px solid var(--ring); outline-offset: 2px;
+  outline: 2px solid var(--flare-use); outline-offset: 2px;
 }
-.mrc-formnote { color: var(--muted-foreground); margin-top: 12px; line-height: 1.5; text-transform: none; letter-spacing: 0.02em; font-size: 11.5px; }
+.mrc-formnote {
+  color: var(--soft); margin-top: 14px; line-height: 1.5;
+  text-transform: none; letter-spacing: 0.02em; font-size: 11.5px; max-width: 46ch;
+}
 
-/* ── Секции ── */
-.mrc-sec { position: relative; border-top: 1px solid var(--border); padding: 34px 0 42px; }
-.mrc-sec::before { content: ''; position: absolute; top: -1px; left: 0; width: 26px; height: 3px; background: var(--primary); }
+/* ── Секции на бумаге ── */
+.mrc-sec { position: relative; border-top: 1px solid var(--rule); padding: 44px 0 52px; }
 .mrc-sec-head {
-  display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: start;
-  margin-bottom: 24px;
+  display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: start;
+  margin-bottom: 30px;
 }
-.mrc-sec-idx { color: var(--muted-foreground); padding-top: 6px; font-size: 12px; }
+.mrc-num {
+  font-family: var(--f-display); font-size: clamp(48px, 5vw, 76px); font-weight: 900;
+  line-height: 0.72; letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--flare-use) 55%, transparent);
+}
+@supports not ((-webkit-text-stroke: 1px red)) {
+  .mrc-num { color: color-mix(in oklch, var(--flare-use) 30%, transparent); }
+}
 .mrc-sec-text { min-width: 0; }
+.mrc-slab-sec .mrc-sec-head { margin-bottom: 30px; }
 
 /* ── Список замеров ── */
-.mrc-instr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.mrc-instr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .mrc-instr-row {
-  display: grid; grid-template-columns: 56px minmax(0, 260px) minmax(0, 1fr);
-  gap: 0 16px; align-items: baseline;
-  padding: 16px 0; border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: 128px minmax(0, 280px) minmax(0, 1fr);
+  gap: 0 20px; align-items: baseline;
+  padding: 20px 0; border-bottom: 1px solid var(--rule);
+  transition: background-color var(--motion-fast) var(--ease);
 }
-.mrc-instr-n { color: var(--muted-foreground); }
-.mrc-instr-t { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
-.mrc-instr-d { font-size: 13.5px; line-height: 1.55; color: var(--muted-foreground); }
+.mrc-instr-row:hover { background: color-mix(in oklch, var(--flare-use) 5%, transparent); }
+.mrc-instr-n { color: var(--flare-use); }
+.mrc-instr-t { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
+.mrc-instr-d { font-size: 13.5px; line-height: 1.55; color: var(--soft); }
 
 /* ── Лист замеров ── */
 .mrc-readout-head {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
-  flex-wrap: wrap; margin-bottom: 18px;
+  flex-wrap: wrap; margin-bottom: 20px;
 }
-.mrc-readout-label { color: var(--muted-foreground); margin-bottom: 4px; }
+.mrc-readout-label { color: var(--flare-use); margin-bottom: 6px; }
 .mrc-readout-domain { margin: 0; overflow-wrap: anywhere; }
 .mrc-meter { display: flex; align-items: center; gap: 10px; }
-.mrc-meter-label { color: var(--muted-foreground); }
+.mrc-meter-label { color: var(--soft); }
 .mrc-meter-bars { display: inline-flex; gap: 4px; }
 .mrc-meter-bar {
-  width: 22px; height: 4px; background: var(--border);
+  width: 26px; height: 5px; background: var(--rule);
   transition: background-color 220ms var(--ease);
 }
-.mrc-meter-bar.is-on { background: var(--primary); }
+.mrc-meter-bar.is-on { background: var(--flare-use); }
 
-.mrc-probes { display: grid; gap: 12px; }
+.mrc-probes { display: grid; gap: 14px; }
 .mrc-probe {
-  position: relative; background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 18px 20px;
+  position: relative; background: var(--surface); border: 1px solid var(--rule);
+  padding: 20px 22px 20px 26px;
 }
-.mrc-probe-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.mrc-probe-n { color: var(--muted-foreground); }
-.mrc-probe-t { flex: 1 1 auto; font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
-.mrc-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground); }
+.mrc-probe-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.mrc-probe-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mrc-probe-n { color: var(--soft); }
+.mrc-probe-t { flex: 1 1 auto; font-size: 17px; font-weight: 700; letter-spacing: -0.015em; margin: 0; }
+.mrc-status { display: inline-flex; align-items: center; gap: 6px; color: var(--soft); }
 .mrc-status-dot { width: 6px; height: 6px; border-radius: 50%; }
 .mrc-status.is-pending .mrc-status-dot { animation: mrc-blink 1.1s var(--ease) infinite; }
-.mrc-probe-pending { margin-top: 14px; }
-.mrc-probe-body { margin-top: 12px; }
-.mrc-verdict-head { font-size: 15px; font-weight: 700; line-height: 1.35; margin-bottom: 6px; letter-spacing: -0.01em; }
-.mrc-verdict-body { font-size: 13.5px; line-height: 1.6; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.mrc-probe-pending { margin-top: 16px; }
+.mrc-probe-body { margin-top: 14px; }
+.mrc-verdict-head {
+  font-family: var(--f-display); font-size: 21px; font-weight: 700; line-height: 1.2;
+  margin-bottom: 8px; letter-spacing: -0.015em;
+}
+.mrc-verdict-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); font-variant-numeric: tabular-nums; }
 
 /* Индикатор замера — бегущая полоса вместо спиннера */
-.mrc-scan { position: relative; height: 3px; background: var(--border); overflow: hidden; border-radius: 2px; }
+.mrc-scan { position: relative; height: 3px; background: var(--rule); overflow: hidden; }
 .mrc-scan > span {
   position: absolute; inset: 0 auto 0 0; width: 34%;
-  background: var(--primary); animation: mrc-scan 1.5s var(--ease) infinite;
+  background: var(--flare-use); animation: mrc-scan 1.5s var(--ease) infinite;
 }
 @keyframes mrc-scan { 0% { transform: translateX(-110%); } 100% { transform: translateX(400%); } }
-@keyframes mrc-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 /* ── Карточка захвата email ── */
 .mrc-lead-card {
-  position: relative; margin-top: 20px; background: var(--card);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius); padding: 22px 22px 20px;
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--primary) 8%, transparent);
+  position: relative; margin-top: 24px; background: var(--surface);
+  border: 1px solid var(--rule); border-top: 3px solid var(--flare-use);
+  padding: 26px 26px 22px;
 }
-.mrc-lead-card-text { margin-bottom: 16px; max-width: 62ch; }
-.mrc-done-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.mrc-lead-card-text { margin-bottom: 18px; max-width: 84ch; }
+.mrc-done-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .mrc-consent {
-  display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
-  cursor: pointer; font-size: 12.5px; line-height: 1.55; color: var(--muted-foreground);
+  display: flex; gap: 11px; align-items: flex-start; margin-top: 16px;
+  cursor: pointer; font-size: 12.5px; line-height: 1.55; color: var(--soft);
 }
-.mrc-consent a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.mrc-consent a { color: var(--flare-use); text-decoration: underline; text-underline-offset: 2px; }
 .mrc-checkbox {
-  margin: 1px 0 0; width: 16px; height: 16px; min-height: 16px;
-  accent-color: var(--primary); flex-shrink: 0; cursor: pointer;
+  margin: 1px 0 0; width: 17px; height: 17px; min-height: 17px;
+  accent-color: var(--flare-use); flex-shrink: 0; cursor: pointer;
 }
 
 /* ── Схема: куда уходят заявки ── */
 .mrc-chain {
   list-style: none; margin: 0; padding: 0;
   position: relative;
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 12px;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 14px;
 }
 .mrc-chain::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 5px; height: 1px;
-  background: var(--border);
+  content: ''; position: absolute; left: 0; right: 0; top: 6px; height: 1px;
+  background: var(--rule);
 }
-.mrc-chain-node { position: relative; padding-top: 22px; }
+.mrc-chain-node { position: relative; padding-top: 26px; }
 .mrc-chain-tick {
-  position: absolute; top: 0; left: 0; width: 11px; height: 11px;
-  background: var(--background); border: 3px solid var(--primary);
+  position: absolute; top: 0; left: 0; width: 13px; height: 13px;
+  background: var(--background); border: 3px solid var(--flare-use);
 }
 .mrc-chain-node.is-loss .mrc-chain-tick { border-color: var(--destructive); }
-.mrc-chain-n { color: var(--muted-foreground); display: block; margin-bottom: 10px; }
-.mrc-chain-ico { display: block; color: var(--primary); margin-bottom: 10px; }
+.mrc-chain-n { color: var(--soft); display: block; margin-bottom: 12px; }
+.mrc-chain-ico { display: block; color: var(--flare-use); margin-bottom: 12px; }
 .mrc-chain-node.is-loss .mrc-chain-ico { color: var(--destructive); }
-.mrc-chain-t { display: block; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
-.mrc-chain-d { display: block; font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
-.mrc-sec .mrc-note { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
+.mrc-chain-t { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 7px; }
+.mrc-chain-d { display: block; font-size: 13px; line-height: 1.55; color: var(--soft); }
+.mrc-sec > .mrc-note { display: block; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); }
 
 /* ── Сравнение путей ── */
-.mrc-cmp { border-top: 1px solid var(--border); }
+.mrc-cmp { border-top: 1px solid var(--rule); }
 .mrc-cmp-head, .mrc-cmp-row {
-  display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 18px;
+  display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 22px;
 }
-.mrc-cmp-head { padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--muted-foreground); }
-.mrc-cmp-head span:nth-child(3) { color: var(--primary); }
-.mrc-cmp-row { padding: 14px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
-.mrc-cmp-k { color: var(--muted-foreground); }
-.mrc-cmp-cell { font-size: 14px; line-height: 1.5; }
-.mrc-cmp-cell-b { color: var(--foreground); font-weight: 600; }
+.mrc-cmp-head { padding: 12px 0; border-bottom: 1px solid var(--rule); color: var(--soft); }
+.mrc-cmp-head span:nth-child(3) { color: var(--flare-use); }
+.mrc-cmp-row { padding: 17px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.mrc-cmp-k { color: var(--soft); }
+.mrc-cmp-cell { font-size: 14.5px; line-height: 1.5; color: var(--soft); }
+.mrc-cmp-cell-b { color: inherit; font-weight: 600; }
 .mrc-conclusion {
-  position: relative; margin-top: 22px; padding: 18px 20px;
-  background: var(--mrc-tint); border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
-  border-radius: var(--radius);
+  margin-top: 26px; padding: 22px 24px;
+  border: 1px solid var(--rule); border-left: 3px solid var(--flare-use);
+  background: var(--surface);
 }
-.mrc-conclusion .mrc-body { color: var(--foreground); font-size: 14.5px; }
+.mrc-conclusion .mrc-body { color: inherit; font-size: 15px; font-family: var(--f-doc); line-height: 1.7; }
 
 /* ── Слои работы ── */
-.mrc-layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mrc-layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .mrc-layer {
-  position: relative; background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 20px;
-  transition: border-color var(--motion-fast) var(--ease);
+  position: relative; background: var(--surface); border: 1px solid var(--rule);
+  padding: 24px;
+  transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease);
 }
-.mrc-layer:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
-.mrc-layer:hover > .mrc-tick { background: var(--primary); }
-.mrc-layer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.mrc-layer-n { color: var(--muted-foreground); }
-.mrc-layer-ico { color: var(--primary); display: inline-flex; }
+.mrc-layer:hover { border-color: var(--flare-use); transform: translateY(-2px); }
+.mrc-layer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.mrc-layer-n { color: var(--flare-use); }
+.mrc-layer-ico { color: var(--soft); display: inline-flex; }
 
 /* ── Что получает клиент ── */
-.mrc-deliver { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mrc-deliver { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .mrc-deliver-item {
-  position: relative; background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 20px;
+  position: relative; background: var(--surface); border: 1px solid var(--rule);
+  border-top: 3px solid color-mix(in oklch, var(--flare-use) 45%, transparent);
+  padding: 24px;
 }
 
 /* ── Чего мы не обещаем ── */
-.mrc-honest { border-top: 1px solid var(--border); }
+.mrc-honest { border-top: 1px solid var(--rule); }
 .mrc-honest-row {
-  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px 24px;
-  padding: 18px 0; border-bottom: 1px solid var(--border); align-items: start;
+  display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px 28px;
+  padding: 22px 0; border-bottom: 1px solid var(--rule); align-items: start;
 }
-.mrc-honest-tag { display: block; color: var(--muted-foreground); margin-bottom: 8px; }
+.mrc-honest-tag { display: block; color: var(--soft); margin-bottom: 10px; }
 .mrc-honest-tag-ok { color: var(--success); }
 .mrc-honest-claim s {
-  font-size: 16px; font-weight: 650; letter-spacing: -0.01em;
-  color: var(--muted-foreground); text-decoration-thickness: 1px;
+  font-family: var(--f-display); font-size: 21px; font-weight: 700; letter-spacing: -0.015em;
+  line-height: 1.2; display: inline-block;
+  color: var(--soft); text-decoration-thickness: 1.5px;
   text-decoration-color: var(--destructive);
 }
-.mrc-honest-truth .mrc-body { color: var(--foreground); }
+.mrc-honest-truth .mrc-body { color: inherit; font-size: 14.5px; }
 
 /* ── Финальный CTA ── */
-.mrc-final {
-  position: relative; margin: 8px 0 48px; padding: 34px 26px 30px;
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+.mrc-final { padding: 62px 0 68px; }
+.mrc-final-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.86fr);
+  gap: 46px; align-items: center;
 }
-.mrc-final .mrc-h2 { margin-bottom: 10px; }
-.mrc-final .mrc-lead { margin-bottom: 22px; }
+.mrc-final .mrc-lead { margin-bottom: 26px; }
 
 /* ── Подвал ── */
-.mrc-footer { border-top: 1px solid var(--border); padding: 22px 0 34px; }
+.mrc-footer { border-top: 1px solid var(--rule); padding: 26px 0 38px; }
 .mrc-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.mrc-footer-inner > .mrc-mono { color: var(--muted-foreground); }
-.mrc-footer-nav { display: flex; gap: 18px; flex-wrap: wrap; }
+.mrc-footer-inner > .mrc-mono { color: var(--soft); }
+.mrc-footer-nav { display: flex; gap: 20px; flex-wrap: wrap; }
 .mrc-footer-nav a {
-  font-size: 12.5px; color: var(--muted-foreground); text-decoration: none;
+  font-size: 12.5px; color: var(--soft); text-decoration: none;
   border-bottom: 1px solid transparent;
 }
-.mrc-footer-nav a:hover { color: var(--foreground); border-bottom-color: var(--border); }
+.mrc-footer-nav a:hover { color: var(--foreground); border-bottom-color: var(--flare-use); }
 
 /* ── Ревилы ── */
-.mrc-anim [data-reveal] { opacity: 0; transform: translateY(14px); }
+.mrc-anim [data-reveal] { opacity: 0; transform: translateY(16px); }
 .mrc-anim [data-reveal].is-in {
   opacity: 1; transform: none;
-  transition: opacity 520ms var(--ease), transform 520ms var(--ease);
+  transition: opacity 560ms var(--ease), transform 560ms var(--ease);
 }
 
 /* ── Планшет ── */
-@media (max-width: 900px) {
-  .mrc-chain { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
+@media (max-width: 1000px) {
+  /* Форма ВЫШЕ сцены: сцена высокая, и с порядком head→scene→form поле
+     ввода уезжало на 987px при экране 812 — главное действие оказывалось
+     ниже сгиба. Для страницы под платный трафик это прямая потеря: на
+     мобильном человек должен видеть, что делать, без скролла. Сцена
+     раскрывается первым же движением — доказательство не теряется. */
+  .mrc-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "form" "scene";
+    grid-template-rows: auto; gap: 28px;
+  }
+  .mrc-final-grid { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+  .mrc-hero-lead { max-width: 60ch; }
+  .mrc-chain { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; }
   .mrc-chain::before { display: none; }
-  .mrc-chain-node { padding-top: 20px; border-top: 1px solid var(--border); }
+  .mrc-chain-node { padding-top: 22px; border-top: 1px solid var(--rule); }
+  .mrc-sec-head { grid-template-columns: 96px minmax(0, 1fr); }
+  .mrc-instr-row { grid-template-columns: 96px minmax(0, 240px) minmax(0, 1fr); }
 }
 
 /* ── Мобильный ── */
 @media (max-width: 767px) {
-  .mrc-wrap { padding: 0 16px; }
-  .mrc-topbar { padding: 2px 16px; }
-  .mrc-wordmark { min-height: 44px; }
+  .mrc-wrap { padding: 0 18px; }
+  .mrc-h1 { font-size: clamp(32px, 9.2vw, 44px) !important; }
+  .mrc-h2 { font-size: clamp(25px, 7vw, 32px) !important; }
+  .mrc-topbar { padding: 12px 0 26px; }
+  .mrc-wordmark { min-height: 44px; font-size: 18px; }
   .mrc-topbar-tag { display: none; }
-  .mrc-hero-inner { padding-top: 24px; padding-bottom: 30px; }
-  .mrc-eyebrow { margin-bottom: 14px; font-size: 10px; letter-spacing: 0.06em; }
-  .mrc-hero-lead { font-size: 15px; margin-bottom: 18px; }
+  .mrc-hero { padding-bottom: 44px; }
+  .mrc-eyebrow { margin-bottom: 16px; font-size: 10px; letter-spacing: 0.07em; }
+  .mrc-hero-lead { font-size: 15.5px; margin-bottom: 22px; }
 
   .mrc-form-row { flex-direction: column; }
   .mrc-input, .mrc-btn { width: 100%; flex: 1 1 auto; }
   .mrc-input { font-size: 16px; }
 
-  .mrc-sec { padding: 26px 0 32px; }
-  .mrc-sec-head { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 18px; }
-  .mrc-sec-idx { padding-top: 0; }
+  .mrc-ans { padding: 18px 16px 16px; }
+  .mrc-ans-qtext { font-size: 15.5px; }
+  .mrc-ans-text { font-size: 14.5px; }
+  .mrc-slot-box { font-size: 11.5px; padding: 0 12px; }
 
-  .mrc-instr-row { grid-template-columns: 40px minmax(0, 1fr); gap: 4px 12px; }
+  .mrc-sec { padding: 32px 0 38px; }
+  .mrc-slab-sec { padding: 40px 0 44px; }
+  .mrc-final { padding: 44px 0 48px; }
+  .mrc-sec-head { grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 22px; }
+  .mrc-num { font-size: 40px; line-height: 1; }
+
+  .mrc-instr-row { grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; }
   .mrc-instr-n { grid-row: span 2; }
 
-  .mrc-chain { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .mrc-chain { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .mrc-chain-ico { margin-bottom: 8px; }
 
   .mrc-cmp-head { display: none; }
-  .mrc-cmp-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 16px 0; }
-  .mrc-cmp-cell { position: relative; padding-left: 92px; font-size: 13.5px; }
+  .mrc-cmp-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 18px 0; }
+  .mrc-cmp-cell { position: relative; padding-left: 96px; font-size: 13.5px; }
   .mrc-cmp-cell::before {
-    content: attr(data-tag); position: absolute; left: 0; top: 2px; width: 84px;
-    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    content: attr(data-tag); position: absolute; left: 0; top: 2px; width: 88px;
+    font-family: var(--f-mono);
     font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--soft);
   }
-  .mrc-cmp-cell-b::before { color: var(--primary); }
+  .mrc-cmp-cell-b::before { color: var(--flare-use); }
 
   .mrc-layers, .mrc-deliver { grid-template-columns: minmax(0, 1fr); }
   .mrc-honest-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .mrc-final { padding: 26px 18px 24px; margin-bottom: 36px; }
-  .mrc-lead-card { padding: 18px 16px 16px; }
-  .mrc-probe { padding: 16px; }
+  .mrc-lead-card { padding: 20px 16px 18px; }
+  .mrc-probe { padding: 18px 16px 18px 20px; }
   /* Тап-таргеты подвала до 44px — ссылки стоят отдельно, не внутри текста */
   .mrc-footer-nav { gap: 0 18px; flex-direction: column; }
   .mrc-footer-nav a { display: flex; align-items: center; min-height: 44px; }
@@ -1134,5 +1386,6 @@ const CSS = `
   }
   .mrc-anim [data-reveal] { opacity: 1; transform: none; }
   .mrc-scan > span { width: 100%; }
+  .mrc-caret { opacity: 1; }
 }
 `;

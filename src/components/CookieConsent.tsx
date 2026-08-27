@@ -64,13 +64,20 @@ export function CookieConsent() {
           Политикой обработки файлов cookie
         </a>.
       </span>
+      {/*
+        Кнопка красится в акцент СТРАНИЦЫ, а не в синий примари платформы.
+        Лендинги (/check, /geo) задают свой --mrc-flare-ink терракотой, и
+        синяя кнопка на них читалась как чужой элемент. Где переменной нет
+        (кабинет), fallback возвращает обычный примари — вид не меняется.
+      */}
       <button
         onClick={accept}
         className="ds-btn ds-btn-primary"
         style={{
           height: 38, padding: "0 22px", fontSize: 13.5, fontWeight: 700,
           borderRadius: 10, border: "none", cursor: "pointer",
-          background: "var(--primary, #2563eb)", color: "var(--primary-foreground, #fff)",
+          background: "var(--mrc-flare-ink, var(--primary, #2563eb))",
+          color: "var(--primary-foreground, #fff)",
           flexShrink: 0,
         }}
       >
