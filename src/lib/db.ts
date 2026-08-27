@@ -802,6 +802,12 @@ export async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Контакты с формы /geo: там человек оставляет их СРАЗУ, вместе с адресом
+  // сайта, а не после показа диагноза (как на /check). Без этих колонок лид
+  // молча терялся, хотя согласие на обработку уже было дано.
+  // consent_at — след согласия: когда именно оно получено.
+  await query(`ALTER TABLE mini_checks ADD COLUMN IF NOT EXISTS phone TEXT`);
+  await query(`ALTER TABLE mini_checks ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ`);
   await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_domain ON mini_checks(domain, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_ip ON mini_checks(client_ip, created_at DESC)`);
 
