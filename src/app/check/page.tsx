@@ -43,6 +43,7 @@
  * Названия компаний в мокапах условные: чужие бренды в свою рекламу не ставим.
  */
 import { AiRow, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
+import { RadarField, RADAR_FIELD_CSS } from "@/components/landing/RadarField";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
 
@@ -175,6 +176,7 @@ export default function CheckPage() {
 
       {/* ─── Первый экран: чернильная плита, вопрос-боль и живой пример ─── */}
       <section className="mrc-slab mrc-hero">
+        <RadarField className="mrc-radar" />
         <div className="mrc-wrap">
           <header className="mrc-topbar">
             <a href="/" className="mrc-wordmark" aria-label="MarketRadar24">
@@ -1916,4 +1918,4 @@ const CSS = AI_ROW_CSS + `
   .mrc-scan > span { width: 100%; }
   .mrc-caret { opacity: 1; }
 }
-`;
+` + RADAR_FIELD_CSS;

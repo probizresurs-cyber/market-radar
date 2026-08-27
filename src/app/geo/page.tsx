@@ -33,6 +33,7 @@
  * файла — /check/page.tsx и /geo/page.tsx.
  */
 import { useCallback, useEffect, useState } from "react";
+import { RadarField, RADAR_FIELD_CSS } from "@/components/landing/RadarField";
 import { AiRow, AiMark, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useRouter } from "next/navigation";
 
@@ -137,6 +138,7 @@ export default function GeoPage() {
 
       {/* ─── Первый экран ─── */}
       <section className="mrc-slab mrc-hero">
+        <RadarField className="mrc-radar" />
         <div className="mrc-wrap">
           <header className="mrc-topbar">
             <a href="/" className="mrc-wordmark" aria-label="MarketRadar24">
@@ -1604,4 +1606,4 @@ const CSS = AI_ROW_CSS + `
   .mrc-anim [data-reveal] { opacity: 1; transform: none; }
   .mrc-caret { opacity: 1; }
 }
-`;
+` + RADAR_FIELD_CSS;
