@@ -18,21 +18,29 @@
  * поллинг, блоки дорисовываются по мере готовности проб → email за полный
  * разбор (это уже настоящее КП через kp-public).
  *
- * ── Арт-дирекшн: «редакционный разбор» ────────────────────────────────────
- * Страница читается как разворот делового журнала, по которому прошёлся
- * редактор: тёплая бумага, чернильный графит на ключевых сценах, антиква
- * Playfair 900 в заголовках, Inter в прозе, Geist Mono на служебных подписях,
- * Merriweather — в теле «ответа ассистента», чтобы он выглядел документом,
- * а не элементом интерфейса. Акцент один — терракота (карандаш правки),
- * максимум на кнопке, подчёркиваниях имён и пропуске.
+ * ── Арт-дирекшн: «редакционный разбор на графите» ─────────────────────────
+ * Палитра, шрифт и логотип взяты с продакшена marketradar24.ru — страница
+ * обязана читаться как часть того же продукта, а не как отдельный лендинг:
+ * графит #111318 с еле заметной сеткой, индиго #6366F1 как основное действие,
+ * циан #00D4FF как служебный акцент и цвет логотипа-радара, зелёный — статус
+ * «готово», красный — потеря. Заголовки на Inter 800 (как на проде), градиент
+ * маджента → фиолет → циан на ключевой строке первого экрана.
+ *
+ * От «редакционного разбора» осталась структура, а не бумага: номера секций
+ * крупной обводкой, волосяные линейки, Geist Mono на служебных подписях,
+ * Merriweather в теле «ответа ассистента» — чтобы ответ читался документом,
+ * а не элементом интерфейса. Ритм страницы задаётся сменой плотности графита
+ * (полотно → плита), а не сменой бумаги и чернил.
  *
  * Signature-приём — ОТВЕТ С ПРОПУСКОМ: блок ответа нейросети, где чужие бренды
- * подчёркнуты, а на месте посетителя — пустая пунктирная рамка с пометкой на
- * полях. Он открывает страницу, повторяется в цепочке потери заявки и
- * закрывает страницу, подставляя туда уже введённый посетителем домен.
- * Ниша (Head Promo — чёрный + кислотный жёлтый, Zenlink — чёрный + зелёный,
- * Digital Geeks — фиолетовый + мятный) сидит на кислоте по тёмному; отсюда
- * осознанный уход в бумагу, антикву и терракоту.
+ * подчёркнуты цианом, а на месте посетителя — пустая красная пунктирная рамка.
+ * Он открывает страницу, повторяется в цепочке потери заявки и закрывает
+ * страницу, подставляя туда уже введённый посетителем домен.
+ *
+ * Визуальные объекты в теле (чтобы текст не шёл сплошняком): мокап выдачи
+ * поиска, приборная панель четырёх слоёв и превью документа-разбора. Все
+ * нарисованы CSS/SVG — переживают смену темы, масштабируются и не тянут вес.
+ * Названия компаний в мокапах условные: чужие бренды в свою рекламу не ставим.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
@@ -70,8 +78,11 @@ async function readJson(r: Response): Promise<{ ok?: boolean; error?: string; [k
 const semTone = (n: number): Tone => (n < 50 ? "bad" : n < 300 ? "warn" : "ok");
 const spdTone = (p: number): Tone => (p < 50 ? "bad" : p < 90 ? "warn" : "ok");
 const rdTone = (passed: number): Tone => (passed <= 3 ? "bad" : passed <= 5 ? "warn" : "ok");
+/* Цвета вердикта — из локальной палитры страницы, а не из токенов кабинета:
+   платформенные --destructive/--warning/--success рассчитаны на светлый фон
+   и на графите теряют контраст. */
 const toneColor = (t?: Tone) =>
-  t === "bad" ? "var(--destructive)" : t === "warn" ? "var(--warning)" : t === "ok" ? "var(--success)" : "var(--flare-use)";
+  t === "bad" ? "var(--loss)" : t === "warn" ? "var(--mrc-amber)" : t === "ok" ? "var(--mrc-green)" : "var(--flare-use)";
 
 export default function CheckPage() {
   const [url, setUrl] = useState("");
@@ -165,9 +176,9 @@ export default function CheckPage() {
       <section className="mrc-slab mrc-hero">
         <div className="mrc-wrap">
           <header className="mrc-topbar">
-            <a href="/" className="mrc-wordmark">
-              <span className="mrc-logo-tick" aria-hidden="true" />
-              MarketRadar
+            <a href="/" className="mrc-wordmark" aria-label="MarketRadar24">
+              <RadarMark />
+              <span aria-hidden="true">Market<b>Radar24</b></span>
             </a>
             <span className="mrc-mono mrc-topbar-tag">диагностика сайта · 0 ₽</span>
           </header>
@@ -179,7 +190,8 @@ export default function CheckPage() {
                 бесплатно · без звонков · результат на экране
               </div>
               <h1 className="mrc-h1">
-                Почему ваш сайт<br />не приносит заявки?
+                Почему ваш сайт<br />
+                <span className="mrc-grad">не приносит заявки?</span>
               </h1>
               <p className="mrc-lead mrc-hero-lead">
                 Клиент спрашивает совета у нейросети и получает два-три имени. Снимем три замера
@@ -364,6 +376,13 @@ export default function CheckPage() {
               </li>
             ))}
           </ol>
+
+          {/* Мокап выдачи: та же цепочка, но показанная глазами клиента */}
+          <SerpMock
+            query="сколько стоит и где заказать — москва"
+            note="Первую страницу занимают те, у кого описаны услуги и цены. Вас на ней нет — сравнивать не с чем."
+          />
+
           <p className="mrc-note">
             Сайт при этом может быть отличным. Его просто не показали.
           </p>
@@ -410,12 +429,15 @@ export default function CheckPage() {
             title="Что мы делаем"
             sub="Четыре слоя работы. Каждый следующий имеет смысл, только когда сделан предыдущий."
           />
+          {/* Приборная панель: четыре слоя как четыре канала сигнала */}
+          <SignalPanel />
+
           <div className="mrc-layers">
             {LAYERS.map(l => (
-              <article key={l.n} className="mrc-layer">
+              <article key={l.n} className="mrc-layer" data-accent={l.acc}>
                 <div className="mrc-layer-top">
-                  <span className="mrc-mono mrc-layer-n">{l.n}</span>
                   <span className="mrc-layer-ico" aria-hidden="true"><Icon name={l.icon} /></span>
+                  <span className="mrc-mono mrc-layer-n">{l.n}</span>
                 </div>
                 <h3 className="mrc-h3">{l.t}</h3>
                 <p className="mrc-body">{l.d}</p>
@@ -431,16 +453,20 @@ export default function CheckPage() {
             title="Что получает клиент"
             sub="Полный разбор — это документ, по которому можно работать: со ссылками, замерами и ценами."
           />
-          <div className="mrc-deliver">
-            {DELIVER.map(d => (
-              <article key={d.t} className="mrc-deliver-item">
-                <h3 className="mrc-h3">{d.t}</h3>
-                <p className="mrc-body">{d.d}</p>
-                <ul className="mrc-ul">
-                  {d.points.map(p => <li key={p}>{p}</li>)}
-                </ul>
-              </article>
-            ))}
+          {/* Асимметричная секция: слева превью документа, справа его содержание */}
+          <div className="mrc-deliver-wrap">
+            <ReportMock />
+            <div className="mrc-deliver">
+              {DELIVER.map(d => (
+                <article key={d.t} className="mrc-deliver-item" data-accent={d.acc}>
+                  <h3 className="mrc-h3">{d.t}</h3>
+                  <p className="mrc-body">{d.d}</p>
+                  <ul className="mrc-ul">
+                    {d.points.map(p => <li key={p}>{p}</li>)}
+                  </ul>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -517,7 +543,21 @@ const DEMO_QUESTIONS = [
   "подбери подрядчика: кому из них можно доверять",
 ];
 
-const DEMO_ASKERS = ["Алиса", "ChatGPT", "Яндекс Нейро", "Perplexity", "GigaChat"];
+/**
+ * Ассистенты со знаком-меткой и своим цветом.
+ *
+ * Глифы НАРОЧНО абстрактные, а не копии настоящих логотипов: чужие
+ * товарные знаки в своей рекламе не размещаем. Каждому — узнаваемая
+ * геометрия и цвет из палитры продакшена, чтобы ряд читался визуально,
+ * а не как пять одинаковых серых пилюль.
+ */
+const DEMO_ASKERS: { name: string; hue: string; glyph: React.ReactNode }[] = [
+  { name: "Алиса", hue: "var(--mrc-red)", glyph: <circle cx="8" cy="8" r="5.4" /> },
+  { name: "ChatGPT", hue: "var(--mrc-green)", glyph: <path d="M8 2.6 13.2 5.6v4.8L8 13.4 2.8 10.4V5.6Z" /> },
+  { name: "Яндекс Нейро", hue: "var(--mrc-amber)", glyph: <path d="M8 2.4 9.7 6.3 13.6 8 9.7 9.7 8 13.6 6.3 9.7 2.4 8 6.3 6.3Z" /> },
+  { name: "Perplexity", hue: "var(--mrc-cyan)", glyph: <path d="M3 4.6h10M3 8h10M3 11.4h10" strokeWidth="1.8" strokeLinecap="round" fill="none" /> },
+  { name: "GigaChat", hue: "var(--mrc-violet)", glyph: <path d="M8 2.6 13.4 8 8 13.4 2.6 8Z" /> },
+];
 
 function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
   const [qi, setQi] = useState(0);
@@ -560,10 +600,259 @@ function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
         <div className="mrc-ans-foot">
           <span className="mrc-mono mrc-ans-footlabel">спрашивают у</span>
           <ul className="mrc-chips">
-            {DEMO_ASKERS.map(a => <li key={a} className="mrc-mono">{a}</li>)}
+            {DEMO_ASKERS.map(a => (
+              <li key={a.name} className="mrc-mono mrc-asker">
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"
+                  style={{ fill: a.hue, stroke: a.hue, flexShrink: 0 }}>
+                  {a.glyph}
+                </svg>
+                {a.name}
+              </li>
+            ))}
           </ul>
         </div>
       )}
+    </figure>
+  );
+}
+
+/* ─── Логотип продакшена ───────────────────────────────────────────────────
+   Радар-марка marketradar24.ru: свечение, три кольца, узлы-связи и бегущий
+   луч. Цвета — через переменные страницы, чтобы не держать hex в компоненте. */
+
+function RadarMark() {
+  return (
+    <svg className="mrc-logo" width="34" height="34" viewBox="0 0 64 64" fill="none"
+      aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id="mrc-logo-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="var(--mrc-cyan)" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="var(--mrc-cyan)" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="mrc-logo-blade" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--mrc-cyan)" stopOpacity="0" />
+          <stop offset="100%" stopColor="var(--mrc-cyan)" stopOpacity="0.5" />
+        </linearGradient>
+      </defs>
+      <circle cx="32" cy="32" r="30" fill="url(#mrc-logo-glow)" />
+      {[28, 20, 12].map(r => (
+        <circle key={r} cx="32" cy="32" r={r} stroke="var(--mrc-logo-ring)" strokeWidth="0.8" fill="none" opacity="0.6" />
+      ))}
+      <g opacity="0.5" stroke="var(--mrc-cyan)">
+        <line x1="32" y1="32" x2="48" y2="18" strokeWidth="0.6" opacity="0.6" />
+        <line x1="32" y1="32" x2="20" y2="22" strokeWidth="0.6" opacity="0.6" />
+        <line x1="32" y1="32" x2="44" y2="46" strokeWidth="0.6" opacity="0.6" />
+        <line x1="32" y1="32" x2="18" y2="42" strokeWidth="0.6" opacity="0.6" />
+        <line x1="48" y1="18" x2="44" y2="46" strokeWidth="0.5" opacity="0.35" />
+        <line x1="20" y1="22" x2="18" y2="42" strokeWidth="0.5" opacity="0.35" />
+      </g>
+      <circle cx="48" cy="18" r="2" fill="var(--mrc-green)" />
+      <circle cx="20" cy="22" r="2" fill="var(--mrc-cyan)" />
+      <circle cx="44" cy="46" r="2" fill="var(--mrc-violet)" />
+      <circle cx="18" cy="42" r="2" fill="var(--mrc-cyan)" />
+      <circle cx="54" cy="34" r="1" fill="var(--mrc-cyan)" opacity="0.5" />
+      <circle cx="10" cy="30" r="1" fill="var(--mrc-cyan)" opacity="0.5" />
+      <circle cx="32" cy="8" r="1" fill="var(--mrc-cyan)" opacity="0.5" />
+      <g className="mrc-logo-sweep">
+        <path d="M 32 32 L 60 32 A 28 28 0 0 0 52 12 Z" fill="url(#mrc-logo-blade)" />
+      </g>
+      <circle cx="32" cy="32" r="3" fill="var(--mrc-cyan)" />
+      <circle cx="32" cy="32" r="5" stroke="var(--mrc-cyan)" strokeWidth="0.5" fill="none" opacity="0.4" />
+    </svg>
+  );
+}
+
+/* ─── Визуальные объекты в теле страницы ───────────────────────────────────
+   Все три нарисованы CSS/SVG, а не вставлены картинкой: растр не переживает
+   смену темы, не масштабируется на мобильном и тянет вес. Данные внутри —
+   условные и так подписаны; чужие бренды в свою рекламу не ставим. */
+
+type Accent = "cyan" | "indigo" | "amber" | "green" | "pink" | "violet" | "red";
+
+/** Строки органической выдачи: структура узнаваема, названия условные. */
+const SERP_ROWS: { pos: string; title: [string, string, string]; url: string; snip: [string, string, string]; rate: string; reviews: string }[] = [
+  {
+    pos: "1",
+    title: ["", "Конкурент А", " — услуги и цены, работаем с 2014 года"],
+    url: "konkurent-a.ru › uslugi › ceny",
+    snip: ["Полный список услуг с ", "ценами и сроками", ". Расчёт за день, договор, гарантия на работы."],
+    rate: "4,8",
+    reviews: "62 отзыва",
+  },
+  {
+    pos: "2",
+    title: ["Заказать у ", "Конкурента Б", ": стоимость, отзывы, портфолио"],
+    url: "konkurent-b.ru › zakazat",
+    snip: ["Отвечаем на ", "частые вопросы клиентов", " прямо на странице: что входит, сколько стоит, когда результат."],
+    rate: "4,6",
+    reviews: "41 отзыв",
+  },
+  {
+    pos: "3",
+    title: ["", "Конкурент В", " — сколько это стоит в 2026 году"],
+    url: "konkurent-v.ru › blog › skolko-stoit",
+    snip: ["Разбор ", "цен по рынку", " с примерами расчёта. Таблица тарифов и условия работы."],
+    rate: "4,4",
+    reviews: "28 отзывов",
+  },
+];
+
+/** Мокап поисковой выдачи: конкуренты в топе, места клиента нет. */
+function SerpMock({ query, note }: { query: string; note: string }) {
+  return (
+    <figure className="mrc-serp">
+      <figcaption className="mrc-mono mrc-serp-cap">
+        <span className="mrc-ans-live" aria-hidden="true" />
+        так выглядит выдача по вашему запросу · мокап, названия условные
+      </figcaption>
+
+      <div className="mrc-serp-bar">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor"
+          strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+          <circle cx="9" cy="9" r="6" /><path d="M13.5 13.5 17 17" />
+        </svg>
+        <span className="mrc-serp-q">{query}</span>
+      </div>
+
+      <div className="mrc-serp-tabs" aria-hidden="true">
+        <span className="is-on">Поиск</span>
+        <span>Ответ ИИ</span>
+        <span>Услуги</span>
+        <span>Карты</span>
+        <span>Картинки</span>
+      </div>
+
+      <ol className="mrc-serp-list">
+        {SERP_ROWS.map(r => (
+          <li key={r.pos} className="mrc-serp-item">
+            <span className="mrc-mono mrc-serp-pos">{r.pos}</span>
+            <div className="mrc-serp-body">
+              <span className="mrc-serp-title">{r.title[0]}<b>{r.title[1]}</b>{r.title[2]}</span>
+              <span className="mrc-mono mrc-serp-url">{r.url}</span>
+              <p className="mrc-serp-snip">{r.snip[0]}<b>{r.snip[1]}</b>{r.snip[2]}</p>
+              <span className="mrc-serp-rate">
+                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" aria-hidden="true">
+                  <path d="m10 2.5 2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L2.5 8l5.2-.8z" />
+                </svg>
+                <b>{r.rate}</b> · {r.reviews}
+              </span>
+            </div>
+          </li>
+        ))}
+        <li className="mrc-serp-item is-you">
+          <span className="mrc-mono mrc-serp-pos">—</span>
+          <div className="mrc-serp-empty">
+            <span className="mrc-mono mrc-serp-empty-t">вашего сайта здесь нет</span>
+            <span className="mrc-serp-empty-d">{note}</span>
+          </div>
+        </li>
+      </ol>
+    </figure>
+  );
+}
+
+/* Приборная панель слоёв. Значения условные и подписаны как схема: они
+   иллюстрируют правило «итог равен самому слабому слою», а не замер сайта. */
+const CHANNELS: { t: string; acc: Accent; on: number }[] = [
+  { t: "Техника", acc: "cyan", on: 6 },
+  { t: "Контент", acc: "amber", on: 7 },
+  { t: "Упоминания", acc: "green", on: 2 },
+  { t: "Репутация", acc: "pink", on: 5 },
+];
+const CH_STEPS = 8;
+
+function SignalPanel() {
+  const weakest = Math.min(...CHANNELS.map(c => c.on));
+  return (
+    <figure className="mrc-signal">
+      <figcaption className="mrc-signal-head">
+        <span className="mrc-mono">сигналы, из которых собирается ответ</span>
+        <span className="mrc-mono mrc-signal-legend">схема · значения условные</span>
+      </figcaption>
+
+      <div className="mrc-signal-grid">
+        <div className="mrc-chans">
+          {CHANNELS.map(c => (
+            <div key={c.t} className="mrc-chan" data-accent={c.acc}>
+              <div className="mrc-chan-bars" aria-hidden="true">
+                {Array.from({ length: CH_STEPS }, (_, i) => (
+                  <span key={i} className={`mrc-chan-seg${i < c.on ? " is-on" : ""}`} />
+                ))}
+              </div>
+              <span className="mrc-mono mrc-chan-val">{c.on}/{CH_STEPS}</span>
+              <span className="mrc-chan-t">{c.t}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mrc-signal-out">
+          <div className="mrc-chan is-out" data-accent="indigo">
+            <div className="mrc-chan-bars" aria-hidden="true">
+              {Array.from({ length: CH_STEPS }, (_, i) => (
+                <span key={i} className={`mrc-chan-seg${i < weakest ? " is-on" : ""}`} />
+              ))}
+            </div>
+            <span className="mrc-mono mrc-chan-val">{weakest}/{CH_STEPS}</span>
+            <span className="mrc-chan-t">Итог</span>
+          </div>
+          <p className="mrc-body mrc-signal-note">
+            Итог равен самому слабому каналу, а не их сумме. Отличная техника при пустых
+            внешних упоминаниях даёт ровно столько же, сколько сами упоминания.
+          </p>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+/** Превью документа-разбора: что именно приходит по ссылке. */
+function ReportMock() {
+  return (
+    <figure className="mrc-doc">
+      <div className="mrc-doc-bar" aria-hidden="true">
+        <span className="mrc-doc-dots"><i /><i /><i /></span>
+        <span className="mrc-mono mrc-doc-addr">разбор · страница по ссылке</span>
+      </div>
+      <div className="mrc-doc-body">
+        <div className="mrc-doc-title" aria-hidden="true">
+          <span className="mrc-doc-h" />
+          <span className="mrc-doc-sub" />
+        </div>
+
+        <div className="mrc-doc-sec">
+          <span className="mrc-mono mrc-doc-lab" data-accent="cyan">находки</span>
+          <span className="mrc-doc-line" style={{ width: "94%" }} />
+          <span className="mrc-doc-line" style={{ width: "78%" }} />
+        </div>
+
+        <div className="mrc-doc-sec">
+          <span className="mrc-mono mrc-doc-lab" data-accent="pink">конкуренты</span>
+          <div className="mrc-doc-rows" aria-hidden="true">
+            {["konkurent-a.ru", "konkurent-b.ru", "konkurent-v.ru"].map((d, i) => (
+              <span key={d} className="mrc-doc-row">
+                <em>{d}</em>
+                <i style={{ width: `${72 - i * 22}%` }} />
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="mrc-doc-sec">
+          <span className="mrc-mono mrc-doc-lab" data-accent="indigo">прогноз</span>
+          <div className="mrc-doc-chart" aria-hidden="true">
+            {[34, 46, 40, 58, 70, 64, 82].map((h, i) => (
+              <i key={i} style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+
+        <div className="mrc-doc-sec">
+          <span className="mrc-mono mrc-doc-lab" data-accent="green">план работ и цены</span>
+          <span className="mrc-doc-line" style={{ width: "88%" }} />
+          <span className="mrc-doc-line" style={{ width: "62%" }} />
+        </div>
+      </div>
+      <figcaption className="mrc-mono mrc-doc-cap">схема страницы разбора · содержимое собирается по вашему сайту</figcaption>
     </figure>
   );
 }
@@ -586,31 +875,33 @@ const COMPARE: { k: string; a: string; b: string }[] = [
   { k: "за что идёт борьба", a: "За место в первой тройке ссылок", b: "За то, чтобы вас назвали в самом ответе" },
 ];
 
-const LAYERS: { n: string; icon: IconName; t: string; d: string }[] = [
-  { n: "01", icon: "gear", t: "Техника сайта", d: "Скорость, структура, заголовки, разметка данных, карта сайта, доступ для поисковых и нейросетевых роботов. Чтобы машина могла прочитать, чем вы занимаетесь, для кого и на каких условиях." },
-  { n: "02", icon: "text", t: "Контент", d: "Страницы услуг, ответы на реальные вопросы клиентов, цены и условия словами, а не картинкой. Нейросети пересказывают текст — если текста нет, пересказывать нечего." },
-  { n: "03", icon: "link", t: "Внешние упоминания и Digital PR", d: "Публикации на отраслевых площадках, каталоги, профили на картах, экспертные материалы. Робот больше доверяет тому, о ком пишут не только на его собственном сайте." },
-  { n: "04", icon: "star", t: "Репутация", d: "Отзывы там, где их читают, и ответы на них. Оценки и формулировки из отзывов попадают в ответ ассистента почти дословно — вместе с претензиями." },
+/* Свой акцент на карточку — приём с дашборда продакшена, где у каждой
+   возможности своя кромка и свой цвет иконки. */
+const LAYERS: { n: string; icon: IconName; acc: Accent; t: string; d: string }[] = [
+  { n: "01", icon: "gear", acc: "cyan", t: "Техника сайта", d: "Скорость, структура, заголовки, разметка данных, карта сайта, доступ для поисковых и нейросетевых роботов. Чтобы машина могла прочитать, чем вы занимаетесь, для кого и на каких условиях." },
+  { n: "02", icon: "text", acc: "amber", t: "Контент", d: "Страницы услуг, ответы на реальные вопросы клиентов, цены и условия словами, а не картинкой. Нейросети пересказывают текст — если текста нет, пересказывать нечего." },
+  { n: "03", icon: "link", acc: "green", t: "Внешние упоминания и Digital PR", d: "Публикации на отраслевых площадках, каталоги, профили на картах, экспертные материалы. Робот больше доверяет тому, о ком пишут не только на его собственном сайте." },
+  { n: "04", icon: "star", acc: "pink", t: "Репутация", d: "Отзывы там, где их читают, и ответы на них. Оценки и формулировки из отзывов попадают в ответ ассистента почти дословно — вместе с претензиями." },
 ];
 
-const DELIVER: { t: string; d: string; points: string[] }[] = [
+const DELIVER: { t: string; acc: Accent; d: string; points: string[] }[] = [
   {
-    t: "Находки с доказательствами",
+    t: "Находки с доказательствами", acc: "cyan",
     d: "По каждой проблеме показано, где мы её увидели, а не абстрактное «нужно улучшить SEO».",
     points: ["адрес конкретной страницы", "замер или выдержка из выдачи", "что именно это стоит вам в заявках"],
   },
   {
-    t: "Конкуренты поимённо",
+    t: "Конкуренты поимённо", acc: "pink",
     d: "Не «лидеры рынка», а конкретные домены, которые забирают ваш спрос прямо сейчас.",
     points: ["запросы, по которым они выше вас", "частотность этих запросов", "чего у них есть, а у вас нет"],
   },
   {
-    t: "Прогноз заявок",
+    t: "Прогноз заявок", acc: "indigo",
     d: "Сколько обращений способен дать канал при текущем спросе — с показанным расчётом.",
     points: ["исходные данные расчёта", "допущения, на которых он держится", "честная пометка: это оценка, не гарантия"],
   },
   {
-    t: "План работ с ценами",
+    t: "План работ с ценами", acc: "green",
     d: "Что делаем, в каком порядке, сколько это стоит и что вы получаете на выходе каждого этапа.",
     points: ["этапы и их последовательность", "стоимость по каждому этапу", "результат, который можно проверить"],
   },
@@ -852,67 +1143,118 @@ function useReveal() {
 }
 
 /* ─── Стили страницы ───────────────────────────────────────────────────────
-   Роли цвета заданы четырьмя переменными — --rule, --soft, --surface,
-   --flare-use. Они переопределяются внутри чернильной плиты (.mrc-slab), и
-   один и тот же компонент живёт на бумаге и на графите без дублей стилей.
+   Палитра взята с продакшена marketradar24.ru и заведена локальными
+   переменными: графит вместо бумаги, индиго вместо терракоты. Роли цвета
+   собраны в четырёх переменных — --rule, --soft, --surface, --flare-use, —
+   которые уплотняются внутри плиты (.mrc-slab), поэтому один и тот же
+   компонент живёт на полотне и на плите без дублей стилей.
+   Полотно тёмное при любой теме платформы: это осознанное арт-решение —
+   лендинг обязан выглядеть тем же продуктом, что и marketradar24.ru.
    Глобальный globals.css душит h1/h2 на мобильном через !important — поэтому
    размеры заголовков здесь тоже помечены !important. */
 
 const CSS = `
 /* Акцент дублируем на :root: куки-баннер живёт в layout, СНАРУЖИ .mrc-root,
-   и без этого красился синим примари платформы — чужим элементом на
-   терракотовой странице. Правило действует только пока страница смонтирована. */
-:root { --mrc-flare-ink: oklch(0.52 0.16 42); }
-:root.dark { --mrc-flare-ink: oklch(0.78 0.15 48); }
+   и без этого красился бы синим примари платформы. Механика прежняя,
+   изменилось только значение: индиго продакшена вместо терракоты.
+   Правило действует только пока страница смонтирована. */
+:root { --mrc-flare-ink: #4f46e5; }
+:root.dark { --mrc-flare-ink: #4f46e5; } /* белый текст 5.6:1 в обеих темах */
 
 .mrc-root {
-  --f-display: var(--font-playfair), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  /* Продакшен набран Inter — на нём же набраны и заголовки лендинга.
+     Merriweather оставлен только в теле «ответа ассистента»: там он работает
+     как голос документа внутри карточки, а не как шрифт интерфейса. */
+  --f-display: var(--font-inter), Inter, system-ui, sans-serif;
   --f-text: var(--font-inter), Inter, system-ui, sans-serif;
   --f-doc: var(--font-merriweather), Georgia, 'Times New Roman', serif;
   --f-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  --mrc-ink: oklch(0.175 0.042 265);
-  --mrc-ink-fg: oklch(0.965 0.008 85);
-  --mrc-flare: oklch(0.76 0.155 48);
-  --mrc-flare-ink: oklch(0.52 0.16 42);
+  /* ── Палитра marketradar24.ru ──────────────────────────────────────────
+     indigo — основное действие; cyan — служебный акцент и логотип;
+     green — статус «готово»; red/pink — потеря и предупреждение;
+     magenta→violet→cyan — градиент заголовка первого экрана. */
+  --mrc-ink: #111318;
+  --mrc-ink-deep: #0c0e13;
+  --mrc-ink-soft: #171a21;
+  --mrc-fg: #f1f5f9;
+  --mrc-fg-mid: #cbd5e1;
+  --mrc-fg-soft: #94a3b8;
 
-  --rule: var(--border);
-  --soft: var(--muted-foreground);
-  --surface: var(--card);
-  --flare-use: var(--mrc-flare-ink);
-  --field-bg: var(--input-bg);
+  --mrc-indigo: #4f46e5; /* indigo-600: с белым текстом 5.6:1, у #6366f1 было 4.47 — ниже AA */
+  --mrc-indigo-lift: #818cf8;
+  --mrc-indigo-fg: #a5b4fc;
+  --mrc-cyan: #00d4ff;
+  --mrc-green: #69ff47;
+  --mrc-amber: #ffb547;
+  --mrc-pink: #ff5ea8;
+  --mrc-violet: #b06bff;
+  --mrc-magenta: #d500f9;
+  --mrc-red: #ff5252;
+  --mrc-logo-ring: #1a3f5c;
+  /* Выдача поиска: синий тайтл и зелёный путь, поднятые до читаемых на графите */
+  --mrc-serp-link: #8ab4ff;
+  --mrc-serp-url: #7bd88f;
+
+  --mrc-r: 10px;      /* радиус кнопок продакшена */
+  --mrc-r-lg: 14px;   /* радиус панелей и карточек */
+
+  --rule: color-mix(in srgb, var(--mrc-fg-soft) 22%, transparent);
+  --soft: var(--mrc-fg-soft);
+  --surface: var(--mrc-ink-soft);
+  --flare-use: var(--mrc-indigo-fg);
+  --field-bg: color-mix(in srgb, var(--mrc-fg) 5%, transparent);
+  --loss: var(--mrc-red);
 
   min-height: 100vh;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--mrc-ink);
+  color: var(--mrc-fg);
   font-family: var(--f-text);
   overflow-x: hidden;
 }
-:root.dark .mrc-root { --mrc-ink: oklch(0.13 0.032 265); --mrc-flare-ink: oklch(0.78 0.15 48); }
-:root.warm .mrc-root { --mrc-ink: oklch(0.185 0.038 60); }
+/* Тёмная тема платформы — тот же графит на полтона глубже: страница остаётся
+   собой, но не спорит с окружением кабинета. */
+:root.dark .mrc-root { --mrc-ink: #0e1015; --mrc-ink-deep: #090b0f; --mrc-ink-soft: #14171d; }
+
+/* Акценты карточек — приём с дашборда продакшена, где у каждой возможности
+   своя кромка и свой цвет иконки. */
+.mrc-root [data-accent] { --acc: var(--mrc-indigo-fg); }
+.mrc-root [data-accent="cyan"] { --acc: var(--mrc-cyan); }
+.mrc-root [data-accent="indigo"] { --acc: var(--mrc-indigo-fg); }
+.mrc-root [data-accent="amber"] { --acc: var(--mrc-amber); }
+.mrc-root [data-accent="green"] { --acc: var(--mrc-green); }
+.mrc-root [data-accent="pink"] { --acc: var(--mrc-pink); }
+.mrc-root [data-accent="violet"] { --acc: var(--mrc-violet); }
+.mrc-root [data-accent="red"] { --acc: var(--mrc-red); }
 
 .mrc-wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
 
-/* Чернильная плита: внутри неё роли цвета инвертируются */
+/* Плита: графит плотнее полотна. Ритм страницы держится на смене плотности,
+   а не на смене бумаги и чернил. */
 .mrc-slab {
   position: relative;
-  background: var(--mrc-ink);
-  color: var(--mrc-ink-fg);
-  --rule: color-mix(in oklch, var(--mrc-ink-fg) 18%, transparent);
-  --soft: color-mix(in oklch, var(--mrc-ink-fg) 66%, transparent);
-  --surface: color-mix(in oklch, var(--mrc-ink-fg) 5%, transparent);
-  --flare-use: var(--mrc-flare);
-  --field-bg: color-mix(in oklch, var(--mrc-ink-fg) 8%, transparent);
+  background: var(--mrc-ink-deep);
+  --rule: color-mix(in srgb, var(--mrc-fg) 14%, transparent);
+  --surface: color-mix(in srgb, var(--mrc-fg) 4%, transparent);
+  --field-bg: color-mix(in srgb, var(--mrc-fg) 7%, transparent);
 }
 .mrc-slab::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background-image: repeating-linear-gradient(90deg,
-    color-mix(in oklch, var(--mrc-ink-fg) 5%, transparent) 0 1px, transparent 1px 116px);
-  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 78%);
-  mask-image: linear-gradient(to bottom, #000, transparent 78%);
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--mrc-fg) 4%, transparent) 0 1px, transparent 1px 116px),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--mrc-fg) 3%, transparent) 0 1px, transparent 1px 116px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 82%);
+  mask-image: linear-gradient(to bottom, #000, transparent 82%);
 }
-.mrc-slab > * { position: relative; }
+.mrc-slab > * { position: relative; z-index: 1; }
 .mrc-slab-sec { padding: 54px 0 60px; }
+/* Свечение первого экрана — как на проде: маджента слева, индиго справа */
+.mrc-hero::after, .mrc-final::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(64% 52% at 14% -6%, color-mix(in srgb, var(--mrc-magenta) 13%, transparent), transparent 68%),
+    radial-gradient(58% 48% at 88% 8%, color-mix(in srgb, var(--mrc-indigo) 16%, transparent), transparent 70%);
+}
 
 .mrc-mono {
   font-family: var(--f-mono);
@@ -927,33 +1269,42 @@ const CSS = `
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 20px 0 34px;
 }
+/* Словесный знак как на проде: Market обычным весом, Radar24 жирным */
 .mrc-wordmark {
   display: inline-flex; align-items: center; gap: 10px;
-  font-family: var(--f-display); font-size: 20px; font-weight: 700; letter-spacing: 0.005em;
-  color: inherit; text-decoration: none;
+  font-family: var(--f-text); font-size: 19px; font-weight: 400; letter-spacing: -0.012em;
+  color: var(--mrc-fg); text-decoration: none;
 }
-.mrc-logo-tick { width: 16px; height: 4px; background: var(--mrc-flare); display: inline-block; }
+.mrc-wordmark b { font-weight: 800; }
+.mrc-logo { flex-shrink: 0; display: block; }
+.mrc-logo-sweep { transform-origin: 32px 32px; animation: mrc-sweep 4s linear infinite; }
+@keyframes mrc-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .mrc-topbar-tag { color: var(--soft); }
 
 /* ── Типографика ── */
 .mrc-h1 {
   font-family: var(--f-display);
-  font-size: clamp(38px, 4.3vw, 54px) !important;
-  font-weight: 900; line-height: 0.99; letter-spacing: -0.022em;
+  font-size: clamp(38px, 4.6vw, 58px) !important;
+  font-weight: 800; line-height: 1.04; letter-spacing: -0.032em;
   margin: 0 0 20px;
+}
+/* Градиент по строке заголовка — фирменный ход первого экрана продакшена */
+.mrc-grad {
+  background: linear-gradient(96deg, var(--mrc-magenta) 4%, var(--mrc-violet) 46%, var(--mrc-cyan) 96%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
 }
 .mrc-h2 {
   font-family: var(--f-display);
-  font-size: clamp(26px, 3.4vw, 42px) !important;
-  font-weight: 900; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 12px;
+  font-size: clamp(26px, 3.4vw, 40px) !important;
+  font-weight: 800; line-height: 1.08; letter-spacing: -0.028em; margin: 0 0 12px;
 }
-.mrc-h3 { font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 8px; }
-.mrc-h3-lg { font-family: var(--f-display); font-size: 24px; font-weight: 700; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 10px; }
+.mrc-h3 { font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.015em; margin: 0 0 8px; }
+.mrc-h3-lg { font-family: var(--f-display); font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; margin: 0 0 10px; }
 .mrc-lead { font-size: 15.5px; line-height: 1.62; color: var(--soft); margin: 0; max-width: 60ch; }
 .mrc-body { font-size: 14px; line-height: 1.62; color: var(--soft); margin: 0; }
 .mrc-note { font-size: 13px; line-height: 1.55; color: var(--soft); }
-.mrc-err { color: var(--destructive); font-size: 13.5px; margin-top: 10px; }
-.mrc-slab .mrc-err { color: var(--mrc-flare); }
+.mrc-err { color: var(--loss); font-size: 13.5px; margin-top: 10px; }
 .mrc-kicker { color: var(--flare-use); margin-bottom: 10px; }
 .mrc-ul { margin: 12px 0 0; padding-left: 0; list-style: none; }
 .mrc-ul li {
@@ -979,31 +1330,41 @@ const CSS = `
 .mrc-hero-head { grid-area: head; padding-top: 6px; }
 .mrc-hero-form { grid-area: form; }
 .mrc-hero-scene { grid-area: scene; }
+/* Бейдж-статус продакшена: зелёная точка, зелёный текст, скруглённая капсула */
 .mrc-eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
-  color: var(--soft); margin-bottom: 22px;
-  border: 1px solid var(--rule); padding: 7px 12px;
+  margin-bottom: 22px; padding: 8px 15px; border-radius: 999px;
+  font-family: var(--f-text); font-size: 12.5px; font-weight: 600;
+  letter-spacing: 0.005em; text-transform: none;
+  color: var(--mrc-green);
+  border: 1px solid color-mix(in srgb, var(--mrc-green) 32%, transparent);
+  background: color-mix(in srgb, var(--mrc-green) 8%, transparent);
 }
 .mrc-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--mrc-flare);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--mrc-flare) 25%, transparent);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--mrc-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mrc-green) 22%, transparent);
 }
 .mrc-hero-lead { font-size: 17px; margin-bottom: 0; max-width: 46ch; }
 
 /* ── Сцена «ответ с пропуском» — signature ── */
 .mrc-ans {
-  margin: 0; padding: 22px 24px 20px;
+  position: relative; margin: 0; padding: 22px 24px 20px;
   background: var(--surface);
-  border: 1px solid var(--rule);
-  border-top: 3px solid var(--flare-use);
+  border: 1px solid var(--rule); border-radius: var(--mrc-r-lg);
+  overflow: hidden;
+}
+/* Цветная кромка панели — как у карточек возможностей на проде */
+.mrc-ans::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--mrc-cyan), color-mix(in srgb, var(--mrc-cyan) 8%, transparent));
 }
 .mrc-ans-cap {
   display: flex; align-items: center; gap: 8px;
   color: var(--soft); margin-bottom: 18px;
 }
 .mrc-ans-live {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--flare-use);
-  animation: mrc-blink 2.2s var(--ease) infinite;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--mrc-cyan);
+  flex-shrink: 0; animation: mrc-blink 2.2s var(--ease) infinite;
 }
 .mrc-ans-qlabel { display: block; color: var(--flare-use); margin-bottom: 8px; }
 .mrc-ans-qtext {
@@ -1021,24 +1382,29 @@ const CSS = `
   font-family: var(--f-doc);
   font-size: 15.5px; line-height: 1.72; margin: 0 0 20px; color: inherit;
 }
-/* Маркер редактора: подсветка ведётся background-size, поэтому лежит под
-   глиссадой текста и не требует отдельного слоя со z-index. */
+/* Маркер: подсветка ведётся background-size, поэтому лежит под глиссадой
+   текста и не требует отдельного слоя со z-index. Цвет — циан: он же
+   служебный акцент бренда и цвет логотипа, на графите читается лучше всего. */
 .mrc-name {
-  background-color: transparent; color: inherit; font-weight: 700;
+  background-color: transparent; color: var(--mrc-fg); font-weight: 700;
   padding: 0 2px 4px; white-space: nowrap;
-  background-image: linear-gradient(color-mix(in oklch, var(--flare-use) 45%, transparent),
-                                    color-mix(in oklch, var(--flare-use) 45%, transparent));
+  background-image: linear-gradient(color-mix(in srgb, var(--mrc-cyan) 50%, transparent),
+                                    color-mix(in srgb, var(--mrc-cyan) 50%, transparent));
   background-repeat: no-repeat; background-position: 0 100%;
   background-size: 0% 7px;
   animation: mrc-mark 640ms var(--ease) 420ms both;
 }
 .mrc-name-2 { animation-delay: 940ms; }
+/* Пропуск — это потеря, поэтому он красный, а не акцентный: рамка на месте
+   посетителя обязана читаться как «здесь вас нет», а не как подсветка. */
 .mrc-slot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .mrc-slot-box {
   display: inline-flex; align-items: center; min-height: 42px; padding: 0 18px;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  border: 2px dashed color-mix(in oklch, var(--flare-use) 70%, transparent);
-  color: var(--flare-use);
+  border: 2px dashed color-mix(in srgb, var(--loss) 65%, transparent);
+  border-radius: var(--mrc-r);
+  background: color-mix(in srgb, var(--loss) 7%, transparent);
+  color: var(--loss);
   font-family: var(--f-mono); font-size: 12.5px; letter-spacing: 0.06em;
   animation: mrc-slotpulse 2.8s var(--ease) infinite;
 }
@@ -1050,9 +1416,13 @@ const CSS = `
 .mrc-ans-footlabel { color: var(--soft); }
 .mrc-chips { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
 .mrc-chips li {
-  border: 1px solid var(--rule); padding: 5px 9px; font-size: 10.5px;
+  border: 1px solid var(--rule); border-radius: 999px; padding: 5px 11px; font-size: 10.5px;
   letter-spacing: 0.06em; color: var(--soft); text-transform: none;
 }
+/* Ассистенты — со знаком-меткой своего цвета: ряд из пяти одинаковых серых
+   пилюль не читался как «покрытие», это была просто строка текста. */
+.mrc-asker { display: inline-flex; align-items: center; gap: 7px; padding-left: 9px; }
+.mrc-asker svg { opacity: 0.95; }
 .mrc-ans.is-compact { padding: 18px 20px 16px; }
 .mrc-ans.is-compact .mrc-ans-qtext { font-size: 15.5px; margin-bottom: 16px; }
 .mrc-ans.is-compact .mrc-ans-text { font-size: 14.5px; margin-bottom: 16px; }
@@ -1061,8 +1431,8 @@ const CSS = `
 @keyframes mrc-qin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes mrc-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 @keyframes mrc-slotpulse {
-  0%, 100% { border-color: color-mix(in oklch, var(--flare-use) 40%, transparent); }
-  50% { border-color: color-mix(in oklch, var(--flare-use) 95%, transparent); }
+  0%, 100% { border-color: color-mix(in srgb, var(--loss) 38%, transparent); }
+  50% { border-color: color-mix(in srgb, var(--loss) 92%, transparent); }
 }
 
 /* ── Форма ── */
@@ -1071,33 +1441,38 @@ const CSS = `
 .mrc-input {
   flex: 1 1 240px; min-width: 0; height: 52px; padding: 0 16px;
   font-family: inherit; font-size: 15px;
-  border-radius: 0; border: 1px solid var(--rule);
+  border-radius: var(--mrc-r); border: 1px solid var(--rule);
   background: var(--field-bg);
-  color: inherit; outline: none;
+  color: var(--mrc-fg); outline: none;
   transition: border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
 }
 .mrc-input::placeholder { color: var(--soft); }
 .mrc-input:focus {
-  border-color: var(--flare-use);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--flare-use) 22%, transparent);
+  border-color: var(--mrc-indigo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mrc-indigo) 28%, transparent);
 }
 .mrc-btn {
   display: inline-flex; align-items: center; justify-content: center;
   height: 52px; min-height: 52px; padding: 0 26px;
   font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: -0.005em;
-  border: 1px solid transparent; border-radius: 0;
+  border: 1px solid transparent; border-radius: var(--mrc-r);
   cursor: pointer; white-space: nowrap; text-decoration: none;
-  transition: filter var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease),
-              transform var(--motion-fast) var(--ease);
+  transition: background-color var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease),
+              border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease);
 }
-.mrc-btn-primary { background: var(--mrc-flare); color: oklch(0.17 0.04 265); }
-.mrc-btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* Индиго продакшена + мягкое свечение под кнопкой */
+.mrc-btn-primary {
+  background: var(--mrc-indigo); color: #fff;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--mrc-indigo) 34%, transparent);
+}
+.mrc-btn-primary:hover:not(:disabled) { background: var(--mrc-indigo-lift); }
 .mrc-btn-primary:active:not(:disabled) { transform: translateY(1px); }
 .mrc-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-/* Заливка акцентом в неактивном состоянии мутнеет в грязный кирпич —
-   поэтому неактивная кнопка становится контурной, а не полупрозрачной. */
+/* Заливка акцентом в неактивном состоянии выглядит рабочей кнопкой —
+   поэтому неактивная становится контурной, а не полупрозрачной. */
 .mrc-btn-primary:disabled {
-  opacity: 1; background: transparent; color: var(--soft); border-color: var(--rule);
+  opacity: 1; background: transparent; color: var(--soft);
+  border-color: var(--rule); box-shadow: none;
 }
 .mrc-btn:focus-visible, .mrc-input:focus-visible, .mrc-root a:focus-visible, .mrc-checkbox:focus-visible {
   outline: 2px solid var(--flare-use); outline-offset: 2px;
@@ -1114,13 +1489,13 @@ const CSS = `
   margin-bottom: 30px;
 }
 .mrc-num {
-  font-family: var(--f-display); font-size: clamp(48px, 5vw, 76px); font-weight: 900;
-  line-height: 0.72; letter-spacing: -0.04em;
+  font-family: var(--f-display); font-size: clamp(48px, 5vw, 76px); font-weight: 800;
+  line-height: 0.78; letter-spacing: -0.05em;
   color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--flare-use) 55%, transparent);
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--flare-use) 55%, transparent);
 }
 @supports not ((-webkit-text-stroke: 1px red)) {
-  .mrc-num { color: color-mix(in oklch, var(--flare-use) 30%, transparent); }
+  .mrc-num { color: color-mix(in srgb, var(--flare-use) 34%, transparent); }
 }
 .mrc-sec-text { min-width: 0; }
 .mrc-slab-sec .mrc-sec-head { margin-bottom: 30px; }
@@ -1133,7 +1508,7 @@ const CSS = `
   padding: 20px 0; border-bottom: 1px solid var(--rule);
   transition: background-color var(--motion-fast) var(--ease);
 }
-.mrc-instr-row:hover { background: color-mix(in oklch, var(--flare-use) 5%, transparent); }
+.mrc-instr-row:hover { background: color-mix(in srgb, var(--mrc-fg) 4%, transparent); }
 .mrc-instr-n { color: var(--flare-use); }
 .mrc-instr-t { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
 .mrc-instr-d { font-size: 13.5px; line-height: 1.55; color: var(--soft); }
@@ -1152,11 +1527,12 @@ const CSS = `
   width: 26px; height: 5px; background: var(--rule);
   transition: background-color 220ms var(--ease);
 }
-.mrc-meter-bar.is-on { background: var(--flare-use); }
+.mrc-meter-bar.is-on { background: var(--mrc-green); }
 
 .mrc-probes { display: grid; gap: 14px; }
 .mrc-probe {
   position: relative; background: var(--surface); border: 1px solid var(--rule);
+  border-radius: var(--mrc-r-lg); overflow: hidden;
   padding: 20px 22px 20px 26px;
 }
 .mrc-probe-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
@@ -1169,24 +1545,29 @@ const CSS = `
 .mrc-probe-pending { margin-top: 16px; }
 .mrc-probe-body { margin-top: 14px; }
 .mrc-verdict-head {
-  font-family: var(--f-display); font-size: 21px; font-weight: 700; line-height: 1.2;
-  margin-bottom: 8px; letter-spacing: -0.015em;
+  font-family: var(--f-display); font-size: 21px; font-weight: 800; line-height: 1.2;
+  margin-bottom: 8px; letter-spacing: -0.025em;
 }
 .mrc-verdict-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); font-variant-numeric: tabular-nums; }
 
 /* Индикатор замера — бегущая полоса вместо спиннера */
-.mrc-scan { position: relative; height: 3px; background: var(--rule); overflow: hidden; }
+.mrc-scan { position: relative; height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
 .mrc-scan > span {
-  position: absolute; inset: 0 auto 0 0; width: 34%;
-  background: var(--flare-use); animation: mrc-scan 1.5s var(--ease) infinite;
+  position: absolute; inset: 0 auto 0 0; width: 34%; border-radius: 2px;
+  background: var(--mrc-indigo); animation: mrc-scan 1.5s var(--ease) infinite;
 }
 @keyframes mrc-scan { 0% { transform: translateX(-110%); } 100% { transform: translateX(400%); } }
 
 /* ── Карточка захвата email ── */
 .mrc-lead-card {
   position: relative; margin-top: 24px; background: var(--surface);
-  border: 1px solid var(--rule); border-top: 3px solid var(--flare-use);
+  border: 1px solid color-mix(in srgb, var(--mrc-indigo) 34%, transparent);
+  border-radius: var(--mrc-r-lg); overflow: hidden;
   padding: 26px 26px 22px;
+}
+.mrc-lead-card::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--mrc-indigo), color-mix(in srgb, var(--mrc-cyan) 70%, transparent));
 }
 .mrc-lead-card-text { margin-bottom: 18px; max-width: 84ch; }
 .mrc-done-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -1197,7 +1578,7 @@ const CSS = `
 .mrc-consent a { color: var(--flare-use); text-decoration: underline; text-underline-offset: 2px; }
 .mrc-checkbox {
   margin: 1px 0 0; width: 17px; height: 17px; min-height: 17px;
-  accent-color: var(--flare-use); flex-shrink: 0; cursor: pointer;
+  accent-color: var(--mrc-indigo); flex-shrink: 0; cursor: pointer;
 }
 
 /* ── Схема: куда уходят заявки ── */
@@ -1212,13 +1593,13 @@ const CSS = `
 }
 .mrc-chain-node { position: relative; padding-top: 26px; }
 .mrc-chain-tick {
-  position: absolute; top: 0; left: 0; width: 13px; height: 13px;
-  background: var(--background); border: 3px solid var(--flare-use);
+  position: absolute; top: 0; left: 0; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--mrc-ink); border: 3px solid var(--mrc-indigo);
 }
-.mrc-chain-node.is-loss .mrc-chain-tick { border-color: var(--destructive); }
+.mrc-chain-node.is-loss .mrc-chain-tick { border-color: var(--loss); }
 .mrc-chain-n { color: var(--soft); display: block; margin-bottom: 12px; }
-.mrc-chain-ico { display: block; color: var(--flare-use); margin-bottom: 12px; }
-.mrc-chain-node.is-loss .mrc-chain-ico { color: var(--destructive); }
+.mrc-chain-ico { display: block; color: var(--mrc-cyan); margin-bottom: 12px; }
+.mrc-chain-node.is-loss .mrc-chain-ico { color: var(--loss); }
 .mrc-chain-t { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 7px; }
 .mrc-chain-d { display: block; font-size: 13px; line-height: 1.55; color: var(--soft); }
 .mrc-sec > .mrc-note { display: block; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); }
@@ -1236,31 +1617,43 @@ const CSS = `
 .mrc-cmp-cell { font-size: 14.5px; line-height: 1.5; color: var(--soft); }
 .mrc-cmp-cell-b { color: inherit; font-weight: 600; }
 .mrc-conclusion {
-  margin-top: 26px; padding: 22px 24px;
-  border: 1px solid var(--rule); border-left: 3px solid var(--flare-use);
+  margin-top: 26px; padding: 22px 24px; border-radius: var(--mrc-r-lg);
+  border: 1px solid var(--rule); border-left: 3px solid var(--mrc-indigo);
   background: var(--surface);
 }
-.mrc-conclusion .mrc-body { color: inherit; font-size: 15px; font-family: var(--f-doc); line-height: 1.7; }
+.mrc-conclusion .mrc-body { color: var(--mrc-fg-mid); font-size: 15px; font-family: var(--f-doc); line-height: 1.7; }
+.mrc-conclusion .mrc-body b { color: var(--mrc-fg); }
 
-/* ── Слои работы ── */
+/* ── Карточки: у каждой свой акцент по кромке и иконке (приём с продакшена) ── */
 .mrc-layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.mrc-layer {
-  position: relative; background: var(--surface); border: 1px solid var(--rule);
+.mrc-layer, .mrc-deliver-item {
+  position: relative; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--mrc-r-lg);
   padding: 24px;
   transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease);
 }
-.mrc-layer:hover { border-color: var(--flare-use); transform: translateY(-2px); }
-.mrc-layer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.mrc-layer-n { color: var(--flare-use); }
-.mrc-layer-ico { color: var(--soft); display: inline-flex; }
-
-/* ── Что получает клиент ── */
-.mrc-deliver { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.mrc-deliver-item {
-  position: relative; background: var(--surface); border: 1px solid var(--rule);
-  border-top: 3px solid color-mix(in oklch, var(--flare-use) 45%, transparent);
-  padding: 24px;
+.mrc-layer::before, .mrc-deliver-item::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 6%, transparent));
 }
+.mrc-layer:hover { border-color: color-mix(in srgb, var(--acc) 45%, transparent); transform: translateY(-2px); }
+.mrc-layer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.mrc-layer-n { color: var(--soft); }
+/* Иконка в скруглённом квадрате с цветной рамкой — как на дашборде прода */
+.mrc-layer-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: var(--mrc-r);
+  color: var(--acc);
+  border: 1px solid color-mix(in srgb, var(--acc) 38%, transparent);
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+}
+
+/* ── Что получает клиент: слева документ, справа его содержание ── */
+.mrc-deliver-wrap {
+  display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 20px; align-items: start;
+}
+.mrc-deliver { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 
 /* ── Чего мы не обещаем ── */
 .mrc-honest { border-top: 1px solid var(--rule); }
@@ -1269,14 +1662,14 @@ const CSS = `
   padding: 22px 0; border-bottom: 1px solid var(--rule); align-items: start;
 }
 .mrc-honest-tag { display: block; color: var(--soft); margin-bottom: 10px; }
-.mrc-honest-tag-ok { color: var(--success); }
+.mrc-honest-tag-ok { color: var(--mrc-green); }
 .mrc-honest-claim s {
-  font-family: var(--f-display); font-size: 21px; font-weight: 700; letter-spacing: -0.015em;
+  font-family: var(--f-display); font-size: 21px; font-weight: 700; letter-spacing: -0.025em;
   line-height: 1.2; display: inline-block;
   color: var(--soft); text-decoration-thickness: 1.5px;
-  text-decoration-color: var(--destructive);
+  text-decoration-color: var(--loss);
 }
-.mrc-honest-truth .mrc-body { color: inherit; font-size: 14.5px; }
+.mrc-honest-truth .mrc-body { color: var(--mrc-fg-mid); font-size: 14.5px; }
 
 /* ── Финальный CTA ── */
 .mrc-final { padding: 62px 0 68px; }
@@ -1295,7 +1688,157 @@ const CSS = `
   font-size: 12.5px; color: var(--soft); text-decoration: none;
   border-bottom: 1px solid transparent;
 }
-.mrc-footer-nav a:hover { color: var(--foreground); border-bottom-color: var(--flare-use); }
+.mrc-footer-nav a:hover { color: var(--mrc-fg); border-bottom-color: var(--flare-use); }
+
+/* ── Мокап выдачи ────────────────────────────────────────────────────────
+   Рисуем сами, а не вставляем скриншот: растр не переживает смену темы,
+   не масштабируется на мобильном и тянет вес. Структура узнаваема
+   (строка запроса, вкладки, синий тайтл, зелёный путь, сниппет с жирными
+   вхождениями, рейтинг), но без чужих логотипов и марок. */
+.mrc-serp {
+  margin: 28px 0 0; padding: 0 0 8px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--mrc-r-lg);
+}
+.mrc-serp-cap {
+  display: flex; align-items: center; gap: 9px; padding: 13px 18px;
+  color: var(--soft); border-bottom: 1px solid var(--rule);
+}
+.mrc-serp-bar {
+  display: flex; align-items: center; gap: 11px; margin: 18px 18px 0;
+  height: 46px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--mrc-fg) 4%, transparent);
+}
+.mrc-serp-bar svg { color: var(--soft); flex-shrink: 0; }
+.mrc-serp-q {
+  font-size: 14.5px; color: var(--mrc-fg); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mrc-serp-tabs { display: flex; gap: 4px; margin: 12px 18px 0; overflow: hidden; }
+.mrc-serp-tabs span {
+  font-size: 12px; padding: 6px 12px; border-radius: 999px; color: var(--soft); white-space: nowrap;
+}
+.mrc-serp-tabs span.is-on {
+  background: color-mix(in srgb, var(--mrc-fg) 11%, transparent); color: var(--mrc-fg); font-weight: 600;
+}
+.mrc-serp-list { list-style: none; margin: 0; padding: 6px 18px 10px; }
+.mrc-serp-item {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 0 12px;
+  padding: 15px 0; border-bottom: 1px solid color-mix(in srgb, var(--mrc-fg-soft) 12%, transparent);
+}
+.mrc-serp-item.is-you { border-bottom: none; }
+.mrc-serp-pos { color: var(--soft); padding-top: 3px; }
+.mrc-serp-body { min-width: 0; }
+.mrc-serp-title {
+  display: block; font-size: 15px; font-weight: 500; line-height: 1.35;
+  color: var(--mrc-serp-link); margin-bottom: 4px;
+}
+.mrc-serp-title b { font-weight: 700; }
+.mrc-serp-url {
+  display: block; color: var(--mrc-serp-url); text-transform: none;
+  letter-spacing: 0.01em; margin-bottom: 7px; overflow-wrap: anywhere;
+}
+.mrc-serp-snip { margin: 0 0 9px; font-size: 13px; line-height: 1.5; color: var(--soft); }
+.mrc-serp-snip b { color: var(--mrc-fg-mid); font-weight: 700; }
+.mrc-serp-rate {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--soft); font-variant-numeric: tabular-nums;
+}
+.mrc-serp-rate svg { color: var(--mrc-amber); }
+.mrc-serp-rate b { color: var(--mrc-fg-mid); font-weight: 700; }
+/* Строка посетителя — пустая красная рамка, тот же приём, что и в сцене ответа */
+.mrc-serp-empty {
+  display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: var(--mrc-r);
+  border: 2px dashed color-mix(in srgb, var(--loss) 55%, transparent);
+  background: color-mix(in srgb, var(--loss) 7%, transparent);
+}
+.mrc-serp-empty-t { color: var(--loss); flex-shrink: 0; }
+.mrc-serp-empty-d { font-size: 13px; line-height: 1.5; color: var(--soft); min-width: 0; }
+
+/* ── Приборная панель слоёв ─────────────────────────────────────────────── */
+.mrc-signal {
+  margin: 0 0 20px; padding: 22px 24px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--mrc-r-lg);
+}
+.mrc-signal-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 22px; color: var(--soft);
+}
+/* Было color-mix с transparent 70% — контраст падал до 1.2 при норме 4.5.
+   Полупрозрачный текст на графите нечитаем; берём сплошной приглушённый. */
+.mrc-signal-legend { color: var(--mrc-fg-soft); }
+.mrc-signal-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; }
+.mrc-chans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.mrc-chan { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mrc-chan-bars { display: flex; flex-direction: column-reverse; gap: 4px; height: 116px; }
+.mrc-chan-seg {
+  flex: 1; border-radius: 3px;
+  background: color-mix(in srgb, var(--mrc-fg) 7%, transparent);
+}
+.mrc-chan-seg.is-on {
+  background: var(--acc);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 30%, transparent);
+}
+.mrc-chan-val { color: var(--acc); }
+.mrc-chan-t { font-size: 13px; font-weight: 600; color: var(--mrc-fg-mid); line-height: 1.3; }
+.mrc-signal-out {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 18px; align-items: start;
+  padding-left: 24px; border-left: 1px solid var(--rule);
+}
+.mrc-signal-note { font-size: 13.5px; }
+
+/* ── Превью документа-разбора ───────────────────────────────────────────── */
+.mrc-doc {
+  margin: 0; overflow: hidden; position: sticky; top: 20px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--mrc-r-lg);
+}
+.mrc-doc-bar {
+  display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--mrc-fg) 3%, transparent);
+}
+.mrc-doc-dots { display: inline-flex; gap: 6px; }
+.mrc-doc-dots i {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: color-mix(in srgb, var(--mrc-fg-soft) 32%, transparent);
+}
+.mrc-doc-addr { color: var(--soft); }
+.mrc-doc-body { padding: 20px 22px; display: grid; gap: 20px; }
+.mrc-doc-title { display: grid; gap: 8px; }
+.mrc-doc-h {
+  height: 15px; width: 62%; border-radius: 4px;
+  background: color-mix(in srgb, var(--mrc-fg) 40%, transparent);
+}
+.mrc-doc-sub {
+  height: 8px; width: 40%; border-radius: 4px;
+  background: color-mix(in srgb, var(--mrc-fg-soft) 24%, transparent);
+}
+.mrc-doc-sec { display: grid; gap: 8px; }
+.mrc-doc-lab { color: var(--acc); }
+.mrc-doc-line {
+  height: 8px; border-radius: 4px;
+  background: color-mix(in srgb, var(--mrc-fg-soft) 20%, transparent);
+}
+.mrc-doc-rows { display: grid; gap: 7px; }
+.mrc-doc-row { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 10px; align-items: center; }
+.mrc-doc-row em {
+  font-style: normal; font-family: var(--f-mono); font-size: 10.5px;
+  color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mrc-doc-row i {
+  display: block; height: 8px; border-radius: 4px;
+  background: color-mix(in srgb, var(--mrc-pink) 45%, transparent);
+}
+.mrc-doc-chart { display: flex; align-items: flex-end; gap: 6px; height: 66px; }
+.mrc-doc-chart i {
+  flex: 1; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--mrc-indigo), color-mix(in srgb, var(--mrc-indigo) 30%, transparent));
+}
+.mrc-doc-cap {
+  display: block; padding: 0 22px 18px; color: var(--soft);
+  text-transform: none; letter-spacing: 0.02em; line-height: 1.5;
+}
 
 /* ── Ревилы ── */
 .mrc-anim [data-reveal] { opacity: 0; transform: translateY(16px); }

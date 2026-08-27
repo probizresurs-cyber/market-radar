@@ -48,7 +48,7 @@ export function CookieConsent() {
         maxWidth: 720, margin: "0 auto",
         display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap",
         padding: "14px 18px", borderRadius: 12,
-        background: "var(--card, #fff)", color: "var(--foreground, #111)",
+        background: "var(--card, #fff)", color: "var(--card-foreground, #111)",
         border: "1px solid var(--border, #ddd)",
         boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
         fontSize: 13, lineHeight: 1.5,
@@ -56,11 +56,11 @@ export function CookieConsent() {
     >
       <span style={{ flex: 1, minWidth: 240 }}>
         Сайт использует файлы cookie и сервис Яндекс.Метрика. Продолжая работу с сайтом, вы{" "}
-        <a href="/legal/consent-metrika" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary, #2563eb)", textDecoration: "underline" }}>
+        <a href="/legal/consent-metrika" target="_blank" rel="noopener noreferrer" style={{ color: "currentColor", textDecoration: "underline", textUnderlineOffset: 2 }}>
           соглашаетесь
         </a>{" "}
         на обработку этих данных в соответствии с{" "}
-        <a href="/legal/cookie" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary, #2563eb)", textDecoration: "underline" }}>
+        <a href="/legal/cookie" target="_blank" rel="noopener noreferrer" style={{ color: "currentColor", textDecoration: "underline", textUnderlineOffset: 2 }}>
           Политикой обработки файлов cookie
         </a>.
       </span>
