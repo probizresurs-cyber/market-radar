@@ -42,6 +42,7 @@
  * нарисованы CSS/SVG — переживают смену темы, масштабируются и не тянут вес.
  * Названия компаний в мокапах условные: чужие бренды в свою рекламу не ставим.
  */
+import { AiRow, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
 
@@ -551,13 +552,7 @@ const DEMO_QUESTIONS = [
  * геометрия и цвет из палитры продакшена, чтобы ряд читался визуально,
  * а не как пять одинаковых серых пилюль.
  */
-const DEMO_ASKERS: { name: string; hue: string; glyph: React.ReactNode }[] = [
-  { name: "Алиса", hue: "var(--mrc-red)", glyph: <circle cx="8" cy="8" r="5.4" /> },
-  { name: "ChatGPT", hue: "var(--mrc-green)", glyph: <path d="M8 2.6 13.2 5.6v4.8L8 13.4 2.8 10.4V5.6Z" /> },
-  { name: "Яндекс Нейро", hue: "var(--mrc-amber)", glyph: <path d="M8 2.4 9.7 6.3 13.6 8 9.7 9.7 8 13.6 6.3 9.7 2.4 8 6.3 6.3Z" /> },
-  { name: "Perplexity", hue: "var(--mrc-cyan)", glyph: <path d="M3 4.6h10M3 8h10M3 11.4h10" strokeWidth="1.8" strokeLinecap="round" fill="none" /> },
-  { name: "GigaChat", hue: "var(--mrc-violet)", glyph: <path d="M8 2.6 13.4 8 8 13.4 2.6 8Z" /> },
-];
+const DEMO_ASKERS: AiKey[] = ["alice", "chatgpt", "claude", "perplexity", "gigachat"];
 
 function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
   const [qi, setQi] = useState(0);
@@ -599,17 +594,7 @@ function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
       {!compact && (
         <div className="mrc-ans-foot">
           <span className="mrc-mono mrc-ans-footlabel">спрашивают у</span>
-          <ul className="mrc-chips">
-            {DEMO_ASKERS.map(a => (
-              <li key={a.name} className="mrc-mono mrc-asker">
-                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"
-                  style={{ fill: a.hue, stroke: a.hue, flexShrink: 0 }}>
-                  {a.glyph}
-                </svg>
-                {a.name}
-              </li>
-            ))}
-          </ul>
+          <AiRow items={DEMO_ASKERS} />
         </div>
       )}
     </figure>
@@ -1153,7 +1138,7 @@ function useReveal() {
    Глобальный globals.css душит h1/h2 на мобильном через !important — поэтому
    размеры заголовков здесь тоже помечены !important. */
 
-const CSS = `
+const CSS = AI_ROW_CSS + `
 /* Акцент дублируем на :root: куки-баннер живёт в layout, СНАРУЖИ .mrc-root,
    и без этого красился бы синим примари платформы. Механика прежняя,
    изменилось только значение: индиго продакшена вместо терракоты.

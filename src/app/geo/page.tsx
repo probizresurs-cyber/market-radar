@@ -33,6 +33,7 @@
  * файла — /check/page.tsx и /geo/page.tsx.
  */
 import { useCallback, useEffect, useState } from "react";
+import { AiRow, AiMark, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useRouter } from "next/navigation";
 
 const YM_ID = 108999924;
@@ -191,6 +192,15 @@ export default function GeoPage() {
               </div>
             </div>
           </div>
+
+          {/* Ряд знаков ассистентов — мгновенный сигнал категории. Ряд
+              одинаковых подписей эту работу не делал: категория узнаётся
+              по знакам. Марки используются номинативно — называем сервисы,
+              с которыми работаем, партнёрства не подразумеваем. */}
+          <div className="mrc-hero-ai">
+            <span className="mrc-mono mrc-hero-ai-label">работаем с ответами</span>
+            <AiRow items={["alice", "chatgpt", "claude", "perplexity", "gigachat", "gemini"]} />
+          </div>
         </div>
       </section>
 
@@ -308,7 +318,7 @@ export default function GeoPage() {
                   <span className="mrc-cover-edge" aria-hidden="true" />
                   <div className="mrc-cover-top">
                     <span className="mrc-cover-mark" aria-hidden="true">
-                      <svg viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="5.2" /></svg>
+                      <AiMark id={c.ai} size={16} />
                     </span>
                     <div className="mrc-mono mrc-cover-n">{c.n}</div>
                   </div>
@@ -794,12 +804,12 @@ const LAYERS: { n: string; icon: IconName; t: string; d: string }[] = [
 /* Каждому ассистенту — свой цвет из палитры продакшена: ряд одинаковых
    строк не читался как «покрытие». Глифы абстрактные, чужие товарные
    знаки не воспроизводим. */
-const COVERAGE: { n: string; name: string; d: string; hue: string }[] = [
-  { n: "01", name: "Алиса и Яндекс Нейро", d: "Ответы прямо внутри привычного поиска и в колонках. Основной канал русскоязычного спроса — и чаще всего самый недооценённый.", hue: "var(--mrc-red)" },
-  { n: "02", name: "ChatGPT", d: "Самый известный ассистент, в том числе с веб-поиском. Обычно первый, кого пробуют, — и первый, где замечают отсутствие бренда.", hue: "var(--mrc-green)" },
-  { n: "03", name: "Claude", d: "Помощник для рабочих задач и длинных текстов. Отвечает по тем же сигналам: структура страницы, разметка, внешние источники.", hue: "var(--mrc-violet)" },
-  { n: "04", name: "Perplexity", d: "Ассистент-поисковик: отвечает со ссылками на источники. Удобен тем, что прямо показывает, откуда взялось упоминание.", hue: "var(--mrc-cyan)" },
-  { n: "05", name: "GigaChat", d: "Российский ассистент. Важен там, где клиент — корпоративный или государственный сегмент.", hue: "var(--mrc-amber)" },
+const COVERAGE: { n: string; ai: AiKey; name: string; d: string; hue: string }[] = [
+  { n: "01", ai: "alice" as AiKey, name: "Алиса и Яндекс Нейро", d: "Ответы прямо внутри привычного поиска и в колонках. Основной канал русскоязычного спроса — и чаще всего самый недооценённый.", hue: "var(--mrc-red)" },
+  { n: "02", ai: "chatgpt" as AiKey, name: "ChatGPT", d: "Самый известный ассистент, в том числе с веб-поиском. Обычно первый, кого пробуют, — и первый, где замечают отсутствие бренда.", hue: "var(--mrc-green)" },
+  { n: "03", ai: "claude" as AiKey, name: "Claude", d: "Помощник для рабочих задач и длинных текстов. Отвечает по тем же сигналам: структура страницы, разметка, внешние источники.", hue: "var(--mrc-violet)" },
+  { n: "04", ai: "perplexity" as AiKey, name: "Perplexity", d: "Ассистент-поисковик: отвечает со ссылками на источники. Удобен тем, что прямо показывает, откуда взялось упоминание.", hue: "var(--mrc-cyan)" },
+  { n: "05", ai: "gigachat" as AiKey, name: "GigaChat", d: "Российский ассистент. Важен там, где клиент — корпоративный или государственный сегмент.", hue: "var(--mrc-amber)" },
 ];
 
 const STEPS: { n: string; t: string; d: string }[] = [
@@ -957,7 +967,7 @@ function useReveal() {
    без дублей стилей. Глобальный globals.css душит h1/h2 на мобильном через
    !important, поэтому размеры заголовков помечены !important и здесь. */
 
-const CSS = `
+const CSS = AI_ROW_CSS + `
 /* Акцент дублируем на :root: куки-баннер живёт в layout, СНАРУЖИ .mrc-root,
    и без этого красился синим примари платформы — чужим элементом на
    терракотовой странице. Правило действует только пока страница смонтирована. */
@@ -1108,6 +1118,13 @@ const CSS = `
 }
 .mrc-hero-head { grid-area: head; padding-top: 6px; }
 .mrc-hero-form { grid-area: form; }
+/* Ряд знаков под первым экраном: отделён линейкой, во всю ширину сетки. */
+.mrc-hero-ai {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 34px; padding-top: 22px;
+  border-top: 1px solid color-mix(in srgb, var(--mrc-fg-soft) 20%, transparent);
+}
+.mrc-hero-ai-label { color: var(--soft); flex-shrink: 0; }
 .mrc-hero-scene { grid-area: scene; }
 .mrc-eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
