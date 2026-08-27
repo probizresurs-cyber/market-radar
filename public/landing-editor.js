@@ -15,7 +15,12 @@
     'use strict';
 
     var script = document.currentScript;
-    var slug = (script && script.dataset.slug) || '';
+    // id — что правим: slug лендинга market-radar или путь статической страницы
+    // Mida. save/generate — куда слать; по умолчанию — API market-radar, чтобы
+    // на лендингах /l/[slug] всё работало без атрибутов.
+    var slug = (script && (script.dataset.slug || script.dataset.id)) || '';
+    var SAVE_URL = (script && script.dataset.save) || '/api/landing-edit-save';
+    var GEN_URL = (script && script.dataset.generate) || '/api/generate-image-anthropic';
     if (!slug) return;
 
     var editing = false;
@@ -38,10 +43,10 @@
     function askPassword() {
         var pw = window.prompt('Пароль для редактирования:');
         if (pw == null) return;
-        fetch('/api/landing-edit-save', {
+        fetch(SAVE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: slug, password: pw, check: true }),
+            body: JSON.stringify({ slug: slug, path: slug, password: pw, check: true }),
         })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -296,7 +301,7 @@
             if (!prompt) return;
             var st = menu.querySelector('#__le_imgstatus');
             st.textContent = 'Рисую…';
-            fetch('/api/generate-image-anthropic', {
+            fetch(GEN_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userPrompt: prompt }),
@@ -349,10 +354,10 @@
         var status = document.getElementById('__le_status');
         status.textContent = 'Сохраняю…';
         var html = serialize();
-        fetch('/api/landing-edit-save', {
+        fetch(SAVE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: slug, password: sessionStorage.getItem('__le_pw') || '', html: html }),
+            body: JSON.stringify({ slug: slug, path: slug, password: sessionStorage.getItem('__le_pw') || '', html: html }),
         })
             .then(function (r) { return r.json(); })
             .then(function (d) {
