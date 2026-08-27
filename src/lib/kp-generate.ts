@@ -7,6 +7,7 @@ import { checkKpAiVisibility, type KpAiCheckResult } from "@/lib/kp-ai-visibilit
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 import { kpStaticBlocks } from "@/lib/kp-static-blocks";
+import { bukvarixCompareDomains } from "@/lib/bukvarix";
 
 /**
  * Генерация полного КП по одной ссылке — без предварительного анализа на
@@ -397,6 +398,47 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
     bundle.terms = staticBlocks.terms;
   }
 
+  // ── Реальный разрыв по семантике с конкурентами (Букварикс) ─────────────
+  // Брендовые запросы конкурента из разрыва надо выкидывать: «иолла арт» и
+  // «иолл» формально попадают в domain2_uniq, но советовать клиенту «забрать
+  // себе» чужое имя — бессмыслица, которая обесценивает весь блок. Сверяем с
+  // rival.name, а не с доменом: запросы приходят кириллицей, а домен латиницей.
+  // Сравнение по 4-символьному префиксу — чтобы ловить огрызки вроде «иолл».
+  // Модель описывает «что забрать» словами; здесь под это подкладываются
+  // проверяемые цифры: запросы, по которым конкурент в выдаче есть, а клиент
+  // нет, с частотностью. Только для ru — база Букварикса по РФ-регионам.
+  //
+  // Best-effort: сервис бесплатный и на нём есть лимит частоты, поэтому
+  // запросы идут ПОСЛЕДОВАТЕЛЬНО (иначе ловим 429 на первом же КП с тремя
+  // конкурентами), а любой сбой просто оставляет главу без блока цифр —
+  // ронять из-за этого генерацию КП нельзя.
+  if (locale === "ru" && bundle.rivals.length) {
+    const mine = company.company?.url;
+    if (mine) {
+      for (const rival of bundle.rivals) {
+        if (!rival?.url) continue;
+        try {
+          const gap = await bukvarixCompareDomains(mine, rival.url, {
+            type: "domain2_uniq",
+            limit: 100,
+            region: "msk",
+          });
+          // Показываем верхушку по частотности: пять строк читаются, сто — нет.
+          rival.keywordGap = gap
+            // Порог 10 показов: запросы с частотностью в единицы — это шум, а
+            // не «спрос, который забирает конкурент». Заодно снимает «1 показов»
+            // в подписи, где число и слово не согласуются.
+            .filter(k => k.broadFreq >= 10 && !isBrandQuery(k.keyword, rival.name))
+            .sort((a, b) => b.broadFreq - a.broadFreq)
+            .slice(0, 5)
+            .map(k => ({ keyword: k.keyword, freq: k.broadFreq, position: k.position }));
+        } catch {
+          /* Букварикс недоступен или упёрлись в лимит — блок цифр не покажем */
+        }
+      }
+    }
+  }
+
   // ── Согласованность цифр — КОДОМ, а не просьбой в промпте ───────────────
   // Промпт требует «hero.potential = forecast.totalLow–totalHigh, сумма серий
   // графика ≈ totalHigh», но модель такие требования нарушает (проверено на
@@ -452,4 +494,22 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   if (bundle.monthly[smmIdx >= 0 ? smmIdx : 1]) bundle.monthly[smmIdx >= 0 ? smmIdx : 1].price = p.smm;
 
   return { company, bundle, companyName: company.company.name || scraped.title || rawUrl };
+}
+
+/**
+ * Похож ли запрос на брендовый запрос конкурента.
+ *
+ * Работает по префиксам: имя «Иолла» и запросы «иолла арт», «иолл» должны
+ * ловиться одинаково. Токены короче 4 символов игнорируем — на них слишком
+ * легко выкинуть нормальный коммерческий запрос.
+ */
+function isBrandQuery(keyword: string, rivalName: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/ё/g, "е");
+  const brandTokens = norm(rivalName).split(/[^a-zа-я0-9]+/i).filter(t => t.length >= 4);
+  if (!brandTokens.length) return false;
+
+  const words = norm(keyword).split(/[^a-zа-я0-9]+/i).filter(Boolean);
+  return words.some(w =>
+    brandTokens.some(b => w.slice(0, 4) === b.slice(0, 4)),
+  );
 }

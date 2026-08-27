@@ -1007,6 +1007,32 @@ export function KpProposal({
                           <div style={{ fontSize: 14, lineHeight: 1.5 }}>{r.steal}</div>
                         </div>
                       </div>
+
+                      {/* Разрыв по семантике — реальные цифры под словами выше.
+                          Запросы, по которым конкурент в выдаче есть, а клиент
+                          нет (Букварикс). Блока нет, если данных не пришло —
+                          выдумывать частотность нельзя, на ней стоит прогноз. */}
+                      {r.keywordGap && r.keywordGap.length > 0 && (
+                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 9 }}>
+                            {t.rivalGapLabel}
+                          </div>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            {r.keywordGap.map((g, j) => (
+                              <div key={j} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 }}>
+                                <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{g.keyword}</span>
+                                <span className="kp-mono" style={{ color: "var(--muted-foreground)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                                  {fmtNum(g.freq)} {t.rivalGapPerMonth}
+                                </span>
+                                <span className="kp-mono" style={{ color: "var(--primary)", fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                                  #{g.position}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 8 }}>{t.rivalGapNote}</div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Reveal>

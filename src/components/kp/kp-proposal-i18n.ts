@@ -62,6 +62,7 @@ export interface KpProposalStrings {
   geoLeversTitle: string;
   geoMethodTitle: string; geoMethodQuestionsLabel: string;
   geoForecastTitle: string;
+  rivalGapLabel: string; rivalGapPerMonth: string; rivalGapNote: string;
   navPr: string; navMarket: string; navTerms: string;
   prTitle: string; prSubtitle: string;
   prCoverageLabel: string; prPlatformsLabel: string; prIncludedLabel: string; prExtraLabel: string;
@@ -181,6 +182,9 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     geoLeversTitle: "Чем мы поднимаем цитируемость",
     geoMethodTitle: "Как честно замеряем результат", geoMethodQuestionsLabel: "Примеры контрольных вопросов",
     geoForecastTitle: "Прогноз по GEO-каналу",
+    rivalGapLabel: "Спрос, который забирает конкурент",
+    rivalGapPerMonth: "показов/мес",
+    rivalGapNote: "Запросы, по которым конкурент в выдаче есть, а вас нет. Частотность — Букварикс, позиция конкурента на момент замера.",
     navPr: "Внешний контур", navMarket: "Мы и рынок", navTerms: "Условия",
     prTitle: "Внешний контур: упоминания, PR и репутация",
     prSubtitle: "Третий и четвёртый слои GEO — то, что о бренде пишут вовне. Сайт даёт право быть найденным, внешний контур — право быть рекомендованным",
@@ -311,6 +315,9 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     geoLeversTitle: "Womit wir die Zitierhäufigkeit steigern",
     geoMethodTitle: "So messen wir das Ergebnis ehrlich", geoMethodQuestionsLabel: "Beispiele für Testfragen",
     geoForecastTitle: "Prognose für den GEO-Kanal",
+    rivalGapLabel: "Nachfrage, die der Wettbewerber abschöpft",
+    rivalGapPerMonth: "Abfragen/Monat",
+    rivalGapNote: "Suchanfragen, bei denen der Wettbewerber in den Ergebnissen steht und Sie nicht. Häufigkeit laut Bukvarix, Position des Wettbewerbers zum Messzeitpunkt.",
     navPr: "Externes Umfeld", navMarket: "Wir und der Markt", navTerms: "Konditionen",
     prTitle: "Externes Umfeld: Erwähnungen, PR und Reputation",
     prSubtitle: "Die dritte und vierte Ebene von GEO — das, was extern über die Marke geschrieben wird. Die Website verschafft das Recht, gefunden zu werden; das externe Umfeld das Recht, empfohlen zu werden",

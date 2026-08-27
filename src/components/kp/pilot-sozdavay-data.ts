@@ -44,7 +44,19 @@ export const PILOT_STRENGTHS: { title: string; evidence: Evidence; body: string;
 ];
 
 // ─── Разбор лидеров ниши (глубже, чем таблица: что забираем у каждого) ────────
-export const PILOT_RIVALS: { name: string; url: string; strength: string; weakness: string; steal: string }[] = [
+/**
+ * keywordGap — РЕАЛЬНЫЕ запросы, по которым конкурент виден, а клиент нет
+ * (Букварикс, comparison_type=domain2_uniq). Необязательное: заполняется
+ * обогащением в kp-generate, у ручных пилотов и при недоступности сервиса
+ * блок просто не рендерится. Выдумывать частотность нельзя — на ней стоит
+ * прогнозная модель, поэтому дефолта здесь нет.
+ */
+export interface PilotRival {
+  name: string; url: string; strength: string; weakness: string; steal: string;
+  keywordGap?: { keyword: string; freq: number; position: number }[];
+}
+
+export const PILOT_RIVALS: PilotRival[] = [
   {
     name: "Иолла",
     url: "iolla-art.ru",
