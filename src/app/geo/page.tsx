@@ -33,7 +33,7 @@
  * файла — /check/page.tsx и /geo/page.tsx.
  */
 import { useCallback, useEffect, useState } from "react";
-import { RadarField, RADAR_FIELD_CSS } from "@/components/landing/RadarField";
+import { SerpCollage, SERP_COLLAGE_CSS, type SerpCard } from "@/components/landing/SerpCollage";
 import { AiRow, AiMark, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useRouter } from "next/navigation";
 
@@ -138,7 +138,6 @@ export default function GeoPage() {
 
       {/* ─── Первый экран ─── */}
       <section className="mrc-slab mrc-hero">
-        <RadarField className="mrc-radar" />
         <div className="mrc-wrap">
           <header className="mrc-topbar">
             <a href="/" className="mrc-wordmark" aria-label="MarketRadar24">
@@ -165,7 +164,7 @@ export default function GeoPage() {
             </div>
 
             <div className="mrc-hero-scene">
-              <AnswerScene slot="ваш сайт" />
+              <SerpCollage cards={COLLAGE_GEO} slot="ваш сайт" />
             </div>
 
             <div className="mrc-hero-form">
@@ -625,6 +624,28 @@ const SERP_ROWS: { pos: string; title: [string, string, string]; url: string; sn
   },
 ];
 
+
+/* Выдача по темам ниши: два движка, разные запросы. Названия условные —
+   чужие марки в свою рекламу не ставим. */
+const COLLAGE_GEO: SerpCard[] = [
+  { engine: "Яндекс", query: "продвижение в нейросетях — заказать",
+    rows: [
+      { pos: "1", title: "", mark: "Конкурент А", tail: " — услуги и цены, работаем с 2014", url: "konkurent-a.ru › ceny", rate: "4,8" },
+      { pos: "2", title: "Заказать у ", mark: "Конкурента Б", tail: ": стоимость и отзывы", url: "konkurent-b.ru › zakazat", rate: "4,6" },
+      { pos: "3", title: "Сколько это стоит в 2026 году — разбор", url: "konkurent-v.ru › blog" },
+    ], gap: "на первой странице вас нет" },
+  { engine: "Google", query: "geo оптимизация сайта цена",
+    rows: [
+      { pos: "1", title: "", mark: "Конкурент Б", tail: ": портфолио и отзывы клиентов", url: "konkurent-b.ru › otzyvy", rate: "4,6" },
+      { pos: "2", title: "Топ-5 исполнителей: сравнение цен", url: "katalog.ru › top" },
+    ], gap: "в подборках не упомянуты" },
+  { engine: "Яндекс Карты", query: "агентство по продвижению в ИИ",
+    rows: [
+      { pos: "1", title: "", mark: "Конкурент А", tail: " — 62 отзыва, фото, прайс", url: "карточка заполнена", rate: "4,8" },
+      { pos: "2", title: "", mark: "Конкурент В", tail: " — 41 отзыв, часы работы", url: "карточка заполнена", rate: "4,5" },
+    ], gap: "карточка не заполнена" },
+];
+
 function SerpMock({ query, note }: { query: string; note: string }) {
   return (
     <figure className="mrc-serp">
@@ -990,8 +1011,8 @@ const CSS = AI_ROW_CSS + `
   --mrc-ink-deep: #0c0e13;
   --mrc-ink-soft: #171a21;
   --mrc-fg: #f1f5f9;
-  --mrc-fg-mid: #cbd5e1;
-  --mrc-fg-soft: #94a3b8;
+  --mrc-fg-mid: #dde5ee;
+  --mrc-fg-soft: #b6c4d4; /* было #94a3b8 (slate-400) — читалось блёкло на графите */
 
   --mrc-indigo: #4f46e5; /* indigo-600: с белым текстом 5.6:1, у #6366f1 было 4.47 — ниже AA */
   --mrc-indigo-lift: #818cf8;
@@ -1052,7 +1073,7 @@ const CSS = AI_ROW_CSS + `
 
 .mrc-mono {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
@@ -1084,8 +1105,8 @@ const CSS = AI_ROW_CSS + `
   font-weight: 900; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 12px;
 }
 .mrc-h3 { font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 8px; }
-.mrc-lead { font-size: 15.5px; line-height: 1.62; color: var(--soft); margin: 0; max-width: 60ch; }
-.mrc-body { font-size: 14px; line-height: 1.62; color: var(--soft); margin: 0; }
+.mrc-lead { font-size: 19px; line-height: 1.58; color: var(--mrc-fg-mid); margin: 0; max-width: 58ch; }
+.mrc-body { font-size: 16px; line-height: 1.6; color: var(--mrc-fg-mid); margin: 0; }
 .mrc-note { font-size: 13px; line-height: 1.55; color: var(--soft); }
 .mrc-err { color: var(--destructive); font-size: 13.5px; margin-top: 10px; }
 .mrc-slab .mrc-err { color: var(--mrc-indigo-fg); }
@@ -1606,4 +1627,4 @@ const CSS = AI_ROW_CSS + `
   .mrc-anim [data-reveal] { opacity: 1; transform: none; }
   .mrc-caret { opacity: 1; }
 }
-` + RADAR_FIELD_CSS;
+` + SERP_COLLAGE_CSS;
