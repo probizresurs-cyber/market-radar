@@ -1283,14 +1283,17 @@ const CSS = AI_ROW_CSS + `
   display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: start;
   margin-bottom: 30px;
 }
+/* Номера разделов были контурными и полупрозрачными — «блёклыми».
+   Залиты фирменным градиентом первого экрана, как на /check. */
 .mrc-num {
   font-family: var(--f-display); font-size: clamp(48px, 5vw, 76px); font-weight: 900;
   line-height: 0.72; letter-spacing: -0.04em;
-  color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--flare-use) 55%, transparent);
+  background: linear-gradient(140deg, var(--mrc-magenta) 6%, var(--mrc-violet) 48%, var(--mrc-cyan) 96%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
 }
-@supports not ((-webkit-text-stroke: 1px red)) {
-  .mrc-num { color: color-mix(in oklch, var(--flare-use) 30%, transparent); }
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .mrc-num { color: var(--mrc-violet); -webkit-text-fill-color: var(--mrc-violet); }
 }
 .mrc-sec-text { min-width: 0; }
 
