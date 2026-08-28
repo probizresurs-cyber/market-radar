@@ -14,13 +14,19 @@
 (function () {
     'use strict';
 
-    var script = document.currentScript;
+    // currentScript равен null, когда тег помечен defer (скрипт выполняется
+    // после парсинга) — поэтому находим свой тег и запасным путём, по src.
+    var script = document.currentScript || document.querySelector('script[src*="landing-editor"]');
     // id — что правим: slug лендинга market-radar или путь статической страницы
     // Mida. save/generate — куда слать; по умолчанию — API market-radar, чтобы
     // на лендингах /l/[slug] всё работало без атрибутов.
-    var slug = (script && (script.dataset.slug || script.dataset.id)) || '';
     var SAVE_URL = (script && script.dataset.save) || '/api/landing-edit-save';
     var GEN_URL = (script && script.dataset.generate) || '/api/generate-image-anthropic';
+    // id — что правим. Для лендингов market-radar его передают явно (data-slug).
+    // Для статических сайтов Mida надёжнее взять адрес самой страницы на клиенте,
+    // чем из сборки (там путь искажается окружением) — по нему сервер найдёт файл.
+    var slug = (script && (script.dataset.slug || script.dataset.id)) ||
+        (script && script.dataset.save ? location.pathname : '');
     if (!slug) return;
 
     var editing = false;
