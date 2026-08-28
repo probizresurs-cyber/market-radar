@@ -106,31 +106,67 @@
     }
 
     function markSections() {
-        topBlocks().forEach(function (block) {
-            if (getComputedStyle(block).position === 'static') {
-                block.setAttribute('data-le-pos', block.style.position || '');
-                block.style.position = 'relative';
-            }
-            var ctl = el('div', {
-                'data-le-handle': '1',
-                style: css({
-                    position: 'absolute', top: '6px', right: '6px', zIndex: 2147482000,
-                    display: 'flex', gap: '4px', padding: '3px',
-                    background: 'rgba(17,17,17,.85)', borderRadius: '8px',
-                }),
-            });
-            ctl.innerHTML =
-                '<button title="Выше" data-le-up style="' + hbtn() + '">▲</button>' +
-                '<button title="Ниже" data-le-down style="' + hbtn() + '">▼</button>' +
-                '<button title="Удалить блок" data-le-del style="' + hbtn() + '">✕</button>';
-            ctl.querySelector('[data-le-up]').addEventListener('click', function (e) { e.stopPropagation(); moveBlock(block, -1); });
-            ctl.querySelector('[data-le-down]').addEventListener('click', function (e) { e.stopPropagation(); moveBlock(block, 1); });
-            ctl.querySelector('[data-le-del]').addEventListener('click', function (e) {
-                e.stopPropagation();
-                if (confirm('Удалить этот блок?')) block.remove();
-            });
-            block.appendChild(ctl);
+        topBlocks().forEach(decorateBlock);
+    }
+
+    function decorateBlock(block) {
+        if (block.querySelector(':scope > [data-le-handle]')) return; // уже размечен
+        if (getComputedStyle(block).position === 'static') {
+            block.setAttribute('data-le-pos', block.style.position || '');
+            block.style.position = 'relative';
+        }
+        var ctl = el('div', {
+            'data-le-handle': '1',
+            style: css({
+                position: 'absolute', top: '6px', right: '6px', zIndex: 2147482000,
+                display: 'flex', gap: '4px', padding: '3px',
+                background: 'rgba(17,17,17,.85)', borderRadius: '8px',
+            }),
         });
+        ctl.innerHTML =
+            '<button title="Перетащить" data-le-drag style="' + hbtn() + ';cursor:grab">✥</button>' +
+            '<button title="Выше" data-le-up style="' + hbtn() + '">▲</button>' +
+            '<button title="Ниже" data-le-down style="' + hbtn() + '">▼</button>' +
+            '<button title="Дублировать" data-le-dup style="' + hbtn() + '">⧉</button>' +
+            '<button title="Фон блока" data-le-bg style="' + hbtn() + '">🎨</button>' +
+            '<button title="Добавить блок ниже" data-le-add style="' + hbtn() + '">＋</button>' +
+            '<button title="Удалить блок" data-le-del style="' + hbtn() + '">✕</button>';
+
+        ctl.querySelector('[data-le-up]').addEventListener('click', function (e) { e.stopPropagation(); snapshot(); moveBlock(block, -1); });
+        ctl.querySelector('[data-le-down]').addEventListener('click', function (e) { e.stopPropagation(); snapshot(); moveBlock(block, 1); });
+        ctl.querySelector('[data-le-dup]').addEventListener('click', function (e) {
+            e.stopPropagation(); snapshot();
+            var copy = cleanBlock(block);
+            block.parentNode.insertBefore(copy, block.nextSibling);
+            decorateBlock(copy);
+            copy.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+        ctl.querySelector('[data-le-bg]').addEventListener('click', function (e) {
+            e.stopPropagation();
+            var input = el('input', { type: 'color' });
+            input.value = rgbToHex(getComputedStyle(block).backgroundColor);
+            input.addEventListener('input', function () { snapshot(); block.style.backgroundColor = input.value; });
+            input.click();
+        });
+        ctl.querySelector('[data-le-add]').addEventListener('click', function (e) { e.stopPropagation(); openAddMenu(block); });
+        ctl.querySelector('[data-le-del]').addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (confirm('Удалить этот блок?')) { snapshot(); block.remove(); }
+        });
+
+        // Перетаскивание мышью за ручку ✥.
+        var grip = ctl.querySelector('[data-le-drag]');
+        grip.addEventListener('mousedown', function (e) { e.stopPropagation(); startDrag(block, e); });
+
+        block.appendChild(ctl);
+    }
+
+    /** Копия блока без редакторской обвязки — чтобы не дублировать хэндлы. */
+    function cleanBlock(block) {
+        var copy = block.cloneNode(true);
+        copy.querySelectorAll('[data-le-handle]').forEach(function (n) { n.remove(); });
+        copy.removeAttribute('data-le-pos');
+        return copy;
     }
 
     function hbtn() {
@@ -148,6 +184,157 @@
         if (dir < 0) block.parentNode.insertBefore(block, blocks[j]);
         else block.parentNode.insertBefore(block, blocks[j].nextSibling);
         block.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
+    // ── перетаскивание блока мышью ────────────────────────────────────────────
+    function startDrag(block, downEvent) {
+        downEvent.preventDefault();
+        snapshot();
+        var marker = el('div', {
+            'data-le-drop': '1',
+            style: css({ height: '4px', background: '#7c3aed', margin: '0', borderRadius: '2px' }),
+        });
+        block.style.opacity = '0.5';
+
+        function onMove(e) {
+            var blocks = topBlocks().filter(function (b) { return b !== block; });
+            var target = null;
+            for (var i = 0; i < blocks.length; i++) {
+                var r = blocks[i].getBoundingClientRect();
+                if (e.clientY < r.top + r.height / 2) { target = blocks[i]; break; }
+            }
+            if (target) target.parentNode.insertBefore(marker, target);
+            else document.body.appendChild(marker);
+        }
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            if (marker.parentNode) marker.parentNode.insertBefore(block, marker);
+            marker.remove();
+            block.style.opacity = '';
+            if (!block.getAttribute('style')) block.removeAttribute('style');
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // ── добавление нового блока ────────────────────────────────────────────────
+    var TEMPLATES = {
+        heading: '<section style="padding:48px 24px;text-align:center"><h2 style="font-size:32px;margin:0">Новый заголовок</h2></section>',
+        text: '<section style="padding:32px 24px;max-width:720px;margin:0 auto"><p style="font-size:18px;line-height:1.6;margin:0">Новый абзац. Нажмите и напишите свой текст.</p></section>',
+        image: '<section style="padding:24px;text-align:center"><img src="https://via.placeholder.com/800x400/eeeeee/999999?text=Картинка" alt="" style="max-width:100%;border-radius:8px"/></section>',
+        button: '<section style="padding:40px 24px;text-align:center"><a href="#" style="display:inline-block;padding:14px 32px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Кнопка</a></section>',
+        divider: '<section style="padding:24px"><hr style="border:none;border-top:1px solid #ddd;margin:0"/></section>',
+    };
+
+    function openAddMenu(afterBlock) {
+        closeAddMenu();
+        var menu = el('div', {
+            id: '__le_addmenu',
+            style: css({
+                position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
+                zIndex: 2147483001, background: '#fff', color: '#111', borderRadius: '12px',
+                padding: '18px', width: '280px', boxShadow: '0 10px 40px rgba(0,0,0,.3)',
+                font: '14px system-ui, sans-serif',
+            }),
+        });
+        menu.innerHTML =
+            '<div style="font-weight:600;margin-bottom:12px">Добавить блок</div>' +
+            btn('heading', 'Заголовок') + btn('text', 'Абзац текста') + btn('image', 'Картинка') +
+            btn('button', 'Кнопка') + btn('divider', 'Разделитель') +
+            '<button data-le-addclose style="width:100%;padding:8px;margin-top:6px;border:none;background:transparent;color:#888;cursor:pointer">Отмена</button>';
+        document.body.appendChild(menu);
+
+        function btn(kind, label) {
+            return '<button data-le-tpl="' + kind + '" style="width:100%;padding:10px;margin-bottom:6px;border:1px solid #ddd;border-radius:8px;background:#f7f7f8;cursor:pointer;text-align:left">' + label + '</button>';
+        }
+        menu.querySelectorAll('[data-le-tpl]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                snapshot();
+                var tmp = el('div', {});
+                tmp.innerHTML = TEMPLATES[b.getAttribute('data-le-tpl')];
+                var node = tmp.firstElementChild;
+                afterBlock.parentNode.insertBefore(node, afterBlock.nextSibling);
+                decorateBlock(node);
+                // сделать новый текст сразу редактируемым
+                node.querySelectorAll(TEXT_TAGS.join(',')).forEach(function (t) {
+                    if (hasBlockChild(t)) return;
+                    t.setAttribute('contenteditable', 'true');
+                    t.setAttribute('data-le-text', '1');
+                });
+                node.querySelectorAll('img').forEach(function (img) {
+                    img.setAttribute('data-le-img', '1');
+                    img.style.cursor = 'pointer';
+                    img.addEventListener('click', onImageClick);
+                });
+                closeAddMenu();
+                node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            });
+        });
+        menu.querySelector('[data-le-addclose]').addEventListener('click', closeAddMenu);
+    }
+
+    function closeAddMenu() {
+        var m = document.getElementById('__le_addmenu');
+        if (m) m.remove();
+    }
+
+    // ── отмена (снимок перед структурными операциями) ─────────────────────────
+    var undoStack = [];
+
+    function snapshot() {
+        // Снимаем контентную часть без наших панелей (fixed-элементы с __le id),
+        // чтобы восстановление не воскрешало старый интерфейс редактора.
+        var blocks = Array.prototype.filter.call(document.body.children, function (n) {
+            return !(n.id && n.id.indexOf('__le') === 0);
+        });
+        undoStack.push(blocks.map(function (b) { return b.outerHTML; }).join(''));
+        if (undoStack.length > 40) undoStack.shift();
+        updateUndoBtn();
+    }
+
+    function undo() {
+        if (!undoStack.length) return;
+        var html = undoStack.pop();
+        // убрать текущие контентные блоки, вернуть из снимка
+        Array.prototype.slice.call(document.body.children).forEach(function (n) {
+            if (!(n.id && n.id.indexOf('__le') === 0)) n.remove();
+        });
+        var bar = document.getElementById('__le_bar');
+        var tmp = el('div', {});
+        tmp.innerHTML = html;
+        while (tmp.firstChild) document.body.insertBefore(tmp.firstChild, bar ? bar.nextSibling : null);
+        redecorate();
+        updateUndoBtn();
+    }
+
+    /** Заново навесить редактирование после восстановления из снимка. */
+    function redecorate() {
+        document.querySelectorAll('[data-le-handle]').forEach(function (n) { n.remove(); });
+        document.querySelectorAll(TEXT_TAGS.join(',')).forEach(function (node) {
+            if (node.closest('#__le_bar') || node.closest('#__le_fontbar')) return;
+            if (hasBlockChild(node)) return;
+            node.setAttribute('contenteditable', 'true');
+            node.setAttribute('data-le-text', '1');
+        });
+        document.querySelectorAll('img').forEach(function (img) {
+            if (img.getAttribute('data-le-img')) return;
+            img.setAttribute('data-le-img', '1');
+            img.style.cursor = 'pointer';
+            img.addEventListener('click', onImageClick);
+        });
+        markSections();
+    }
+
+    function updateUndoBtn() {
+        var u = document.getElementById('__le_undo');
+        if (u) u.disabled = undoStack.length === 0;
+    }
+
+    function rgbToHex(rgb) {
+        var m = String(rgb).match(/\d+/g);
+        if (!m || m.length < 3) return '#ffffff';
+        return '#' + m.slice(0, 3).map(function (x) { return ('0' + Number(x).toString(16)).slice(-2); }).join('');
     }
 
     // ── тулбар шрифта и размера для выбранного текста ─────────────────────────
@@ -180,7 +367,8 @@
             '<select data-le-font style="padding:5px;border-radius:6px;border:none">' + opts + '</select>' +
             '<button data-le-fdown style="' + hbtn() + '">A−</button>' +
             '<button data-le-fup style="' + hbtn() + '">A+</button>' +
-            '<button data-le-bold style="' + hbtn() + ';font-weight:700">Ж</button>';
+            '<button data-le-bold style="' + hbtn() + ';font-weight:700">Ж</button>' +
+            '<label title="Цвет текста" style="' + hbtn() + ';display:inline-flex;align-items:center;justify-content:center;overflow:hidden;position:relative">A<input data-le-color type="color" style="position:absolute;inset:0;opacity:0;cursor:pointer"/></label>';
         document.body.appendChild(box);
 
         box.querySelector('[data-le-font]').addEventListener('change', function () {
@@ -197,6 +385,10 @@
             if (!t) return;
             var cur = getComputedStyle(t).fontWeight;
             t.style.fontWeight = (Number(cur) >= 600 || cur === 'bold') ? '400' : '700';
+        });
+        box.querySelector('[data-le-color]').addEventListener('input', function () {
+            var t = target();
+            if (t) t.style.color = this.value;
         });
 
         // Тулбар виден весь режим правки. Цель — последний текст, куда ставили
@@ -342,17 +534,27 @@
             }),
         });
         bar.innerHTML =
-            '<span style="font-weight:600">Редактирование лендинга</span>' +
-            '<span style="opacity:.6;font-size:12px">Текст правится на месте, по картинке — клик</span>' +
+            '<span style="font-weight:600">Редактирование</span>' +
+            '<span style="opacity:.6;font-size:12px">Текст — на месте · картинка — клик · блок — ручки в углу</span>' +
             '<span style="flex:1"></span>' +
             '<span id="__le_status" style="color:#a78bfa"></span>' +
+            '<button id="__le_undo" title="Отменить (Ctrl+Z)" disabled style="padding:8px 12px;border:1px solid #444;border-radius:8px;background:transparent;color:#fff;cursor:pointer">↶ Отменить</button>' +
             '<button id="__le_save" style="padding:8px 18px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:600;cursor:pointer">Сохранить</button>' +
             '<button id="__le_cancel" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:transparent;color:#fff;cursor:pointer">Выйти</button>';
         document.body.appendChild(bar);
         document.body.style.paddingTop = bar.offsetHeight + 'px';
 
+        bar.querySelector('#__le_undo').addEventListener('click', undo);
         bar.querySelector('#__le_save').addEventListener('click', save);
         bar.querySelector('#__le_cancel').addEventListener('click', function () { location.reload(); });
+
+        // Ctrl+Z — отмена последнего структурного действия.
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.target.closest('[data-le-text]')) {
+                e.preventDefault();
+                undo();
+            }
+        });
     }
 
     // ── сохранение ────────────────────────────────────────────────────────────
@@ -378,8 +580,8 @@
         var doc = document.documentElement.cloneNode(true);
 
         // снять весь редакторский интерфейс из копии
-        doc.querySelectorAll('#__le_bar, #__le_launch, #__le_imgmenu, #__le_fontbar').forEach(function (n) { n.remove(); });
-        doc.querySelectorAll('[data-le-handle]').forEach(function (n) { n.remove(); });
+        doc.querySelectorAll('#__le_bar, #__le_launch, #__le_imgmenu, #__le_fontbar, #__le_addmenu').forEach(function (n) { n.remove(); });
+        doc.querySelectorAll('[data-le-handle], [data-le-drop]').forEach(function (n) { n.remove(); });
 
         doc.querySelectorAll('[data-le-text]').forEach(function (n) {
             n.removeAttribute('contenteditable');
