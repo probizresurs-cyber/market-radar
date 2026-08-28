@@ -70,29 +70,60 @@
         editing = true;
         launcher.style.display = 'none';
         buildBar();
+        markSelectable();
+        markSections();  // перемещение блоков вверх/вниз, дублирование, добавление
+        buildFontBar();  // шрифт, размер, цвет для выбранного текста
+        buildSelectionUI(); // рамка выделения с ручками + панель элемента
+    }
 
-        // Текст: правим листовые элементы — те, где нет вложенных блоков, иначе
-        // contentEditable на родителе мешал бы точечной правке.
-        document.querySelectorAll(TEXT_TAGS.join(',')).forEach(function (node) {
-            if (node.closest('#__le_bar')) return;
-            if (hasBlockChild(node)) return;
-            node.setAttribute('contenteditable', 'true');
-            node.setAttribute('data-le-text', '1');
-            node.style.outline = '1px dashed rgba(124,58,237,.4)';
-            node.style.outlineOffset = '2px';
+    // Помечаем то, что можно выделять и свободно двигать: листовые тексты,
+    // картинки, кнопки/ссылки. Клик выделяет (рамка + ручки), двойной клик по
+    // тексту — правка на месте.
+    function markSelectable() {
+        var sel = TEXT_TAGS.join(',') + ',img';
+        document.querySelectorAll(sel).forEach(function (node) {
+            if (node.closest('#__le_bar') || node.closest('#__le_fontbar')) return;
+            if (node.tagName !== 'IMG' && hasBlockChild(node)) return;
+            node.setAttribute('data-le-el', '1');
+            if (node.tagName === 'IMG') node.setAttribute('data-le-img', '1');
+            else node.setAttribute('data-le-text', '1');
         });
 
-        // Картинки: клик открывает меню замены.
-        document.querySelectorAll('img').forEach(function (img) {
-            if (img.closest('#__le_bar')) return;
-            img.setAttribute('data-le-img', '1');
-            img.style.cursor = 'pointer';
-            img.style.outline = '2px solid rgba(124,58,237,.5)';
-            img.addEventListener('click', onImageClick);
-        });
+        // Один обработчик на документ — надёжнее сотен на элементах и переживает
+        // добавление новых блоков.
+        if (!document.__leClickBound) {
+            document.__leClickBound = true;
+            document.addEventListener('mousedown', onDocMouseDown, true);
+            document.addEventListener('dblclick', onDocDblClick, true);
+        }
+    }
 
-        markSections();  // перемещение блоков вверх/вниз
-        buildFontBar();  // шрифт и размер для выбранного текста
+    function onDocMouseDown(e) {
+        if (e.target.closest('#__le_bar, #__le_fontbar, #__le_imgmenu, #__le_addmenu, #__le_elpanel, [data-le-handle], [data-le-sel]')) return;
+        var elx = e.target.closest('[data-le-el]');
+        if (elx) {
+            // Если элемент уже правится текстом — не мешаем печатать.
+            if (elx.getAttribute('contenteditable') === 'true') return;
+            e.preventDefault();
+            selectEl(elx);
+            startElDrag(elx, e);
+        } else {
+            deselect();
+        }
+    }
+
+    function onDocDblClick(e) {
+        var img = e.target.closest('[data-le-img]');
+        if (img) { e.preventDefault(); activeImg = img; openImageMenu(); return; }
+        var t = e.target.closest('[data-le-text]');
+        if (!t) return;
+        t.setAttribute('contenteditable', 'true');
+        t.focus();
+        var off = function () {
+            t.removeAttribute('contenteditable');
+            t.removeEventListener('blur', off);
+        };
+        t.addEventListener('blur', off);
     }
 
     // ── перемещение блоков (секций верхнего уровня) ───────────────────────────
@@ -264,8 +295,10 @@
                 });
                 node.querySelectorAll('img').forEach(function (img) {
                     img.setAttribute('data-le-img', '1');
-                    img.style.cursor = 'pointer';
-                    img.addEventListener('click', onImageClick);
+                    img.setAttribute('data-le-el', '1');
+                });
+                node.querySelectorAll(TEXT_TAGS.join(',')).forEach(function (t) {
+                    if (!hasBlockChild(t)) t.setAttribute('data-le-el', '1');
                 });
                 closeAddMenu();
                 node.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -310,19 +343,9 @@
 
     /** Заново навесить редактирование после восстановления из снимка. */
     function redecorate() {
+        deselect();
         document.querySelectorAll('[data-le-handle]').forEach(function (n) { n.remove(); });
-        document.querySelectorAll(TEXT_TAGS.join(',')).forEach(function (node) {
-            if (node.closest('#__le_bar') || node.closest('#__le_fontbar')) return;
-            if (hasBlockChild(node)) return;
-            node.setAttribute('contenteditable', 'true');
-            node.setAttribute('data-le-text', '1');
-        });
-        document.querySelectorAll('img').forEach(function (img) {
-            if (img.getAttribute('data-le-img')) return;
-            img.setAttribute('data-le-img', '1');
-            img.style.cursor = 'pointer';
-            img.addEventListener('click', onImageClick);
-        });
+        markSelectable();
         markSections();
     }
 
@@ -438,6 +461,226 @@
         var link = el('link', { id: id, rel: 'stylesheet', 'data-le-font-link': '1' });
         link.href = 'https://fonts.googleapis.com/css2?family=' + spec + '&display=swap';
         document.head.appendChild(link);
+    }
+
+    // ── свободное позиционирование (Tilda Zero: absolute внутри блока-канвы) ──
+    var selected = null;
+    var selBox = null; // рамка выделения (fixed overlay)
+    var elPanel = null; // панель действий над выбранным элементом
+
+    /** Ближайшая секция-родитель, которая станет канвой для absolute-детей. */
+    function canvasOf(elx) {
+        var b = elx.parentElement;
+        while (b && b !== document.body && topBlocks().indexOf(b) === -1) b = b.parentElement;
+        return b && b !== document.body ? b : elx.parentElement;
+    }
+
+    /** Переводит элемент в свободное позиционирование, не роняя высоту блока. */
+    function makeFree(elx) {
+        if (elx.getAttribute('data-le-free') === '1') return;
+        var canvas = canvasOf(elx);
+        // Канва фиксирует свою высоту, чтобы absolute-дети не схлопнули её.
+        if (getComputedStyle(canvas).position === 'static') {
+            canvas.setAttribute('data-le-pos', canvas.style.position || '');
+            canvas.style.position = 'relative';
+        }
+        if (!canvas.getAttribute('data-le-minh')) {
+            canvas.setAttribute('data-le-minh', canvas.style.minHeight || '');
+            canvas.style.minHeight = canvas.getBoundingClientRect().height + 'px';
+        }
+        var r = elx.getBoundingClientRect();
+        var cr = canvas.getBoundingClientRect();
+        elx.setAttribute('data-le-free', '1');
+        elx.style.position = 'absolute';
+        elx.style.left = Math.round(r.left - cr.left) + 'px';
+        elx.style.top = Math.round(r.top - cr.top) + 'px';
+        elx.style.width = Math.round(r.width) + 'px';
+        elx.style.margin = '0';
+        if (!elx.style.zIndex) elx.style.zIndex = '1';
+    }
+
+    function selectEl(elx) {
+        if (selected === elx) return;
+        deselect();
+        selected = elx;
+        positionSelBox();
+        showElPanel();
+    }
+
+    function deselect() {
+        selected = null;
+        if (selBox) selBox.style.display = 'none';
+        if (elPanel) elPanel.style.display = 'none';
+    }
+
+    function positionSelBox() {
+        if (!selected || !selBox) return;
+        var r = selected.getBoundingClientRect();
+        selBox.style.display = 'block';
+        selBox.style.left = r.left + 'px';
+        selBox.style.top = r.top + 'px';
+        selBox.style.width = r.width + 'px';
+        selBox.style.height = r.height + 'px';
+    }
+
+    function buildSelectionUI() {
+        // Рамка с восемью ручками ресайза — как в конструкторах. Сама рамка
+        // событий не ловит (pointer-events:none), ловят только ручки.
+        selBox = el('div', {
+            'data-le-sel': '1',
+            style: css({
+                position: 'fixed', zIndex: 2147482500, display: 'none',
+                border: '1px solid #7c3aed', boxSizing: 'border-box', pointerEvents: 'none',
+            }),
+        });
+        var dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        dirs.forEach(function (d) {
+            var h = el('div', {
+                'data-le-rz': d,
+                style: css({
+                    position: 'absolute', width: '10px', height: '10px', background: '#fff',
+                    border: '1px solid #7c3aed', borderRadius: '2px', pointerEvents: 'auto',
+                    cursor: d + '-resize', boxSizing: 'border-box',
+                }) + ';' + handlePos(d),
+            });
+            h.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); startResize(selected, d, e); });
+            selBox.appendChild(h);
+        });
+        document.body.appendChild(selBox);
+
+        window.addEventListener('scroll', positionSelBox, true);
+        window.addEventListener('resize', positionSelBox);
+    }
+
+    function handlePos(d) {
+        var m = '-5px';
+        var map = {
+            nw: 'left:' + m + ';top:' + m, n: 'left:calc(50% - 5px);top:' + m, ne: 'right:' + m + ';top:' + m,
+            e: 'right:' + m + ';top:calc(50% - 5px)', se: 'right:' + m + ';bottom:' + m, s: 'left:calc(50% - 5px);bottom:' + m,
+            sw: 'left:' + m + ';bottom:' + m, w: 'left:' + m + ';top:calc(50% - 5px)',
+        };
+        return map[d];
+    }
+
+    // ── перетаскивание выбранного элемента ────────────────────────────────────
+    function startElDrag(elx, downEvent) {
+        var startX = downEvent.clientX, startY = downEvent.clientY;
+        var moved = false;
+
+        function onMove(e) {
+            var dx = e.clientX - startX, dy = e.clientY - startY;
+            if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return; // это клик, не drag
+            if (!moved) { moved = true; snapshot(); makeFree(elx); }
+            var canvas = canvasOf(elx);
+            var cr = canvas.getBoundingClientRect();
+            var r = elx.getBoundingClientRect();
+            elx.style.left = Math.round(r.left - cr.left + dx) + 'px';
+            elx.style.top = Math.round(r.top - cr.top + dy) + 'px';
+            startX = e.clientX; startY = e.clientY;
+            positionSelBox();
+        }
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // ── ресайз выбранного элемента ────────────────────────────────────────────
+    function startResize(elx, dir, downEvent) {
+        snapshot();
+        makeFree(elx);
+        var sx = downEvent.clientX, sy = downEvent.clientY;
+        var r = elx.getBoundingClientRect();
+        var canvas = canvasOf(elx);
+        var cr = canvas.getBoundingClientRect();
+        var x0 = r.left - cr.left, y0 = r.top - cr.top, w0 = r.width, h0 = r.height;
+
+        function onMove(e) {
+            var dx = e.clientX - sx, dy = e.clientY - sy;
+            var w = w0, h = h0, x = x0, y = y0;
+            if (dir.indexOf('e') >= 0) w = Math.max(20, w0 + dx);
+            if (dir.indexOf('s') >= 0) h = Math.max(20, h0 + dy);
+            if (dir.indexOf('w') >= 0) { w = Math.max(20, w0 - dx); x = x0 + dx; }
+            if (dir.indexOf('n') >= 0) { h = Math.max(20, h0 - dy); y = y0 + dy; }
+            elx.style.width = Math.round(w) + 'px';
+            if (dir.indexOf('n') >= 0 || dir.indexOf('s') >= 0) elx.style.height = Math.round(h) + 'px';
+            elx.style.left = Math.round(x) + 'px';
+            elx.style.top = Math.round(y) + 'px';
+            if (elx.tagName === 'IMG') elx.style.objectFit = 'cover';
+            positionSelBox();
+        }
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // ── панель выбранного элемента: слои, выравнивание, удаление ───────────────
+    function showElPanel() {
+        if (!elPanel) buildElPanel();
+        elPanel.style.display = 'flex';
+        positionElPanel();
+    }
+    function positionElPanel() {
+        if (!selected || !elPanel) return;
+        var r = selected.getBoundingClientRect();
+        elPanel.style.left = Math.max(8, r.left) + 'px';
+        elPanel.style.top = Math.max(48, r.top - 40) + 'px';
+    }
+    function buildElPanel() {
+        elPanel = el('div', {
+            id: '__le_elpanel',
+            style: css({
+                position: 'fixed', zIndex: 2147483001, display: 'none', gap: '3px',
+                padding: '4px', background: '#111', borderRadius: '8px',
+                boxShadow: '0 4px 14px rgba(0,0,0,.3)',
+            }),
+        });
+        elPanel.innerHTML =
+            '<button title="На передний план" data-le-front style="' + hbtn() + '">⬆слой</button>' +
+            '<button title="На задний план" data-le-back style="' + hbtn() + '">⬇слой</button>' +
+            '<button title="Влево" data-le-al style="' + hbtn() + '">⌊</button>' +
+            '<button title="По центру" data-le-ac style="' + hbtn() + '">↔</button>' +
+            '<button title="Вправо" data-le-ar style="' + hbtn() + '">⌋</button>' +
+            '<button title="В поток (сбросить свободное)" data-le-flow style="' + hbtn() + '">↺</button>' +
+            '<button title="Удалить" data-le-eldel style="' + hbtn() + '">✕</button>';
+        document.body.appendChild(elPanel);
+
+        var z = function (dir) {
+            if (!selected) return; snapshot(); makeFree(selected);
+            var cur = Number(getComputedStyle(selected).zIndex) || 1;
+            selected.style.zIndex = String(Math.max(0, cur + dir));
+        };
+        elPanel.querySelector('[data-le-front]').addEventListener('click', function () { z(1); });
+        elPanel.querySelector('[data-le-back]').addEventListener('click', function () { z(-1); });
+        var align = function (how) {
+            if (!selected) return; snapshot(); makeFree(selected);
+            var canvas = canvasOf(selected);
+            var cw = canvas.getBoundingClientRect().width;
+            var w = selected.getBoundingClientRect().width;
+            if (how === 'l') selected.style.left = '0px';
+            else if (how === 'c') selected.style.left = Math.round((cw - w) / 2) + 'px';
+            else selected.style.left = Math.round(cw - w) + 'px';
+            positionSelBox();
+        };
+        elPanel.querySelector('[data-le-al]').addEventListener('click', function () { align('l'); });
+        elPanel.querySelector('[data-le-ac]').addEventListener('click', function () { align('c'); });
+        elPanel.querySelector('[data-le-ar]').addEventListener('click', function () { align('r'); });
+        elPanel.querySelector('[data-le-flow]').addEventListener('click', function () {
+            if (!selected) return; snapshot();
+            ['position', 'left', 'top', 'width', 'height', 'margin', 'zIndex', 'objectFit'].forEach(function (p) { selected.style[p] = ''; });
+            selected.removeAttribute('data-le-free');
+            if (!selected.getAttribute('style')) selected.removeAttribute('style');
+            deselect();
+        });
+        elPanel.querySelector('[data-le-eldel]').addEventListener('click', function () {
+            if (!selected) return; snapshot();
+            var s = selected; deselect(); s.remove();
+        });
     }
 
     function hasBlockChild(node) {
@@ -580,15 +823,15 @@
         var doc = document.documentElement.cloneNode(true);
 
         // снять весь редакторский интерфейс из копии
-        doc.querySelectorAll('#__le_bar, #__le_launch, #__le_imgmenu, #__le_fontbar, #__le_addmenu').forEach(function (n) { n.remove(); });
-        doc.querySelectorAll('[data-le-handle], [data-le-drop]').forEach(function (n) { n.remove(); });
+        doc.querySelectorAll('#__le_bar, #__le_launch, #__le_imgmenu, #__le_fontbar, #__le_addmenu, #__le_elpanel').forEach(function (n) { n.remove(); });
+        doc.querySelectorAll('[data-le-handle], [data-le-drop], [data-le-sel]').forEach(function (n) { n.remove(); });
 
         doc.querySelectorAll('[data-le-text]').forEach(function (n) {
             n.removeAttribute('contenteditable');
             n.removeAttribute('data-le-text');
             n.style.outline = '';
             n.style.outlineOffset = '';
-            // fontFamily/fontSize/fontWeight — это правки пользователя, их оставляем
+            // шрифт, цвет, свободные координаты — это правки пользователя, оставляем
             if (!n.getAttribute('style')) n.removeAttribute('style');
         });
         doc.querySelectorAll('[data-le-img]').forEach(function (n) {
@@ -597,10 +840,22 @@
             n.style.outline = '';
             if (!n.getAttribute('style')) n.removeAttribute('style');
         });
-        // вернуть блокам исходный position (мы ставили relative ради хэндлов)
+        doc.querySelectorAll('[data-le-el]').forEach(function (n) { n.removeAttribute('data-le-el'); });
+        doc.querySelectorAll('[data-le-free]').forEach(function (n) { n.removeAttribute('data-le-free'); });
+
+        // position/min-height канвы: если внутри остались свободно позиционированные
+        // элементы (absolute), relative и min-height НУЖНО сохранить — иначе они
+        // слетят. Если free-детей нет, возвращаем исходное значение.
         doc.querySelectorAll('[data-le-pos]').forEach(function (n) {
-            n.style.position = n.getAttribute('data-le-pos') || '';
+            var hasFree = n.querySelector('[style*="position: absolute"], [style*="position:absolute"]');
+            if (!hasFree) n.style.position = n.getAttribute('data-le-pos') || '';
             n.removeAttribute('data-le-pos');
+            if (!n.getAttribute('style')) n.removeAttribute('style');
+        });
+        doc.querySelectorAll('[data-le-minh]').forEach(function (n) {
+            var hasFree = n.querySelector('[style*="position: absolute"], [style*="position:absolute"]');
+            if (!hasFree) n.style.minHeight = n.getAttribute('data-le-minh') || '';
+            n.removeAttribute('data-le-minh');
             if (!n.getAttribute('style')) n.removeAttribute('style');
         });
         // убрать наш padding-top с body
