@@ -46,6 +46,7 @@ import { AiRow, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { SerpCollage, SERP_COLLAGE_CSS } from "@/components/landing/SerpCollage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
+import { VENDOR_PUBLIC, DEMO_REPORTS } from "@/lib/vendor-public";
 
 const YM_ID = 108999924;
 const reach = (goal: string) => {
@@ -96,6 +97,7 @@ export default function CheckPage() {
 
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [kpState, setKpState] = useState<KpState>("idle");
   const [kpUrl, setKpUrl] = useState<string | null>(null);
   const [leadErr, setLeadErr] = useState<string | null>(null);
@@ -122,6 +124,25 @@ export default function CheckPage() {
     }
   }, [url]);
 
+  // Адрес из ?url= — /geo уводит сюда уже введённым доменом. Без этого
+  // человек, набравший сайт на предыдущей странице, попадал на пустое поле
+  // и вводил его второй раз: потерянный шаг ровно там, где он уже согласился.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (autoStarted.current) return;
+    const raw = new URLSearchParams(window.location.search).get("url");
+    if (!raw) return;
+    autoStarted.current = true;
+    setUrl(raw);
+  }, []);
+  // Замер запускаем отдельным эффектом — после того, как url реально попал
+  // в состояние: start() читает именно его.
+  useEffect(() => {
+    if (!autoStarted.current || checkId || starting || !url.trim()) return;
+    void start();
+    // start пересоздаётся вместе с url; повторный запуск отсекается checkId.
+  }, [url, checkId, starting, start]);
+
   // Поллинг мини-проверки: пробы дорисовываются по мере готовности.
   useEffect(() => {
     if (!checkId) return;
@@ -144,7 +165,7 @@ export default function CheckPage() {
     try {
       const r = await fetch("/api/mini-check/lead", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: checkId, email: email.trim(), consent }),
+        body: JSON.stringify({ id: checkId, email: email.trim(), consent, marketing }),
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не получилось отправить — попробуйте ещё раз");
@@ -161,7 +182,7 @@ export default function CheckPage() {
     } catch (e) {
       setLeadErr(e instanceof Error ? e.message : "Ошибка");
     }
-  }, [checkId, email, consent]);
+  }, [checkId, email, consent, marketing]);
 
   useReveal();
 
@@ -281,14 +302,14 @@ export default function CheckPage() {
                 idx="01"
                 title="Видимость в поиске"
                 probe={sem?.status}
-                tone={sem?.status === "done" ? semTone(sem.visibleCount ?? 0) : undefined}
+                tone={sem?.status === "done" ? (sem.empty ? "warn" : semTone(sem.visibleCount ?? 0)) : undefined}
                 render={() => sem?.status === "done" ? <SemanticsVerdict s={sem} /> : <ProbeFail what="видимость" />}
               />
               <ProbeCard
                 idx="02"
                 title="Скорость на телефоне"
                 probe={spd?.status}
-                tone={spd?.status === "done" ? spdTone(spd.performance ?? 0) : undefined}
+                tone={spd?.status === "done" ? (spd.performance == null ? "warn" : spdTone(spd.performance)) : undefined}
                 pendingNote="Google Lighthouse меряет реальную загрузку — до минуты"
                 render={() => spd?.status === "done" ? <SpeedVerdict s={spd} /> : <ProbeFail what="скорость" />}
               />
@@ -296,7 +317,7 @@ export default function CheckPage() {
                 idx="03"
                 title="Читаемость для нейросетей"
                 probe={rd?.status}
-                tone={rd?.status === "done" ? rdTone(rd.checksPassed ?? 0) : undefined}
+                tone={rd?.status === "done" ? (rd.access && rd.access !== "ok" ? (rd.access === "blocked" ? "bad" : "warn") : rdTone(rd.checksPassed ?? 0)) : undefined}
                 render={() => rd?.status === "done" ? <ReadabilityVerdict s={rd} /> : <ProbeFail what="читаемость" />}
               />
             </div>
@@ -339,6 +360,20 @@ export default function CheckPage() {
                         <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer">согласие</a>{" "}
                         на обработку персональных данных в соответствии с{" "}
                         <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a>
+                      </span>
+                    </label>
+                    {/* Рекламное согласие — ОТДЕЛЬНОЕ и необязательное.
+                        По инструкции у человека должна остаться возможность
+                        не ставить эту галочку и всё равно получить услугу,
+                        поэтому кнопку она не блокирует. Без неё дожим шлёт
+                        только сервисное письмо про заказанный разбор. */}
+                    <label className="mrc-consent">
+                      <input type="checkbox" checked={marketing} onChange={e => setMarketing(e.target.checked)}
+                        className="mrc-checkbox" />
+                      <span>
+                        Даю{" "}
+                        <a href="/legal/consent-marketing" target="_blank" rel="noopener noreferrer">согласие</a>{" "}
+                        на получение рекламных и маркетинговых рассылок — необязательно
                       </span>
                     </label>
                     {leadErr && <div className="mrc-err">{leadErr}</div>}
@@ -531,6 +566,55 @@ export default function CheckPage() {
             ))}
           </div>
         </section>
+        {/* ─── 06 · Кто исполнитель ───
+             Блок появился после разбора лендинга: единственным контактом был
+             адрес почты, реквизитов не было вовсе. Человек с рекламы не должен
+             гадать, кому он собирается платить. */}
+        <section className="mrc-sec" data-reveal>
+          <SecHead
+            idx="06"
+            title="Кто это делает"
+            sub="Договор — публичная оферта, оплата по счёту, документы закрывающие."
+          />
+          <div className="mrc-who">
+            <article className="mrc-who-card">
+              <div className="mrc-mono mrc-who-label">исполнитель</div>
+              <div className="mrc-who-name">{VENDOR_PUBLIC.legalName}</div>
+              <dl className="mrc-who-dl">
+                <div><dt>ИНН</dt><dd>{VENDOR_PUBLIC.inn}</dd></div>
+                <div><dt>ОГРНИП</dt><dd>{VENDOR_PUBLIC.ogrn}</dd></div>
+                <div><dt>Адрес</dt><dd>{VENDOR_PUBLIC.address}</dd></div>
+              </dl>
+            </article>
+            <article className="mrc-who-card">
+              <div className="mrc-mono mrc-who-label">связь</div>
+              <ul className="mrc-who-links">
+                <li><a href={`mailto:${VENDOR_PUBLIC.email}`}>{VENDOR_PUBLIC.email}</a></li>
+                <li><a href={VENDOR_PUBLIC.telegram} target="_blank" rel="noopener noreferrer">Telegram — {VENDOR_PUBLIC.telegramLabel}</a></li>
+                {VENDOR_PUBLIC.phone && <li><a href={`tel:${VENDOR_PUBLIC.phone.replace(/[^+d]/g, "")}`}>{VENDOR_PUBLIC.phone}</a></li>}
+              </ul>
+              <div className="mrc-mono mrc-who-label" style={{ marginTop: 18 }}>документы</div>
+              <ul className="mrc-who-links">
+                <li><a href="/legal/offer" target="_blank" rel="noopener noreferrer">Публичная оферта</a></li>
+                <li><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки персональных данных</a></li>
+              </ul>
+            </article>
+          </div>
+
+          {DEMO_REPORTS.length > 0 && (
+            <>
+              <div className="mrc-mono mrc-who-label" style={{ marginTop: 26 }}>как выглядит разбор</div>
+              <div className="mrc-who-demos">
+                {DEMO_REPORTS.map(d => (
+                  <a key={d.href} className="mrc-who-demo" href={d.href} target="_blank" rel="noopener noreferrer">
+                    <span className="mrc-who-demo-t">{d.title}</span>
+                    <span className="mrc-note">{d.note}</span>
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
       {/* ─── Финальный CTA: тот же ответ, но пропуск подписан вашим доменом ─── */}
@@ -559,8 +643,12 @@ export default function CheckPage() {
 
       <footer className="mrc-footer">
         <div className="mrc-wrap mrc-footer-inner">
-          <span className="mrc-mono">MarketRadar · диагностика сайта</span>
+          <span className="mrc-mono">
+            {VENDOR_PUBLIC.legalName} · ИНН {VENDOR_PUBLIC.inn} · ОГРНИП {VENDOR_PUBLIC.ogrn}
+          </span>
           <nav className="mrc-footer-nav">
+            <a href={`mailto:${VENDOR_PUBLIC.email}`}>{VENDOR_PUBLIC.email}</a>
+            <a href="/legal/offer">Оферта</a>
             <a href="/legal/privacy">Политика обработки персональных данных</a>
             <a href="/legal/consent-pd">Согласие на обработку данных</a>
             <a href="/">О платформе</a>
@@ -1052,6 +1140,27 @@ function Verdict({ tone, headline, details }: { tone: Tone; headline: string; de
 function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> }) {
   const n = s.visibleCount ?? 0;
   const cap = n >= 1000 ? "1000+" : String(n);
+
+  // Пусто по разным причинам — и вердикты разные. Выдать «вас почти не видно»
+  // домену, которого нет в базе или который не отвечает, — прямая ложь.
+  if (n === 0 && s.empty === "unreachable") {
+    return <Verdict tone="warn" headline="Домен не отвечает" details={
+      <div className="mrc-verdict-body">
+        Мы не смогли достучаться до сайта — он не резолвится или лежит. Проверьте адрес:
+        видимость в поиске меряется только у работающего домена.
+      </div>
+    } />;
+  }
+  if (n === 0 && s.empty === "no-data") {
+    return <Verdict tone="warn" headline="Домена нет в базе Букварикса" details={
+      <div className="mrc-verdict-body">
+        Это не приговор: база собирает домены, попавшие в топ-50 Яндекса хотя бы по одному
+        запросу, и молодые или узкие сайты в неё не входят. Но означает это одно — заметных
+        позиций у вас пока нет. Полный разбор считает видимость по другим источникам.
+      </div>
+    } />;
+  }
+
   const tone = semTone(n);
   const headline =
     n < 50 ? `Вас почти не видно: всего ${cap} запросов в Яндексе` :
@@ -1063,7 +1172,16 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
         {s.top && s.top.length > 0 ? (
           <>
             Главные запросы, по которым вас находят:{" "}
-            {s.top.slice(0, 3).map(t => `«${t.keyword}» (${t.freq.toLocaleString("ru-RU")} показов/мес, позиция #${t.position})`).join(", ")}.
+            {s.top.slice(0, 3).map(t => `«${t.keyword}» (позиция #${t.position}, спрос ${fmtFreq(t.freq)})`).join(", ")}.
+            {" "}
+            {/* Числа Букварикса — широкая частотность Wordstat: все словоформы и
+                все фразы со словом, а не показы одной этой фразы. Подать их как
+                «показов/мес» значит завысить в разы — специалист это заметит
+                первым, и вместе с доверием уйдут остальные цифры. */}
+            <span className="mrc-note">
+              Спрос — широкая частотность Wordstat: сумма всех фраз со словом, а не показы
+              одной фразы.{s.top[0]?.exact ? ` Точная частотность «${s.top[0].keyword}» — ${fmtFreq(s.top[0].exact)}.` : ""}
+            </span>
             {" "}Кто забирает остальной спрос ниши — покажет полный разбор.
           </>
         ) : (
@@ -1074,7 +1192,27 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
   );
 }
 
+/** Частотность словами: 6 716 684 → «6,7 млн запросов/мес». */
+function fmtFreq(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")} млн запросов/мес`;
+  if (n >= 10_000) return `${Math.round(n / 1000)} тыс. запросов/мес`;
+  return `${n.toLocaleString("ru-RU")} запросов/мес`;
+}
+
 function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
+  // Lighthouse не ответил — показываем свой замер и называем его своим.
+  if (s.performance == null && s.fallback) {
+    const sec = (s.fallback.ttfbMs / 1000).toFixed(1).replace(".", ",");
+    const slow = s.fallback.ttfbMs > 1500;
+    return <Verdict tone={slow ? "warn" : "ok"} headline={`Ответ сервера — ${sec} с`} details={
+      <div className="mrc-verdict-body">
+        Google Lighthouse сейчас не ответил, поэтому это наш собственный замер: столько
+        занял ответ сервера на первый запрос{s.fallback.htmlKb ? `, страница весит ${s.fallback.htmlKb} КБ` : ""}.
+        Полная оценка скорости на телефоне войдёт в разбор.
+      </div>
+    } />;
+  }
+
   const p = s.performance ?? 0;
   const tone = spdTone(p);
   const headline =
@@ -1091,7 +1229,46 @@ function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
   );
 }
 
+/** Строка «кого пускает robots.txt» — общая для обоих исходов пробы. */
+function AiBotsLine({ bots }: { bots?: { name: string; rule: string }[] }) {
+  if (!bots || bots.length === 0) return null;
+  const blocked = bots.filter(b => b.rule === "blocked").map(b => b.name);
+  const noRule = bots.filter(b => b.rule === "no-rule").length;
+  return (
+    <div className="mrc-verdict-body">
+      {blocked.length > 0
+        ? <>В robots.txt закрыт доступ для: {blocked.join(", ")}. Эти ассистенты не прочитают сайт вообще.</>
+        : noRule === bots.length
+          ? <>В robots.txt нет ни одного правила для краулеров ассистентов — ни разрешающего, ни запрещающего. По умолчанию это доступ, но управления попаданием в ответы у вас нет.</>
+          : <>Краулеры ассистентов в robots.txt не заблокированы — доступ открыт.</>}
+    </div>
+  );
+}
+
 function ReadabilityVerdict({ s }: { s: NonNullable<MiniCheckResult["readability"]> }) {
+  // Сайт не пустил нас — это не «нет данных», а находка: краулер ассистента
+  // ходит таким же ботом и упрётся в ту же стену.
+  if (s.access === "blocked") {
+    return <Verdict tone="bad" headline={s.botStub ? "Сайт отдаёт ботам заглушку" : `Сайт закрыт от обходчиков (${s.httpStatus ?? "403"})`} details={
+      <>
+        <div className="mrc-verdict-body">
+          {s.botStub
+            ? <>Вместо страницы пришёл почти пустой ответ — так работает защита от ботов с JS-проверкой. Человек её проходит, краулер ассистента — нет: читать ему нечего.</>
+            : <>Сервер ответил кодом {s.httpStatus} на обычный запрос. Краулеры ChatGPT, Claude и Яндекса ходят такими же ботами: если фильтр не разбирает, кого пускать, для них вашего сайта не существует.</>}
+        </div>
+        <AiBotsLine bots={s.aiBots} />
+      </>
+    } />;
+  }
+  if (s.access === "unreachable") {
+    return <Verdict tone="warn" headline="Сайт не ответил" details={
+      <div className="mrc-verdict-body">
+        Страница не открылась за 15 секунд{s.httpStatus ? ` (код ${s.httpStatus})` : ""}. Проверьте адрес —
+        либо сайт сейчас недоступен, и тогда его не видят ни люди, ни ассистенты.
+      </div>
+    } />;
+  }
+
   const passed = s.checksPassed ?? 0;
   const total = s.checksTotal ?? 7;
   const tone = rdTone(passed);
@@ -1105,13 +1282,16 @@ function ReadabilityVerdict({ s }: { s: NonNullable<MiniCheckResult["readability
     <Verdict
       tone={tone}
       headline={`${passed} из ${total} проверок пройдено`}
-      details={fails.length > 0 ? (
-        <ul className="mrc-ul mrc-verdict-body">
-          {fails.slice(0, 3).map((f, i) => <li key={i}>{f}</li>)}
-        </ul>
-      ) : (
-        <div className="mrc-verdict-body">Базовая структура в порядке — вопрос в контенте и внешних сигналах.</div>
-      )}
+      details={<>
+        {fails.length > 0 ? (
+          <ul className="mrc-ul mrc-verdict-body">
+            {fails.slice(0, 3).map((f, i) => <li key={i}>{f}</li>)}
+          </ul>
+        ) : (
+          <div className="mrc-verdict-body">Базовая структура в порядке — вопрос в контенте и внешних сигналах.</div>
+        )}
+        <AiBotsLine bots={s.aiBots} />
+      </>}
     />
   );
 }
@@ -1711,6 +1891,37 @@ const CSS = AI_ROW_CSS + `
 .mrc-final .mrc-lead { margin-bottom: 26px; }
 
 /* ── Подвал ── */
+
+/* Блок «кто исполнитель»: реквизиты и контакты — доказательство, что за
+   лендингом есть юрлицо, а не только форма ввода адреса. */
+.mrc-who { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.mrc-who-card {
+  border: 1px solid var(--rule); border-radius: 14px; padding: 20px 22px;
+  background: var(--surface);
+}
+.mrc-who-label { color: var(--soft); letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
+.mrc-who-name { font-weight: 700; font-size: 19px; margin: 8px 0 14px; }
+.mrc-who-dl { margin: 0; display: grid; gap: 9px; }
+.mrc-who-dl > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; }
+.mrc-who-dl dt { color: var(--soft); font-size: 14px; }
+.mrc-who-dl dd { margin: 0; font-size: 15px; }
+.mrc-who-links { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.mrc-who-links a {
+  color: var(--mrc-fg); text-decoration: none; font-size: 15px;
+  border-bottom: 1px solid var(--rule); padding-bottom: 2px;
+}
+.mrc-who-links a:hover { border-bottom-color: var(--flare-use); }
+.mrc-who-demos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.mrc-who-demo {
+  display: grid; gap: 4px; padding: 16px 18px; text-decoration: none; color: inherit;
+  border: 1px solid var(--rule); border-radius: 12px; background: var(--surface);
+}
+.mrc-who-demo:hover { border-color: var(--flare-use); }
+.mrc-who-demo-t { font-weight: 600; }
+@media (max-width: 720px) {
+  .mrc-who, .mrc-who-demos { grid-template-columns: minmax(0, 1fr); }
+  .mrc-who-dl > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
 .mrc-footer { border-top: 1px solid var(--rule); padding: 26px 0 38px; }
 .mrc-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .mrc-footer-inner > .mrc-mono { color: var(--soft); }

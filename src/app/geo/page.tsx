@@ -12,7 +12,7 @@
  * «агентство» 200+96. Частотности на странице не печатаем — только формулировки.
  *
  * Воронка одна: и поле в первом экране, и форма заявки ставят ту же
- * бесплатную проверку (POST /api/mini-check) и уводят на /check, где уже
+ * бесплатную проверку (POST /api/mini-check) и уводят на /new, где уже
  * готовы диагностика и захват email. Своих эндпоинтов страница не заводит.
  *
  * ── Арт-дирекшн: «редакционный разбор», общий с /check ─────────────────────
@@ -36,6 +36,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SerpCollage, SERP_COLLAGE_CSS } from "@/components/landing/SerpCollage";
 import { AiRow, AiMark, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useRouter } from "next/navigation";
+import { VENDOR_PUBLIC } from "@/lib/vendor-public";
 
 const YM_ID = 108999924;
 const reach = (goal: string) => {
@@ -97,7 +98,7 @@ export default function GeoPage() {
   }, []);
 
   const goToCheck = useCallback((raw: string) => {
-    router.push(`/check?url=${encodeURIComponent(raw)}`);
+    router.push(`/new?url=${encodeURIComponent(raw)}`);
   }, [router]);
 
   const submitHero = useCallback(async () => {
@@ -548,12 +549,17 @@ export default function GeoPage() {
 
       <footer className="mrc-footer">
         <div className="mrc-wrap mrc-footer-inner">
-          <span className="mrc-mono">MarketRadar · продвижение в нейросетях</span>
+          {/* Реквизиты в футере — тот же разбор, что и на /new: посетитель с
+              рекламы должен видеть, кому он платит, а не только адрес почты. */}
+          <span className="mrc-mono">
+            {VENDOR_PUBLIC.legalName} · ИНН {VENDOR_PUBLIC.inn} · ОГРНИП {VENDOR_PUBLIC.ogrn}
+          </span>
           <nav className="mrc-footer-nav">
+            <a href={"mailto:" + VENDOR_PUBLIC.email}>{VENDOR_PUBLIC.email}</a>
+            <a href="/legal/offer">Оферта</a>
             <a href="/legal/privacy">Политика обработки персональных данных</a>
             <a href="/legal/consent-pd">Согласие на обработку данных</a>
-            <a href="/check">Бесплатная проверка сайта</a>
-            <a href="/">О платформе</a>
+            <a href="/new">Бесплатная проверка сайта</a>
           </nav>
         </div>
       </footer>
@@ -864,37 +870,30 @@ const NOT_FOR: { t: string; d: string }[] = [
 
 /* ─── Шкала бюджетов ───────────────────────────────────────────────────── */
 
-/** Верх шкалы — с запасом над рыночным потолком, чтобы деления читались. */
-const SCALE_MAX = 220_000;
-const pct = (v: number) => `${((v / SCALE_MAX) * 100).toFixed(2)}%`;
-const SCALE_TICKS = [0, 50_000, 100_000, 150_000, 200_000];
-
+/**
+ * Сравнение цен — тремя строками, без шкалы.
+ *
+ * Шкала была: полоса 0–220 тыс с полосками рынка и риской «мы». На ней
+ * наши 25 тысяч превращались в почти невидимую засечку у нуля, а полосы
+ * рынка визуально не связывались с подписями — читатель видел пустую
+ * линейку и три строки текста под ней. Приём не работал: сравнение
+ * держится на числах, а не на длине полосок.
+ */
 function Scale() {
+  const rows: { v: string; d: string; us?: boolean }[] = [
+    { v: "от 25 000 ₽/мес", d: "наше сопровождение", us: true },
+    { v: "140 000—160 000 ₽/мес", d: "средний рабочий бюджет на рынке" },
+    { v: "80 000—200 000 ₽/мес", d: "вилка GEO-агентств" },
+  ];
   return (
-    <div className="mrc-scale">
-      <div className="mrc-scale-track">
-        {/* Вилка агентств 80–200 тыс, внутри неё — средний рабочий бюджет 140–160 тыс */}
-        <span className="mrc-scale-band" style={{ left: pct(80_000), width: pct(120_000) }} />
-        <span className="mrc-scale-core" style={{ left: pct(140_000), width: pct(20_000) }} />
-        <span className="mrc-scale-us" style={{ left: pct(25_000) }} />
-      </div>
-      <div className="mrc-scale-ruler" aria-hidden="true">
-        {SCALE_TICKS.map(t => (
-          <span key={t} className="mrc-scale-tick" style={{ left: pct(t) }}>
-            <i />
-            <em className="mrc-mono">{t === 0 ? "0" : `${t / 1000} тыс`}</em>
-          </span>
-        ))}
-      </div>
-      <ul className="mrc-scale-legend">
-        <li><span className="mrc-swatch is-us" aria-hidden="true" />
-          <b>25 000 ₽/мес</b> — наше сопровождение</li>
-        <li><span className="mrc-swatch is-core" aria-hidden="true" />
-          <b>140 000—160 000 ₽/мес</b> — средний рабочий бюджет на рынке</li>
-        <li><span className="mrc-swatch is-band" aria-hidden="true" />
-          <b>80 000—200 000 ₽/мес</b> — вилка GEO-агентств</li>
-      </ul>
-    </div>
+    <ul className="mrc-prices">
+      {rows.map(r => (
+        <li key={r.v} className={r.us ? "is-us" : undefined}>
+          <b>{r.v}</b>
+          <span>{r.d}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1428,38 +1427,6 @@ const CSS = AI_ROW_CSS + `
   margin-top: 26px; padding: 24px; background: var(--surface);
   border: 1px solid var(--rule);
 }
-.mrc-scale { padding: 4px 14px 0; }
-.mrc-scale-track {
-  position: relative; height: 28px; margin-bottom: 4px;
-  border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
-}
-.mrc-scale-band {
-  position: absolute; top: 8px; height: 12px;
-  background: color-mix(in oklch, var(--soft) 30%, transparent);
-}
-.mrc-scale-core {
-  position: absolute; top: 4px; height: 20px;
-  background: color-mix(in oklch, var(--soft) 65%, transparent);
-}
-.mrc-scale-us {
-  position: absolute; top: 0; width: 5px; height: 28px;
-  background: var(--flare-use);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--flare-use) 22%, transparent);
-}
-.mrc-scale-ruler { position: relative; height: 28px; }
-.mrc-scale-tick { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
-.mrc-scale-tick i { display: block; width: 1px; height: 7px; background: var(--rule); margin: 0 auto 5px; }
-.mrc-scale-tick em { font-style: normal; color: var(--soft); font-size: 10px; white-space: nowrap; }
-.mrc-scale-legend { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
-.mrc-scale-legend li {
-  display: flex; align-items: baseline; gap: 10px;
-  font-size: 13px; line-height: 1.5; color: var(--soft);
-}
-.mrc-scale-legend b { color: inherit; font-variant-numeric: tabular-nums; font-weight: 700; }
-.mrc-swatch { width: 12px; height: 12px; flex-shrink: 0; transform: translateY(1px); }
-.mrc-swatch.is-us { background: var(--flare-use); }
-.mrc-swatch.is-core { background: color-mix(in oklch, var(--soft) 65%, transparent); }
-.mrc-swatch.is-band { background: color-mix(in oklch, var(--soft) 30%, transparent); }
 .mrc-gap-note { display: block; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--rule); }
 
 .mrc-why { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; margin-top: 28px; }
@@ -1591,9 +1558,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-honest-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .mrc-step { grid-template-columns: 44px minmax(0, 1fr); gap: 0 12px; }
 
-  .mrc-scale { padding: 4px 18px 0; }
-  .mrc-scale-tick em { font-size: 9px; }
-  .mrc-price-btn, .mrc-submit { align-self: stretch; width: 100%; }
+      .mrc-price-btn, .mrc-submit { align-self: stretch; width: 100%; }
 
   .mrc-questions, .mrc-gap { padding: 16px; }
   .mrc-footer-nav { gap: 0 18px; flex-direction: column; }
@@ -1704,5 +1669,21 @@ const CSS = AI_ROW_CSS + `
   .mrc-chain-tick { top: 4px; left: 3px; }
   .mrc-chain-ico { margin-bottom: 10px; }
 }
+
+/* Сравнение цен строками: число крупно, расшифровка рядом. Наша строка
+   выделена рамкой и акцентом — она единственная, которую надо запомнить. */
+.mrc-prices { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mrc-prices li {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding: 16px 18px; border-radius: var(--mrc-r-lg);
+  border: 1px solid var(--rule); background: var(--mrc-ink-soft);
+}
+.mrc-prices li.is-us {
+  border-color: color-mix(in srgb, var(--mrc-indigo) 45%, transparent);
+  background: color-mix(in srgb, var(--mrc-indigo) 7%, var(--mrc-ink-soft));
+}
+.mrc-prices b { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
+.mrc-prices li.is-us b { color: var(--mrc-indigo); }
+.mrc-prices span { font-size: 15.5px; color: var(--mrc-fg-mid); }
 
 ` + SERP_COLLAGE_CSS;

@@ -458,6 +458,20 @@ export async function initDb() {
   // менеджерки (кому/когда), ранний дожим ДО пересборки (nudge-серия).
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_phone TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_sent_at TIMESTAMPTZ`);
+  // ─── Дожим самообслуживания (лид с /new, а не от менеджера) ───────────────
+  // Отдельный счётчик от followup_stage: тот ведёт TG-серию по пересборке
+  // сайта, эта — email-серию по разбору. Смешивать нельзя, у них разные
+  // условия входа и разные каналы.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS self_followup_stage INTEGER NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS self_followup_at TIMESTAMPTZ`);
+  // Согласие на РЕКЛАМНУЮ рассылку — отдельное от согласия на обработку ПД
+  // (инструкция юриста, п.3). Без него можно слать только сервисные письма
+  // про заказанный разбор, но не предложения услуг.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS marketing_consent_at TIMESTAMPTZ`);
+  // Токен отписки: обязателен в любом письме серии, живёт вечно.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS unsub_token TEXT`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS unsubscribed_at TIMESTAMPTZ`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_self_followup ON kp_generations(self_followup_stage, completed_at) WHERE client_email IS NOT NULL`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_sent_to TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_nudge_stage INTEGER NOT NULL DEFAULT 0`);
 

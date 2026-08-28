@@ -11,6 +11,7 @@
  * не проставлен заранее (инструкция юриста).
  */
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { initDb, query } from "@/lib/db";
 import { enqueueKp } from "@/lib/kp-queue";
 
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
   const id = String(body.id ?? "");
   const email = String(body.email ?? "").trim().toLowerCase();
   const consent = body.consent === true;
+  // Отдельное согласие на рекламные письма: без него серия дожима шлёт
+  // только сервисное письмо про заказанный разбор (инструкция юриста, п.3).
+  const marketing = body.marketing === true;
 
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
   if (!consent) return NextResponse.json({ ok: false, error: "Нужно согласие на обработку персональных данных" }, { status: 400 });
@@ -56,6 +60,18 @@ export async function POST(req: Request) {
     clientEmail: email,
     clientIp: r.client_ip ?? undefined,
   });
+
+  // Контакты и согласия кладём на саму генерацию — по ней работает дожим.
+  // marketing_consent_at ставится ТОЛЬКО при явной галочке и больше не
+  // сбрасывается: отзыв согласия делается отпиской, а не повторной формой.
+  await query(
+    `UPDATE kp_generations
+        SET client_email = COALESCE(client_email, $2),
+            marketing_consent_at = CASE WHEN $3 THEN COALESCE(marketing_consent_at, NOW()) ELSE marketing_consent_at END,
+            unsub_token = COALESCE(unsub_token, $4)
+      WHERE id = $1`,
+    [kpId, email, marketing, randomUUID().replace(/-/g, "").slice(0, 24)],
+  );
 
   await query(`UPDATE mini_checks SET email = $2, kp_id = $3, updated_at = NOW() WHERE id = $1`, [id, email, kpId]);
   return NextResponse.json({ ok: true, kpId });
