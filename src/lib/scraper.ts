@@ -52,7 +52,9 @@ const HTML_LIMIT = 2_000_000;
  * профиля.
  */
 const SOCIAL_RULES: Array<{ key: string; host: RegExp; skipPath?: RegExp }> = [
-  { key: "vk",        host: /^(?:[\w-]+\.)*(?:vk\.com|vk\.ru|vkontakte\.ru|vk\.link|vkvideo\.ru)$/, skipPath: /^\/(?:share|widget|away|js|im|images|video_ext)\b/i },
+  // rtrg/api/connect/js — пиксель ретаргетинга и SDK ВКонтакте: они стоят почти
+  // на каждом сайте и к аккаунту компании отношения не имеют.
+  { key: "vk",        host: /^(?:[\w-]+\.)*(?:vk\.com|vk\.ru|vkontakte\.ru|vk\.link|vkvideo\.ru)$/, skipPath: /^\/(?:share|widget|away|js|im|images|video_ext|rtrg|api|connect|login|feed)\b/i },
   { key: "telegram",  host: /^(?:[\w-]+\.)*(?:t\.me|telegram\.me|telegram\.dog|tlgg\.ru)$/,          skipPath: /^\/(?:share|iv)\b/i },
   { key: "instagram", host: /^(?:[\w-]+\.)*instagram\.com$/ },
   { key: "youtube",   host: /^(?:[\w-]+\.)*(?:youtube\.com|youtu\.be)$/,                             skipPath: /^\/(?:embed|iframe_api)\b/i },

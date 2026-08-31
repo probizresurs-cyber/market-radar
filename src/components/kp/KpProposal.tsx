@@ -454,7 +454,8 @@ export function KpProposal({
     () => (company ? competitors.filter((cm) => cm.company.score > company.company.score).length : 0),
     [company, competitors],
   );
-  const nicheGap = company ? Math.round(company.company.avgNiche - company.company.score) : 0;
+  // company.avgNiche намеренно НЕ используется: это придуманная моделью
+  // «средняя по нише», под которой нет ни выборки, ни методики.
   const opportunityCount = company?.nicheForecast?.opportunities?.length ?? 0;
   const showWhyPanel = !!company && (sevCounts.critical > 0 || opportunityCount > 0);
 
@@ -802,7 +803,7 @@ export function KpProposal({
           <Reveal>
             {() => (
               <div className="ds-card kp-why-panel" style={{ borderLeft: "4px solid var(--primary)", padding: "22px 26px", marginTop: 32, display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-                {nicheGap > 0
+                {sevCounts.critical > 0
                   ? <TrendingDown size={22} style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 2 }} />
                   : <TrendingUp size={22} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} />}
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -810,8 +811,11 @@ export function KpProposal({
                     {t.whyImportant}
                   </div>
                   <p style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.4, margin: "0 0 8px" }}>
-                    {nicheGap > 3 ? t.whyBehindBy(nicheGap) : nicheGap < -3 ? t.whyAheadBy(-nicheGap) : t.whyAtAverage}
-                    {aheadCount > 0 && t.whyCompetitorsAhead(aheadCount)}
+                    {aheadCount > 0
+                      ? t.whyRivalsAhead(aheadCount)
+                      : sevCounts.critical > 0
+                        ? t.whyCriticalFirst(sevCounts.critical)
+                        : t.whyNoCritical}
                   </p>
                   <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
                     {t.whyBody(sevCounts.critical, opportunityCount)}
@@ -950,6 +954,26 @@ export function KpProposal({
                 ))}
               </div>
             )}
+            {(() => {
+              const meta = lhSet as { strategy?: string; measuredUrl?: string; requestedUrl?: string; fetchedAt?: string; lighthouseVersion?: string } | undefined;
+              if (!meta?.measuredUrl && !meta?.fetchedAt) return null;
+              const strategyLabel = meta.strategy === "desktop" ? t.tabDesktop : t.tabMobile;
+              const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleDateString(locale === "de" ? "de-DE" : "ru-RU") : null;
+              return (
+                <div style={{
+                  display: "flex", flexWrap: "wrap", gap: "6px 14px", alignItems: "center",
+                  marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+                  background: "var(--muted)", fontSize: 13, color: "var(--muted-foreground)",
+                  lineHeight: 1.5,
+                }}>
+                  <span><b style={{ color: "var(--foreground)" }}>{t.lhPassport}</b></span>
+                  <span>{strategyLabel}</span>
+                  {meta.measuredUrl && <span style={{ wordBreak: "break-all" }}>{meta.measuredUrl}</span>}
+                  {when && <span>{when}</span>}
+                  {meta.lighthouseVersion && <span>Lighthouse {meta.lighthouseVersion}</span>}
+                </div>
+              );
+            })()}
             <div className="kp-tech-grid">
               {lhSet?.performance != null && <RingTile key={`perf-${techTab}`} label={t.perfLabel} value={lhSet.performance} hint={t.perfHint} />}
               {lhSet?.seo != null && <RingTile key={`seo-${techTab}`} label={t.techSeoLabel} value={lhSet.seo} hint={t.techSeoHint} />}

@@ -70,11 +70,13 @@ export async function POST(request: NextRequest) {
       if (url) {
         const normalizedUrl = url.startsWith("http") ? url : "https://" + url;
         const cleanDomain = normalizedUrl.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
-        // Стартуем обогащение параллельно с AI и скрапингом — не зависит от них.
-        domainDataPromise = enrichDomainData(cleanDomain, {});
         try {
           scrapedSite = await scrapeWebsite(normalizedUrl);
         } catch { /* личный сайт не доступен — анализируем без него */ }
+        // Обогащение ПОСЛЕ скрапинга: раньше сюда уходил пустой объект
+        // соцсетей, поэтому статистика Telegram/VK на этом пути не
+        // подтягивалась никогда, сколько бы ссылок ни было на сайте.
+        domainDataPromise = enrichDomainData(cleanDomain, scrapedSite?.socialLinks ?? {}, scrapedSite?.url);
       }
 
       const rawResult = await analyzePersonalBrand({
@@ -126,6 +128,9 @@ export async function POST(request: NextRequest) {
               ...(real.pageSpeedDesktop ? { desktop: real.pageSpeedDesktop } : {}),
             };
           } else if (real.pageSpeedDesktop) {
+            // Мобильный замер не прошёл. Кладём десктопный, но strategy внутри
+            // остаётся "desktop" — интерфейс обязан подписывать его честно, а
+            // не называть мобильным (см. lighthouseScores.strategy).
             result.seo.lighthouseScores = { ...real.pageSpeedDesktop, desktop: real.pageSpeedDesktop };
           }
           // Возраст домена / архив (если доступно).
@@ -179,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     // 1. Запускаем сбор данных по домену параллельно с AI, так как они не зависят от названия компании
     const cleanDomain = scraped.url.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
-    const domainDataPromise = enrichDomainData(cleanDomain, scraped.socialLinks);
+    const domainDataPromise = enrichDomainData(cleanDomain, scraped.socialLinks, scraped.url);
 
     // 2. AI analysis (Claude) — самая долгая операция, пока она идет, собираются данные по домену
     const rawResult = await analyzeWithClaude(scraped, businessType);

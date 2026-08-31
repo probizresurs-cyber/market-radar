@@ -312,7 +312,7 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   let socialStats: { telegram?: { subscribers: number; posts30d: number } | null; vk?: { subscribers: number; posts30d: number; engagement: string; trend: string } | null } = {};
   try {
     const domain = (company.company.url || scraped.url).replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    const real = await enrichDomainData(domain, scraped.socialLinks || {});
+    const real = await enrichDomainData(domain, scraped.socialLinks || {}, scraped.url);
     if (real) {
       socialStats = { telegram: real.telegram, vk: real.vk };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

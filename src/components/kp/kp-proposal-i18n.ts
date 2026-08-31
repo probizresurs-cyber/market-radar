@@ -17,6 +17,7 @@ export interface KpProposalStrings {
   brandSuffix: string;
   heroLossFrame: (range: string) => string;
   heroKicker: string; heroPotentialLabel: string; heroProblemLabel: string; offerAddonLabel: string; navDeeper: string; deeperTitle: string; deeperSubtitle: string;
+  lhPassport: string; whyRivalsAhead: (n: number) => string; whyCriticalFirst: (n: number) => string; whyNoCritical: string;
   finalCritCount: (n: number) => string; finalGrowthCount: (n: number) => string; finalCtaCost: string; heroDiscussBtn: string; heroOfferBtnPrefix: string;
   stickyFixedPrice: string; stickyStartBtn: string;
   ringScoreLabel: string;
@@ -141,6 +142,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     navDeeper: "Что ещё разберём",
     deeperTitle: "Что ещё разберём в работе",
     deeperSubtitle: "Здесь — проблемы, требующие срочного решения. За ними стоит слой глубже, который тоже влияет на заявки.",
+    lhPassport: "Замер:",
+    whyRivalsAhead: (n) => `${n} ${n === 1 ? "конкурент стоит" : n < 5 ? "конкурента стоят" : "конкурентов стоят"} выше вас по вашим же запросам`,
+    whyCriticalFirst: (n) => `${n} ${n === 1 ? "находка требует" : n < 5 ? "находки требуют" : "находок требуют"} решения в первую очередь`,
+    whyNoCritical: "Критичных проблем не нашли — работаем на точках роста",
     finalCritCount: (n) => `${n} ${n === 1 ? "критичная проблема" : n < 5 ? "критичные проблемы" : "критичных проблем"} — требуют решения сейчас`,
     finalGrowthCount: (n) => `${n} ${n === 1 ? "точка роста" : n < 5 ? "точки роста" : "точек роста"} — работает, но недобирает`,
     finalCtaCost: "Пока эти проблемы не закрыты, спрос вашей ниши каждый день делят те, кого клиент находит первыми. Это не разовая потеря — она повторяется ежедневно и накапливается.",
@@ -315,6 +320,10 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     navDeeper: "Was wir noch prüfen",
     deeperTitle: "Was wir in der Zusammenarbeit noch prüfen",
     deeperSubtitle: "Hier stehen die dringenden Probleme. Dahinter liegt eine tiefere Ebene, die ebenfalls auf Anfragen wirkt.",
+    lhPassport: "Messung:",
+    whyRivalsAhead: (n) => `${n} ${n === 1 ? "Wettbewerber steht" : "Wettbewerber stehen"} bei Ihren eigenen Suchanfragen über Ihnen`,
+    whyCriticalFirst: (n) => `${n} ${n === 1 ? "Erkenntnis verlangt" : "Erkenntnisse verlangen"} zuerst eine Lösung`,
+    whyNoCritical: "Keine kritischen Probleme gefunden — wir arbeiten an Wachstumspunkten",
     finalCritCount: (n) => `${n} kritische ${n === 1 ? "Schwachstelle" : "Schwachstellen"} — jetzt zu lösen`,
     finalGrowthCount: (n) => `${n} ${n === 1 ? "Wachstumspunkt" : "Wachstumspunkte"} — funktioniert, schöpft aber nicht aus`,
     finalCtaCost: "Solange diese Punkte offen sind, teilen die Nachfrage Ihrer Nische täglich diejenigen auf, die der Kunde zuerst findet. Kein einmaliger Verlust — er wiederholt sich jeden Tag.",
