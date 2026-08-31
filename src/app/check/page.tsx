@@ -2492,7 +2492,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-topbar-tag { display: none; }
   .mrc-hero { padding-bottom: 44px; }
   .mrc-eyebrow { margin-bottom: 16px; font-size: 13px; letter-spacing: 0.04em; }
-  .mrc-hero-lead { font-size: 15.5px; margin-bottom: 22px; }
+  .mrc-hero-lead { font-size: 17.5px; margin-bottom: 22px; }
 
   .mrc-form-row { flex-direction: column; }
   .mrc-input, .mrc-btn { width: 100%; flex: 1 1 auto; }
@@ -2500,7 +2500,7 @@ const CSS = AI_ROW_CSS + `
 
   .mrc-ans { padding: 18px 16px 16px; }
   .mrc-ans-qtext { font-size: 15.5px; }
-  .mrc-ans-text { font-size: 14.5px; }
+  .mrc-ans-text { font-size: 15.5px; }
   .mrc-slot-box { font-size: 13.5px; padding: 0 12px; }
 
   .mrc-sec { padding: 32px 0 38px; }
