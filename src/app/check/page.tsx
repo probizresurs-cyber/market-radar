@@ -46,6 +46,7 @@ import { AiRow, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { SerpCollage, SERP_COLLAGE_CSS } from "@/components/landing/SerpCollage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MiniCheckResult } from "@/lib/mini-check";
+import { readAttribution } from "@/lib/attribution";
 import { VENDOR_PUBLIC, DEMO_REPORTS } from "@/lib/vendor-public";
 
 const YM_ID = 108999924;
@@ -98,6 +99,7 @@ export default function CheckPage() {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [marketing, setMarketing] = useState(false);
+  const [offerAccepted, setOfferAccepted] = useState(false);
   const [kpState, setKpState] = useState<KpState>("idle");
   const [kpUrl, setKpUrl] = useState<string | null>(null);
   const [leadErr, setLeadErr] = useState<string | null>(null);
@@ -110,7 +112,7 @@ export default function CheckPage() {
     try {
       const r = await fetch("/api/mini-check", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: u }),
+        body: JSON.stringify({ url: u, utm: readAttribution() }),
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не удалось запустить проверку");
@@ -165,7 +167,7 @@ export default function CheckPage() {
     try {
       const r = await fetch("/api/mini-check/lead", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: checkId, email: email.trim(), consent, marketing }),
+        body: JSON.stringify({ id: checkId, email: email.trim(), consent, marketing, offerAccepted }),
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не получилось отправить — попробуйте ещё раз");
@@ -182,7 +184,7 @@ export default function CheckPage() {
     } catch (e) {
       setLeadErr(e instanceof Error ? e.message : "Ошибка");
     }
-  }, [checkId, email, consent, marketing]);
+  }, [checkId, email, consent, marketing, offerAccepted]);
 
   useReveal();
 
@@ -345,7 +347,7 @@ export default function CheckPage() {
                       />
                       <button
                         onClick={() => void submitLead()}
-                        disabled={!consent}
+                        disabled={!consent || !offerAccepted}
                         className="mrc-btn mrc-btn-primary"
                       >
                         Получить полный разбор
@@ -360,6 +362,18 @@ export default function CheckPage() {
                         <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer">согласие</a>{" "}
                         на обработку персональных данных в соответствии с{" "}
                         <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a>
+                      </span>
+                    </label>
+                    {/* Вторая ОБЯЗАТЕЛЬНАЯ галочка — принятие оферты. Кнопка не
+                        работает, пока не отжаты обе: разбор передаётся по
+                        договору, и факт принятия условий должен фиксироваться
+                        отдельным действием, а не «подразумеваться». */}
+                    <label className="mrc-consent">
+                      <input type="checkbox" checked={offerAccepted} onChange={e => setOfferAccepted(e.target.checked)}
+                        className="mrc-checkbox" />
+                      <span>
+                        Принимаю условия{" "}
+                        <a href="/legal/offer" target="_blank" rel="noopener noreferrer">публичной оферты</a>
                       </span>
                     </label>
                     {/* Рекламное согласие — ОТДЕЛЬНОЕ и необязательное.
@@ -1178,9 +1192,15 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
                 все фразы со словом, а не показы одной этой фразы. Подать их как
                 «показов/мес» значит завысить в разы — специалист это заметит
                 первым, и вместе с доверием уйдут остальные цифры. */}
+            {/* Источник данных подписан прямо здесь. Позиция — не наш живой
+                съём выдачи: это состояние базы Букварикса на момент её
+                последнего обхода. Подать её как «сейчас» — та же ошибка, что
+                выдать широкую частотность за показы. */}
             <span className="mrc-note">
               Спрос — широкая частотность Wordstat: сумма всех фраз со словом, а не показы
-              одной этой фразы. Точную частотность и разбивку по интенту считаем в полном разборе.
+              одной этой фразы. Позиции — по базе Букварикса (топ-50 Яндекса, Москва) на момент
+              её последнего обхода, а не живой съём выдачи. Точную частотность, актуальные
+              позиции и разбивку по интенту считаем в полном разборе.
             </span>
             {" "}Кто забирает остальной спрос ниши — покажет полный разбор.
           </>

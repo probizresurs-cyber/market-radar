@@ -37,6 +37,7 @@ import { SerpCollage, SERP_COLLAGE_CSS } from "@/components/landing/SerpCollage"
 import { AiRow, AiMark, AI_ROW_CSS, type AiKey } from "@/components/landing/AiMarks";
 import { useRouter } from "next/navigation";
 import { VENDOR_PUBLIC } from "@/lib/vendor-public";
+import { readAttribution } from "@/lib/attribution";
 
 const YM_ID = 108999924;
 const reach = (goal: string) => {
@@ -91,7 +92,7 @@ export default function GeoPage() {
   const startCheck = useCallback(async (raw: string, contact?: { email: string; phone: string; consent: boolean }) => {
     const r = await fetch("/api/mini-check", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: raw, ...(contact ?? {}) }),
+      body: JSON.stringify({ url: raw, utm: readAttribution(), ...(contact ?? {}) }),
     });
     const j = await readJson(r);
     if (!j.ok) throw new Error(j.error || "Не удалось запустить проверку");

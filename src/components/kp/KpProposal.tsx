@@ -447,6 +447,14 @@ export function KpProposal({
   const maxSectionIdxRef = useRef(-1);
   useEffect(() => {
     trackKpEvent("view");
+    // Цель Метрики «kp_opened» — событие глубины, а не клика. По нему
+    // автостратегии Директа учатся приводить тех, кто доходит до документа,
+    // а не тех, кто нажал кнопку замера и ушёл. Оно же — база для офлайн-
+    // конверсий: связка «кампания → открытый разбор → сделка».
+    try {
+      (window as unknown as { ym?: (id: number, m: string, g: string) => void })
+        .ym?.(108999924, "reachGoal", "kp_opened");
+    } catch { /* нет Метрики — не мешаем */ }
   }, []);
 
   // ─── скролл-спай + прогресс ──

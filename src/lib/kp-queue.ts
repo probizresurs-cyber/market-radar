@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { query } from "@/lib/db";
 import { generateKp, type KpLocale } from "@/lib/kp-generate";
+import { notifyKpReady } from "@/lib/kp-notify";
 
 /**
  * Очередь генерации КП. Менеджер может закинуть несколько ссылок — каждая
@@ -10,6 +11,9 @@ import { generateKp, type KpLocale } from "@/lib/kp-generate";
  */
 
 const CONCURRENCY = 2;
+// Потолок затрат на публичные генерации: столько КП source='public' может
+// СТАРТОВАТЬ за скользящие 24 часа. Сверх — ждут в очереди, не отказ.
+const PUBLIC_DAILY_BUDGET = 40;
 let running = 0;
 let ticking = false;
 
@@ -60,6 +64,9 @@ async function processOne(row: { id: string; url: string; locale: string }) {
       [row.id, companyName, JSON.stringify(bundle), JSON.stringify(company)],
     );
     console.info(`[kp-queue] ✓ готово ${row.id.slice(0, 8)} «${companyName}» за ${Math.round((Date.now() - started) / 1000)}с`);
+    // Ссылка не должна жить только на открытой странице: человек, закрывший
+    // вкладку за 2–3 минуты сборки, получает её на почту/в TG сразу.
+    void notifyKpReady(row.id).catch(() => {});
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ошибка генерации";
     console.error(`[kp-queue] ✗ ошибка ${row.id.slice(0, 8)} ${row.url} за ${Math.round((Date.now() - started) / 1000)}с: ${msg}`);
@@ -67,6 +74,8 @@ async function processOne(row: { id: string; url: string; locale: string }) {
       "UPDATE kp_generations SET status='error', error=$2, completed_at=NOW() WHERE id=$1",
       [row.id, msg.slice(0, 400)],
     );
+    // Упавший публичный лид — сигнал менеджеру «собери руками», а не тишина.
+    void notifyKpReady(row.id).catch(() => {});
   } finally {
     running--;
     void tick();
@@ -86,11 +95,23 @@ export async function tick(): Promise<void> {
       `UPDATE kp_generations
          SET status = CASE WHEN attempts >= 3 THEN 'error' ELSE 'queued' END,
              error  = CASE WHEN attempts >= 3 THEN 'Генерация зависала 3 раза подряд — проверьте сайт и запустите заново' ELSE error END
-       WHERE status='running' AND COALESCE(started_at, created_at) < NOW() - INTERVAL '20 minutes'`,
+       WHERE status='running' AND COALESCE(started_at, created_at) < NOW() - INTERVAL '10 minutes'`,
     ).catch(() => {});
+    // Дневной бюджет публичных генераций проверяется ЗДЕСЬ, а не отказом в
+    // POST: оплаченный клик из Директа не должен получать «попробуйте
+    // завтра». Лид оставляет email всегда; при исчерпанном бюджете его КП
+    // просто ждёт в очереди, пока 24-часовое окно освободится, и ссылка
+    // уезжает письмом (kp-notify). Менеджерские и user-КП бюджет не занимают.
+    const pubBudget = await query<{ n: string }>(
+      `SELECT COUNT(*) n FROM kp_generations
+        WHERE source='public' AND started_at > NOW() - INTERVAL '24 hours'`,
+    ).then(r => Number(r[0]?.n ?? 0)).catch(() => 0);
+    const publicAllowed = pubBudget < PUBLIC_DAILY_BUDGET;
     while (running < CONCURRENCY) {
       const rows = await query<{ id: string; url: string; locale: string }>(
-        "SELECT id, url, locale FROM kp_generations WHERE status='queued' ORDER BY created_at ASC LIMIT 1",
+        publicAllowed
+          ? "SELECT id, url, locale FROM kp_generations WHERE status='queued' ORDER BY created_at ASC LIMIT 1"
+          : "SELECT id, url, locale FROM kp_generations WHERE status='queued' AND source <> 'public' ORDER BY created_at ASC LIMIT 1",
       );
       if (!rows.length) break;
       // Атомарно захватываем строку, чтобы параллельные tick не взяли одну и ту же.
@@ -104,4 +125,15 @@ export async function tick(): Promise<void> {
   } finally {
     ticking = false;
   }
+}
+
+// Отложенные из-за бюджета КП обязаны стартовать и без внешнего толчка:
+// tick сам по себе срабатывает только на enqueue и завершение генерации, а
+// освобождение 24-часового окна — событие времени. Раз в 10 минут достаточно.
+declare global {
+  // eslint-disable-next-line no-var
+  var __mrKpQueueInterval: NodeJS.Timeout | undefined;
+}
+if (typeof setInterval !== "undefined" && !globalThis.__mrKpQueueInterval) {
+  globalThis.__mrKpQueueInterval = setInterval(() => { void tick(); }, 10 * 60 * 1000);
 }

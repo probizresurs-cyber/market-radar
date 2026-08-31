@@ -38,20 +38,17 @@ export async function POST(req: Request) {
   );
   if (dup[0]) return NextResponse.json({ ok: true, id: dup[0].id, reused: true });
 
-  const [perIp, total] = await Promise.all([
-    query<{ n: string }>(
-      `SELECT COUNT(*) n FROM kp_generations WHERE source='public' AND client_ip=$1 AND created_at > NOW() - INTERVAL '24 hours'`,
-      [ip],
-    ),
-    query<{ n: string }>(
-      `SELECT COUNT(*) n FROM kp_generations WHERE source='public' AND created_at > NOW() - INTERVAL '24 hours'`,
-    ),
-  ]);
+  // Анти-абьюз per-IP остаётся отказом. А вот общий дневной потолок отсюда
+  // убран: отказывать оплаченному клику «попробуйте завтра» — сжигать деньги
+  // рекламы. Бюджет теперь стережёт сама очередь (kp-queue,
+  // PUBLIC_DAILY_BUDGET): лишние КП ждут освобождения окна, и ссылка
+  // доезжает письмом/TG (kp-notify), даже если человек давно закрыл вкладку.
+  const perIp = await query<{ n: string }>(
+    `SELECT COUNT(*) n FROM kp_generations WHERE source='public' AND client_ip=$1 AND created_at > NOW() - INTERVAL '24 hours'`,
+    [ip],
+  );
   if (Number(perIp[0]?.n ?? 0) >= 3) {
     return NextResponse.json({ ok: false, error: "Лимит на сегодня исчерпан — попробуйте завтра или напишите нам" }, { status: 429 });
-  }
-  if (Number(total[0]?.n ?? 0) >= 40) {
-    return NextResponse.json({ ok: false, error: "Сегодня очень много заявок — попробуйте завтра" }, { status: 429 });
   }
 
   const id = await enqueueKp(url, "ru", { source: "public", clientIp: ip });

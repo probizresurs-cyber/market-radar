@@ -37,6 +37,18 @@ export async function POST(req: Request) {
   const email = consent && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null;
   const phone = consent ? (String(body.phone ?? "").trim().slice(0, 32) || null) : null;
 
+  // Сквозная атрибуция. Без сохранённых меток через месяц открутки нельзя
+  // ответить, какая кампания приносит КП и сделки, а какая — только клики.
+  // Белый список ключей: пишем ровно то, что нужно Директу, а не весь query.
+  const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "yclid"] as const;
+  const rawUtm = (body.utm ?? {}) as Record<string, unknown>;
+  const utm: Record<string, string> = {};
+  for (const k of UTM_KEYS) {
+    const v = rawUtm[k];
+    if (typeof v === "string" && v.trim()) utm[k] = v.trim().slice(0, 200);
+  }
+  const utmJson = Object.keys(utm).length ? JSON.stringify(utm) : null;
+
   // Дедуп по домену за сутки: F5, повторный клик и второй посетитель с тем же
   // сайтом получают готовый результат, а Букварикс с PageSpeed не дёргаются
   // заново. Заодно это кэш против лимитов бесплатного ключа Букварикса.
@@ -49,13 +61,14 @@ export async function POST(req: Request) {
   if (dup[0]) {
     // Проверка переиспользуется, но контакты нового человека — новые.
     // COALESCE, чтобы второй посетитель без контактов не стёр первого.
-    if (email || phone) {
+    if (email || phone || utmJson) {
       await query(
         `UPDATE mini_checks
             SET email = COALESCE($2, email), phone = COALESCE($3, phone),
-                consent_at = COALESCE(consent_at, NOW()), updated_at = NOW()
+                consent_at = COALESCE(consent_at, NOW()),
+                utm = COALESCE(utm, $4::jsonb), updated_at = NOW()
           WHERE id = $1`,
-        [dup[0].id, email, phone],
+        [dup[0].id, email, phone, utmJson],
       );
     }
     return NextResponse.json({ ok: true, id: dup[0].id, reused: true });
@@ -73,6 +86,9 @@ export async function POST(req: Request) {
   }
 
   const id = await startMiniCheck(url, ip);
+  if (utmJson) {
+    await query(`UPDATE mini_checks SET utm = $2::jsonb WHERE id = $1`, [id, utmJson]);
+  }
   if (email || phone) {
     await query(
       `UPDATE mini_checks SET email = $2, phone = $3, consent_at = NOW(), updated_at = NOW() WHERE id = $1`,
@@ -87,16 +103,26 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
 
-  const rows = await query<{ id: string; url: string; domain: string; status: string; result: MiniCheckResult; kp_id: string | null }>(
-    `SELECT id, url, domain, status, result, kp_id FROM mini_checks WHERE id = $1`,
+  const rows = await query<{ id: string; url: string; domain: string; status: string; result: MiniCheckResult; kp_id: string | null; email: string | null }>(
+    `SELECT id, url, domain, status, result, kp_id, email FROM mini_checks WHERE id = $1`,
     [id],
   );
   const r = rows[0];
   if (!r) return NextResponse.json({ ok: false, error: "Проверка не найдена" }, { status: 404 });
 
+  // Контакт мог прийти с формы /geo — тогда /new предлагает разбор в один
+  // клик вместо повторного ввода. Наружу уходит только маска: этот GET
+  // доступен любому, у кого есть id проверки, и светить чужой email нельзя.
+  const emailMasked = r.email
+    ? r.email.replace(/^(.{1,2})[^@]*@/, (_m, a) => `${a}***@`)
+    : null;
+
   // Поллинг страницы — заодно и планировщик: если процесс перезапустили на
   // середине замера, пробы возобновятся, а не останутся в вечном «замер…».
   void reviveStuckProbes(id).catch(() => {});
 
-  return NextResponse.json({ ok: true, id: r.id, url: r.url, domain: r.domain, status: r.status, result: r.result, kpId: r.kp_id });
+  return NextResponse.json({
+    ok: true, id: r.id, url: r.url, domain: r.domain, status: r.status, result: r.result, kpId: r.kp_id,
+    hasEmail: !!r.email, emailMasked,
+  });
 }

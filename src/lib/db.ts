@@ -474,6 +474,15 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_kp_self_followup ON kp_generations(self_followup_stage, completed_at) WHERE client_email IS NOT NULL`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_sent_to TEXT`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS kp_nudge_stage INTEGER NOT NULL DEFAULT 0`);
+  // Сквозная атрибуция: utm_*/yclid с посадочной. Без них Директ-кампании
+  // не связываются со сделками, а офлайн-конверсии в Директ невозможны.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS utm JSONB`);
+  // Заявка на консультацию из КП — отдельная сущность, а не скролл к форме
+  // пересборки: менеджер получает сигнал в TG и видит контакт.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_requested_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_contact TEXT`);
+  // Письмо/TG «разбор готов» отправлено (идемпотентность нотификаций).
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS ready_notified_at TIMESTAMPTZ`);
 
   // Фаза B воронки: magic-link аккаунт из КП. platform_user_id — привязан ли
   // уже реальный аккаунт платформы к этому лиду (менеджер жмёт «Создать
@@ -822,6 +831,7 @@ export async function initDb() {
   // consent_at — след согласия: когда именно оно получено.
   await query(`ALTER TABLE mini_checks ADD COLUMN IF NOT EXISTS phone TEXT`);
   await query(`ALTER TABLE mini_checks ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE mini_checks ADD COLUMN IF NOT EXISTS utm JSONB`);
   await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_domain ON mini_checks(domain, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_mini_checks_ip ON mini_checks(client_ip, created_at DESC)`);
 
