@@ -396,16 +396,37 @@ export async function POST(req: NextRequest) {
     const startPayload = command === "/start" ? text.split(/\s+/)[1] : null;
     if (startPayload?.startsWith("kp_")) {
       await initDb();
-      const rows = await query<KpClientRow>(
-        `SELECT id, company_name, url, locale, share_token, rebuild_id, rebuild_status
+      const rows = await query<KpClientRow & { status: string; share_password: string | null }>(
+        `SELECT id, company_name, url, locale, share_token, rebuild_id, rebuild_status,
+                status, share_password
          FROM kp_generations WHERE client_tg_code = $1`,
         [startPayload],
       );
       const row = rows[0];
       if (row) {
         await query("UPDATE kp_generations SET client_tg_chat_id = $1 WHERE id = $2", [chatId, row.id]);
-        const ctx = kpFunnelCtx(row);
-        await sendKpConnected(chatId, ctx);
+        // Две разные ситуации под одним кодом. Классическая: менеджер отправил
+        // пересборку сайта и человек подключает уведомления по ней. Новая:
+        // человек пришёл с лендинга через TG-дверь, и его разбор ещё
+        // собирается — ему надо сказать про разбор, а не про «новую версию
+        // сайта», иначе первое же сообщение бота говорит не о том, за чем
+        // человек пришёл.
+        const name = row.company_name || row.url;
+        if (row.rebuild_status) {
+          await sendKpConnected(chatId, kpFunnelCtx(row));
+        } else if (row.status === "done" && row.share_token) {
+          const url = `${SITE}/kp-share/${row.share_token}?p=${encodeURIComponent(row.share_password ?? "")}`;
+          await sendKpTgMessage(
+            chatId,
+            `✅ <b>Разбор «${name}» готов.</b>\n\nНаходки, конкуренты, прогноз и план работ с ценами — по кнопке ниже.`,
+            [[{ text: "Открыть разбор", url }]],
+          );
+        } else {
+          await sendKpTgMessage(
+            chatId,
+            `🛠 <b>Собираем разбор «${name}».</b>\n\nОбычно 2–3 минуты. Пришлём ссылку сюда, как только будет готов — можно закрыть Telegram.`,
+          );
+        }
       } else {
         await sendKpCodeInvalid(chatId);
       }

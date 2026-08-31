@@ -100,6 +100,10 @@ export default function CheckPage() {
   const [consent, setConsent] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [offerAccepted, setOfferAccepted] = useState(false);
+  // Контакт, уже оставленный на /geo: показываем его маской и не просим
+  // вводить второй раз.
+  const [knownEmail, setKnownEmail] = useState<string | null>(null);
+  const [tgSubmitting, setTgSubmitting] = useState(false);
   const [kpState, setKpState] = useState<KpState>("idle");
   const [kpUrl, setKpUrl] = useState<string | null>(null);
   const [leadErr, setLeadErr] = useState<string | null>(null);
@@ -154,12 +158,33 @@ export default function CheckPage() {
       if (stop || !j?.ok) return;
       setResult(j.result ?? {});
       setCheckDomain(j.domain ?? "");
+      if (j.emailMasked) setKnownEmail(j.emailMasked);
       if (j.status === "done") return;
       setTimeout(tick, 3000);
     };
     void tick();
     return () => { stop = true; };
   }, [checkId]);
+
+  // Вторая дверь: разбор в Telegram. Часть аудитории охотнее нажмёт её,
+  // чем оставит почту, — механика бота уже была, входа с лендинга не было.
+  const submitTg = useCallback(async () => {
+    if (!checkId) return;
+    setLeadErr(null); setTgSubmitting(true);
+    try {
+      const r = await fetch("/api/mini-check/lead-tg", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: checkId, consent, offerAccepted }),
+      });
+      const j = await readJson(r);
+      if (!j.ok) throw new Error(j.error || "Не получилось — попробуйте ещё раз");
+      reach("mini_check_lead_tg");
+      window.open(j.tgConnectUrl, "_blank", "noopener,noreferrer");
+      setKpState("queued");
+    } catch (e) {
+      setLeadErr(e instanceof Error ? e.message : "Ошибка");
+    } finally { setTgSubmitting(false); }
+  }, [checkId, consent, offerAccepted]);
 
   const submitLead = useCallback(async () => {
     if (!checkId) return;
@@ -192,6 +217,24 @@ export default function CheckPage() {
   const spd = result.speed;
   const rd = result.readability;
   const readyProbes = [sem, spd, rd].filter(p => p && p.status !== "pending").length;
+
+  // Заголовок CTA из собственной цифры посетителя. Порядок веток — по силе
+  // аргумента: сначала перехваченный конкурентами спрос, потом закрытость от
+  // ассистентов, потом скорость. Если ни одна цифра не посчиталась —
+  // возвращаем null, и остаётся нейтральный текст: выдумывать число нельзя.
+  const demandHeadline: string | null = (() => {
+    const demand = sem?.status === "done" && !sem.empty ? sem.demandNearby ?? 0 : 0;
+    if (demand >= 10_000) {
+      return `Рядом с вами ${fmtFreq(demand).replace(" запросов/мес", " запросов в месяц")} — разбор покажет, кто их забирает`;
+    }
+    if (rd?.status === "done" && rd.access === "blocked") {
+      return "Ваш сайт закрыт от ассистентов — разбор покажет, что именно чинить";
+    }
+    if (spd?.status === "done" && (spd.performance ?? 100) < 50) {
+      return `Скорость ${spd.performance}/100 — разбор покажет, сколько заявок это стоит`;
+    }
+    return null;
+  })();
 
   return (
     <div className="mrc-root">
@@ -330,17 +373,23 @@ export default function CheckPage() {
                 {kpState === "idle" && (
                   <>
                     <div className="mrc-mono mrc-kicker">следующий шаг</div>
-                    <div className="mrc-h3 mrc-h3-lg">Это экспресс-диагноз. Полный разбор — тоже бесплатно</div>
+                    {/* Заголовок берёт цифру из ЭТОГО замера. Абстрактное
+                        «получите полный разбор» под карточкой, где только что
+                        назван спрос ниши, слабее собственного числа человека:
+                        сумма уже посчитана, осталось сказать, кому она уходит. */}
+                    <div className="mrc-h3 mrc-h3-lg">
+                      {demandHeadline ?? "Это экспресс-диагноз. Полный разбор — тоже бесплатно"}
+                    </div>
                     <p className="mrc-body mrc-lead-card-text">
                       Внутри: находки с доказательствами по вашему сайту, конкуренты поимённо — с запросами,
                       по которым они забирают ваших клиентов, прогноз заявок по каналам и план работ с ценами.
-                      Разбор собирается 2–3{" "}минуты и открывается по ссылке.
+                      Разбор собирается 2–3{" "}минуты, приходит на почту и открывается по ссылке.
                     </p>
                     <div className="mrc-form-row">
                       <input
                         value={email}
                         onChange={e => setEmail(e.target.value)}
-                        placeholder="Ваш email"
+                        placeholder={knownEmail ? `${knownEmail} — можно изменить` : "Ваш email"}
                         inputMode="email"
                         aria-label="Ваш email"
                         className="mrc-input"
@@ -350,7 +399,21 @@ export default function CheckPage() {
                         disabled={!consent || !offerAccepted}
                         className="mrc-btn mrc-btn-primary"
                       >
-                        Получить полный разбор
+                        {knownEmail && !email.trim() ? "Прислать разбор" : "Получить полный разбор"}
+                      </button>
+                    </div>
+                    {/* Вторая дверь. Ставим её равноправно, а не мелкой
+                        ссылкой: для части аудитории Telegram — не «запасной
+                        вариант», а единственный, на который они согласны. */}
+                    <div className="mrc-alt-door">
+                      <span className="mrc-note">или без почты:</span>
+                      <button
+                        type="button"
+                        onClick={() => void submitTg()}
+                        disabled={!consent || !offerAccepted || tgSubmitting}
+                        className="mrc-btn mrc-btn-ghost"
+                      >
+                        {tgSubmitting ? "Открываем…" : "Получить разбор в Telegram"}
                       </button>
                     </div>
                     {/* Согласие по инструкции: обе ссылки, чекбокс не проставлен заранее */}
@@ -554,6 +617,27 @@ export default function CheckPage() {
                   </ul>
                 </article>
               ))}
+            </div>
+          </div>
+
+          {/* Ценовой якорь. До него на странице не было ни одной цифры денег:
+              человек шёл до самого КП, не понимая порядка сумм, и часть
+              отваливалась уже внутри документа — там, где это стоило нам
+              генерации. Названная заранее вилка отсеивает не тех раньше и
+              снимает главный молчаливый вопрос «сколько это стоит». */}
+          <div className="mrc-anchor">
+            <div>
+              <div className="mrc-mono mrc-who-label">сколько это стоит</div>
+              <p className="mrc-body" style={{ margin: "8px 0 0" }}>
+                Диагностика и разбор — <b>0 ₽</b>. Работа по устранению найденного —
+                <b> от 25 000 ₽ в месяц</b>: техника сайта, контент, внешние упоминания и
+                репутация ведутся вместе, по одному счёту. Точная сумма — в разборе, после
+                того как понятно, что именно чинить.
+              </p>
+            </div>
+            <div className="mrc-anchor-fig">
+              <div className="mrc-anchor-num">0 ₽</div>
+              <div className="mrc-note">разбор</div>
             </div>
           </div>
         </section>
@@ -1706,6 +1790,25 @@ const CSS = AI_ROW_CSS + `
   opacity: 1; background: transparent; color: var(--soft);
   border-color: var(--rule); box-shadow: none;
 }
+/* Вторая дверь (Telegram): контурная, чтобы не спорить с основной кнопкой,
+   но полноразмерная — это равноправный путь, а не сноска. */
+.mrc-btn-ghost {
+  background: transparent; color: var(--mrc-fg);
+  border-color: color-mix(in srgb, var(--flare-use) 45%, var(--rule));
+  height: 46px; min-height: 46px; font-size: 14.5px;
+}
+.mrc-btn-ghost:hover:not(:disabled) {
+  border-color: var(--flare-use);
+  background: color-mix(in srgb, var(--flare-use) 7%, transparent);
+}
+.mrc-alt-door {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px;
+}
+.mrc-alt-door .mrc-note { margin: 0; }
+@media (max-width: 700px) {
+  .mrc-alt-door { flex-direction: column; align-items: stretch; gap: 8px; }
+  .mrc-alt-door .mrc-btn { width: 100%; }
+}
 .mrc-btn:focus-visible, .mrc-input:focus-visible, .mrc-root a:focus-visible, .mrc-checkbox:focus-visible {
   outline: 2px solid var(--flare-use); outline-offset: 2px;
 }
@@ -1918,6 +2021,22 @@ const CSS = AI_ROW_CSS + `
 .mrc-final .mrc-lead { margin-bottom: 26px; }
 
 /* ── Подвал ── */
+
+/* Ценовой якорь под составом разбора: вилка названа до КП, а не внутри него. */
+.mrc-anchor {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center;
+  margin-top: 26px; padding: 22px 24px;
+  border: 1px solid var(--rule); border-radius: 14px; background: var(--surface);
+}
+.mrc-anchor-fig { text-align: center; }
+.mrc-anchor-num {
+  font-size: 40px; font-weight: 800; letter-spacing: -0.03em; color: var(--flare-use);
+  line-height: 1;
+}
+@media (max-width: 720px) {
+  .mrc-anchor { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .mrc-anchor-fig { text-align: left; }
+}
 
 /* Блок «кто исполнитель»: реквизиты и контакты — доказательство, что за
    лендингом есть юрлицо, а не только форма ввода адреса. */

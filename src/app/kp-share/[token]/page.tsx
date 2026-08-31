@@ -173,6 +173,16 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
           tgConnectUrl,
           siteReadyUrl,
         }}
+        onConsult={async (contact) => {
+          try {
+            const r = await fetch(`/api/kp-share/${token}/consult`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contact }),
+            });
+            const j = await r.json().catch(() => ({ ok: false }));
+            return j.ok === true;
+          } catch { return false; }
+        }}
       />
     );
   }

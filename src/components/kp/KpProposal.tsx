@@ -92,6 +92,12 @@ interface Props {
    * только на клиентской /kp-share для немецких авто-КП.
    */
   locale?: KpProposalLocale;
+  /**
+   * Заявка на консультацию — второй выход из документа для тех, кто не
+   * покупает с листа. Прокидывается только клиентской /kp-share: в
+   * менеджерском просмотре кнопка не должна дёргать менеджера самому себе.
+   */
+  onConsult?: ((contact: string) => Promise<boolean>) | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -210,6 +216,7 @@ export function KpProposal({
   generatedBundle = null,
   astroRebuild = null,
   locale = "ru",
+  onConsult = null,
 }: Props) {
   const t = KP_PROPOSAL_I18N[locale];
   // PD — активный пилот-бандл. Приоритет: сгенерированный бандл (авто-КП) →
@@ -445,6 +452,9 @@ export function KpProposal({
   // ушёл ДАЛЬШЕ, чем был (maxSectionIdxRef), чтобы не спамить событиями на
   // каждый пиксель скролла и не логировать возврат назад как новый прогресс.
   const maxSectionIdxRef = useRef(-1);
+  const [consultContact, setConsultContact] = useState("");
+  const [consultBusy, setConsultBusy] = useState(false);
+  const [consultDone, setConsultDone] = useState(false);
   useEffect(() => {
     trackKpEvent("view");
     // Цель Метрики «kp_opened» — событие глубины, а не клика. По нему
@@ -2103,13 +2113,50 @@ export function KpProposal({
                 <div style={{ fontSize: 16.5, fontWeight: 800, marginBottom: 4 }}>{t.consultTitle}</div>
                 <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{t.consultBody}</div>
               </div>
-              <button
-                onClick={() => { trackKpEvent("click", "consult"); scrollTo(primaryCtaId); }}
-                className="ds-btn ds-btn-primary"
-                style={{ height: 44, padding: "0 22px", fontSize: 14, flexShrink: 0 }}
-              >
-                {t.consultBtn}
-              </button>
+              {/* Раньше кнопка просто скроллила к форме пересборки: человек,
+                  готовый поговорить, но не готовый заказывать новый сайт,
+                  упирался в форму не про то. Теперь это самостоятельная
+                  заявка — контакт уходит менеджеру в Telegram. */}
+              {onConsult ? (
+                consultDone ? (
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)", flexShrink: 0 }}>
+                    Заявка принята — свяжемся в течение рабочего дня
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
+                    <input
+                      value={consultContact}
+                      onChange={e => setConsultContact(e.target.value)}
+                      placeholder="Телефон, email или @ник"
+                      aria-label="Контакт для консультации"
+                      className="ds-input"
+                      style={{ height: 44, minWidth: 200, padding: "0 14px", fontSize: 14 }}
+                    />
+                    <button
+                      onClick={async () => {
+                        trackKpEvent("click", "consult");
+                        setConsultBusy(true);
+                        const ok = await onConsult(consultContact.trim());
+                        setConsultBusy(false);
+                        if (ok) setConsultDone(true);
+                      }}
+                      disabled={consultBusy || consultContact.trim().length < 5}
+                      className="ds-btn ds-btn-primary"
+                      style={{ height: 44, padding: "0 22px", fontSize: 14, flexShrink: 0 }}
+                    >
+                      {consultBusy ? "Отправляем…" : t.consultBtn}
+                    </button>
+                  </div>
+                )
+              ) : (
+                <button
+                  onClick={() => { trackKpEvent("click", "consult"); scrollTo(primaryCtaId); }}
+                  className="ds-btn ds-btn-primary"
+                  style={{ height: 44, padding: "0 22px", fontSize: 14, flexShrink: 0 }}
+                >
+                  {t.consultBtn}
+                </button>
+              )}
             </div>
           </Section>
         )}
