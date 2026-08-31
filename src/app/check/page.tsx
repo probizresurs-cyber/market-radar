@@ -2050,15 +2050,15 @@ const CSS = AI_ROW_CSS + `
 .mrc-gets-t { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
 .mrc-gets-d { font-size: 14.5px; line-height: 1.5; color: var(--soft); }
 .mrc-gets-foot {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin-top: 16px; padding: 14px 16px; border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--mrc-green) 34%, transparent);
-  background: color-mix(in srgb, var(--mrc-green) 7%, transparent);
-  font-size: 15px; line-height: 1.5; color: var(--mrc-fg-mid);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 20px 0 26px; padding: 16px 18px; border-radius: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--mrc-green) 52%, transparent);
+  background: color-mix(in srgb, var(--mrc-green) 13%, transparent);
+  font-size: 15.5px; line-height: 1.5; color: var(--mrc-fg);
 }
 .mrc-gets-price {
-  font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--mrc-green);
-  font-variant-numeric: tabular-nums;
+  font-size: 30px; font-weight: 850; letter-spacing: -0.025em; color: var(--mrc-green);
+  font-variant-numeric: tabular-nums; line-height: 1;
 }
 @media (max-width: 720px) {
   .mrc-gets { grid-template-columns: minmax(0, 1fr); }
@@ -2134,6 +2134,23 @@ const CSS = AI_ROW_CSS + `
   background: linear-gradient(90deg, var(--mrc-indigo), color-mix(in srgb, var(--mrc-cyan) 70%, transparent));
 }
 .mrc-lead-card-text { margin-bottom: 18px; max-width: 84ch; }
+/* Поле и кнопка отделены от плашки с ценой и подняты по контрасту: это
+   точка действия, она не должна быть тише пояснения над собой. */
+.mrc-lead-card .mrc-input {
+  border-color: color-mix(in srgb, var(--mrc-indigo) 42%, transparent);
+  background: var(--mrc-ink-soft);
+  font-size: 15.5px;
+}
+.mrc-lead-card .mrc-input::placeholder { color: var(--mrc-fg-soft); }
+.mrc-lead-card .mrc-input:hover { border-color: color-mix(in srgb, var(--mrc-indigo) 62%, transparent); }
+/* Неактивная кнопка остаётся контурной (заливка читалась бы как «можно
+   нажать»), но её рамка и текст подняты: сейчас она выглядела выключенной
+   настолько, что терялась рядом с полем. */
+.mrc-lead-card .mrc-btn-primary:disabled {
+  color: var(--mrc-fg-mid);
+  border-color: color-mix(in srgb, var(--mrc-indigo) 38%, transparent);
+  border-width: 1.5px;
+}
 .mrc-done-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .mrc-consent {
   display: flex; gap: 11px; align-items: flex-start; margin-top: 16px;
