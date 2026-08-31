@@ -204,11 +204,34 @@ const verdictOf = (s: number) =>
   : s >= 40 ? "Средний уровень — конкуренты вас обходят"
   : "Сайт недобирает: критичные проблемы мешают привлекать клиентов";
 
-/** Пояснение по баллу категории — общий текст для карточки-аккордеона и находок. */
-const categoryVerdict = (score: number) =>
-  score < 45 ? "Показатель значительно ниже нормы. Это напрямую тормозит привлечение клиентов из этого канала."
-  : score < 65 ? "Средний уровень: конкуренты с более сильным показателем забирают часть вашей аудитории."
-  : "Хороший результат, поддерживаем на текущем уровне.";
+/**
+ * Пояснение по баллу категории.
+ *
+ * Было две беды сразу. Первая: один и тот же текст стоял под каждой из пяти
+ * карточек — пять раз «показатель значительно ниже нормы» подряд читаются
+ * как шум, а не как разбор. Вторая: «ниже нормы» — сравнение с величиной,
+ * которой у нас нет; ту же выдуманную норму мы уже убрали из панели «почему
+ * это важно».
+ *
+ * Теперь текст говорит, ЧТО означает низкий балл именно этой оси — то есть
+ * повторяет логику самой оценки, а не оценивает её повторно.
+ */
+const CATEGORY_LOW: { match: RegExp; text: string }[] = [
+  { match: /seo|узнавае/i, text: "Страницы плохо описаны для поиска: по заголовкам и разметке непонятно, по каким запросам вас показывать." },
+  { match: /соцсет|social/i, text: "Каналов не нашлось или они не связаны с сайтом — этот путь к клиенту сейчас закрыт." },
+  { match: /контент|inhalt/i, text: "На страницах мало текста, который можно процитировать: поиску и ассистентам нечего пересказывать." },
+  { match: /hr|бренд работодател|arbeitgeber|экспертн/i, text: "Данных о компании как о работодателе на сайте нет — по ним вас тоже ищут." },
+  { match: /технолог|доверие|technolog/i, text: "Техническая база мешает роботам читать страницы: без этого не работает ни поиск, ни ответы ассистентов." },
+];
+
+const categoryVerdict = (score: number, name = "") => {
+  if (score < 45) {
+    return CATEGORY_LOW.find(c => c.match.test(name))?.text
+      ?? "Данных по этому направлению почти нет — клиенты приходят другими путями.";
+  }
+  if (score < 65) return "Направление работает вполсилы: часть спроса уходит тем, у кого оно закрыто полностью.";
+  return "Здесь всё в порядке — поддерживаем на текущем уровне.";
+};
 
 const LLM_LABELS: Record<LLMName, string> = {
   yandex: "YandexGPT", claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", perplexity: "Perplexity",
@@ -795,7 +818,7 @@ export function KpProposal({
                               <div style={{ width: v ? `${Math.max(3, Math.min(100, cat.score))}%` : "0%", height: "100%", background: scoreColor(cat.score), borderRadius: 999, transition: "width 0.9s var(--ease) 0.1s" }} />
                             </div>
                             <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)", marginTop: 8 }}>
-                              {cat.score < 45 ? t.categoryVerdictLow : cat.score < 65 ? t.categoryVerdictMid : t.categoryVerdictHigh}
+                              {categoryVerdict(cat.score, cat.name)}
                             </div>
                           </div>
                         )}
@@ -3546,7 +3569,7 @@ function buildFindings(my: AnalysisResult | null, competitors: AnalysisResult[])
     if (/hr|найм|вакан|кадр/i.test(cat.name)) return;
     const severity: Severity = cat.score < 45 ? "critical" : "warning";
     out.push({ severity, channel: "other", category: cat.name, title: `${cat.name}: ${cat.score}/100`,
-      detail: categoryVerdict(cat.score),
+      detail: categoryVerdict(cat.score, cat.name),
       fix: "Проработаем эту зону в рамках комплексной стратегии." });
   });
   const ahead = competitors.filter((c) => c.company.score > my.company.score);
