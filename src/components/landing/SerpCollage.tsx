@@ -288,7 +288,7 @@ export const SERP_COLLAGE_CSS = `
 .mrc-ui {
   background: #fff; color: #202124;
   font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
-  font-size: 13px; line-height: 1.4; padding: 14px 16px 15px;
+  font-size: 14.5px; line-height: 1.4; padding: 14px 16px 15px;
   border: 1px solid #dfe3e8;
 }
 .mrc-ui-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
@@ -305,9 +305,9 @@ export const SERP_COLLAGE_CSS = `
 }
 .mrc-ui-find {
   background: #fc3f1d; color: #fff; border-radius: 999px;
-  padding: 6px 15px; font-size: 12.5px; font-weight: 500; flex-shrink: 0;
+  padding: 6px 15px; font-size: 14px; font-weight: 500; flex-shrink: 0;
 }
-.mrc-ui-tabs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12.5px; color: #5f6368; }
+.mrc-ui-tabs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; font-size: 14px; color: #5f6368; }
 .mrc-ui-tabs .is-on { background: #f0f0f0; border-radius: 999px; padding: 3px 11px; color: #202124; font-weight: 500; }
 .mrc-ui-tabs span:not(.is-on) { padding: 3px 4px; }
 
@@ -316,22 +316,22 @@ export const SERP_COLLAGE_CSS = `
 .mrc-ui-t { color: #0b57d0; font-size: 14.5px; line-height: 1.3; }
 .mrc-ui-t-g { color: #1a0dab; font-size: 15px; }
 .mrc-ui-t mark { background: #fff3b0; color: inherit; padding: 0 2px; border-radius: 2px; }
-.mrc-ui-u { font-size: 12px; }
+.mrc-ui-u { font-size: 13.5px; }
 .mrc-ui-u-ya { color: #068a3f; }
 .mrc-ui-u-g { color: #4d5156; }
-.mrc-ui-s { color: #4d5156; font-size: 12.5px; }
-.mrc-ui-r { color: #70757a; font-size: 12px; }
+.mrc-ui-s { color: #4d5156; font-size: 14px; }
+.mrc-ui-r { color: #70757a; font-size: 13.5px; }
 
 /* Пустое место клиента — единственный элемент нашего цвета */
 .mrc-ui-gap {
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   margin-top: 4px; padding-top: 10px; border-top: 1px dashed #f0a5a5;
-  font-size: 11.5px; color: #b91c1c;
+  font-size: 13px; color: #b91c1c;
 }
 .mrc-ui-gap.is-tight { margin-top: 10px; }
 .mrc-ui-gap-slot {
   border: 1px dashed #dc2626; border-radius: 6px; padding: 4px 10px;
-  font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; white-space: nowrap;
+  font-family: ui-monospace, Menlo, monospace; font-size: 13px; white-space: nowrap;
 }
 
 /* Алиса */
@@ -340,26 +340,26 @@ export const SERP_COLLAGE_CSS = `
   font-size: 13px; margin: 0 0 12px auto; width: fit-content; max-width: 80%;
 }
 .mrc-ui-alice-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; }
-.mrc-ui-think { color: #70757a; font-size: 11.5px; margin-bottom: 7px; }
+.mrc-ui-think { color: #70757a; font-size: 13px; margin-bottom: 7px; }
 .mrc-ui-answer { margin: 0 0 12px; font-size: 13px; color: #202124; }
-.mrc-ui-tablehead { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
+.mrc-ui-tablehead { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 .mrc-ui-tablerow {
   display: flex; justify-content: space-between; gap: 12px;
-  font-size: 12.5px; color: #4d5156; padding: 5px 0; border-top: 1px solid #eceff1;
+  font-size: 14px; color: #4d5156; padding: 5px 0; border-top: 1px solid #eceff1;
 }
 .mrc-ui-sites { background: #f7f8fa; border-radius: 10px; padding: 12px 13px; }
-.mrc-ui-sites-h { font-weight: 600; font-size: 12.5px; margin-bottom: 9px; }
+.mrc-ui-sites-h { font-weight: 600; font-size: 14px; margin-bottom: 9px; }
 .mrc-ui-site { margin-bottom: 9px; display: grid; gap: 1px; }
-.mrc-ui-site-host { color: #0b57d0; font-size: 12px; }
-.mrc-ui-site-t { color: #4d5156; font-size: 11.5px; line-height: 1.3; }
+.mrc-ui-site-host { color: #0b57d0; font-size: 13.5px; }
+.mrc-ui-site-t { color: #4d5156; font-size: 13px; line-height: 1.3; }
 
 /* Чаты */
 .mrc-ui-chat-h { margin-bottom: 11px; padding-bottom: 9px; border-bottom: 1px solid #eceff1; }
-.mrc-ui-chat-mark { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
+.mrc-ui-chat-mark { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; }
 .mrc-ui-chat.is-chatgpt .mrc-ui-chat-mark { color: #0d8a5f; }
 .mrc-ui-chat.is-claude .mrc-ui-chat-mark { color: #c15f3c; }
 .mrc-ui-cites { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
-.mrc-ui-cite { color: #0b57d0; font-size: 11.5px; }
+.mrc-ui-cite { color: #0b57d0; font-size: 13px; }
 
 @media (max-width: 900px) {
   .mrc-collage { min-height: 0; padding: 0; }
@@ -379,14 +379,14 @@ export const SERP_COLLAGE_CSS = `
 .mrc-collage-card:focus-visible { outline: 3px solid var(--mrc-indigo); outline-offset: 4px; }
 .mrc-collage-tag {
   position: absolute; top: 10px; right: 12px; z-index: 4;
-  font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em;
+  font-family: var(--f-mono); font-size: 13px; letter-spacing: .06em;
   background: #0f172a; color: #fff; border-radius: 999px; padding: 4px 11px;
   opacity: 0; transition: opacity .25s ease;
 }
 .mrc-collage-card.is-0 .mrc-collage-tag { opacity: 1; }
 .mrc-collage-hint {
   position: absolute; left: 0; bottom: 2px; margin: 0;
-  font-family: var(--f-mono); font-size: 12px; letter-spacing: .04em;
+  font-family: var(--f-mono); font-size: 13.5px; letter-spacing: .04em;
   color: var(--mrc-fg-soft);
 }
 @media (prefers-reduced-motion: reduce) {
