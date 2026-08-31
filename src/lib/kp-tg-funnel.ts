@@ -211,8 +211,39 @@ export async function sendKpInboundAck(chatId: number | string, ctx: KpFunnelCtx
  */
 export async function notifyKpManager(text: string): Promise<void> {
   const managerChat = process.env.KP_MANAGER_TG_CHAT_ID;
-  if (!managerChat) return;
-  try { await sendKpTgMessage(managerChat, text); } catch { /* не роняем поток */ }
+  let delivered = false;
+  if (managerChat) {
+    try {
+      const res = await sendKpTgMessage(managerChat, text);
+      delivered = res.ok;
+    } catch { /* не роняем поток */ }
+  }
+  if (delivered) return;
+
+  // Запасной канал. Раньше при незаполненном KP_MANAGER_TG_CHAT_ID функция
+  // молча ничего не делала — ни ошибки, ни строки в логе. Заявка на
+  // сопровождение, самое дорогое событие воронки, исчезала из-за одной
+  // незаполненной переменной, и узнать об этом было неоткуда. Теперь
+  // уведомление дублируется письмом, а промах пишется в лог.
+  const to = process.env.KP_MANAGER_EMAIL || "support@marketradar24.ru";
+  console.warn(
+    `[kp-tg] уведомление менеджеру не ушло в Telegram (${managerChat ? "ошибка отправки" : "KP_MANAGER_TG_CHAT_ID не задан"}) — дублирую на ${to}`,
+  );
+  try {
+    const { sendMail } = await import("./mailer");
+    await sendMail({
+      to,
+      subject: "MarketRadar: событие воронки (Telegram недоступен)",
+      html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;line-height:1.6">
+<p style="color:#b45309"><b>Это уведомление не удалось доставить в Telegram.</b>
+${managerChat ? "Отправка боту не прошла." : "Переменная KP_MANAGER_TG_CHAT_ID не задана."}</p>
+<hr style="border:none;border-top:1px solid #e2e8f0">
+${text.replace(/\n/g, "<br>")}
+</div>`,
+    });
+  } catch (e) {
+    console.error("[kp-tg] и письмо менеджеру не ушло:", String(e).slice(0, 160));
+  }
 }
 
 /**
