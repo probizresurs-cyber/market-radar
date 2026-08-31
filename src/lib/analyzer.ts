@@ -63,6 +63,40 @@ function safeNum(v: unknown, fallback = 0): number {
   return isFinite(n) ? n : fallback;
 }
 
+/**
+ * Балл категории — только когда под неё есть входные данные.
+ *
+ * Модель охотно ставит оценку любому блоку, даже если в промпте про него
+ * написано «нет». Так и появлялось «Соцсети 5/100» на сайте, где мы просто не
+ * нашли ссылок: пятёрка не измерена ничем, она нарисована. Здесь два условия
+ * подряд: (1) есть что оценивать, (2) модель вернула настоящее число.
+ * Иначе — null, и категория до массива не доходит.
+ */
+function scoreIfMeasured(raw: unknown, hasEvidence: boolean): number | null {
+  if (!hasEvidence) return null;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return isFinite(n) ? clamp(n) : null;
+}
+
+/**
+ * Собирает категории и общий балл из «сырых» осей, пропуская неизмеренные.
+ * Общий балл нормируется по весам оставшихся осей — иначе пропуск блока
+ * молча занижал бы итог, будто там ноль.
+ */
+function buildCategories(
+  axes: Array<{ name: string; weight: number; score: number | null; icon: string }>,
+): { categories: CategoryScore[]; overallScore: number } {
+  const categories: CategoryScore[] = axes
+    .filter((a): a is typeof a & { score: number } => a.score !== null)
+    .map(a => ({ name: a.name, weight: a.weight, score: a.score, icon: a.icon, delta: 0 }));
+  const totalWeight = categories.reduce((s, c) => s + c.weight, 0);
+  const overallScore = totalWeight > 0
+    ? clamp(categories.reduce((s, c) => s + c.score * c.weight, 0) / totalWeight)
+    : 0;
+  return { categories, overallScore };
+}
+
 // ─── Personal Brand Analysis ──────────────────────────────────────────────────
 
 export async function analyzePersonalBrand(data: {
@@ -78,7 +112,7 @@ Title: ${data.scrapedSite.title || "(нет)"}
 Meta description: ${data.scrapedSite.metaDescription || "(нет)"}
 H1: ${data.scrapedSite.h1.join(" | ") || "(нет)"}
 H2 (первые 6): ${data.scrapedSite.h2.slice(0, 6).join(" | ") || "(нет)"}
-Соцсети: ${Object.keys(data.scrapedSite.socialLinks).join(", ") || "нет"}
+Соцсети: ${Object.keys(data.scrapedSite.socialLinks).join(", ") || "ссылок на соцсети на сайте не найдено — ДАННЫХ ДЛЯ ОЦЕНКИ НЕТ"}
 Текст (фрагмент): ${data.scrapedSite.rawTextSample || "(пусто)"}`
     : "(личный сайт не предоставлен)";
 
@@ -111,6 +145,9 @@ ${siteInfo}
 - Для hiring — нули и «—» (неприменимо).
 - Для seo.positions — пустой массив (неприменимо).
 - Для social.yandexRating / gisRating / yandexReviews / gisReviews — нули.
+- Scores: если по оси нет входных данных — верни null, а НЕ маленькое число.
+  Низкий балл — это утверждение «замерили и вышло плохо»; при отсутствии данных
+  это выдумка. Пример: ссылок на соцсети нет → "social": null.
 - Scores интерпретируй СТРОГО для личного бренда персоны (НЕ для компании):
   * seo = УЗНАВАЕМОСТЬ: находят ли персону по имени онлайн, размер цифрового следа
   * social = СОЦСЕТИ: личная активность, регулярность постинга, вовлечённость аудитории
@@ -131,7 +168,7 @@ ${data.parentCompanyContext ? "- Учитывай контекст компан�
 {
   "companyName": "${data.name}",
   "description": "string (2-3 предложения о личном позиционировании и экспертизе)",
-  "scores": { "seo": 0-100, "social": 0-100, "content": 0-100, "hrBrand": 0-100, "technology": 0-100 },
+  "scores": { "seo": 0-100 или null, "social": 0-100 или null, "content": 0-100 или null, "hrBrand": 0-100 или null, "technology": 0-100 или null },
   "avgNiche": 0-100,
   "top10": 0-100,
   "recommendations": [
@@ -226,27 +263,28 @@ ${data.parentCompanyContext ? "- Учитывай контекст компан�
   const p = extractJson(responseText);
 
   // ── Parsing — identical to analyzeWithClaude ──────────────────────────────
-  const scores = {
-    seo: clamp(safeNum(p.scores?.seo, 0)),
-    social: clamp(safeNum(p.scores?.social, 0)),
-    content: clamp(safeNum(p.scores?.content, 0)),
-    hrBrand: clamp(safeNum(p.scores?.hrBrand, 0)),
-    technology: clamp(safeNum(p.scores?.technology, 0)),
+  // Что мы реально видели по персоне. Ось «Соцсети» без единой найденной
+  // ссылки оценивать нечем — как и «Контент», когда сайта нет или он отдал
+  // пустую страницу.
+  const site = data.scrapedSite;
+  const evidence = {
+    recognition: true,
+    social: !!site && Object.keys(site.socialLinks).length > 0,
+    content: !!site && site.rawTextSample.trim().length >= 200,
+    expertise: true,
+    trust: true,
   };
   // Веса осей для личного бренда: экспертность весит наравне с узнаваемостью —
   // для персоны авторитет в нише важнее «техничности».
-  const overallScore = clamp(
-    scores.seo * 0.25 + scores.social * 0.2 + scores.content * 0.2 + scores.hrBrand * 0.2 + scores.technology * 0.15
-  );
   // Оси переименованы под личный бренд (ключи scores те же — маппинг семантический):
   //   seo→Узнаваемость, hrBrand→Экспертность, technology→Доверие/Репутация.
-  const categories: CategoryScore[] = [
-    { name: "Узнаваемость", weight: 25, score: scores.seo, icon: "🔍", delta: 0 },
-    { name: "Соцсети", weight: 20, score: scores.social, icon: "📱", delta: 0 },
-    { name: "Контент", weight: 20, score: scores.content, icon: "✏️", delta: 0 },
-    { name: "Экспертность", weight: 20, score: scores.hrBrand, icon: "🎓", delta: 0 },
-    { name: "Доверие", weight: 15, score: scores.technology, icon: "🤝", delta: 0 },
-  ];
+  const { categories, overallScore } = buildCategories([
+    { name: "Узнаваемость", weight: 25, score: scoreIfMeasured(p.scores?.seo, evidence.recognition), icon: "🔍" },
+    { name: "Соцсети", weight: 20, score: scoreIfMeasured(p.scores?.social, evidence.social), icon: "📱" },
+    { name: "Контент", weight: 20, score: scoreIfMeasured(p.scores?.content, evidence.content), icon: "✏️" },
+    { name: "Экспертность", weight: 20, score: scoreIfMeasured(p.scores?.hrBrand, evidence.expertise), icon: "🎓" },
+    { name: "Доверие", weight: 15, score: scoreIfMeasured(p.scores?.technology, evidence.trust), icon: "🤝" },
+  ]);
 
   // URL для хранения — домен личного сайта или транслитерация имени
   const personalDomain = data.scrapedSite
@@ -397,7 +435,7 @@ H2 (первые 8): ${data.h2.join(" | ") || "(нет)"}
 Изображения: ${data.imageCount} шт., alt у ${data.imagesWithAlt} (${altCoverage}%)
 Schema.org: ${data.hasSchemaMarkup ? "есть" : "нет"} | Canonical: ${data.hasCanonical ? "есть" : "нет"}
 Sitemap: ${data.hasSitemap ? "есть" : "нет"} | Robots.txt: ${data.hasRobotsTxt ? "есть" : "нет"}
-Соцсети: ${socialList.length > 0 ? socialList.join(", ") : "нет"}
+Соцсети: ${socialList.length > 0 ? socialList.join(", ") : "ссылок на соцсети в HTML не найдено — ДАННЫХ ДЛЯ ОЦЕНКИ НЕТ (страница могла быть отрисована скриптом или обрезана)"}
 Вакансии: ${data.hasVacanciesLink ? "да" : "нет"} | Блог/кейсы: ${data.hasBlogOrCases ? "да" : "нет"}
 Технологии: ${data.techStack.join(", ") || "нет"}
 JS-heavy: ${data.jsHeavy ? "да" : "нет"}
@@ -405,6 +443,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 
 === ИНСТРУКЦИИ (СТРОГО: не выдумывай конкретику если нет источника) ===
 - ВАЖНО: ты НЕ имеешь доступа к Keys.so / SimilarWeb / DaData. Любые конкретные SEO-позиции, объёмы поиска, число сотрудников, оборот, число клиентов, рейтинги Я.К/2GIS — выдумывать ЗАПРЕЩЕНО.
+- scores: если по категории нет входных данных — верни null, а НЕ маленькое число. Балл 5/100 у блока, про который в данных написано «данных для оценки нет», — это выдуманное число, а не строгая оценка. Пример: ссылок на соцсети не найдено → "social": null.
 - Для SEO: верни ПУСТОЙ массив positions: []. Реальные позиции подтягиваются из Keys.so на сервере. Если данных нет — лучше пусто, чем выдуманно.
 - Для соцсетей: возвращай null для подписчиков/постов. Реальные цифры подтягиваются getRealVKStats / getRealTelegramStats на сервере.
 - Для бизнеса (employees, founded, taxRegime): ВСЕГДА верни строку «—». Реальные данные тянутся из DaData на сервере, твои догадки будут перезаписаны.
@@ -420,7 +459,7 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
 {
   "companyName": "string",
   "description": "string (2-3 предложения о компании)",
-  "scores": { "seo": 0-100, "social": 0-100, "content": 0-100, "hrBrand": 0-100, "technology": 0-100 },
+  "scores": { "seo": 0-100 или null, "social": 0-100 или null, "content": 0-100 или null, "hrBrand": 0-100 или null, "technology": 0-100 или null },
   "avgNiche": 0-100,
   "top10": 0-100,
   "recommendations": [
@@ -546,33 +585,41 @@ JS-heavy: ${data.jsHeavy ? "да" : "нет"}
   const p = extractJson(responseText);
 
   // Раньше тут были fallback'ы с правдоподобными числами (seo: 50, social: 30
-   // и т.п.) — это означало что при пустом/мусорном ответе AI пользователь
-   // видел «оценка SEO 50/100» как реальную оценку. Теперь 0 — явный признак
-   // «оценка не получена», UI это рендерит как «—».
-  const scores = {
-    seo: clamp(safeNum(p.scores?.seo, 0)),
-    social: clamp(safeNum(p.scores?.social, 0)),
-    content: clamp(safeNum(p.scores?.content, 0)),
-    hrBrand: clamp(safeNum(p.scores?.hrBrand, 0)),
-    technology: clamp(safeNum(p.scores?.technology, 0)),
+  // и т.п.), потом — ноль как «оценка не получена». Ноль оказался не лучше:
+  // в КП он рендерится как настоящий балл («Соцсети 0/100»), а модель, чтобы
+  // ноля избежать, ставила от себя 5/100 там, где данных не было вообще.
+  // Теперь неизмеренная ось просто не попадает в категории.
+  //
+  // Что считаем «данные есть» — строго по тому, что реально вернул скрапер:
+  const evidence = {
+    // Тех-SEO мы видели своими глазами: title/description/H1/robots/sitemap.
+    seo: !!(data.title || data.metaDescription || data.h1.length > 0 || data.hasRobotsTxt || data.hasSitemap || data.hasCanonical),
+    // Соцсети: пустой список — это «не нашли», а не «их нет». Страницу мог
+    // отрисовать скрипт, а HTML — обрезаться по лимиту. Ни то, ни другое не
+    // повод выставлять блоку балл.
+    social: socialList.length > 0,
+    // Контент нечем оценивать, если текста в HTML нет (типичный JS-heavy сайт).
+    content: !data.jsHeavy && (data.rawTextSample.trim().length >= 200 || data.h2.length > 0),
+    // Единственный сигнал про HR-бренд со страницы — раздел вакансий/карьеры.
+    // Нет его — мы про найм не знаем ничего (данные HH подтягиваются позже и
+    // на этот балл уже не влияют).
+    hrBrand: data.hasVacanciesLink,
+    // Стек, HTTPS, viewport, schema видны всегда, раз страница открылась.
+    technology: true,
   };
-
-  const overallScore = clamp(
-    scores.seo * 0.25 + scores.social * 0.25 + scores.content * 0.2 + scores.hrBrand * 0.15 + scores.technology * 0.15
-  );
 
   // Названия категорий рендерятся клиенту (карточки обзора, радар-чарт в KpProposal) —
   // на DE-КП были захардкожены по-русски независимо от locale.
   const categoryNames = locale === "de"
     ? { social: "Social Media", content: "Inhalte", hrBrand: "Arbeitgebermarke", technology: "Technologie" }
     : { social: "Соцсети", content: "Контент", hrBrand: "HR-бренд", technology: "Технологии" };
-  const categories: CategoryScore[] = [
-    { name: "SEO", weight: 25, score: scores.seo, icon: "🔍", delta: 0 },
-    { name: categoryNames.social, weight: 25, score: scores.social, icon: "📱", delta: 0 },
-    { name: categoryNames.content, weight: 20, score: scores.content, icon: "✏️", delta: 0 },
-    { name: categoryNames.hrBrand, weight: 15, score: scores.hrBrand, icon: "👥", delta: 0 },
-    { name: categoryNames.technology, weight: 15, score: scores.technology, icon: "⚙️", delta: 0 },
-  ];
+  const { categories, overallScore } = buildCategories([
+    { name: "SEO", weight: 25, score: scoreIfMeasured(p.scores?.seo, evidence.seo), icon: "🔍" },
+    { name: categoryNames.social, weight: 25, score: scoreIfMeasured(p.scores?.social, evidence.social), icon: "📱" },
+    { name: categoryNames.content, weight: 20, score: scoreIfMeasured(p.scores?.content, evidence.content), icon: "✏️" },
+    { name: categoryNames.hrBrand, weight: 15, score: scoreIfMeasured(p.scores?.hrBrand, evidence.hrBrand), icon: "👥" },
+    { name: categoryNames.technology, weight: 15, score: scoreIfMeasured(p.scores?.technology, evidence.technology), icon: "⚙️" },
+  ]);
 
   const domain = new URL(data.url).hostname.replace(/^www\./, "");
   const companyName = safeStr(p.companyName, domain);

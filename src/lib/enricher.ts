@@ -2,6 +2,7 @@
  * Real data enrichment from free open APIs.
  * Called after Claude analysis to overwrite AI-guessed fields with actual data.
  */
+import type { FieldExperience } from "./types";
 
 const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; MarketRadar/1.0; +https://company24.pro)",
@@ -422,6 +423,15 @@ export interface PageSpeedResult {
   tbt?: CWVMetric;
   si?:  CWVMetric;
   tti?: CWVMetric;
+  // ── Паспорт замера. Пока его не было, расхождение с ручной проверкой
+  //    клиента невозможно было даже разобрать: неизвестно, какой URL мерили,
+  //    в каком режиме и когда.
+  strategy?: "mobile" | "desktop";
+  requestedUrl?: string;
+  measuredUrl?: string;
+  fetchedAt?: string;
+  lighthouseVersion?: string;
+  field?: FieldExperience;
 }
 
 function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric | undefined {
@@ -434,14 +444,67 @@ function extractAudit(audits: Record<string, unknown>, key: string): CWVMetric |
   };
 }
 
+/** Балл категории Lighthouse: 0..1 → 0..100. null, если Google балл не дал. */
+function categoryPercent(cat: { score?: number | null } | undefined): number | null {
+  const s = cat?.score;
+  return typeof s === "number" && isFinite(s) ? Math.round(s * 100) : null;
+}
+
+/** Полевой блок CrUX. Берём страничный, при его отсутствии — доменный. */
+function extractField(data: Record<string, unknown>): FieldExperience | undefined {
+  const shape = (raw: unknown, scope: "page" | "origin"): FieldExperience | undefined => {
+    const le = raw as { overall_category?: string; metrics?: Record<string, { percentile?: number }> } | undefined;
+    if (!le?.metrics) return undefined;
+    const p = (k: string) => {
+      const v = le.metrics?.[k]?.percentile;
+      return typeof v === "number" ? v : undefined;
+    };
+    const cls = p("CUMULATIVE_LAYOUT_SHIFT_SCORE");
+    return {
+      scope,
+      overall: le.overall_category,
+      lcpMs: p("LARGEST_CONTENTFUL_PAINT_MS"),
+      inpMs: p("INTERACTION_TO_NEXT_PAINT"),
+      // CrUX отдаёт CLS умноженным на 100 — без деления цифра выглядит
+      // катастрофой там, где всё в норме.
+      cls: cls === undefined ? undefined : cls / 100,
+      fcpMs: p("FIRST_CONTENTFUL_PAINT_MS"),
+    };
+  };
+  return shape(data.loadingExperience, "page") ?? shape(data.originLoadingExperience, "origin");
+}
+
+/** Приводим к абсолютному URL и убираем якорь — PSI меряет документ, не хеш. */
+function normalizeMeasureUrl(input: string): string {
+  const raw = input.trim();
+  const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const u = new URL(withProto);
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return withProto;
+  }
+}
+
+let warnedAboutMissingKey = false;
+
 export async function getPageSpeedScores(
   url: string,
   strategy: "mobile" | "desktop" = "mobile",
 ): Promise<PageSpeedResult | null> {
-  const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+  const fullUrl = normalizeMeasureUrl(url);
   // Используем только PAGESPEED_API_KEY (без fallback на GOOGLE_PLACES_API_KEY,
   // у которого HTTP referrer-restriction → server-side даёт 403)
   const apiKey = process.env.PAGESPEED_API_KEY || "";
+  if (!apiKey && !warnedAboutMissingKey) {
+    warnedAboutMissingKey = true;
+    // Раньше отсутствие ключа считалось «опциональным». По факту анонимные
+    // запросы Google складывает в один общий проект, суточная квота которого
+    // исчерпана практически всегда: замер стабильно отдаёт 429 и мы молча
+    // остаёмся без цифр Lighthouse.
+    console.warn("[PageSpeed] PAGESPEED_API_KEY не задан — запросы уходят анонимно и почти гарантированно получают HTTP 429 (общая суточная квота Google исчерпана). Замеры скорости работать не будут.");
+  }
   const keyParam = apiKey ? `&key=${apiKey}` : "";
   const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(fullUrl)}&strategy=${strategy}&category=performance&category=seo&category=accessibility&category=best-practices${keyParam}`;
 
@@ -455,29 +518,65 @@ export async function getPageSpeedScores(
     try {
       const data = await fetchJson(apiUrl, FETCH_HEADERS, TIMEOUT_MS) as Record<string, unknown>;
       const lr = data?.lighthouseResult as Record<string, unknown> | undefined;
-      const cats = lr?.categories as Record<string, { score?: number }> | undefined;
+      const cats = lr?.categories as Record<string, { score?: number | null }> | undefined;
       if (!cats) {
         const apiError = (data as Record<string, unknown>)?.error;
         console.warn(`[PageSpeed] No categories in response (attempt ${attempt}/${MAX_ATTEMPTS}). error:`, apiError);
         if (attempt < MAX_ATTEMPTS) continue;
         return null;
       }
+
+      // Lighthouse умеет «отработать наполовину»: PSI отдаёт lighthouseResult
+      // с runtimeError (страница не открылась, нет FCP, редирект в никуда), а
+      // score категорий = null. Раньше `?? 0` превращал это в убедительные
+      // «0/100», которые уезжали в КП как факт о сайте клиента.
+      const runtimeError = lr?.runtimeError as { code?: string; message?: string } | undefined;
+      const performance = categoryPercent(cats.performance);
+      const seo = categoryPercent(cats.seo);
+      const accessibility = categoryPercent(cats.accessibility);
+      if (runtimeError?.code || performance === null || seo === null || accessibility === null) {
+        console.warn(
+          `[PageSpeed] замер не состоялся для ${fullUrl} (${strategy}): ` +
+          `runtimeError=${runtimeError?.code ?? "нет"}, perf=${performance}, seo=${seo}, a11y=${accessibility}. ` +
+          `Возвращаем null — цифра «0/100» была бы выдумкой.`,
+        );
+        return null;
+      }
+
       const audits = (lr?.audits ?? {}) as Record<string, unknown>;
+      const bestPractices = categoryPercent(cats["best-practices"]);
       return {
-        performance:   Math.round((cats.performance?.score   ?? 0) * 100),
-        seo:           Math.round((cats.seo?.score           ?? 0) * 100),
-        accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
-        bestPractices: Math.round(((cats["best-practices"] as { score?: number } | undefined)?.score ?? 0) * 100),
+        performance,
+        seo,
+        accessibility,
+        ...(bestPractices === null ? {} : { bestPractices }),
         lcp: extractAudit(audits, "largest-contentful-paint"),
         fcp: extractAudit(audits, "first-contentful-paint"),
         cls: extractAudit(audits, "cumulative-layout-shift"),
         tbt: extractAudit(audits, "total-blocking-time"),
         si:  extractAudit(audits, "speed-index"),
         tti: extractAudit(audits, "interactive"),
+        strategy,
+        requestedUrl: fullUrl,
+        // finalUrl отличается от requestedUrl, когда сайт увёл редиректом
+        // (apex → www, http → https, / → /ru). Мерили тогда другую страницу,
+        // и об этом надо иметь возможность сказать вслух.
+        measuredUrl: typeof lr?.finalUrl === "string" ? lr.finalUrl as string
+          : typeof lr?.finalDisplayedUrl === "string" ? lr.finalDisplayedUrl as string
+          : fullUrl,
+        fetchedAt: new Date().toISOString(),
+        lighthouseVersion: typeof lr?.lighthouseVersion === "string" ? lr.lighthouseVersion as string : undefined,
+        field: extractField(data),
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isTransient = /HTTP 5\d\d/.test(msg) || msg.includes("aborted") || msg.includes("ECONNRESET");
+      // 429 выделяем отдельно: это не «сайт медленный» и не сбой сети, это
+      // исчерпанная квота ключа (или его отсутствие). Ретрай тут бесполезен.
+      if (/HTTP 429/.test(msg)) {
+        console.warn(`[PageSpeed] HTTP 429 — квота Google исчерпана${apiKey ? "" : " (запрос без PAGESPEED_API_KEY)"}. Замер ${fullUrl} (${strategy}) пропущен.`);
+        return null;
+      }
       console.warn(`[PageSpeed] attempt ${attempt}/${MAX_ATTEMPTS} failed: ${msg}`);
       if (attempt < MAX_ATTEMPTS && isTransient) {
         // Backoff before retry
@@ -903,11 +1002,20 @@ export interface RealCompanyData {
 
 export async function enrichDomainData(
   domain: string,
-  socialLinks: Record<string, string>
+  socialLinks: Record<string, string>,
+  /**
+   * Реальный URL страницы, на которой мы были (ScrapedData.url, уже после
+   * редиректов). Без него PageSpeed меряет собранный из голого домена
+   * `https://<домен>`, а клиент проверяет руками тот адрес, что видит в
+   * браузере — с www или с языковым префиксом. Это разные страницы, и цифры
+   * законно расходятся.
+   */
+  pageUrl?: string,
 ): Promise<RealDomainData> {
   const tgUrl = socialLinks.telegram ?? socialLinks.tg ?? null;
   const vkUrl = socialLinks.vk ?? null;
   const fullUrl = `https://${domain}`;
+  const speedTarget = pageUrl && /^https?:\/\//i.test(pageUrl) ? pageUrl : fullUrl;
 
   // Динамический импорт, чтобы цикла зависимостей не было если client потащит чего-то странного
   const { getSpywordsData } = await import("./spywords-client");
@@ -916,7 +1024,7 @@ export async function enrichDomainData(
     getRealDomainAge(domain).catch(() => null),
     tgUrl ? getRealTelegramStats(tgUrl).catch(() => null) : Promise.resolve(null),
     vkUrl ? getRealVKStats(vkUrl).catch(() => null) : Promise.resolve(null),
-    getPageSpeedBoth(fullUrl).catch(() => null),
+    getPageSpeedBoth(speedTarget).catch(() => null),
     getFirstArchiveDate(domain).catch(() => null),
     getKeysoKeywords(domain).catch(() => null),
     getSpywordsData(domain).catch(() => null),
