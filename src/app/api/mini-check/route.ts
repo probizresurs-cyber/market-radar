@@ -5,6 +5,7 @@
  * дорисовываются по мере готовности).
  */
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { initDb, query } from "@/lib/db";
 import { startMiniCheck, reviveStuckProbes, type MiniCheckResult } from "@/lib/mini-check";
 import { normalizeDomain } from "@/lib/bukvarix";
@@ -52,26 +53,28 @@ export async function POST(req: Request) {
   // Дедуп по домену за сутки: F5, повторный клик и второй посетитель с тем же
   // сайтом получают готовый результат, а Букварикс с PageSpeed не дёргаются
   // заново. Заодно это кэш против лимитов бесплатного ключа Букварикса.
-  const dup = await query<{ id: string }>(
-    `SELECT id FROM mini_checks
+  //
+  // ВАЖНО: переиспользуется РЕЗУЛЬТАТ, а не сама строка. Раньше второму
+  // посетителю отдавался id чужой проверки — вместе с чужим email (страница
+  // подставляла его маской как «ваш сохранённый адрес») и чужим kp_id, по
+  // которому показывался готовый разбор, заказанный другим человеком.
+  // Данные замера публичны и кэшируются законно, контакты — нет, поэтому
+  // каждый посетитель получает СВОЮ строку с копией результата.
+  const dup = await query<{ id: string; result: MiniCheckResult }>(
+    `SELECT id, result FROM mini_checks
       WHERE domain = $1 AND created_at > NOW() - INTERVAL '24 hours'
+        AND status = 'done'
       ORDER BY created_at DESC LIMIT 1`,
     [domain],
   );
   if (dup[0]) {
-    // Проверка переиспользуется, но контакты нового человека — новые.
-    // COALESCE, чтобы второй посетитель без контактов не стёр первого.
-    if (email || phone || utmJson) {
-      await query(
-        `UPDATE mini_checks
-            SET email = COALESCE($2, email), phone = COALESCE($3, phone),
-                consent_at = COALESCE(consent_at, NOW()),
-                utm = COALESCE(utm, $4::jsonb), updated_at = NOW()
-          WHERE id = $1`,
-        [dup[0].id, email, phone, utmJson],
-      );
-    }
-    return NextResponse.json({ ok: true, id: dup[0].id, reused: true });
+    const copyId = randomUUID();
+    await query(
+      `INSERT INTO mini_checks (id, url, domain, status, result, client_ip, email, phone, consent_at, utm)
+       VALUES ($1, $2, $3, 'done', $4::jsonb, $5, $6, $7, CASE WHEN $6 IS NULL AND $7 IS NULL THEN NULL ELSE NOW() END, $8::jsonb)`,
+      [copyId, url, domain, JSON.stringify(dup[0].result ?? {}), ip, email, phone, utmJson],
+    );
+    return NextResponse.json({ ok: true, id: copyId, reused: true });
   }
 
   // 10 проверок с IP в сутки: щедрее, чем у полного КП (3) — проверка

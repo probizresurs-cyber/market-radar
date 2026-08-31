@@ -51,6 +51,49 @@ export async function enqueueKp(
   return id;
 }
 
+/**
+ * Копия готовой генерации для другого лида — без повторного вызова Claude.
+ *
+ * Раньше второй человек, запросивший разбор того же сайта в течение суток,
+ * просто получал id ЧУЖОЙ генерации. Его email не записывался (COALESCE не
+ * перетирает первый), а значит письмо со ссылкой уходило первому, дожим
+ * работал по первому, и второй лид тихо терялся — при том что он прошёл всю
+ * воронку до конца.
+ *
+ * Содержимое разбора по одному и тому же сайту одинаково, поэтому bundle и
+ * company копируются как есть: экономия Claude сохраняется полностью, а
+ * ссылка, контакты, отписка и дожим у каждого лида свои.
+ */
+export async function cloneKpForLead(
+  sourceId: string,
+  opts: { clientEmail?: string; clientPhone?: string; clientIp?: string; source?: "public" | "user" },
+): Promise<string | null> {
+  const rows = await query<{ locale: string; url: string; company_name: string | null; bundle: unknown; company: unknown; status: string }>(
+    "SELECT locale, url, company_name, bundle, company, status FROM kp_generations WHERE id = $1",
+    [sourceId],
+  );
+  const src = rows[0];
+  if (!src || src.status !== "done") return null;
+
+  const id = randomUUID();
+  await query(
+    `INSERT INTO kp_generations
+       (id, locale, url, status, share_token, share_password, company_name, bundle, company,
+        client_email, client_phone, source, client_ip, completed_at)
+     VALUES ($1, $2, $3, 'done', $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())`,
+    [
+      id, src.locale, src.url,
+      randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
+      src.company_name, JSON.stringify(src.bundle), JSON.stringify(src.company),
+      opts.clientEmail ?? null, opts.clientPhone ?? null, opts.source ?? "public", opts.clientIp ?? null,
+    ],
+  );
+  // Уведомление о готовности — обычным путём: ссылка уезжает на почту сразу,
+  // как и у генерации, собранной с нуля.
+  void notifyKpReady(id).catch(() => {});
+  return id;
+}
+
 async function processOne(row: { id: string; url: string; locale: string }) {
   running++;
   const started = Date.now();

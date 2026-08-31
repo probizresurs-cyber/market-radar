@@ -120,6 +120,15 @@ export default function CheckPage() {
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не удалось запустить проверку");
+      // Новый замер — новая воронка. Без этого сброса состояние прошлого
+      // разбора переживало смену адреса: человек вводил другой сайт, видел
+      // корректные замеры и рядом «Полный разбор готов» с кнопкой на ЧУЖОЙ
+      // документ, хотя почту в этот раз не оставлял.
+      setKpState("idle");
+      setKpUrl(null);
+      setKnownEmail(null);
+      setLeadErr(null);
+      setResult({});
       setCheckId(String(j.id));
       reach("mini_check_start");
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
@@ -226,6 +235,15 @@ export default function CheckPage() {
     const demand = sem?.status === "done" && !sem.empty ? sem.demandNearby ?? 0 : 0;
     if (demand >= 10_000) {
       return `Рядом с вами ${fmtFreq(demand).replace(" запросов/мес", " запросов в месяц")} — разбор покажет, кто их забирает`;
+    }
+    // Малый сайт: спрос рядом невелик, зато собственная видимость почти
+    // нулевая — и это аргумент сильнее любой абстракции. Без этой ветки
+    // большинство посетителей (сайты с единичными запросами) видели
+    // нейтральный текст, то есть персонализация не срабатывала там, где
+    // она нужнее всего.
+    const visible = sem?.status === "done" && !sem.empty ? sem.visibleCount ?? 0 : -1;
+    if (visible >= 0 && visible < 50) {
+      return `Вас находят всего по ${visible} ${visible === 1 ? "запросу" : "запросам"} — разбор покажет, по каким должны`;
     }
     if (rd?.status === "done" && rd.access === "blocked") {
       return "Ваш сайт закрыт от ассистентов — разбор покажет, что именно чинить";

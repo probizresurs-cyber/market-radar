@@ -13,7 +13,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { initDb, query } from "@/lib/db";
-import { enqueueKp } from "@/lib/kp-queue";
+import { enqueueKp, cloneKpForLead } from "@/lib/kp-queue";
 
 export const runtime = "nodejs";
 
@@ -62,14 +62,25 @@ export async function POST(req: Request) {
 
   // Дедуп на уровне kp_generations — тот же сайт мог запросить полный разбор
   // с /express-report: переиспользуем генерацию, а не жжём Claude второй раз.
-  const dupKp = await query<{ id: string }>(
-    `SELECT id FROM kp_generations
+  const dupKp = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM kp_generations
       WHERE source='public' AND url=$1 AND created_at > NOW() - INTERVAL '24 hours'
-        AND status IN ('queued','running','done')
+        AND status = 'done'
       ORDER BY created_at DESC LIMIT 1`,
     [r.url],
   );
-  const kpId = dupKp[0]?.id ?? await enqueueKp(r.url, "ru", {
+  // Готовый разбор того же сайта копируется этому лиду: содержимое то же,
+  // Claude не вызывается, но ссылка, контакты и дожим — свои. Отдавать чужую
+  // строку нельзя: email второго лида не записывался бы, и он терялся.
+  const cloned = dupKp[0]
+    ? await cloneKpForLead(dupKp[0].id, {
+        clientEmail: email,
+        clientPhone: r.phone ?? undefined,
+        clientIp: r.client_ip ?? undefined,
+        source: "public",
+      })
+    : null;
+  const kpId = cloned ?? await enqueueKp(r.url, "ru", {
     source: "public",
     clientEmail: email,
     // Телефон с формы /geo раньше умирал в mini_checks: ни письма, ни звонка,
