@@ -88,10 +88,10 @@ export async function POST(req: Request) {
   // сбрасывается: отзыв согласия делается отпиской, а не повторной формой.
   await query(
     `UPDATE kp_generations
-        SET client_email = COALESCE(client_email, $2),
+        SET client_email = COALESCE(client_email, $2::text),
             marketing_consent_at = CASE WHEN $3 THEN COALESCE(marketing_consent_at, NOW()) ELSE marketing_consent_at END,
-            unsub_token = COALESCE(unsub_token, $4),
-            client_phone = COALESCE(client_phone, $5),
+            unsub_token = COALESCE(unsub_token, $4::text),
+            client_phone = COALESCE(client_phone, $5::text),
             utm = COALESCE(utm, $6::jsonb)
       WHERE id = $1`,
     [

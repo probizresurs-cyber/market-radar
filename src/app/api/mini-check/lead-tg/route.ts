@@ -75,8 +75,8 @@ export async function POST(req: Request) {
 
   await query(
     `UPDATE kp_generations
-        SET client_tg_code = COALESCE(client_tg_code, $2),
-            unsub_token = COALESCE(unsub_token, $3),
+        SET client_tg_code = COALESCE(client_tg_code, $2::text),
+            unsub_token = COALESCE(unsub_token, $3::text),
             utm = COALESCE(utm, $4::jsonb)
       WHERE id = $1`,
     [kpId, tgCode, randomUUID().replace(/-/g, "").slice(0, 24), r.utm ? JSON.stringify(r.utm) : null],

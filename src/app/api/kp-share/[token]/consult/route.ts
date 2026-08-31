@@ -73,13 +73,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
         SET consult_requested_at = COALESCE(consult_requested_at, NOW()),
             consult_contact = $2,
             consult_kind = $3,
-            client_email = COALESCE(client_email, $4),
-            client_phone = COALESCE(client_phone, $5),
-            client_tg_nick = COALESCE(client_tg_nick, $6),
+            client_email = COALESCE(client_email, $4::text),
+            client_phone = COALESCE(client_phone, $5::text),
+            client_tg_nick = COALESCE(client_tg_nick, $6::text),
             -- Интерес перезаписываем непустым значением: человек мог сначала
             -- нажать «поговорить», а потом вернуться и выбрать тариф. Пустой
             -- повтор не должен стирать то, что уже было указано.
-            consult_interest = COALESCE(NULLIF($7, ''), consult_interest)
+            consult_interest = COALESCE(NULLIF($7::text, ''), consult_interest)
       WHERE id = $1`,
     [r.id, contact, kind, email || null, phone || null, tgNick || null, interest],
   );
