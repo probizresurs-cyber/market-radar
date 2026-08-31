@@ -35,12 +35,17 @@ export async function POST(req: Request) {
 
     // Горячий лид — менеджеру сразу в TG, а не когда он заглянет в админку.
     const intentLabel = intent === "seo-geo" ? "SEO/GEO-продвижение" : intent === "contact" ? "связаться" : "полный анализ";
+    // Заявка может прийти прямо со страницы КП — тогда в source_path лежит
+    // /kp-share/<token>. Вытаскиваем токен, чтобы менеджер получил ссылку на
+    // тот же документ; пароль подставит notifyKpManager из БД.
+    const shareToken = source_path?.match(/\/kp-share\/([A-Za-z0-9_-]+)/)?.[1] ?? null;
     void notifyKpManager(
       `📨 <b>Новая заявка: ${intentLabel}</b>\n` +
       `Компания: ${company_name.trim().slice(0, 100)}\n` +
       `Сайт: ${website.trim().slice(0, 100)}\n` +
       `Контакт: ${contact.trim().slice(0, 100)}` +
       (source_path ? `\nОткуда: ${source_path.trim().slice(0, 100)}` : ""),
+      shareToken ? { shareToken } : undefined,
     );
 
     return NextResponse.json({ ok: true, id });

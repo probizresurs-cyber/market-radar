@@ -183,11 +183,11 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
             return j.ok === true;
           } catch { return false; }
         }}
-        onServiceRequest={async ({ email, phone, telegram }) => {
+        onServiceRequest={async ({ email, phone, telegram, interest }) => {
           try {
             const r = await fetch(`/api/kp-share/${token}/consult`, {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ kind: "service", email, phone, telegram }),
+              body: JSON.stringify({ kind: "service", email, phone, telegram, interest }),
             });
             const j = await r.json().catch(() => ({ ok: false }));
             if (j.ok === true) {

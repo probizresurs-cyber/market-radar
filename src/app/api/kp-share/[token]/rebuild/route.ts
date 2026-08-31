@@ -21,7 +21,7 @@ const TG_BOT_USERNAME = "market_radar1_bot";
 
 interface Row {
   id: string; url: string; status: string; rebuild_status: string | null; client_tg_code: string | null;
-  company_name: string | null;
+  company_name: string | null; share_password: string | null;
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
@@ -43,7 +43,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   }
 
   const rows = await query<Row>(
-    "SELECT id, url, status, rebuild_status, client_tg_code, company_name FROM kp_generations WHERE share_token = $1",
+    "SELECT id, url, status, rebuild_status, client_tg_code, company_name, share_password FROM kp_generations WHERE share_token = $1",
     [token],
   );
   const r = rows[0];
@@ -71,11 +71,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   // Горячее событие: клиент нажал главный CTA — менеджер должен узнать сразу,
   // а не когда заглянет в таб «Ревью».
   const name = r.company_name || r.url;
+  // Ссылка на КП во всех трёх уведомлениях ниже: менеджеру нужно видеть тот
+  // самый документ, с которого пришла заявка (её же он и будет обсуждать).
+  const kpRef = { shareToken: token, sharePassword: r.share_password };
   void notifyKpManager(
     `🔥 <b>Новая заявка на пересборку сайта</b>\n` +
     `Компания: ${name.slice(0, 100)}\n` +
     `Email: ${email}${phone ? `\nТелефон: ${phone}` : ""}\n` +
     `Пересборка запущена — результат появится в табе «Ревью пересборок».`,
+    kpRef,
   );
 
   try {
@@ -84,7 +88,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
       "UPDATE kp_generations SET rebuild_status = 'pending_review', rebuild_id = $2 WHERE id = $1",
       [r.id, rebuildId],
     );
-    void notifyKpManager(`✅ Пересборка «${name.slice(0, 100)}» готова к ревью — можно одобрять.`);
+    void notifyKpManager(`✅ Пересборка «${name.slice(0, 100)}» готова к ревью — можно одобрять.`, kpRef);
     return NextResponse.json({ ok: true, status: "pending_review", tgConnectUrl });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ошибка пересборки";
@@ -95,6 +99,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     void notifyKpManager(
       `⚠️ <b>Пересборка упала</b>\nКомпания: ${name.slice(0, 100)}\nОшибка: ${msg.slice(0, 200)}\n` +
       `Клиент (${email}) увидел «попробуйте позже» — стоит связаться вручную.`,
+      kpRef,
     );
     return NextResponse.json({ ok: false, error: "Не удалось собрать новую версию сайта. Попробуйте позже." }, { status: 502 });
   }

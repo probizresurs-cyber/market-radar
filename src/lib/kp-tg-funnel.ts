@@ -13,6 +13,9 @@
  *   3. followup день 1 — «как вам новая версия?» + оффер полного анализа
  *   4. followup день 3 — последний штрих: SEO/GEO-ценность, CTA «ответьте здесь»
  *      (3–4 шлёт cron /api/cron/kp-followups; followup_stage в kp_generations)
+ *   5. прогрев       — 3 сообщения тем, кто подключил бота и завис на разборе,
+ *                       не дойдя до заявки (cron /api/cron/kp-tg-warm;
+ *                       tg_warm_stage в kp_generations)
  *   + любой входящий текст от КП-клиента → ответ-меню + пересылка менеджеру
  *     (env KP_MANAGER_TG_CHAT_ID, опционально).
  *
@@ -68,6 +71,20 @@ export function kpShareUrl(shareToken: string | null): string | null {
   return shareToken ? `${SITE}/kp-share/${shareToken}` : null;
 }
 
+/**
+ * Ссылка на КП вместе с паролем в query — ровно та, по которой откроется
+ * документ без ввода пароля. Нужна менеджеру: голый /kp-share/<token>
+ * упирается в форму пароля, и уведомление превращается в ребус.
+ */
+export function kpShareUrlWithPassword(
+  shareToken: string | null | undefined,
+  sharePassword: string | null | undefined,
+): string | null {
+  if (!shareToken) return null;
+  const base = `${SITE}/kp-share/${shareToken}`;
+  return sharePassword ? `${base}?p=${encodeURIComponent(sharePassword)}` : base;
+}
+
 // ─── Тексты ─────────────────────────────────────────────────────────────────
 
 export { KP_UPSELL_PRICE } from "@/lib/kp-upsell-pricing";
@@ -84,6 +101,10 @@ const T: Record<KpTgLocale, {
   followup1: (name: string) => string;
   followup2: (name: string) => string;
   inboundAck: string;
+  /** ТГ-прогрев (cron/kp-tg-warm): 3 сообщения тем, кто подключил бота и молчит. */
+  warm1: (name: string) => string;
+  warm2: (name: string) => string;
+  warm3: (name: string) => string;
 }> = {
   ru: {
     connected: (name) =>
@@ -117,6 +138,22 @@ const T: Record<KpTgLocale, {
     inboundAck:
       `✅ Спасибо, получили ваше сообщение — передали менеджеру, ответим в ближайшее время.\n\n` +
       `Пока ждёте, всё по вашему проекту — по кнопкам ниже:`,
+    warm1: (name) =>
+      `Разбор «${name}» у вас на руках. Если что-то в нём непонятно — спросите прямо здесь, ` +
+      `ответим текстом, без звонка.\n\n` +
+      `Чаще всего первый вопрос один: с чего начинать, если делать всё сразу не получится. ` +
+      `Ответ зависит от вашей ситуации — напишите, какая задача сейчас острее, и мы скажем, что взяли бы первым.`,
+    warm2: (name) =>
+      `Три вещи, о которых обычно спрашивают после разбора «${name}»:\n\n` +
+      `• <b>Когда будет результат.</b> Первые изменения — через один–три месяца. Быстрее не бывает ни у кого.\n` +
+      `• <b>Можно ли частями.</b> Да, работы делятся: начать можно с одного направления и смотреть на отдачу.\n` +
+      `• <b>А если подрядчик уже есть.</b> Тогда разбор — второе мнение: покажем, что у вас не закрыто, и это можно отдать текущей команде.\n\n` +
+      `Если какой-то вопрос ваш — напишите сюда одной строкой, ответим по вашей ситуации.`,
+    warm3: (name) =>
+      `Последнее сообщение по разбору «${name}» — дальше без вашего ответа писать не будем.\n\n` +
+      `Если тема живая, быстрее всего разобраться в разговоре: 15 минут, пройдём по вашим находкам ` +
+      `и скажем, что имеет смысл делать в вашем случае, а что нет.\n\n` +
+      `Ответьте «давайте» — предложим время. Если сейчас не до этого, напишите «не сейчас», и мы не вернёмся.`,
   },
   de: {
     connected: (name) =>
@@ -150,6 +187,22 @@ const T: Record<KpTgLocale, {
     inboundAck:
       `✅ Danke, wir haben Ihre Nachricht erhalten und an Ihren Manager weitergeleitet — wir melden uns in Kürze.\n\n` +
       `In der Zwischenzeit finden Sie alles zu Ihrem Projekt über die Buttons unten:`,
+    warm1: (name) =>
+      `Die Analyse „${name}" liegt Ihnen vor. Wenn etwas darin unklar ist — fragen Sie einfach hier, ` +
+      `wir antworten schriftlich, ohne Anruf.\n\n` +
+      `Die häufigste erste Frage: womit anfangen, wenn nicht alles auf einmal geht. ` +
+      `Das hängt von Ihrer Situation ab — schreiben Sie, was gerade am dringendsten ist, und wir sagen, was wir zuerst angehen würden.`,
+    warm2: (name) =>
+      `Drei Fragen, die nach der Analyse „${name}" meistens kommen:\n\n` +
+      `• <b>Wann gibt es Ergebnisse.</b> Erste Veränderungen nach ein bis drei Monaten. Schneller geht es bei niemandem.\n` +
+      `• <b>Geht es auch schrittweise.</b> Ja, die Arbeiten lassen sich aufteilen: mit einem Bereich starten und die Wirkung beobachten.\n` +
+      `• <b>Und wenn wir schon eine Agentur haben.</b> Dann ist die Analyse eine zweite Meinung: wir zeigen, was offen ist — umsetzen kann es Ihr aktuelles Team.\n\n` +
+      `Wenn eine der Fragen Ihre ist — schreiben Sie eine Zeile hierher, wir antworten konkret.`,
+    warm3: (name) =>
+      `Letzte Nachricht zur Analyse „${name}" — ohne Ihre Antwort schreiben wir nicht weiter.\n\n` +
+      `Falls das Thema aktuell ist, geht es im Gespräch am schnellsten: 15 Minuten, wir gehen Ihre Befunde durch ` +
+      `und sagen, was in Ihrem Fall sinnvoll ist und was nicht.\n\n` +
+      `Antworten Sie mit „gerne" — wir schlagen einen Termin vor. Passt es gerade nicht, schreiben Sie „später", und wir melden uns nicht wieder.`,
   },
 };
 
@@ -198,9 +251,50 @@ export async function sendKpFollowup(chatId: number | string, ctx: KpFunnelCtx, 
   return sendKpTgMessage(chatId, text, funnelButtons(ctx));
 }
 
+/**
+ * ТГ-прогрев: 3 сообщения тем, кто подключил бота, но заявку так и не оставил
+ * (зовётся из cron/kp-tg-warm). Кнопка ведёт в сам разбор — в нём же и форма
+ * заявки, поэтому отдельного CTA-урла серии не нужно.
+ */
+export async function sendKpTgWarm(chatId: number | string, ctx: KpFunnelCtx, stage: 1 | 2 | 3) {
+  const t = T[ctx.locale];
+  const text = stage === 1 ? t.warm1(ctx.companyName) : stage === 2 ? t.warm2(ctx.companyName) : t.warm3(ctx.companyName);
+  const buttons: TgButton[][] = ctx.kpUrl ? [[{ text: t.btnOpenKp, url: ctx.kpUrl }]] : [];
+  return sendKpTgMessage(chatId, text, buttons.length ? buttons : undefined);
+}
+
 /** Ответ на любой входящий текст от КП-клиента (зовётся из webhook). */
 export async function sendKpInboundAck(chatId: number | string, ctx: KpFunnelCtx) {
   return sendKpTgMessage(chatId, T[ctx.locale].inboundAck, funnelButtons(ctx));
+}
+
+/**
+ * Чем адресовать КП в уведомлении менеджеру: либо уже известные токен и
+ * пароль (роут их и так читает), либо просто id генерации — тогда достаём
+ * сами. Второй вариант для мест, где строка не выбиралась целиком.
+ */
+export type KpManagerRef =
+  | { shareToken?: string | null; sharePassword?: string | null; kpId?: never }
+  | { kpId: string; shareToken?: never; sharePassword?: never };
+
+async function resolveKpLink(ref: KpManagerRef): Promise<string | null> {
+  const kpId = "kpId" in ref ? ref.kpId : null;
+  const token = "shareToken" in ref ? ref.shareToken ?? null : null;
+  const password = "sharePassword" in ref ? ref.sharePassword ?? null : null;
+  if (token && password) return kpShareUrlWithPassword(token, password);
+  if (!kpId && !token) return null;
+  try {
+    const { query } = await import("./db");
+    const rows = kpId
+      ? await query<{ share_token: string | null; share_password: string | null }>(
+          "SELECT share_token, share_password FROM kp_generations WHERE id = $1", [kpId])
+      : await query<{ share_token: string | null; share_password: string | null }>(
+          "SELECT share_token, share_password FROM kp_generations WHERE share_token = $1", [token]);
+    return kpShareUrlWithPassword(rows[0]?.share_token, rows[0]?.share_password);
+  } catch {
+    // Уведомление важнее ссылки: падение запроса не должно съесть заявку.
+    return null;
+  }
 }
 
 /**
@@ -209,7 +303,12 @@ export async function sendKpInboundAck(chatId: number | string, ctx: KpFunnelCtx
  * апселл). Best-effort: без KP_MANAGER_TG_CHAT_ID — no-op, основной поток
  * никогда не падает из-за уведомления.
  */
-export async function notifyKpManager(text: string): Promise<void> {
+export async function notifyKpManager(text: string, kp?: KpManagerRef): Promise<void> {
+  // Ссылку клеим здесь, а не в каждом вызывающем роуте: иначе она снова
+  // разъедется по местам и где-нибудь её опять не окажется.
+  const link = kp ? await resolveKpLink(kp) : null;
+  if (link) text += `\n📄 КП клиента: ${link}`;
+
   const managerChat = process.env.KP_MANAGER_TG_CHAT_ID;
   let delivered = false;
   if (managerChat) {
@@ -255,16 +354,20 @@ export async function forwardToKpManager(params: {
   clientChatId: number;
   clientName?: string;
   text: string;
+  /** id генерации — чтобы приложить ссылку на КП, которое читает собеседник. */
+  kpId?: string;
 }) {
   const managerChat = process.env.KP_MANAGER_TG_CHAT_ID;
   if (!managerChat) return { ok: false, error: "KP_MANAGER_TG_CHAT_ID не настроен" };
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const link = params.kpId ? await resolveKpLink({ kpId: params.kpId }) : null;
   return sendKpTgMessage(
     managerChat,
     `💬 <b>Сообщение от КП-клиента</b>\n` +
       `Компания: ${esc(params.companyName)}\n` +
       `От: ${esc(params.clientName || "клиент")} (chat_id <code>${params.clientChatId}</code>)\n\n` +
       `${esc(params.text)}\n\n` +
+      (link ? `📄 КП клиента: ${link}\n\n` : "") +
       `↩️ Чтобы ответить клиенту — сделайте Reply на это сообщение, бот передаст ответ.`,
   );
 }

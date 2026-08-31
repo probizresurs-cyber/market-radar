@@ -30,6 +30,87 @@ async function checkUrl(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * Лимит на размер HTML.
+ *
+ * Был 500 КБ — и это ровно тот случай, когда экономия памяти ломала данные:
+ * блок с соцсетями почти всегда лежит в подвале, то есть в самом конце
+ * документа. Конструкторы (Tilda, Bitrix) легко отдают 0.5–1.5 МБ разметки,
+ * обрезка по 500 КБ отрезала именно подвал — и КП честно писал «соцсетей нет»,
+ * хотя ссылки на Telegram и VK на странице были.
+ */
+const HTML_LIMIT = 2_000_000;
+
+/**
+ * Правила распознавания соцсетей — по ХОСТУ, а не по подстроке в ссылке.
+ *
+ * Подстрочная проверка давала ложные срабатывания: href.includes("x.com")
+ * ловил любой linux.com / matrix.com / phoenix.com и записывал их в Twitter.
+ * skipPath отсекает служебные ссылки — кнопки «поделиться», виджеты, oauth:
+ * vk.com/share.php и t.me/share/url — это не аккаунт компании, и подставлять
+ * их в socialLinks значит отправить энричер считать подписчиков у несуществующего
+ * профиля.
+ */
+const SOCIAL_RULES: Array<{ key: string; host: RegExp; skipPath?: RegExp }> = [
+  { key: "vk",        host: /^(?:[\w-]+\.)*(?:vk\.com|vk\.ru|vkontakte\.ru|vk\.link|vkvideo\.ru)$/, skipPath: /^\/(?:share|widget|away|js|im|images|video_ext)\b/i },
+  { key: "telegram",  host: /^(?:[\w-]+\.)*(?:t\.me|telegram\.me|telegram\.dog|tlgg\.ru)$/,          skipPath: /^\/(?:share|iv)\b/i },
+  { key: "instagram", host: /^(?:[\w-]+\.)*instagram\.com$/ },
+  { key: "youtube",   host: /^(?:[\w-]+\.)*(?:youtube\.com|youtu\.be)$/,                             skipPath: /^\/(?:embed|iframe_api)\b/i },
+  { key: "ok",        host: /^(?:[\w-]+\.)*ok\.ru$/,                                                 skipPath: /^\/(?:dk|offer)\b/i },
+  { key: "facebook",  host: /^(?:[\w-]+\.)*(?:facebook\.com|fb\.com|fb\.me)$/,                       skipPath: /^\/(?:sharer|share|plugins|tr)\b/i },
+  { key: "twitter",   host: /^(?:[\w-]+\.)*(?:twitter\.com|x\.com)$/,                                skipPath: /^\/(?:intent|share|i)\b/i },
+  { key: "tiktok",    host: /^(?:[\w-]+\.)*tiktok\.com$/ },
+  { key: "dzen",      host: /^(?:[\w-]+\.)*(?:dzen\.ru|zen\.yandex\.ru)$/ },
+  { key: "rutube",    host: /^(?:[\w-]+\.)*rutube\.ru$/ },
+];
+
+// Мессенджеры (WhatsApp, Viber) сознательно НЕ считаем соцсетью: кнопка
+// «написать в WhatsApp» есть почти везде, а СММ-аудит по ней строить нечего —
+// иначе «соцсети найдены» станет правдой для любого сайта с кнопкой чата.
+
+/** Ссылка на профиль должна иметь непустой путь: голый vk.com или t.me — это не аккаунт. */
+function hasProfilePath(pathname: string): boolean {
+  return pathname.replace(/\/+$/, "").length > 1;
+}
+
+/**
+ * Сводит найденный кусок ссылки к абсолютному URL и определяет соцсеть.
+ * Возвращает null, если это не соцсеть или это служебная ссылка.
+ */
+function classifySocial(rawHref: string, base: string): { key: string; url: string } | null {
+  let href = rawHref.trim();
+  if (!href) return null;
+
+  // В инлайновом JS (Tilda, Bitrix, JSON-LD) ссылки лежат экранированными:
+  // "https:\/\/t.me\/company" и/или с HTML-сущностями.
+  href = href
+    .replace(/\\\//g, "/")
+    .replace(/\\u002[fF]/g, "/")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#x2[fF];|&#47;/g, "/");
+
+  // tg://resolve?domain=name — рабочая ссылка на канал, но не http-URL.
+  const tg = href.match(/^tg:\/\/resolve\?domain=([\w.]+)/i);
+  if (tg) return { key: "telegram", url: `https://t.me/${tg[1]}` };
+
+  let u: URL;
+  try {
+    u = new URL(href, base);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+
+  const host = u.hostname.toLowerCase();
+  for (const rule of SOCIAL_RULES) {
+    if (!rule.host.test(host)) continue;
+    if (rule.skipPath?.test(u.pathname)) return null;
+    if (!hasProfilePath(u.pathname)) return null;
+    return { key: rule.key, url: u.toString() };
+  }
+  return null;
+}
+
 export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
   let url = rawUrl.trim();
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -38,6 +119,7 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
 
   let html: string;
   let finalUrl = url;
+  let htmlTruncated = false;
 
   try {
     const res = await fetchWithTimeout(url);
@@ -47,8 +129,8 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
       throw new Error(`Unexpected content type: ${contentType}`);
     }
     const text = await res.text();
-    // Cap at 500KB to avoid OOM
-    html = text.length > 500_000 ? text.slice(0, 500_000) : text;
+    htmlTruncated = text.length > HTML_LIMIT;
+    html = htmlTruncated ? text.slice(0, HTML_LIMIT) : text;
   } catch (err) {
     // Fallback: try http:// if https:// failed
     if (url.startsWith("https://")) {
@@ -56,7 +138,8 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
       const res = await fetchWithTimeout(httpUrl);
       finalUrl = res.url || httpUrl;
       const text = await res.text();
-      html = text.length > 500_000 ? text.slice(0, 500_000) : text;
+      htmlTruncated = text.length > HTML_LIMIT;
+      html = htmlTruncated ? text.slice(0, HTML_LIMIT) : text;
     } else {
       throw err;
     }
@@ -96,21 +179,44 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
     })
     .length;
 
-  // Social links
+  // ─── Соцсети ──────────────────────────────────────────────────────────────
+  // Три источника, по убыванию доверия. Раньше был только первый — и ссылки,
+  // которые сайт отдаёт иконкой без текста, через data-атрибут или из
+  // инлайнового JS конструктора, терялись целиком.
   const socialLinks: Record<string, string> = {};
-  $("a[href]").each((_, el) => {
-    const href = $(el).attr("href") ?? "";
-    if (!socialLinks.vk && href.includes("vk.com")) socialLinks.vk = href;
-    if (!socialLinks.telegram && (href.includes("t.me/") || href.includes("telegram.me/")))
-      socialLinks.telegram = href;
-    if (!socialLinks.instagram && href.includes("instagram.com")) socialLinks.instagram = href;
-    if (!socialLinks.youtube && href.includes("youtube.com")) socialLinks.youtube = href;
-    if (!socialLinks.ok && href.includes("ok.ru")) socialLinks.ok = href;
-    if (!socialLinks.facebook && (href.includes("facebook.com") || href.includes("fb.com")))
-      socialLinks.facebook = href;
-    if (!socialLinks.twitter && (href.includes("twitter.com") || href.includes("x.com")))
-      socialLinks.twitter = href;
+  const addSocial = (raw: string | undefined) => {
+    if (!raw) return;
+    const hit = classifySocial(raw, finalUrl);
+    if (hit && !socialLinks[hit.key]) socialLinks[hit.key] = hit.url;
+  };
+
+  // 1. Обычные ссылки и типовые «ссылка в атрибуте» (иконки-дивы с data-href).
+  $("a[href], area[href], [data-href], [data-url], [data-link]").each((_, el) => {
+    const $el = $(el);
+    addSocial($el.attr("href"));
+    addSocial($el.attr("data-href"));
+    addSocial($el.attr("data-url"));
+    addSocial($el.attr("data-link"));
   });
+
+  // 2. Schema.org sameAs — там аккаунты перечислены явно и без мусора.
+  $('script[type="application/ld+json"]').each((_, el) => {
+    const txt = $(el).text();
+    if (!txt.includes("sameAs")) return;
+    for (const m of txt.matchAll(/"(https?:[^"]+)"/g)) addSocial(m[1]);
+  });
+
+  // 3. Подметание по сырому HTML — последний рубеж: ловит ссылки, зашитые в
+  //    JS-конфиги конструкторов и в onclick, где DOM-парсер их не видит.
+  //    Работает только на ключи, которых ещё нет, чтобы «настоящая» ссылка из
+  //    разметки всегда была приоритетнее случайного упоминания в скрипте.
+  //    Экранирование снимаем заранее: в JS-строках путь приходит как
+  //    "https:\/\/t.me\/company", и без этого регулярка обрывалась на хосте.
+  const sweepSource = html.replace(/\\\//g, "/").replace(/\\u002[fF]/g, "/");
+  const socialSweep =
+    /(?:https?:)?\/\/(?:[\w-]+\.)*(?:vk\.com|vk\.ru|vkontakte\.ru|vk\.link|vkvideo\.ru|t\.me|telegram\.me|telegram\.dog|tlgg\.ru|instagram\.com|youtube\.com|youtu\.be|ok\.ru|facebook\.com|fb\.com|fb\.me|twitter\.com|x\.com|tiktok\.com|dzen\.ru|zen\.yandex\.ru|rutube\.ru)[^\s"'<>()\\]*/gi;
+  for (const m of sweepSource.matchAll(socialSweep)) addSocial(m[0]);
+  for (const m of sweepSource.matchAll(/tg:\/\/resolve\?domain=[\w.]+/gi)) addSocial(m[0]);
 
   // Vacancies / blog / cases
   const linkTextsAndHrefs = $("a[href]")
@@ -192,5 +298,6 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapedData> {
     isHttps,
     jsHeavy,
     rawTextSample,
+    htmlTruncated,
   };
 }

@@ -1,6 +1,6 @@
 /**
- * POST /api/kp-share/[token]/consult { contact } — заявка на консультацию
- * прямо из разбора.
+ * POST /api/kp-share/[token]/consult { contact | email+phone+telegram, kind,
+ * interest } — заявка на консультацию прямо из разбора.
  *
  * Раньше кнопка «запросить консультацию» просто скроллила к форме пересборки
  * сайта. То есть человек, готовый поговорить, но НЕ готовый заказывать
@@ -41,6 +41,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   const contact = kind === "service"
     ? [email, phone, tgNick].filter(Boolean).join(", ")
     : String(body.contact ?? "").trim().slice(0, 200);
+  // Какой тариф/услуга заинтересовали («SEO/GEO — Рост», «SMM — дополнительно»,
+  // «Разовое ускорение сайта»). Поле необязательное: старый клиент его не шлёт,
+  // и заявка без него всё равно должна проходить — это подсказка менеджеру, а
+  // не условие приёма. Строка свободная, поэтому режем длину и экранируем
+  // при выводе в HTML-сообщение.
+  const interest = String(body.interest ?? "").trim().slice(0, 200);
 
   // Контакт обязателен: заявка без способа связи — не заявка, а событие
   // аналитики, и менеджеру с ней делать нечего.
@@ -48,8 +54,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     return NextResponse.json({ ok: false, error: "Оставьте телефон, email или ник в Telegram" }, { status: 400 });
   }
 
-  const rows = await query<{ id: string; company_name: string | null; url: string; client_email: string | null; consult_requested_at: string | null }>(
-    `SELECT id, company_name, url, client_email, consult_requested_at
+  const rows = await query<{
+    id: string; company_name: string | null; url: string; client_email: string | null;
+    consult_requested_at: string | null; share_token: string | null; share_password: string | null;
+  }>(
+    `SELECT id, company_name, url, client_email, consult_requested_at, share_token, share_password
        FROM kp_generations WHERE share_token = $1`,
     [token],
   );
@@ -66,23 +75,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
             consult_kind = $3,
             client_email = COALESCE(client_email, $4),
             client_phone = COALESCE(client_phone, $5),
-            client_tg_nick = COALESCE(client_tg_nick, $6)
+            client_tg_nick = COALESCE(client_tg_nick, $6),
+            -- Интерес перезаписываем непустым значением: человек мог сначала
+            -- нажать «поговорить», а потом вернуться и выбрать тариф. Пустой
+            -- повтор не должен стирать то, что уже было указано.
+            consult_interest = COALESCE(NULLIF($7, ''), consult_interest)
       WHERE id = $1`,
-    [r.id, contact, kind, email || null, phone || null, tgNick || null],
+    [r.id, contact, kind, email || null, phone || null, tgNick || null, interest],
   );
 
   if (firstTime) {
+    // Ссылку на КП добавляет notifyKpManager — менеджер должен открыть тот же
+    // документ, что читал клиент, а не искать его по названию компании.
+    const interestLine = interest ? `Интересует: <b>${esc(interest)}</b>\n` : "";
     await notifyKpManager(
       kind === "service"
         ? `🔥 <b>Заявка на сопровождение из разбора</b>\n` +
           `${esc(r.company_name || r.url)} — ${esc(r.url)}\n` +
           `Контакт: <b>${esc(contact)}</b>\n` +
+          interestLine +
           `Человек дочитал разбор и просит начать работу. Самый горячий тип заявки — отвечать первым делом.`
         : `📞 <b>Запрос консультации из разбора</b>\n` +
           `${esc(r.company_name || r.url)} — ${esc(r.url)}\n` +
           `Контакт: <b>${esc(contact)}</b>\n` +
+          interestLine +
           `${r.client_email ? `Email лида: ${esc(r.client_email)}\n` : ""}` +
           `Человек прочитал разбор и хочет поговорить — это тёплый контакт, не заявка на пересборку.`,
+      { shareToken: r.share_token, sharePassword: r.share_password },
     );
   }
 

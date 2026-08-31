@@ -16,7 +16,8 @@ export interface KpProposalStrings {
   themeLight: string; themeDark: string;
   brandSuffix: string;
   heroLossFrame: (range: string) => string;
-  heroKicker: string; heroPotentialLabel: string; heroDiscussBtn: string; heroOfferBtnPrefix: string;
+  heroKicker: string; heroPotentialLabel: string; heroProblemLabel: string; offerAddonLabel: string; navDeeper: string; deeperTitle: string; deeperSubtitle: string;
+  finalCritCount: (n: number) => string; finalGrowthCount: (n: number) => string; finalCtaCost: string; heroDiscussBtn: string; heroOfferBtnPrefix: string;
   stickyFixedPrice: string; stickyStartBtn: string;
   ringScoreLabel: string;
   profileByCategories: string;
@@ -135,6 +136,14 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     brandSuffix: "Анализ",
     heroLossFrame: (r) => `Пока этого нет — те же ${r} заявок в месяц получают конкуренты. Каждый месяц ожидания стоит вам этой разницы.`,
     heroKicker: "Интерактивный анализ сайта", heroPotentialLabel: "Потенциал после устранения находок",
+    heroProblemLabel: "Главное, что мешает прямо сейчас",
+    offerAddonLabel: "Дополнительно, по желанию",
+    navDeeper: "Что ещё разберём",
+    deeperTitle: "Что ещё разберём в работе",
+    deeperSubtitle: "Здесь — проблемы, требующие срочного решения. За ними стоит слой глубже, который тоже влияет на заявки.",
+    finalCritCount: (n) => `${n} ${n === 1 ? "критичная проблема" : n < 5 ? "критичные проблемы" : "критичных проблем"} — требуют решения сейчас`,
+    finalGrowthCount: (n) => `${n} ${n === 1 ? "точка роста" : n < 5 ? "точки роста" : "точек роста"} — работает, но недобирает`,
+    finalCtaCost: "Пока эти проблемы не закрыты, спрос вашей ниши каждый день делят те, кого клиент находит первыми. Это не разовая потеря — она повторяется ежедневно и накапливается.",
     heroDiscussBtn: "Обсудить проект", heroOfferBtnPrefix: "Предложение — от",
     stickyFixedPrice: "фиксированная цена", stickyStartBtn: "Начать",
     ringScoreLabel: "общий балл / 100",
@@ -301,6 +310,14 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     brandSuffix: "Analyse",
     heroLossFrame: (r) => `Solange das nicht behoben ist, gehen dieselben ${r} Anfragen pro Monat an Wettbewerber. Jeder Monat Wartezeit kostet Sie genau diese Differenz.`,
     heroKicker: "Interaktive Website-Analyse", heroPotentialLabel: "Potenzial nach Behebung der Erkenntnisse",
+    heroProblemLabel: "Was aktuell am meisten kostet",
+    offerAddonLabel: "Optionale Ergänzung",
+    navDeeper: "Was wir noch prüfen",
+    deeperTitle: "Was wir in der Zusammenarbeit noch prüfen",
+    deeperSubtitle: "Hier stehen die dringenden Probleme. Dahinter liegt eine tiefere Ebene, die ebenfalls auf Anfragen wirkt.",
+    finalCritCount: (n) => `${n} kritische ${n === 1 ? "Schwachstelle" : "Schwachstellen"} — jetzt zu lösen`,
+    finalGrowthCount: (n) => `${n} ${n === 1 ? "Wachstumspunkt" : "Wachstumspunkte"} — funktioniert, schöpft aber nicht aus`,
+    finalCtaCost: "Solange diese Punkte offen sind, teilen die Nachfrage Ihrer Nische täglich diejenigen auf, die der Kunde zuerst findet. Kein einmaliger Verlust — er wiederholt sich jeden Tag.",
     heroDiscussBtn: "Projekt besprechen", heroOfferBtnPrefix: "Angebot — ab",
     stickyFixedPrice: "Festpreis", stickyStartBtn: "Starten",
     ringScoreLabel: "Gesamtscore / 100",

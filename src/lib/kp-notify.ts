@@ -60,6 +60,9 @@ export async function notifyKpReady(kpId: string): Promise<void> {
         `Контакт: ${esc(r.client_email ?? "только Telegram")}\n` +
         `Ошибка: ${esc((r.error ?? "").slice(0, 200))}\n` +
         `Клиенту обещано «соберём вручную в течение рабочего дня».`,
+        // Токен есть даже у упавшей генерации, если она успела его получить —
+        // тогда менеджер сразу видит, что именно клиент открывал.
+        { shareToken: r.share_token, sharePassword: r.share_password },
       );
     }
     return;

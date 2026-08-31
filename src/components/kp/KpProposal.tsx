@@ -103,7 +103,7 @@ interface Props {
    * Прокидывается клиентской /kp-share; когда задана, финальный CTA продаёт
    * сопровождение, а пересборка сайта уходит во вторую кнопку.
    */
-  onServiceRequest?: ((data: { email: string; phone: string; telegram: string }) => Promise<boolean>) | null;
+  onServiceRequest?: ((data: { email: string; phone: string; telegram: string; interest: string }) => Promise<boolean>) | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -187,9 +187,9 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   // есть после того, как решение уже принято или отложено.
   { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
-  { id: "pilot-market", label: "Мы и рынок", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
   { id: "pilot-terms", label: "Условия", pilotOnly: true },
+  { id: "pilot-deeper", label: "Что ещё разберём", pilotOnly: true },
   { id: "pilot-more", label: "Что ещё умеем", pilotOnly: true },
   { id: "astro-offer", label: "Новая версия сайта", pilotOnly: true },
   { id: "pricing", label: "Тарифы", hideOnPilot: true },
@@ -276,7 +276,6 @@ export function KpProposal({
         // данные реально есть (см. PilotBundle.pr|market|terms). Без этих
         // проверок у biglife в навигации висели бы три мёртвых пункта.
         && (s.id !== "pilot-pr" || Boolean(PD.pr))
-        && (s.id !== "pilot-market" || Boolean(PD.market))
         && (s.id !== "pilot-terms" || Boolean(PD.terms))
     ),
     [pilotOffer, hasAiViz, PD, astroRebuild, competitors.length, positionCheck],
@@ -289,8 +288,8 @@ export function KpProposal({
     overview: t.navOverview, "pilot-strengths": t.navStrengths, findings: t.navFindings, tech: t.navTech,
     competitors: t.navCompetitors, "pilot-rivals": t.navRivals, "ai-visibility": t.navAiVisibility,
     "pilot-social": t.navSocial, "pilot-geo": t.navGeo, "pilot-pr": t.navPr,
-    positions: t.navPositions, "pilot-offer": t.navOffer, "pilot-market": t.navMarket, "seo-preview": t.navFormat,
-    "pilot-forecast": t.navForecast, "pilot-terms": t.navTerms, "pilot-more": t.navMore, "astro-offer": t.navAstroOffer, cta: t.navCta,
+    positions: t.navPositions, "pilot-offer": t.navOffer, "seo-preview": t.navFormat,
+    "pilot-forecast": t.navForecast, "pilot-deeper": t.navDeeper, "pilot-terms": t.navTerms, "pilot-more": t.navMore, "astro-offer": t.navAstroOffer, cta: t.navCta,
   };
   /**
    * Дизайн-тема КП: ?design=paper | earth.
@@ -679,46 +678,31 @@ export function KpProposal({
                          «0 конкурентов» рядом с «3 разобраны вручную» врало. */
                       <>
                         <p style={{ fontSize: 16, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PD.hero.verdict}</p>
+                        {/* Первый экран — ДИАГНОЗ, а не обещание.
+                            Здесь стояла крупная цифра «+35–70 заявок/мес»: она
+                            появлялась раньше единого доказательства и не имела
+                            происхождения — мы не знаем ни текущего потока
+                            обращений клиента, ни его конверсии. Для компании с
+                            тысячей заявок такое обещание выглядит насмешкой,
+                            для микробизнеса — неправдоподобно. Продавать в
+                            первом экране рано: сначала клиент должен увидеть
+                            проблему, которую узнаёт. Прогноз остался — в своей
+                            главе, в процентах и с формулой. */}
                         <div className="kp-hero-pop" style={{ marginTop: 20 }}>
-                          {/* Связка «боль → выгода»: label-мост, чтобы вердикт и цифра
-                              читались одной мыслью, а не двумя обрывками (мобильный фидбек) */}
-                          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--success)", marginBottom: 6 }}>
-                            {t.heroPotentialLabel}
+                          <div style={{ fontSize: 12.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--destructive)", marginBottom: 8 }}>
+                            {t.heroProblemLabel}
                           </div>
-                          {/* Главная цифра КП. Была clamp(30,44) — на документе
-                              высотой 15 000px и среди 83 карточек она не читалась
-                              как кульминация, хотя это единственное число, ради
-                              которого КП открывают. Display-масштаб + табличные
-                              цифры (чтобы «25–45» не «плясало» при анимации). */}
                           <div style={{
-                            fontSize: "clamp(40px, 8.2vw, 68px)", fontWeight: 850, lineHeight: 1.0, letterSpacing: "-0.035em",
-                            fontVariantNumeric: "tabular-nums",
-                            background: "linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, var(--primary)))",
-                            WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+                            fontSize: "clamp(26px, 4.4vw, 38px)", fontWeight: 850, lineHeight: 1.15, letterSpacing: "-0.025em",
+                            maxWidth: 620,
                           }}>
-                            {PD.hero.potential}
+                            {PD.hero.problem ?? PD.hero.verdict}
                           </div>
-                          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 6 }}>{PD.hero.potentialSub}</div>
-                          {/* Рамка потери. Та же вилка прогноза, повёрнутая
-                              стороной, которая мотивирует: потеря ощущается
-                              сильнее равной по величине выгоды, а КП продаёт
-                              через диагноз. Цифра НЕ новая и не пересчитывается —
-                              вытаскивается из уже посчитанного hero.potential,
-                              иначе документ начал бы противоречить сам себе. */}
-                          {(() => {
-                            const range = /\+?\s*([\d\s]+–[\d\s]+)/.exec(PD.hero.potential ?? "");
-                            if (!range) return null;
-                            return (
-                              <div style={{
-                                marginTop: 12, padding: "10px 14px", borderRadius: 10,
-                                borderLeft: "3px solid var(--destructive)",
-                                background: "color-mix(in srgb, var(--destructive) 8%, transparent)",
-                                fontSize: 13.5, lineHeight: 1.5, maxWidth: 460,
-                              }}>
-                                {t.heroLossFrame(range[1].trim())}
-                              </div>
-                            );
-                          })()}
+                          {PD.hero.problemSub && (
+                            <div style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--muted-foreground)", marginTop: 10, maxWidth: 560 }}>
+                              {PD.hero.problemSub}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
                           {PD.hero.badges.map((b, bi) => (
@@ -1669,25 +1653,52 @@ export function KpProposal({
             <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
               {showEntryOffer ? t.offerMonthlyLabel : t.offerMonthlyLabelAlone}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
-              {PD.monthly.map((m, i) => (
-                <Reveal key={m.name} delay={i * 70}>
-                  {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>{m.name}</div>
-                      <div style={{ fontSize: 23, fontWeight: 850, marginBottom: 12 }}>{m.price}</div>
-                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                        {m.items.map((it, j) => (
-                          <li key={j} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
-                            <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {it}
-                          </li>
+            {(() => {
+              // СММ отделяется от основного направления по названию тарифа:
+              // сетка цен фиксирована (см. kp-generate), и в ней ровно одно
+              // соцсетевое направление.
+              const isSmm = (name: string) => /смм|smm|social|соцсет/i.test(name);
+              const main = PD.monthly.filter(m => !isSmm(m.name));
+              const extra = PD.monthly.filter(m => isSmm(m.name));
+              const Card = ({ m, accent }: { m: { name: string; price: string; items: string[] }; accent: boolean }) => (
+                <div className="ds-card ds-card-interactive" style={{
+                  padding: accent ? "22px 24px" : "18px 20px",
+                  borderColor: accent ? "var(--primary)" : undefined,
+                  borderWidth: accent ? 2 : undefined,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 6 }}>{m.name}</div>
+                  <div style={{ fontSize: accent ? 27 : 23, fontWeight: 850, marginBottom: 12 }}>{m.price}</div>
+                  <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                    {m.items.map((it, j) => (
+                      <li key={j} style={{ display: "flex", gap: 8, fontSize: 13.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
+                        <CheckCircle2 size={14} style={{ color: "var(--success)", flexShrink: 0, marginTop: 2 }} /> {it}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+              return (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+                    {main.map((m, i) => (
+                      <Reveal key={m.name} delay={i * 70}>{() => <Card m={m} accent />}</Reveal>
+                    ))}
+                  </div>
+                  {extra.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "20px 0 10px" }}>
+                        {t.offerAddonLabel}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+                        {extra.map((m, i) => (
+                          <Reveal key={m.name} delay={i * 70}>{() => <Card m={m} accent={false} />}</Reveal>
                         ))}
-                      </ul>
-                    </div>
+                      </div>
+                    </>
                   )}
-                </Reveal>
-              ))}
-            </div>
+                </>
+              );
+            })()}
 
             {/* Что происходит по неделям после старта — снимает страх «заплачу и тишина» */}
             <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
@@ -1737,89 +1748,15 @@ export function KpProposal({
                 btn={t.serviceFormBtn}
                 done={t.serviceFormDone}
                 locale={locale}
+                interestOptions={[
+                  ...PD.monthly.map(m => m.name),
+                  ...(showEntryOffer ? PD.offers.map(o => o.name) : []),
+                ]}
               />
             )}
           </Section>
         )}
 
-        {/* ─── МЫ И РЫНОК: ПОЧЕМУ ЦЕНА ТАКАЯ ─── */}
-        {/* Идёт сразу после цены — там, где у читателя и возникает вопрос
-            «почему так дёшево». Ценник ниже вилки агентств читается как
-            «тариф-галочка», если разницу не объяснить; блок honest[] обязателен,
-            иначе раздел превращается в хвастовство. */}
-        {pilotOffer && PD.market && (
-          <Section id="pilot-market" index={sectionNo["pilot-market"]} band title={t.marketTitle} subtitle={t.marketSubtitle}>
-            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
-              <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0 }}>{PD.market.intro}</p>
-            </div>
-
-            {/* Сравнительная таблица. На узких экранах уезжает в горизонтальный
-                скролл, а не ломает страницу — см. .kp-scroll-x в ResponsiveCss. */}
-            <div className="kp-scroll-x">
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
-                <thead>
-                  <tr>
-                    {[t.marketColWhat, t.marketColMarket, t.marketColOurs].map((h, i) => (
-                      <th key={i} style={{
-                        textAlign: "left", padding: "10px 12px", fontSize: 11.5, fontWeight: 700,
-                        textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)",
-                        borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {PD.market.rows.map((r, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top" }}>
-                        <div style={{ fontWeight: 700 }}>{r.what}</div>
-                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.45, marginTop: 3 }}>{r.note}</div>
-                      </td>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top", color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{r.market}</td>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", verticalAlign: "top", fontWeight: 800, color: "var(--primary)", whiteSpace: "nowrap" }}>{r.ours}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--muted-foreground)", marginTop: 8 }}>{PD.market.sources}</div>
-
-            {/* За счёт чего дешевле */}
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", margin: "24px 0 12px" }}>
-              {PD.market.whyTitle}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
-              {PD.market.why.map((w, i) => (
-                <Reveal key={i} delay={i * 60} style={{ height: "100%" }}>
-                  {() => (
-                    <div className="ds-card ds-card-interactive" style={{ padding: "16px 18px", height: "100%" }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                        <Zap size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>{w.title}</span>
-                      </div>
-                      <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>{w.detail}</div>
-                    </div>
-                  )}
-                </Reveal>
-              ))}
-            </div>
-
-            {/* Чего не будет — без этого блока раздел читается как реклама */}
-            <div className="ds-card" style={{ padding: "18px 20px", marginTop: 16, borderLeft: "4px solid var(--warning)" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                <AlertTriangle size={18} style={{ color: "var(--warning)", flexShrink: 0 }} />
-                <span style={{ fontSize: 16, fontWeight: 800 }}>{PD.market.honestTitle}</span>
-              </div>
-              <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                {PD.market.honest.map((h, i) => (
-                  <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: "var(--muted-foreground)" }}>
-                    <Minus size={14} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 2 }} /> {h}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Section>
-        )}
 
         {/* ─── ФОРМАТ РАБОТ (только для pilotOffer) ─── */}
         {pilotOffer && (
@@ -2118,6 +2055,31 @@ export function KpProposal({
 
             Второй выход — консультация: часть покупателей не берёт услугу с
             листа, им нужен разговор. Без этой двери они просто уходят. */}
+        {/* ─── ЧТО ЕЩЁ РАЗБЕРЁМ ───
+            Документ разбирает сайт — но сайт лишь вход. Без этой главы КП
+            читается как «посмотрели страницу и всё», хотя собранное здесь —
+            только то, что требует срочного решения. Показываем границу
+            текущего разбора честно, вместо обещаний «комплексного подхода». */}
+        {PD.deeperScope && PD.deeperScope.items.length > 0 && (
+          <Section id="pilot-deeper" index={sectionNo["pilot-deeper"]} title={t.deeperTitle} subtitle={t.deeperSubtitle}>
+            <div className="ds-card" style={{ padding: "18px 22px", marginBottom: 16, borderLeft: "4px solid var(--primary)" }}>
+              <p style={{ fontSize: 15, lineHeight: 1.6, margin: 0 }}>{PD.deeperScope.intro}</p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+              {PD.deeperScope.items.map((it, i) => (
+                <Reveal key={it.title} delay={i * 60}>
+                  {() => (
+                    <div className="ds-card ds-card-interactive" style={{ padding: "18px 20px" }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35, marginBottom: 8 }}>{it.title}</div>
+                      <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--muted-foreground)" }}>{it.detail}</div>
+                    </div>
+                  )}
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {pilotOffer && (
           <Section id="pilot-more" index={sectionNo["pilot-more"]} band title={t.moreTitle} subtitle={t.moreSubtitle}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
@@ -2204,9 +2166,46 @@ export function KpProposal({
                       идёт первым: это то, за чем приходят с /new и /geo. */}
                   {onServiceRequest ? (
                     <>
+                      {(() => {
+                        const crit = PD.findings.filter(f => f.severity === "critical").length;
+                        const warn = PD.findings.length - crit;
+                        if (!PD.findings.length) return null;
+                        return (
+                          <div style={{
+                            display: "inline-flex", flexWrap: "wrap", justifyContent: "center", gap: 10,
+                            marginBottom: 18,
+                          }}>
+                            {crit > 0 && (
+                              <span style={{
+                                padding: "8px 15px", borderRadius: 999, fontSize: 14.5, fontWeight: 700,
+                                background: "color-mix(in srgb, #fff 18%, transparent)",
+                                border: "1px solid color-mix(in srgb, #fff 45%, transparent)",
+                              }}>
+                                {t.finalCritCount(crit)}
+                              </span>
+                            )}
+                            {warn > 0 && (
+                              <span style={{
+                                padding: "8px 15px", borderRadius: 999, fontSize: 14.5, fontWeight: 700,
+                                background: "color-mix(in srgb, #fff 12%, transparent)",
+                                border: "1px solid color-mix(in srgb, #fff 32%, transparent)",
+                              }}>
+                                {t.finalGrowthCount(warn)}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaServiceTitle}</h2>
                       <p style={{ fontSize: 16, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
                         {t.finalCtaServiceBody}
+                      </p>
+                      {/* Цена бездействия. Названа честно и без чисел: у нас нет
+                          данных о текущем потоке обращений клиента, и выдумать
+                          «вы теряете N заявок» значило бы обесценить весь
+                          документ, который построен на проверяемых фактах. */}
+                      <p style={{ fontSize: 15.5, opacity: 0.95, margin: "0 0 24px", maxWidth: 640, marginInline: "auto", lineHeight: 1.55, fontWeight: 600 }}>
+                        {t.finalCtaCost}
                       </p>
                       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                         <button onClick={() => { trackKpEvent("click", "final-cta-service"); scrollTo("pilot-offer"); }}
@@ -2332,15 +2331,21 @@ function usePrefersReducedMotion(): boolean {
  * Согласие обязательно и не проставлено заранее — как на лендинге.
  */
 function ServiceRequestForm({
-  onSubmit, anchorId, title, body, btn, done, locale,
+  onSubmit, anchorId, title, body, btn, done, locale, interestOptions,
 }: {
-  onSubmit: (data: { email: string; phone: string; telegram: string }) => Promise<boolean>;
+  onSubmit: (data: { email: string; phone: string; telegram: string; interest: string }) => Promise<boolean>;
   anchorId: string; title: string; body: string; btn: string; done: string;
   locale: KpProposalLocale;
+  /** Названия тарифов из этого КП — чтобы менеджер знал, о чём разговор. */
+  interestOptions: string[];
 }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
+  // Что именно заинтересовало. Раньше менеджер получал заявку без предмета
+  // разговора и начинал с выяснения — лишний круг там, где человек уже
+  // сделал выбор, читая тарифы прямо над формой.
+  const [interest, setInterest] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
@@ -2408,7 +2413,7 @@ function ServiceRequestForm({
           onClick={async () => {
             setErr(null); setBusy(true);
             trackKpEvent("click", "service-request");
-            const res = await onSubmit({ email: email.trim(), phone: phone.trim(), telegram: telegram.trim() });
+            const res = await onSubmit({ email: email.trim(), phone: phone.trim(), telegram: telegram.trim(), interest });
             setBusy(false);
             if (res) setOk(true); else setErr(locale === "de" ? "Bitte erneut versuchen" : "Не отправилось — попробуйте ещё раз");
           }}
@@ -2424,6 +2429,34 @@ function ServiceRequestForm({
           заранее. Оферты здесь быть не должно: договор принимается при
           оплате, а не при отправке заявки, и склеивать два разных согласия
           в одну строку нельзя. */}
+      {interestOptions.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 8 }}>
+            {locale === "de" ? "Woran haben Sie Interesse?" : "Что интересует?"}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {interestOptions.map(opt => {
+              const on = interest === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setInterest(on ? "" : opt)}
+                  style={{
+                    padding: "9px 15px", borderRadius: 999, cursor: "pointer",
+                    fontSize: 14, fontWeight: 600, lineHeight: 1.2,
+                    border: on ? "2px solid var(--primary)" : "1px solid var(--border)",
+                    background: on ? "color-mix(in srgb, var(--primary) 12%, transparent)" : "var(--card)",
+                    color: on ? "var(--primary)" : "var(--foreground)",
+                  }}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <label style={{ display: "flex", alignItems: "flex-start", gap: 9, marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: "var(--muted-foreground)", cursor: "pointer" }}>
         <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
         {locale === "de" ? (

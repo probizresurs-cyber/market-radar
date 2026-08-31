@@ -336,7 +336,7 @@ async function handleKpClientMessage(chatId: number, firstName: string, text: st
   if (!row) return false;
   const ctx = kpFunnelCtx(row);
   await sendKpInboundAck(chatId, ctx);
-  await forwardToKpManager({ companyName: ctx.companyName, clientChatId: chatId, clientName: firstName, text });
+  await forwardToKpManager({ companyName: ctx.companyName, clientChatId: chatId, clientName: firstName, text, kpId: row.id });
   return true;
 }
 

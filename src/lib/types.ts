@@ -1,3 +1,13 @@
+/**
+ * Оценка одного блока (SEO, Соцсети, Контент…).
+ *
+ * Категория попадает в массив ТОЛЬКО если под неё были входные данные.
+ * Отсутствие категории = «не замеряли», и это принципиально: раньше блок
+ * соцсетей получал балл даже когда ни одной ссылки на соцсети найдено не было,
+ * и в КП уезжало «Соцсети 5/100» — число, взятое моделью из воздуха.
+ * Поэтому здесь нет варианта «score = 0 как признак отсутствия данных»:
+ * ноль — это ноль, а «нет данных» — это отсутствие элемента.
+ */
 export interface CategoryScore {
   name: string;
   weight: number;
@@ -49,6 +59,25 @@ export interface Insight {
   type: "niche" | "action" | "battle" | "copy" | "seo" | "offer";
   title: string;
   text: string;
+}
+
+/**
+ * Полевые данные CrUX — то, что Chrome собрал у РЕАЛЬНЫХ посетителей за 28 дней.
+ *
+ * Держим отдельно от лабораторных баллов Lighthouse осознанно: это две разные
+ * величины, и они законно расходятся в разы (лаборатория эмулирует Moto G на
+ * медленном 4G, поле — реальные устройства и каналы аудитории сайта). Классика
+ * спора «а у меня в PageSpeed другая цифра» — человек смотрит на верхний,
+ * полевой блок, а КП показывает лабораторный балл.
+ */
+export interface FieldExperience {
+  /** page — по конкретному URL; origin — усреднение CrUX по всему домену. */
+  scope: "page" | "origin";
+  overall?: string;
+  lcpMs?: number;
+  inpMs?: number;
+  cls?: number;
+  fcpMs?: number;
 }
 
 export interface SeoPosition {
@@ -149,6 +178,9 @@ export interface ScrapedData {
   isHttps: boolean;
   jsHeavy: boolean;
   rawTextSample: string;
+  /** HTML пришёл длиннее лимита и был обрезан. Тогда «ссылок не найдено» —
+   *  не факт об отсутствии: мы просто не дочитали документ до подвала. */
+  htmlTruncated?: boolean;
 }
 
 export interface AnalysisResult {
@@ -190,6 +222,23 @@ export interface AnalysisResult {
       tbt?: { value: number; display: string; score: number };   // Total Blocking Time
       si?:  { value: number; display: string; score: number };   // Speed Index
       tti?: { value: number; display: string; score: number };   // Time to Interactive
+      // ── Паспорт замера ────────────────────────────────────────────────────
+      // Без него спор «у меня в PageSpeed другие цифры» неразрешим: непонятно,
+      // ЧТО именно мы померили. Поля опциональные — у старых сохранённых
+      // анализов их нет.
+      /** mobile или desktop. Top-level по договорённости mobile, но когда
+       *  мобильный замер падает, сюда кладут десктопный — и цифры «не бьются»
+       *  с мобильным PageSpeed клиента именно поэтому. */
+      strategy?: "mobile" | "desktop";
+      /** URL, который мы отправили в PageSpeed. */
+      requestedUrl?: string;
+      /** URL, который Lighthouse реально загрузил (после всех редиректов). */
+      measuredUrl?: string;
+      /** Когда замерено — лабораторные цифры живут часами, не месяцами. */
+      fetchedAt?: string;
+      lighthouseVersion?: string;
+      /** Полевые данные CrUX. НЕ смешивать с лабораторными выше. */
+      field?: FieldExperience;
       // Десктоп — отдельный набор для табы «ПК» в UI. Опционально:
       // если PageSpeed для desktop не отработал, блок не показывается.
       desktop?: {
@@ -203,6 +252,12 @@ export interface AnalysisResult {
         tbt?: { value: number; display: string; score: number };
         si?:  { value: number; display: string; score: number };
         tti?: { value: number; display: string; score: number };
+        strategy?: "mobile" | "desktop";
+        requestedUrl?: string;
+        measuredUrl?: string;
+        fetchedAt?: string;
+        lighthouseVersion?: string;
+        field?: FieldExperience;
       };
     };
     firstArchiveDate?: string;

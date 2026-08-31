@@ -485,6 +485,21 @@ export async function initDb() {
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_kind TEXT`);
   // Telegram-ник из заявки: равноправный канал связи наряду с почтой.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_tg_nick TEXT`);
+  // Что именно заинтересовало — тариф/услуга, выбранная в форме заявки
+  // («SEO/GEO — Рост», «SMM — дополнительно», «Разовое ускорение сайта»).
+  // Без этого менеджер шёл в разговор вслепую и первым вопросом выяснял то,
+  // что человек уже указал в документе.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_interest TEXT`);
+  // ─── ТГ-прогрев тех, кто подключил бота (cron/kp-tg-warm) ─────────────────
+  // Отдельный счётчик от followup_stage: тот ведёт серию после ОТПРАВКИ
+  // пересобранного сайта, эта — тех, кто просто подключил Telegram и завис
+  // на документе. Условия входа и тексты разные, смешивать нельзя.
+  // tg_warm_at — время последней отправки серии: пауза между письмами
+  // считается от него, а не от анкера, иначе на старой строке вся серия
+  // выстрелила бы за один запуск cron.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS tg_warm_stage INTEGER NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS tg_warm_at TIMESTAMPTZ`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_kp_tg_warm ON kp_generations(tg_warm_stage) WHERE client_tg_chat_id IS NOT NULL`);
   // Письмо/TG «разбор готов» отправлено (идемпотентность нотификаций).
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS ready_notified_at TIMESTAMPTZ`);
 

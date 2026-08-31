@@ -65,6 +65,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
       `👀 <b>Клиент впервые открыл КП</b>\n` +
       `Компания: ${(r.company_name || r.url).slice(0, 100)}\n` +
       `${r.url}`,
+      { shareToken: token, sharePassword: r.share_password },
     );
   }
 
