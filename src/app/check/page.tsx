@@ -283,7 +283,7 @@ export default function CheckPage() {
                 <span className="mrc-grad">не приносит заявки?</span>
               </h1>
               <p className="mrc-lead mrc-hero-lead">
-                Клиент спрашивает совета у нейросети и получает два-три имени. Снимем три замера
+                Клиент спрашивает совета у нейросети и получает два-три имени. Проверим три показателя
                 и покажем, почему в этот ответ не попадаете вы — без регистрации и разговора
                 с менеджером.
               </p>
@@ -309,13 +309,13 @@ export default function CheckPage() {
       <div className="mrc-wrap">
         {/* ─── Маршрут: что будет после проверки ───────────────────────────
             Человек с рекламы не знает, чем всё закончится, и это тормозит
-            ввод адреса. Показываем три шага сразу: бесплатный замер →
+            ввод адреса. Показываем три шага сразу: бесплатная проверка →
             разбор на этой же странице → полное предложение по email.
             Текущий шаг подсвечивается, пройденный гаснет. */}
         {!checkId && (
           <ol className="mrc-route" aria-label="Как это работает">
             {[
-              ["Замер", "Вводите адрес — считаем три показателя по вашему сайту. Бесплатно, без регистрации."],
+              ["Проверка", "Вводите адрес — считаем три показателя по вашему сайту. Бесплатно, без регистрации."],
               ["Разбор", "Показываем, где теряются заявки и кто забирает спрос ниши. Прямо здесь, на странице."],
               ["Предложение", "По желанию — полное КП с находками, конкурентами, прогнозом и ценами."],
             ].map(([t, d], i) => (
@@ -328,12 +328,12 @@ export default function CheckPage() {
           </ol>
         )}
 
-        {/* ─── Что замеряем — лист приборов, пока проверка не запущена ─── */}
+        {/* ─── Что проверяем — лист приборов, пока проверка не запущена ─── */}
         {!checkId && (
           <section className="mrc-sec" data-reveal>
             <SecHead
               idx="00"
-              title="Три замера"
+              title="Три проверки"
               sub="Каждый отвечает за свой участок пути клиента к заявке."
             />
             <ol className="mrc-instr-list">
@@ -357,7 +357,7 @@ export default function CheckPage() {
           <section className="mrc-sec" ref={resultsRef} style={{ scrollMarginTop: 16 }}>
             <div className="mrc-readout-head">
               <div>
-                <div className="mrc-mono mrc-readout-label">лист замеров</div>
+                <div className="mrc-mono mrc-readout-label">экспресс-аудит сайта</div>
                 <h2 className="mrc-h2 mrc-readout-domain">{checkDomain || "ваш сайт"}</h2>
               </div>
               <ProgressMeter ready={readyProbes} total={3} />
@@ -367,6 +367,7 @@ export default function CheckPage() {
               <ProbeCard
                 idx="01"
                 title="Видимость в поиске"
+                icon="eye"
                 probe={sem?.status}
                 tone={sem?.status === "done" ? (sem.empty ? "warn" : semTone(sem.visibleCount ?? 0)) : undefined}
                 render={() => sem?.status === "done" ? <SemanticsVerdict s={sem} /> : <ProbeFail what="видимость" />}
@@ -374,14 +375,16 @@ export default function CheckPage() {
               <ProbeCard
                 idx="02"
                 title="Скорость на телефоне"
+                icon="speed"
                 probe={spd?.status}
                 tone={spd?.status === "done" ? (spd.performance == null ? "warn" : spdTone(spd.performance)) : undefined}
-                pendingNote="Google Lighthouse меряет реальную загрузку: обычно до минуты, на тяжёлых сайтах дольше"
+                pendingNote="Google Lighthouse грузит ваш сайт по-настоящему: обычно до минуты, на тяжёлых сайтах дольше"
                 render={() => spd?.status === "done" ? <SpeedVerdict s={spd} /> : <ProbeFail what="скорость" />}
               />
               <ProbeCard
                 idx="03"
                 title="Читаемость для нейросетей"
+                icon="bot"
                 probe={rd?.status}
                 tone={rd?.status === "done" ? (rd.access && rd.access !== "ok" ? (rd.access === "blocked" ? "bad" : "warn") : rdTone(rd.checksPassed ?? 0)) : undefined}
                 render={() => rd?.status === "done" ? <ReadabilityVerdict s={rd} /> : <ProbeFail what="читаемость" />}
@@ -394,7 +397,7 @@ export default function CheckPage() {
                 {kpState === "idle" && (
                   <>
                     <div className="mrc-mono mrc-kicker">следующий шаг</div>
-                    {/* Заголовок берёт цифру из ЭТОГО замера. Абстрактное
+                    {/* Заголовок берёт цифру из ЭТОЙ проверки. Абстрактное
                         «получите полный разбор» под карточкой, где только что
                         назван спрос ниши, слабее собственного числа человека:
                         сумма уже посчитана, осталось сказать, кому она уходит. */}
@@ -402,10 +405,38 @@ export default function CheckPage() {
                       {demandHeadline ?? "Это экспресс-диагноз. Полный разбор — тоже бесплатно"}
                     </div>
                     <p className="mrc-body mrc-lead-card-text">
-                      Внутри: находки с доказательствами по вашему сайту, конкуренты поимённо — с запросами,
-                      по которым они забирают ваших клиентов, прогноз заявок по каналам и план работ с ценами.
-                      Разбор собирается 2–3{" "}минуты, приходит на почту и открывается по ссылке.
+                      Три проверки выше показали <b>симптомы</b>. Полный разбор отвечает на вопрос,
+                      который стоит денег: <b>кто именно забирает ваши заявки и что нужно сделать,
+                      чтобы их вернуть</b>. Это документ на 15 разделов — по нему можно работать
+                      самим, отдать своему подрядчику или прийти с ним к нам.
                     </p>
+                    {/* Раньше здесь был абзац перечислением через запятую: он
+                        читался как «ещё немного текста» и не давал понять, за
+                        что человек отдаёт почту. Разложено по пунктам — с
+                        иконкой и конкретикой, что именно он получит. */}
+                    <ul className="mrc-gets">
+                      {[
+                        ["rival", "Конкуренты поимённо", "Кто стоит выше вас и по каким запросам — списком, с адресами страниц, а не «ваши конкуренты сильнее»."],
+                        ["search", "Запросы, которых у вас нет", "Спрос ниши, который сейчас целиком достаётся другим: что искать и куда это ставить на сайте."],
+                        ["bot", "Видимость в нейросетях", "Что отвечают Алиса, ChatGPT и Google AI на вопросы ваших клиентов — и почему вас там нет."],
+                        ["gear", "Технические находки", "Каждая — с доказательством: адрес страницы, что не так и что это стоит в обращениях."],
+                        ["money", "Прогноз по каналам", "Сколько обращений реально добавляет каждый канал и через какой срок. Без обещаний «топ-1 за месяц»."],
+                        ["doc", "План работ с ценами", "Что делаем в первый месяц, что дальше, сколько стоит. Цифры, а не «рассчитывается индивидуально»."],
+                      ].map(([ic, t, d]) => (
+                        <li key={t}>
+                          <span className="mrc-gets-ico" aria-hidden="true"><Icon name={ic as IconName} /></span>
+                          <span className="mrc-gets-t">{t}</span>
+                          <span className="mrc-gets-d">{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mrc-gets-foot">
+                      <span className="mrc-gets-price">0 ₽</span>
+                      <span>
+                        Собирается 2–3 минуты, приходит на почту, открывается по ссылке.
+                        Без звонка менеджера и без карты — платить не за что.
+                      </span>
+                    </div>
                     <div className="mrc-form-row">
                       <input
                         value={email}
@@ -502,11 +533,11 @@ export default function CheckPage() {
           </section>
         )}
 
-        {/* ─── 01 · Куда уходят заявки ─── */}
+        {/* ─── 01 · Где чаще всего теряются заявки ─── */}
         <section className="mrc-sec" data-reveal>
           <SecHead
             idx="01"
-            title="Куда уходят заявки"
+            title="Где чаще всего теряются заявки"
             sub="Заявка редко теряется на сайте. Чаще она вообще до него не доходит — человек принимает решение раньше."
           />
           <ol className="mrc-chain">
@@ -536,7 +567,7 @@ export default function CheckPage() {
           <div className="mrc-midcta">
             <div>
               <div className="mrc-midcta-t">Проверим, где теряются ваши заявки</div>
-              <div className="mrc-midcta-d">Три замера по вашему сайту — бесплатно, без звонка, результат на этой же странице.</div>
+              <div className="mrc-midcta-d">Три проверки по вашему сайту — бесплатно, без звонка, результат на этой же странице.</div>
             </div>
             <button
               type="button"
@@ -611,7 +642,7 @@ export default function CheckPage() {
           <SecHead
             idx="04"
             title="Что получает клиент"
-            sub="Полный разбор — это документ, по которому можно работать: со ссылками, замерами и ценами."
+            sub="Полный разбор — это документ, по которому можно работать: со ссылками, цифрами и ценами."
           />
           {/* Асимметричная секция: слева превью документа, справа его содержание */}
           <div className="mrc-deliver-wrap">
@@ -684,14 +715,21 @@ export default function CheckPage() {
             sub="Договор — публичная оферта, оплата по счёту, документы закрывающие."
           />
           <div className="mrc-who">
+            {/* Здесь — бренд и суть работы. Юр.реквизиты (ИП, ИНН, ОГРНИП,
+                адрес) ушли в футер: в середине страницы они холодят и читаются
+                как бухгалтерия, а внизу выполняют ровно свою задачу —
+                показать, что за сайтом стоит зарегистрированное лицо. */}
             <article className="mrc-who-card">
               <div className="mrc-mono mrc-who-label">исполнитель</div>
-              <div className="mrc-who-name">{VENDOR_PUBLIC.legalName}</div>
-              <dl className="mrc-who-dl">
-                <div><dt>ИНН</dt><dd>{VENDOR_PUBLIC.inn}</dd></div>
-                <div><dt>ОГРНИП</dt><dd>{VENDOR_PUBLIC.ogrn}</dd></div>
-                <div><dt>Адрес</dt><dd>{VENDOR_PUBLIC.address}</dd></div>
-              </dl>
+              <div className="mrc-who-name">MarketRadar</div>
+              <p className="mrc-who-about">
+                Команда, которая делает и саму платформу анализа, и работы по её находкам.
+                Не перепродаём подряд: техника сайта, контент, внешние упоминания и репутация —
+                внутри одной команды, один счёт и один ответственный.
+              </p>
+              <p className="mrc-who-about">
+                Работаем по договору, оплата по счёту, документы закрывающие. Реквизиты — в подвале страницы.
+              </p>
             </article>
             <article className="mrc-who-card">
               <div className="mrc-mono mrc-who-label">связь</div>
@@ -729,7 +767,7 @@ export default function CheckPage() {
         <div className="mrc-wrap mrc-final-grid">
           <div>
             <div className="mrc-mono mrc-kicker">проверка сайта</div>
-            <h2 className="mrc-h2">Начните с замера,<br />а не с договора</h2>
+            <h2 className="mrc-h2">Начните с проверки,<br />а не с договора</h2>
             <p className="mrc-lead">
               Введите адрес — и через минуту увидите, что именно мешает сайту приносить обращения.
               Дальше решите сами, нужны мы вам или нет.
@@ -750,8 +788,11 @@ export default function CheckPage() {
 
       <footer className="mrc-footer">
         <div className="mrc-wrap mrc-footer-inner">
-          <span className="mrc-mono">
+          {/* Полные реквизиты живут здесь — их место в подвале, а не в
+              середине страницы, где они сбивают темп чтения. */}
+          <span className="mrc-foot-legal">
             {VENDOR_PUBLIC.legalName} · ИНН {VENDOR_PUBLIC.inn} · ОГРНИП {VENDOR_PUBLIC.ogrn}
+            <br />{VENDOR_PUBLIC.address}
           </span>
           <nav className="mrc-footer-nav">
             <a href={`mailto:${VENDOR_PUBLIC.email}`}>{VENDOR_PUBLIC.email}</a>
@@ -962,7 +1003,7 @@ function SerpMock({ query, note }: { query: string; note: string }) {
         <li className="mrc-serp-item is-you">
           <span className="mrc-mono mrc-serp-pos">—</span>
           <div className="mrc-serp-empty">
-            <span className="mrc-mono mrc-serp-empty-t">вашего сайта здесь нет</span>
+            <span className="mrc-serp-empty-t">Вашего сайта по данному запросу нет</span>
             <span className="mrc-serp-empty-d">{note}</span>
           </div>
         </li>
@@ -972,7 +1013,7 @@ function SerpMock({ query, note }: { query: string; note: string }) {
 }
 
 /* Приборная панель слоёв. Значения условные и подписаны как схема: они
-   иллюстрируют правило «итог равен самому слабому слою», а не замер сайта. */
+   иллюстрируют правило «итог равен самому слабому слою», а не проверку сайта. */
 const CHANNELS: { t: string; acc: Accent; on: number }[] = [
   { t: "Техника", acc: "cyan", on: 6 },
   { t: "Контент", acc: "amber", on: 7 },
@@ -1108,7 +1149,7 @@ const DELIVER: { t: string; acc: Accent; d: string; points: string[] }[] = [
   {
     t: "Находки с доказательствами", acc: "cyan",
     d: "По каждой проблеме показано, где мы её увидели, а не абстрактное «нужно улучшить SEO».",
-    points: ["адрес конкретной страницы", "замер или выдержка из выдачи", "что именно это стоит вам в заявках"],
+    points: ["адрес конкретной страницы", "цифра или выдержка из выдачи", "что именно это стоит вам в заявках"],
   },
   {
     t: "Конкуренты поимённо", acc: "pink",
@@ -1187,7 +1228,7 @@ function UrlForm({ id, url, setUrl, starting, onStart, error, note }: {
 
 function ProgressMeter({ ready, total }: { ready: number; total: number }) {
   return (
-    <div className="mrc-meter" aria-label={`Готово замеров: ${ready} из ${total}`}>
+    <div className="mrc-meter" aria-label={`Готово проверок: ${ready} из ${total}`}>
       <span className="mrc-mono mrc-meter-label">готово {ready}/{total}</span>
       <span className="mrc-meter-bars" aria-hidden="true">
         {Array.from({ length: total }, (_, i) => (
@@ -1200,18 +1241,22 @@ function ProgressMeter({ ready, total }: { ready: number; total: number }) {
 
 /* ─── Карточки результата ──────────────────────────────────────────────── */
 
-function ProbeCard({ idx, title, probe, tone, pendingNote, render }: {
-  idx: string; title: string; probe?: "pending" | "done" | "failed"; tone?: Tone; pendingNote?: string;
+function ProbeCard({ idx, title, icon, probe, tone, pendingNote, render }: {
+  idx: string; title: string; icon: IconName; probe?: "pending" | "done" | "failed"; tone?: Tone; pendingNote?: string;
   render: () => React.ReactNode;
 }) {
   const pending = !probe || probe === "pending";
-  const status = pending ? "замер…" : probe === "done" ? "готово" : "нет данных";
+  const status = pending ? "проверяем…" : probe === "done" ? "готово" : "нет данных";
   // Пробы без результата не красим в бренд: серый = «данных нет», а не «всё хорошо».
   const accent = pending ? "var(--rule)" : probe === "failed" ? "var(--soft)" : toneColor(tone);
   return (
     <article className="mrc-probe">
       <span className="mrc-probe-rail" style={{ background: accent }} aria-hidden="true" />
       <div className="mrc-probe-head">
+        {/* Иконка вместо голого номера: карточка должна читаться с одного
+            взгляда, а «01/02/03» не говорит, о чём проверка. Номер остаётся
+            рядом — по нему удобно ссылаться в разговоре с менеджером. */}
+        <span className="mrc-probe-ico" style={{ color: accent }} aria-hidden="true"><Icon name={icon} /></span>
         <span className="mrc-mono mrc-probe-n">{idx}</span>
         <h3 className="mrc-probe-t">{title}</h3>
         <span className={`mrc-mono mrc-status${pending ? " is-pending" : ""}`}>
@@ -1232,7 +1277,7 @@ function ProbeCard({ idx, title, probe, tone, pendingNote, render }: {
 }
 
 function ProbeFail({ what }: { what: string }) {
-  return <div className="mrc-note">Не удалось замерить {what} автоматически — войдёт в полный разбор.</div>;
+  return <div className="mrc-note">Не удалось проверить {what} автоматически — войдёт в полный разбор.</div>;
 }
 
 function Verdict({ tone, headline, details }: { tone: Tone; headline: string; details?: React.ReactNode }) {
@@ -1259,9 +1304,9 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
     } />;
   }
   if (n === 0 && s.empty === "no-data") {
-    return <Verdict tone="warn" headline="Домена нет в базе Букварикса" details={
+    return <Verdict tone="warn" headline="Домена нет в базе видимости" details={
       <div className="mrc-verdict-body">
-        Это не приговор: база собирает домены, попавшие в топ-50 Яндекса хотя бы по одному
+        Это не приговор: база видимости собирает домены, попавшие в топ-50 Яндекса хотя бы по одному
         запросу, и молодые или узкие сайты в неё не входят. Но означает это одно — заметных
         позиций у вас пока нет. Полный разбор считает видимость по другим источникам.
       </div>
@@ -1275,32 +1320,38 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
     `База есть: вас видно по ${cap} запросам`;
   return (
     <Verdict tone={tone} headline={headline} details={
+      <>
       <div className="mrc-verdict-body">
         {s.top && s.top.length > 0 ? (
           <>
             Главные запросы, по которым вас находят:{" "}
             {s.top.slice(0, 3).map(t => `«${t.keyword}» (позиция #${t.position}, спрос ${fmtFreq(t.freq)})`).join(", ")}.
             {" "}
-            {/* Числа Букварикса — широкая частотность Wordstat: все словоформы и
+            {/* Широкая частотность Wordstat: все словоформы и
                 все фразы со словом, а не показы одной этой фразы. Подать их как
                 «показов/мес» значит завысить в разы — специалист это заметит
                 первым, и вместе с доверием уйдут остальные цифры. */}
             {/* Источник данных подписан прямо здесь. Позиция — не наш живой
-                съём выдачи: это состояние базы Букварикса на момент её
+                съём выдачи: это состояние базы видимости на момент её
                 последнего обхода. Подать её как «сейчас» — та же ошибка, что
                 выдать широкую частотность за показы. */}
             <span className="mrc-note">
               Спрос — широкая частотность Wordstat: сумма всех фраз со словом, а не показы
-              одной этой фразы. Позиции — по базе Букварикса (топ-50 Яндекса, Москва) на момент
+              одной этой фразы. Позиции — по базе видимости (топ-50 Яндекса, Москва) на момент
               её последнего обхода, а не живой съём выдачи. Точную частотность, актуальные
               позиции и разбивку по интенту считаем в полном разборе.
             </span>
             {" "}Кто забирает остальной спрос ниши — покажет полный разбор.
           </>
         ) : (
-          <>По данным Букварикса заметных запросов у домена не нашлось — спрос ниши целиком достаётся конкурентам. Полный разбор покажет, кому именно.</>
+          <>Заметных запросов у домена не нашлось — спрос ниши целиком достаётся конкурентам. Полный разбор покажет, кому именно.</>
         )}
       </div>
+      <Cost
+        loss="По запросам, где вас нет, выбирают из тех, кто есть. Спрос никуда не девается — его просто делят без вас, каждый день."
+        fix="Собираем семантику ниши и закрываем пробелы страницами и контентом под конкретные запросы."
+      />
+      </>
     } />
   );
 }
@@ -1312,11 +1363,31 @@ function fmtFreq(n: number): string {
   return `${n.toLocaleString("ru-RU")} запросов/мес`;
 }
 
+/** Полоса 0–100 с зоной нормы: показывает не только балл, но и разрыв до неё. */
+function SpeedScale({ value }: { value: number }) {
+  return (
+    <div className="mrc-scale" role="img" aria-label={`${value} из 100, норма — от 90`}>
+      <div className="mrc-scale-track">
+        <span className="mrc-scale-zone is-bad" />
+        <span className="mrc-scale-zone is-warn" />
+        <span className="mrc-scale-zone is-ok" />
+        <span className="mrc-scale-fill" style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
+        <span className="mrc-scale-pin" style={{ left: `${Math.max(2, Math.min(100, value))}%` }}>
+          <b>{value}</b>
+        </span>
+      </div>
+      <div className="mrc-scale-legend">
+        <span>0 · критично</span><span>50</span><span>90 · норма Google</span>
+      </div>
+    </div>
+  );
+}
+
 function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
   if (s.unreachable) {
     return <Verdict tone="warn" headline="Сайт не ответил — мерить нечего" details={
       <div className="mrc-verdict-body">
-        Домен не открылся, поэтому замер скорости не проводился. Проверьте адрес.
+        Домен не открылся, поэтому скорость проверить не удалось. Проверьте адрес.
       </div>
     } />;
   }
@@ -1326,7 +1397,7 @@ function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
     const slow = s.fallback.ttfbMs > 1500;
     return <Verdict tone={slow ? "warn" : "ok"} headline={`Ответ сервера — ${sec} с`} details={
       <div className="mrc-verdict-body">
-        Google Lighthouse сейчас не ответил, поэтому это наш собственный замер: столько
+        Google Lighthouse сейчас не ответил, поэтому это наша собственная проверка: столько
         занял ответ сервера на первый запрос{s.fallback.htmlKb ? `, страница весит ${s.fallback.htmlKb} КБ` : ""}.
         Полная оценка скорости на телефоне войдёт в разбор.
       </div>
@@ -1341,11 +1412,43 @@ function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
     `Скорость в порядке: ${p}/100`;
   return (
     <Verdict tone={tone} headline={headline} details={
-      <div className="mrc-verdict-body">
-        {s.lcpDisplay && <>Главный контент появляется за {s.lcpDisplay} (норма Google — до 2,5{" "}с). </>}
-        {p < 90 && <>Пока страница грузится, мобильный посетитель уходит к тем, у кого уже открылось.</>}
-      </div>
+      <>
+        <SpeedScale value={p} />
+        <div className="mrc-verdict-body">
+          {s.lcpDisplay && <>Главный контент появляется за {s.lcpDisplay} (норма Google — до 2,5{" "}с). </>}
+          {p < 90 && <>Пока страница грузится, мобильный посетитель уходит к тем, у кого уже открылось.</>}
+        </div>
+        {/* «Что не так» без «и что теперь» — просто плохая новость. Каждая
+            карточка обязана заканчиваться следствием: что это стоит в
+            заявках и что с этим делают. */}
+        {p < 90 && (
+          <Cost
+            loss="Каждая лишняя секунда загрузки на телефоне срезает часть обращений: человек закрывает вкладку до того, как увидел цены."
+            fix="Ускорение — разовая работа с фиксированной ценой, результат виден сразу после выкатки."
+          />
+        )}
+      </>
     } />
+  );
+}
+
+/**
+ * Строка следствия под вердиктом: чем находка оборачивается и что с ней
+ * делают. Без неё экспресс-аудит читается как список претензий к сайту, а
+ * не как повод что-то изменить.
+ */
+function Cost({ loss, fix }: { loss: string; fix: string }) {
+  return (
+    <div className="mrc-cost">
+      <div className="mrc-cost-row is-loss">
+        <span className="mrc-cost-ico" aria-hidden="true"><Icon name="absent" /></span>
+        <span><b>Чем это стоит:</b> {loss}</span>
+      </div>
+      <div className="mrc-cost-row is-fix">
+        <span className="mrc-cost-ico" aria-hidden="true"><Icon name="check" /></span>
+        <span><b>Что делают:</b> {fix}</span>
+      </div>
+    </div>
   );
 }
 
@@ -1377,6 +1480,10 @@ function ReadabilityVerdict({ s }: { s: NonNullable<MiniCheckResult["readability
             : <>Сервер ответил кодом {s.httpStatus} на обычный запрос. Краулеры ChatGPT, Claude и Яндекса ходят такими же ботами: если фильтр не разбирает, кого пускать, для них вашего сайта не существует.</>}
         </div>
         <AiBotsLine bots={s.aiBots} />
+        <Cost
+          loss="Пока сервер отдаёт краулерам отказ, вас не существует ни для одного ассистента — независимо от того, насколько хорош сайт."
+          fix="Настраиваем фильтр так, чтобы он пускал краулеры ассистентов и продолжал резать вредных ботов."
+        />
       </>
     } />;
   }
@@ -1411,6 +1518,10 @@ function ReadabilityVerdict({ s }: { s: NonNullable<MiniCheckResult["readability
           <div className="mrc-verdict-body">Базовая структура в порядке — вопрос в контенте и внешних сигналах.</div>
         )}
         <AiBotsLine bots={s.aiBots} />
+        <Cost
+          loss="Ассистент не может пересказать то, чего не прочитал: в ответе окажется конкурент, у которого услуги и цены размечены."
+          fix="Размечаем услуги и цены по Schema.org, переписываем страницы так, чтобы ответ извлекался целиком."
+        />
       </>}
     />
   );
@@ -1418,7 +1529,8 @@ function ReadabilityVerdict({ s }: { s: NonNullable<MiniCheckResult["readability
 
 /* ─── Иконки: один набор, 20×20, обводка currentColor ──────────────────── */
 
-type IconName = "search" | "answer" | "absent" | "rival" | "out" | "gear" | "text" | "link" | "star";
+type IconName = "search" | "answer" | "absent" | "rival" | "out" | "gear" | "text" | "link" | "star"
+  | "speed" | "bot" | "eye" | "clock" | "doc" | "money" | "shield" | "check";
 
 function Icon({ name }: { name: IconName }) {
   const P: Record<IconName, React.ReactNode> = {
@@ -1431,6 +1543,14 @@ function Icon({ name }: { name: IconName }) {
     text: <><path d="M4 3h12v14H4z" /><path d="M7 7h6M7 10h6M7 13h3" /></>,
     link: <><path d="M8 12a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L9 6" /><path d="M12 8a3.5 3.5 0 0 0-5 0l-2.5 2.5a3.5 3.5 0 0 0 5 5L11 14" /></>,
     star: <><path d="m10 2.5 2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L2.5 8l5.2-.8z" /></>,
+    speed: <><path d="M10 17a7 7 0 1 1 7-7" /><path d="M10 10l4-3" /><circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none" /></>,
+    bot: <><rect x="3.5" y="6.5" width="13" height="9" rx="2.5" /><path d="M10 3.5v3" /><circle cx="7.5" cy="11" r="1" fill="currentColor" stroke="none" /><circle cx="12.5" cy="11" r="1" fill="currentColor" stroke="none" /></>,
+    eye: <><path d="M1.5 10S5 4.5 10 4.5 18.5 10 18.5 10 15 15.5 10 15.5 1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.4" /></>,
+    clock: <><circle cx="10" cy="10" r="7.5" /><path d="M10 5.5V10l3 2" /></>,
+    doc: <><path d="M5 2.5h6.5L16 7v10.5H5z" /><path d="M11 2.5V7h5" /><path d="M7.5 11h6M7.5 14h4" /></>,
+    money: <><rect x="2.5" y="5" width="15" height="10" rx="2" /><circle cx="10" cy="10" r="2.4" /></>,
+    shield: <><path d="M10 2.5 16 5v5.2c0 3.4-2.4 6.1-6 7.3-3.6-1.2-6-3.9-6-7.3V5z" /><path d="m7.5 10 1.8 1.8L13 8" /></>,
+    check: <><path d="m4 10.5 4 4L16 6" /></>,
   };
   return (
     <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
@@ -1583,7 +1703,7 @@ const CSS = AI_ROW_CSS + `
 
 .mrc-mono {
   font-family: var(--f-mono);
-  font-size: 12.5px;
+  font-size: 14px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
@@ -1626,14 +1746,14 @@ const CSS = AI_ROW_CSS + `
 }
 .mrc-h3 { font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.015em; margin: 0 0 8px; }
 .mrc-h3-lg { font-family: var(--f-display); font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; margin: 0 0 10px; }
-.mrc-lead { font-size: 19px; line-height: 1.58; color: var(--mrc-fg-mid); margin: 0; max-width: 58ch; }
+.mrc-lead { font-size: 20px; line-height: 1.6; color: var(--mrc-fg-mid); margin: 0; max-width: 58ch; }
 .mrc-body { font-size: 16px; line-height: 1.6; color: var(--mrc-fg-mid); margin: 0; }
-.mrc-note { font-size: 13px; line-height: 1.55; color: var(--soft); }
-.mrc-err { color: var(--loss); font-size: 13.5px; margin-top: 10px; }
+.mrc-note { font-size: 15px; line-height: 1.55; color: var(--soft); }
+.mrc-err { color: var(--loss); font-size: 15px; margin-top: 10px; }
 .mrc-kicker { color: var(--flare-use); margin-bottom: 10px; }
 .mrc-ul { margin: 12px 0 0; padding-left: 0; list-style: none; }
 .mrc-ul li {
-  position: relative; padding-left: 17px; font-size: 13.5px; line-height: 1.55;
+  position: relative; padding-left: 17px; font-size: 15.5px; line-height: 1.6;
   color: var(--soft); margin-bottom: 6px;
 }
 .mrc-ul li::before {
@@ -1659,7 +1779,7 @@ const CSS = AI_ROW_CSS + `
 .mrc-eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
   margin-bottom: 22px; padding: 8px 15px; border-radius: 999px;
-  font-family: var(--f-text); font-size: 12.5px; font-weight: 600;
+  font-family: var(--f-text); font-size: 14px; font-weight: 600;
   letter-spacing: 0.005em; text-transform: none;
   color: var(--mrc-green);
   border: 1px solid color-mix(in srgb, var(--mrc-green) 32%, transparent);
@@ -1669,7 +1789,7 @@ const CSS = AI_ROW_CSS + `
   width: 7px; height: 7px; border-radius: 50%; background: var(--mrc-green);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mrc-green) 22%, transparent);
 }
-.mrc-hero-lead { font-size: 17px; margin-bottom: 0; max-width: 46ch; }
+.mrc-hero-lead { font-size: 19.5px; margin-bottom: 0; max-width: 46ch; }
 
 /* ── Сцена «ответ с пропуском» — signature ── */
 .mrc-ans {
@@ -1730,7 +1850,7 @@ const CSS = AI_ROW_CSS + `
   border-radius: var(--mrc-r);
   background: color-mix(in srgb, var(--loss) 7%, transparent);
   color: var(--loss);
-  font-family: var(--f-mono); font-size: 12.5px; letter-spacing: 0.06em;
+  font-family: var(--f-mono); font-size: 14px; letter-spacing: 0.06em;
   animation: mrc-slotpulse 2.8s var(--ease) infinite;
 }
 .mrc-slot-note { color: var(--soft); }
@@ -1741,7 +1861,7 @@ const CSS = AI_ROW_CSS + `
 .mrc-ans-footlabel { color: var(--soft); }
 .mrc-chips { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
 .mrc-chips li {
-  border: 1px solid var(--rule); border-radius: 999px; padding: 5px 11px; font-size: 10.5px;
+  border: 1px solid var(--rule); border-radius: 999px; padding: 6px 13px; font-size: 13px;
   letter-spacing: 0.06em; color: var(--soft); text-transform: none;
 }
 /* Ассистенты — со знаком-меткой своего цвета: ряд из пяти одинаковых серых
@@ -1823,7 +1943,7 @@ const CSS = AI_ROW_CSS + `
 }
 .mrc-formnote {
   color: var(--soft); margin-top: 14px; line-height: 1.5;
-  text-transform: none; letter-spacing: 0.02em; font-size: 11.5px; max-width: 46ch;
+  text-transform: none; letter-spacing: 0.02em; font-size: 14px; max-width: 52ch;
 }
 
 /* ── Секции на бумаге ── */
@@ -1850,7 +1970,101 @@ const CSS = AI_ROW_CSS + `
 .mrc-sec-text { min-width: 0; }
 .mrc-slab-sec .mrc-sec-head { margin-bottom: 30px; }
 
-/* ── Список замеров ── */
+
+/* ── Иконка в шапке карточки аудита ── */
+.mrc-probe-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+/* ── Шкала скорости: балл на фоне зон, а не голая цифра ──
+   «66/100» ничего не сообщает человеку, который не работает с Lighthouse.
+   Полоса показывает, где проходит норма и насколько он от неё далеко. */
+.mrc-scale { margin: 4px 0 14px; }
+.mrc-scale-track {
+  position: relative; height: 12px; border-radius: 999px; overflow: visible;
+  display: flex; isolation: isolate;
+}
+.mrc-scale-zone { height: 12px; }
+.mrc-scale-zone:first-child { border-radius: 999px 0 0 999px; }
+.mrc-scale-zone:nth-child(3) { border-radius: 0 999px 999px 0; }
+.mrc-scale-zone.is-bad  { width: 50%; background: color-mix(in srgb, var(--loss) 22%, transparent); }
+.mrc-scale-zone.is-warn { width: 40%; background: color-mix(in srgb, var(--mrc-amber) 24%, transparent); }
+.mrc-scale-zone.is-ok   { width: 10%; background: color-mix(in srgb, var(--mrc-green) 26%, transparent); }
+.mrc-scale-fill {
+  position: absolute; left: 0; top: 0; height: 12px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--mrc-indigo-fg), var(--mrc-magenta));
+  opacity: .92;
+}
+.mrc-scale-pin {
+  position: absolute; top: -8px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 28px; padding: 0 8px; border-radius: 8px;
+  background: var(--mrc-fg); color: var(--mrc-bg);
+  font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.mrc-scale-legend {
+  display: flex; justify-content: space-between; margin-top: 14px;
+  font-family: var(--f-mono); font-size: 12.5px; color: var(--soft);
+}
+
+/* ── Следствие находки: чем это стоит и что с этим делают ── */
+.mrc-cost {
+  margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--rule);
+  display: grid; gap: 9px;
+}
+.mrc-cost-row {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px;
+  font-size: 15px; line-height: 1.55;
+}
+.mrc-cost-row.is-loss { color: var(--mrc-fg-mid); }
+.mrc-cost-row.is-loss b { color: var(--loss); }
+.mrc-cost-row.is-fix { color: var(--mrc-fg-mid); }
+.mrc-cost-row.is-fix b { color: var(--mrc-green); }
+.mrc-cost-ico { display: inline-flex; padding-top: 1px; }
+.mrc-cost-ico svg { width: 18px; height: 18px; }
+.mrc-cost-row.is-loss .mrc-cost-ico { color: var(--loss); }
+.mrc-cost-row.is-fix .mrc-cost-ico { color: var(--mrc-green); }
+
+/* ── Что даёт полный разбор ──
+   Перечисление через запятую не отвечало на вопрос «за что я отдаю почту».
+   Шесть карточек с иконкой и конкретикой отвечают. */
+.mrc-gets {
+  list-style: none; margin: 18px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.mrc-gets li {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto;
+  column-gap: 12px; row-gap: 4px; align-items: start;
+  padding: 15px 16px; border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--surface);
+}
+.mrc-gets-ico {
+  grid-row: span 2; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 9px; color: var(--flare-use);
+  border: 1px solid color-mix(in srgb, var(--flare-use) 30%, transparent);
+  background: color-mix(in srgb, var(--flare-use) 8%, transparent);
+}
+.mrc-gets-t { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.mrc-gets-d { font-size: 14.5px; line-height: 1.5; color: var(--soft); }
+.mrc-gets-foot {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 16px; padding: 14px 16px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--mrc-green) 34%, transparent);
+  background: color-mix(in srgb, var(--mrc-green) 7%, transparent);
+  font-size: 15px; line-height: 1.5; color: var(--mrc-fg-mid);
+}
+.mrc-gets-price {
+  font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--mrc-green);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 720px) {
+  .mrc-gets { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Список проверок ── */
 .mrc-instr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .mrc-instr-row {
   display: grid; grid-template-columns: 128px minmax(0, 280px) minmax(0, 1fr);
@@ -1860,10 +2074,10 @@ const CSS = AI_ROW_CSS + `
 }
 .mrc-instr-row:hover { background: color-mix(in srgb, var(--mrc-fg) 4%, transparent); }
 .mrc-instr-n { color: var(--flare-use); }
-.mrc-instr-t { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
-.mrc-instr-d { font-size: 13.5px; line-height: 1.55; color: var(--soft); }
+.mrc-instr-t { font-size: 19px; font-weight: 700; letter-spacing: -0.015em; }
+.mrc-instr-d { font-size: 16px; line-height: 1.55; color: var(--soft); }
 
-/* ── Лист замеров ── */
+/* ── Шапка экспресс-аудита ── */
 .mrc-readout-head {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
   flex-wrap: wrap; margin-bottom: 20px;
@@ -1898,9 +2112,9 @@ const CSS = AI_ROW_CSS + `
   font-family: var(--f-display); font-size: 21px; font-weight: 800; line-height: 1.2;
   margin-bottom: 8px; letter-spacing: -0.025em;
 }
-.mrc-verdict-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); font-variant-numeric: tabular-nums; }
+.mrc-verdict-body { font-size: 15.5px; line-height: 1.62; color: var(--soft); font-variant-numeric: tabular-nums; }
 
-/* Индикатор замера — бегущая полоса вместо спиннера */
+/* Индикатор проверки — бегущая полоса вместо спиннера */
 .mrc-scan { position: relative; height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
 .mrc-scan > span {
   position: absolute; inset: 0 auto 0 0; width: 34%; border-radius: 2px;
@@ -1923,7 +2137,7 @@ const CSS = AI_ROW_CSS + `
 .mrc-done-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .mrc-consent {
   display: flex; gap: 11px; align-items: flex-start; margin-top: 16px;
-  cursor: pointer; font-size: 12.5px; line-height: 1.55; color: var(--soft);
+  cursor: pointer; font-size: 14.5px; line-height: 1.55; color: var(--mrc-fg-mid);
 }
 .mrc-consent a { color: var(--flare-use); text-decoration: underline; text-underline-offset: 2px; }
 .mrc-checkbox {
@@ -1951,7 +2165,7 @@ const CSS = AI_ROW_CSS + `
 .mrc-chain-ico { display: block; color: var(--mrc-cyan); margin-bottom: 12px; }
 .mrc-chain-node.is-loss .mrc-chain-ico { color: var(--loss); }
 .mrc-chain-t { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 7px; }
-.mrc-chain-d { display: block; font-size: 13px; line-height: 1.55; color: var(--soft); }
+.mrc-chain-d { display: block; font-size: 15px; line-height: 1.55; color: var(--soft); }
 .mrc-sec > .mrc-note { display: block; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); }
 
 /* ── Сравнение путей ── */
@@ -2054,8 +2268,10 @@ const CSS = AI_ROW_CSS + `
   border: 1px solid var(--rule); border-radius: 14px; padding: 20px 22px;
   background: var(--surface);
 }
-.mrc-who-label { color: var(--soft); letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
-.mrc-who-name { font-weight: 700; font-size: 19px; margin: 8px 0 14px; }
+.mrc-who-label { color: var(--soft); letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+.mrc-who-name { font-weight: 700; font-size: 22px; margin: 8px 0 14px; }
+.mrc-who-about { font-size: 15.5px; line-height: 1.6; color: var(--mrc-fg-mid); margin: 0 0 12px; }
+.mrc-who-about:last-child { margin-bottom: 0; }
 .mrc-who-dl { margin: 0; display: grid; gap: 9px; }
 .mrc-who-dl > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; }
 .mrc-who-dl dt { color: var(--soft); font-size: 14px; }
@@ -2080,9 +2296,10 @@ const CSS = AI_ROW_CSS + `
 .mrc-footer { border-top: 1px solid var(--rule); padding: 26px 0 38px; }
 .mrc-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .mrc-footer-inner > .mrc-mono { color: var(--soft); }
+.mrc-foot-legal { font-size: 13.5px; line-height: 1.6; color: var(--soft); max-width: 46ch; }
 .mrc-footer-nav { display: flex; gap: 20px; flex-wrap: wrap; }
 .mrc-footer-nav a {
-  font-size: 12.5px; color: var(--soft); text-decoration: none;
+  font-size: 15px; color: var(--soft); text-decoration: none;
   border-bottom: 1px solid transparent;
 }
 .mrc-footer-nav a:hover { color: var(--mrc-fg); border-bottom-color: var(--flare-use); }
@@ -2113,7 +2330,7 @@ const CSS = AI_ROW_CSS + `
 }
 .mrc-serp-tabs { display: flex; gap: 4px; margin: 12px 18px 0; overflow: hidden; }
 .mrc-serp-tabs span {
-  font-size: 12px; padding: 6px 12px; border-radius: 999px; color: var(--soft); white-space: nowrap;
+  font-size: 13.5px; padding: 7px 14px; border-radius: 999px; color: var(--soft); white-space: nowrap;
 }
 .mrc-serp-tabs span.is-on {
   background: color-mix(in srgb, var(--mrc-fg) 11%, transparent); color: var(--mrc-fg); font-weight: 600;
@@ -2135,11 +2352,11 @@ const CSS = AI_ROW_CSS + `
   display: block; color: var(--mrc-serp-url); text-transform: none;
   letter-spacing: 0.01em; margin-bottom: 7px; overflow-wrap: anywhere;
 }
-.mrc-serp-snip { margin: 0 0 9px; font-size: 13px; line-height: 1.5; color: var(--soft); }
+.mrc-serp-snip { margin: 0 0 9px; font-size: 14.5px; line-height: 1.5; color: var(--soft); }
 .mrc-serp-snip b { color: var(--mrc-fg-mid); font-weight: 700; }
 .mrc-serp-rate {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--soft); font-variant-numeric: tabular-nums;
+  font-size: 13.5px; color: var(--soft); font-variant-numeric: tabular-nums;
 }
 .mrc-serp-rate svg { color: var(--mrc-amber); }
 .mrc-serp-rate b { color: var(--mrc-fg-mid); font-weight: 700; }
@@ -2151,7 +2368,7 @@ const CSS = AI_ROW_CSS + `
   background: color-mix(in srgb, var(--loss) 7%, transparent);
 }
 .mrc-serp-empty-t { color: var(--loss); flex-shrink: 0; }
-.mrc-serp-empty-d { font-size: 13px; line-height: 1.5; color: var(--soft); min-width: 0; }
+.mrc-serp-empty-d { font-size: 15px; line-height: 1.5; color: var(--soft); min-width: 0; }
 
 /* ── Приборная панель слоёв ─────────────────────────────────────────────── */
 .mrc-signal {
@@ -2178,12 +2395,12 @@ const CSS = AI_ROW_CSS + `
   box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 30%, transparent);
 }
 .mrc-chan-val { color: var(--acc); }
-.mrc-chan-t { font-size: 13px; font-weight: 600; color: var(--mrc-fg-mid); line-height: 1.3; }
+.mrc-chan-t { font-size: 14.5px; font-weight: 600; color: var(--mrc-fg-mid); line-height: 1.3; }
 .mrc-signal-out {
   display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 18px; align-items: start;
   padding-left: 24px; border-left: 1px solid var(--rule);
 }
-.mrc-signal-note { font-size: 13.5px; }
+.mrc-signal-note { font-size: 15px; }
 
 /* ── Превью документа-разбора ───────────────────────────────────────────── */
 .mrc-doc {
@@ -2220,7 +2437,7 @@ const CSS = AI_ROW_CSS + `
 .mrc-doc-rows { display: grid; gap: 7px; }
 .mrc-doc-row { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 10px; align-items: center; }
 .mrc-doc-row em {
-  font-style: normal; font-family: var(--f-mono); font-size: 10.5px;
+  font-style: normal; font-family: var(--f-mono); font-size: 13px;
   color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mrc-doc-row i {
@@ -2274,7 +2491,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-wordmark { min-height: 44px; font-size: 18px; }
   .mrc-topbar-tag { display: none; }
   .mrc-hero { padding-bottom: 44px; }
-  .mrc-eyebrow { margin-bottom: 16px; font-size: 10px; letter-spacing: 0.07em; }
+  .mrc-eyebrow { margin-bottom: 16px; font-size: 13px; letter-spacing: 0.04em; }
   .mrc-hero-lead { font-size: 15.5px; margin-bottom: 22px; }
 
   .mrc-form-row { flex-direction: column; }
@@ -2284,7 +2501,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-ans { padding: 18px 16px 16px; }
   .mrc-ans-qtext { font-size: 15.5px; }
   .mrc-ans-text { font-size: 14.5px; }
-  .mrc-slot-box { font-size: 11.5px; padding: 0 12px; }
+  .mrc-slot-box { font-size: 13.5px; padding: 0 12px; }
 
   .mrc-sec { padding: 32px 0 38px; }
   .mrc-slab-sec { padding: 40px 0 44px; }
@@ -2300,11 +2517,11 @@ const CSS = AI_ROW_CSS + `
 
   .mrc-cmp-head { display: none; }
   .mrc-cmp-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 18px 0; }
-  .mrc-cmp-cell { position: relative; padding-left: 96px; font-size: 13.5px; }
+  .mrc-cmp-cell { position: relative; padding-left: 96px; font-size: 15px; }
   .mrc-cmp-cell::before {
     content: attr(data-tag); position: absolute; left: 0; top: 2px; width: 88px;
     font-family: var(--f-mono);
-    font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase;
     color: var(--soft);
   }
   .mrc-cmp-cell-b::before { color: var(--flare-use); }
@@ -2329,7 +2546,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-caret { opacity: 1; }
 }
 
-/* Строки замеров: тоже были сноской — поднимаем до карточек с номером */
+/* Строки проверок: тоже были сноской — поднимаем до карточек с номером */
 .mrc-instr-row {
   display: grid; grid-template-columns: 64px minmax(0, 300px) minmax(0, 1fr);
   gap: 0 22px; align-items: center;
@@ -2424,7 +2641,7 @@ const CSS = AI_ROW_CSS + `
   .mrc-chain-ico { margin-bottom: 10px; }
 }
 
-/* ── Маршрут воронки: замер → разбор → предложение ── */
+/* ── Маршрут воронки: проверка → разбор → предложение ── */
 .mrc-route {
   list-style: none; margin: 40px 0 8px; padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
