@@ -310,7 +310,7 @@ export default function CheckPage() {
                 title="Скорость на телефоне"
                 probe={spd?.status}
                 tone={spd?.status === "done" ? (spd.performance == null ? "warn" : spdTone(spd.performance)) : undefined}
-                pendingNote="Google Lighthouse меряет реальную загрузку — до минуты"
+                pendingNote="Google Lighthouse меряет реальную загрузку: обычно до минуты, на тяжёлых сайтах дольше"
                 render={() => spd?.status === "done" ? <SpeedVerdict s={spd} /> : <ProbeFail what="скорость" />}
               />
               <ProbeCard

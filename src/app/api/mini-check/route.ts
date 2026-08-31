@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server";
 import { initDb, query } from "@/lib/db";
-import { startMiniCheck, type MiniCheckResult } from "@/lib/mini-check";
+import { startMiniCheck, reviveStuckProbes, type MiniCheckResult } from "@/lib/mini-check";
 import { normalizeDomain } from "@/lib/bukvarix";
 
 export const runtime = "nodejs";
@@ -93,5 +93,10 @@ export async function GET(req: Request) {
   );
   const r = rows[0];
   if (!r) return NextResponse.json({ ok: false, error: "Проверка не найдена" }, { status: 404 });
+
+  // Поллинг страницы — заодно и планировщик: если процесс перезапустили на
+  // середине замера, пробы возобновятся, а не останутся в вечном «замер…».
+  void reviveStuckProbes(id).catch(() => {});
+
   return NextResponse.json({ ok: true, id: r.id, url: r.url, domain: r.domain, status: r.status, result: r.result, kpId: r.kp_id });
 }

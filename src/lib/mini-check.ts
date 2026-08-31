@@ -362,6 +362,50 @@ async function probeSpeed(id: string, url: string, pagePromise: Promise<PageFetc
 }
 
 /**
+ * Оживление зависших проб.
+ *
+ * Пробы живут в памяти процесса (fire-and-forget). Любой рестарт — деплой,
+ * pm2 restart, падение — убивает их на полпути, и запись навсегда остаётся в
+ * «замер…»: посетитель смотрит на крутящийся индикатор, который уже никогда
+ * не закончится. Своего ревайвера у мини-проверки не было, в отличие от
+ * kp-queue.
+ *
+ * Вызывается из GET-роута: поллинг страницы и есть наш планировщик. Порог в
+ * 6 минут выбран по самой медленной пробе — Lighthouse тянет до 2 попыток по
+ * 120 секунд, и живой замер не должен приниматься за мёртвый.
+ */
+export async function reviveStuckProbes(id: string): Promise<void> {
+  const rows = await query<{ url: string; domain: string; result: MiniCheckResult; stale: boolean }>(
+    `SELECT url, domain, result, (updated_at < NOW() - INTERVAL '6 minutes') AS stale
+       FROM mini_checks WHERE id = $1`,
+    [id],
+  );
+  const r = rows[0];
+  if (!r || !r.stale) return;
+
+  const res = r.result ?? {};
+  const stuck = (["semantics", "readability", "speed"] as const)
+    .filter(k => !res[k] || res[k]?.status === "pending");
+  if (stuck.length === 0) return;
+
+  const target = /^https?:///i.test(r.url) ? r.url : `https://${r.url}`;
+  // Метку времени двигаем сразу — иначе параллельные поллинги со страницы
+  // запустят по перезапуску каждый.
+  await query(`UPDATE mini_checks SET updated_at = NOW() WHERE id = $1`, [id]);
+
+  void (async () => {
+    const pagePromise = fetchPage(target);
+    pagePromise.catch(() => {});
+    await Promise.allSettled([
+      stuck.includes("semantics") ? probeSemantics(id, r.domain, pagePromise) : null,
+      stuck.includes("readability") ? probeReadability(id, target, pagePromise) : null,
+      stuck.includes("speed") ? probeSpeed(id, r.url, pagePromise) : null,
+    ].filter(Boolean));
+    await query(`UPDATE mini_checks SET status = 'done', updated_at = NOW() WHERE id = $1`, [id]);
+  })();
+}
+
+/**
  * Ставит проверку и запускает пробы в фоне (fire-and-forget: serverless тут
  * не используется, процесс Node живёт — тот же приём, что у kp-queue.tick).
  */
