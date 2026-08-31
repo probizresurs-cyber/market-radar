@@ -23,6 +23,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1.0,
     },
+    // Посадочные платного трафика. В карте сайта их не было вовсе, хотя
+    // именно на них идут кампании: /new — бесплатная диагностика (канонический
+    // адрес воронки, /check — тот же экран), /geo — кластер про нейросети.
+    {
+      url: `${SITE_URL}/new`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/geo`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
     {
       url: `${SITE_URL}/pricing`,
       lastModified: now,
