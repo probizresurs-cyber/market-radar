@@ -10,6 +10,19 @@ import { notifyKpReady } from "@/lib/kp-notify";
  * (переживает перезапуск процесса), воркер — module-singleton внутри PM2.
  */
 
+/**
+ * Версия логики анализа. Поднимается, когда меняется СБОР данных (правила
+ * оценок, поиск соцсетей, замер скорости) — тогда дедуп перестаёт
+ * переиспользовать разборы, собранные старой логикой.
+ *
+ * Без этого свежая заявка получала копию вчерашнего анализа со всеми
+ * исправленными дефектами внутри: сегодня так и вышло — в новом КП остался
+ * балл «5/100» у соцсетей, хотя гейт против выдуманных оценок уже работал.
+ *
+ * 2 — соцсети вне сайта, гейт оценок без данных, паспорт замера Lighthouse.
+ */
+export const ANALYSIS_VERSION = 2;
+
 const CONCURRENCY = 2;
 // Потолок затрат на публичные генерации: столько КП source='public' может
 // СТАРТОВАТЬ за скользящие 24 часа. Сверх — ждут в очереди, не отказ.
@@ -38,13 +51,13 @@ export async function enqueueKp(
 ): Promise<string> {
   const id = randomUUID();
   await query(
-    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone, source, client_ip, platform_user_id)
-     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    `INSERT INTO kp_generations (id, locale, url, status, share_token, share_password, lead_id, company_name, client_email, client_phone, source, client_ip, platform_user_id, analysis_version)
+     VALUES ($1, $2, $3, 'queued', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [
       id, locale, url,
       randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
       opts?.leadId ?? null, opts?.companyName ?? null, opts?.clientEmail ?? null, opts?.clientPhone ?? null,
-      opts?.source ?? "manager", opts?.clientIp ?? null, opts?.platformUserId ?? null,
+      opts?.source ?? "manager", opts?.clientIp ?? null, opts?.platformUserId ?? null, ANALYSIS_VERSION,
     ],
   );
   void tick();
@@ -79,13 +92,13 @@ export async function cloneKpForLead(
   await query(
     `INSERT INTO kp_generations
        (id, locale, url, status, share_token, share_password, company_name, bundle, company,
-        client_email, client_phone, source, client_ip, completed_at)
-     VALUES ($1, $2, $3, 'done', $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())`,
+        client_email, client_phone, source, client_ip, analysis_version, completed_at)
+     VALUES ($1, $2, $3, 'done', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())`,
     [
       id, src.locale, src.url,
       randomUUID().replace(/-/g, "").slice(0, 12), makeSharePassword(),
       src.company_name, JSON.stringify(src.bundle), JSON.stringify(src.company),
-      opts.clientEmail ?? null, opts.clientPhone ?? null, opts.source ?? "public", opts.clientIp ?? null,
+      opts.clientEmail ?? null, opts.clientPhone ?? null, opts.source ?? "public", opts.clientIp ?? null, ANALYSIS_VERSION,
     ],
   );
   // Уведомление о готовности — обычным путём: ссылка уезжает на почту сразу,

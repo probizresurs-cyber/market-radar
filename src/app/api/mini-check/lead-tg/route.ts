@@ -20,7 +20,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { initDb, query } from "@/lib/db";
-import { enqueueKp, cloneKpForLead } from "@/lib/kp-queue";
+import { enqueueKp, cloneKpForLead, ANALYSIS_VERSION } from "@/lib/kp-queue";
 
 export const runtime = "nodejs";
 
@@ -51,9 +51,9 @@ export async function POST(req: Request) {
     const dupKp = await query<{ id: string }>(
       `SELECT id FROM kp_generations
         WHERE source='public' AND url=$1 AND created_at > NOW() - INTERVAL '24 hours'
-          AND status = 'done'
+          AND status = 'done' AND analysis_version = $2
         ORDER BY created_at DESC LIMIT 1`,
-      [r.url],
+      [r.url, ANALYSIS_VERSION],
     );
     // Как и у email-двери: готовый разбор копируется этому лиду, а не
     // отдаётся чужой строкой.

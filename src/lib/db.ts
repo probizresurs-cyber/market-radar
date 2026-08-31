@@ -477,6 +477,9 @@ export async function initDb() {
   // Сквозная атрибуция: utm_*/yclid с посадочной. Без них Директ-кампании
   // не связываются со сделками, а офлайн-конверсии в Директ невозможны.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS utm JSONB`);
+  // Версия логики анализа: дедуп не должен отдавать разбор, собранный до
+  // изменения правил сбора данных (см. ANALYSIS_VERSION в kp-queue).
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS analysis_version INTEGER`);
   // Заявка на консультацию из КП — отдельная сущность, а не скролл к форме
   // пересборки: менеджер получает сигнал в TG и видит контакт.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_requested_at TIMESTAMPTZ`);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initDb, query } from "@/lib/db";
-import { enqueueKp } from "@/lib/kp-queue";
+import { enqueueKp, ANALYSIS_VERSION } from "@/lib/kp-queue";
 
 export const runtime = "nodejs";
 
@@ -32,9 +32,9 @@ export async function POST(req: Request) {
   const dup = await query<{ id: string }>(
     `SELECT id FROM kp_generations
       WHERE source='public' AND url=$1 AND created_at > NOW() - INTERVAL '24 hours'
-        AND status IN ('queued','running','done')
+        AND status IN ('queued','running','done') AND analysis_version = $2
       ORDER BY created_at DESC LIMIT 1`,
-    [url],
+    [url, ANALYSIS_VERSION],
   );
   if (dup[0]) return NextResponse.json({ ok: true, id: dup[0].id, reused: true });
 

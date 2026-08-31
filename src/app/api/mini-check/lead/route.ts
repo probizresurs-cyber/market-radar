@@ -13,7 +13,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { initDb, query } from "@/lib/db";
-import { enqueueKp, cloneKpForLead } from "@/lib/kp-queue";
+import { enqueueKp, cloneKpForLead, ANALYSIS_VERSION } from "@/lib/kp-queue";
 
 export const runtime = "nodejs";
 
@@ -59,9 +59,9 @@ export async function POST(req: Request) {
   const dupKp = await query<{ id: string; status: string }>(
     `SELECT id, status FROM kp_generations
       WHERE source='public' AND url=$1 AND created_at > NOW() - INTERVAL '24 hours'
-        AND status = 'done'
+        AND status = 'done' AND analysis_version = $2
       ORDER BY created_at DESC LIMIT 1`,
-    [r.url],
+    [r.url, ANALYSIS_VERSION],
   );
   // Готовый разбор того же сайта копируется этому лиду: содержимое то же,
   // Claude не вызывается, но ссылка, контакты и дожим — свои. Отдавать чужую
