@@ -1180,7 +1180,7 @@ function SemanticsVerdict({ s }: { s: NonNullable<MiniCheckResult["semantics"]> 
                 первым, и вместе с доверием уйдут остальные цифры. */}
             <span className="mrc-note">
               Спрос — широкая частотность Wordstat: сумма всех фраз со словом, а не показы
-              одной фразы.{s.top[0]?.exact ? ` Точная частотность «${s.top[0].keyword}» — ${fmtFreq(s.top[0].exact)}.` : ""}
+              одной этой фразы. Точную частотность и разбивку по интенту считаем в полном разборе.
             </span>
             {" "}Кто забирает остальной спрос ниши — покажет полный разбор.
           </>
@@ -1200,6 +1200,13 @@ function fmtFreq(n: number): string {
 }
 
 function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
+  if (s.unreachable) {
+    return <Verdict tone="warn" headline="Сайт не ответил — мерить нечего" details={
+      <div className="mrc-verdict-body">
+        Домен не открылся, поэтому замер скорости не проводился. Проверьте адрес.
+      </div>
+    } />;
+  }
   // Lighthouse не ответил — показываем свой замер и называем его своим.
   if (s.performance == null && s.fallback) {
     const sec = (s.fallback.ttfbMs / 1000).toFixed(1).replace(".", ",");

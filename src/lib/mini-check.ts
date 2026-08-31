@@ -84,6 +84,8 @@ export interface MiniCheckResult {
     seoScore?: number;
     /** Запасной замер, когда Lighthouse не ответил: наш собственный заход. */
     fallback?: { ttfbMs: number; htmlKb: number };
+    /** Сайт вообще не отвечает — мерить нечего, и это тоже ответ. */
+    unreachable?: boolean;
   };
 }
 
@@ -338,6 +340,12 @@ async function probeSpeed(id: string, url: string, pagePromise: Promise<PageFetc
     // Lighthouse не ответил (квота, таймаут, сайт закрыт от Google) — отдаём
     // свой замер и честно называем его своим, вместо прочерка.
     const page = await pagePromise;
+    if (page.access === "unreachable" && page.ttfbMs == null) {
+      // Домен не отвечает — Lighthouse и не мог ничего измерить. Говорим это
+      // прямо, чтобы карточка не выглядела нашей поломкой.
+      await mergeResult(id, { speed: { status: "done", unreachable: true } });
+      return;
+    }
     if (page.ttfbMs != null) {
       await mergeResult(id, {
         speed: {
