@@ -68,6 +68,8 @@ export interface KpProposalStrings {
   moreTitle: string; moreSubtitle: string;
   moreItems: { t: string; d: string }[];
   consultTitle: string; consultBody: string; consultBtn: string;
+  serviceFormTitle: string; serviceFormBody: string; serviceFormBtn: string; serviceFormDone: string;
+  finalCtaServiceTitle: string; finalCtaServiceBody: string; finalCtaServiceBtn: string;
   prTitle: string; prSubtitle: string;
   prCoverageLabel: string; prPlatformsLabel: string; prIncludedLabel: string; prExtraLabel: string;
   marketTitle: string; marketSubtitle: string;
@@ -211,6 +213,20 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
       { t: "Анализ отзывов", d: "Что пишут о вас на картах и отзовиках, темы претензий и шаблоны ответов. Тональность влияет на ответ ассистента." },
       { t: "Мониторинг конкурентов", d: "Их офферы, цены и структура сайтов. Видно, когда сосед по нише меняет условия." },
     ],
+    // Главный конвертер документа. Формулировки продают то же, что лендинг:
+    // видимость в поиске и в ответах нейросетей, а не переверстку сайта.
+    serviceFormTitle: "Начать продвижение в поиске и нейросетях",
+    serviceFormBody:
+      "Берём находки из этого разбора и закрываем их четырьмя слоями сразу: техника сайта, " +
+      "контент под извлечение ответа, внешние упоминания и репутация. Один подрядчик, один счёт, " +
+      "отчёт с замерами каждый месяц. От 25 000 ₽/мес, первые изменения — через один-три месяца.",
+    serviceFormBtn: "Обсудить сопровождение",
+    serviceFormDone: "Заявка принята",
+    finalCtaServiceTitle: "Готовы, чтобы вас находили — и советовали?",
+    finalCtaServiceBody:
+      "Разбор показал, где вы теряете обращения. Дальше это можно чинить самим по списку выше — " +
+      "или отдать нам и получать отчёт с замерами каждый месяц.",
+    finalCtaServiceBtn: "Начать сопровождение",
     consultTitle: "Не готовы решать с листа?",
     consultBody: "Разберём документ вместе: что делать первым, что подождёт, и во что это встанет именно у вас. Без обязательств.",
     consultBtn: "Запросить консультацию",
@@ -364,6 +380,18 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
       { t: "Bewertungsanalyse", d: "Was auf Karten und Bewertungsportalen über Sie steht, wiederkehrende Beschwerdethemen und Antwortvorlagen." },
       { t: "Wettbewerbsbeobachtung", d: "Angebote, Preise und Seitenstruktur der Mitbewerber. Sichtbar, wenn jemand seine Konditionen ändert." },
     ],
+    serviceFormTitle: "Sichtbarkeit in Suche und KI-Antworten starten",
+    serviceFormBody:
+      "Wir nehmen die Befunde aus dieser Analyse und schließen sie auf vier Ebenen zugleich: " +
+      "Technik, Inhalte für die Antwortextraktion, externe Erwähnungen und Reputation. " +
+      "Ein Dienstleister, eine Rechnung, monatlicher Bericht mit Messwerten.",
+    serviceFormBtn: "Betreuung besprechen",
+    serviceFormDone: "Anfrage angenommen",
+    finalCtaServiceTitle: "Bereit, gefunden und empfohlen zu werden?",
+    finalCtaServiceBody:
+      "Die Analyse zeigt, wo Anfragen verloren gehen. Sie können das selbst abarbeiten — " +
+      "oder uns übergeben und monatlich einen Bericht mit Messwerten bekommen.",
+    finalCtaServiceBtn: "Betreuung starten",
     consultTitle: "Nicht bereit, direkt zu entscheiden?",
     consultBody: "Wir gehen das Dokument gemeinsam durch: was zuerst, was warten kann und was es bei Ihnen konkret kostet. Unverbindlich.",
     consultBtn: "Beratung anfragen",

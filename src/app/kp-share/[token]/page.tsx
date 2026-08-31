@@ -177,10 +177,27 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
           try {
             const r = await fetch(`/api/kp-share/${token}/consult`, {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contact }),
+              body: JSON.stringify({ kind: "consult", contact }),
             });
             const j = await r.json().catch(() => ({ ok: false }));
             return j.ok === true;
+          } catch { return false; }
+        }}
+        onServiceRequest={async ({ email, phone }) => {
+          try {
+            const r = await fetch(`/api/kp-share/${token}/consult`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "service", email, phone }),
+            });
+            const j = await r.json().catch(() => ({ ok: false }));
+            if (j.ok === true) {
+              try {
+                (window as unknown as { ym?: (id: number, m: string, g: string) => void })
+                  .ym?.(108999924, "reachGoal", "service_request");
+              } catch { /* нет Метрики — не мешаем */ }
+              return true;
+            }
+            return false;
           } catch { return false; }
         }}
       />

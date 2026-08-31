@@ -481,6 +481,8 @@ export async function initDb() {
   // пересборки: менеджер получает сигнал в TG и видит контакт.
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_requested_at TIMESTAMPTZ`);
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_contact TEXT`);
+  // Тип заявки: consult — «поговорить», service — «начать сопровождение».
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_kind TEXT`);
   // Письмо/TG «разбор готов» отправлено (идемпотентность нотификаций).
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS ready_notified_at TIMESTAMPTZ`);
 

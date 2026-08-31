@@ -26,7 +26,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   await initDb();
   const { token } = await ctx.params;
   const body = await req.json().catch(() => ({}));
-  const contact = String(body.contact ?? "").trim().slice(0, 200);
+  // Два типа заявки из одного документа: «поговорить» (consult) и «начать
+  // сопровождение» (service). Второй — главный конвертер, у него отдельная
+  // форма с email и телефоном; собираем их в одну строку контакта, но тип
+  // сохраняем, чтобы менеджер сразу видел, с чем к человеку идти.
+  const kind = body.kind === "service" ? "service" : "consult";
+  const email = String(body.email ?? "").trim().slice(0, 160);
+  const phone = String(body.phone ?? "").trim().slice(0, 40);
+  const contact = kind === "service"
+    ? [email, phone].filter(Boolean).join(", ")
+    : String(body.contact ?? "").trim().slice(0, 200);
 
   // Контакт обязателен: заявка без способа связи — не заявка, а событие
   // аналитики, и менеджеру с ней делать нечего.
@@ -48,18 +57,26 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   await query(
     `UPDATE kp_generations
         SET consult_requested_at = COALESCE(consult_requested_at, NOW()),
-            consult_contact = $2
+            consult_contact = $2,
+            consult_kind = $3,
+            client_email = COALESCE(client_email, $4),
+            client_phone = COALESCE(client_phone, $5)
       WHERE id = $1`,
-    [r.id, contact],
+    [r.id, contact, kind, email || null, phone || null],
   );
 
   if (firstTime) {
     await notifyKpManager(
-      `📞 <b>Запрос консультации из разбора</b>\n` +
-      `${esc(r.company_name || r.url)} — ${esc(r.url)}\n` +
-      `Контакт: <b>${esc(contact)}</b>\n` +
-      `${r.client_email ? `Email лида: ${esc(r.client_email)}\n` : ""}` +
-      `Человек прочитал разбор и хочет поговорить — это тёплый контакт, не заявка на пересборку.`,
+      kind === "service"
+        ? `🔥 <b>Заявка на сопровождение из разбора</b>\n` +
+          `${esc(r.company_name || r.url)} — ${esc(r.url)}\n` +
+          `Контакт: <b>${esc(contact)}</b>\n` +
+          `Человек дочитал разбор и просит начать работу. Самый горячий тип заявки — отвечать первым делом.`
+        : `📞 <b>Запрос консультации из разбора</b>\n` +
+          `${esc(r.company_name || r.url)} — ${esc(r.url)}\n` +
+          `Контакт: <b>${esc(contact)}</b>\n` +
+          `${r.client_email ? `Email лида: ${esc(r.client_email)}\n` : ""}` +
+          `Человек прочитал разбор и хочет поговорить — это тёплый контакт, не заявка на пересборку.`,
     );
   }
 

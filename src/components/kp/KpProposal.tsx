@@ -98,6 +98,12 @@ interface Props {
    * менеджерском просмотре кнопка не должна дёргать менеджера самому себе.
    */
   onConsult?: ((contact: string) => Promise<boolean>) | null;
+  /**
+   * Заявка на SEO/GEO-сопровождение — главный конвертер документа.
+   * Прокидывается клиентской /kp-share; когда задана, финальный CTA продаёт
+   * сопровождение, а пересборка сайта уходит во вторую кнопку.
+   */
+  onServiceRequest?: ((data: { email: string; phone: string }) => Promise<boolean>) | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -174,10 +180,15 @@ const BASE_SECTIONS: { id: string; label: string; pilotOnly?: boolean; hideOnPil
   { id: "growth", label: "Точки роста", hideOnPilot: true },
   { id: "plan", label: "План", hideOnPilot: true },
   { id: "pilot-strengths", label: "Сильные стороны", pilotOnly: true },
+  // Прогноз стоит ПЕРЕД предложением, а не после. Читатель должен увидеть
+  // «что это даст и когда» до того, как ему называют цену: иначе сумма
+  // предъявляется в пустоту, и сравнивать её не с чем. В прежнем порядке
+  // прогноз был главой 17 — после оффера, «Мы и рынок» и формата работ, то
+  // есть после того, как решение уже принято или отложено.
+  { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "pilot-offer", label: "Предложение", pilotOnly: true },
   { id: "pilot-market", label: "Мы и рынок", pilotOnly: true },
   { id: "seo-preview", label: "Формат работ" },
-  { id: "pilot-forecast", label: "Прогноз", pilotOnly: true },
   { id: "pilot-terms", label: "Условия", pilotOnly: true },
   { id: "pilot-more", label: "Что ещё умеем", pilotOnly: true },
   { id: "astro-offer", label: "Новая версия сайта", pilotOnly: true },
@@ -217,6 +228,7 @@ export function KpProposal({
   astroRebuild = null,
   locale = "ru",
   onConsult = null,
+  onServiceRequest = null,
 }: Props) {
   const t = KP_PROPOSAL_I18N[locale];
   // PD — активный пилот-бандл. Приоритет: сгенерированный бандл (авто-КП) →
@@ -1709,6 +1721,24 @@ export function KpProposal({
                 {t.offerStartBtn} <ArrowRight size={15} />
               </button>
             </div>
+
+            {/* ГЛАВНАЯ ФОРМА ДОКУМЕНТА — здесь, где только что перечислены
+                работы и названа цена, а не через шесть глав в самом низу.
+                До этого единственная форма заявки в разборе была про
+                техническое обновление сайта: человек приходил с лендинга про
+                SEO и GEO, читал шестнадцать глав про SEO и GEO — и получал
+                форму про вёрстку. Конвертируем в то, что продавали. */}
+            {onServiceRequest && (
+              <ServiceRequestForm
+                onSubmit={onServiceRequest}
+                anchorId="service-request"
+                title={t.serviceFormTitle}
+                body={t.serviceFormBody}
+                btn={t.serviceFormBtn}
+                done={t.serviceFormDone}
+                locale={locale}
+              />
+            )}
           </Section>
         )}
 
@@ -2167,7 +2197,33 @@ export function KpProposal({
             {() => (
               <div className="kp-cta-panel" style={{ position: "relative", overflow: "hidden", color: "var(--primary-foreground)", borderRadius: "var(--radius-xl, 20px)", padding: "44px 36px", textAlign: "center" }}>
                 <div style={{ position: "relative" }}>
-                  {astroRebuild ? (
+                  {/* Порядок веток важен. Раньше первой стояла пересборка
+                      сайта, и любой разбор с прокинутым astroRebuild
+                      заканчивался предложением переверстать сайт — независимо
+                      от того, что человеку продавали до этого. Сопровождение
+                      идёт первым: это то, за чем приходят с /new и /geo. */}
+                  {onServiceRequest ? (
+                    <>
+                      <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaServiceTitle}</h2>
+                      <p style={{ fontSize: 16, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
+                        {t.finalCtaServiceBody}
+                      </p>
+                      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                        <button onClick={() => { trackKpEvent("click", "final-cta-service"); scrollTo("pilot-offer"); }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 26px", borderRadius: 12, background: "#fff", color: "var(--primary)", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", transition: "transform 0.2s var(--ease)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+                          <Rocket size={18} /> {t.finalCtaServiceBtn}
+                        </button>
+                        {astroRebuild && (
+                          <button onClick={() => { trackKpEvent("click", "final-cta-astro"); scrollTo("astro-offer"); }}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 50, padding: "0 24px", borderRadius: 12, background: "transparent", color: "#fff", fontWeight: 700, fontSize: 15, border: "1px solid color-mix(in srgb, #fff 55%, transparent)", cursor: "pointer" }}>
+                            {t.finalCtaAstroBtn}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : astroRebuild ? (
                     <>
                       <h2 style={{ fontSize: 30, fontWeight: 850, margin: "0 0 10px" }}>{t.finalCtaAstroTitle}</h2>
                       <p style={{ fontSize: 16, opacity: 0.9, margin: "0 0 24px", maxWidth: 620, marginInline: "auto", lineHeight: 1.5 }}>
@@ -2264,6 +2320,103 @@ function usePrefersReducedMotion(): boolean {
 }
 
 /** Scroll-reveal обёртка: fade + translateY один раз при появлении во вьюпорте; отдаёт `visible` детям для доп. анимаций (счётчики, ширина баров, дуги диаграмм). */
+/**
+ * Форма заявки на сопровождение — главный конвертер документа.
+ *
+ * Живёт в двух местах: в секции «Предложение» (сразу под работами и ценой,
+ * где решение и созревает) и в финальном CTA. Обе — один компонент, чтобы
+ * тексты и поведение не разъезжались.
+ *
+ * Телефон необязателен намеренно: обязательное поле телефона на холодном
+ * лиде срезает заметную часть отправок, а email у нас почти всегда уже есть.
+ * Согласие обязательно и не проставлено заранее — как на лендинге.
+ */
+function ServiceRequestForm({
+  onSubmit, anchorId, title, body, btn, done, locale,
+}: {
+  onSubmit: (data: { email: string; phone: string }) => Promise<boolean>;
+  anchorId: string; title: string; body: string; btn: string; done: string;
+  locale: KpProposalLocale;
+}) {
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  if (ok) {
+    return (
+      <div id={anchorId} style={{
+        marginTop: 18, padding: "22px 24px", borderRadius: 14,
+        border: "1px solid var(--success)",
+        background: "color-mix(in srgb, var(--success) 10%, transparent)",
+      }}>
+        <div style={{ fontSize: 16.5, fontWeight: 800, marginBottom: 4 }}>{done}</div>
+        <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+          {locale === "de"
+            ? "Wir melden uns am nächsten Werktag."
+            : "Свяжемся в течение рабочего дня — с планом на первый месяц, без общих слов."}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div id={anchorId} style={{
+      marginTop: 18, padding: "24px 26px", borderRadius: 16,
+      border: "2px solid var(--primary)",
+      background: "color-mix(in srgb, var(--primary) 6%, transparent)",
+    }}>
+      <div style={{ fontSize: 19, fontWeight: 850, marginBottom: 6, lineHeight: 1.25 }}>{title}</div>
+      <div style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.55, marginBottom: 16, maxWidth: 620 }}>
+        {body}
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <input
+          value={email} onChange={e => setEmail(e.target.value)}
+          placeholder={locale === "de" ? "E-Mail" : "Ваш email"}
+          inputMode="email" aria-label="Email" className="ds-input"
+          style={{ height: 48, flex: "1 1 220px", minWidth: 200, padding: "0 14px", fontSize: 15 }}
+        />
+        <input
+          value={phone} onChange={e => setPhone(e.target.value)}
+          placeholder={locale === "de" ? "Telefon (optional)" : "Телефон (необязательно)"}
+          inputMode="tel" aria-label="Телефон" className="ds-input"
+          style={{ height: 48, flex: "1 1 180px", minWidth: 160, padding: "0 14px", fontSize: 15 }}
+        />
+        <button
+          onClick={async () => {
+            setErr(null); setBusy(true);
+            trackKpEvent("click", "service-request");
+            const res = await onSubmit({ email: email.trim(), phone: phone.trim() });
+            setBusy(false);
+            if (res) setOk(true); else setErr(locale === "de" ? "Bitte erneut versuchen" : "Не отправилось — попробуйте ещё раз");
+          }}
+          disabled={!valid || !agreed || busy}
+          className="ds-btn ds-btn-primary"
+          style={{ height: 48, padding: "0 26px", fontSize: 15, fontWeight: 800, flexShrink: 0 }}
+        >
+          {busy ? (locale === "de" ? "Senden…" : "Отправляем…") : btn}
+        </button>
+      </div>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: "var(--muted-foreground)", cursor: "pointer" }}>
+        <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
+        <span>
+          {locale === "de" ? "Ich stimme der Verarbeitung meiner Daten zu" : "Даю"}{" "}
+          <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
+            {locale === "de" ? "(Datenschutz)" : "согласие"}
+          </a>{" "}
+          {locale === "de" ? "" : "на обработку персональных данных и принимаю условия "}
+          {locale === "de" ? "" : <a href="/legal/offer" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>оферты</a>}
+        </span>
+      </label>
+      {err && <div style={{ marginTop: 10, fontSize: 13, color: "var(--destructive)" }}>{err}</div>}
+    </div>
+  );
+}
+
 function Reveal({ children, delay = 0, y = 16, style }: { children: (visible: boolean) => React.ReactNode; delay?: number; y?: number; style?: React.CSSProperties }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
