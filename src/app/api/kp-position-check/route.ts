@@ -34,6 +34,7 @@ import {
   type SearchEngine,
 } from "@/lib/position-checker";
 import { checkKeywordPositionViaYandexApi } from "@/lib/yandex-search-api";
+import { checkPositionsViaBukvarix } from "@/lib/bukvarix-positions";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -139,8 +140,20 @@ export async function POST(req: Request) {
   };
 
   if (engine === "yandex") {
-    // Yandex — через официальный Yandex Search API (см. lib/yandex-search-api.ts),
-    // без headless-браузера: см. пояснение в /api/check-positions.
+    // Сначала бесплатный источник: база видимости Букварикса отдаёт позицию
+    // по запросам, где домен уже в топ-50, а отсутствие запроса в базе — это
+    // тоже ответ («вне топ-50»), а не сбой проверки. Раньше без платного
+    // ключа Yandex Search API раздел позиций показывал сплошное «не удалось
+    // проверить», хотя данные были доступны даром.
+    const viaBukvarix = await checkPositionsViaBukvarix({ domain, keywords, region });
+    if (viaBukvarix) {
+      for (const result of viaBukvarix.results) await writeResult(result);
+      return NextResponse.json({
+        ok: true, batchId, domain, engine, region: region ?? null, results,
+        sourceNote: viaBukvarix.sourceNote,
+      });
+    }
+    // Букварикс недоступен — пробуем живую выдачу, если ключ настроен.
     for (const keyword of keywords) {
       const result = await checkKeywordPositionViaYandexApi({ domain, keyword, region });
       await writeResult(result);
