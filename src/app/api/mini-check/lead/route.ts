@@ -29,12 +29,6 @@ export async function POST(req: Request) {
 
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
   if (!consent) return NextResponse.json({ ok: false, error: "Нужно согласие на обработку персональных данных" }, { status: 400 });
-  // Оферта — вторая обязательная галочка. Проверяем и на сервере: гейт,
-  // живущий только в disabled-атрибуте кнопки, обходится за три секунды в
-  // консоли, а фиксировать принятие условий надо достоверно.
-  if (body.offerAccepted !== true) {
-    return NextResponse.json({ ok: false, error: "Нужно принять условия публичной оферты" }, { status: 400 });
-  }
   const rows = await query<{
     id: string; url: string; kp_id: string | null; client_ip: string | null;
     email: string | null; phone: string | null; utm: Record<string, string> | null;

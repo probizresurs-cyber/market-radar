@@ -99,7 +99,10 @@ export default function CheckPage() {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [marketing, setMarketing] = useState(false);
-  const [offerAccepted, setOfferAccepted] = useState(false);
+  // Состав галочек — строго по инструкции юриста: обязательное согласие на
+  // обработку ПД и ОТДЕЛЬНОЕ необязательное на рекламные рассылки. Оферты
+  // в инструкции нет, и добавлять её сюда не нужно: договор принимается на
+  // этапе оплаты, а не при выдаче бесплатного разбора.
   // Контакт, уже оставленный на /geo: показываем его маской и не просим
   // вводить второй раз.
   const [knownEmail, setKnownEmail] = useState<string | null>(null);
@@ -183,7 +186,7 @@ export default function CheckPage() {
     try {
       const r = await fetch("/api/mini-check/lead-tg", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: checkId, consent, offerAccepted }),
+        body: JSON.stringify({ id: checkId, consent }),
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не получилось — попробуйте ещё раз");
@@ -193,7 +196,7 @@ export default function CheckPage() {
     } catch (e) {
       setLeadErr(e instanceof Error ? e.message : "Ошибка");
     } finally { setTgSubmitting(false); }
-  }, [checkId, consent, offerAccepted]);
+  }, [checkId, consent]);
 
   const submitLead = useCallback(async () => {
     if (!checkId) return;
@@ -201,7 +204,7 @@ export default function CheckPage() {
     try {
       const r = await fetch("/api/mini-check/lead", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: checkId, email: email.trim(), consent, marketing, offerAccepted }),
+        body: JSON.stringify({ id: checkId, email: email.trim(), consent, marketing }),
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не получилось отправить — попробуйте ещё раз");
@@ -218,7 +221,7 @@ export default function CheckPage() {
     } catch (e) {
       setLeadErr(e instanceof Error ? e.message : "Ошибка");
     }
-  }, [checkId, email, consent, marketing, offerAccepted]);
+  }, [checkId, email, consent, marketing]);
 
   useReveal();
 
@@ -414,7 +417,7 @@ export default function CheckPage() {
                       />
                       <button
                         onClick={() => void submitLead()}
-                        disabled={!consent || !offerAccepted}
+                        disabled={!consent}
                         className="mrc-btn mrc-btn-primary"
                       >
                         {knownEmail && !email.trim() ? "Прислать разбор" : "Получить полный разбор"}
@@ -428,7 +431,7 @@ export default function CheckPage() {
                       <button
                         type="button"
                         onClick={() => void submitTg()}
-                        disabled={!consent || !offerAccepted || tgSubmitting}
+                        disabled={!consent || tgSubmitting}
                         className="mrc-btn mrc-btn-ghost"
                       >
                         {tgSubmitting ? "Открываем…" : "Получить разбор в Telegram"}
@@ -443,18 +446,6 @@ export default function CheckPage() {
                         <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer">согласие</a>{" "}
                         на обработку персональных данных в соответствии с{" "}
                         <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a>
-                      </span>
-                    </label>
-                    {/* Вторая ОБЯЗАТЕЛЬНАЯ галочка — принятие оферты. Кнопка не
-                        работает, пока не отжаты обе: разбор передаётся по
-                        договору, и факт принятия условий должен фиксироваться
-                        отдельным действием, а не «подразумеваться». */}
-                    <label className="mrc-consent">
-                      <input type="checkbox" checked={offerAccepted} onChange={e => setOfferAccepted(e.target.checked)}
-                        className="mrc-checkbox" />
-                      <span>
-                        Принимаю условия{" "}
-                        <a href="/legal/offer" target="_blank" rel="noopener noreferrer">публичной оферты</a>
                       </span>
                     </label>
                     {/* Рекламное согласие — ОТДЕЛЬНОЕ и необязательное.

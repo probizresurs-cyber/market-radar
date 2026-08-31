@@ -1,5 +1,5 @@
 /**
- * POST /api/mini-check/lead-tg { id, consent, offerAccepted } — вторая дверь
+ * POST /api/mini-check/lead-tg { id, consent } — вторая дверь
  * воронки: получить разбор в Telegram вместо почты.
  *
  * Зачем отдельная дверь: в российском B2B заметная часть аудитории охотнее
@@ -13,9 +13,9 @@
  * Человек жмёт Start — webhook связывает chat_id с генерацией, а kp-notify
  * присылает ссылку на разбор в тот же чат, когда КП соберётся.
  *
- * Согласия те же, что у email-двери: ПД обязательно, оферта обязательно.
- * Персональных данных мы тут не получаем вовсе до нажатия Start, но условия
- * оказания услуги от способа доставки не зависят.
+ * Согласие то же, что у email-двери: обработка ПД. По инструкции юриста
+ * это единственная обязательная галочка — рекламная остаётся отдельной и
+ * необязательной, иначе услуга оказывается под условием согласия на рекламу.
  */
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -33,9 +33,6 @@ export async function POST(req: Request) {
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
   if (body.consent !== true) {
     return NextResponse.json({ ok: false, error: "Нужно согласие на обработку персональных данных" }, { status: 400 });
-  }
-  if (body.offerAccepted !== true) {
-    return NextResponse.json({ ok: false, error: "Нужно принять условия публичной оферты" }, { status: 400 });
   }
 
   const rows = await query<{

@@ -69,9 +69,12 @@ export async function POST(req: Request) {
   );
   if (dup[0]) {
     const copyId = randomUUID();
+    // Приведение типов обязательно: без ::text Postgres не выводит тип
+    // параметров внутри CASE и падает «could not determine data type».
     await query(
       `INSERT INTO mini_checks (id, url, domain, status, result, client_ip, email, phone, consent_at, utm)
-       VALUES ($1, $2, $3, 'done', $4::jsonb, $5, $6, $7, CASE WHEN $6 IS NULL AND $7 IS NULL THEN NULL ELSE NOW() END, $8::jsonb)`,
+       VALUES ($1, $2, $3, 'done', $4::jsonb, $5, $6::text, $7::text,
+               CASE WHEN $6::text IS NULL AND $7::text IS NULL THEN NULL ELSE NOW() END, $8::jsonb)`,
       [copyId, url, domain, JSON.stringify(dup[0].result ?? {}), ip, email, phone, utmJson],
     );
     return NextResponse.json({ ok: true, id: copyId, reused: true });
