@@ -552,7 +552,7 @@ export function KpProposal({
           background: "color-mix(in srgb, var(--background) 92%, transparent)", backdropFilter: "blur(10px)",
           borderTop: "1px solid var(--border)",
         }}>
-          <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
+          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
             <div style={{ fontSize: 14, minWidth: 0 }}>
               <b>{PD.offers[0].name} — {PD.offers[0].price}</b>
               <span style={{ color: "var(--muted-foreground)" }}> · {PD.offers[0].priceNote} · {t.stickyFixedPrice}</span>
@@ -571,7 +571,7 @@ export function KpProposal({
       {/* Панель шеринга — видна только владельцу (onShare передан из /kp), не на публичной странице */}
       {onShare && (
         <div style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
-          <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 12.5, color: "var(--muted-foreground)" }}>
               Эта страница видна только вам. Чтобы отправить анализ клиенту без доступа к платформе — создайте публичную ссылку.
             </div>
@@ -588,7 +588,7 @@ export function KpProposal({
             </button>
           </div>
           {shareLink && (
-            <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 12px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px 12px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", marginBottom: 2 }}>
                   Публичная ссылка {shareCopied && <span style={{ color: "var(--success)" }}>· скопировано ✓</span>}
@@ -604,7 +604,7 @@ export function KpProposal({
             </div>
           )}
           {shareError && (
-            <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 12px", fontSize: 12.5, color: "var(--destructive)" }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px 12px", fontSize: 12.5, color: "var(--destructive)" }}>
               {shareError}
             </div>
           )}
@@ -616,7 +616,7 @@ export function KpProposal({
         position: "sticky", top: 0, zIndex: 50, background: "color-mix(in srgb, var(--background) 88%, transparent)",
         backdropFilter: "blur(10px)", borderBottom: "1px solid var(--border)",
       }}>
-        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 16, flexShrink: 0 }}>
             <span style={{ color: "var(--primary)" }}>MarketRadar</span>
             <span style={{ color: "var(--muted-foreground)", fontWeight: 500 }}>· {t.brandSuffix}</span>
@@ -657,7 +657,7 @@ export function KpProposal({
         </div>
       </nav>
 
-      <main style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px 80px", position: "relative" }}>
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px 80px", position: "relative" }}>
 
         {/* ─── HERO / ОБЗОР ─── */}
         <Section id="overview">
@@ -678,7 +678,10 @@ export function KpProposal({
                          пульсирующий дедлайн, 2 кнопки. Автокарточки скрыты:
                          «0 конкурентов» рядом с «3 разобраны вручную» врало. */
                       <>
-                        <p style={{ fontSize: 16, lineHeight: 1.5, marginTop: 16, marginBottom: 0, color: "var(--muted-foreground)", maxWidth: 520 }}>{PD.hero.verdict}</p>
+                        {/* Абзац вердикта убран: его первое предложение
+                            стало заголовком ниже, а продолжение печатается
+                            под ним. Раньше один и тот же текст стоял на
+                            экране дважды. */}
                         {/* Первый экран — ДИАГНОЗ, а не обещание.
                             Здесь стояла крупная цифра «+35–70 заявок/мес»: она
                             появлялась раньше единого доказательства и не имела
@@ -693,17 +696,24 @@ export function KpProposal({
                           <div style={{ fontSize: 12.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--destructive)", marginBottom: 8 }}>
                             {t.heroProblemLabel}
                           </div>
-                          <div style={{
-                            fontSize: "clamp(26px, 4.4vw, 38px)", fontWeight: 850, lineHeight: 1.15, letterSpacing: "-0.025em",
-                            maxWidth: 620,
-                          }}>
-                            {PD.hero.problem ?? PD.hero.verdict}
-                          </div>
-                          {PD.hero.problemSub && (
-                            <div style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--muted-foreground)", marginTop: 10, maxWidth: 560 }}>
-                              {PD.hero.problemSub}
-                            </div>
-                          )}
+                          {(() => {
+                            const { headline, rest } = splitVerdict(PD.hero.verdict, PD.hero.problem);
+                            return (
+                              <>
+                                <div style={{
+                                  fontSize: headlineSize(headline), fontWeight: 850, lineHeight: 1.18,
+                                  letterSpacing: "-0.022em", maxWidth: 720, textWrap: "balance",
+                                }}>
+                                  {headline}
+                                </div>
+                                {(rest || PD.hero.problemSub) && (
+                                  <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--muted-foreground)", marginTop: 12, maxWidth: 660 }}>
+                                    {rest || PD.hero.problemSub}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
                           {PD.hero.badges.map((b, bi) => (
@@ -2355,6 +2365,31 @@ function usePrefersReducedMotion(): boolean {
  * лиде срезает заметную часть отправок, а email у нас почти всегда уже есть.
  * Согласие обязательно и не проставлено заранее — как на лендинге.
  */
+/**
+ * Делит вердикт на заголовок и продолжение.
+ *
+ * Модель не всегда возвращает короткое hero.problem, и раньше в этом случае
+ * в заголовок уходил весь абзац: 400 знаков крупным кеглем в узкой колонке.
+ * Берём первое предложение — оно и есть диагноз, остальное объяснение.
+ */
+function splitVerdict(verdict: string, problem?: string): { headline: string; rest: string } {
+  const v = (verdict || "").trim();
+  if (problem && problem.trim() && problem.trim().length <= 140) {
+    return { headline: problem.trim(), rest: v };
+  }
+  const m = v.match(/^(.{40,190}?[.!?])s+(.*)$/s);
+  if (m) return { headline: m[1].trim(), rest: m[2].trim() };
+  return { headline: v.slice(0, 190), rest: v.length > 190 ? v.slice(190).trim() : "" };
+}
+
+/** Кегль заголовка по длине: длинная фраза не должна лезть на весь экран. */
+function headlineSize(text: string): string {
+  const n = text.length;
+  if (n <= 60) return "clamp(28px, 4.4vw, 40px)";
+  if (n <= 110) return "clamp(24px, 3.2vw, 31px)";
+  return "clamp(21px, 2.6vw, 26px)";
+}
+
 function ServiceRequestForm({
   onSubmit, anchorId, title, body, btn, done, locale, interestOptions,
 }: {
