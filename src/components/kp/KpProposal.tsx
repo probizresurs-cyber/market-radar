@@ -103,7 +103,7 @@ interface Props {
    * Прокидывается клиентской /kp-share; когда задана, финальный CTA продаёт
    * сопровождение, а пересборка сайта уходит во вторую кнопку.
    */
-  onServiceRequest?: ((data: { email: string; phone: string }) => Promise<boolean>) | null;
+  onServiceRequest?: ((data: { email: string; phone: string; telegram: string }) => Promise<boolean>) | null;
 }
 
 type Severity = "critical" | "warning" | "ok";
@@ -2334,17 +2334,23 @@ function usePrefersReducedMotion(): boolean {
 function ServiceRequestForm({
   onSubmit, anchorId, title, body, btn, done, locale,
 }: {
-  onSubmit: (data: { email: string; phone: string }) => Promise<boolean>;
+  onSubmit: (data: { email: string; phone: string; telegram: string }) => Promise<boolean>;
   anchorId: string; title: string; body: string; btn: string; done: string;
   locale: KpProposalLocale;
 }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  // Достаточно ОДНОГО канала связи. Требовать именно почту — терять тех, кто
+  // готов говорить, но принципиально не оставляет email незнакомому сайту;
+  // на лендинге для них уже есть дверь в Telegram, здесь была только почта.
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const tgOk = telegram.trim().replace(/^@/, "").length >= 3;
+  const valid = emailOk || tgOk;
 
   if (ok) {
     return (
@@ -2354,10 +2360,16 @@ function ServiceRequestForm({
         background: "color-mix(in srgb, var(--success) 10%, transparent)",
       }}>
         <div style={{ fontSize: 16.5, fontWeight: 800, marginBottom: 4 }}>{done}</div>
-        <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+        {/* Человек должен понимать, что будет дальше, а не гадать: заявка
+            без объяснения следующего шага читается как «отправилось в
+            никуда». Пишем конкретно — кто, когда и с чем выйдет на связь. */}
+        <div style={{ fontSize: 13.5, color: "var(--muted-foreground)", lineHeight: 1.55 }}>
           {locale === "de"
-            ? "Wir melden uns am nächsten Werktag."
-            : "Свяжемся в течение рабочего дня — с планом на первый месяц, без общих слов."}
+            ? "Wir melden uns am nächsten Werktag mit einem Plan für den ersten Monat."
+            : <>Что дальше: мы разбираем ваш случай и связываемся в течение рабочего дня — с планом
+              на первый месяц и точной суммой, без общих слов. {emailOk
+                ? "Копию заявки прислали на почту."
+                : "Напишем в указанный контакт."} Ни звонков-догонялок, ни автодозвона.</>}
         </div>
       </div>
     );
@@ -2386,11 +2398,17 @@ function ServiceRequestForm({
           inputMode="tel" aria-label="Телефон" className="ds-input"
           style={{ height: 48, flex: "1 1 180px", minWidth: 160, padding: "0 14px", fontSize: 15 }}
         />
+        <input
+          value={telegram} onChange={e => setTelegram(e.target.value)}
+          placeholder={locale === "de" ? "Telegram (optional)" : "Telegram — @ник"}
+          aria-label="Telegram" className="ds-input"
+          style={{ height: 48, flex: "1 1 180px", minWidth: 160, padding: "0 14px", fontSize: 15 }}
+        />
         <button
           onClick={async () => {
             setErr(null); setBusy(true);
             trackKpEvent("click", "service-request");
-            const res = await onSubmit({ email: email.trim(), phone: phone.trim() });
+            const res = await onSubmit({ email: email.trim(), phone: phone.trim(), telegram: telegram.trim() });
             setBusy(false);
             if (res) setOk(true); else setErr(locale === "de" ? "Bitte erneut versuchen" : "Не отправилось — попробуйте ещё раз");
           }}
@@ -2401,16 +2419,28 @@ function ServiceRequestForm({
           {busy ? (locale === "de" ? "Senden…" : "Отправляем…") : btn}
         </button>
       </div>
+      {/* Формулировка и состав — строго по инструкции юриста: одна галочка,
+          согласие на обработку ПД со ссылкой на Политику, не проставлена
+          заранее. Оферты здесь быть не должно: договор принимается при
+          оплате, а не при отправке заявки, и склеивать два разных согласия
+          в одну строку нельзя. */}
       <label style={{ display: "flex", alignItems: "flex-start", gap: 9, marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: "var(--muted-foreground)", cursor: "pointer" }}>
         <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
-        <span>
-          {locale === "de" ? "Ich stimme der Verarbeitung meiner Daten zu" : "Даю"}{" "}
-          <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
-            {locale === "de" ? "(Datenschutz)" : "согласие"}
-          </a>{" "}
-          {locale === "de" ? "" : "на обработку персональных данных и принимаю условия "}
-          {locale === "de" ? "" : <a href="/legal/offer" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>оферты</a>}
-        </span>
+        {locale === "de" ? (
+          <span>
+            Ich willige in die{" "}
+            <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>Verarbeitung</a>{" "}
+            meiner personenbezogenen Daten gemäß der{" "}
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>Datenschutzerklärung</a>{" "}ein
+          </span>
+        ) : (
+          <span>
+            Даю{" "}
+            <a href="/legal/consent-pd" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>согласие</a>{" "}
+            на обработку персональных данных в соответствии с{" "}
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>Политикой обработки персональных данных</a>
+          </span>
+        )}
       </label>
       {err && <div style={{ marginTop: 10, fontSize: 13, color: "var(--destructive)" }}>{err}</div>}
     </div>

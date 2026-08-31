@@ -483,6 +483,8 @@ export async function initDb() {
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_contact TEXT`);
   // Тип заявки: consult — «поговорить», service — «начать сопровождение».
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS consult_kind TEXT`);
+  // Telegram-ник из заявки: равноправный канал связи наряду с почтой.
+  await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS client_tg_nick TEXT`);
   // Письмо/TG «разбор готов» отправлено (идемпотентность нотификаций).
   await query(`ALTER TABLE kp_generations ADD COLUMN IF NOT EXISTS ready_notified_at TIMESTAMPTZ`);
 

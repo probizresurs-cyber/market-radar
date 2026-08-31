@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { initDb, query } from "@/lib/db";
 import { notifyKpManager } from "@/lib/kp-tg-funnel";
+import { sendMail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -33,8 +34,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   const kind = body.kind === "service" ? "service" : "consult";
   const email = String(body.email ?? "").trim().slice(0, 160);
   const phone = String(body.phone ?? "").trim().slice(0, 40);
+  // Telegram — равноправный канал, а не приписка: часть аудитории не оставляет
+  // почту вовсе, и требовать её значит терять готового к разговору человека.
+  const telegram = String(body.telegram ?? "").trim().slice(0, 64);
+  const tgNick = telegram ? (telegram.startsWith("@") ? telegram : `@${telegram}`) : "";
   const contact = kind === "service"
-    ? [email, phone].filter(Boolean).join(", ")
+    ? [email, phone, tgNick].filter(Boolean).join(", ")
     : String(body.contact ?? "").trim().slice(0, 200);
 
   // Контакт обязателен: заявка без способа связи — не заявка, а событие
@@ -60,9 +65,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
             consult_contact = $2,
             consult_kind = $3,
             client_email = COALESCE(client_email, $4),
-            client_phone = COALESCE(client_phone, $5)
+            client_phone = COALESCE(client_phone, $5),
+            client_tg_nick = COALESCE(client_tg_nick, $6)
       WHERE id = $1`,
-    [r.id, contact, kind, email || null, phone || null],
+    [r.id, contact, kind, email || null, phone || null, tgNick || null],
   );
 
   if (firstTime) {
@@ -78,6 +84,32 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
           `${r.client_email ? `Email лида: ${esc(r.client_email)}\n` : ""}` +
           `Человек прочитал разбор и хочет поговорить — это тёплый контакт, не заявка на пересборку.`,
     );
+  }
+
+  // Подтверждение клиенту. Без него человек, оставивший заявку, не получал
+  // ни одного следа: экран «принято» закрывается — и всё, вспомнить, куда и
+  // кому он написал, не по чему. Письмо решает и обратную задачу: у него
+  // появляется ветка переписки, в которую можно просто ответить.
+  if (firstTime && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const name = r.company_name || r.url;
+    try {
+      await sendMail({
+        to: email,
+        subject: kind === "service" ? `Заявка по ${name} принята` : `Запрос консультации по ${name} принят`,
+        html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#0f172a;max-width:560px">
+<p>Получили вашу заявку по <b>${esc(name)}</b>.</p>
+<p>Что дальше: разберём ваш случай и свяжемся в течение рабочего дня — с планом на первый месяц
+и точной суммой, без общих слов. Ни звонков-догонялок, ни автодозвона.</p>
+<p>Если что-то нужно уточнить или добавить — просто ответьте на это письмо.</p>
+<p style="margin-top:28px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b">
+MarketRadar · <a href="https://marketradar24.ru" style="color:#4f46e5">marketradar24.ru</a>
+</p></div>`,
+      });
+    } catch (e) {
+      // Заявка уже сохранена и менеджер уведомлён — сбой почты не повод
+      // возвращать человеку ошибку.
+      console.warn("[consult] подтверждение не ушло", r.id, String(e).slice(0, 120));
+    }
   }
 
   return NextResponse.json({ ok: true });
