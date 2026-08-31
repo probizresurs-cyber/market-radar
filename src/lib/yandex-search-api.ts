@@ -58,6 +58,53 @@ function safeHostname(url: string): string | null {
  * null если домен не найден среди полученных групп, или "error" если XML
  * не удалось разобрать вовсе (неожиданный формат ответа).
  */
+/**
+ * Все адреса из выдачи по порядку. Нужен отдельно от поиска позиции: по
+ * названию бренда мы ищем не свой домен, а страницы его каналов на чужих
+ * площадках (см. lib/brand-socials.ts).
+ */
+function extractUrls(xml: string): string[] {
+  const groups = xml.match(new RegExp("<group>[\s\S]*?</group>", "gi")) ?? [];
+  const out: string[] = [];
+  for (const g of groups) {
+    const u = g.match(new RegExp("<url>([^<]*)</url>", "i"))?.[1]?.trim();
+    if (u) out.push(u);
+  }
+  return out;
+}
+
+/**
+ * Поиск в Яндексе с выдачей списка ссылок. Возвращает пустой массив, если
+ * ключи не настроены или запрос не удался — молча, потому что вызывающий код
+ * обязан переживать отсутствие результата без выдумывания данных.
+ */
+export async function searchYandexUrls(query: string, region?: string): Promise<string[]> {
+  const apiKey = process.env.YANDEX_API_KEY;
+  const folderId = process.env.YANDEX_FOLDER_ID;
+  if (!apiKey || !folderId) return [];
+
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Api-Key ${apiKey}` },
+      body: JSON.stringify({
+        query: { searchType: "SEARCH_TYPE_RU", queryText: query },
+        groupSpec: { groupMode: "GROUP_MODE_DEEP", groupsOnPage: String(GROUPS_ON_PAGE), docsInGroup: "1" },
+        region: resolveYandexRegion(region),
+        folderId,
+        responseFormat: "FORMAT_XML",
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { rawData?: string };
+    if (!json.rawData) return [];
+    return extractUrls(Buffer.from(json.rawData, "base64").toString("utf-8"));
+  } catch {
+    return [];
+  }
+}
+
 function findDomainPosition(xml: string, domain: string): number | null | "error" {
   if (!/<yandexsearch/i.test(xml)) return "error";
 

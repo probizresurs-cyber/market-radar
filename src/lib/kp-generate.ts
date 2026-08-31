@@ -1,6 +1,7 @@
 import { scrapeWebsite } from "@/lib/scraper";
 import { analyzeWithClaude } from "@/lib/analyzer";
 import { enrichDomainData } from "@/lib/enricher";
+import { findBrandSocials } from "@/lib/brand-socials";
 import { safeAnthropicStream, extractJson } from "@/lib/anthropic-safe";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
 import { checkKpAiVisibility, type KpAiCheckResult } from "@/lib/kp-ai-visibility";
@@ -312,7 +313,20 @@ export async function generateKp(rawUrl: string, locale: KpLocale): Promise<KpGe
   let socialStats: { telegram?: { subscribers: number; posts30d: number } | null; vk?: { subscribers: number; posts30d: number; engagement: string; trend: string } | null } = {};
   try {
     const domain = (company.company.url || scraped.url).replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    const real = await enrichDomainData(domain, scraped.socialLinks || {}, scraped.url);
+    // Каналы, на которые сайт не ссылается, ищем отдельно по названию бренда
+    // и берём только подтверждённые (см. lib/brand-socials.ts). Так у Орлинка
+    // находится Telegram, которого нет ни в одной ссылке на сайте — а сам
+    // разрыв «канал есть, связи с сайтом нет» становится находкой.
+    const offSite = await findBrandSocials({
+      companyName: company.company.name || "",
+      domain,
+    }).catch(() => []);
+    const mergedSocialLinks: Record<string, string> = { ...(scraped.socialLinks || {}) };
+    for (const hit of offSite) {
+      const key = hit.network.toLowerCase();
+      if (!mergedSocialLinks[key]) mergedSocialLinks[key] = hit.url;
+    }
+    const real = await enrichDomainData(domain, mergedSocialLinks, scraped.url);
     if (real) {
       socialStats = { telegram: real.telegram, vk: real.vk };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

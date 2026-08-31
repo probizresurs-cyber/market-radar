@@ -1775,6 +1775,7 @@ export function KpProposal({
                 interestOptions={[
                   ...PD.monthly.map(m => m.name),
                   ...(showEntryOffer ? PD.offers.map(o => o.name) : []),
+                  t.interestTechRebuild,
                 ]}
               />
             )}
@@ -2369,7 +2370,9 @@ function ServiceRequestForm({
   // Что именно заинтересовало. Раньше менеджер получал заявку без предмета
   // разговора и начинал с выяснения — лишний круг там, где человек уже
   // сделал выбор, читая тарифы прямо над формой.
-  const [interest, setInterest] = useState("");
+  // Направления не исключают друг друга: SEO/GEO и СММ берут вместе, а
+  // техническая пересборка идёт разовой работой поверх любого из них.
+  const [interest, setInterest] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
@@ -2437,7 +2440,7 @@ function ServiceRequestForm({
           onClick={async () => {
             setErr(null); setBusy(true);
             trackKpEvent("click", "service-request");
-            const res = await onSubmit({ email: email.trim(), phone: phone.trim(), telegram: telegram.trim(), interest });
+            const res = await onSubmit({ email: email.trim(), phone: phone.trim(), telegram: telegram.trim(), interest: interest.join(" + ") });
             setBusy(false);
             if (res) setOk(true); else setErr(locale === "de" ? "Bitte erneut versuchen" : "Не отправилось — попробуйте ещё раз");
           }}
@@ -2460,12 +2463,13 @@ function ServiceRequestForm({
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {interestOptions.map(opt => {
-              const on = interest === opt;
+              const on = interest.includes(opt);
               return (
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => setInterest(on ? "" : opt)}
+                  aria-pressed={on}
+                  onClick={() => setInterest(prev => on ? prev.filter(x => x !== opt) : [...prev, opt])}
                   style={{
                     padding: "9px 15px", borderRadius: 999, cursor: "pointer",
                     fontSize: 14, fontWeight: 600, lineHeight: 1.2,

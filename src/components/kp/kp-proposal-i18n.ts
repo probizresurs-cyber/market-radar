@@ -17,7 +17,7 @@ export interface KpProposalStrings {
   brandSuffix: string;
   heroLossFrame: (range: string) => string;
   heroKicker: string; heroPotentialLabel: string; heroProblemLabel: string; offerAddonLabel: string; navDeeper: string; deeperTitle: string; deeperSubtitle: string;
-  lhPassport: string; whyRivalsAhead: (n: number) => string; whyCriticalFirst: (n: number) => string; whyNoCritical: string;
+  lhPassport: string; interestTechRebuild: string; whyRivalsAhead: (n: number) => string; whyCriticalFirst: (n: number) => string; whyNoCritical: string;
   finalCritCount: (n: number) => string; finalGrowthCount: (n: number) => string; finalCtaCost: string; heroDiscussBtn: string; heroOfferBtnPrefix: string;
   stickyFixedPrice: string; stickyStartBtn: string;
   ringScoreLabel: string;
@@ -143,6 +143,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     deeperTitle: "Что ещё разберём в работе",
     deeperSubtitle: "Здесь — проблемы, требующие срочного решения. За ними стоит слой глубже, который тоже влияет на заявки.",
     lhPassport: "Замер:",
+    interestTechRebuild: "Техническая пересборка сайта",
     whyRivalsAhead: (n) => `${n} ${n === 1 ? "конкурент стоит" : n < 5 ? "конкурента стоят" : "конкурентов стоят"} выше вас по вашим же запросам`,
     whyCriticalFirst: (n) => `${n} ${n === 1 ? "находка требует" : n < 5 ? "находки требуют" : "находок требуют"} решения в первую очередь`,
     whyNoCritical: "Критичных проблем не нашли — работаем на точках роста",
@@ -321,6 +322,7 @@ export const KP_PROPOSAL_I18N: Record<KpProposalLocale, KpProposalStrings> = {
     deeperTitle: "Was wir in der Zusammenarbeit noch prüfen",
     deeperSubtitle: "Hier stehen die dringenden Probleme. Dahinter liegt eine tiefere Ebene, die ebenfalls auf Anfragen wirkt.",
     lhPassport: "Messung:",
+    interestTechRebuild: "Technische Neuaufsetzung der Website",
     whyRivalsAhead: (n) => `${n} ${n === 1 ? "Wettbewerber steht" : "Wettbewerber stehen"} bei Ihren eigenen Suchanfragen über Ihnen`,
     whyCriticalFirst: (n) => `${n} ${n === 1 ? "Erkenntnis verlangt" : "Erkenntnisse verlangen"} zuerst eine Lösung`,
     whyNoCritical: "Keine kritischen Probleme gefunden — wir arbeiten an Wachstumspunkten",
