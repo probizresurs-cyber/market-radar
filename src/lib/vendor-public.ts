@@ -34,4 +34,10 @@ export const VENDOR_PUBLIC = {
  * выдуманный кейс; на странице, где мы обещаем не выдумывать, такого быть
  * не должно. Пустой массив — блок не рисуется вовсе.
  */
-export const DEMO_REPORTS: { title: string; note: string; href: string }[] = [];
+export const DEMO_REPORTS: { title: string; note: string; href: string }[] = [
+  {
+    title: "Разбор нашего собственного сайта",
+    note: "marketradar24.ru — тот же документ, что получите вы, без прикрас: находки по нам самим",
+    href: "/kp-share/c7fdeff26642?p=orbit19",
+  },
+];

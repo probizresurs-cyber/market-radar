@@ -6,7 +6,7 @@
  * видит менеджер, но без менеджерского обвеса.
  */
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useRef } from "react";
 import type { AnalysisResult } from "@/lib/types";
 import type { PilotBundle } from "@/components/kp/pilot-sozdavay-data";
 import { KpProposal } from "@/components/kp/KpProposal";
@@ -127,6 +127,20 @@ export default function KpSharePage({ params }: { params: Promise<{ token: strin
     } catch { setError(g.networkError); }
     finally { setSubmitting(false); }
   };
+
+  // Ссылка с ?p= открывает разбор сама. Пароль тут — не защита от чужих глаз,
+  // а защита от перебора чужих ссылок: тот, у кого ссылка с паролем, уже имеет
+  // право её открыть, и заставлять его нажимать кнопку под уже заполненным
+  // полем — лишний шаг ровно там, где мы просили человека кликнуть. Серверный
+  // лимит попыток остаётся, и ссылка без ?p= по-прежнему требует ввода.
+  const autoUnlocked = useRef(false);
+  useEffect(() => {
+    if (phase !== "gate" || autoUnlocked.current || !password) return;
+    autoUnlocked.current = true;
+    void unlock();
+    // unlock пересоздаётся каждый рендер; ref гарантирует единственную попытку.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, password]);
 
   if (phase === "loading") {
     return <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", fontFamily: "'Inter',system-ui", color: "#6b7280" }}>{g.loading}</div>;
