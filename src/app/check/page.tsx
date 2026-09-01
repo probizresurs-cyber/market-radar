@@ -799,6 +799,7 @@ export default function CheckPage() {
             <a href="/legal/offer">Оферта</a>
             <a href="/legal/privacy">Политика обработки персональных данных</a>
             <a href="/legal/consent-pd">Согласие на обработку данных</a>
+            <a href="/competitors">Анализ конкурентов</a>
             <a href="/">О платформе</a>
           </nav>
         </div>

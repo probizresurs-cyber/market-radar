@@ -25,7 +25,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     // Посадочные платного трафика. В карте сайта их не было вовсе, хотя
     // именно на них идут кампании: /new — бесплатная диагностика (канонический
-    // адрес воронки, /check — тот же экран), /geo — кластер про нейросети.
+    // адрес воронки, /check — тот же экран), /geo — кластер про нейросети,
+    // /competitors — кластер про анализ конкурентов.
     {
       url: `${SITE_URL}/new`,
       lastModified: now,
@@ -34,6 +35,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/geo`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/competitors`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
