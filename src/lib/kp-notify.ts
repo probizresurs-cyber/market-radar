@@ -86,6 +86,7 @@ export async function notifyKpReady(kpId: string): Promise<void> {
       await sendMail({
         to: r.client_email,
         subject: `Разбор ${name} готов`,
+        ...(unsub ? { unsubscribeUrl: unsub } : {}),
         html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#0f172a;max-width:560px">
 <p>Ваш разбор по <b>${esc(name)}</b> собран.</p>
 <p>Внутри: находки с доказательствами, конкуренты поимённо с запросами, по которым они забирают ваших клиентов, прогноз по каналам и план работ с ценами.</p>

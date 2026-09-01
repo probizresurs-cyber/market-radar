@@ -1,5 +1,5 @@
 /**
- * GET /api/unsubscribe?t=<unsub_token> — отписка от писем одним кликом.
+ * GET/POST /api/unsubscribe?t=<unsub_token> — отписка от писем одним кликом.
  *
  * Ссылка стоит в каждом письме серии дожима. Требований два: работать без
  * логина и без подтверждения (человек не должен доказывать, что это он) и
@@ -48,4 +48,26 @@ export async function GET(req: NextRequest) {
     return page("Ссылка не найдена", "Возможно, отписка уже сработала раньше. Писем от нас больше не будет.");
   }
   return page("Вы отписаны", "Больше писем от MarketRadar на этот адрес не придёт. Разбор по вашей ссылке остаётся доступным.");
+}
+
+/**
+ * POST — тот же токен, но для One-Click-отписки Gmail и Outlook (RFC 8058).
+ * Почтовик дёргает адрес из заголовка List-Unsubscribe сам, без открытия
+ * страницы, и ждёт 2xx. Без этого обработчика заголовок можно не ставить:
+ * почтовики проверяют, что адрес отвечает на POST, и наличие нерабочей
+ * одноклик-отписки — сигнал против отправителя, а не за него.
+ */
+export async function POST(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get("t")?.trim() ?? "";
+  if (!token) return new Response("no token", { status: 400 });
+  await initDb();
+  await query(
+    `UPDATE kp_generations
+        SET unsubscribed_at = COALESCE(unsubscribed_at, NOW())
+      WHERE unsub_token = $1`,
+    [token],
+  );
+  // 200 даже если токен неизвестен: почтовику нельзя отвечать ошибкой,
+  // иначе он засчитает отписку как несработавшую.
+  return new Response(null, { status: 200 });
 }
