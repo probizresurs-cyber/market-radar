@@ -12,7 +12,8 @@ import type { Metadata } from "next";
 const SITE_URL = "https://marketradar24.ru";
 
 export const metadata: Metadata = {
-  title: "Продвижение в нейросетях: как попасть в ответы ChatGPT, Алисы и Google | MarketRadar",
+  // Бренд дописывает шаблон корневого layout («%s · MarketRadar»).
+  title: "Продвижение в нейросетях: как попасть в ответы ChatGPT, Алисы и Google",
   description:
     "Клиент спрашивает совета у нейросети и получает два-три имени. Разбираем, почему вашего нет в ответе, " +
     "и что с этим делать: техника сайта, контент под извлечение ответа, внешние упоминания, репутация.",
