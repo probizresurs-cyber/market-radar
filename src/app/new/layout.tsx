@@ -4,7 +4,8 @@ import { checkServiceSchema, checkFaqSchema } from "@/lib/check-schema";
 const SITE_URL = "https://marketradar24.ru";
 
 export const metadata: Metadata = {
-  title: "Бесплатная диагностика сайта — почему нет заявок | MarketRadar",
+  // Бренд дописывает шаблон корневого layout («%s · MarketRadar»).
+  title: "Бесплатная диагностика сайта — почему нет заявок",
   description:
     "Три проверки по вашему сайту за минуту: видимость в Яндексе, скорость на телефоне, читаемость для нейросетей. " +
     "Полный разбор с находками, конкурентами и планом работ — бесплатно, без звонка.",

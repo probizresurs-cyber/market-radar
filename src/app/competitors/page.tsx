@@ -306,11 +306,11 @@ export default function CompetitorsPage() {
             </p>
           </section>
 
-          {/* ─── 04 · Обещания, которых не бывает ─── */}
+          {/* ─── 04 · Разбираем частые обещания ─── */}
           <section className="mrc-sec" data-reveal>
             <SecHead
               idx="04"
-              title="Обещания, которых не бывает"
+              title="Разбираем частые обещания"
               sub="Три фразы, которые чаще всего слышат при заказе анализа конкурентов."
             />
             <div className="mrc-honest">
