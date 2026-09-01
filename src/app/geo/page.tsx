@@ -111,7 +111,11 @@ export default function GeoPage() {
     if (!u) { setHeroErr("Введите адрес сайта"); return; }
     setHeroBusy(true); setHeroErr(null);
     try {
-      await startCheck(u);
+      // Две цели: общая для всех входов воронки (по ней учатся стратегии
+      // всех трёх кампаний — порог обучения набирается суммой, а не каждой
+      // страницей отдельно) и своя, чтобы в отчётах было видно источник.
+      reach("mini_check_start");
+      reach("geo_check_start");
       goToCheck(u);
     } catch (e) {
       setHeroErr(e instanceof Error ? e.message : "Не получилось. Попробуйте ещё раз");
@@ -128,6 +132,9 @@ export default function GeoPage() {
     try {
       await startCheck(u, { email: mail, phone: phone.trim(), consent, marketing });
       // Цель отправляем до навигации: после router.push страница уже уходит.
+      // Общая цель обязательна: без неё лиды с /geo не попадают в тот же
+      // счётчик конверсий, на который настроены стратегии.
+      reach("mini_check_lead");
       reach("geo_lead");
       goToCheck(u);
     } catch (e) {
