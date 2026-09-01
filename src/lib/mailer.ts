@@ -142,6 +142,12 @@ export interface SendMailParams {
   attachments?: NMSendMailOptions["attachments"];
   /** BCC администратору и т.п. */
   bcc?: string | string[];
+  /**
+   * HTTPS-адрес отписки для заголовка List-Unsubscribe. Gmail и Outlook
+   * оценивают отправителя выше, когда отписка доступна одним кликом из
+   * интерфейса почты, а не только ссылкой в теле письма.
+   */
+  unsubscribeUrl?: string;
 }
 
 export interface SendMailResult {
@@ -192,7 +198,12 @@ export async function sendMail(params: SendMailParams): Promise<SendMailResult> 
     attachments: params.attachments,
     headers: {
       "X-Mailer": "MarketRadar",
-      "List-Unsubscribe": `<mailto:${REPLY_TO}?subject=unsubscribe>`,
+      "List-Unsubscribe": params.unsubscribeUrl
+        ? `<${params.unsubscribeUrl}>, <mailto:${REPLY_TO}?subject=unsubscribe>`
+        : `<mailto:${REPLY_TO}?subject=unsubscribe>`,
+      // One-Click ставим только вместе с HTTPS-адресом: с одним mailto
+      // заголовок недействителен по RFC 8058.
+      ...(params.unsubscribeUrl ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
     },
   };
 
