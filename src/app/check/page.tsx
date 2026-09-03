@@ -1494,8 +1494,12 @@ function SpeedScale({ value }: { value: number }) {
   // кадр, иначе CSS-transition нечего анимировать.
   const [shown, setShown] = useState(0);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setShown(pct));
-    return () => cancelAnimationFrame(id);
+    // setTimeout, а не requestAnimationFrame: rAF не выполняется вовсе,
+    // пока вкладка в фоне (открыли проверку и переключились в другую
+    // вкладку, пока считается скорость) — анимация застряла бы на 0%
+    // до возврата на вкладку. setTimeout тикает и в фоне.
+    const id = setTimeout(() => setShown(pct), 20);
+    return () => clearTimeout(id);
   }, [pct]);
   return (
     <div className="mrc-scale" role="img" aria-label={`${value} из 100, норма — от 90`}>
