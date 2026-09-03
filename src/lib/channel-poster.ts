@@ -33,6 +33,8 @@
  *   CHANNEL_AUTOPOST_ENABLED     — "false" полностью выключает авто-режим
  */
 import { randomBytes } from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { query, initDb } from "./db";
 import { chatJson, CHAT_MODEL_SMART } from "./ai-chat";
 import { ANTI_HALLUCINATION_RULES } from "./ai-rules";
@@ -125,17 +127,13 @@ export function rubricByKey(key: string): RubricDef {
 // ─── Контекст продукта для промпта ──────────────────────────────────────────
 
 /**
- * Основные модули платформы — не завязаны на фичефлаги (таблица `features`
- * знает только про часть продукта: контент-завод, презентации, лендинги,
- * SEO-статьи, отзывы), а анализ компании/конкурентов/ЦА/СММ и бесплатная
- * экспресс-проверка есть у каждого аккаунта всегда. Раз в несколько месяцев,
- * когда в платформе появляется что-то принципиально новое, этот список нужно
- * обновлять руками — сервер на проде разворачивается из git-архива без
- * истории коммитов, поэтому сам вычитать «что нового» из git он не может.
- *
- * Актуализировано: 2026-09-03.
+ * Резервный список модулей — используется только пока автообновление ниже
+ * ни разу не отработало (сразу после первого деплоя этой фичи) или если оно
+ * почему-то упало. В штатном режиме продукт описывает channel_context (кэш
+ * в БД, см. refreshProductContext) — этот список руками больше обновлять
+ * не нужно.
  */
-const CORE_MODULES = [
+const CORE_MODULES_FALLBACK = [
   `- Бесплатная экспресс-проверка сайта (без регистрации, без звонков) — за 1-2 минуты: ` +
     `техника сайта (скорость, структура, заголовки, микроразметка, sitemap, доступ для поисковых ` +
     `роботов), видимость в поиске, читаемость сайта для нейросетей и узнаваемость бренда в ответах ` +
@@ -152,15 +150,109 @@ const CORE_MODULES = [
 ].join("\n");
 
 /**
- * Фактура для генератора: основные модули (выше) + включённые сейчас
- * фичефлаги платформы (таблица features, с под-модулями контент-завода) +
- * реальные цены. Без этого модель начинает сочинять несуществующие фичи —
- * ровно то, что запрещает ANTI_HALLUCINATION_RULES.
+ * Секция «## Реализованные модули» из CLAUDE.md — источник правды для
+ * авто-актуализации. Файл деплоится вместе с кодом (git archive пакует
+ * ВСЕ отслеживаемые файлы, не только src/), поэтому он всегда синхронен
+ * с тем, что реально задеплоено. Достаём только этот раздел, а не файл
+ * целиком — там ниже деплой-инструкции, IP сервера, известные баги: это
+ * внутренняя информация, ей незачем попадать в промпт генератора постов.
+ */
+function claudeMdModulesSection(): string | null {
+  try {
+    const raw = readFileSync(join(process.cwd(), "CLAUDE.md"), "utf-8");
+    const start = raw.indexOf("## Реализованные модули");
+    if (start === -1) return null;
+    const rest = raw.slice(start);
+    const nextHeading = rest.indexOf("\n## ", 3);
+    return (nextHeading === -1 ? rest : rest.slice(0, nextHeading)).trim();
+  } catch (e) {
+    console.error("[channel] не удалось прочитать CLAUDE.md:", e);
+    return null;
+  }
+}
+
+/**
+ * Пересобирает channel_context из CLAUDE.md: AI отфильтровывает только
+ * готовые (✅) модули и переписывает их клиентским языком, без файлов/таблиц.
+ * Вызывается кроном раз в сутки (maybeRefreshProductContext) — так менеджеру
+ * не нужно руками трогать код платформы при каждой новой фиче, достаточно,
+ * чтобы CLAUDE.md был в курсе (он и так должен быть актуален).
+ */
+export async function refreshProductContext(): Promise<{ ok: boolean; error?: string }> {
+  const doc = claudeMdModulesSection();
+  if (!doc) return { ok: false, error: "CLAUDE.md недоступен или не содержит раздел «Реализованные модули»" };
+
+  const system =
+    `${ANTI_HALLUCINATION_RULES}\n\n` +
+    `Ниже — внутренняя техническая документация статусов модулей платформы MarketRadar ` +
+    `(✅ Готово / 🔧 В работе / 📋 Планируется, с названиями файлов и таблиц БД — это техническая ` +
+    `служебная информация, не для клиента).\n\n` +
+    `Составь из неё маркированный список ТОЛЬКО модулей со статусом ✅ Готово, понятный клиенту: ` +
+    `одна строка на модуль, простыми словами, без названий файлов/таблиц/API/технологий. ` +
+    `Модули со статусом 🔧 В работе или 📋 Планируется пропусти полностью — их ещё нет. ` +
+    `Не выдумывай возможности сверх описанного в документации.\n\n` +
+    `Ответь СТРОГО валидным JSON без markdown: {"modules": ["строка про модуль 1", "строка про модуль 2", ...]}`;
+
+  const r = await chatJson<{ modules?: string[] }>({
+    system,
+    user: doc,
+    maxTokens: 1500,
+    model: CHAT_MODEL_SMART,
+  });
+  const modules = Array.isArray(r.data?.modules)
+    ? r.data!.modules.filter((m): m is string => typeof m === "string" && m.trim().length > 0)
+    : [];
+  if (!modules.length) return { ok: false, error: r.error ?? "модель не вернула список модулей" };
+
+  const content = modules.map(m => `- ${m.trim()}`).join("\n");
+  await initDb();
+  await query(
+    `INSERT INTO channel_context (id, content, updated_at) VALUES ('core', $1, NOW())
+     ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()`,
+    [content],
+  );
+  return { ok: true };
+}
+
+const CONTEXT_REFRESH_INTERVAL_MS = 20 * 60 * 60 * 1000;
+
+/** Вызывается кроном: обновляет описание продукта не чаще раза в ~сутки. */
+export async function maybeRefreshProductContext(opts?: { force?: boolean }): Promise<{
+  refreshed: boolean;
+  reason: string;
+  error?: string;
+}> {
+  await initDb();
+  if (!opts?.force) {
+    const rows = await query<{ updated_at: Date }>(`SELECT updated_at FROM channel_context WHERE id = 'core'`);
+    const last = rows[0]?.updated_at;
+    if (last && Date.now() - new Date(last).getTime() < CONTEXT_REFRESH_INTERVAL_MS) {
+      return { refreshed: false, reason: "уже обновлялось за последние 20 часов" };
+    }
+  }
+  const r = await refreshProductContext();
+  if (!r.ok) return { refreshed: false, reason: "не удалось обновить", error: r.error };
+  return { refreshed: true, reason: "описание продукта обновлено из CLAUDE.md" };
+}
+
+/**
+ * Фактура для генератора: описание продукта (кэш channel_context, обновляемый
+ * кроном из CLAUDE.md — см. выше; до первого обновления резервный список) +
+ * включённые сейчас фичефлаги платформы (таблица features, с под-модулями
+ * контент-завода) + реальные цены. Без этого модель начинает сочинять
+ * несуществующие фичи — ровно то, что запрещает ANTI_HALLUCINATION_RULES.
  */
 export async function productContext(): Promise<string> {
+  let coreModules = CORE_MODULES_FALLBACK;
   let flaggedModules = "";
   try {
     await initDb();
+    const cached = await query<{ content: string }>(`SELECT content FROM channel_context WHERE id = 'core'`);
+    if (cached[0]?.content?.trim()) coreModules = cached[0].content;
+  } catch (e) {
+    console.error("[channel] не удалось прочитать channel_context:", e);
+  }
+  try {
     const rows = await query<{ id: string; label: string; description: string | null; parent_id: string | null }>(
       `SELECT id, label, description, parent_id FROM features WHERE enabled = true ORDER BY sort_order ASC, id ASC`,
     );
@@ -182,7 +274,7 @@ export async function productContext(): Promise<string> {
     `контент-маркетинга и бренд-стратегии для бизнеса и агентств в России. Работает на Claude (Anthropic).`,
     ``,
     `Модули, доступные каждому аккаунту всегда:`,
-    CORE_MODULES,
+    coreModules,
     ``,
     `Модули, включённые сейчас в настройках платформы (пиши про них как про существующие; ` +
       `если модуля нет ни здесь, ни в разделе выше — не упоминай его как готовый):`,

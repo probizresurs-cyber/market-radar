@@ -862,6 +862,18 @@ export async function initDb() {
   await query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_active ON channel_posts(manager_chat_id, status, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_due ON channel_posts(status, scheduled_for) WHERE status = 'approved'`);
 
+  // Кэш «что уметь» для промпта бота (см. CORE_MODULES в channel-poster.ts):
+  // раз в сутки cron пересобирает его из раздела «Реализованные модули»
+  // CLAUDE.md (он деплоится вместе с кодом) — так менеджеру не нужно руками
+  // редактировать код каждый раз, когда в платформе появляется что-то новое.
+  await query(`
+    CREATE TABLE IF NOT EXISTS channel_context (
+      id TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   // ─── Мини-проверки сайта (/check — верх воронки Директа) ──────────────────
   // Бесплатный мгновенный диагноз БЕЗ Claude: Букварикс + PageSpeed + лёгкий
   // скрапер. result наполняется по мере готовности проб (страница поллит и

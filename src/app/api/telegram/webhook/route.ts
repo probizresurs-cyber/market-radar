@@ -7,7 +7,7 @@ import { sendTelegramMessage, answerTelegramCallback, escapeTgHtml, type TgInlin
 import {
   isManagerChat, createDraft, listQueue, activeDraftFor, applyRevision, approvePost,
   rejectPost, stopEditing, regenerateDraft, parseMskDateTime, formatMsk, channelLabel,
-  RUBRICS, rubricByKey, getPost as getChannelPost, type Rubric,
+  RUBRICS, rubricByKey, getPost as getChannelPost, maybeRefreshProductContext, type Rubric,
 } from "@/lib/channel-poster";
 import { scrapeWebsite } from "@/lib/scraper";
 import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
@@ -388,6 +388,18 @@ async function handleManagerMessage(chatId: number, text: string, command: strin
     );
     return true;
   }
+  if (command === "/refresh") {
+    // Ручной триггер: не ждать до суточного крона после правки CLAUDE.md.
+    await sendMessage(chatId, "🔄 Обновляю описание продукта из CLAUDE.md…");
+    const r = await maybeRefreshProductContext({ force: true });
+    await sendMessage(
+      chatId,
+      r.refreshed
+        ? "✅ Готово, дальше черновики будут учитывать актуальный список модулей."
+        : `⚠️ Не получилось: ${escapeTgHtml(r.error ?? r.reason)}`,
+    );
+    return true;
+  }
   if (command === "/queue") {
     const items = await listQueue();
     if (!items.length) {
@@ -592,7 +604,8 @@ export async function POST(req: NextRequest) {
           `/rubrics — список рубрик\n` +
           `/queue — что в очереди\n` +
           `/when 18:30 — отложить активный черновик на время (МСК)\n` +
-          `/cancel — выйти из правки черновика`
+          `/cancel — выйти из правки черновика\n` +
+          `/refresh — обновить список продуктов для бота прямо сейчас (иначе раз в сутки само)`
         : "";
       await sendMessage(chatId, HELP + channelHelp, SITE_BUTTONS);
     } else if (command === "/about") {

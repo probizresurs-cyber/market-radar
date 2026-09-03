@@ -8,15 +8,19 @@
  *      если за последние 12 часов уже создавался.
  *   2. publishDue() — публикует посты, которые менеджер одобрил с отложенным
  *      временем (/when или кнопка «Отложить») и это время уже наступило.
+ *   3. maybeRefreshProductContext() — раз в ~сутки пересобирает описание
+ *      продукта для промпта генератора из раздела «Реализованные модули»
+ *      CLAUDE.md, чтобы новые фичи попадали в посты без ручной правки кода.
  *
- * Вызывать раз в час — обе функции сами решают, пора ли что-то делать.
+ * Вызывать раз в час (уже подключено в scripts/cron-tick.sh) — все три
+ * функции сами решают, пора ли им что-то делать.
  *   curl -H "x-cron-secret: $CRON_SECRET" https://<host>/api/cron/channel-posts
  *
  * Защита: тот же CRON_SECRET, что у остальных cron-эндпоинтов (см.
  * /api/cron/run-agents) — без него на проде эндпоинт отказывает.
  */
 import { NextResponse } from "next/server";
-import { maybeCreateScheduledDraft, publishDue } from "@/lib/channel-poster";
+import { maybeCreateScheduledDraft, publishDue, maybeRefreshProductContext } from "@/lib/channel-poster";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -40,7 +44,8 @@ function authorized(req: Request): boolean {
 async function run() {
   const draft = await maybeCreateScheduledDraft();
   const due = await publishDue();
-  return NextResponse.json({ ok: true, draft, due });
+  const context = await maybeRefreshProductContext();
+  return NextResponse.json({ ok: true, draft, due, context });
 }
 
 export async function GET(req: Request) {
