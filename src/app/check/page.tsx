@@ -94,7 +94,7 @@ const toneColor = (t?: Tone) =>
  * compact=false (/check, /new2) — полная страница с маркетинговыми
  * разделами 01-04 и 06.
  * compact=true (/new) — мини-лендинг под рекламу: первый экран, форма,
- * результаты замеров и захват почты, затем только то, без чего нельзя, —
+ * результаты проверок и захват почты, затем только то, без чего нельзя, —
  * разбор частых обещаний, цена и пример разбора. Второй реализации
  * воронки не заводим: расхождение между «коротким» и «длинным» входом
  * означало бы, что правку надо вносить дважды, и однажды её внесут один раз.
@@ -138,9 +138,9 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
       });
       const j = await readJson(r);
       if (!j.ok) throw new Error(j.error || "Не удалось запустить проверку");
-      // Новый замер — новая воронка. Без этого сброса состояние прошлого
+      // Новая проверка — новая воронка. Без этого сброса состояние прошлого
       // разбора переживало смену адреса: человек вводил другой сайт, видел
-      // корректные замеры и рядом «Полный разбор готов» с кнопкой на ЧУЖОЙ
+      // корректные проверки и рядом «Полный разбор готов» с кнопкой на ЧУЖОЙ
       // документ, хотя почту в этот раз не оставлял.
       setKpState("idle");
       setKpUrl(null);
@@ -284,7 +284,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
               <RadarMark />
               <span aria-hidden="true">Market<b>Radar24</b></span>
             </a>
-            <span className="mrc-mono mrc-topbar-tag">замер · 0 ₽</span>
+            <span className="mrc-mono mrc-topbar-tag">проверка сайта · 0 ₽</span>
           </header>
 
           <div className="mrc-hero-grid">
@@ -306,7 +306,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
               <p className="mrc-lead mrc-hero-lead">
                 Клиент спрашивает «кого посоветуете» — у Яндекса или у нейросети — и получает
                 два-три имени. Если вас там нет, заявок не будет, каким бы хорошим ни был сайт.
-                Начинаем с бесплатного замера: покажем, находят ли вас в Яндексе, называют ли
+                Начинаем с бесплатной проверки: покажем, находят ли вас в Яндексе, называют ли
                 нейросети — и что этому мешает.
               </p>
             </div>
@@ -329,6 +329,47 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
 
       <main>
       <div className="mrc-wrap">
+        {/* ─── Зачем это вообще: боль до объяснения услуги ──────────────────
+             Человек с рекламы знает, что заявок нет, но не знает, при чём тут
+             нейросети: «видимость в нейросетях» для него пустой звук. Поэтому
+             до разговора о работе объясняем, что изменилось в поведении его
+             же клиента. Без этого блока следующая секция читается как продажа
+             непонятно чего. */}
+        {compact && !checkId && (
+          <section className="mrc-sec" data-reveal>
+            <SecHead
+              idx="01"
+              title="Что изменилось у ваших клиентов"
+              sub="Раньше человек листал десять ссылок и выбирал сам. Теперь чаще спрашивает и получает готовый короткий ответ."
+            />
+            <div className="mrcn-pain">
+              {[
+                {
+                  t: "Ответ один, имён — два-три",
+                  d: "Ассистент не показывает список из десяти сайтов. Он отвечает абзацем и называет одну-три компании. Всё, что не попало в этот абзац, клиент не увидит вовсе.",
+                },
+                {
+                  t: "Вас не сравнили — вас не было",
+                  d: "Это не проигрыш в сравнении цен или условий. Если сайт нечитаем для ассистента, вы просто не попадаете в список кандидатов, и хороший сайт тут не спасает.",
+                },
+                {
+                  t: "Поиск никуда не делся",
+                  d: "Часть клиентов по-прежнему идёт в Яндекс. Поэтому работать надо и там, и там: это одни и те же страницы, но требования к ним разные.",
+                },
+                {
+                  t: "Берут то, что можно процитировать",
+                  d: "В ответ попадают сайты, где услуги и цены написаны словами, а не картинкой, и подтверждены отзывами и упоминаниями снаружи. Это и есть то, что чинится в первый месяц.",
+                },
+              ].map(x => (
+                <article key={x.t} className="mrcn-pain-item">
+                  <h3 className="mrcn-pain-t">{x.t}</h3>
+                  <p className="mrcn-pain-d">{x.d}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ─── Маршрут: что будет после проверки ───────────────────────────
             Человек с рекламы не знает, чем всё закончится, и это тормозит
             ввод адреса. Показываем три шага сразу: бесплатная проверка →
@@ -338,11 +379,11 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
           <ol className="mrc-route" aria-label="Как это работает">
             {/* Маршрут — не «что мы умеем», а порядок работы. Человек пришёл
                 за продвижением, и ему надо сразу видеть, зачем начинать
-                с замера: без него неизвестно, на каком уровне сайт и что
+                с проверки: без неё неизвестно, на каком уровне сайт и что
                 чинить в первую очередь. Поэтому шаги названы как ступени
                 одной услуги, а не как отдельные продукты. */}
             {[
-              ["Замер", "Вводите адрес — считаем три показателя и показываем, видно ли вас в поиске и в ответах нейросетей. Бесплатно, без регистрации."],
+              ["Проверка", "Вводите адрес — считаем три показателя и показываем, видно ли вас в поиске и в ответах нейросетей. Бесплатно, без регистрации."],
               ["Оптимизация", "Первый месяц: чиним то, из-за чего вас не берут в выдачу и в ответы ассистентов. 25 000 ₽."],
               ["Продвижение", "Дальше ежемесячно: наращиваем видимость в поиске и в нейросетях. От 25 000 ₽ в месяц."],
             ].map(([t, d], i) => (
@@ -359,9 +400,9 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
         {!checkId && (
           <section className="mrc-sec" data-reveal>
             <SecHead
-              idx="00"
+              idx={compact ? "02" : "00"}
               title="С чего начинается продвижение"
-              sub="Три замера: по ним видно, где вас теряют и что чинить в первую очередь."
+              sub="Три проверки: по ним видно, где вас теряют и что чинить в первую очередь."
             />
             <ol className="mrc-instr-list">
               {[
@@ -429,7 +470,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
                         назван спрос ниши, слабее собственного числа человека:
                         сумма уже посчитана, осталось сказать, кому она уходит. */}
                     <div className="mrc-h3 mrc-h3-lg">
-                      {demandHeadline ?? "Это только замер. Дальше — план продвижения, тоже бесплатно"}
+                      {demandHeadline ?? "Это только проверка. Дальше — план продвижения, тоже бесплатно"}
                     </div>
                     <p className="mrc-body mrc-lead-card-text">
                       Три проверки выше показали <b>симптомы</b>. Разбор — это уже план работ:
@@ -717,12 +758,15 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
         </section>
         )}
 
-        {/* ─── 05 · Разбираем частые обещания ─── */}
+        {/* ─── 05 · Разбираем частые обещания ───
+             На короткой посадочной блока нет: он длинный, а место на одном-двух
+             экранах дороже. Остаётся на /new2, где есть развёрнутая аргументация. */}
+        {!compact && (
         <section className="mrc-sec" data-reveal>
           {/* В компактном режиме разделов 01-04 нет, и «05» читался бы как
               пропуск четырёх глав. Нумерация идёт по тому, что видно. */}
           <SecHead
-            idx={compact ? "01" : "05"}
+            idx="05"
             title="Разбираем частые обещания"
             sub="Три фразы, которые чаще всего слышат от подрядчиков. Ни одна из них невыполнима — показываем, почему и что стоит за ней на самом деле."
           />
@@ -741,6 +785,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
             ))}
           </div>
         </section>
+        )}
         {/* ─── Компактный режим: то, без чего мини-лендинг терять нельзя ───
              Цена — единственная цифра денег на странице: без неё человек идёт
              до самого разбора, не понимая порядка сумм. Пример разбора —
@@ -749,22 +794,30 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
              длинный вход говорили одно и то же. */}
         {compact && (
           <section className="mrc-sec" data-reveal>
-            <div className="mrc-anchor">
-              <div>
-                <div className="mrc-mono mrc-who-label">сколько это стоит</div>
-                <p className="mrc-body" style={{ margin: "8px 0 0" }}>
-                  Замер и разбор — <b>0 ₽</b>. Оптимизация — <b>25 000 ₽ за первый месяц</b>:
-                  чиним то, из-за чего вас не находят. Дальше продвижение —
-                  <b> от 25 000 ₽ в месяц</b>: техника сайта, контент, внешние упоминания и
-                  репутация ведутся вместе, по одному счёту. Точная сумма — в разборе, после
-                  того как понятно, что именно чинить.
-                </p>
-              </div>
-              <div className="mrc-anchor-fig">
-                <div className="mrc-anchor-num">0 ₽</div>
-                <div className="mrc-note">разбор</div>
-              </div>
+            <SecHead
+              idx="03"
+              title="Сколько это стоит"
+              sub="Три ступени одной услуги. Платить со второй — и только если после первой вы решите продолжать."
+            />
+            {/* Раньше здесь стоял абзац сплошного текста: три суммы вперемешку
+                со словами не читались вовсе. Стадии разнесены по плашкам —
+                сразу видно, что бесплатно, что разово и что ежемесячно. */}
+            <div className="mrcn-tiers">
+              {TIERS.map(t => (
+                <article key={t.name} className={t.accent ? "mrcn-tier is-accent" : "mrcn-tier"}>
+                  <div className="mrc-mono mrcn-tier-stage">{t.stage}</div>
+                  <h3 className="mrcn-tier-name">{t.name}</h3>
+                  <div className="mrcn-tier-price">{t.price}</div>
+                  <div className="mrc-mono mrcn-tier-unit">{t.unit}</div>
+                  <ul className="mrcn-tier-list">
+                    {t.items.map(i => <li key={i}>{i}</li>)}
+                  </ul>
+                </article>
+              ))}
             </div>
+            <p className="mrc-note" style={{ marginTop: 16 }}>
+              Точная сумма по шагам 2 и 3 — в разборе, после того как понятно, что именно чинить.
+            </p>
             {DEMO_REPORTS.length > 0 && (
               <>
                 <div className="mrc-mono mrc-who-label" style={{ marginTop: 26 }}>как выглядит разбор</div>
@@ -846,7 +899,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
         <div className="mrc-wrap mrc-final-grid">
           <div>
             <div className="mrc-mono mrc-kicker">проверка сайта</div>
-            <h2 className="mrc-h2">Продвижение начинается<br />с одного замера</h2>
+            <h2 className="mrc-h2">Продвижение начинается<br />с одной проверки</h2>
             <p className="mrc-lead">
               Введите адрес — и через минуту увидите, находят ли вас в поиске и называют ли
               нейросети. Дальше покажем, что чинить в первый месяц и как двигаться потом.
@@ -1471,7 +1524,7 @@ function SpeedVerdict({ s }: { s: NonNullable<MiniCheckResult["speed"]> }) {
       </div>
     } />;
   }
-  // Lighthouse не ответил — показываем свой замер и называем его своим.
+  // Lighthouse не ответил — показываем свою проверку и называем её своей.
   if (s.performance == null && s.fallback) {
     const sec = (s.fallback.ttfbMs / 1000).toFixed(1).replace(".", ",");
     const slow = s.fallback.ttfbMs > 1500;
@@ -1677,6 +1730,36 @@ function useReveal() {
    лендинг обязан выглядеть тем же продуктом, что и marketradar24.ru.
    Глобальный globals.css душит h1/h2 на мобильном через !important — поэтому
    размеры заголовков здесь тоже помечены !important. */
+
+/** Ступени услуги для блока «Сколько это стоит». Цены обязаны совпадать с
+    PRICE_POLICY в src/lib/kp-generate.ts: расхождение между посадочной и
+    разбором обнуляет доверие ко всем остальным числам в воронке. */
+const TIERS: { stage: string; name: string; price: string; unit: string; accent?: boolean; items: string[] }[] = [
+  {
+    stage: "шаг 1", name: "Проверка и разбор", price: "0 ₽", unit: "бесплатно",
+    items: [
+      "Три показателя по вашему сайту",
+      "Разбор с находками и планом работ",
+      "Без звонка и без карты",
+    ],
+  },
+  {
+    stage: "шаг 2", name: "Оптимизация", price: "25 000 ₽", unit: "первый месяц, разово", accent: true,
+    items: [
+      "Чиним то, из-за чего вас не берут в выдачу и в ответы",
+      "Услуги и цены — словами, которые ассистент может процитировать",
+      "Техническая база под дальнейшее продвижение",
+    ],
+  },
+  {
+    stage: "шаг 3", name: "Продвижение", price: "от 25 000 ₽", unit: "в месяц",
+    items: [
+      "Наращиваем видимость в поиске и в нейросетях",
+      "Контент, внешние упоминания и репутация",
+      "Один счёт и один ответственный",
+    ],
+  },
+];
 
 const CSS = AI_ROW_CSS + `
 /* Акцент дублируем на :root: куки-баннер живёт в layout, СНАРУЖИ .mrc-root,
@@ -2764,6 +2847,52 @@ const CSS = AI_ROW_CSS + `
   .mrc-route-step::before { top: 8px; left: 6px; right: auto; bottom: 0; width: 2px; height: auto; }
   .mrc-route-step:last-child::before { display: none; }
   .mrc-route-dot { top: 2px; }
+}
+
+/* ── Что изменилось у клиентов: четыре карточки боли ──────────────────────
+   Стоят до объяснения услуги: без них «видимость в нейросетях» читается как
+   пустой термин. Сетка 2×2 на десктопе, в столбик на телефоне. */
+.mrcn-pain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.mrcn-pain-item {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-left: 3px solid var(--flare-use);
+  border-radius: var(--mrc-r-lg); padding: 20px 22px;
+}
+.mrcn-pain-t { font-size: 17px; font-weight: 750; letter-spacing: -0.01em; margin: 0 0 8px; }
+.mrcn-pain-d { font-size: 14.5px; line-height: 1.6; color: var(--soft); margin: 0; }
+
+/* ── Ступени услуги: плашки вместо абзаца ────────────────────────────────
+   Три суммы в сплошном тексте не читались. Каждая ступень — своя карточка
+   с ценой крупно и единицей измерения рядом, чтобы «25 000 разово» и
+   «25 000 в месяц» не путались. */
+.mrcn-tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.mrcn-tier {
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: var(--mrc-r-lg); padding: 22px 22px 24px;
+}
+/* Средняя ступень выделена: это первый платный шаг и точка решения. */
+.mrcn-tier.is-accent {
+  border-color: color-mix(in srgb, var(--flare-use) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flare-use) 12%, transparent);
+}
+.mrcn-tier-stage { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--soft); }
+.mrcn-tier-name { font-size: 17px; font-weight: 750; margin: 8px 0 12px; letter-spacing: -0.01em; }
+.mrcn-tier-price { font-size: 30px; font-weight: 850; line-height: 1.05; letter-spacing: -0.03em; }
+.mrcn-tier.is-accent .mrcn-tier-price { color: var(--flare-use); }
+.mrcn-tier-unit { font-size: 12.5px; color: var(--soft); margin-top: 5px; }
+.mrcn-tier-list { list-style: none; margin: 16px 0 0; padding: 14px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 9px; }
+.mrcn-tier-list li { font-size: 14px; line-height: 1.5; color: var(--mrc-fg-mid); padding-left: 16px; position: relative; }
+.mrcn-tier-list li::before {
+  content: ""; position: absolute; left: 0; top: 8px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--flare-use); opacity: 0.55;
+}
+
+@media (max-width: 860px) {
+  .mrcn-tiers { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .mrcn-pain { grid-template-columns: minmax(0, 1fr); }
 }
 
 ` + SERP_COLLAGE_CSS;
