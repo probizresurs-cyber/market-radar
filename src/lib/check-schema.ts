@@ -19,7 +19,7 @@ export const checkServiceSchema = {
   "@type": "Service",
   name: "Диагностика сайта и работа над видимостью",
   serviceType: "SEO, GEO-оптимизация, контент и репутация",
-  url: `${SITE_URL}/нейросети`,
+  url: `${SITE_URL}/neyroseti`,
   areaServed: { "@type": "Country", name: "Россия" },
   provider: {
     "@type": "Organization",

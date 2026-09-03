@@ -103,7 +103,7 @@ export default function GeoPage() {
   }, []);
 
   const goToCheck = useCallback((raw: string) => {
-    router.push(`/нейросети?url=${encodeURIComponent(raw)}`);
+    router.push(`/neyroseti?url=${encodeURIComponent(raw)}`);
   }, [router]);
 
   const submitHero = useCallback(async () => {
@@ -630,7 +630,7 @@ export default function GeoPage() {
             <a href="/legal/privacy">Политика обработки персональных данных</a>
             <a href="/legal/consent-pd">Согласие на обработку данных</a>
             <a href="/competitors">Анализ конкурентов</a>
-            <a href="/нейросети">Бесплатная проверка сайта</a>
+            <a href="/neyroseti">Бесплатная проверка сайта</a>
           </nav>
         </div>
       </footer>

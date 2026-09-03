@@ -172,7 +172,7 @@ export default function CompetitorsPage() {
       // На /new человек видит результат проверки своего сайта; имена
       // конкурентов — в разборе за ней. Последовательность названа в
       // подписи под полем, чтобы переход не выглядел подменой.
-      router.push(`/нейросети?url=${encodeURIComponent(u)}`);
+      router.push(`/neyroseti?url=${encodeURIComponent(u)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Ошибка");
       setBusy(false);
@@ -435,7 +435,7 @@ export default function CompetitorsPage() {
             <a href="/legal/privacy">Политика обработки персональных данных</a>
             <a href="/legal/consent-pd">Согласие на обработку данных</a>
             <a href="/geo">Продвижение в нейросетях</a>
-            <a href="/нейросети">Бесплатная проверка сайта</a>
+            <a href="/neyroseti">Бесплатная проверка сайта</a>
           </nav>
         </div>
       </footer>
