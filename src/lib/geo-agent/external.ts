@@ -23,7 +23,7 @@ export async function bingIndexCheck(domain: string): Promise<BingIndex> {
 
     const countM = html.match(/class="sb_count"[^>]*>([^<]*)/);
     const digits = countM ? countM[1].replace(/[^\d]/g, "") : "";
-    const approxCount = digits ? parseInt(digits, 10) : 0;
+    const rawCount = digits ? parseInt(digits, 10) : 0;
 
     const sample: string[] = [];
     const re = /<li class="b_algo"[\s\S]*?<h2>\s*<a[^>]+href="([^"]+)"/g;
@@ -32,10 +32,22 @@ export async function bingIndexCheck(domain: string): Promise<BingIndex> {
       const u = m[1].replace(/&amp;/g, "&");
       if (u.includes(domain)) sample.push(u);
     }
-    // Ни счётчика, ни результатов и при этом нет фразы «ничего не найдено» — вёрстка изменилась.
-    const nothing = /Нет результатов|No results|не найдено/i.test(html);
+    // sb_count иногда относится не к «site:домен», а к расширенному веб-поиску,
+    // который Bing подставляет ниже как «показаны также результаты для…» —
+    // тогда digits — это счётчик всего веба (десятки миллионов), а не сайта.
+    // Доверяем числу только в правдоподобном диапазоне; итог не меньше числа
+    // реально найденных ссылок на домен — это нижняя граница, но точная.
+    const PLAUSIBLE_MAX = 5000;
+    const trustedTotal = rawCount > 0 && rawCount <= PLAUSIBLE_MAX ? rawCount : 0;
+    const approxCount = Math.max(sample.length, trustedTotal);
+
+    // «Ничего не найдено» — это ok:true с approxCount:0, но только если страница
+    // действительно результаты поиска (id="b_content"), а не капча/блокировка
+    // с похожей фразой в тексте: капчу нельзя путать с «сайта нет в индексе».
+    const isResultsPage = /id="b_content"|id="b_results"/.test(html);
+    const nothing = isResultsPage && /Нет результатов|No results|не найдено/i.test(html);
     if (!countM && sample.length === 0 && !nothing) return { ok: false, approxCount: 0, sampleUrls: [] };
-    return { ok: true, approxCount: approxCount || sample.length, sampleUrls: Array.from(new Set(sample)) };
+    return { ok: true, approxCount, sampleUrls: Array.from(new Set(sample)) };
   } catch {
     return { ok: false, approxCount: 0, sampleUrls: [] };
   }

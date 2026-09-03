@@ -65,6 +65,8 @@ npx tsx --env-file=.env.local scripts/geo-audit-cli.ts https://example.ru \
 Флаги: `--no-visibility` (только технический аудит, без опроса ассистентов),
 `--brand=`, `--niche=`, `--out=`.
 
+Для отладки одной страницы без полного обхода сайта — `scripts/check-one-page.ts <url>`.
+
 ## Честность вместо красивых цифр
 
 - Проверка, для которой нет данных (ключа нет, LLM не ответил, Bing не

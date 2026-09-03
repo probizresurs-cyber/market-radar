@@ -16,12 +16,26 @@ const SOCIAL_HOSTS = [
   "dzen.ru", "zen.yandex.ru", "wa.me", "whatsapp.com", "max.ru", "pinterest.com",
 ];
 
-const QUESTION_RE = /\?\s*$|^(как|что|какой|какая|какие|каких|сколько|почему|зачем|где|когда|чем|кто|кому|нужно ли|можно ли|стоит ли|что делать|how|what|why|which|when|where|who)\b/i;
+// JS-регекс: \b — граница ТОЛЬКО между ASCII \w и не-\w. Кириллица в \w не входит,
+// поэтому \b после/перед русским словом почти никогда не срабатывает, если рядом
+// пробел (оба символа получаются «не-словом» → границы нет). Ниже везде вместо \b —
+// явные (?<!БУКВА) / (?!БУКВА) по алфавиту рус+лат+цифры.
+const WORD_CHAR = "a-zа-яёA-ZА-ЯЁ0-9";
+const NOT_BEFORE_WORD = `(?<![${WORD_CHAR}])`;
+const NOT_AFTER_WORD = `(?![${WORD_CHAR}])`;
+
+const QUESTION_RE = new RegExp(
+  `\\?\\s*$|^(как|что|какой|какая|какие|каких|сколько|почему|зачем|где|когда|чем|кто|кому|нужно ли|можно ли|стоит ли|что делать|how|what|why|which|when|where|who)${NOT_AFTER_WORD}`,
+  "iu",
+);
 
 const FACT_RE = /\d[\d\s.,]*\s?(%|₽|руб\.?|р\.|млн|тыс\.?|млрд|лет|года?|году|дн(?:я|ей)|час(?:а|ов)?|мин(?:ут)?|шт\.?|км|м²|кв\.?\s?м|кг|\$|€|клиент|проект|источник|страниц|запрос)/gi;
 
 /** Лид считается ответом, если он в 20–90 слов и начинается как определение/утверждение о предмете. */
-const ANSWER_LEDE_RE = /^([«"]?[A-ZА-ЯЁ][^.!?]{2,80}?)\s(—|–|-|это|является|представляет собой|помогает|позволяет|делает|производит|оказывает|предоставляет|занимается|работает|нужен|нужна|нужно|стоит|включает|состоит|means|is|helps)\b/u;
+const ANSWER_LEDE_RE = new RegExp(
+  `^([«"]?[A-ZА-ЯЁ][^.!?]{2,80}?)\\s(?:[—–-](?=\\s)|(?:это|является|представляет собой|помогает|позволяет|делает|производит|оказывает|предоставляет|занимается|работает|нужен|нужна|нужно|стоит|включает|состоит|means|is|helps)${NOT_AFTER_WORD})`,
+  "u",
+);
 
 export function hostOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; }
@@ -134,12 +148,12 @@ export function parsePage(opts: ParseOptions): PageAudit {
   // Реквизиты и автора ищем до удаления футера — они там и живут.
   const fullText = $("body").clone().find("script,style,noscript,svg,template").remove().end().text().replace(/\s+/g, " ").trim();
   const entitySignals: string[] = [];
-  if (/\bИНН\s*:?\s*\d{10,12}\b/i.test(fullText)) entitySignals.push("ИНН");
-  if (/\bОГРН(?:ИП)?\s*:?\s*\d{13,15}\b/i.test(fullText)) entitySignals.push("ОГРН");
+  if (new RegExp(`${NOT_BEFORE_WORD}ИНН\\s*:?\\s*\\d{10,12}${NOT_AFTER_WORD}`, "iu").test(fullText)) entitySignals.push("ИНН");
+  if (new RegExp(`${NOT_BEFORE_WORD}ОГРН(?:ИП)?\\s*:?\\s*\\d{13,15}${NOT_AFTER_WORD}`, "iu").test(fullText)) entitySignals.push("ОГРН");
   if (/(\+7|8)[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}/.test(fullText)) entitySignals.push("телефон");
   if (/[\w.+-]+@[\w-]+\.[\w.]+/.test(fullText)) entitySignals.push("email");
-  if (/\b(ул\.|улица|проспект|пр-т|пер\.|переулок|наб\.|шоссе|д\.\s?\d)/i.test(fullText)) entitySignals.push("адрес");
-  if (/\b(ООО|ИП|АО|ПАО)\s+[«"]?[А-ЯЁA-Z]/.test(fullText)) entitySignals.push("юрлицо");
+  if (new RegExp(`${NOT_BEFORE_WORD}(ул\\.|улица|проспект|пр-т|пер\\.|переулок|наб\\.|шоссе|д\\.\\s?\\d)`, "iu").test(fullText)) entitySignals.push("адрес");
+  if (new RegExp(`${NOT_BEFORE_WORD}(ООО|ИП|АО|ПАО)\\s+[«"]?[А-ЯЁA-Z]`, "u").test(fullText)) entitySignals.push("юрлицо");
   const email = fullText.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
   const phone = fullText.match(/(\+7|8)[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}/)?.[0]?.replace(/\s+/g, " ");
 
@@ -153,7 +167,7 @@ export function parsePage(opts: ParseOptions): PageAudit {
   const authorVisible =
     $('[rel="author"], [itemprop="author"], .author, [class*="author"]').length > 0 ||
     $('meta[name="author"]').length > 0 ||
-    /\b(автор|author)\s*:/i.test(fullText);
+    new RegExp(`${NOT_BEFORE_WORD}(автор|author)\\s*:`, "iu").test(fullText);
 
   // Дата: <time datetime>, «обновлено …», dateModified из разметки.
   let visibleDate: string | undefined;
@@ -165,13 +179,16 @@ export function parsePage(opts: ParseOptions): PageAudit {
     else if (jsonLd.article?.dateModified) visibleDate = jsonLd.article.dateModified;
   }
 
+  // H1 снимаем ДО удаления <header> ниже: страничные шаблоны часто кладут H1
+  // статьи в семантический <header> (это её собственный заголовок, не шапка
+  // сайта) — если снять h1 после remove(), заголовок вырезается вместе с тегом.
+  const h1 = $("h1").map((_, el) => $(el).text().replace(/\s+/g, " ").trim()).get().filter(Boolean);
+
   // Контентная часть: убираем nav/header/footer — лид и заголовки ищем в теле.
   $("script,style,noscript,svg,template,nav,header,footer,aside,form").remove();
   const $root = $("main").length ? $("main") : $("article").length ? $("article") : $("body");
 
   const headings = (sel: string) => $root.find(sel).map((_, el) => $(el).text().replace(/\s+/g, " ").trim()).get().filter(Boolean);
-  // H1 берём по всему документу — он может стоять в header.
-  const h1 = $("h1").map((_, el) => $(el).text().replace(/\s+/g, " ").trim()).get().filter(Boolean);
   const h2 = headings("h2");
   const h3 = headings("h3");
   const subHeads = [...h2, ...h3];
@@ -191,7 +208,11 @@ export function parsePage(opts: ParseOptions): PageAudit {
   }
   if (!lede) {
     // Лендинги часто без <p>: берём первый длинный текстовый блок после H1.
-    const afterH1 = text.slice(text.indexOf(h1[0] ?? "") + (h1[0]?.length ?? 0)).trim();
+    // H1 может не встретиться в $root.text() вовсе (если он жил в удалённом
+    // выше <header> — сам текст мы уже сохранили в h1[0], а не его позицию),
+    // тогда просто берём начало текста целиком, а не мусор от indexOf === -1.
+    const h1Idx = h1[0] ? text.indexOf(h1[0]) : -1;
+    const afterH1 = h1Idx >= 0 ? text.slice(h1Idx + h1[0].length).trim() : text;
     lede = afterH1.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ").slice(0, 400);
   }
   const ledeWords = lede ? lede.split(/\s+/).length : 0;
@@ -201,7 +222,7 @@ export function parsePage(opts: ParseOptions): PageAudit {
   const tables = $root.find("table").length;
   const faqBlock =
     jsonLd.faqQuestions > 0 ||
-    /\b(faq|часто задаваемые|вопросы и ответы|вопрос[—–-]ответ)\b/i.test(fullText) ||
+    new RegExp(`${NOT_BEFORE_WORD}(faq|часто задаваемые|вопросы и ответы|вопрос[—–-]ответ)${NOT_AFTER_WORD}`, "iu").test(fullText) ||
     $root.find('[id*="faq"],[class*="faq"],details').length > 0;
 
   const factNumbers = (text.match(FACT_RE) ?? []).length;
