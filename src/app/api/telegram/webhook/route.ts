@@ -434,6 +434,16 @@ async function handleManagerMessage(chatId: number, text: string, command: strin
       if (!r.ok) await sendMessage(chatId, `⚠️ Не получилось применить правку: ${escapeTgHtml(r.error ?? "")}`);
       return true;
     }
+    // Свободный текст без активного черновика — это и есть «просто напишите тему»,
+    // без явной команды /post. Ссылки не перехватываем: можно тестировать обычный
+    // экспресс-аудит бота, прислав URL — как любой другой пользователь.
+    if (text && !extractUrl(text)) {
+      const { rubric, brief } = parseChannelBrief(text);
+      await sendMessage(chatId, "✍️ Пишу черновик…");
+      const r = await createDraft({ rubric, brief, managerChatId: chatId });
+      if (!r.ok) await sendMessage(chatId, `⚠️ Не получилось написать черновик: ${escapeTgHtml(r.error ?? "")}`);
+      return true;
+    }
   }
   return false;
 }
@@ -575,12 +585,14 @@ export async function POST(req: NextRequest) {
     } else if (command === "/help") {
       const channelHelp = isManagerChat(chatId)
         ? `\n\n<b>Канал ${escapeTgHtml(channelLabel())}:</b>\n` +
-          `/post [рубрика:] тема — заказать черновик прямо сейчас\n` +
+          `Просто напишите тему текстом — не нужна команда, я напишу черновик и пришлю на одобрение.\n` +
+          `Пока черновик не одобрен, любое ваше сообщение — это правка: «короче», «убери про цену», ` +
+          `«добавь пример с автосервисом» — перепишу и покажу здесь же.\n\n` +
+          `/post [рубрика:] тема — то же самое явной командой\n` +
           `/rubrics — список рубрик\n` +
           `/queue — что в очереди\n` +
           `/when 18:30 — отложить активный черновик на время (МСК)\n` +
-          `/cancel — выйти из правки черновика\n\n` +
-          `Пока идёт правка черновика, просто пишите текстом — «короче», «убери про цену» — перепишу.`
+          `/cancel — выйти из правки черновика`
         : "";
       await sendMessage(chatId, HELP + channelHelp, SITE_BUTTONS);
     } else if (command === "/about") {
