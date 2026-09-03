@@ -1714,12 +1714,23 @@ function useReveal() {
         if (e.isIntersecting) { e.target.classList.add("is-in"); io.unobserve(e.target); }
       }
     }, { rootMargin: "0px 0px -12% 0px", threshold: 0.05 });
+    const already: Element[] = [];
     root.querySelectorAll("[data-reveal]").forEach(el => {
-      // Уже видимое на первом экране показываем сразу, не дожидаясь колбэка.
-      if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add("is-in");
+      if (el.getBoundingClientRect().top < window.innerHeight) already.push(el);
       else io.observe(el);
     });
-    return () => io.disconnect();
+    // Уже видимое на первом экране раньше получало is-in синхронно в этом же
+    // тике — браузер почти всегда не успевал отрисовать нулевой кадр, и вход
+    // выглядел как рывок без анимации: блок «Что изменилось у ваших
+    // клиентов» так и стоял готовым сразу после загрузки. setTimeout, а не
+    // requestAnimationFrame: rAF не выполняется вовсе, пока вкладка открыта
+    // в фоне (несколько вкладок разом из поиска — обычный сценарий), и
+    // блоки застряли бы невидимыми до переключения. setTimeout тикает и
+    // в фоне. Небольшая задержка по порядку — чтобы несколько секций
+    // первого экрана не всплывали одним щелчком, а шли одна за одной.
+    const timers: ReturnType<typeof setTimeout>[] = already.map((el, i) =>
+      setTimeout(() => el.classList.add("is-in"), 30 + i * 100));
+    return () => { timers.forEach(t => clearTimeout(t)); io.disconnect(); };
   }, []);
 }
 
@@ -2238,7 +2249,7 @@ const CSS = AI_ROW_CSS + `
 }
 
 /* ── Список проверок ── */
-.mrc-anim [data-reveal] .mrc-instr-row { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal] .mrc-instr-row { opacity: 0; transform: translateY(10px); transition: opacity 520ms cubic-bezier(.16,.84,.32,1), transform 520ms cubic-bezier(.16,.84,.32,1); }
 .mrc-anim [data-reveal].is-in .mrc-instr-row { opacity: 1; transform: none; }
 .mrc-anim [data-reveal].is-in .mrc-instr-row:nth-child(1) { transition-delay: 0ms; }
 .mrc-anim [data-reveal].is-in .mrc-instr-row:nth-child(2) { transition-delay: 90ms; }
@@ -2651,10 +2662,12 @@ const CSS = AI_ROW_CSS + `
 }
 
 /* ── Ревилы ── */
-.mrc-anim [data-reveal] { opacity: 0; transform: translateY(16px); }
+/* «Всплытие», а не плоский слайд: лёгкий scale поверх translateY и более
+   энергичная кривая — та же, что уже везёт заполнение шкалы скорости. */
+.mrc-anim [data-reveal] { opacity: 0; transform: translateY(20px) scale(.985); }
 .mrc-anim [data-reveal].is-in {
   opacity: 1; transform: none;
-  transition: opacity 560ms var(--ease), transform 560ms var(--ease);
+  transition: opacity 620ms cubic-bezier(.16,.84,.32,1), transform 620ms cubic-bezier(.16,.84,.32,1);
 }
 
 /* ── Планшет ── */
@@ -2885,7 +2898,7 @@ const CSS = AI_ROW_CSS + `
 .mrcn-pain-item:hover { border-color: color-mix(in srgb, var(--flare-use) 45%, transparent); transform: translateY(-2px); box-shadow: 0 10px 24px -16px rgba(15,23,42,.28); }
 /* Стагер входа: каждая карточка своя задержка, срабатывает вместе со
    скролл-ревилом секции — родителю не нужно ничего знать про детей. */
-.mrc-anim [data-reveal] .mrcn-pain-item { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal] .mrcn-pain-item { opacity: 0; transform: translateY(10px); transition: opacity 520ms cubic-bezier(.16,.84,.32,1), transform 520ms cubic-bezier(.16,.84,.32,1); }
 .mrc-anim [data-reveal].is-in .mrcn-pain-item { opacity: 1; transform: none; }
 .mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(1) { transition-delay: 0ms; }
 .mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(2) { transition-delay: 90ms; }
@@ -2906,7 +2919,7 @@ const CSS = AI_ROW_CSS + `
   transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
 }
 .mrcn-tier:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -18px rgba(15,23,42,.32); }
-.mrc-anim [data-reveal] .mrcn-tier { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal] .mrcn-tier { opacity: 0; transform: translateY(10px); transition: opacity 520ms cubic-bezier(.16,.84,.32,1), transform 520ms cubic-bezier(.16,.84,.32,1); }
 .mrc-anim [data-reveal].is-in .mrcn-tier { opacity: 1; transform: none; }
 .mrc-anim [data-reveal].is-in .mrcn-tier:nth-child(1) { transition-delay: 0ms; }
 .mrc-anim [data-reveal].is-in .mrcn-tier:nth-child(2) { transition-delay: 110ms; }
