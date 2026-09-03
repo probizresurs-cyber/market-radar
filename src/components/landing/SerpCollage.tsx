@@ -260,7 +260,7 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
     // Уважает системную настройку «уменьшить движение»: там стопка
     // остаётся статичной, и переключать её можно только руками.
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setOrder(o => [...o.slice(1), o[0]]), 3800);
+    const t = setInterval(() => setOrder(o => [...o.slice(1), o[0]]), 2000);
     return () => clearInterval(t);
   }, [paused, restart]);
   const render = (k: CollageKind) =>
@@ -297,13 +297,12 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
           <span aria-hidden="true">{render(k)}</span>
         </button>
       ))}
-      <p className="mrc-collage-hint">Примеры меняются сами — или нажмите, чтобы пролистать</p>
     </div>
   );
 }
 
 export const SERP_COLLAGE_CSS = `
-.mrc-collage { position: relative; min-height: 560px; padding: 28px 40px 44px 0; }
+.mrc-collage { position: relative; min-height: 560px; padding: 28px 40px 16px 0; }
 .mrc-collage-card {
   position: absolute; width: 100%;
   border-radius: 12px; overflow: hidden;
@@ -413,16 +412,8 @@ export const SERP_COLLAGE_CSS = `
   opacity: 0; transition: opacity .25s ease;
 }
 .mrc-collage-card.is-0 .mrc-collage-tag { opacity: 1; }
-.mrc-collage-hint {
-  position: absolute; left: 0; bottom: 2px; margin: 0;
-  font-family: var(--f-mono); font-size: 13.5px; letter-spacing: .04em;
-  color: var(--mrc-fg-soft);
-}
 @media (prefers-reduced-motion: reduce) {
   .mrc-collage-card { transition: none; }
-}
-@media (max-width: 900px) {
-  .mrc-collage-hint { position: static; margin-top: 12px; }
 }
 
 `;
