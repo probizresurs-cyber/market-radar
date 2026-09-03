@@ -124,6 +124,10 @@ export interface PageAudit {
   authorVisible: boolean;
   /** Реквизиты/контакты: ИНН, ОГРН, телефон, адрес, email. */
   entitySignals: string[];
+  email?: string;
+  phone?: string;
+  /** Ссылки на соцсети/мессенджеры/видео — сырьё для sameAs. */
+  socialLinks: string[];
   jsonLd: JsonLdSummary;
   og: { title: boolean; description: boolean; image: boolean };
   /** Итог по странице 0–100 (только извлекаемость + сущность + свежесть). */
@@ -174,11 +178,22 @@ export interface SiteCrawl {
   llms: LlmsTxtAudit;
   sitemap: SitemapAudit;
   pages: PageAudit[];
+  /** Все URL из sitemap (для проверок «есть ли страница о компании/сравнение» без обхода). */
+  sitemapUrls: string[];
+  /** Индексация в Bing — retrieval-слой ChatGPT Search и Copilot. */
+  bing?: BingIndex;
   /** Страницы с 4xx/5xx среди проверенных. */
   brokenPages: Array<{ url: string; status: number; source: PageAudit["source"] }>;
   /** Название организации расходится между страницами/разметкой. */
   entityNames: string[];
   durationMs: number;
+}
+
+export interface BingIndex {
+  /** false — Bing не ответил / поменял вёрстку; тогда проверка «na». */
+  ok: boolean;
+  approxCount: number;
+  sampleUrls: string[];
 }
 
 // ── Видимость в ассистентах ────────────────────────────────────────────────
