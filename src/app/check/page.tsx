@@ -912,7 +912,7 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
             />
           </div>
           <div className="mrc-final-scene">
-            <AnswerScene slot={url.trim() || "ваш сайт"} compact />
+            <AnswerScene compact />
           </div>
         </div>
       </section>
@@ -940,16 +940,14 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/* ─── Signature-приём: ответ ассистента с пропуском ─────────────────────────
-   Пример, а не реальные данные, — это подписано в самой сцене. Названия
-   условные: выдумывать конкурентов посетителя мы не имеем права, а механику
-   показать надо. Реальные имена и запросы приходят в полном разборе. */
-
-const DEMO_QUESTIONS = [
-  "посоветуй, к кому обратиться — и сколько это стоит",
-  "какие компании делают это в Москве — назови несколько",
-  "подбери подрядчика: кому из них можно доверять",
-];
+/* ─── Signature-приём: та же проверка, прогнанная на себе ─────────────────
+   Раньше здесь стояла иллюстрация с вымышленными «Конкурентом А/Б» и любым
+   доменом, который человек успел набрать в поле, — то есть сцена делала
+   утверждение про конкретный настоящий сайт, ничего о нём на самом деле не
+   проверив. Заменено на честный вариант: прогнали ровно тот же замер на
+   marketradar24.ru и показываем реальный результат — вопрос и ответ взяты
+   из настоящего разбора нашего сайта (ссылка на него — в блоке «как выглядит
+   разбор» выше), значения не меняли. */
 
 /**
  * Ассистенты со знаком-меткой и своим цветом.
@@ -961,48 +959,39 @@ const DEMO_QUESTIONS = [
  */
 const DEMO_ASKERS: AiKey[] = ["alice", "chatgpt", "claude", "perplexity", "gigachat"];
 
-
-
-function AnswerScene({ slot, compact }: { slot: string; compact?: boolean }) {
-  const [qi, setQi] = useState(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setQi(i => (i + 1) % DEMO_QUESTIONS.length), 4200);
-    return () => clearInterval(t);
-  }, []);
-
+function AnswerScene({ compact }: { compact?: boolean }) {
   return (
     <figure className={`mrc-ans${compact ? " is-compact" : ""}`}>
       <figcaption className="mrc-mono mrc-ans-cap">
         <span className="mrc-ans-live" aria-hidden="true" />
-        пример ответа ассистента · названия условные
+        не пример — наша собственная проверка, marketradar24.ru
       </figcaption>
 
       <div className="mrc-ans-q">
-        <span className="mrc-mono mrc-ans-qlabel">вопрос клиента</span>
-        <p className="mrc-ans-qtext" key={qi}>
-          «{DEMO_QUESTIONS[qi]}»<i className="mrc-caret" aria-hidden="true" />
+        <span className="mrc-mono mrc-ans-qlabel">спросили у ассистента</span>
+        <p className="mrc-ans-qtext">
+          «Что такое MarketRadar24 и чем он занимается?»
         </p>
       </div>
 
       <div className="mrc-ans-body">
         <p className="mrc-ans-text">
-          Из подрядчиков в этой нише чаще всего упоминают{" "}
-          <mark className="mrc-name">Конкурента&nbsp;А</mark> и{" "}
-          <mark className="mrc-name mrc-name-2">Конкурента&nbsp;Б</mark>. У них описаны услуги,
-          указаны цены и есть отзывы на картах — ассистенту есть на что сослаться.
+          Ответ был верным по фактам, но общим: сервис для{" "}
+          <mark className="mrc-name">анализа бизнеса и конкурентов</mark>, без единой
+          конкретной детали — ни того, что реально отличает нас от других инструментов
+          в нише, ни примера работы.
         </p>
         <div className="mrc-slot">
-          <span className="mrc-slot-box" title={slot}>{slot}</span>
-          <span className="mrc-mono mrc-slot-note">в ответе не назван</span>
+          <span className="mrc-slot-box" title="узнаваемость в базах знаний ассистентов">
+            присутствие в знаниях ассистента: минимальное
+          </span>
+          <span className="mrc-mono mrc-slot-note">такой же замер — и для вашего сайта</span>
         </div>
       </div>
 
       {!compact && (
         <div className="mrc-ans-foot">
-          <span className="mrc-mono mrc-ans-footlabel">спрашивают у</span>
+          <span className="mrc-mono mrc-ans-footlabel">проверяем видимость у</span>
           <AiRow items={DEMO_ASKERS} />
         </div>
       )}
@@ -1498,14 +1487,24 @@ function fmtFreq(n: number): string {
 
 /** Полоса 0–100 с зоной нормы: показывает не только балл, но и разрыв до неё. */
 function SpeedScale({ value }: { value: number }) {
+  const pct = Math.max(2, Math.min(100, value));
+  // Двухшаговый рендер: сперва 0%, потом реальное значение — заполнение
+  // и пин выезжают на месте вместо того, чтобы появиться сразу готовыми.
+  // rAF, а не эффект без задержки: браузер должен успеть отрисовать нулевой
+  // кадр, иначе CSS-transition нечего анимировать.
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(pct));
+    return () => cancelAnimationFrame(id);
+  }, [pct]);
   return (
     <div className="mrc-scale" role="img" aria-label={`${value} из 100, норма — от 90`}>
       <div className="mrc-scale-track">
         <span className="mrc-scale-zone is-bad" />
         <span className="mrc-scale-zone is-warn" />
         <span className="mrc-scale-zone is-ok" />
-        <span className="mrc-scale-fill" style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
-        <span className="mrc-scale-pin" style={{ left: `${Math.max(2, Math.min(100, value))}%` }}>
+        <span className="mrc-scale-fill" style={{ width: `${shown}%` }} />
+        <span className="mrc-scale-pin" style={{ left: `${shown}%` }}>
           <b>{value}</b>
         </span>
       </div>
@@ -2160,13 +2159,20 @@ const CSS = AI_ROW_CSS + `
   position: absolute; left: 0; top: 0; height: 12px; border-radius: 999px;
   background: linear-gradient(90deg, var(--mrc-indigo-fg), var(--mrc-magenta));
   opacity: .92;
+  transition: width 900ms cubic-bezier(.16,.84,.32,1);
 }
 .mrc-scale-pin {
   position: absolute; top: -8px; transform: translateX(-50%);
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 34px; height: 28px; padding: 0 8px; border-radius: 8px;
-  background: var(--mrc-fg); color: var(--mrc-bg);
+  background: var(--mrc-fg);
+  /* Раньше здесь стоял var(--mrc-bg) — переменная нигде не определена, и
+     число становилось невалидным computed-value: браузер откатывал color на
+     initial (чёрный), то есть чёрные цифры на чёрной плашке. Белый — то,
+     что и подразумевалось: тёмный чип с крупным светлым числом. */
+  color: #fff;
   font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums;
+  transition: left 900ms cubic-bezier(.16,.84,.32,1);
 }
 .mrc-scale-legend {
   display: flex; justify-content: space-between; margin-top: 14px;
@@ -2228,6 +2234,11 @@ const CSS = AI_ROW_CSS + `
 }
 
 /* ── Список проверок ── */
+.mrc-anim [data-reveal] .mrc-instr-row { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal].is-in .mrc-instr-row { opacity: 1; transform: none; }
+.mrc-anim [data-reveal].is-in .mrc-instr-row:nth-child(1) { transition-delay: 0ms; }
+.mrc-anim [data-reveal].is-in .mrc-instr-row:nth-child(2) { transition-delay: 90ms; }
+.mrc-anim [data-reveal].is-in .mrc-instr-row:nth-child(3) { transition-delay: 180ms; }
 .mrc-instr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .mrc-instr-row {
   display: grid; grid-template-columns: 128px minmax(0, 280px) minmax(0, 1fr);
@@ -2270,7 +2281,8 @@ const CSS = AI_ROW_CSS + `
 .mrc-status-dot { width: 6px; height: 6px; border-radius: 50%; }
 .mrc-status.is-pending .mrc-status-dot { animation: mrc-blink 1.1s var(--ease) infinite; }
 .mrc-probe-pending { margin-top: 16px; }
-.mrc-probe-body { margin-top: 14px; }
+.mrc-probe-body { margin-top: 14px; animation: mrc-body-in 480ms var(--ease) both; }
+@keyframes mrc-body-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .mrc-verdict-head {
   font-family: var(--f-display); font-size: 21px; font-weight: 800; line-height: 1.2;
   margin-bottom: 8px; letter-spacing: -0.025em;
@@ -2826,8 +2838,15 @@ const CSS = AI_ROW_CSS + `
   list-style: none; margin: 40px 0 8px; padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
 }
-.mrc-route-step { position: relative; padding-top: 22px; opacity: .62; }
-.mrc-route-step.is-now { opacity: 1; }
+.mrc-route-step {
+  position: relative; padding-top: 22px; opacity: .62;
+  animation: mrc-route-in 520ms var(--ease) both;
+}
+.mrc-route-step:nth-child(1) { animation-delay: 60ms; }
+.mrc-route-step:nth-child(2) { animation-delay: 160ms; }
+.mrc-route-step:nth-child(3) { animation-delay: 260ms; }
+@keyframes mrc-route-in { from { opacity: 0; transform: translateY(8px); } to { opacity: var(--mrc-route-o, .62); transform: none; } }
+.mrc-route-step.is-now { opacity: 1; --mrc-route-o: 1; }
 .mrc-route-step::before {
   content: ''; position: absolute; top: 6px; left: 0; right: -20px; height: 2px;
   background: color-mix(in srgb, var(--mrc-fg-soft) 30%, transparent);
@@ -2857,7 +2876,17 @@ const CSS = AI_ROW_CSS + `
   background: var(--surface); border: 1px solid var(--rule);
   border-left: 3px solid var(--flare-use);
   border-radius: var(--mrc-r-lg); padding: 20px 22px;
+  transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
 }
+.mrcn-pain-item:hover { border-color: color-mix(in srgb, var(--flare-use) 45%, transparent); transform: translateY(-2px); box-shadow: 0 10px 24px -16px rgba(15,23,42,.28); }
+/* Стагер входа: каждая карточка своя задержка, срабатывает вместе со
+   скролл-ревилом секции — родителю не нужно ничего знать про детей. */
+.mrc-anim [data-reveal] .mrcn-pain-item { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal].is-in .mrcn-pain-item { opacity: 1; transform: none; }
+.mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(1) { transition-delay: 0ms; }
+.mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(2) { transition-delay: 90ms; }
+.mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(3) { transition-delay: 180ms; }
+.mrc-anim [data-reveal].is-in .mrcn-pain-item:nth-child(4) { transition-delay: 270ms; }
 .mrcn-pain-t { font-size: 17px; font-weight: 750; letter-spacing: -0.01em; margin: 0 0 8px; }
 .mrcn-pain-d { font-size: 14.5px; line-height: 1.6; color: var(--soft); margin: 0; }
 
@@ -2870,7 +2899,14 @@ const CSS = AI_ROW_CSS + `
   display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--rule);
   border-radius: var(--mrc-r-lg); padding: 22px 22px 24px;
+  transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
 }
+.mrcn-tier:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -18px rgba(15,23,42,.32); }
+.mrc-anim [data-reveal] .mrcn-tier { opacity: 0; transform: translateY(10px); transition: opacity 480ms var(--ease), transform 480ms var(--ease); }
+.mrc-anim [data-reveal].is-in .mrcn-tier { opacity: 1; transform: none; }
+.mrc-anim [data-reveal].is-in .mrcn-tier:nth-child(1) { transition-delay: 0ms; }
+.mrc-anim [data-reveal].is-in .mrcn-tier:nth-child(2) { transition-delay: 110ms; }
+.mrc-anim [data-reveal].is-in .mrcn-tier:nth-child(3) { transition-delay: 220ms; }
 /* Средняя ступень выделена: это первый платный шаг и точка решения. */
 .mrcn-tier.is-accent {
   border-color: color-mix(in srgb, var(--flare-use) 55%, transparent);
