@@ -828,6 +828,40 @@ export async function initDb() {
   await query(`ALTER TABLE scheduled_posts ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'post' CHECK (kind IN ('post','reel','story','carousel'))`);
   await query(`CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id, profile_suffix)`);
 
+  // ─── Посты в Telegram-канал (@company24pro) с одобрением менеджера ────────
+  // Контент-лента канала: черновик пишет AI (по команде менеджера в боте или
+  // по расписанию пн/ср/пт), менеджер правит его обычными сообщениями в
+  // Telegram и только потом жмёт «Опубликовать». Публикация без approved_at
+  // невозможна by design — канал маркетинговый, автопостинг «как есть» тут
+  // неприемлем. scheduled_for позволяет одобрить сейчас, а выйти в канал в
+  // заданное время (cron /api/cron/channel-posts).
+  await query(`
+    CREATE TABLE IF NOT EXISTS channel_posts (
+      id TEXT PRIMARY KEY,
+      rubric TEXT NOT NULL DEFAULT 'product-update',
+      brief TEXT,                              -- тема от менеджера или взятая из рубрики
+      draft TEXT NOT NULL DEFAULT '',          -- текущий текст (markdown-lite; в HTML конвертит publisher)
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','approved','published','rejected','failed')),
+      manager_chat_id TEXT,                    -- кому ушёл черновик
+      manager_message_id INTEGER,              -- карточка черновика (editMessageText при правках)
+      edit_mode BOOLEAN NOT NULL DEFAULT true, -- ловить ли свободный текст менеджера как правку
+      channel_id TEXT,
+      channel_message_id INTEGER,
+      message_url TEXT,
+      scheduled_for TIMESTAMPTZ,               -- NULL = публикуем сразу после одобрения
+      approved_at TIMESTAMPTZ,
+      published_at TIMESTAMPTZ,
+      revisions JSONB NOT NULL DEFAULT '[]'::jsonb,  -- [{at, instruction, text}] — история правок
+      source TEXT NOT NULL DEFAULT 'manual',   -- manual | cron
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_active ON channel_posts(manager_chat_id, status, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_due ON channel_posts(status, scheduled_for) WHERE status = 'approved'`);
+
   // ─── Мини-проверки сайта (/check — верх воронки Директа) ──────────────────
   // Бесплатный мгновенный диагноз БЕЗ Claude: Букварикс + PageSpeed + лёгкий
   // скрапер. result наполняется по мере готовности проб (страница поллит и

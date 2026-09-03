@@ -44,7 +44,7 @@ function escapeHtml(s: string): string {
  * Конвертирует MarkdownV2-подобный текст (от Claude `**bold**`, `__italic__`)
  * в HTML-формат, который принимает sendMessage с parse_mode=HTML.
  */
-function mdToHtml(text: string): string {
+export function mdToHtml(text: string): string {
   let s = escapeHtml(text);
   // **bold**
   s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");

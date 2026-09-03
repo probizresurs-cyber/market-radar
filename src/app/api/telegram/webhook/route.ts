@@ -3,7 +3,12 @@ import { randomUUID } from "crypto";
 import { saveChatId } from "@/lib/tgStore";
 import { canScan, recordScan, formatNextAllowed } from "@/lib/tg-scan-limiter";
 import { query, initDb } from "@/lib/db";
-import { sendTelegramMessage, escapeTgHtml, type TgInlineButton } from "@/lib/tg-send";
+import { sendTelegramMessage, answerTelegramCallback, escapeTgHtml, type TgInlineButton } from "@/lib/tg-send";
+import {
+  isManagerChat, createDraft, listQueue, activeDraftFor, applyRevision, approvePost,
+  rejectPost, stopEditing, regenerateDraft, parseMskDateTime, formatMsk, channelLabel,
+  RUBRICS, rubricByKey, getPost as getChannelPost, type Rubric,
+} from "@/lib/channel-poster";
 import { scrapeWebsite } from "@/lib/scraper";
 import { chatJson, CHAT_MODEL_SMART } from "@/lib/ai-chat";
 import { ANTI_HALLUCINATION_SHORT } from "@/lib/ai-rules";
@@ -352,6 +357,132 @@ function kpFunnelCtx(row: KpClientRow): KpFunnelCtx {
   };
 }
 
+// ─── Постинг в канал @company24pro (менеджер) ──────────────────────────────
+
+function parseChannelBrief(raw: string): { rubric: Rubric; brief?: string } {
+  const m = raw.match(/^([a-z-]+):\s*(.*)$/is);
+  if (m && RUBRICS.some(r => r.key === m[1].toLowerCase())) {
+    return { rubric: m[1].toLowerCase() as Rubric, brief: m[2].trim() || undefined };
+  }
+  return { rubric: "product-update", brief: raw.trim() || undefined };
+}
+
+/**
+ * Команды менеджера по каналу + перехват свободного текста как правки
+ * активного черновика. Возвращает false, если сообщение не относится к
+ * каналу — тогда работает обычный роутинг бота.
+ */
+async function handleManagerMessage(chatId: number, text: string, command: string): Promise<boolean> {
+  if (command === "/post") {
+    const { rubric, brief } = parseChannelBrief(text.slice(command.length).trim());
+    await sendMessage(chatId, "✍️ Пишу черновик…");
+    const r = await createDraft({ rubric, brief, managerChatId: chatId });
+    if (!r.ok) await sendMessage(chatId, `⚠️ Не получилось написать черновик: ${escapeTgHtml(r.error ?? "")}`);
+    return true;
+  }
+  if (command === "/rubrics") {
+    await sendMessage(
+      chatId,
+      `<b>Рубрики</b> (можно указать в /post рубрика: тема):\n\n` +
+        RUBRICS.map(r => `<code>${r.key}</code> — ${escapeTgHtml(r.title)}`).join("\n"),
+    );
+    return true;
+  }
+  if (command === "/queue") {
+    const items = await listQueue();
+    if (!items.length) {
+      await sendMessage(chatId, "🗂 Очередь пуста.");
+      return true;
+    }
+    const lines = items.map(p => {
+      const when = p.scheduled_for ? ` · на ${escapeTgHtml(formatMsk(p.scheduled_for))}` : "";
+      return `• <code>${p.id}</code> — ${escapeTgHtml(rubricByKey(p.rubric).title)} — <b>${p.status}</b>${when}`;
+    });
+    await sendMessage(chatId, `🗂 <b>Очередь (${channelLabel()})</b>\n\n${lines.join("\n")}`);
+    return true;
+  }
+  if (command === "/when") {
+    const draft = await activeDraftFor(chatId);
+    if (!draft) {
+      await sendMessage(chatId, "Нет активного черновика в правке — сначала /post.");
+      return true;
+    }
+    const arg = text.slice(command.length).trim();
+    const at = arg ? parseMskDateTime(arg) : null;
+    if (arg && !at) {
+      await sendMessage(chatId, "Не понял время. Примеры: <code>/when 18:30</code>, <code>/when завтра 10:00</code>, <code>/when 05.09 12:00</code>.");
+      return true;
+    }
+    const r = await approvePost(draft, { at });
+    if (!r.ok) {
+      await sendMessage(chatId, `⚠️ Ошибка: ${escapeTgHtml(r.error ?? "")}`);
+    } else if (!r.published) {
+      await sendMessage(chatId, `🕒 Запланировано на ${escapeTgHtml(formatMsk(at))}.`);
+    }
+    return true;
+  }
+  if (command === "/cancel") {
+    const draft = await activeDraftFor(chatId);
+    if (draft) await stopEditing(draft);
+    await sendMessage(chatId, draft ? "Ок, вышел из режима правок." : "Активного черновика нет.");
+    return true;
+  }
+  if (!text.startsWith("/")) {
+    const draft = await activeDraftFor(chatId);
+    if (draft) {
+      const r = await applyRevision(draft, text);
+      if (!r.ok) await sendMessage(chatId, `⚠️ Не получилось применить правку: ${escapeTgHtml(r.error ?? "")}`);
+      return true;
+    }
+  }
+  return false;
+}
+
+interface TgCallbackQuery {
+  id: string;
+  data?: string;
+  message?: { chat?: { id?: number }; message_id?: number };
+}
+
+async function handleChannelCallback(cb: TgCallbackQuery): Promise<void> {
+  const chatId = cb.message?.chat?.id;
+  const [prefix, action, id] = (cb.data ?? "").split(":");
+  if (prefix !== "cp" || !action || !id || !chatId) {
+    await answerTelegramCallback(cb.id);
+    return;
+  }
+
+  const post = await getChannelPost(id);
+  if (!post) {
+    await answerTelegramCallback(cb.id, "Черновик не найден", true);
+    return;
+  }
+  if (String(post.manager_chat_id) !== String(chatId)) {
+    await answerTelegramCallback(cb.id, "Это не ваш черновик", true);
+    return;
+  }
+
+  if (action === "pub") {
+    const r = await approvePost(post, { at: null });
+    await answerTelegramCallback(cb.id, r.ok ? "Опубликовано" : `Ошибка: ${r.error ?? ""}`, !r.ok);
+  } else if (action === "later") {
+    await answerTelegramCallback(cb.id);
+    await sendMessage(
+      chatId,
+      `🕒 Во сколько опубликовать? Например: <code>/when завтра 10:00</code> или <code>/when 18:30</code>.`,
+    );
+  } else if (action === "redo") {
+    await answerTelegramCallback(cb.id, "Пишу заново…");
+    const r = await regenerateDraft(post);
+    if (!r.ok) await sendMessage(chatId, `⚠️ Не получилось: ${escapeTgHtml(r.error ?? "")}`);
+  } else if (action === "rej") {
+    await rejectPost(post);
+    await answerTelegramCallback(cb.id, "Отклонено");
+  } else {
+    await answerTelegramCallback(cb.id);
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Anti-spoof: Telegram передаёт secret_token в этом header при правильно
   // настроенном webhook. Без проверки атакующий мог подделать update с
@@ -366,6 +497,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const update = await req.json();
+
+    if (update?.callback_query) {
+      await handleChannelCallback(update.callback_query);
+      return NextResponse.json({ ok: true });
+    }
+
     const msg = update?.message;
     if (!msg) return NextResponse.json({ ok: true });
 
@@ -430,10 +567,22 @@ export async function POST(req: NextRequest) {
       } else {
         await sendKpCodeInvalid(chatId);
       }
+    } else if (isManagerChat(chatId) && await handleManagerMessage(chatId, text, command)) {
+      // Команда по каналу (/post, /queue, /when, /cancel, /rubrics) или
+      // свободный текст-правка активного черновика — обработано внутри.
     } else if (command === "/start") {
       await sendMessage(chatId, WELCOME(firstName), SITE_BUTTONS);
     } else if (command === "/help") {
-      await sendMessage(chatId, HELP, SITE_BUTTONS);
+      const channelHelp = isManagerChat(chatId)
+        ? `\n\n<b>Канал ${escapeTgHtml(channelLabel())}:</b>\n` +
+          `/post [рубрика:] тема — заказать черновик прямо сейчас\n` +
+          `/rubrics — список рубрик\n` +
+          `/queue — что в очереди\n` +
+          `/when 18:30 — отложить активный черновик на время (МСК)\n` +
+          `/cancel — выйти из правки черновика\n\n` +
+          `Пока идёт правка черновика, просто пишите текстом — «короче», «убери про цену» — перепишу.`
+        : "";
+      await sendMessage(chatId, HELP + channelHelp, SITE_BUTTONS);
     } else if (command === "/about") {
       await sendMessage(chatId, ABOUT, SITE_BUTTONS);
     } else if (command === "/price" || command === "/pricing" || command === "/tariff") {
@@ -444,6 +593,10 @@ export async function POST(req: NextRequest) {
       await sendMessage(chatId, EXPRESS_PROMPT, EXPRESS_BUTTONS);
     } else if (command === "/site" || command === "/website") {
       await sendMessage(chatId, `🌐 <b>MarketRadar:</b> ${SITE}`, SITE_BUTTONS);
+    } else if (command === "/id" || command === "/whoami") {
+      // Служебная команда: узнать свой chat_id для CHANNEL_MANAGER_TG_CHAT_ID
+      // и подобных env-переменных. В UI Telegram он нигде не показывается.
+      await sendMessage(chatId, `🆔 Ваш chat_id: <code>${chatId}</code>`);
     } else if (command === "/connect") {
       await sendMessage(chatId, CONNECT_PROMPT);
     } else if (/^MR-[A-Z0-9]{6}$/i.test(text)) {
