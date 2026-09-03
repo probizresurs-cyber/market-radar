@@ -109,7 +109,7 @@ export function MiniLanding(props: MiniLandingProps) {
       // по источнику. Обе до навигации: после router.push страница уже уходит.
       reach("mini_check_start");
       reach(props.goal);
-      router.push(`/new?url=${encodeURIComponent(u)}`);
+      router.push(`/нейросети?url=${encodeURIComponent(u)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Ошибка");
       setBusy(false);

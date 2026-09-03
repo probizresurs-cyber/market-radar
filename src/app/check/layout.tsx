@@ -9,11 +9,11 @@ export const metadata: Metadata = {
   description:
     "Три проверки по вашему сайту за минуту: видимость в Яндексе, скорость на телефоне, читаемость для нейросетей. " +
     "Полный разбор с находками, конкурентами и планом работ — бесплатно, без звонка.",
-  alternates: { canonical: `${SITE_URL}/new` },
+  alternates: { canonical: `${SITE_URL}/нейросети` },
   openGraph: {
     type: "website",
     locale: "ru_RU",
-    url: `${SITE_URL}/new`,
+    url: `${SITE_URL}/нейросети`,
     siteName: "MarketRadar",
     title: "Почему ваш сайт не приносит заявки?",
     description: "Бесплатная диагностика: видимость в поиске, скорость, читаемость для нейросетей.",
