@@ -239,9 +239,30 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
 
   const n = NICHES[idx];
   const base: CollageKind[] = kinds ?? ["alice", "ya", "chatgpt"];
-  // Порядок стопки — состояние: клик по карточке проматывает её вперёд.
+  // Порядок стопки — состояние: верхняя карточка уходит в конец.
   const [order, setOrder] = useState<CollageKind[]>(base);
-  const advance = () => setOrder(o => [...o.slice(1), o[0]]);
+  // Пауза и счётчик перезапуска. Пауза — чтобы карточку не выдёргивали
+  // из-под читающего; счётчик перезапускает таймер после ручного клика,
+  // иначе сразу за кликом могла бы прийти автосмена.
+  const [paused, setPaused] = useState(false);
+  const [restart, setRestart] = useState(0);
+  const advance = () => { setOrder(o => [...o.slice(1), o[0]]); setRestart(r => r + 1); };
+
+  /* Карточки перелистываются сами.
+     Раньше стопка стояла неподвижно и ждала клика — а на первом экране
+     никто не кликает: человек читает заголовок и уходит к форме, так и
+     не увидев, что примеров три. Смена сама показывает все источники.
+     Клик оставлен: он по-прежнему работает и просто ускоряет листание.
+     Анимация уже описана в CSS карточки (transform/opacity, 0.42s), здесь
+     только тайминг. */
+  useEffect(() => {
+    if (paused) return;
+    // Уважает системную настройку «уменьшить движение»: там стопка
+    // остаётся статичной, и переключать её можно только руками.
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setOrder(o => [...o.slice(1), o[0]]), 3800);
+    return () => clearInterval(t);
+  }, [paused, restart]);
   const render = (k: CollageKind) =>
     k === "ya" ? <YandexSerp n={n} slot={slot} />
     : k === "google" ? <GoogleSerp n={n} slot={slot} />
@@ -255,7 +276,15 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
   };
 
   return (
-    <div className="mrc-collage">
+    <div
+      className="mrc-collage"
+      // Пауза и на мыши, и на клавиатуре: содержимое, которое меняется само,
+      // должно останавливаться, пока человек его изучает.
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
       {order.map((k, i) => (
         <button
           key={k}
@@ -268,7 +297,7 @@ export function SerpCollage({ slot, kinds }: { slot: string; kinds?: CollageKind
           <span aria-hidden="true">{render(k)}</span>
         </button>
       ))}
-      <p className="mrc-collage-hint">Нажмите на карточку — покажем следующий источник</p>
+      <p className="mrc-collage-hint">Примеры меняются сами — или нажмите, чтобы пролистать</p>
     </div>
   );
 }
