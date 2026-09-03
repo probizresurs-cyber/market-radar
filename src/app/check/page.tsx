@@ -88,7 +88,22 @@ const rdTone = (passed: number): Tone => (passed <= 3 ? "bad" : passed <= 5 ? "w
 const toneColor = (t?: Tone) =>
   t === "bad" ? "var(--loss)" : t === "warn" ? "var(--mrc-amber)" : t === "ok" ? "var(--mrc-green)" : "var(--flare-use)";
 
+/**
+ * Воронка проверки сайта — одна реализация на два адреса.
+ *
+ * compact=false (/check, /new2) — полная страница с маркетинговыми
+ * разделами 01-04 и 06.
+ * compact=true (/new) — мини-лендинг под рекламу: первый экран, форма,
+ * результаты замеров и захват почты, затем только то, без чего нельзя, —
+ * разбор частых обещаний, цена и пример разбора. Второй реализации
+ * воронки не заводим: расхождение между «коротким» и «длинным» входом
+ * означало бы, что правку надо вносить дважды, и однажды её внесут один раз.
+ */
 export default function CheckPage() {
+  return <CheckFunnel />;
+}
+
+export function CheckFunnel({ compact = false }: { compact?: boolean }) {
   const [url, setUrl] = useState("");
   const [checkId, setCheckId] = useState<string | null>(null);
   const [result, setResult] = useState<MiniCheckResult>({});
@@ -534,6 +549,7 @@ export default function CheckPage() {
         )}
 
         {/* ─── 01 · Где чаще всего теряются заявки ─── */}
+        {!compact && (
         <section className="mrc-sec" data-reveal>
           <SecHead
             idx="01"
@@ -578,9 +594,11 @@ export default function CheckPage() {
             </button>
           </div>
         </section>
+        )}
       </div>
 
       {/* ─── 02 · SEO и GEO — чернильный разворот ─── */}
+      {!compact && (
       <section className="mrc-slab mrc-slab-sec" data-reveal>
         <div className="mrc-wrap">
           <SecHead
@@ -611,9 +629,11 @@ export default function CheckPage() {
           </div>
         </div>
       </section>
+      )}
 
       <div className="mrc-wrap">
         {/* ─── 03 · Что мы делаем ─── */}
+        {!compact && (
         <section className="mrc-sec" data-reveal>
           <SecHead
             idx="03"
@@ -636,8 +656,10 @@ export default function CheckPage() {
             ))}
           </div>
         </section>
+        )}
 
         {/* ─── 04 · Что получает клиент ─── */}
+        {!compact && (
         <section className="mrc-sec" data-reveal>
           <SecHead
             idx="04"
@@ -681,11 +703,14 @@ export default function CheckPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* ─── 05 · Разбираем частые обещания ─── */}
         <section className="mrc-sec" data-reveal>
+          {/* В компактном режиме разделов 01-04 нет, и «05» читался бы как
+              пропуск четырёх глав. Нумерация идёт по тому, что видно. */}
           <SecHead
-            idx="05"
+            idx={compact ? "01" : "05"}
             title="Разбираем частые обещания"
             sub="Три фразы, которые чаще всего слышат от подрядчиков. Ни одна из них невыполнима — показываем, почему и что стоит за ней на самом деле."
           />
@@ -704,10 +729,50 @@ export default function CheckPage() {
             ))}
           </div>
         </section>
+        {/* ─── Компактный режим: то, без чего мини-лендинг терять нельзя ───
+             Цена — единственная цифра денег на странице: без неё человек идёт
+             до самого разбора, не понимая порядка сумм. Пример разбора —
+             единственное доказательство, что документ существует. Оба блока
+             взяты из полных разделов 04 и 06 без изменений, чтобы короткий и
+             длинный вход говорили одно и то же. */}
+        {compact && (
+          <section className="mrc-sec" data-reveal>
+            <div className="mrc-anchor">
+              <div>
+                <div className="mrc-mono mrc-who-label">сколько это стоит</div>
+                <p className="mrc-body" style={{ margin: "8px 0 0" }}>
+                  Диагностика и разбор — <b>0 ₽</b>. Работа по устранению найденного —
+                  <b> от 25 000 ₽ в месяц</b>: техника сайта, контент, внешние упоминания и
+                  репутация ведутся вместе, по одному счёту. Точная сумма — в разборе, после
+                  того как понятно, что именно чинить.
+                </p>
+              </div>
+              <div className="mrc-anchor-fig">
+                <div className="mrc-anchor-num">0 ₽</div>
+                <div className="mrc-note">разбор</div>
+              </div>
+            </div>
+            {DEMO_REPORTS.length > 0 && (
+              <>
+                <div className="mrc-mono mrc-who-label" style={{ marginTop: 26 }}>как выглядит разбор</div>
+                <div className="mrc-who-demos">
+                  {DEMO_REPORTS.map(d => (
+                    <a key={d.href} className="mrc-who-demo" href={d.href} target="_blank" rel="noopener noreferrer">
+                      <span className="mrc-who-demo-t">{d.title}</span>
+                      <span className="mrc-note">{d.note}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
         {/* ─── 06 · Кто исполнитель ───
              Блок появился после разбора лендинга: единственным контактом был
              адрес почты, реквизитов не было вовсе. Человек с рекламы не должен
              гадать, кому он собирается платить. */}
+        {!compact && (
         <section className="mrc-sec" data-reveal>
           <SecHead
             idx="06"
@@ -760,6 +825,7 @@ export default function CheckPage() {
             </>
           )}
         </section>
+        )}
       </div>
 
       {/* ─── Финальный CTA: тот же ответ, но пропуск подписан вашим доменом ─── */}
