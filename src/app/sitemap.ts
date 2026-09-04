@@ -54,43 +54,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
 
-    // ── Landing anchors ─────────────────────────────────────────────────────
+    // Страница о компании и реквизитах — то, что ассистент пересказывает на
+    // вопрос «что за компания X»; раньше факты жили только в оферте.
     {
-      url: `${SITE_URL}/#features`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${SITE_URL}/#geo`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.9,
-    },
-    {
-      url: `${SITE_URL}/#pricing`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
-    {
-      url: `${SITE_URL}/#how`,
-      lastModified: now,
+      url: `${SITE_URL}/about`,
+      lastModified: new Date("2026-09-04T00:00:00Z"),
       changeFrequency: "monthly",
       priority: 0.7,
     },
-    {
-      url: `${SITE_URL}/#faq`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${SITE_URL}/#partner`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
+    // Якорные адреса (/#features, /#faq …) из карты убраны: краулер получает
+    // по ним ту же главную, а sitemap про документы, а не про блоки на странице.
   ];
 
   const articleEntries: MetadataRoute.Sitemap = ARTICLES.map((a) => ({

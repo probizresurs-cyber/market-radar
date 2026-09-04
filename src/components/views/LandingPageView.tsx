@@ -43,6 +43,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
   const TG_BOT = "https://t.me/market_radar1_bot";
   const TG_CHANNEL = "https://t.me/company24pro";
   const TG_PARTNER_BOT = "https://t.me/market_radar1_bot";
+  // Видимая дата обновления — сигнал свежести для ассистентов (ChatGPT и
+  // Perplexity цитируют контент в среднем на год свежее органики, Ahrefs).
+  // Бампать при содержательных правках лендинга, не при каждом деплое.
+  const LANDING_UPDATED = "2026-09-04";
+  const LANDING_UPDATED_LABEL = "4 сентября 2026";
 
   const trackTgClick = (target: "bot" | "channel" | "partner_bot") => () =>
     trackGoal("telegram_click", { target });
@@ -122,11 +127,11 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
     },
     {
       q: "Что такое GEO-оптимизация и зачем она нужна?",
-      a: "GEO (Generative Engine Optimization) — продвижение контента для попадания в ответы нейросетей: ChatGPT, Claude, Perplexity, Gemini, Яндекс.Алисы. В 2026 году 40% запросов в Google и 35% запросов в Яндексе закрываются AI-ответом без клика на сайт. Если вашего бренда нет в этих ответах — вас не видят миллионы потенциальных клиентов. MarketRadar проверяет упоминаемость в 5 нейросетях и даёт план попадания в AI-выдачу.",
+      a: "GEO (Generative Engine Optimization) — продвижение контента для попадания в ответы нейросетей: ChatGPT, Claude, Perplexity, Gemini, Яндекс.Алисы. По данным Ahrefs, лишь 38% источников в Google AI Overviews приходят со страниц из топ-10, а по данным Semrush 62% AI-цитат «призрачные»: сайт есть в источниках, но бренд в ответе не назван. Клиент, который спросил ассистента, а не поиск, вас в этом случае не увидит. MarketRadar проверяет упоминаемость в 5 нейросетях и даёт план попадания в AI-выдачу.",
     },
     {
       q: "Как попасть в ответы ChatGPT и Алисы?",
-      a: "Нужно структурировать контент в формате FAQ, настроить файл llms.txt, получать упоминания в авторитетных СМИ, работать с Schema.org-разметкой (особенно FAQPage и Organization), усиливать E-E-A-T-сигналы. MarketRadar сам диагностирует, каких элементов не хватает, и даёт список правок по приоритету эффекта.",
+      a: "Нужно, чтобы страницы отвечали на вопросы клиента прямо: первый абзац — готовый ответ, заголовки — вопросы, таблицы и цифры с источниками. Сайт должен быть открыт краулерам ассистентов и проиндексирован в Bing и Яндексе, а бренд — упоминаться там, откуда модели берут мнение о нише: отраслевые медиа, YouTube, отзовики, карты. Разметка Schema.org и llms.txt — гигиена, а не рычаг: измеримого прироста цитирований они не дают. MarketRadar сам диагностирует, чего не хватает, и даёт список правок по приоритету эффекта.",
     },
     {
       q: "Чем MarketRadar отличается от Keys.so, SpyWords, Similarweb?",
@@ -597,7 +602,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           </h1>
 
           <p className="lp-hero-lead" style={{ fontSize: 19, color: isDark ? "#cbd5e1" : "#334155", maxWidth: 780, margin: "0 auto 14px", lineHeight: 1.6, fontWeight: 400 }}>
-            MarketRadar сканирует <strong style={{ color: fg }}>40+ источников</strong> за 3 минуты: SEO, карты, отзывы, вакансии, видимость в ChatGPT.
+            MarketRadar — это AI-платформа, которая за 3 минуты собирает данные о бизнесе, конкурентах и видимости в ChatGPT и Алисе из <strong style={{ color: fg }}>40+ источников</strong> — SEO, карты, отзывы, вакансии, ответы нейросетей — и превращает их в отчёт с планом роста.
           </p>
           <p className="lp-hero-sub" style={{ fontSize: 15, color: muted, maxWidth: 680, margin: "0 auto 30px", lineHeight: 1.6 }}>
             Получите отчёт на 30+ страниц с готовым планом роста — вместо агентского счёта на 300 000 ₽ и месяца ожидания.
@@ -693,7 +698,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="features" style={{ padding: "72px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ВОЗМОЖНОСТИ ПЛАТФОРМЫ</div>
-          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>30+ источников в одном дашборде</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Что MarketRadar собирает из 30+ источников?</h2>
           <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Маркетолог обычно собирает это вручную из 10–15 сервисов в Excel. MarketRadar делает автоматически и сразу формирует выводы.
           </p>
@@ -800,7 +805,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="artifacts" style={{ padding: "56px 20px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ЧТО ПОЛУЧАЕТЕ В ОТЧЁТЕ</div>
-          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Готовые артефакты, а не сырые данные</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Что вы получаете в отчёте, кроме сырых данных?</h2>
           <p style={{ fontSize: 18, color: muted, margin: "0 auto", maxWidth: 680, lineHeight: 1.6 }}>
             Всё, что можно сразу использовать в работе — от стратегического обзора до листовок для отдела продаж.
           </p>
@@ -847,7 +852,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         <div className="lp-reveal" style={{ background: `linear-gradient(145deg, ${neonRed}08, transparent)`, borderRadius: 24, border: `1px solid ${neonRed}22`, padding: "40px 36px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#fca5a5", letterSpacing: "0.14em", marginBottom: 14 }}>АЛЬТЕРНАТИВА ВРУЧНУЮ</div>
           <h2 className="lp-section-h2" style={{ fontSize: 38, fontWeight: 800, margin: "0 0 24px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>
-            Да, можно собрать всё вручную. Но это…
+            Сравнение: MarketRadar, агентство или вручную?
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[
@@ -884,7 +889,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section style={{ padding: "48px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>МАРКЕРЫ ДОСТОВЕРНОСТИ</div>
-          <h2 className="lp-section-h2" style={{ fontSize: 38, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Каждое утверждение — с маркером</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 38, fontWeight: 800, margin: "0 0 16px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Откуда взята каждая цифра в отчёте?</h2>
           <p style={{ fontSize: 17, color: muted, margin: "0 auto", maxWidth: 640, lineHeight: 1.6 }}>
             Мы не продаём AI-фантазии под видом аналитики. В отчёте вы видите, откуда взята каждая цифра.
           </p>
@@ -939,17 +944,19 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 Как попасть в ответы <span style={{ color: "#a5b4fc" }}>ChatGPT</span>, <span style={{ color: "#a5b4fc" }}>Алисы</span> и <span style={{ color: "#a5b4fc" }}>Gemini</span>
               </h2>
               <p style={{ fontSize: 17, color: muted, maxWidth: 720, margin: "0 auto", lineHeight: 1.65 }}>
-                Generative Engine Optimization — продвижение сайта для попадания в ответы нейросетей. В 2026 году это новый канал трафика, который растёт в разы быстрее классического SEO.
+                GEO (Generative Engine Optimization) — это работа над тем, чтобы ассистент процитировал ваш сайт, когда клиент спрашивает совета. Для этого нужна не позиция в выдаче, а страница, из которой модель может взять готовый ответ, и упоминания там, откуда она берёт мнение о нише.
               </p>
             </div>
 
             {/* T-23 — Critical stats, цифры крупнее, подписи крупнее */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16, marginBottom: 36 }}>
+              {/* Цифры только с источником: неподтверждённые «40% / 35% / 250%»
+                  убраны — модель цитирует факт с атрибуцией, а не лозунг. */}
               {[
-                { num: "40%", label: "запросов в Google закрываются AI-ответом без клика на сайт", color: neonCyan },
-                { num: "35%", label: "запросов в Яндексе идут через Алису и Нейро", color: neonMagenta },
-                { num: "250%", label: "рост AI-трафика год к году — это следующий канал продаж", color: neonGreen },
-              ].map(({ num, label, color }, i) => (
+                { num: "38%", label: "источников в Google AI Overviews приходят со страниц из топ-10. Остальное модель берёт из подзапросов, минуя привычный рейтинг", color: neonCyan, src: "https://ahrefs.com/blog/ai-overview-citations-top-10/", srcLabel: "Ahrefs, 863 тыс. выдач" },
+                { num: "87%", label: "источников ChatGPT Search совпадают с топом Bing — без индекса Bing в ответы ChatGPT не попасть", color: neonMagenta, src: "https://www.seerinteractive.com/insights/87-percent-of-searchgpt-citations-match-bings-top-results", srcLabel: "Seer Interactive" },
+                { num: "62%", label: "AI-цитат — «призрачные»: сайт стоит в источниках, а бренд в тексте ответа не назван", color: neonGreen, src: "https://www.semrush.com/blog/the-ghost-citations-study/", srcLabel: "Semrush, 4 движка" },
+              ].map(({ num, label, color, src, srcLabel }, i) => (
                 <div
                   key={num}
                   className="lp-card lp-reveal"
@@ -964,6 +971,9 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
                 >
                   <div className="lp-geo-num" style={{ fontSize: 56, fontWeight: 900, color, letterSpacing: "-0.04em", marginBottom: 8, textShadow: `0 0 22px ${color}55`, lineHeight: 1 }}>{num}</div>
                   <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.55 }}>{label}</div>
+                  <a href={src} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: muted, textDecoration: "underline", textUnderlineOffset: 2 }}>
+                    Источник: {srcLabel}
+                  </a>
                 </div>
               ))}
             </div>
@@ -1047,7 +1057,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="how" style={{ padding: "64px 20px", maxWidth: 1180, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>КАК ЭТО РАБОТАЕТ</div>
-          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: 0, letterSpacing: "-0.025em", lineHeight: 1.15 }}>Три шага до результата</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: 0, letterSpacing: "-0.025em", lineHeight: 1.15 }}>Как это работает: три шага до отчёта?</h2>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
           {[
@@ -1143,7 +1153,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
       <section id="pricing" style={{ padding: "64px 20px", maxWidth: 1100, margin: "0 auto" }}>
         <div className="lp-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.14em", marginBottom: 14 }}>ТАРИФЫ</div>
-          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Начните с разового отчёта</h2>
+          <h2 className="lp-section-h2" style={{ fontSize: 40, fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.025em", lineHeight: 1.15 }}>Сколько стоит MarketRadar?</h2>
           <p style={{ fontSize: 17, color: muted, margin: 0 }}>Или сразу с подпиской — с мониторингом изменений 24/7</p>
         </div>
 
@@ -1387,7 +1397,7 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: fg, marginBottom: 16, letterSpacing: "0.08em" }}>КОМПАНИЯ</div>
             {[
-              { label: "О MarketRadar", href: "#features" },
+              { label: "О компании и реквизиты", href: "/about" },
               { label: "Партнёрам", href: "/partners" },
               { label: "Бренд Company24", href: "https://company24.pro", external: true },
             ].map(({ label, href, external }) => (
@@ -1431,7 +1441,16 @@ export function LandingPageView({ c, theme, setTheme, onRegister, onLogin }: {
         </div>
 
         <div className="lp-footer-bottom" style={{ borderTop: `1px solid ${border}`, paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 13, color: muted }}>
-          <div>© 2026 MarketRadar · Company24.pro · Все права защищены</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div>© 2026 MarketRadar · Company24.pro · Все права защищены</div>
+            {/* Реквизиты в HTML на каждой странице — для Алисы и GigaChat проверяемый
+                юрстатус является фильтром доверия; дата — сигнал свежести. */}
+            <div style={{ fontSize: 12, opacity: 0.85 }}>
+              ИП Штумпф Юрий Геннадьевич · ИНН 550615955642 · ОГРНИП 317774600595262 · г. Москва ·{" "}
+              <a href="/about" style={{ color: muted, textDecoration: "underline" }}>реквизиты</a> · Обновлено:{" "}
+              <time dateTime={LANDING_UPDATED}>{LANDING_UPDATED_LABEL}</time>
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
             <a href={TG_CHANNEL} target="_blank" rel="noopener noreferrer" style={{ color: muted, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
               <Send size={13} /> Telegram
