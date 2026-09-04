@@ -183,6 +183,7 @@ import { ComingSoonView } from "@/components/views/ComingSoonView";
 import { VisitTracker } from "@/components/VisitTracker";
 import { useFeatureFlags, isFeatureOn } from "@/hooks/useFeatureFlags";
 import { SEOArticlesView } from "@/components/views/SEOArticlesView";
+import { GeoAuditView } from "@/components/views/GeoAuditView";
 import type { NavItem, NavSection } from "@/lib/nav";
 import { NAV_SECTIONS } from "@/lib/nav";
 import {
@@ -3332,6 +3333,11 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
         )}
         {/* GEO-статьи теперь часть таба «Статьи» — режим SEO⇄GEO переключается
             внутри SEOArticlesView. Отдельный geo-* dispatch удалён. */}
+        {activeNav === "seo-geo-audit" && (
+          featureOn("seo-articles")
+            ? <GeoAuditView c={c} analysis={myCompany ?? null} userId={currentUser?.id ?? ""} />
+            : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "GEO-аудит"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />
+        )}
         {activeNav === "reviews-analysis" && (
           featureOn("reviews-analysis")
             ? <ReviewsView c={c} companyName={myCompany?.company.name ?? ""} domain={myCompany?.company.url} niche={myCompany?.company.description ?? ""} storageKey={workspaceLsId ? reviewsStorageKey(workspaceLsId) : undefined} />

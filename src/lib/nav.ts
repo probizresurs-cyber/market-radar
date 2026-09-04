@@ -81,6 +81,10 @@ export const NAV_SECTIONS: NavSection[] = [
         // ChatGPT Search, Perplexity). Библиотека фильтрует по выбранному режиму.
         id: "seo-articles", icon: "FileText", label: "Статьи (SEO + GEO)", count: null,
         children: [
+          // GEO-аудит — вход в GEO-часть продукта: что мешает попасть в ответы
+          // ассистентов и кого они цитируют вместо нас. Статьи в режиме GEO
+          // пишутся уже под найденные здесь пробелы (незакрытые промпты).
+          { id: "seo-geo-audit",  icon: "Radar",      label: "GEO-аудит сайта",    count: null },
           { id: "seo-new",        icon: "Plus",       label: "Новая статья",       count: null },
           { id: "seo-library",    icon: "Library",    label: "Библиотека статей",  count: null },
           { id: "seo-keywords",   icon: "Key",        label: "Кластер ключей",     count: null },
