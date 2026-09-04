@@ -25,4 +25,5 @@ import "./site-change-detector";
 import "./trend-hunter";
 import "./seo-position-tracker";
 import "./ai-visibility-monitor";
+import "./geo-agent";
 import "./report-digest";

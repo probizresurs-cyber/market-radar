@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Block } from "@/content/types";
 
 // ─── Theme tokens (kept consistent with the dark landing) ────────────────────
@@ -28,6 +29,39 @@ function slugify(text: string): string {
     .trim();
 }
 
+// GEO/E-E-A-T сигнал «ссылки на источники» (Aggarwal et al., KDD 2024: +29%
+// цитируемости) требует настоящих <a href>, а не просто упомянутого домена
+// в тексте. Блоки хранят чистые строки, поэтому здесь — единственное место,
+// где `[текст](url)` внутри "p"/"li"/"quote" превращается в кликабельную
+// ссылку; всё остальное в строке остаётся plain text.
+const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+
+function renderInline(text: string): ReactNode {
+  if (!text.includes("](")) return text;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) parts.push(text.slice(last, idx));
+    const external = !m[2].includes("marketradar24.ru");
+    parts.push(
+      <a
+        key={key++}
+        href={m[2]}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noopener noreferrer" : undefined}
+        style={{ color: T.accentDim, textDecoration: "underline", textUnderlineOffset: 2 }}
+      >
+        {m[1]}
+      </a>,
+    );
+    last = idx + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 export function BlockRenderer({ blocks }: { blocks: Block[] }) {
   return (
     <>
@@ -50,7 +84,7 @@ function RenderBlock({ block }: { block: Block }) {
             color: T.text,
           }}
         >
-          {block.text}
+          {renderInline(block.text)}
         </p>
       );
 
@@ -127,7 +161,7 @@ function RenderBlock({ block }: { block: Block }) {
                   display: "block",
                 }}
               />
-              {item}
+              {renderInline(item)}
             </li>
           ))}
         </ul>
@@ -176,7 +210,7 @@ function RenderBlock({ block }: { block: Block }) {
               >
                 {i + 1}
               </span>
-              {item}
+              {renderInline(item)}
             </li>
           ))}
         </ol>
@@ -202,7 +236,7 @@ function RenderBlock({ block }: { block: Block }) {
               fontStyle: "italic",
             }}
           >
-            «{block.text}»
+            «{renderInline(block.text)}»
           </p>
           {block.author && (
             <div
@@ -278,7 +312,7 @@ function RenderBlock({ block }: { block: Block }) {
               color: T.text,
             }}
           >
-            {block.text}
+            {renderInline(block.text)}
           </p>
         </div>
       );

@@ -36,10 +36,9 @@ export const article: Article = {
     {
       type: "ul",
       items: [
-        "Создайте /llms.txt с короткой картой сайта в Markdown.",
-        "Создайте /llms-full.txt с полным текстом ключевых страниц (3000–10000 слов).",
-        "Добавьте JSON-LD разметку: Organization, SoftwareApplication, FAQPage, Article, BreadcrumbList.",
-        "Убедитесь, что контент доступен без JavaScript — откройте view-source и проверьте, что там есть полезный текст, а не пустой div #root.",
+        "Создайте /llms.txt с короткой картой сайта в Markdown — это гигиена без подтверждённого эффекта на цитирование (ни один крупный провайдер официально не читает его), но и без вреда.",
+        "Добавьте JSON-LD разметку: Organization, SoftwareApplication, FAQPage, Article, BreadcrumbList — по данным Ahrefs (1885 страниц, контрольная группа) сама разметка тоже не даёт измеримого прироста цитирований, но нужна для Knowledge Graph и Яндекса.",
+        "Главное на этом шаге — не разметка, а доступность контента без JavaScript: откройте view-source и проверьте, что там есть полезный текст, а не пустой div #root. Краулеры OpenAI, Anthropic и Perplexity JavaScript не выполняют.",
       ],
     },
 

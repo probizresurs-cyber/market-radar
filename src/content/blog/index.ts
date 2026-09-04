@@ -5,9 +5,11 @@ import { article as llmsTxtGuide } from "./llms-txt-guide";
 import { article as getIntoChatgptClaude } from "./get-into-chatgpt-claude";
 import { article as competitorAnalysisStepByStep } from "./competitor-analysis-step-by-step";
 import { article as b2bTargetAudience } from "./b2b-target-audience";
+import { article as geoAgentAuditCaseStudy } from "./geo-agent-audit-case-study";
 
 // Newest first
 export const ARTICLES: Article[] = [
+  geoAgentAuditCaseStudy,
   b2bTargetAudience,
   competitorAnalysisStepByStep,
   getIntoChatgptClaude,
