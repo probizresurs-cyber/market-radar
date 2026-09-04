@@ -807,16 +807,30 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
                 <article key={t.name} className={t.accent ? "mrcn-tier is-accent" : "mrcn-tier"}>
                   <div className="mrc-mono mrcn-tier-stage">{t.stage}</div>
                   <h3 className="mrcn-tier-name">{t.name}</h3>
-                  <div className="mrcn-tier-price">{t.price}</div>
-                  <div className="mrc-mono mrcn-tier-unit">{t.unit}</div>
+                  {!t.subtiers && <div className="mrcn-tier-price">{t.price}</div>}
+                  {!t.subtiers && <div className="mrc-mono mrcn-tier-unit">{t.unit}</div>}
                   <ul className="mrcn-tier-list">
                     {t.items.map(i => <li key={i}>{i}</li>)}
                   </ul>
+                  {t.subtiers && (
+                    <div className="mrcn-subtiers">
+                      {t.subtiers.map(s => (
+                        <div key={s.name} className="mrcn-subtier">
+                          <div className="mrcn-subtier-head">
+                            <span className="mrcn-subtier-name">{s.name}</span>
+                            <span className="mrcn-subtier-price">{s.price}</span>
+                          </div>
+                          <p className="mrcn-subtier-note">{s.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
             <p className="mrc-note" style={{ marginTop: 16 }}>
-              Точная сумма по шагам 2 и 3 — в разборе, после того как понятно, что именно чинить.
+              Какой уровень продвижения подойдёт именно вам — станет понятно после разбора:
+              он показывает, что чинить и куда расти в первую очередь.
             </p>
             {DEMO_REPORTS.length > 0 && (
               <>
@@ -1748,7 +1762,12 @@ function useReveal() {
 /** Ступени услуги для блока «Сколько это стоит». Цены обязаны совпадать с
     PRICE_POLICY в src/lib/kp-generate.ts: расхождение между посадочной и
     разбором обнуляет доверие ко всем остальным числам в воронке. */
-const TIERS: { stage: string; name: string; price: string; unit: string; accent?: boolean; items: string[] }[] = [
+const TIERS: {
+  stage: string; name: string; price: string; unit: string; accent?: boolean;
+  items: string[];
+  /** Только у «Продвижения»: там не одна цена, а три уровня со своим охватом. */
+  subtiers?: { name: string; price: string; note: string }[];
+}[] = [
   {
     stage: "шаг 1", name: "Проверка и разбор", price: "0 ₽", unit: "бесплатно",
     items: [
@@ -1769,8 +1788,15 @@ const TIERS: { stage: string; name: string; price: string; unit: string; accent?
     stage: "шаг 3", name: "Продвижение", price: "от 25 000 ₽", unit: "в месяц",
     items: [
       "Наращиваем видимость в поиске и в нейросетях",
-      "Контент, внешние упоминания и репутация",
       "Один счёт и один ответственный",
+    ],
+    // Три уровня, а не одна цифра «от»: без охвата за каждой суммой
+    // «дороже» читается как «дороже за то же самое». Эскалация — по тому
+    // же принципу, что и в пакетах полного КП («Всё из…» + добавка).
+    subtiers: [
+      { name: "Старт", price: "25 000 ₽/мес", note: "Видимость по 1 кластеру запросов, ежемесячный отчёт." },
+      { name: "Расширенный", price: "45 000 ₽/мес", note: "Больше кластеров + GEO-оптимизация: llms.txt, Schema.org, FAQ под вопросы ассистентов." },
+      { name: "Максимум", price: "70 000 ₽/мес", note: "Всё из «Расширенного» + внешние упоминания и работа с репутацией, приоритет в очереди." },
     ],
   },
 ];
@@ -2940,6 +2966,15 @@ const CSS = AI_ROW_CSS + `
   content: ""; position: absolute; left: 0; top: 8px;
   width: 6px; height: 6px; border-radius: 50%; background: var(--flare-use); opacity: 0.55;
 }
+
+/* Лестница уровней «Продвижения»: три строки цена+охват вместо одной
+   цифры «от». Каждый уровень — своя пара имя/цена сверху и пояснение
+   охвата под ней, чтобы «дороже» не читалось как «дороже за то же самое». */
+.mrcn-subtiers { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); display: grid; gap: 14px; }
+.mrcn-subtier-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mrcn-subtier-name { font-size: 13.5px; font-weight: 750; letter-spacing: -0.005em; }
+.mrcn-subtier-price { font-size: 15.5px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--flare-use); }
+.mrcn-subtier-note { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--soft); }
 
 @media (max-width: 860px) {
   .mrcn-tiers { grid-template-columns: minmax(0, 1fr); }
