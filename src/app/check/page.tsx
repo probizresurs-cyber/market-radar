@@ -832,19 +832,11 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
               Какой уровень продвижения подойдёт именно вам — станет понятно после разбора:
               он показывает, что чинить и куда расти в первую очередь.
             </p>
-            {DEMO_REPORTS.length > 0 && (
-              <>
-                <div className="mrc-mono mrc-who-label" style={{ marginTop: 26 }}>как выглядит разбор</div>
-                <div className="mrc-who-demos">
-                  {DEMO_REPORTS.map(d => (
-                    <a key={d.href} className="mrc-who-demo" href={d.href} target="_blank" rel="noopener noreferrer">
-                      <span className="mrc-who-demo-t">{d.title}</span>
-                      <span className="mrc-note">{d.note}</span>
-                    </a>
-                  ))}
-                </div>
-              </>
-            )}
+            {/* Схема разбора на условном сайте, а не ссылка на наш реальный:
+                на короткой посадочной самопроверка со слабой находкой по нам
+                самим работала против оффера. Полная ссылка осталась на /new2. */}
+            <div className="mrc-mono mrc-who-label" style={{ marginTop: 26 }}>как выглядит разбор · пример на условном сайте</div>
+            <ReportMock />
           </section>
         )}
 
@@ -973,33 +965,55 @@ export function CheckFunnel({ compact = false }: { compact?: boolean }) {
  */
 const DEMO_ASKERS: AiKey[] = ["alice", "chatgpt", "claude", "perplexity", "gigachat"];
 
+/* Вопросы условные и меняются по кругу: сцена показывает механику, а не
+   один конкретный случай. */
+const DEMO_QUESTIONS = [
+  "посоветуй, к кому обратиться — и сколько это стоит",
+  "какие компании делают это в Москве — назови несколько",
+  "подбери подрядчика: кому из них можно доверять",
+];
+
+/* Сайт в сцене — условный mysite.ru, и это осознанно. Подставлять сюда
+   адрес, который посетитель набрал в поле, нельзя: сцена делала бы
+   утверждение про его настоящий сайт, ничего не проверив. Показывать
+   собственный разбор — тоже нет: страница продаёт видимость в нейросетях,
+   а честная находка «нас самих ассистент знает слабо» на первом же
+   экране работает против оффера. Условный сайт снимает обе проблемы. */
+const DEMO_SITE = "mysite.ru";
+
 function AnswerScene({ compact }: { compact?: boolean }) {
+  const [qi, setQi] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setQi(i => (i + 1) % DEMO_QUESTIONS.length), 4200);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <figure className={`mrc-ans${compact ? " is-compact" : ""}`}>
       <figcaption className="mrc-mono mrc-ans-cap">
         <span className="mrc-ans-live" aria-hidden="true" />
-        не пример — наша собственная проверка, marketradar24.ru
+        пример на условном сайте · названия условные
       </figcaption>
 
       <div className="mrc-ans-q">
-        <span className="mrc-mono mrc-ans-qlabel">спросили у ассистента</span>
-        <p className="mrc-ans-qtext">
-          «Что такое MarketRadar24 и чем он занимается?»
+        <span className="mrc-mono mrc-ans-qlabel">вопрос клиента</span>
+        <p className="mrc-ans-qtext" key={qi}>
+          «{DEMO_QUESTIONS[qi]}»<i className="mrc-caret" aria-hidden="true" />
         </p>
       </div>
 
       <div className="mrc-ans-body">
         <p className="mrc-ans-text">
-          Ответ был верным по фактам, но общим: сервис для{" "}
-          <mark className="mrc-name">анализа бизнеса и конкурентов</mark>, без единой
-          конкретной детали — ни того, что реально отличает нас от других инструментов
-          в нише, ни примера работы.
+          Из подрядчиков в этой нише чаще всего упоминают{" "}
+          <mark className="mrc-name">Конкурента&nbsp;А</mark> и{" "}
+          <mark className="mrc-name mrc-name-2">Конкурента&nbsp;Б</mark>. У них описаны услуги,
+          указаны цены и есть отзывы на картах — ассистенту есть на что сослаться.
         </p>
         <div className="mrc-slot">
-          <span className="mrc-slot-box" title="узнаваемость в базах знаний ассистентов">
-            присутствие в знаниях ассистента: минимальное
-          </span>
-          <span className="mrc-mono mrc-slot-note">такой же замер — и для вашего сайта</span>
+          <span className="mrc-slot-box" title={DEMO_SITE}>{DEMO_SITE}</span>
+          <span className="mrc-mono mrc-slot-note">в ответе не назван</span>
         </div>
       </div>
 
@@ -1208,7 +1222,7 @@ function ReportMock() {
     <figure className="mrc-doc">
       <div className="mrc-doc-bar" aria-hidden="true">
         <span className="mrc-doc-dots"><i /><i /><i /></span>
-        <span className="mrc-mono mrc-doc-addr">разбор · страница по ссылке</span>
+        <span className="mrc-mono mrc-doc-addr">разбор · mysite.ru</span>
       </div>
       <div className="mrc-doc-body">
         <div className="mrc-doc-title" aria-hidden="true">
@@ -1249,7 +1263,7 @@ function ReportMock() {
           <span className="mrc-doc-line" style={{ width: "62%" }} />
         </div>
       </div>
-      <figcaption className="mrc-mono mrc-doc-cap">схема страницы разбора · содержимое собирается по вашему сайту</figcaption>
+      <figcaption className="mrc-mono mrc-doc-cap">схема разбора условного сайта mysite.ru · ваш собирается по вашему адресу</figcaption>
     </figure>
   );
 }
