@@ -79,7 +79,7 @@ export const NAV_SECTIONS: NavSection[] = [
         // (SEO ⇄ GEO): SEO = классическая поисковая оптимизация под Яндекс/
         // Google, GEO = оптимизация под LLM-поисковики (Алиса с ИИ-ответами,
         // ChatGPT Search, Perplexity). Библиотека фильтрует по выбранному режиму.
-        id: "seo-articles", icon: "FileText", label: "Статьи (SEO + GEO)", count: null,
+        id: "seo-articles", icon: "FileText", label: "SEO + GEO", count: null,
         children: [
           // GEO-аудит — вход в GEO-часть продукта: что мешает попасть в ответы
           // ассистентов и кого они цитируют вместо нас. Статьи в режиме GEO

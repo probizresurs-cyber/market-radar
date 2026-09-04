@@ -3335,7 +3335,7 @@ function MarketRadarDashboardInner({ scope }: { scope: ProductScope }) {
             внутри SEOArticlesView. Отдельный geo-* dispatch удалён. */}
         {activeNav === "seo-geo-audit" && (
           featureOn("seo-articles")
-            ? <GeoAuditView c={c} analysis={myCompany ?? null} userId={currentUser?.id ?? ""} />
+            ? <GeoAuditView c={c} analysis={myCompany ?? null} userId={currentUser?.id ?? ""} onWriteArticle={() => setActiveNav("seo-new")} />
             : <ComingSoonView c={c} featureId="seo-articles" title={features.labels["seo-articles"] ?? "GEO-аудит"} description={features.descriptions["seo-articles"]} userEmail={currentUser?.email} />
         )}
         {activeNav === "reviews-analysis" && (

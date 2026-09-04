@@ -14,6 +14,7 @@ import type {
 } from "@/lib/seo-types";
 import { SEO_PLATFORMS, SEO_ARTICLE_TYPES } from "@/lib/seo-types";
 import { jsonOrThrow } from "@/lib/safe-fetch-json";
+import { GEO_HANDOFF_KEY } from "@/components/views/GeoAuditView";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -867,6 +868,8 @@ function SEONewArticleView({
   mode = "seo",
   onCreated,
   onBack,
+  initialTopic,
+  initialType,
 }: {
   analysis: AnalysisResult | null;
   taResult: TAResult | null;
@@ -874,11 +877,14 @@ function SEONewArticleView({
   mode?: "seo" | "geo";
   onCreated: (article: SEOArticle) => void;
   onBack: () => void;
+  /** Тема из GEO-аудита («написать под незакрытый промпт») — сразу к выбору площадки. */
+  initialTopic?: string;
+  initialType?: SEOArticleType;
 }) {
   const isGeo = mode === "geo";
   const modeLabel = isGeo ? "GEO" : "SEO";
-  const [step, setStep] = useState<"type" | "platform" | "topic" | "generating">("type");
-  const [articleType, setArticleType] = useState<SEOArticleType>("informational");
+  const [step, setStep] = useState<"type" | "platform" | "topic" | "generating">(initialTopic ? "platform" : "type");
+  const [articleType, setArticleType] = useState<SEOArticleType>(initialType ?? "informational");
   const [platform, setPlatform] = useState<SEOPlatform>("website");
   // Параметры «Своя площадка». Используются, когда platform === "custom".
   // По умолчанию ставим разумные числа; пользователь меняет в UI.
@@ -889,12 +895,13 @@ function SEONewArticleView({
     recommendedMax: 5000,
     note: "",
   });
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic ?? "");
   const [focusKeyword, setFocusKeyword] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
   const [err, setErr] = useState("");
   const [topicTab, setTopicTab] = useState<"analysis" | "templates" | "custom">(() => {
+    if (initialTopic) return "custom";
     const hasAny = analysis?.practicalAdvice?.contentIdeas?.length
       || analysis?.practicalAdvice?.keywordGaps?.length
       || analysis?.nicheForecast?.opportunities?.length;
@@ -1972,6 +1979,24 @@ export function SEOArticlesView({
     } catch { /* */ }
   }, [storageKey]);
 
+  // Передача темы из GEO-аудита: «написать статью под незакрытый промпт».
+  // GeoAuditView кладёт заявку в localStorage и переключает nav на seo-new;
+  // читаем один раз и сразу удаляем, чтобы тема не всплыла в следующей статье.
+  const [handoff, setHandoff] = useState<{ topic: string; articleType: SEOArticleType; fromPrompt: string } | null>(null);
+  useEffect(() => {
+    if (activeSubNav !== "seo-new") return;
+    try {
+      const raw = localStorage.getItem(GEO_HANDOFF_KEY(userId));
+      if (!raw) return;
+      localStorage.removeItem(GEO_HANDOFF_KEY(userId));
+      const h = JSON.parse(raw) as { topic?: string; articleType?: SEOArticleType; mode?: string; fromPrompt?: string };
+      if (!h?.topic) return;
+      setHandoff({ topic: h.topic, articleType: h.articleType ?? "faq", fromPrompt: h.fromPrompt ?? "" });
+      if (h.mode === "geo") switchMode("geo");
+    } catch { /* повреждённая заявка — просто открываем пустой генератор */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubNav, userId]);
+
   // Sync subView with activeSubNav prop (поддерживаем и seo-* и geo-* пути).
   useEffect(() => {
     if (activeSubNav === "seo-new" || activeSubNav === "geo-new") setSubView("new");
@@ -2073,12 +2098,15 @@ export function SEOArticlesView({
         />
       ) : subView === "new" ? (
         <SEONewArticleView
+          key={handoff?.topic ?? "blank"}
           analysis={analysis}
           taResult={taResult}
           brandBook={brandBook}
           mode={mode}
           onCreated={handleCreated}
-          onBack={() => setSubView("library")}
+          onBack={() => { setHandoff(null); setSubView("library"); }}
+          initialTopic={handoff?.topic}
+          initialType={handoff?.articleType}
         />
       ) : subView === "keywords" ? (
         <SEOKeywordsView
